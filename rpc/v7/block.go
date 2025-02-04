@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -149,7 +150,7 @@ type BlockWithReceipts struct {
 func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	num, err := h.bcReader.Height()
 	if err != nil {
-		return 0, ErrNoBlock
+		return 0, rpc_common.ErrNoBlock
 	}
 
 	return num, nil
@@ -162,7 +163,7 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 	block, err := h.bcReader.Head()
 	if err != nil {
-		return nil, ErrNoBlock
+		return nil, rpc_common.ErrNoBlock
 	}
 	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
 }

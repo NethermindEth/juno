@@ -4,16 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/json"
 	"math"
 	stdsync "sync"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
@@ -21,26 +20,9 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/sourcegraph/conc"
 )
-
-var traceCacheSize = 128
-
-//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
-type Gateway interface {
-	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
-}
-
-type l1Client interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-}
-
-type traceCacheKey struct {
-	blockHash felt.Felt
-}
 
 type Handler struct {
 	bcReader   blockchain.Reader
@@ -56,11 +38,11 @@ type Handler struct {
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
 
-	blockTraceCache *lru.Cache[traceCacheKey, []rpcv7.TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpc_common.TraceCacheKey, []rpcv7.TracedBlockTransaction]
 	filterLimit     uint
 	callMaxSteps    uint64
 
-	l1Client        l1Client
+	l1Client        rpc_common.L1Client
 	coreContractABI abi.ABI
 
 	rpcv6Handler *rpcv6.Handler
@@ -97,7 +79,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
-		blockTraceCache: lru.NewCache[traceCacheKey, []rpcv7.TracedBlockTransaction](traceCacheSize),
+		blockTraceCache: lru.NewCache[rpc_common.TraceCacheKey, []rpcv7.TracedBlockTransaction](rpc_common.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		rpcv6Handler:    handlerv6,
 		rpcv7Handler:    handlerv7,
@@ -113,7 +95,7 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
+func (h *Handler) WithL1Client(l1Client rpc_common.L1Client) *Handler {
 	h.rpcv7Handler.WithL1Client(l1Client)
 	h.rpcv8Handler.WithL1Client(l1Client)
 	return h
@@ -140,7 +122,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	return h
 }
 
-func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
+func (h *Handler) WithGateway(gatewayClient rpc_common.Gateway) *Handler {
 	h.rpcv6Handler.WithGateway(gatewayClient)
 	h.rpcv7Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)

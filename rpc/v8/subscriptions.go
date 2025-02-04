@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/sourcegraph/conc"
 )
@@ -43,12 +44,12 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	for _, k := range keys {
 		lenKeys += len(k)
 	}
-	if lenKeys > maxEventFilterKeys {
-		return nil, ErrTooManyKeysInFilter
+	if lenKeys > rpc_common.MaxEventFilterKeys {
+		return nil, rpc_common.ErrTooManyKeysInFilter
 	}
 
 	if blockID != nil && blockID.Pending {
-		return nil, ErrCallOnPending
+		return nil, rpc_common.ErrCallOnPending
 	}
 
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
@@ -122,7 +123,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 	// websocket connection is closed after the expiry.
 	curStatus, rpcErr := h.TransactionStatus(ctx, txHash)
 	if rpcErr != nil {
-		if rpcErr != ErrTxnHashNotFound {
+		if rpcErr != rpc_common.ErrTxnHashNotFound {
 			return nil, rpcErr
 		}
 
@@ -138,7 +139,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 			case <-ticker.C:
 				curStatus, rpcErr = h.TransactionStatus(ctx, txHash)
 				if rpcErr != nil {
-					if rpcErr != ErrTxnHashNotFound {
+					if rpcErr != rpc_common.ErrTxnHashNotFound {
 						return nil, rpcErr
 					}
 					continue
@@ -337,7 +338,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 	}
 
 	if blockID != nil && blockID.Pending {
-		return nil, ErrCallOnPending
+		return nil, rpc_common.ErrCallOnPending
 	}
 
 	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
@@ -396,8 +397,8 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	if len(senderAddr) > maxEventFilterKeys {
-		return nil, ErrTooManyAddressesInFilter
+	if len(senderAddr) > rpc_common.MaxEventFilterKeys {
+		return nil, rpc_common.ErrTooManyAddressesInFilter
 	}
 
 	id := h.idgen()
@@ -521,7 +522,7 @@ func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
 func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
-		return nil, nil, ErrInternal.CloneWithData(err.Error())
+		return nil, nil, rpc_common.ErrInternal.CloneWithData(err.Error())
 	}
 
 	if blockID == nil || blockID.Latest {
@@ -533,8 +534,8 @@ func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Heade
 		return nil, nil, rpcErr
 	}
 
-	if latestHeader.Number >= maxBlocksBack && startHeader.Number <= latestHeader.Number-maxBlocksBack {
-		return nil, nil, ErrTooManyBlocksBack
+	if latestHeader.Number >= rpc_common.MaxBlocksBack && startHeader.Number <= latestHeader.Number-rpc_common.MaxBlocksBack {
+		return nil, nil, rpc_common.ErrTooManyBlocksBack
 	}
 
 	return startHeader, latestHeader, nil
@@ -655,7 +656,7 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	sub, ok := h.subscriptions[id]
 	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
 	if !ok || !sub.conn.Equal(w) {
-		return false, ErrInvalidSubscriptionID
+		return false, rpc_common.ErrInvalidSubscriptionID
 	}
 	sub.cancel()
 	sub.wg.Wait() // Let the subscription finish before responding.

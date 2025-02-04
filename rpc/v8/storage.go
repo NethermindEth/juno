@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -28,7 +29,7 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 
 	nonce, err := stateReader.ContractNonce(&address)
 	if err != nil {
-		return nil, ErrContractNotFound
+		return nil, rpc_common.ErrContractNotFound
 	}
 
 	return nonce, nil
@@ -50,15 +51,15 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 	_, err := stateReader.ContractClassHash(&address)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return nil, ErrContractNotFound
+			return nil, rpc_common.ErrContractNotFound
 		}
 		h.log.Errorw("Failed to get contract nonce", "err", err)
-		return nil, ErrInternal
+		return nil, rpc_common.ErrInternal
 	}
 
 	value, err := stateReader.ContractStorage(&address, &key)
 	if err != nil {
-		return nil, ErrContractNotFound
+		return nil, rpc_common.ErrContractNotFound
 	}
 
 	return value, nil
@@ -76,28 +77,28 @@ func (h *Handler) StorageProof(id BlockID,
 ) (*StorageProofResult, *jsonrpc.Error) {
 	// We do not support historical storage proofs for now
 	if !id.Latest {
-		return nil, ErrStorageProofNotSupported
+		return nil, rpc_common.ErrStorageProofNotSupported
 	}
 
 	head, err := h.bcReader.Head()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	state, closer, err := h.bcReader.HeadState()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
 
 	classTrie, err := state.ClassTrie()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	contractTrie, err := state.ContractTrie()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	// Do a sanity check and remove duplicates from the keys
@@ -121,27 +122,27 @@ func (h *Handler) StorageProof(id BlockID,
 
 	classProof, err := getClassProof(classTrie, classes)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	contractProof, err := getContractProof(contractTrie, state, contracts)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	contractStorageProof, err := getContractStorageProof(state, uniqueStorageKeys)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	contractTreeRoot, err := contractTrie.Root()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	classTreeRoot, err := classTrie.Root()
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	return &StorageProofResult{

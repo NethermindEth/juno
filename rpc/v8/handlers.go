@@ -4,8 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/json"
-	"fmt"
 	"log"
 	"math"
 	"strings"
@@ -14,83 +12,22 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/sourcegraph/conc"
 )
-
-// Todo:??
-//
-//go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc/v8 Gateway
-type Gateway interface {
-	AddTransaction(context.Context, json.RawMessage) (json.RawMessage, error)
-}
-
-type l1Client interface {
-	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-}
-
-var (
-	ErrContractNotFound                = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
-	ErrBlockNotFound                   = &jsonrpc.Error{Code: 24, Message: "Block not found"}
-	ErrInvalidTxHash                   = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
-	ErrInvalidBlockHash                = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
-	ErrInvalidTxIndex                  = &jsonrpc.Error{Code: 27, Message: "Invalid transaction index in a block"}
-	ErrClassHashNotFound               = &jsonrpc.Error{Code: 28, Message: "Class hash not found"}
-	ErrTxnHashNotFound                 = &jsonrpc.Error{Code: 29, Message: "Transaction hash not found"}
-	ErrPageSizeTooBig                  = &jsonrpc.Error{Code: 31, Message: "Requested page size is too big"}
-	ErrNoBlock                         = &jsonrpc.Error{Code: 32, Message: "There are no blocks"}
-	ErrInvalidContinuationToken        = &jsonrpc.Error{Code: 33, Message: "Invalid continuation token"}
-	ErrTooManyKeysInFilter             = &jsonrpc.Error{Code: 34, Message: "Too many keys provided in a filter"}
-	ErrContractError                   = &jsonrpc.Error{Code: 40, Message: "Contract error"}
-	ErrTransactionExecutionError       = &jsonrpc.Error{Code: 41, Message: "Transaction execution error"}
-	ErrStorageProofNotSupported        = &jsonrpc.Error{Code: 42, Message: "The node doesn't support storage proofs for blocks that are too far in the past"} //nolint:lll
-	ErrInvalidContractClass            = &jsonrpc.Error{Code: 50, Message: "Invalid contract class"}
-	ErrClassAlreadyDeclared            = &jsonrpc.Error{Code: 51, Message: "Class already declared"}
-	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
-	ErrInvalidTransactionNonce         = &jsonrpc.Error{Code: 52, Message: "Invalid transaction nonce"}
-	ErrInsufficientMaxFee              = &jsonrpc.Error{Code: 53, Message: "Max fee is smaller than the minimal transaction cost (validation plus fee transfer)"} //nolint:lll
-	ErrInsufficientAccountBalance      = &jsonrpc.Error{Code: 54, Message: "Account balance is smaller than the transaction's max_fee"}
-	ErrValidationFailure               = &jsonrpc.Error{Code: 55, Message: "Account validation failed"}
-	ErrCompilationFailed               = &jsonrpc.Error{Code: 56, Message: "Compilation failed"}
-	ErrContractClassSizeTooLarge       = &jsonrpc.Error{Code: 57, Message: "Contract class size is too large"}
-	ErrNonAccount                      = &jsonrpc.Error{Code: 58, Message: "Sender address is not an account contract"}
-	ErrDuplicateTx                     = &jsonrpc.Error{Code: 59, Message: "A transaction with the same hash already exists in the mempool"}
-	ErrCompiledClassHashMismatch       = &jsonrpc.Error{Code: 60, Message: "the compiled class hash did not match the one supplied in the transaction"} //nolint:lll
-	ErrUnsupportedTxVersion            = &jsonrpc.Error{Code: 61, Message: "the transaction version is not supported"}
-	ErrUnsupportedContractClassVersion = &jsonrpc.Error{Code: 62, Message: "the contract class version is not supported"}
-	ErrUnexpectedError                 = &jsonrpc.Error{Code: 63, Message: "An unexpected error occurred"}
-	ErrInvalidSubscriptionID           = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
-	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
-	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
-	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
-)
-
-const (
-	maxBlocksBack      = 1024
-	maxEventChunkSize  = 10240
-	maxEventFilterKeys = 1024
-	traceCacheSize     = 128
-	throttledVMErr     = "VM throughput limit reached"
-)
-
-type traceCacheKey struct {
-	blockHash felt.Felt
-}
 
 type Handler struct {
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
-	gatewayClient Gateway
+	gatewayClient rpc_common.Gateway
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
@@ -105,12 +42,12 @@ type Handler struct {
 	mu            stdsync.Mutex // protects subscriptions.
 	subscriptions map[uint64]*subscription
 
-	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	blockTraceCache *lru.Cache[rpc_common.TraceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
 	callMaxSteps uint64
 
-	l1Client        l1Client
+	l1Client        rpc_common.L1Client
 	coreContractABI abi.ABI
 }
 
@@ -145,7 +82,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		l1Heads:       feed.New[*core.L1Head](),
 		subscriptions: make(map[uint64]*subscription),
 
-		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
+		blockTraceCache: lru.NewCache[rpc_common.TraceCacheKey, []TracedBlockTransaction](rpc_common.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
@@ -157,7 +94,7 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	return h
 }
 
-func (h *Handler) WithL1Client(l1Client l1Client) *Handler {
+func (h *Handler) WithL1Client(l1Client rpc_common.L1Client) *Handler {
 	h.l1Client = l1Client
 	return h
 }
@@ -177,7 +114,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	return h
 }
 
-func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
+func (h *Handler) WithGateway(gatewayClient rpc_common.Gateway) *Handler {
 	h.gatewayClient = gatewayClient
 	return h
 }

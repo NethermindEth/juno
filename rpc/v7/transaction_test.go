@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -36,7 +37,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
-	assert.Equal(t, rpcv7.ErrTxnHashNotFound, rpcErr)
+	assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
 }
 
 func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
@@ -62,7 +63,7 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 
 	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
 	assert.Nil(t, tx)
-	assert.Equal(t, rpcv7.ErrTxnHashNotFound, rpcErr)
+	assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
 }
 
 func TestTransactionByHash(t *testing.T) {
@@ -392,7 +393,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -401,7 +402,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
 			rpcv7.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -409,13 +410,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Number: rand.Uint64()}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, -1)
 		assert.Nil(t, txn)
-		assert.Equal(t, rpcv7.ErrInvalidTxIndex, rpcErr)
+		assert.Equal(t, rpc_common.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("invalid index", func(t *testing.T) {
@@ -425,7 +426,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
-		assert.Equal(t, rpcv7.ErrInvalidTxIndex, rpcErr)
+		assert.Equal(t, rpc_common.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
@@ -534,7 +535,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
-		assert.Equal(t, rpcv7.ErrTxnHashNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
 	})
 
 	client := feeder.NewTestClient(t, n)
@@ -1207,7 +1208,7 @@ func TestAddTransaction(t *testing.T) {
 
 			handler := rpcv7.New(nil, nil, nil, "", utils.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
-			require.Equal(t, rpcErr.Code, rpcv7.ErrInternal.Code)
+			require.Equal(t, rpcErr.Code, rpc_common.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
@@ -1339,7 +1340,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockSyncReader.EXPECT().PendingBlock().Return(nil).Times(2)
 						handler := rpcv7.New(mockReader, mockSyncReader, nil, "", log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
-						require.Equal(t, rpcv7.ErrTxnHashNotFound.Code, err.Code)
+						require.Equal(t, rpc_common.ErrTxnHashNotFound.Code, err.Code)
 
 						handler = handler.WithFeeder(client)
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1360,7 +1361,7 @@ func TestTransactionStatus(t *testing.T) {
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
-				require.Equal(t, err, rpcv7.ErrTxnHashNotFound)
+				require.Equal(t, err, rpc_common.ErrTxnHashNotFound)
 			})
 		})
 	}

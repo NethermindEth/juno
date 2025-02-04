@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/jsonrpc"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -77,7 +78,7 @@ func TestEvents(t *testing.T) {
 		t.Run("block hash", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Hash: new(felt.Felt).SetUint64(55)}
 			_, err := handler.Events(args)
-			require.Equal(t, rpc.ErrBlockNotFound, err)
+			require.Equal(t, rpc_common.ErrBlockNotFound, err)
 		})
 	})
 
@@ -163,7 +164,7 @@ func TestEvents(t *testing.T) {
 	t.Run("large page size", func(t *testing.T) {
 		args.ChunkSize = 10240 + 1
 		events, err := handler.Events(args)
-		require.Equal(t, rpc.ErrPageSizeTooBig, err)
+		require.Equal(t, rpc_common.ErrPageSizeTooBig, err)
 		require.Nil(t, events)
 	})
 
@@ -171,7 +172,7 @@ func TestEvents(t *testing.T) {
 		args.ChunkSize = 2
 		args.Keys = make([][]felt.Felt, 1024+1)
 		events, err := handler.Events(args)
-		require.Equal(t, rpc.ErrTooManyKeysInFilter, err)
+		require.Equal(t, rpc_common.ErrTooManyKeysInFilter, err)
 		require.Nil(t, events)
 	})
 
@@ -298,13 +299,13 @@ func TestSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Unsubscribe on correct connection with the incorrect id.
 	ok, rpcErr = handler.Unsubscribe(subCtx, id+1)
-	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.Equal(t, rpc_common.ErrSubscriptionNotFound, rpcErr)
 	require.False(t, ok)
 
 	// Unsubscribe on incorrect connection with the correct id.
 	subCtx = context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{})
 	ok, rpcErr = handler.Unsubscribe(subCtx, id)
-	require.Equal(t, rpc.ErrSubscriptionNotFound, rpcErr)
+	require.Equal(t, rpc_common.ErrSubscriptionNotFound, rpcErr)
 	require.False(t, ok)
 
 	// Unsubscribe on correct connection with the correct id.

@@ -4,6 +4,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 )
 
 type EventsArg struct {
@@ -53,26 +54,26 @@ type EventsChunk struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/94a969751b31f5d3e25a0c6850c723ddadeeb679/api/starknet_api_openrpc.json#L642
 func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
-	if args.ChunkSize > maxEventChunkSize {
-		return nil, ErrPageSizeTooBig
+	if args.ChunkSize > rpc_common.MaxEventChunkSize {
+		return nil, rpc_common.ErrPageSizeTooBig
 	} else {
 		lenKeys := len(args.Keys)
 		for _, keys := range args.Keys {
 			lenKeys += len(keys)
 		}
-		if lenKeys > maxEventFilterKeys {
-			return nil, ErrTooManyKeysInFilter
+		if lenKeys > rpc_common.MaxEventFilterKeys {
+			return nil, rpc_common.ErrTooManyKeysInFilter
 		}
 	}
 
 	height, err := h.bcReader.Height()
 	if err != nil {
-		return nil, ErrInternal
+		return nil, rpc_common.ErrInternal
 	}
 
 	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
 	if err != nil {
-		return nil, ErrInternal
+		return nil, rpc_common.ErrInternal
 	}
 	filter = filter.WithLimit(h.filterLimit)
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
@@ -81,17 +82,17 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	if args.ContinuationToken != "" {
 		cToken = new(blockchain.ContinuationToken)
 		if err = cToken.FromString(args.ContinuationToken); err != nil {
-			return nil, ErrInvalidContinuationToken
+			return nil, rpc_common.ErrInvalidContinuationToken
 		}
 	}
 
 	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
-		return nil, ErrBlockNotFound
+		return nil, rpc_common.ErrBlockNotFound
 	}
 
 	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
-		return nil, ErrInternal
+		return nil, rpc_common.ErrInternal
 	}
 
 	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))

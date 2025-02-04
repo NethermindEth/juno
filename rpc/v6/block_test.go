@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -104,7 +105,7 @@ func TestBlockNumber(t *testing.T) {
 
 		num, err := handler.BlockNumber()
 		assert.Equal(t, expectedHeight, num)
-		assert.Equal(t, rpc.ErrNoBlock, err)
+		assert.Equal(t, rpc_common.ErrNoBlock, err)
 	})
 
 	t.Run("blockchain height is 21", func(t *testing.T) {
@@ -130,7 +131,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 		block, err := handler.BlockHashAndNumber()
 		assert.Nil(t, block)
-		assert.Equal(t, rpc.ErrNoBlock, err)
+		assert.Equal(t, rpc_common.ErrNoBlock, err)
 	})
 
 	t.Run("blockchain height is 147", func(t *testing.T) {
@@ -172,7 +173,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Latest: true})
 		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -180,7 +181,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
 		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -188,7 +189,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Number: uint64(328476)})
 		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
@@ -253,7 +254,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
-			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+			assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -376,7 +377,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
-			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+			assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -577,7 +578,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		resp, rpcErr := handler.BlockWithReceipts(blockID)
 		assert.Nil(t, resp)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 	t.Run("l1head failure", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -591,7 +592,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		resp, rpcErr := handler.BlockWithReceipts(blockID)
 		assert.Nil(t, resp)
-		assert.Equal(t, rpc.ErrInternal.CloneWithData(err.Error()), rpcErr)
+		assert.Equal(t, rpc_common.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
 
 	client := feeder.NewTestClient(t, n)

@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -74,7 +75,7 @@ func TestClass(t *testing.T) {
 
 		_, rpcErr := handler.Class(latest, felt.Zero)
 		require.NotNil(t, rpcErr)
-		require.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		require.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("class hash not found error", func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestClass(t *testing.T) {
 
 		_, rpcErr := handler.Class(latest, felt.Zero)
 		require.NotNil(t, rpcErr)
-		require.Equal(t, rpcv7.ErrClassHashNotFound, rpcErr)
+		require.Equal(t, rpc_common.ErrClassHashNotFound, rpcErr)
 	})
 }
 
@@ -159,7 +160,7 @@ func TestClassHashAt(t *testing.T) {
 
 		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -167,7 +168,7 @@ func TestClassHashAt(t *testing.T) {
 
 		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, classHash)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -175,7 +176,7 @@ func TestClassHashAt(t *testing.T) {
 
 		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, classHash)
-		assert.Equal(t, rpcv7.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -186,7 +187,7 @@ func TestClassHashAt(t *testing.T) {
 
 		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, classHash)
-		assert.Equal(t, rpcv7.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
 	})
 
 	expectedClassHash := new(felt.Felt).SetUint64(3)

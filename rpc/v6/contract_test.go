@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -36,7 +37,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Hash: &felt.Zero}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -44,7 +45,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Number: 0}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -55,7 +56,7 @@ func TestNonce(t *testing.T) {
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Latest: true}, felt.Zero)
 		require.Nil(t, nonce)
-		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
 	})
 
 	expectedNonce := new(felt.Felt).SetUint64(1)
@@ -102,7 +103,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -118,7 +119,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -129,7 +130,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
@@ -138,7 +139,7 @@ func TestStorageAt(t *testing.T) {
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpc.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrContractNotFound, rpcErr)
 	})
 
 	expectedStorage := new(felt.Felt).SetUint64(1)

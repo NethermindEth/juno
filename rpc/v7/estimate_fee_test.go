@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -70,7 +71,7 @@ func TestEstimateFee(t *testing.T) {
 			}).Times(2)
 
 		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
-		require.Equal(t, rpcv7.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
+		require.Equal(t, rpc_common.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)
@@ -78,7 +79,7 @@ func TestEstimateFee(t *testing.T) {
 
 		// TODO: Remove this when v0.7 is removed
 		_, httpHeader, err = handler.EstimateFeeV0_7([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
-		require.Equal(t, rpcv7.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
+		require.Equal(t, rpc_common.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
 		}), err)

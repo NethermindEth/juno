@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -87,9 +88,9 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 	}
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, ErrBlockNotFound
+			return nil, rpc_common.ErrBlockNotFound
 		}
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	nonces := make([]Nonce, 0, len(update.StateDiff.Nonces))

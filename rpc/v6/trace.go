@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -140,7 +141,7 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.Tra
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	if err != nil {
-		return nil, ErrTxnHashNotFound
+		return nil, rpc_common.ErrTxnHashNotFound
 	}
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -152,14 +153,14 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		pending, err = h.syncReader.Pending()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, ErrTxnHashNotFound
+			return nil, rpc_common.ErrTxnHashNotFound
 		}
 		block = pending.Block
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
-			return nil, ErrTxnHashNotFound
+			return nil, rpc_common.ErrTxnHashNotFound
 		}
 	}
 
@@ -167,7 +168,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		return tx.Hash().Equal(hash)
 	})
 	if txIndex == -1 {
-		return nil, ErrTxnHashNotFound
+		return nil, rpc_common.ErrTxnHashNotFound
 	}
 
 	traceResults, traceBlockErr := h.traceBlockTransactions(ctx, block, v0_6Response)
@@ -192,7 +193,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	isPending := block.Hash == nil
 	if !isPending {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, ErrUnexpectedError.CloneWithData(err.Error())
+			return nil, rpc_common.ErrUnexpectedError.CloneWithData(err.Error())
 		} else if (blockVer.Compare(traceFallbackVersion) != 1 && block.ProtocolVersion != excludedVersion) ||
 			h.forceFeederTracesForBlocks.Contains(block.Number) {
 			// version <= 0.13.1 and not 0.13.1.1 or forcing fetch some blocks from feeder gateway
@@ -209,7 +210,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
-		return nil, ErrBlockNotFound
+		return nil, rpc_common.ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
@@ -246,7 +247,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 	network := h.bcReader.Network()
 	header := block.Header
@@ -259,11 +260,11 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(throttledVMErr)
+			return nil, rpc_common.ErrInternal.CloneWithData(rpc_common.ThrottledVMErr)
 		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
-		return nil, ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, rpc_common.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
 	var result []TracedBlockTransaction
@@ -323,17 +324,17 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 	}
 
 	if h.feederClient == nil {
-		return nil, ErrInternal.CloneWithData("no feeder client configured")
+		return nil, rpc_common.ErrInternal.CloneWithData("no feeder client configured")
 	}
 
 	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
 	if fErr != nil {
-		return nil, ErrUnexpectedError.CloneWithData(fErr.Error())
+		return nil, rpc_common.ErrUnexpectedError.CloneWithData(fErr.Error())
 	}
 
 	traces, aErr := adaptBlockTrace(rpcBlock, blockTrace)
 	if aErr != nil {
-		return nil, ErrUnexpectedError.CloneWithData(aErr.Error())
+		return nil, rpc_common.ErrUnexpectedError.CloneWithData(aErr.Error())
 	}
 
 	return traces, nil
@@ -358,12 +359,12 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*
 
 	classHash, err := state.ContractClassHash(&funcCall.ContractAddress)
 	if err != nil {
-		return nil, ErrContractNotFound
+		return nil, rpc_common.ErrContractNotFound
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
-		return nil, ErrInternal.CloneWithData(err)
+		return nil, rpc_common.ErrInternal.CloneWithData(err)
 	}
 
 	res, err := h.vm.Call(&vm.CallInfo{
@@ -377,7 +378,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*
 	}, state, h.bcReader.Network(), h.callMaxSteps)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, ErrInternal.CloneWithData(throttledVMErr)
+			return nil, rpc_common.ErrInternal.CloneWithData(rpc_common.ThrottledVMErr)
 		}
 		return nil, makeContractError(err)
 	}

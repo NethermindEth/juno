@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -35,7 +36,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
-	assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
+	assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
 }
 
 func TestTransactionByHash(t *testing.T) {
@@ -367,7 +368,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
@@ -376,7 +377,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
 			rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
@@ -384,13 +385,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: rand.Uint64()}, rand.Int())
 		assert.Nil(t, txn)
-		assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, -1)
 		assert.Nil(t, txn)
-		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
+		assert.Equal(t, rpc_common.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("invalid index", func(t *testing.T) {
@@ -400,7 +401,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
-		assert.Equal(t, rpc.ErrInvalidTxIndex, rpcErr)
+		assert.Equal(t, rpc_common.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
@@ -508,7 +509,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
-		assert.Equal(t, rpc.ErrTxnHashNotFound, rpcErr)
+		assert.Equal(t, rpc_common.ErrTxnHashNotFound, rpcErr)
 	})
 
 	client := feeder.NewTestClient(t, n)
@@ -1058,7 +1059,7 @@ func TestAddTransaction(t *testing.T) {
 
 			handler := rpc.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
-			require.Equal(t, rpcErr.Code, rpc.ErrInternal.Code)
+			require.Equal(t, rpcErr.Code, rpc_common.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
@@ -1169,7 +1170,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
 						handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
-						require.Equal(t, rpc.ErrTxnHashNotFound.Code, err.Code)
+						require.Equal(t, rpc_common.ErrTxnHashNotFound.Code, err.Code)
 
 						handler = handler.WithFeeder(client)
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1188,7 +1189,7 @@ func TestTransactionStatus(t *testing.T) {
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
-				require.Equal(t, err, rpc.ErrTxnHashNotFound)
+				require.Equal(t, err, rpc_common.ErrTxnHashNotFound)
 			})
 		})
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpc_common"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -92,7 +93,7 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 
 	declared, err := state.Class(&classHash)
 	if err != nil {
-		return nil, ErrClassHashNotFound
+		return nil, rpc_common.ErrClassHashNotFound
 	}
 
 	var rpcClass *Class
@@ -139,7 +140,7 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 			},
 		}
 	default:
-		return nil, ErrClassHashNotFound
+		return nil, rpc_common.ErrClassHashNotFound
 	}
 
 	return rpcClass, nil
@@ -170,7 +171,7 @@ func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonr
 
 	classHash, err := stateReader.ContractClassHash(&address)
 	if err != nil {
-		return nil, ErrContractNotFound
+		return nil, rpc_common.ErrContractNotFound
 	}
 
 	return classHash, nil

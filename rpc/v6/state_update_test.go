@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -42,7 +43,7 @@ func TestStateUpdate(t *testing.T) {
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
-			assert.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+			assert.Equal(t, rpc_common.ErrBlockNotFound, rpcErr)
 		})
 	}
 

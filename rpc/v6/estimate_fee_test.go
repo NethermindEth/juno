@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
+	rpc_common "github.com/NethermindEth/juno/rpc/rpc_common"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -37,7 +38,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	t.Run("block not found", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
-		require.Equal(t, rpc.ErrBlockNotFound, err)
+		require.Equal(t, rpc_common.ErrBlockNotFound, err)
 	})
 
 	latestHeader := &core.Header{
