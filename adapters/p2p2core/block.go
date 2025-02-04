@@ -23,7 +23,7 @@ func AdaptEvent(e *gen.Event) *core.Event {
 }
 
 func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
-	return &core.Header{
+	return &core.Header{ //nolint:exhaustruct
 		Hash:             AdaptHash(h.BlockHash),
 		ParentHash:       AdaptHash(h.ParentHash),
 		Number:           h.Number,

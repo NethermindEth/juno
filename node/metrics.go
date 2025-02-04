@@ -110,7 +110,7 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonrpc.EventListener) {
+func makeRPCMetrics(version1, version2, version3 string) (jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener) {
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
@@ -130,23 +130,34 @@ func makeRPCMetrics(version, legacyVersion string) (jsonrpc.EventListener, jsonr
 
 	return &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, version).Inc()
+				requests.WithLabelValues(method, version1).Inc()
 			},
 			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, version).Observe(took.Seconds())
+				requestLatencies.WithLabelValues(method, version1).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, version).Inc()
+				failedRequests.WithLabelValues(method, version1).Inc()
 			},
 		}, &jsonrpc.SelectiveListener{
 			OnNewRequestCb: func(method string) {
-				requests.WithLabelValues(method, legacyVersion).Inc()
+				requests.WithLabelValues(method, version2).Inc()
 			},
 			OnRequestHandledCb: func(method string, took time.Duration) {
-				requestLatencies.WithLabelValues(method, legacyVersion).Observe(took.Seconds())
+				requestLatencies.WithLabelValues(method, version2).Observe(took.Seconds())
 			},
 			OnRequestFailedCb: func(method string, data any) {
-				failedRequests.WithLabelValues(method, legacyVersion).Inc()
+				failedRequests.WithLabelValues(method, version2).Inc()
+			},
+		},
+		&jsonrpc.SelectiveListener{
+			OnNewRequestCb: func(method string) {
+				requests.WithLabelValues(method, version3).Inc()
+			},
+			OnRequestHandledCb: func(method string, took time.Duration) {
+				requestLatencies.WithLabelValues(method, version3).Observe(took.Seconds())
+			},
+			OnRequestFailedCb: func(method string, data any) {
+				failedRequests.WithLabelValues(method, version3).Inc()
 			},
 		}
 }
