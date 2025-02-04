@@ -152,7 +152,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) Methods0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",

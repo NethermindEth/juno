@@ -205,9 +205,9 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	methods, path := rpcHandler.Methods()
-	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
+	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV08, pathV08 := rpcHandler.Methods0_8()
+	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
 		return nil, err
 	}
 	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
@@ -221,12 +221,12 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":              jsonrpcServer,
-		path:             jsonrpcServer,
+		"/":              jsonrpcServerV08,
+		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
-		"/rpc":           jsonrpcServer,
-		"/rpc" + path:    jsonrpcServer,
+		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
@@ -249,8 +249,8 @@ func New(cfg *Config, version string) (*Node, error) { //nolint:gocyclo,funlen
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(path, pathV07, pathV06)
-		jsonrpcServer.WithListener(rpcMetrics)
+		rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV08, pathV07, pathV06)
+		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
 		jsonrpcServerV06.WithListener(rpcMetricsV06)
 		client.WithListener(makeFeederMetrics())
