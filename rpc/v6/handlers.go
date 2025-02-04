@@ -87,6 +87,7 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	h.callMaxSteps = maxSteps
 	return h
 }
+
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
 	h.idgen = idgen
 	return h
