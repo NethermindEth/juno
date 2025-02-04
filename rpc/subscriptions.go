@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	junoSync "github.com/NethermindEth/juno/sync"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc"
 )
 
@@ -32,9 +34,44 @@ type SubscriptionResponse struct {
 	Params  any    `json:"params"`
 }
 
+type blockID interface {
+	UnmarshalJSON(data []byte) error
+}
+
+// As per the spec, this is the same as BlockID, but without `pending`
+type SubscriptionBlockID struct {
+	Latest bool
+	Hash   *felt.Felt
+	Number uint64
+}
+
+func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
+	if string(data) == `"latest"` {
+		b.Latest = true
+	} else {
+		jsonObject := make(map[string]json.RawMessage)
+		if err := json.Unmarshal(data, &jsonObject); err != nil {
+			return err
+		}
+		hash, ok := jsonObject["block_hash"]
+		if ok {
+			b.Hash = new(felt.Felt)
+			return json.Unmarshal(hash, b.Hash)
+		}
+
+		number, ok := jsonObject["block_number"]
+		if ok {
+			return json.Unmarshal(number, &b.Number)
+		}
+
+		return errors.New("cannot unmarshal block id")
+	}
+	return nil
+}
+
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
-	blockID *BlockID,
+	blockID *SubscriptionBlockID,
 ) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -63,7 +100,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	h.subscriptions.Store(id, sub)
 
 	headerSub := h.newHeads.Subscribe()
-	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription#
+	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
 	pendingSub := h.pendingBlock.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
@@ -384,7 +421,7 @@ eventsLoop:
 }
 
 // SubscribeNewHeads creates a WebSocket stream which will fire events when a new block header is added.
-func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (*SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -562,17 +599,28 @@ func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
 
 // resolveBlockRange returns the start and latest headers based on the blockID.
 // It will also do some sanity checks and return errors if the blockID is invalid.
-func (h *Handler) resolveBlockRange(blockID *BlockID) (*core.Header, *core.Header, *jsonrpc.Error) {
+func (h *Handler) resolveBlockRange(id blockID) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, nil, ErrInternal.CloneWithData(err.Error())
 	}
 
-	if blockID == nil || blockID.Latest {
+	if utils.IsNil(id) {
 		return latestHeader, latestHeader, nil
 	}
 
-	startHeader, rpcErr := h.blockHeaderByID(blockID)
+	switch id := id.(type) {
+	case *BlockID:
+		if id.Latest {
+			return latestHeader, latestHeader, nil
+		}
+	case *SubscriptionBlockID:
+		if id.Latest {
+			return latestHeader, latestHeader, nil
+		}
+	}
+
+	startHeader, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, nil, rpcErr
 	}

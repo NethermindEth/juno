@@ -83,7 +83,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &BlockID{Number: 0}
+		blockID := &SubscriptionBlockID{Number: 0}
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -178,7 +178,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &BlockID{Number: b1.Number})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
 		require.Nil(t, rpcErr)
 
 		var marshalledResponses [][]byte
@@ -226,7 +226,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &BlockID{Number: b1.Number})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
 		require.Nil(t, rpcErr)
 
 		var marshalledResponses [][]byte
@@ -549,7 +549,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		blockID := &BlockID{Number: 0}
+		blockID := &SubscriptionBlockID{Number: 0}
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
