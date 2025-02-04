@@ -73,7 +73,6 @@ func TestTraceFallback(t *testing.T) {
 }
 
 func TestTraceTransactionV0_6(t *testing.T) {
-	t.Skip("TODO unskip")
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -82,7 +81,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.Ptr(utils.Mainnet), utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.Ptr(utils.Mainnet), utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -139,7 +138,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).Return(nil, nil, []vm.TransactionTrace{*vmTrace}, nil)
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).Return(nil, []core.GasConsumed{{L1DataGas: 0}}, []vm.TransactionTrace{*vmTrace}, uint64(0), nil)
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
@@ -194,7 +193,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).Return(nil, nil, []vm.TransactionTrace{*vmTrace}, nil)
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).Return(nil, nil, []vm.TransactionTrace{*vmTrace}, uint64(0), nil)
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
@@ -286,7 +285,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false).Return(nil, []vm.TransactionTrace{vmTrace, vmTrace}, nil)
+			gomock.Any(), n, false, false, false).Return(nil, []core.GasConsumed{}, []vm.TransactionTrace{vmTrace, vmTrace}, 0, nil)
 
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
@@ -352,7 +351,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false).Return(nil, []vm.TransactionTrace{vmTrace}, nil)
+			gomock.Any(), n, false, false, false).Return(nil, []core.GasConsumed{}, []vm.TransactionTrace{vmTrace}, uint64(0), nil)
 
 		expectedResult := []rpc.TracedBlockTransaction{
 			{

@@ -345,7 +345,6 @@ func TestTransactionByHash(t *testing.T) {
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
-	t.Skip("TODO unskip")
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -361,7 +360,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)

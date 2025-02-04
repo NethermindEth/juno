@@ -34,7 +34,6 @@ func TestSpecVersion(t *testing.T) {
 }
 
 func TestThrottledVMError(t *testing.T) {
-	t.Skip("TODO: unskip this")
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -43,7 +42,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, nil, throttledVM, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", utils.Ptr(utils.Mainnet), nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"

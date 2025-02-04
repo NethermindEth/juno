@@ -20,7 +20,6 @@ import (
 )
 
 func TestStateUpdate(t *testing.T) {
-	t.Skip("TODO: un skip")
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
@@ -48,7 +47,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 

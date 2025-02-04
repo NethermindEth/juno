@@ -134,7 +134,7 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash, false)
+	return h.traceTransaction(ctx, &hash, true)
 }
 
 func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
