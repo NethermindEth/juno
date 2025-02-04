@@ -5,21 +5,29 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"
 )
 
-const closeReasonMaxBytes = 125
+const (
+	closeReasonMaxBytes = 125
+	maxConns            = 2048 // TODO: an arbitrary default number, should be revisited after monitoring
+)
 
 type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
 	connParams *WebsocketConnParams
 	listener   NewRequestListener
+	shutdown   <-chan struct{}
 
-	shutdown <-chan struct{}
+	// Add connection tracking
+	connCount int
+	maxConns  int
+	connMu    sync.RWMutex
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger) *Websocket {
@@ -29,8 +37,15 @@ func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger)
 		connParams: DefaultWebsocketConnParams(),
 		listener:   &SelectiveListener{},
 		shutdown:   shutdown,
+		maxConns:   maxConns,
 	}
 
+	return ws
+}
+
+// WithMaxConnections sets the maximum number of concurrent websocket connections
+func (ws *Websocket) WithMaxConnections(max int) *Websocket {
+	ws.maxConns = max
 	return ws
 }
 
@@ -49,11 +64,29 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 // ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Check connection limit
+	ws.connMu.Lock()
+	if ws.connCount >= ws.maxConns {
+		ws.connMu.Unlock()
+		ws.log.Warnw("Max websocket connections reached", "maxConns", ws.maxConns)
+		http.Error(w, "Too many connections", http.StatusServiceUnavailable)
+		return
+	}
+	ws.connCount++
+	ws.connMu.Unlock()
+
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
 		ws.log.Errorw("Failed to upgrade connection", "err", err)
 		return
 	}
+
+	// Ensure we decrease the connection count when the connection closes
+	defer func() {
+		ws.connMu.Lock()
+		ws.connCount--
+		ws.connMu.Unlock()
+	}()
 
 	// TODO include connection information, such as the remote address, in the logs.
 
