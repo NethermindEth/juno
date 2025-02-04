@@ -31,19 +31,16 @@ type traceCacheKey struct {
 }
 
 type Handler struct {
-	bcReader      blockchain.Reader
-	syncReader    sync.Reader
-	gatewayClient rpccore.Gateway
-	feederClient  *feeder.Client
-	vm            vm.VM
-	log           utils.Logger
-
+	bcReader        blockchain.Reader
+	syncReader      sync.Reader
+	gatewayClient   rpccore.Gateway
+	feederClient    *feeder.Client
+	vm              vm.VM
+	log             utils.Logger
 	version         string
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
-
-	filterLimit  uint
-	callMaxSteps uint64
-
+	filterLimit     uint
+	callMaxSteps    uint64
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
 }

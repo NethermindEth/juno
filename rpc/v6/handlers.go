@@ -5,9 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -23,18 +21,15 @@ type traceCacheKey struct {
 }
 
 type Handler struct {
-	bcReader      blockchain.Reader
-	syncReader    sync.Reader
-	gatewayClient rpccore.Gateway
-	feederClient  *feeder.Client
-	vm            vm.VM
-	log           utils.Logger
-
+	bcReader                   blockchain.Reader
+	syncReader                 sync.Reader
+	gatewayClient              rpccore.Gateway
+	feederClient               *feeder.Client
+	vm                         vm.VM
+	log                        utils.Logger
 	version                    string
 	forceFeederTracesForBlocks *set.Set[uint64]
-
-	newHeads        *feed.Feed[*core.Header]
-	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -50,7 +45,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		vm:                         virtualMachine,
 		version:                    version,
 		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
-		newHeads:                   feed.New[*core.Header](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
