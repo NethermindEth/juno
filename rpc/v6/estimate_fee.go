@@ -65,19 +65,6 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), false, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimation
-	}), nil
-}
-
-func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
-) ([]FeeEstimate, *jsonrpc.Error) {
 	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true, true)
 	if err != nil {
 		return nil, err
@@ -89,11 +76,7 @@ func (h *Handler) EstimateFeeV0_6(broadcastedTxns []BroadcastedTransaction,
 }
 
 func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
-	return h.estimateMessageFee(msg, id, h.EstimateFee)
-}
-
-func (h *Handler) EstimateMessageFeeV0_6(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFeeV0_6)
+	feeEstimate, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFee)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}

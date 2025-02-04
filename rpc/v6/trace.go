@@ -184,15 +184,6 @@ func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]Tra
 		return nil, rpcErr
 	}
 
-	return h.traceBlockTransactions(ctx, block, false)
-}
-
-func (h *Handler) TraceBlockTransactionsV0_6(ctx context.Context, id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
 	return h.traceBlockTransactions(ctx, block, true)
 }
 
@@ -350,11 +341,7 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
 func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	return h.call(funcCall, id, true)
-}
-
-func (h *Handler) CallV0_6(call FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	return h.call(call, id, false)
+	return h.call(funcCall, id, false)
 }
 
 func (h *Handler) call(funcCall FunctionCall, id BlockID, useBlobData bool) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic

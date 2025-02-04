@@ -3,7 +3,6 @@ package rpcv6_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -230,8 +229,6 @@ func TestBlockTransactionCount(t *testing.T) {
 }
 
 func TestBlockWithTxHashes(t *testing.T) {
-	t.Skip("TODO unskip")
-
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
@@ -354,7 +351,6 @@ func TestBlockWithTxHashes(t *testing.T) {
 }
 
 func TestBlockWithTxs(t *testing.T) {
-	t.Skip("TODO: unskip this")
 	errTests := map[string]rpc.BlockID{
 		"latest":  {Latest: true},
 		"pending": {Pending: true},
@@ -385,7 +381,7 @@ func TestBlockWithTxs(t *testing.T) {
 	}
 
 	n := utils.Ptr(utils.Mainnet)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -483,18 +479,14 @@ func TestBlockWithTxs(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		t.Skip("TODO: unskip this")
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		fmt.Println("===11")
 		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
 			Block: latestBlock,
 		}, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
-		fmt.Println("===12")
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
-		fmt.Println("===13")
 		blockWithTxs, rpcErr := handler.BlockWithTxs(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 
@@ -503,7 +495,6 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	t.Skip("TODO: unskip this")
 	n := utils.Ptr(utils.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -519,7 +510,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
 	mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
-	got, rpcErr := handler.BlockWithTxsV0_6(rpc.BlockID{Number: blockNumber})
+	got, rpcErr := handler.BlockWithTxs(rpc.BlockID{Number: blockNumber})
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
@@ -607,7 +598,6 @@ func TestBlockWithReceipts(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pending block", func(t *testing.T) {
-		t.Skip()
 		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 
@@ -648,7 +638,6 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
-		t.Skip()
 		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
 		require.NoError(t, err)
 

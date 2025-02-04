@@ -495,37 +495,6 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, false), nil
-}
-
-// TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHashV0_6(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) { //nolint:dupl
-	txn, err := h.bcReader.TransactionByHash(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
-	}
-
-	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
-	if err != nil {
-		return nil, ErrTxnHashNotFound
-	}
-
-	status := TxnAcceptedOnL2
-
-	if blockHash != nil {
-		l1H, jsonErr := h.l1Head()
-		if jsonErr != nil {
-			return nil, jsonErr
-		}
-
-		if isL1Verified(blockNumber, l1H) {
-			status = TxnAcceptedOnL1
-		}
-	}
-
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, true), nil
 }
 

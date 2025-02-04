@@ -512,12 +512,12 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv6Handler.BlockWithTxHashesV0_6,
+			Handler: h.rpcv6Handler.BlockWithTxHashes,
 		},
 		{
 			Name:    "starknet_getBlockWithTxs",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv6Handler.BlockWithTxsV0_6,
+			Handler: h.rpcv6Handler.BlockWithTxs,
 		},
 		{
 			Name:    "starknet_getTransactionByHash",
@@ -527,7 +527,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv6Handler.TransactionReceiptByHashV0_6,
+			Handler: h.rpcv6Handler.TransactionReceiptByHash,
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -605,17 +605,17 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.rpcv6Handler.CallV0_6,
+			Handler: h.rpcv6Handler.Call,
 		},
 		{
 			Name:    "starknet_estimateFee",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
-			Handler: h.rpcv6Handler.EstimateFeeV0_6,
+			Handler: h.rpcv6Handler.EstimateFee,
 		},
 		{
 			Name:    "starknet_estimateMessageFee",
 			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
-			Handler: h.rpcv6Handler.EstimateMessageFeeV0_6,
+			Handler: h.rpcv6Handler.EstimateMessageFee,
 		},
 		{
 			Name:    "starknet_traceTransaction",
@@ -630,7 +630,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_traceBlockTransactions",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv6Handler.TraceBlockTransactionsV0_6,
+			Handler: h.rpcv6Handler.TraceBlockTransactions,
 		},
 		{
 			Name:    "starknet_specVersion",
