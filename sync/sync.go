@@ -630,7 +630,6 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 	}
 	s.pending.Store(p)
 
-	// send the pending transactions to the feed
 	s.pendingFeed.Send(p.Block)
 
 	return nil

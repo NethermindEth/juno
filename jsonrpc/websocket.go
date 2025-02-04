@@ -44,8 +44,8 @@ func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger)
 }
 
 // WithMaxConnections sets the maximum number of concurrent websocket connections
-func (ws *Websocket) WithMaxConnections(max int) *Websocket {
-	ws.maxConns = max
+func (ws *Websocket) WithMaxConnections(maxConns int) *Websocket {
+	ws.maxConns = maxConns
 	return ws
 }
 

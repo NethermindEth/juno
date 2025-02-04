@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
 
@@ -1132,56 +1131,4 @@ func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
 			"result":          e,
 		},
 	})
-}
-
-func TestEventEquality(t *testing.T) {
-	e1 := &Event{
-		From: new(felt.Felt).SetUint64(1),
-		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
-		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
-	}
-
-	e2 := &Event{
-		From: new(felt.Felt).SetUint64(1),
-		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
-		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
-	}
-
-	assert.True(t, reflect.DeepEqual(e1, e2))
-
-	e3 := &core.Event{
-		From: new(felt.Felt).SetUint64(1),
-		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
-		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
-	}
-
-	e4 := &core.Event{
-		From: new(felt.Felt).SetUint64(1),
-		Keys: []*felt.Felt{new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3)},
-		Data: []*felt.Felt{new(felt.Felt).SetUint64(4), new(felt.Felt).SetUint64(3)},
-	}
-
-	assert.True(t, reflect.DeepEqual(e3, e4))
-
-	bn1 := uint64(10)
-	ee1 := EmittedEvent{
-		Event:           e1,
-		BlockNumber:     &bn1,
-		BlockHash:       new(felt.Felt).SetBytes([]byte("b hash")),
-		TransactionHash: new(felt.Felt).SetBytes([]byte("tx hash")),
-	}
-
-	bn2 := uint64(10)
-	ee2 := EmittedEvent{
-		Event:           e2,
-		BlockNumber:     &bn2,
-		BlockHash:       new(felt.Felt).SetBytes([]byte("b hash")),
-		TransactionHash: new(felt.Felt).SetBytes([]byte("tx hash")),
-	}
-
-	assert.True(t, reflect.DeepEqual(ee1, ee2))
-	// assert.True(t, *ee1.Event.Data == *ee2.Event.Data)
-	assert.True(t, *ee1.BlockNumber == *ee2.BlockNumber)
-	assert.True(t, *ee1.BlockHash == *ee2.BlockHash)
-	assert.True(t, *ee1.TransactionHash == *ee2.TransactionHash)
 }
