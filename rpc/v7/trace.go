@@ -383,6 +383,16 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrContractNotFound
 	}
 
+	declaredClass, err := state.Class(classHash)
+	if err != nil {
+		return nil, ErrClassHashNotFound
+	}
+
+	var sierraVersion string
+	if class, ok := declaredClass.Class.(*core.Cairo1Class); ok {
+		sierraVersion = class.SemanticVersion
+	}
+
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -396,7 +406,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)

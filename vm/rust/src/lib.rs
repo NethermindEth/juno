@@ -40,7 +40,7 @@ use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{
     block::{BlockHash, GasPrice},
-    contract_class::{ClassInfo, EntryPointType},
+    contract_class::{ClassInfo, EntryPointType, SierraVersion},
     core::PatriciaKey,
     executable_transaction::AccountTransaction,
     execution_resources::GasVector,
@@ -116,6 +116,7 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
+    sierra_version: *const c_char,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
@@ -140,10 +141,16 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
-    // TODO: initial gas should be different based on the execution method used: vm or native!
-    // There should be some check.
-    let initial_gas = get_versioned_constants(block_info.version).infinite_gas_for_vm_mode();
-
+    let version_constants = get_versioned_constants(block_info.version);
+    let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
+    let sierra_version =
+        SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
+    let initial_gas: u64;
+    if sierra_version < SierraVersion::new(1, 7, 0) {
+        initial_gas = version_constants.infinite_gas_for_vm_mode();
+    } else {
+        initial_gas = version_constants.os_constants.validate_max_sierra_gas.0;
+    }
     let contract_address =
         starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
 

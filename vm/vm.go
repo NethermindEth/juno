@@ -34,7 +34,7 @@ type ExecutionResults struct {
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64) ([]*felt.Felt, error)
+		maxSteps uint64, sierraVersion string) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 	) (ExecutionResults, error)
@@ -206,7 +206,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64,
+	network *utils.Network, maxSteps uint64, sierraVersion string,
 ) ([]*felt.Felt, error) {
 	context := &callContext{
 		state:    state,
@@ -225,6 +225,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
+	cSierraVersion := C.CString(sierraVersion)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
@@ -232,10 +233,12 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		chainID,
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
+		cSierraVersion,               //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
 	C.free(unsafe.Pointer(cBlockInfo.version))
+	C.free(unsafe.Pointer(cSierraVersion))
 
 	if context.err != "" {
 		return nil, errors.New(context.err)

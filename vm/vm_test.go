@@ -50,7 +50,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -70,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -117,7 +117,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -139,7 +139,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
@@ -179,7 +179,7 @@ func TestCall_MaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, "")
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
