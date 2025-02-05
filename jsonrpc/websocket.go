@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
@@ -25,9 +25,8 @@ type Websocket struct {
 	shutdown   <-chan struct{}
 
 	// Add connection tracking
-	connCount int
-	maxConns  int
-	connMu    sync.RWMutex
+	connCount atomic.Int32
+	maxConns  int32
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger) *Websocket {
@@ -44,7 +43,7 @@ func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger)
 }
 
 // WithMaxConnections sets the maximum number of concurrent websocket connections
-func (ws *Websocket) WithMaxConnections(maxConns int) *Websocket {
+func (ws *Websocket) WithMaxConnections(maxConns int32) *Websocket {
 	ws.maxConns = maxConns
 	return ws
 }
@@ -65,15 +64,12 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check connection limit
-	ws.connMu.Lock()
-	if ws.connCount >= ws.maxConns {
-		ws.connMu.Unlock()
+	if ws.connCount.Load() >= ws.maxConns {
 		ws.log.Warnw("Max websocket connections reached", "maxConns", ws.maxConns)
 		http.Error(w, "Too many connections", http.StatusServiceUnavailable)
 		return
 	}
-	ws.connCount++
-	ws.connMu.Unlock()
+	ws.connCount.Add(1)
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
@@ -83,9 +79,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure we decrease the connection count when the connection closes
 	defer func() {
-		ws.connMu.Lock()
-		ws.connCount--
-		ws.connMu.Unlock()
+		ws.connCount.Add(-1)
 	}()
 
 	// TODO include connection information, such as the remote address, in the logs.

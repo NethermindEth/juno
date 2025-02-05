@@ -134,11 +134,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:    version,
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
-		l1Heads:    feed.New[*core.L1Head](),
+		version:      version,
+		newHeads:     feed.New[*core.Header](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pendingBlock: feed.New[*core.Block](),
+		l1Heads:      feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
