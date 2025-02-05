@@ -54,7 +54,7 @@ func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTra
 	return h.simulateTransactions(id, transactions, simulationFlags, true, true)
 }
 
-//nolint:funlen,gocyclo
+//nolint:funlen
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, v0_6Response, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {

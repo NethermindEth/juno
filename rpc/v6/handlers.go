@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common/lru"
-	"github.com/hashicorp/go-set/v2"
 	"github.com/sourcegraph/conc"
 )
 
@@ -38,10 +37,9 @@ type Handler struct {
 	subscriptions map[uint64]*subscription
 	newHeads      *feed.Feed[*core.Header]
 
-	log                        utils.Logger
-	version                    string
-	forceFeederTracesForBlocks *set.Set[uint64]
-	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	log             utils.Logger
+	version         string
+	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -67,10 +65,9 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:                    version,
-		forceFeederTracesForBlocks: set.From(network.BlockHashMetaInfo.ForceFetchingTracesForBlocks),
-		newHeads:                   feed.New[*core.Header](),
-		subscriptions:              make(map[uint64]*subscription),
+		version:       version,
+		newHeads:      feed.New[*core.Header](),
+		subscriptions: make(map[uint64]*subscription),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
