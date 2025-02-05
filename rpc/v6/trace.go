@@ -272,9 +272,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		if !v0_6Response {
 			feeUnit := feeUnit(block.Transactions[index])
 
-			gasPrice := header.GasPrice
+			gasPrice := header.L1GasPriceETH
 			if feeUnit == FRI {
-				if gasPrice = header.GasPriceSTRK; gasPrice == nil {
+				if gasPrice = header.L1GasPriceSTRK; gasPrice == nil {
 					gasPrice = &felt.Zero
 				}
 			}

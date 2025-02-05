@@ -243,7 +243,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			// hash is not set because it's pending block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
-			GasPrice:        utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
@@ -317,7 +317,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			GasPrice:         utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:    utils.HexToFelt(t, "0x777"),
 			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{

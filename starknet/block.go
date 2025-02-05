@@ -37,24 +37,6 @@ type Block struct {
 	GasPriceFRI *felt.Felt `json:"strk_l1_gas_price"`
 }
 
-// needed for rpcv6
-func (b *Block) GasPriceETH() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInWei
-	} else if b.GasPriceWEI != nil {
-		return b.GasPriceWEI
-	}
-	return b.GasPriceLegacy
-}
-
-// needed for rpcv6
-func (b *Block) GasPriceSTRK() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInFri
-	}
-	return b.GasPriceFRI
-}
-
 func (b *Block) L1GasPriceETH() *felt.Felt {
 	if b.L1GasPrice != nil {
 		return b.L1GasPrice.PriceInWei

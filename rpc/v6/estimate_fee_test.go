@@ -42,9 +42,9 @@ func TestEstimateMessageFee(t *testing.T) {
 	})
 
 	latestHeader := &core.Header{
-		Number:    9,
-		Timestamp: 456,
-		GasPrice:  new(felt.Felt).SetUint64(42),
+		Number:        9,
+		Timestamp:     456,
+		L1GasPriceETH: new(felt.Felt).SetUint64(42),
 	}
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
@@ -64,7 +64,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Empty(t, declaredClasses)
 			assert.Len(t, paidFeesOnL1, 1)
 
-			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.GasPrice)
+			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.L1GasPriceETH)
 			return []*felt.Felt{actualFee}, []core.GasConsumed{{L1DataGas: 0}}, []vm.TransactionTrace{{
 				StateDiff: &vm.StateDiff{
 					StorageDiffs:              []vm.StorageDiff{},
@@ -82,8 +82,8 @@ func TestEstimateMessageFee(t *testing.T) {
 	require.Nil(t, err)
 	feeUnit := rpc.WEI
 	require.Equal(t, expectedGasConsumed, estimateFee.GasConsumed)
-	require.Equal(t, latestHeader.GasPrice, estimateFee.GasPrice)
-	require.Equal(t, new(felt.Felt).Mul(expectedGasConsumed, latestHeader.GasPrice), estimateFee.OverallFee)
+	require.Equal(t, latestHeader.L1GasPriceETH, estimateFee.GasPrice)
+	require.Equal(t, new(felt.Felt).Mul(expectedGasConsumed, latestHeader.L1GasPriceETH), estimateFee.OverallFee)
 	require.Equal(t, feeUnit, *estimateFee.Unit)
 }
 

@@ -46,8 +46,6 @@ func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) 
 			PriceInWei: AdaptUint128(h.L2GasPriceWei),
 			PriceInFri: AdaptUint128(h.L2GasPriceFri),
 		},
-		GasPrice:     nil,
-		GasPriceSTRK: nil,
 	}
 }
 

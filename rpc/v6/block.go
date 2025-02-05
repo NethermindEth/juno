@@ -323,8 +323,8 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
 		L1GasPrice: &ResourcePrice{
-			InWei: header.GasPrice,
-			InFri: nilToZero(header.GasPriceSTRK), // Old block headers will be nil.
+			InWei: header.L1GasPriceETH,
+			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
 		},
 		StarknetVersion: header.ProtocolVersion,
 	}

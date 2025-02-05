@@ -67,7 +67,7 @@ func TestThrottledVMError(t *testing.T) {
 			// hash is not set because it's pending block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
-			GasPrice:        utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{

@@ -117,9 +117,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	for i, overallFee := range overallFees {
 		feeUnit := feeUnit(txns[i])
 
-		gasPrice := header.GasPrice
+		gasPrice := header.L1GasPriceETH
 		if feeUnit == FRI {
-			if gasPrice = header.GasPriceSTRK; gasPrice == nil {
+			if gasPrice = header.L1GasPriceSTRK; gasPrice == nil {
 				gasPrice = &felt.Zero
 			}
 		}

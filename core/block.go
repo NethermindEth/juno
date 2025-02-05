@@ -45,11 +45,6 @@ type Header struct {
 	// The gas price for L1 data availability
 	L1DataGasPrice *GasPrice
 	L2GasPrice     *GasPrice
-
-	// rpcv6: Amount of WEI charged per Gas spent
-	GasPrice *felt.Felt
-	// rpcv6: Amount of STRK charged per Gas spent
-	GasPriceSTRK *felt.Felt
 }
 
 type L1DAMode uint
