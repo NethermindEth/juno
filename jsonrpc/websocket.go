@@ -78,9 +78,7 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ensure we decrease the connection count when the connection closes
-	defer func() {
-		ws.connCount.Add(-1)
-	}()
+	defer ws.connCount.Add(-1)
 
 	// TODO include connection information, such as the remote address, in the logs.
 
