@@ -499,48 +499,14 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	var (
-		pendingB      *core.Block
-		pendingBIndex int
-	)
-
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-
-		pendingB = h.syncReader.PendingBlock()
-		if pendingB == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-
-		for i, t := range pendingB.Transactions {
-			pendingBIndex = i
-			if hash.Equal(t.Hash()) {
-				txn = t
-				break
-			}
-		}
-
-		if txn == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	var (
-		receipt     *core.TransactionReceipt
-		blockHash   *felt.Felt
-		blockNumber uint64
-	)
-
-	if pendingB != nil {
-		receipt = pendingB.Receipts[pendingBIndex]
-	} else {
-		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
-		if err != nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
+	receipt, blockHash, blockNumber, err := h.bcReader.Receipt(&hash)
+	if err != nil {
+		return nil, rpccore.ErrTxnHashNotFound
 	}
 
 	status := TxnAcceptedOnL2
@@ -758,8 +724,8 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finalityStatus TxnFinalityStatus,
-	blockHash *felt.Felt, blockNumber uint64,
+func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
