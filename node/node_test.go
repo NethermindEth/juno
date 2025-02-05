@@ -110,7 +110,7 @@ func TestNodeWithL1Verification(t *testing.T) {
 		EthNode:               "ws://" + listener.Addr().String(),
 		DatabasePath:          t.TempDir(),
 		DisableL1Verification: false,
-	}, "v0.1")
+	}, "v0.1", utils.NewLogLevel(utils.INFO))
 	require.NoError(t, err)
 }
 
@@ -140,7 +140,7 @@ func TestNodeWithL1VerificationError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := node.New(tt.cfg, "v0.1")
+			_, err := node.New(tt.cfg, "v0.1", utils.NewLogLevel(utils.INFO))
 			require.ErrorContains(t, err, tt.err)
 		})
 	}
