@@ -295,8 +295,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed, l1DAGas,
+			da := vm.NewDataAvailability(gasConsumed, l1DAGas,
 				header.L1DAMode)
+			executionResources.DataAvailability = &da
 			traces[index].ExecutionResources = executionResources
 		}
 		result = append(result, TracedBlockTransaction{

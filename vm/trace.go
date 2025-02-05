@@ -248,8 +248,8 @@ type ExecutionResources struct {
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
 
-func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) *DataAvailability {
-	da := &DataAvailability{}
+func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) DataAvailability {
+	da := DataAvailability{}
 
 	switch mode {
 	case core.Calldata:

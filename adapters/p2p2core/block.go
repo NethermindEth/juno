@@ -23,7 +23,7 @@ func AdaptEvent(e *gen.Event) *core.Event {
 }
 
 func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
-	return &core.Header{ //nolint:exhaustruct
+	return &core.Header{
 		Hash:             AdaptHash(h.BlockHash),
 		ParentHash:       AdaptHash(h.ParentHash),
 		Number:           h.Number,
@@ -46,6 +46,8 @@ func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) 
 			PriceInWei: AdaptUint128(h.L2GasPriceWei),
 			PriceInFri: AdaptUint128(h.L2GasPriceFri),
 		},
+		GasPrice:     nil,
+		GasPriceSTRK: nil,
 	}
 }
 

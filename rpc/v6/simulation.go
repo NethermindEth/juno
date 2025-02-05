@@ -151,8 +151,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		if !v0_6Response {
 			trace := traces[i]
 			executionResources := trace.TotalExecutionResources()
-			executionResources.DataAvailability = vm.NewDataAvailability(gasConsumed,
+			da := vm.NewDataAvailability(gasConsumed,
 				new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
+			executionResources.DataAvailability = &da
 			traces[i].ExecutionResources = executionResources
 		}
 
