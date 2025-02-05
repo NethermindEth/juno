@@ -116,9 +116,9 @@ type Method struct {
 	// Set upon successful registration.
 	needsContext bool
 
-	// The number of optional parameters in the method.
+	// The number of required parameters in the method.
 	// Set upon successful registration.
-	optionalCount int
+	requiredParamCount int
 }
 
 type Server struct {
@@ -202,13 +202,13 @@ func (s *Server) registerMethod(method Method) error {
 		return errors.New("second return value must be a http.Header for 3 tuple handler")
 	}
 
-	optionalCount := 0
+	requiredParamCount := 0
 	for _, param := range method.Params {
-		if param.Optional {
-			optionalCount++
+		if !param.Optional {
+			requiredParamCount++
 		}
 	}
-	method.optionalCount = optionalCount
+	method.requiredParamCount = requiredParamCount
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
 	s.methods[method.Name] = method
@@ -547,8 +547,7 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 		paramsList := params.([]any)
 
 		// Ensure that the number of provided parameters is between required and total parameters
-		requiredParams := len(method.Params) - method.optionalCount
-		if len(paramsList) < requiredParams || len(paramsList) > len(method.Params) {
+		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
 			return nil, errors.New("missing/unexpected params in list")
 		}
 
