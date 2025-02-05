@@ -76,7 +76,7 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}
 
 	validator, err := protovalidate.New(
-		protovalidate.WithDisableLazy(true),
+		protovalidate.WithDisableLazy(),
 		protovalidate.WithMessages(&gen.Hash{}),
 	)
 	if err != nil {
