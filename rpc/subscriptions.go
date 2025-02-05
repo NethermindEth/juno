@@ -152,19 +152,19 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 					// trying to resend the event should be of no consequences and the map can be safely emptied.
 					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys, eventsPreviouslySent)
 
-					b, err := h.bcReader.BlockByNumber(header.Number)
+					block, err := h.bcReader.BlockByNumber(header.Number)
 					if err != nil {
 						h.log.Warnw("Error retrieving block", "block number", header.Number, "err", err)
 						return
 					}
 
-					for i, r := range b.Receipts {
+					for i, r := range block.Receipts {
 						for _, e := range r.Events {
 							fe := blockchain.FilteredEvent{
 								Event:           e,
 								BlockNumber:     header.Number,
 								BlockHash:       header.Hash,
-								TransactionHash: b.Transactions[i].Hash(),
+								TransactionHash: block.Transactions[i].Hash(),
 							}
 
 							delete(eventsPreviouslySent, fe)

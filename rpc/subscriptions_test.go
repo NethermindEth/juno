@@ -152,6 +152,50 @@ func TestSubscribeEvents(t *testing.T) {
 		})
 	}
 
+	t.Run("Events from new blocks", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+
+		handler := New(mockChain, mockSyncer, nil, "", log)
+		newHeadFeed := feed.New[*core.Header]()
+		handler.newHeads = newHeadFeed
+
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
+		mockEventFilterer.EXPECT().Close().AnyTimes()
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
+		require.Nil(t, rpcErr)
+
+		newHeadFeed.Send(&core.Header{Number: b1.Number})
+
+		resp, err := marshalSubEventsResp(emittedEvents[0], id.ID)
+		require.NoError(t, err)
+
+		got := make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, string(resp), string(got))
+
+		cancel()
+		time.Sleep(100 * time.Millisecond)
+	})
+
 	t.Run("Events from old blocks", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
