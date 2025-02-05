@@ -60,34 +60,23 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(id blockID) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(id BlockIdentifier) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
-	switch id := id.(type) {
-	case *BlockID:
-		switch {
-		case id.Latest:
-			header, err = h.bcReader.HeadsHeader()
-		case id.Hash != nil:
-			header, err = h.bcReader.BlockHeaderByHash(id.Hash)
-		case id.Pending:
-			var pending *sync.Pending
-			pending, err = h.syncReader.Pending()
-			if err == nil {
-				header = pending.Block.Header
-			}
-		default:
-			header, err = h.bcReader.BlockHeaderByNumber(id.Number)
+
+	switch {
+	case id.IsLatest():
+		header, err = h.bcReader.HeadsHeader()
+	case id.GetHash() != nil:
+		header, err = h.bcReader.BlockHeaderByHash(id.GetHash())
+	case id.IsPending():
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
+		if err == nil {
+			header = pending.Block.Header
 		}
-	case *SubscriptionBlockID:
-		switch {
-		case id.Latest:
-			header, err = h.bcReader.HeadsHeader()
-		case id.Hash != nil:
-			header, err = h.bcReader.BlockHeaderByHash(id.Hash)
-		default:
-			header, err = h.bcReader.BlockHeaderByNumber(id.Number)
-		}
+	default:
+		header, err = h.bcReader.BlockHeaderByNumber(id.GetNumber())
 	}
 
 	if err != nil {
