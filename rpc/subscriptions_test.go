@@ -1142,8 +1142,11 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	log := utils.NewNopZapLogger()
 	handler := New(chain, syncer, nil, "", log)
 
+	handlerCtx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+
 	go func() {
-		require.NoError(t, handler.Run(ctx))
+		require.NoError(t, handler.Run(handlerCtx))
 	}()
 	time.Sleep(50 * time.Millisecond)
 
