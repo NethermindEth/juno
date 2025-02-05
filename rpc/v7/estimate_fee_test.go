@@ -44,7 +44,7 @@ func TestEstimateFee(t *testing.T) {
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 
 		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err = handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -58,7 +58,7 @@ func TestEstimateFee(t *testing.T) {
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 
 		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err = handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -78,7 +78,7 @@ func TestEstimateFee(t *testing.T) {
 		require.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
 
 		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err = handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",

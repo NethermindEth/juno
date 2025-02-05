@@ -51,7 +51,7 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, true)
+	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
 }
 
 //nolint:funlen
