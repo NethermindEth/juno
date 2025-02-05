@@ -124,28 +124,15 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		dataGasPrice := &felt.Zero
-		if header.L1DataGasPrice != nil {
-			switch feeUnit {
-			case FRI:
-				dataGasPrice = header.L1DataGasPrice.PriceInFri
-			case WEI:
-				dataGasPrice = header.L1DataGasPrice.PriceInWei
-			}
-		}
-
 		gasConsumed := overallFee.Clone()
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		fmt.Println("dataGasConsumed[i]", dataGasConsumed, overallFees)
 		estimate := FeeEstimate{
-			GasConsumed:     gasConsumed,
-			GasPrice:        gasPrice,
-			DataGasConsumed: new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas),
-			DataGasPrice:    dataGasPrice,
-			OverallFee:      overallFee,
-			Unit:            utils.Ptr(feeUnit),
-			v0_6Response:    v0_6Response,
+			GasConsumed: gasConsumed,
+			GasPrice:    gasPrice,
+			OverallFee:  overallFee,
+			Unit:        utils.Ptr(feeUnit),
 		}
 
 		if !v0_6Response {
