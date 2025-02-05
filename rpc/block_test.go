@@ -703,6 +703,127 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 }
 
+func TestBlockWithTxHashesAndReceipts(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	var mockSyncReader *mocks.MockSyncReader
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
+
+	n := utils.Ptr(utils.Sepolia)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+
+	latestBlockNumber := uint64(56377)
+	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	require.NoError(t, err)
+
+	// Helper function to assert actual returned block against expected one
+	assertBlock := func(t *testing.T, b *rpc.BlockWithTxHashesAndReceipts, blockStatus rpc.BlockStatus, txFinalityStatus rpc.TxnFinalityStatus) {
+		t.Helper()
+
+		// Assert block status
+		assert.Equal(t, blockStatus, b.Status)
+
+		// Assert block header
+		assert.Equal(t, rpc.AdaptBlockHeader(latestBlock.Header), b.BlockHeader)
+
+		// Assert transaction hashes
+		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
+		for i := 0; i < len(latestBlock.Transactions); i++ {
+			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
+		}
+
+		// Build receipts from expected block
+		var txsWithReceipt []rpc.TransactionWithReceipt
+		for i, tx := range latestBlock.Transactions {
+			receipt := latestBlock.Receipts[i]
+			adaptedTx := rpc.AdaptTransaction(tx)
+			adaptedTx.Hash = nil
+
+			txsWithReceipt = append(txsWithReceipt, rpc.TransactionWithReceipt{
+				Transaction: adaptedTx,
+				Receipt:     rpc.AdaptReceipt(receipt, tx, txFinalityStatus, nil, 0),
+			})
+		}
+		// Assert receipts
+		assert.Equal(t, txsWithReceipt, b.Transactions)
+	}
+
+	t.Run("block not found", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlock.Number).Return(nil, db.ErrKeyNotFound)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Number: latestBlock.Number})
+
+		require.Nil(t, block)
+		require.Equal(t, rpc.ErrBlockNotFound, rpcErr)
+	})
+
+	t.Run("L1Head failure", func(t *testing.T) {
+		expectedError := errors.New("L1Head failure")
+
+		mockReader.EXPECT().BlockByHash(latestBlock.Hash).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, expectedError)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Hash: latestBlock.Hash})
+
+		require.Nil(t, block)
+		require.Equal(t, rpc.ErrInternal.CloneWithData(expectedError.Error()), rpcErr)
+	})
+
+	t.Run("blockID - latest", func(t *testing.T) {
+		mockReader.EXPECT().Head().Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, nil)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Latest: true})
+
+		require.Nil(t, rpcErr)
+		assertBlock(t, block, rpc.BlockAcceptedL2, rpc.TxnAcceptedOnL2)
+	})
+
+	t.Run("blockID - hash", func(t *testing.T) {
+		mockReader.EXPECT().BlockByHash(latestBlock.Hash).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(nil, nil)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Hash: latestBlock.Hash})
+
+		require.Nil(t, rpcErr)
+		assertBlock(t, block, rpc.BlockAcceptedL2, rpc.TxnAcceptedOnL2)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		mockSyncReader.EXPECT().Pending().Return(
+			&sync.Pending{Block: latestBlock},
+			nil,
+		)
+		mockReader.EXPECT().L1Head().Return(nil, nil)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Pending: true})
+
+		require.Nil(t, rpcErr)
+		assertBlock(t, block, rpc.BlockPending, rpc.TxnAcceptedOnL2)
+	})
+
+	t.Run("blockID - number accepted on l1", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlock.Number).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: latestBlock.Number,
+			},
+			nil,
+		)
+
+		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpc.BlockID{Number: latestBlockNumber})
+
+		require.Nil(t, rpcErr)
+		assertBlock(t, block, rpc.BlockAcceptedL1, rpc.TxnAcceptedOnL1)
+	})
+}
+
 func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
