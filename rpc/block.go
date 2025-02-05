@@ -154,6 +154,13 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+type BlockWithTxHashesAndReceipts struct {
+	Status BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	TxnHashes    []*felt.Felt             `json:"transactions_hashes"`
+	Transactions []TransactionWithReceipt `json:"transactions_with_receipts"`
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
@@ -205,7 +212,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: AdaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -254,8 +261,31 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
+	}, nil
+}
+
+func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (*BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
+	// Get tx receipts
+	block, err := h.BlockWithReceipts(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get tx hashes
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		// Get hash from Receipt and not Transaction as `starknet_getBlockWithReceipts`'s
+		// array of txs does not contain hash
+		txnHashes[index] = txn.Receipt.Hash
+	}
+
+	return &BlockWithTxHashesAndReceipts{
+		Status:       block.Status,
+		BlockHeader:  block.BlockHeader,
+		Transactions: block.Transactions,
+		TxnHashes:    txnHashes,
 	}, nil
 }
 
@@ -281,7 +311,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -302,7 +332,7 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *json
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func AdaptBlockHeader(header *core.Header) BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {

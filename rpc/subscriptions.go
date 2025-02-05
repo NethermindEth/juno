@@ -686,7 +686,7 @@ func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) err
 		Method:  "starknet_subscriptionNewHeads",
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          adaptBlockHeader(header),
+			"result":          AdaptBlockHeader(header),
 		},
 	})
 	if err != nil {

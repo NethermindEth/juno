@@ -404,6 +404,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.GetMessageStatus,
 		},
+		{
+			Name:    "juno_getBlockWithTxnHashesAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxHashesAndReceipts,
+		},
 	}, "/v0_8"
 }
 
