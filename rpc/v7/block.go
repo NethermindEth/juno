@@ -108,7 +108,6 @@ type BlockHeader struct {
 	Timestamp        uint64         `json:"timestamp"`
 	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
 	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
 	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
 	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
 	StarknetVersion  string         `json:"starknet_version"`
@@ -320,19 +319,6 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		}
 	}
 
-	var l2GasPrice ResourcePrice
-	if header.L2GasPrice != nil {
-		l2GasPrice = ResourcePrice{
-			InWei: nilToZero(header.L2GasPrice.PriceInWei),
-			InFri: nilToZero(header.L2GasPrice.PriceInFri),
-		}
-	} else {
-		l2GasPrice = ResourcePrice{
-			InWei: &felt.Zero,
-			InFri: &felt.Zero,
-		}
-	}
-
 	return BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
@@ -344,7 +330,6 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InWei: header.L1GasPriceETH,
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
-		L2GasPrice:      &l2GasPrice,
 		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        &l1DAMode,
 		StarknetVersion: header.ProtocolVersion,

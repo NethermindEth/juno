@@ -535,10 +535,6 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
-			L2GasPrice: &rpcv7.ResourcePrice{
-				InFri: &felt.Zero,
-				InWei: &felt.Zero,
-			},
 			L1DataGasPrice: &rpcv7.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
 				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
@@ -648,7 +644,6 @@ func TestBlockWithReceipts(t *testing.T) {
 				Timestamp:        header.Timestamp,
 				SequencerAddress: header.SequencerAddress,
 				L1GasPrice:       header.L1GasPrice,
-				L2GasPrice:       header.L2GasPrice,
 				L1DataGasPrice:   header.L1DataGasPrice,
 				L1DAMode:         header.L1DAMode,
 				StarknetVersion:  header.StarknetVersion,
@@ -695,7 +690,6 @@ func TestBlockWithReceipts(t *testing.T) {
 				SequencerAddress: header.SequencerAddress,
 				L1DAMode:         header.L1DAMode,
 				L1GasPrice:       header.L1GasPrice,
-				L2GasPrice:       header.L2GasPrice,
 				L1DataGasPrice:   header.L1DataGasPrice,
 				StarknetVersion:  header.StarknetVersion,
 			},
