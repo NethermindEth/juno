@@ -26,13 +26,22 @@ var (
 	subscribeTxStatusTickerDuration = 5 * time.Second
 )
 
+var (
+	_ BlockIdentifier = (*SubscriptionBlockID)(nil)
+	_ BlockIdentifier = (*BlockID)(nil)
+)
+
 type SubscriptionResponse struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params"`
 }
 
-type blockID interface {
+type BlockIdentifier interface {
+	IsLatest() bool
+	IsPending() bool
+	GetHash() *felt.Felt
+	GetNumber() uint64
 	UnmarshalJSON(data []byte) error
 }
 
@@ -41,6 +50,22 @@ type SubscriptionBlockID struct {
 	Latest bool
 	Hash   *felt.Felt
 	Number uint64
+}
+
+func (b *SubscriptionBlockID) IsLatest() bool {
+	return b.Latest
+}
+
+func (b *SubscriptionBlockID) IsPending() bool {
+	return false // Subscription blocks can't be pending
+}
+
+func (b *SubscriptionBlockID) GetHash() *felt.Felt {
+	return b.Hash
+}
+
+func (b *SubscriptionBlockID) GetNumber() uint64 {
+	return b.Number
 }
 
 func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
@@ -581,7 +606,7 @@ func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
 
 // resolveBlockRange returns the start and latest headers based on the blockID.
 // It will also do some sanity checks and return errors if the blockID is invalid.
-func (h *Handler) resolveBlockRange(id blockID) (*core.Header, *core.Header, *jsonrpc.Error) {
+func (h *Handler) resolveBlockRange(id BlockIdentifier) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, nil, ErrInternal.CloneWithData(err.Error())
@@ -591,15 +616,8 @@ func (h *Handler) resolveBlockRange(id blockID) (*core.Header, *core.Header, *js
 		return latestHeader, latestHeader, nil
 	}
 
-	switch id := id.(type) {
-	case *BlockID:
-		if id.Latest {
-			return latestHeader, latestHeader, nil
-		}
-	case *SubscriptionBlockID:
-		if id.Latest {
-			return latestHeader, latestHeader, nil
-		}
+	if id.IsLatest() {
+		return latestHeader, latestHeader, nil
 	}
 
 	startHeader, rpcErr := h.blockHeaderByID(id)
