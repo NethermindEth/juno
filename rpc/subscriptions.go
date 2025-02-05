@@ -650,11 +650,12 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 
 	subs := sub.(*subscription)
 	if !subs.conn.Equal(w) {
-		return false, nil
+		return false, ErrInvalidSubscriptionID
 	}
 
 	subs.cancel()
 	subs.wg.Wait() // Let the subscription finish before responding.
+	h.subscriptions.Delete(id)
 	return true, nil
 }
 

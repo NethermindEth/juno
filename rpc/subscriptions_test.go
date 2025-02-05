@@ -963,6 +963,107 @@ func TestSubscribePendingTxs(t *testing.T) {
 	})
 }
 
+func TestUnsubscribe(t *testing.T) {
+	log := utils.NewNopZapLogger()
+
+	t.Run("error when no connection in context", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		success, rpcErr := handler.Unsubscribe(context.Background(), 1)
+		assert.False(t, success)
+		assert.Equal(t, jsonrpc.Err(jsonrpc.MethodNotFound, nil), rpcErr)
+	})
+
+	t.Run("error when subscription ID doesn't exist", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		success, rpcErr := handler.Unsubscribe(ctx, 999)
+		assert.False(t, success)
+		assert.Equal(t, ErrInvalidSubscriptionID, rpcErr)
+	})
+
+	t.Run("return false when connection doesn't match", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		// Create original subscription
+		serverConn1, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn1.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   &fakeConn{w: serverConn1},
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		// Try to unsubscribe with different connection
+		serverConn2, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn2.Close())
+		})
+
+		unsubCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
+		success, rpcErr := handler.Unsubscribe(unsubCtx, 1)
+		assert.False(t, success)
+		assert.NotNil(t, rpcErr)
+	})
+
+	t.Run("successful unsubscribe", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		conn := &fakeConn{w: serverConn}
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, conn)
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   conn,
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		success, rpcErr := handler.Unsubscribe(subCtx, 1)
+		assert.True(t, success)
+		assert.Nil(t, rpcErr)
+
+		// Verify subscription was removed
+		_, exists := handler.subscriptions.Load(uint64(1))
+		assert.False(t, exists)
+	})
+}
+
 func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *websocket.Conn {
 	ws := jsonrpc.NewWebsocket(server, nil, utils.NewNopZapLogger())
 	httpSrv := httptest.NewServer(ws)
