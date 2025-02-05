@@ -207,7 +207,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(filteredEvents, nil, nil)
@@ -251,7 +251,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
@@ -301,7 +301,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler.pendingBlock = pendingFeed
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
@@ -327,7 +327,7 @@ func TestSubscribeEvents(t *testing.T) {
 		assert.Equal(t, string(resp), string(got))
 
 		// Pending block events, due to the use of mocks events which were sent before are resent.
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
@@ -342,7 +342,7 @@ func TestSubscribeEvents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(resp), string(got))
 
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
