@@ -200,11 +200,10 @@ func dbSize(cmd *cobra.Command, args []string) error {
 
 		withHistoryCount    uint
 		withoutHistoryCount uint
-
-		items [][]string
 	)
 
 	buckets := db.BucketValues()
+	items := make([][]string, 0, len(buckets)+3)
 	for _, b := range buckets {
 		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
 		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)}, true)

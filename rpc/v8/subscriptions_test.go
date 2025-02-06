@@ -163,7 +163,7 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
-	var emittedEvents []*EmittedEvent
+	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
 	for _, e := range filteredEvents {
 		emittedEvents = append(emittedEvents, &EmittedEvent{
 			Event: &Event{

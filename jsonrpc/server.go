@@ -620,7 +620,7 @@ func (s *Server) validateParam(param reflect.Value) error {
 			return err
 		}
 	case kind == reflect.Slice || kind == reflect.Array:
-		for i := 0; i < param.Len(); i++ {
+		for i := range param.Len() {
 			if err := s.validateParam(param.Index(i)); err != nil {
 				return err
 			}
