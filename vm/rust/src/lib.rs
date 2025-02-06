@@ -146,10 +146,10 @@ pub extern "C" fn cairoVMCall(
     let sierra_version =
         SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
     let initial_gas: u64 = if sierra_version < SierraVersion::new(1, 7, 0) {
-        version_constants.infinite_gas_for_vm_mode();
+        version_constants.infinite_gas_for_vm_mode()
     } else {
-        version_constants.os_constants.validate_max_sierra_gas.0;
-    }
+        version_constants.os_constants.validate_max_sierra_gas.0
+    };
     let contract_address =
         starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
 
