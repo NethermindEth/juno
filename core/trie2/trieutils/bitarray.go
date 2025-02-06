@@ -15,6 +15,7 @@ import (
 const (
 	maxUint64       = uint64(math.MaxUint64) // 0xFFFFFFFFFFFFFFFF
 	maxUint8        = uint8(math.MaxUint8)
+	bytes32         = 32
 	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
 )
 
@@ -456,7 +457,7 @@ func (b *BitArray) IsEmpty() bool {
 
 // Serialises the BitArray into a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
-// - Remaining bytes: the necessary bytes included in big endian order
+// - Remaining bytes: the necessary bytes included in big endian order, without leading zeros
 // Example:
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x0A, 0x03, 0xFF]
@@ -481,16 +482,17 @@ func (b *BitArray) UnmarshalBinary(data []byte) error {
 	}
 
 	length := data[0]
-	byteCount := (uint(length) + 7) / 8 // Round up to nearest byte
+	byteCount := (int(length) + 7) / 8 // Get the total number of bytes needed to represent the bit array
 
-	if len(data) < int(byteCount)+1 {
-		return fmt.Errorf("invalid data length: got %d bytes, expected %d", len(data), byteCount+1)
+	if len(data) > byteCount+1 {
+		return fmt.Errorf("invalid data length: got %d bytes, expected <= %d", len(data), byteCount+1)
 	}
 
 	b.len = length
 
 	var bs [32]byte
-	copy(bs[32-byteCount:], data[1:])
+	bitArrBytes := data[1:]
+	copy(bs[32-len(bitArrBytes):], bitArrBytes) // Fill up the non-zero bytes at the end of the byte array
 	b.setBytes32(bs[:])
 
 	return nil
@@ -715,14 +717,31 @@ func (b *BitArray) byteCount() uint {
 }
 
 // Returns a slice containing only the bytes that are actually used by the bit array,
-// as specified by the length. The returned slice is in big-endian order.
+// as specified by the length. Leading zero bytes will be removed.
+// The returned slice is in big-endian order.
 //
 // Example:
 //
 //	len = 10, words = [0x3FF, 0, 0, 0] -> [0x03, 0xFF]
 func (b *BitArray) activeBytes() []byte {
+	if b.len == 0 {
+		return nil
+	}
+
 	wordsBytes := b.Bytes()
-	return wordsBytes[32-b.byteCount():]
+	end := uint(bytes32)
+	start := end - b.byteCount()
+
+	// Find first non-zero byte
+	for start < end-1 && wordsBytes[start] == 0 {
+		start++
+	}
+
+	if start == end {
+		return nil
+	}
+
+	return wordsBytes[start:end]
 }
 
 func (b *BitArray) rsh64(x *BitArray) {
