@@ -120,7 +120,7 @@ func TestSimulateTransactions(t *testing.T) {
 			},
 			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
-				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability",
+				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 			)),
 		},
 	}
@@ -138,14 +138,22 @@ func TestSimulateTransactions(t *testing.T) {
 			test.mockBehavior(mockReader, mockVM, mockState)
 			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
-			simulatedTxs, httpHeader, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, test.simulationFlags)
+			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
+				rpc.BlockID{Latest: true},
+				[]rpc.BroadcastedTransaction{},
+				test.simulationFlags,
+			)
 			if test.err != nil {
 				require.Equal(t, test.err, err)
 				require.Nil(t, simulatedTxs)
 				return
 			}
 			require.Nil(t, err)
-			require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), strconv.FormatUint(test.stepsUsed, 10))
+			require.Equal(
+				t,
+				httpHeader.Get(rpc.ExecutionStepsHeader),
+				strconv.FormatUint(test.stepsUsed, 10),
+			)
 			require.Equal(t, test.simulatedTxs, simulatedTxs)
 		})
 	}
