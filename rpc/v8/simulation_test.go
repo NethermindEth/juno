@@ -149,26 +149,4 @@ func TestSimulateTransactions(t *testing.T) {
 			require.Equal(t, test.simulatedTxs, simulatedTxs)
 		})
 	}
-
-	//	t.Run("ok with non-zero values", func(t *testing.T) {
-	//		mockCtrl := gomock.NewController(t)
-	//		defer mockCtrl.Finish()
-	//
-	//		mockReader := mocks.NewMockReader(mockCtrl)
-	//		mockVM := mocks.NewMockVM(mockCtrl)
-	//		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	//
-	//		client := feeder.NewTestClient(t, &utils.Integration)
-	//		integGw := adaptfeeder.New(client)
-	//
-	//		block, err := integGw.BlockByNumber(context.Background(), 319132)
-	//		require.NoError(t, err)
-	//
-	//		txn := block.Transactions[index]
-	//		broadcastedTx := rpc.BroadcastedTransaction{
-	//	Transaction: txn,
-	//
-	// PaidFeeOnL1: &felt.Felt{Value: felt.NewBigInt(1)},
-	//
-	//	})
 }
