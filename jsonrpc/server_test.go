@@ -181,6 +181,18 @@ func TestHandle(t *testing.T) {
 				return 0, nil
 			},
 		},
+		{
+			Name: "multipleOptionalParams",
+			Params: []jsonrpc.Parameter{
+				{Name: "param1"},
+				{Name: "param2"},
+				{Name: "param3", Optional: true},
+				{Name: "param4", Optional: true},
+			},
+			Handler: func(param1 *int, param2 []int, param3 *int, param4 []int) (int, *jsonrpc.Error) {
+				return 0, nil
+			},
+		},
 	}
 
 	listener := CountingEventListener{}
@@ -217,10 +229,6 @@ func TestHandle(t *testing.T) {
 		"no params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "id" : 5}`,
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing non-optional param field"},"id":5}`,
-		},
-		"missing param(s)": {
-			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false] , "id" : 3}`,
-			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"missing/unexpected params in list"},"id":3}`,
 		},
 		"too many params": {
 			req: `{"jsonrpc" : "2.0", "method" : "method", "params" : [3, false, "error message", "too many"] , "id" : 3}`,
@@ -488,6 +496,14 @@ func TestHandle(t *testing.T) {
 		},
 		"null optional param": {
 			req: `{"jsonrpc": "2.0", "method": "singleOptionalParam", "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"empty multiple optional params": {
+			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3]}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
+		},
+		"empty multiple optional positional params": {
+			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": [1, [2, 3]], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
 	}
