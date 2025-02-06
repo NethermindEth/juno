@@ -32,11 +32,11 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version    string
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
-	l1Heads    *feed.Feed[*core.L1Head]
+	version      string
+	newHeads     *feed.Feed[*core.Header]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	mu            stdsync.Mutex // protects subscriptions.
@@ -75,11 +75,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:    version,
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
-		l1Heads:    feed.New[*core.L1Head](),
+		version:      version,
+		newHeads:     feed.New[*core.Header](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pendingBlock: feed.New[*core.Block](),
+		l1Heads:      feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -122,15 +122,15 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
+	pendingBlock := h.syncReader.SubscribePending().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingTxsSub.Unsubscribe()
+	defer pendingBlock.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingTxsSub, h.pendingTxs)
+	feed.Tee(pendingBlock, h.pendingBlock)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()

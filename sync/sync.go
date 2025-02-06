@@ -46,6 +46,10 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
+type PendingSubscription struct {
+	*feed.Subscription[*core.Block]
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -66,7 +70,7 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() HeaderSubscription
 	SubscribeReorg() ReorgSubscription
-	SubscribePendingTxs() PendingTxSubscription
+	SubscribePending() PendingSubscription
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
@@ -92,8 +96,8 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePendingTxs() PendingTxSubscription {
-	return PendingTxSubscription{feed.New[[]core.Transaction]().Subscribe()}
+func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
+	return PendingSubscription{feed.New[*core.Block]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
@@ -118,7 +122,7 @@ type Synchronizer struct {
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Header]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
-	pendingTxsFeed      *feed.Feed[[]core.Transaction]
+	pendingFeed         *feed.Feed[*core.Block]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -141,7 +145,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		log:                 log,
 		newHeads:            feed.New[*core.Header](),
 		reorgFeed:           feed.New[*ReorgBlockRange](),
-		pendingTxsFeed:      feed.New[[]core.Transaction](),
+		pendingFeed:         feed.New[*core.Block](),
 		pendingPollInterval: pendingPollInterval,
 		listener:            &SelectiveListener{},
 		readOnlyBlockchain:  readOnlyBlockchain,
@@ -593,8 +597,8 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePendingTxs() PendingTxSubscription {
-	return PendingTxSubscription{s.pendingTxsFeed.Subscribe()}
+func (s *Synchronizer) SubscribePending() PendingSubscription {
+	return PendingSubscription{s.pendingFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -626,8 +630,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 	}
 	s.pending.Store(p)
 
-	// send the pending transactions to the feed
-	s.pendingTxsFeed.Send(p.Block.Transactions)
+	s.pendingFeed.Send(p.Block)
 
 	return nil
 }

@@ -68,6 +68,22 @@ type BlockID struct {
 	Number  uint64
 }
 
+func (b *BlockID) IsLatest() bool {
+	return b.Latest
+}
+
+func (b *BlockID) IsPending() bool {
+	return b.Pending
+}
+
+func (b *BlockID) GetHash() *felt.Felt {
+	return b.Hash
+}
+
+func (b *BlockID) GetNumber() uint64 {
+	return b.Number
+}
+
 func (b *BlockID) UnmarshalJSON(data []byte) error {
 	if string(data) == `"latest"` {
 		b.Latest = true
