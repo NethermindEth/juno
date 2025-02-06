@@ -120,12 +120,9 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }
 
-// unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
 func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 	sub.cancel()
-	h.mu.Lock()
-	delete(h.subscriptions, id)
-	h.mu.Unlock()
+	h.subscriptions.Delete(id)
 }
 
 func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID, latestHeight uint64) error {

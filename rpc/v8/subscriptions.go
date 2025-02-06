@@ -63,9 +63,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		cancel: subscriptionCtxCancel,
 		conn:   w,
 	}
-	h.mu.Lock()
-	h.subscriptions[id] = sub
-	h.mu.Unlock()
+	h.subscriptions.Store(id, sub)
 
 	headerSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
@@ -156,9 +154,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 		cancel: subscriptionCtxCancel,
 		conn:   w,
 	}
-	h.mu.Lock()
-	h.subscriptions[id] = sub
-	h.mu.Unlock()
+	h.subscriptions.Store(id, sub)
 
 	l2HeadSub := h.newHeads.Subscribe()
 	l1HeadSub := h.l1Heads.Subscribe()
@@ -352,9 +348,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *BlockID) (*Sub
 		cancel: subscriptionCtxCancel,
 		conn:   w,
 	}
-	h.mu.Lock()
-	h.subscriptions[id] = sub
-	h.mu.Unlock()
+	h.subscriptions.Store(id, sub)
 
 	headerSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the new heads subscription
@@ -407,9 +401,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 		cancel: subscriptionCtxCancel,
 		conn:   w,
 	}
-	h.mu.Lock()
-	h.subscriptions[id] = sub
-	h.mu.Unlock()
+	h.subscriptions.Store(id, sub)
 
 	pendingTxsSub := h.pendingTxs.Subscribe()
 	sub.wg.Go(func() {
@@ -652,14 +644,19 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	if !ok {
 		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
-	h.mu.Lock()
-	sub, ok := h.subscriptions[id]
-	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
-	if !ok || !sub.conn.Equal(w) {
+	sub, ok := h.subscriptions.Load(id)
+	if !ok {
 		return false, rpccore.ErrInvalidSubscriptionID
 	}
-	sub.cancel()
-	sub.wg.Wait() // Let the subscription finish before responding.
+
+	subs := sub.(*subscription)
+	if !subs.conn.Equal(w) {
+		return false, rpccore.ErrInvalidSubscriptionID
+	}
+
+	subs.cancel()
+	subs.wg.Wait() // Let the subscription finish before responding.
+	h.subscriptions.Delete(id)
 	return true, nil
 }
 
