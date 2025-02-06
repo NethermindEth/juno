@@ -72,30 +72,6 @@ func TestSubscribeEvents(t *testing.T) {
 		assert.Equal(t, ErrTooManyKeysInFilter, rpcErr)
 	})
 
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &BlockID{Pending: true}
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
-	})
-
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -106,7 +82,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &BlockID{Number: 0}
+		blockID := &SubscriptionBlockID{Number: 0}
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -162,7 +138,7 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
-	var emittedEvents []*EmittedEvent
+	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
 	for _, e := range filteredEvents {
 		emittedEvents = append(emittedEvents, &EmittedEvent{
 			Event: &Event{
@@ -175,6 +151,50 @@ func TestSubscribeEvents(t *testing.T) {
 			TransactionHash: e.TransactionHash,
 		})
 	}
+
+	t.Run("Events from new blocks", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+
+		handler := New(mockChain, mockSyncer, nil, "", log)
+		newHeadFeed := feed.New[*core.Header]()
+		handler.newHeads = newHeadFeed
+
+		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
+		mockEventFilterer.EXPECT().Close().AnyTimes()
+
+		serverConn, clientConn := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+			require.NoError(t, clientConn.Close())
+		})
+
+		ctx, cancel := context.WithCancel(context.Background())
+		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
+		require.Nil(t, rpcErr)
+
+		newHeadFeed.Send(&core.Header{Number: b1.Number})
+
+		resp, err := marshalSubEventsResp(emittedEvents[0], id.ID)
+		require.NoError(t, err)
+
+		got := make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, string(resp), string(got))
+
+		cancel()
+		time.Sleep(100 * time.Millisecond)
+	})
 
 	t.Run("Events from old blocks", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -201,7 +221,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &BlockID{Number: b1.Number})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
 		require.Nil(t, rpcErr)
 
 		var marshalledResponses [][]byte
@@ -249,7 +269,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &BlockID{Number: b1.Number})
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
 		require.Nil(t, rpcErr)
 
 		var marshalledResponses [][]byte
@@ -268,7 +288,7 @@ func TestSubscribeEvents(t *testing.T) {
 		cancel()
 	})
 
-	t.Run("Events from new blocks", func(t *testing.T) {
+	t.Run("Events from pending block without duplicates", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -277,8 +297,8 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
-		headerFeed := feed.New[*core.Header]()
-		handler.newHeads = headerFeed
+		pendingFeed := feed.New[*core.Block]()
+		handler.pendingBlock = pendingFeed
 
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
@@ -306,14 +326,31 @@ func TestSubscribeEvents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(resp), string(got))
 
+		// Pending block events, due to the use of mocks events which were sent before are resent.
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
 
-		headerFeed.Send(&core.Header{Number: b1.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
 
 		resp, err = marshalSubEventsResp(emittedEvents[1], id.ID)
+		require.NoError(t, err)
+
+		got = make([]byte, len(resp))
+		_, err = clientConn.Read(got)
+		require.NoError(t, err)
+		assert.Equal(t, string(resp), string(got))
+
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
+			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
+
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
+
+		resp, err = marshalSubEventsResp(emittedEvents[0], id.ID)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
@@ -341,7 +378,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 
@@ -352,48 +388,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		assert.Nil(t, id)
 		assert.Equal(t, ErrTxnHashNotFound, rpcErr)
-	})
-
-	t.Run("Return error if block is too far back", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		blockID := &BlockID{Number: 0}
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		// Note the end of the window doesn't need to be tested because if requested block number is more than the
-		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
-		// don't need to test it here again.
-		t.Run("head is 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
-
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
-			assert.Zero(t, id)
-			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
-		})
-
-		t.Run("head is more than 1024", func(t *testing.T) {
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
-
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, blockID)
-			assert.Zero(t, id)
-			assert.Equal(t, ErrTooManyBlocksBack, rpcErr)
-		})
 	})
 
 	t.Run("Transaction status is final", func(t *testing.T) {
@@ -416,13 +413,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1111")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusRejected.MarshalText()
@@ -447,13 +443,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1010")
 			require.NoError(t, err)
 
-			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1}, nil)
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 			require.Nil(t, rpcErr)
 
 			b, err := TxnStatusAcceptedOnL1.MarshalText()
@@ -478,9 +473,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
-		l2Feed := feed.New[*core.Header]()
+		pendingFeed := feed.New[*core.Block]()
 		l1Feed := feed.New[*core.L1Head]()
-		handler.newHeads = l2Feed
+		handler.pendingBlock = pendingFeed
 		handler.l1Heads = l1Feed
 
 		block, err := gw.BlockByNumber(context.Background(), 38748)
@@ -496,13 +491,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		txHash, err := new(felt.Felt).SetString("0x1001")
 		require.NoError(t, err)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: block.Number}, nil)
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash, nil)
+		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
 		require.Nil(t, rpcErr)
 
 		b, err := TxnStatusReceived.MarshalText()
@@ -518,7 +512,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		l2Feed.Send(&core.Header{Number: block.Number + 1})
+		pendingFeed.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
 
 		b, err = TxnStatusAcceptedOnL2.MarshalText()
 		require.NoError(t, err)
@@ -550,16 +544,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
+	newHeads *feed.Feed[*core.Header]
+	reorgs   *feed.Feed[*sync.ReorgBlockRange]
+	pending  *feed.Feed[*core.Block]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
+		newHeads: feed.New[*core.Header](),
+		reorgs:   feed.New[*sync.ReorgBlockRange](),
+		pending:  feed.New[*core.Block](),
 	}
 }
 
@@ -571,8 +565,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePendingTxs() sync.PendingTxSubscription {
-	return sync.PendingTxSubscription{Subscription: fs.pendingTxs.Subscribe()}
+func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
+	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
@@ -590,26 +584,6 @@ func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { r
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
-	t.Run("Return error if called on pending block", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
-
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, "", log)
-
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
-
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeNewHeads(subCtx, &BlockID{Pending: true})
-		assert.Zero(t, id)
-		assert.Equal(t, ErrCallOnPending, rpcErr)
-	})
-
 	t.Run("Return error if block is too far back", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
@@ -618,7 +592,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		blockID := &BlockID{Number: 0}
+		blockID := &SubscriptionBlockID{Number: 0}
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -899,12 +873,14 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
@@ -939,14 +915,16 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-			&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-			&core.DeployTransaction{TransactionHash: hash3},
-			&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-			&core.L1HandlerTransaction{TransactionHash: hash5},
-			&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-			&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+				&core.DeployTransaction{TransactionHash: hash3},
+				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+				&core.L1HandlerTransaction{TransactionHash: hash5},
+				&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+				&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+			},
 		})
 
 		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
@@ -965,21 +943,23 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
-		syncer.pendingTxs.Send([]core.Transaction{
-			&core.InvokeTransaction{
-				TransactionHash:       new(felt.Felt).SetUint64(1),
-				CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-				TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-				MaxFee:                new(felt.Felt).SetUint64(4),
-				ContractAddress:       new(felt.Felt).SetUint64(5),
-				Version:               new(core.TransactionVersion).SetUint64(3),
-				EntryPointSelector:    new(felt.Felt).SetUint64(6),
-				Nonce:                 new(felt.Felt).SetUint64(7),
-				SenderAddress:         new(felt.Felt).SetUint64(8),
-				ResourceBounds:        map[core.Resource]core.ResourceBounds{},
-				Tip:                   9,
-				PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-				AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+		syncer.pending.Send(&core.Block{
+			Transactions: []core.Transaction{
+				&core.InvokeTransaction{
+					TransactionHash:       new(felt.Felt).SetUint64(1),
+					CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
+					TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+					MaxFee:                new(felt.Felt).SetUint64(4),
+					ContractAddress:       new(felt.Felt).SetUint64(5),
+					Version:               new(core.TransactionVersion).SetUint64(3),
+					EntryPointSelector:    new(felt.Felt).SetUint64(6),
+					Nonce:                 new(felt.Felt).SetUint64(7),
+					SenderAddress:         new(felt.Felt).SetUint64(8),
+					ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+					Tip:                   9,
+					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
+				},
 			},
 		})
 
@@ -1003,6 +983,107 @@ func TestSubscribePendingTxs(t *testing.T) {
 		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
 		assert.Zero(t, id)
 		assert.Equal(t, ErrTooManyAddressesInFilter, rpcErr)
+	})
+}
+
+func TestUnsubscribe(t *testing.T) {
+	log := utils.NewNopZapLogger()
+
+	t.Run("error when no connection in context", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		success, rpcErr := handler.Unsubscribe(context.Background(), 1)
+		assert.False(t, success)
+		assert.Equal(t, jsonrpc.Err(jsonrpc.MethodNotFound, nil), rpcErr)
+	})
+
+	t.Run("error when subscription ID doesn't exist", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		success, rpcErr := handler.Unsubscribe(ctx, 999)
+		assert.False(t, success)
+		assert.Equal(t, ErrInvalidSubscriptionID, rpcErr)
+	})
+
+	t.Run("return false when connection doesn't match", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		// Create original subscription
+		serverConn1, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn1.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   &fakeConn{w: serverConn1},
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		// Try to unsubscribe with different connection
+		serverConn2, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn2.Close())
+		})
+
+		unsubCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
+		success, rpcErr := handler.Unsubscribe(unsubCtx, 1)
+		assert.False(t, success)
+		assert.NotNil(t, rpcErr)
+	})
+
+	t.Run("successful unsubscribe", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		conn := &fakeConn{w: serverConn}
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, conn)
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   conn,
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		success, rpcErr := handler.Unsubscribe(subCtx, 1)
+		assert.True(t, success)
+		assert.Nil(t, rpcErr)
+
+		// Verify subscription was removed
+		_, exists := handler.subscriptions.Load(uint64(1))
+		assert.False(t, exists)
 	})
 }
 

@@ -133,7 +133,7 @@ func BenchmarkPedersenArray(b *testing.B) {
 			randomFeltSls := genRandomFeltSls(b, i)
 			var f *felt.Felt
 			b.ResetTimer()
-			for n := 0; n < b.N; n++ {
+			for n := range b.N {
 				f = crypto.PedersenArray(randomFeltSls[n]...)
 			}
 			benchHashR = f
@@ -145,15 +145,15 @@ func BenchmarkPedersen(b *testing.B) {
 	randFelts := genRandomFeltPairs(b)
 	var f *felt.Felt
 	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
+	for n := range b.N {
 		f = crypto.Pedersen(randFelts[n][0], randFelts[n][1])
 	}
 	benchHashR = f
 }
 
 func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
-	var randomFeltSls [][]*felt.Felt
-	for j := 0; j < b.N; j++ {
+	randomFeltSls := make([][]*felt.Felt, 0, b.N)
+	for range b.N {
 		randomFeltSls = append(randomFeltSls, genRandomFelts(b, n))
 	}
 	return randomFeltSls
@@ -161,8 +161,8 @@ func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
 
 func genRandomFelts(b *testing.B, n int) []*felt.Felt {
 	b.Helper()
-	var felts []*felt.Felt
-	for i := 0; i < n; i++ {
+	felts := make([]*felt.Felt, 0, n)
+	for range n {
 		f, err := new(felt.Felt).SetRandom()
 		require.NoError(b, err)
 		felts = append(felts, f)
@@ -174,7 +174,7 @@ func genRandomFeltPairs(b *testing.B) [][2]*felt.Felt {
 	b.Helper()
 	var err error
 	randFelts := make([][2]*felt.Felt, b.N)
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		randFelts[i][0], err = new(felt.Felt).SetRandom()
 		require.NoError(b, err)
 		randFelts[i][1], err = new(felt.Felt).SetRandom()

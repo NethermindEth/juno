@@ -8,10 +8,10 @@ require (
 	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
 	github.com/bits-and-blooms/bitset v1.20.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
-	github.com/cockroachdb/pebble v1.1.3
+	github.com/cockroachdb/pebble v1.1.4
 	github.com/coder/websocket v1.8.12
-	github.com/consensys/gnark-crypto v0.15.0
-	github.com/ethereum/go-ethereum v1.14.12
+	github.com/consensys/gnark-crypto v0.16.0
+	github.com/ethereum/go-ethereum v1.14.13
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.24.0
 	github.com/jinzhu/copier v0.4.0
@@ -26,7 +26,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/automaxprocs v1.6.0

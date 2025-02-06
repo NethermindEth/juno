@@ -70,7 +70,6 @@ var (
 	ErrInvalidSubscriptionID           = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
 	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
-	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 )
 
 const (
@@ -93,15 +92,14 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version    string
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
-	l1Heads    *feed.Feed[*core.L1Head]
+	version      string
+	newHeads     *feed.Feed[*core.Header]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
-	mu            stdsync.Mutex // protects subscriptions.
-	subscriptions map[uint64]*subscription
+	subscriptions stdsync.Map // map[uint64]*subscription
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
@@ -136,12 +134,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		reorgs:        feed.New[*sync.ReorgBlockRange](),
-		pendingTxs:    feed.New[[]core.Transaction](),
-		l1Heads:       feed.New[*core.L1Head](),
-		subscriptions: make(map[uint64]*subscription),
+		version:      version,
+		newHeads:     feed.New[*core.Header](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pendingBlock: feed.New[*core.Block](),
+		l1Heads:      feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -183,21 +180,24 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	pendingBlock := h.syncReader.SubscribePending().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingTxsSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+	defer pendingBlock.Unsubscribe()
+
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingTxsSub, h.pendingTxs)
 	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(pendingBlock, h.pendingBlock)
 
 	<-ctx.Done()
-	for _, sub := range h.subscriptions {
+	h.subscriptions.Range(func(key, value any) bool {
+		sub := value.(*subscription)
 		sub.wg.Wait()
-	}
+		return true
+	})
 	return nil
 }
 
@@ -275,6 +275,16 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
+		},
+		{
+			Name: "starknet_getStorageProof",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "class_hashes", Optional: true},
+				{Name: "contract_addresses", Optional: true},
+				{Name: "contracts_storage_keys", Optional: true},
+			},
+			Handler: h.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",
@@ -366,7 +376,7 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_subscribeTransactionStatus",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}, {Name: "block_id", Optional: true}},
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
@@ -464,16 +474,6 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
-		},
-		{
-			Name: "starknet_getStorageProof",
-			Params: []jsonrpc.Parameter{
-				{Name: "block_id"},
-				{Name: "class_hashes", Optional: true},
-				{Name: "contract_addresses", Optional: true},
-				{Name: "contracts_storage_keys", Optional: true},
-			},
-			Handler: h.StorageProof,
 		},
 		{
 			Name:    "starknet_getClassHashAt",

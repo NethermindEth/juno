@@ -52,7 +52,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 	numberOfContracts := 5
 
 	// Populate the database with entries in the old location.
-	for i := 0; i < numberOfContracts; i++ {
+	for i := range numberOfContracts {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 		// Use exampleBytes for the key suffix (the contract address) and the value.
 		err := txn.Set(db.Peer.Key(exampleBytes[:]), exampleBytes[:])
@@ -63,7 +63,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
-	for i := 0; i < numberOfContracts; i++ {
+	for i := range numberOfContracts {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
@@ -85,7 +85,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(context.Background(), i)
@@ -99,7 +99,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		return recalculateBloomFilters(txn, &utils.Mainnet)
 	}))
 
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := chain.BlockByNumber(i)
 		require.NoError(t, err)
 		assert.Equal(t, core.EventsBloom(b.Receipts), b.EventsBloom)
@@ -193,7 +193,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(context.Background(), i)
@@ -204,7 +204,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
 		return calculateBlockCommitments(txn, &utils.Mainnet)
 	}))
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := chain.BlockCommitmentsByNumber(i)
 		require.NoError(t, err)
 		assert.NotNil(t, b.TransactionCommitment)
@@ -217,7 +217,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i <= 6; i++ { // First l1 handler txn is in block 6
+	for i := range uint64(7) { // First l1 handler txn is in block 6
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(context.Background(), i)

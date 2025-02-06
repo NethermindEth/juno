@@ -342,7 +342,7 @@ func TestPrefixSearch(t *testing.T) {
 
 		assert.Equal(t, len(expectedKeys), len(entries))
 
-		for i := 0; i < len(entries); i++ {
+		for i := range entries {
 			assert.Contains(t, expectedKeys, entries[i].key)
 		}
 

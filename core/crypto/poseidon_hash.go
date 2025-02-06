@@ -45,7 +45,7 @@ func round(state []felt.Felt, full bool, index int) {
 func HadesPermutation(state []felt.Felt) {
 	initialiseRoundKeys.Do(setRoundKeys)
 	totalRounds := fullRounds + partialRounds
-	for i := 0; i < totalRounds; i++ {
+	for i := range totalRounds {
 		full := (i < fullRounds/2) || (totalRounds-i <= fullRounds/2)
 		round(state, full, i)
 	}
@@ -74,7 +74,7 @@ var one = new(felt.Felt).SetUint64(1)
 func PoseidonArray(elems ...*felt.Felt) *felt.Felt {
 	state := []felt.Felt{{}, {}, {}}
 
-	for i := 0; i < len(elems)/2; i++ {
+	for i := range len(elems) / 2 {
 		state[0].Add(&state[0], elems[2*i])
 		state[1].Add(&state[1], elems[2*i+1])
 		HadesPermutation(state)
