@@ -1,10 +1,12 @@
 package rpc
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -111,4 +113,41 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	simTxs, err = createSimulatedTransactions(vm.ExecutionResults{}, []core.Transaction{}, header)
 	require.NoError(t, err)
 	require.Empty(t, simTxs)
+}
+
+func TestHandleExecutionError(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		jsonRPCError *jsonrpc.Error
+	}{
+		{
+			name:         "Resource Busy Error",
+			err:          utils.ErrResourceBusy,
+			jsonRPCError: ErrInternal.CloneWithData(throttledVMErr),
+		},
+		{
+			name: "Transaction Execution Error",
+			err: &vm.TransactionExecutionError{
+				Index: 0,
+				Cause: errors.New("some error"),
+			},
+			jsonRPCError: &jsonrpc.Error{
+				Code:    ErrUnexpectedError.Code,
+				Message: ErrUnexpectedError.Message,
+				Data:    "execute transaction #0: some error",
+			},
+		},
+		{
+			name:         "Unexpected Error",
+			err:          errors.New("unexpected error"),
+			jsonRPCError: ErrUnexpectedError.CloneWithData("unexpected error"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, test.jsonRPCError, handleExecutionError(test.err))
+		})
+	}
 }
