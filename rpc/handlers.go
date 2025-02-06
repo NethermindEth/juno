@@ -70,7 +70,6 @@ var (
 	ErrInvalidSubscriptionID           = &jsonrpc.Error{Code: 66, Message: "Invalid subscription id"}
 	ErrTooManyAddressesInFilter        = &jsonrpc.Error{Code: 67, Message: "Too many addresses in filter sender_address filter"}
 	ErrTooManyBlocksBack               = &jsonrpc.Error{Code: 68, Message: fmt.Sprintf("Cannot go back more than %v blocks", maxBlocksBack)}
-	ErrCallOnPending                   = &jsonrpc.Error{Code: 69, Message: "This method does not support being called on the pending block"}
 )
 
 const (
@@ -93,11 +92,11 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version    string
-	newHeads   *feed.Feed[*core.Header]
-	reorgs     *feed.Feed[*sync.ReorgBlockRange]
-	pendingTxs *feed.Feed[[]core.Transaction]
-	l1Heads    *feed.Feed[*core.L1Head]
+	version      string
+	newHeads     *feed.Feed[*core.Header]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
@@ -135,11 +134,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:    version,
-		newHeads:   feed.New[*core.Header](),
-		reorgs:     feed.New[*sync.ReorgBlockRange](),
-		pendingTxs: feed.New[[]core.Transaction](),
-		l1Heads:    feed.New[*core.L1Head](),
+		version:      version,
+		newHeads:     feed.New[*core.Header](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pendingBlock: feed.New[*core.Block](),
+		l1Heads:      feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -181,16 +180,17 @@ func (h *Handler) WithGateway(gatewayClient Gateway) *Handler {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingTxsSub := h.syncReader.SubscribePendingTxs().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	pendingBlock := h.syncReader.SubscribePending().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingTxsSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+	defer pendingBlock.Unsubscribe()
+
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingTxsSub, h.pendingTxs)
 	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(pendingBlock, h.pendingBlock)
 
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {
