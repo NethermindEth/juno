@@ -562,7 +562,7 @@ func BenchmarkHandle(b *testing.B) {
 	var header http.Header
 	var err error
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, header, err = server.HandleReader(context.Background(), strings.NewReader(request))
 		require.NoError(b, err)
 		require.NotNil(b, header)

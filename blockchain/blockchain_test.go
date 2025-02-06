@@ -331,7 +331,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 
@@ -363,7 +363,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
-		for i := uint64(0); i < 3; i++ {
+		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
 				block, err := gw.BlockByNumber(context.Background(), i)
 				require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
-		for i := uint64(0); i < 3; i++ {
+		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
 				block, err := gw.BlockByNumber(context.Background(), i)
 				require.NoError(t, err)
@@ -399,7 +399,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 
 	t.Run("BlockCommitments returns expected values", func(t *testing.T) {
-		for i := uint64(0); i < 3; i++ {
+		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
 				commitments, err := chain.BlockCommitmentsByNumber(i)
 				require.NoError(t, err)
@@ -425,7 +425,7 @@ func TestState(t *testing.T) {
 	})
 
 	var existingBlockHash *felt.Felt
-	for i := uint64(0); i < 2; i++ {
+	for i := range uint64(2) {
 		block, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 		su, err := gw.StateUpdate(context.Background(), i)
@@ -546,7 +546,7 @@ func TestEvents(t *testing.T) {
 				var accEvents []*blockchain.FilteredEvent
 				var lastToken *blockchain.ContinuationToken
 				var gotEvents []*blockchain.FilteredEvent
-				for i := 0; i < len(allEvents)+1; i++ {
+				for range len(allEvents) + 1 {
 					gotEvents, lastToken, err = filter.Events(lastToken, chunkSize)
 					require.NoError(t, err)
 					accEvents = append(accEvents, gotEvents...)
@@ -603,7 +603,7 @@ func TestRevert(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	for i := uint64(0); i < 3; i++ {
+	for i := range uint64(3) {
 		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
 

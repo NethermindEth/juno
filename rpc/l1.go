@@ -90,7 +90,7 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		return nil, ErrTxnHashNotFound
 	}
 
-	var messageHashes []*common.Hash
+	messageHashes := make([]*common.Hash, 0, len(receipt.Logs))
 	for _, vLog := range receipt.Logs {
 		if common.HexToHash(vLog.Topics[0].Hex()).Cmp(logMsgToL2SigHash) != 0 {
 			continue

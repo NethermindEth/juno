@@ -70,7 +70,7 @@ func BenchmarkVerify(b *testing.B) {
 	var verified bool
 	var err error
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		verified, err = publicKey.Verify(&signature, msg)
 		require.NoError(b, err)
 	}

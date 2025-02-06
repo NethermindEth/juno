@@ -677,7 +677,7 @@ network: sepolia
 			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
 
 			if len(tc.env) > 0 {
-				for i := 0; i < len(tc.env)/2; i++ {
+				for i := range len(tc.env) / 2 {
 					require.NoError(t, os.Setenv(tc.env[2*i], tc.env[2*i+1]))
 				}
 			}
@@ -695,7 +695,7 @@ network: sepolia
 
 			assert.Equal(t, tc.expectedConfig, config)
 			if len(tc.env) > 0 {
-				for i := 0; i < len(tc.env)/2; i++ {
+				for i := range len(tc.env) / 2 {
 					require.NoError(t, os.Unsetenv(tc.env[2*i]))
 				}
 			}
