@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
@@ -700,6 +701,62 @@ func TestBlockWithReceipts(t *testing.T) {
 			},
 			Transactions: transactions,
 		}, resp)
+	})
+}
+
+func TestGetNodesFromRoot(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
+	var (
+		key    = new(felt.Felt).SetUint64(1)
+		key2   = new(felt.Felt).SetUint64(8)
+		key3   = new(felt.Felt).SetUint64(2)
+		value  = new(felt.Felt).SetUint64(51)
+		value2 = new(felt.Felt).SetUint64(58)
+		value3 = new(felt.Felt).SetUint64(60)
+	)
+
+	tempTrie := emptyTrie(t)
+	_, _ = tempTrie.Put(key, value)
+	_, _ = tempTrie.Put(key2, value2)
+	_, _ = tempTrie.Put(key3, value3)
+	_ = tempTrie.Commit()
+
+	t.Run("node exists and function returns storage nodes on path", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil)
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+
+		nodeKey := new(felt.Felt).SetUint64(2)
+		storageNodes, rpcErr := handler.GetNodesFromRoot(*nodeKey)
+
+		require.Nil(t, rpcErr)
+
+		require.Equal(t, 3, len(storageNodes))
+
+		// root of trie
+		storageNode1Key := tempTrie.RootKey()
+		storageNode1Value, _ := tempTrie.GetNodeFromKey(storageNode1Key)
+		storageNode1 := trie.NewStorageNode(storageNode1Key, storageNode1Value)
+
+		// intermediate node
+		storageNode2Key := trie.NewBitArray(249, 0)
+		storageNode2Value, _ := tempTrie.GetNodeFromKey(&storageNode2Key)
+		storageNode2 := trie.NewStorageNode(&storageNode2Key, storageNode2Value)
+
+		// leaf
+		storageNode3Key := tempTrie.FeltToKey(key3)
+		storageNode3Value, _ := tempTrie.GetNodeFromKey(&storageNode3Key)
+		storageNode3 := trie.NewStorageNode(&storageNode3Key, storageNode3Value)
+
+		require.Equal(t, storageNode1, &storageNodes[0])
+		require.Equal(t, storageNode2, &storageNodes[1])
+		require.Equal(t, storageNode3, &storageNodes[2])
 	})
 }
 

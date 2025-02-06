@@ -218,10 +218,10 @@ func (s *StorageNodeSet) Size() int {
 	return s.set.Size()
 }
 
-// nodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
+// NodesFromRoot enumerates the set of [Node] objects that need to be traversed from the root
 // of the Trie to the node which is given by the key.
 // The [storageNode]s are returned in descending order beginning with the root.
-func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
+func (t *Trie) NodesFromRoot(key *BitArray) ([]StorageNode, error) {
 	var nodes []StorageNode
 	cur := t.rootKey
 	for cur != nil {
@@ -411,7 +411,7 @@ func (t *Trie) Put(key, value *felt.Felt) (*felt.Felt, error) {
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	nodes, err := t.NodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +462,7 @@ func (t *Trie) PutWithProof(key, value *felt.Felt, proof []*StorageNode) (*felt.
 		return oldValue, err
 	}
 
-	nodes, err := t.nodesFromRoot(&nodeKey) // correct for key,value
+	nodes, err := t.NodesFromRoot(&nodeKey) // correct for key,value
 	if err != nil {
 		return nil, err
 	}

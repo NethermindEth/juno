@@ -404,6 +404,11 @@ func (h *Handler) Methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.GetMessageStatus,
 		},
+		{
+			Name:    "juno_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "node_key"}},
+			Handler: h.GetNodesFromRoot,
+		},
 	}, "/v0_8"
 }
 

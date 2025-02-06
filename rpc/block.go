@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 
@@ -257,6 +258,29 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		BlockHeader:  adaptBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
 	}, nil
+}
+
+func (h *Handler) GetNodesFromRoot(key felt.Felt) ([]trie.StorageNode, *jsonrpc.Error) {
+	stateReader, stateCloser, stateReaderErr := h.bcReader.HeadState()
+	defer stateCloser()
+
+	if stateReaderErr != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, stateReaderErr)
+	}
+
+	classTrie, classTrieErr := stateReader.ClassTrie()
+	if classTrieErr != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, classTrieErr)
+	}
+
+	nodeKeyBitArray := classTrie.FeltToKey(&key)
+
+	storageNodes, nodesFromRootErr := classTrie.NodesFromRoot(&nodeKeyBitArray)
+	if nodesFromRootErr != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, nodesFromRootErr)
+	}
+
+	return storageNodes, nil
 }
 
 // BlockWithTxs returns the block information with full transactions given a block ID.

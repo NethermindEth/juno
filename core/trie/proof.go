@@ -67,7 +67,7 @@ func (e *Edge) String() string {
 func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := t.FeltToKey(key)
 
-	nodesFromRoot, err := t.nodesFromRoot(&k)
+	nodesFromRoot, err := t.NodesFromRoot(&k)
 	if err != nil {
 		return err
 	}
