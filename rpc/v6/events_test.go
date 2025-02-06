@@ -111,7 +111,7 @@ func TestEvents(t *testing.T) {
 			var accEvents []*rpc.EmittedEvent
 			args.ChunkSize = 1
 
-			for i := 0; i < len(allEvents)+1; i++ {
+			for range len(allEvents) + 1 {
 				events, err := handler.Events(args)
 				require.Nil(t, err)
 				accEvents = append(accEvents, events.Events...)

@@ -3,19 +3,8 @@ package rpcv7
 import (
 	"encoding/json"
 	"errors"
-	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-)
-
-const subscribeEventsChunkSize = 1024
-
-// The function signature of SubscribeTransactionStatus cannot be changed since the jsonrpc package maps the number
-// of argument in the function to the parameters in the starknet spec, therefore, the following variables are not passed
-// as arguments, and they can be modified in the test to make them run faster.
-var (
-	subscribeTxStatusTimeout        = 5 * time.Minute
-	subscribeTxStatusTickerDuration = 5 * time.Second
 )
 
 var (

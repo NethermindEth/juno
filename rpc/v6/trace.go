@@ -266,7 +266,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	var result []TracedBlockTransaction
+	result := make([]TracedBlockTransaction, len(traces))
 	for index, trace := range traces {
 		if !v0_6Response {
 			feeUnit := feeUnit(block.Transactions[index])
@@ -299,10 +299,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			executionResources.DataAvailability = &da
 			traces[index].ExecutionResources = executionResources
 		}
-		result = append(result, TracedBlockTransaction{
+		result[index] = TracedBlockTransaction{
 			TraceRoot:       &traces[index],
 			TransactionHash: block.Transactions[index].Hash(),
-		})
+		}
 	}
 
 	if !isPending {

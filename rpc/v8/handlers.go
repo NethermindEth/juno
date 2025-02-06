@@ -39,8 +39,7 @@ type Handler struct {
 	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() uint64
-	mu            stdsync.Mutex // protects subscriptions.
-	subscriptions stdsync.Map   // map[uint64]*subscription
+	subscriptions stdsync.Map // map[uint64]*subscription
 
 	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 
