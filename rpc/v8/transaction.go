@@ -184,8 +184,7 @@ func (r Resource) MarshalText() ([]byte, error) {
 
 func (r *Resource) UnmarshalJSON(data []byte) error {
 	str := string(data)
-	lowerStr := strings.ToLower(strings.Trim(str, `"`))
-	switch lowerStr {
+	switch strings.ToLower(strings.Trim(str, `"`)) {
 	case "l1_gas":
 		*r = ResourceL1Gas
 	case "l2_gas":
