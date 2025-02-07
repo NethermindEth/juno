@@ -734,7 +734,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 
 		// Assert transaction hashes
 		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
-		for i := 0; i < len(latestBlock.Transactions); i++ {
+		for i := range latestBlock.Transactions {
 			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
 		}
 
