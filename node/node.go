@@ -204,28 +204,35 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		syncReader = synchronizer
 	}
 
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log).WithGateway(gatewayClient).WithFeeder(client)
+	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
 	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServer := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	methods, path := rpcHandler.Methods()
-	if err = jsonrpcServer.RegisterMethods(methods...); err != nil {
+	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
+	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerLegacy := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	legacyMethods, legacyPath := rpcHandler.MethodsV0_7()
-	if err = jsonrpcServerLegacy.RegisterMethods(legacyMethods...); err != nil {
+	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV07, pathV07 := rpcHandler.MethodsV0_7()
+	if err = jsonrpcServerV07.RegisterMethods(methodsV07...); err != nil {
+		return nil, err
+	}
+	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV06, pathV06 := rpcHandler.MethodsV0_6()
+	if err = jsonrpcServerV06.RegisterMethods(methodsV06...); err != nil {
 		return nil, err
 	}
 	rpcServers := map[string]*jsonrpc.Server{
-		"/":                 jsonrpcServer,
-		path:                jsonrpcServer,
-		legacyPath:          jsonrpcServerLegacy,
-		"/rpc":              jsonrpcServer,
-		"/rpc" + path:       jsonrpcServer,
-		"/rpc" + legacyPath: jsonrpcServerLegacy,
+		"/":              jsonrpcServerV08,
+		pathV08:          jsonrpcServerV08,
+		pathV07:          jsonrpcServerV07,
+		pathV06:          jsonrpcServerV06,
+		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV08: jsonrpcServerV08,
+		"/rpc" + pathV07: jsonrpcServerV07,
+		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
@@ -249,9 +256,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetrics, legacyRPCMetrics := makeRPCMetrics(path, legacyPath)
-		jsonrpcServer.WithListener(rpcMetrics)
-		jsonrpcServerLegacy.WithListener(legacyRPCMetrics)
+		rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV08, pathV07, pathV06)
+		jsonrpcServerV08.WithListener(rpcMetricsV08)
+		jsonrpcServerV07.WithListener(rpcMetricsV07)
+		jsonrpcServerV06.WithListener(rpcMetricsV06)
 		client.WithListener(makeFeederMetrics())
 		gatewayClient.WithListener(makeGatewayMetrics())
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
