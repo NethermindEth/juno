@@ -70,15 +70,14 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ws.connCount.Add(1)
+	// Ensure we decrease the connection count when the connection closes
+	defer ws.connCount.Add(-1)
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
 		ws.log.Errorw("Failed to upgrade connection", "err", err)
 		return
 	}
-
-	// Ensure we decrease the connection count when the connection closes
-	defer ws.connCount.Add(-1)
 
 	// TODO include connection information, such as the remote address, in the logs.
 
