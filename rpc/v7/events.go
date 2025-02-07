@@ -158,9 +158,6 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 		cancel: subscriptionCtxCancel,
 		conn:   w,
 	}
-	h.mu.Lock()
-	h.subscriptions[id] = sub
-	h.mu.Unlock()
 	headerSub := h.newHeads.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
@@ -199,21 +196,24 @@ func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Er
 	if !ok {
 		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
-	h.mu.Lock()
-	sub, ok := h.subscriptions[id]
-	h.mu.Unlock() // Don't defer since h.unsubscribe acquires the lock.
-	if !ok || !sub.conn.Equal(w) {
-		return false, rpccore.ErrSubscriptionNotFound
+	sub, ok := h.subscriptions.Load(id)
+	if !ok {
+		return false, rpccore.ErrInvalidSubscriptionID
 	}
-	sub.cancel()
-	sub.wg.Wait() // Let the subscription finish before responding.
+
+	subs := sub.(*subscription)
+	if !subs.conn.Equal(w) {
+		return false, rpccore.ErrInvalidSubscriptionID
+	}
+
+	subs.cancel()
+	subs.wg.Wait() // Let the subscription finish before responding.
+	h.subscriptions.Delete(id)
 	return true, nil
 }
 
 // unsubscribe assumes h.mu is unlocked. It releases all subscription resources.
 func (h *Handler) unsubscribe(sub *subscription, id uint64) {
 	sub.cancel()
-	h.mu.Lock()
-	delete(h.subscriptions, id)
-	h.mu.Unlock()
+	h.subscriptions.Delete(id)
 }

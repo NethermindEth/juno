@@ -45,8 +45,7 @@ type Handler struct {
 	newHeads *feed.Feed[*core.Header]
 
 	idgen         func() uint64
-	mu            stdsync.Mutex // protects subscriptions.
-	subscriptions map[uint64]*subscription
+	subscriptions stdsync.Map // map[uint64]*subscription
 
 	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 
@@ -74,9 +73,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:       version,
-		newHeads:      feed.New[*core.Header](),
-		subscriptions: make(map[uint64]*subscription),
+		version:  version,
+		newHeads: feed.New[*core.Header](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -122,8 +120,10 @@ func (h *Handler) Run(ctx context.Context) error {
 	defer newHeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	<-ctx.Done()
-	for _, sub := range h.subscriptions {
+	h.subscriptions.Range(func(key, value any) bool {
+		sub := value.(*subscription)
 		sub.wg.Wait()
-	}
+		return true
+	})
 	return nil
 }
