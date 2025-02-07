@@ -42,11 +42,6 @@ func TestEstimateFee(t *testing.T) {
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
-
-		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
-		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
@@ -54,11 +49,6 @@ func TestEstimateFee(t *testing.T) {
 			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil).Times(2)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
-		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
-
-		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
@@ -71,14 +61,6 @@ func TestEstimateFee(t *testing.T) {
 			}).Times(2)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
-		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-			TransactionIndex: 44,
-			ExecutionError:   "oops",
-		}), err)
-		require.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-
-		// TODO: Remove this when v0.7 is removed
-		_, httpHeader, err = handler.EstimateFeeV0_7([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   "oops",
