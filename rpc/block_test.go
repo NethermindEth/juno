@@ -728,12 +728,11 @@ func TestGetNodesFromRoot(t *testing.T) {
 	_, _ = tempTrie.Put(key3, value3)
 	_ = tempTrie.Commit()
 
-	t.Run("node exists and function returns storage nodes on path", func(t *testing.T) {
+	t.Run("existing node key returns path until expected storage node", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil)
 		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
 
-		nodeKey := new(felt.Felt).SetUint64(2)
-		storageNodes, rpcErr := handler.GetNodesFromRoot(*nodeKey)
+		storageNodes, rpcErr := handler.GetNodesFromRoot(*key3)
 
 		require.Nil(t, rpcErr)
 
@@ -757,6 +756,39 @@ func TestGetNodesFromRoot(t *testing.T) {
 		require.Equal(t, storageNode1, &storageNodes[0])
 		require.Equal(t, storageNode2, &storageNodes[1])
 		require.Equal(t, storageNode3, &storageNodes[2])
+	})
+
+	t.Run("non-existing node key returns path until parent storage node", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil)
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+
+		nodeKey := new(felt.Felt).SetUint64(9)
+		storageNodes, _ := handler.GetNodesFromRoot(*nodeKey)
+
+		// root of trie
+		storageNode1Key := tempTrie.RootKey()
+		storageNode1Value, _ := tempTrie.GetNodeFromKey(storageNode1Key)
+		storageNode1 := trie.NewStorageNode(storageNode1Key, storageNode1Value)
+
+		// leaf
+		storageNode2Key := tempTrie.FeltToKey(key2)
+		storageNode2Value, _ := tempTrie.GetNodeFromKey(&storageNode2Key)
+		storageNode2 := trie.NewStorageNode(&storageNode2Key, storageNode2Value)
+
+		require.Equal(t, storageNode1, &storageNodes[0])
+		require.Equal(t, storageNode2, &storageNodes[1])
+	})
+
+	t.Run("empty trie returns empty storage nodes", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil)
+		tempTrie := emptyTrie(t)
+		_ = tempTrie.Commit()
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+
+		nodeKey := new(felt.Felt).SetUint64(123)
+		storageNodes, _ := handler.GetNodesFromRoot(*nodeKey)
+
+		require.Equal(t, 0, len(storageNodes))
 	})
 }
 
