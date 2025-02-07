@@ -43,7 +43,7 @@ func TestEstimateFee(t *testing.T) {
 				GasConsumed:      []core.GasConsumed{},
 				Traces:           []vm.TransactionTrace{},
 				NumSteps:         uint64(123),
-			}, nil).Times(2)
+			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -58,7 +58,7 @@ func TestEstimateFee(t *testing.T) {
 				GasConsumed:      []core.GasConsumed{},
 				Traces:           []vm.TransactionTrace{},
 				NumSteps:         uint64(123),
-			}, nil).Times(2)
+			}, nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)

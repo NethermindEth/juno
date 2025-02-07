@@ -328,10 +328,16 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
 	for index, trace := range executionResult.Traces {
+		var L1Gas, L1DataGas, L2Gas uint64
+		if gc := executionResult.GasConsumed; gc != nil {
+			L1Gas = gc[index].L1Gas
+			L1DataGas = gc[index].L1DataGas
+			L2Gas = gc[index].L2Gas
+		}
 		executionResult.Traces[index].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                executionResult.GasConsumed[index].L1Gas,
-			L1DataGas:            executionResult.GasConsumed[index].L1DataGas,
-			L2Gas:                executionResult.GasConsumed[index].L2Gas,
+			L1Gas:                L1Gas,
+			L1DataGas:            L1DataGas,
+			L2Gas:                L2Gas,
 			ComputationResources: trace.TotalComputationResources(),
 			DataAvailability: &vm.DataAvailability{
 				L1Gas:     executionResult.DataAvailability[index].L1Gas,
@@ -398,7 +404,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 
 	declaredClass, err := state.Class(classHash)
 	if err != nil {
-		return nil, ErrClassHashNotFound
+		return nil, rpccore.ErrClassHashNotFound
 	}
 
 	var sierraVersion string

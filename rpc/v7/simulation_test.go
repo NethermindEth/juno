@@ -40,7 +40,12 @@ func TestSimulateTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
 		}, mockState, n, true, false, false).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
+			Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{},
+				DataAvailability: []core.DataAvailability{},
+				Traces:           []vm.TransactionTrace{},
+				NumSteps:         stepsUsed,
+			}, nil)
 
 		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipFeeChargeFlag})
 		require.Nil(t, err)
@@ -52,7 +57,12 @@ func TestSimulateTransactions(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
 		}, mockState, n, false, true, false).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
+			Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{},
+				DataAvailability: []core.DataAvailability{},
+				Traces:           []vm.TransactionTrace{},
+				NumSteps:         stepsUsed,
+			}, nil)
 
 		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag})
 		require.Nil(t, err)
@@ -64,7 +74,7 @@ func TestSimulateTransactions(t *testing.T) {
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 				Header: headsHeader,
 			}, mockState, n, false, true, false).
-				Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
+				Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 					Index: 44,
 					Cause: errors.New("oops"),
 				})

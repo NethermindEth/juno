@@ -1,4 +1,4 @@
-package rpc
+package rpcv8
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -124,7 +125,7 @@ func TestHandleExecutionError(t *testing.T) {
 		{
 			name:         "Resource Busy Error",
 			err:          utils.ErrResourceBusy,
-			jsonRPCError: ErrInternal.CloneWithData(throttledVMErr),
+			jsonRPCError: rpccore.ErrInternal.CloneWithData(throttledVMErr),
 		},
 		{
 			name: "Transaction Execution Error",
@@ -133,15 +134,15 @@ func TestHandleExecutionError(t *testing.T) {
 				Cause: errors.New("some error"),
 			},
 			jsonRPCError: &jsonrpc.Error{
-				Code:    ErrUnexpectedError.Code,
-				Message: ErrUnexpectedError.Message,
+				Code:    rpccore.ErrUnexpectedError.Code,
+				Message: rpccore.ErrUnexpectedError.Message,
 				Data:    "execute transaction #0: some error",
 			},
 		},
 		{
 			name:         "Unexpected Error",
 			err:          errors.New("unexpected error"),
-			jsonRPCError: ErrUnexpectedError.CloneWithData("unexpected error"),
+			jsonRPCError: rpccore.ErrUnexpectedError.CloneWithData("unexpected error"),
 		},
 	}
 
