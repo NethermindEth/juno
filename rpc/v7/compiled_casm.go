@@ -79,7 +79,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		return nil, err
 	}
 
-	bytecode := make([]*felt.Felt, 0, len(cairo0.Data))
+	bytecode := make([]*felt.Felt, len(cairo0.Data))
 	for i, str := range cairo0.Data {
 		f, err := new(felt.Felt).SetString(str)
 		if err != nil {

@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpc "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +26,7 @@ func TestCompiledCasm(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	rd := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(rd, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(rd, nil, nil, "", nil, nil)
 
 	t.Run("db failure", func(t *testing.T) {
 		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))
@@ -72,10 +72,10 @@ func TestCompiledCasm(t *testing.T) {
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
 		require.Nil(t, rpcErr)
-		assert.Equal(t, &rpcv7.CasmCompiledContractClass{
+		assert.Equal(t, &rpc.CasmCompiledContractClass{
 			Prime:           "0x800000000000011000000000000000000000000000000000000000000000001",
 			CompilerVersion: "0.10.3",
-			EntryPointsByType: rpcv7.EntryPointsByType{
+			EntryPointsByType: rpc.EntryPointsByType{
 				Constructor: utils.Map(cairo0.Constructors, adaptEntryPoint),
 				External:    utils.Map(cairo0.Externals, adaptEntryPoint),
 				L1Handler:   utils.Map(cairo0.L1Handlers, adaptEntryPoint),
@@ -86,8 +86,8 @@ func TestCompiledCasm(t *testing.T) {
 	})
 }
 
-func adaptEntryPoint(point core.EntryPoint) rpcv7.CasmEntryPoint {
-	return rpcv7.CasmEntryPoint{
+func adaptEntryPoint(point core.EntryPoint) rpc.CasmEntryPoint {
+	return rpc.CasmEntryPoint{
 		Offset:   point.Offset,
 		Selector: point.Selector,
 		Builtins: nil,

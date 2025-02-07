@@ -33,12 +33,12 @@ func TestSimulateTransactions(t *testing.T) {
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 	}
 	mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil).AnyTimes()
-
+	nilTxns := make([]core.Transaction, 0)
 	t.Run("ok with zero values, skip fee", func(t *testing.T) {
 		stepsUsed := uint64(123)
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, true).
+		}, mockState, n, true, false, false).
 			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
@@ -47,9 +47,9 @@ func TestSimulateTransactions(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		stepsUsed := uint64(123)
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, true).
+		}, mockState, n, false, true, false).
 			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, stepsUsed, nil)
 
 		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
@@ -57,9 +57,9 @@ func TestSimulateTransactions(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, true).
+		}, mockState, n, false, true, false).
 			Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
@@ -71,9 +71,9 @@ func TestSimulateTransactions(t *testing.T) {
 			ExecutionError:   "oops",
 		}), err)
 
-		mockVM.EXPECT().Execute(nil, nil, []*felt.Felt{}, &vm.BlockInfo{
+		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, true).
+		}, mockState, n, false, true, false).
 			Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),

@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpc "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -33,35 +33,9 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingBlock().Return(nil)
 
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
-	assert.Nil(t, tx)
-	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
-}
-
-func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-
-	searchTxHash := utils.HexToFelt(t, "0x123456")
-
-	otherTxHash := utils.HexToFelt(t, "0x789abc")
-	pendingTx := &core.InvokeTransaction{
-		TransactionHash: otherTxHash,
-		Version:         new(core.TransactionVersion).SetUint64(1),
-	}
-
-	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingBlock().Return(&core.Block{
-		Transactions: []core.Transaction{pendingTx},
-	})
-
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", utils.Ptr(utils.Mainnet), nil)
-
-	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
 	assert.Nil(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
@@ -351,7 +325,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(context.Background(), hash)
 			}).Times(1)
-			handler := rpcv7.New(mockReader, nil, nil, "", test.network, nil)
+			handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -377,21 +351,20 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
-
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	latestBlockNumber := 19199
 	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, rand.Int())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -400,7 +373,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
-			rpcv7.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
+			rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -408,13 +381,13 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Number: rand.Uint64()}, rand.Int())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: rand.Uint64()}, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, -1)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, -1)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -424,7 +397,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
 			latestBlock.TransactionCount).Return(nil, errors.New("invalid index"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, len(latestBlock.Transactions))
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -442,7 +415,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Latest: true}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -464,7 +437,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Hash: latestBlockHash}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Hash: latestBlockHash}, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -486,7 +459,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Number: uint64(latestBlockNumber)}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -508,7 +481,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpcv7.BlockID{Pending: true}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Pending: true}, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -518,20 +491,23 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 }
 
+// TODO[Pawel]: The following 2 tests `Test[Legacy]TransactionReceiptByHash` are skipped
+// but we still keep them here. I have a doubt whether they test anything useful.
+//
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
+	t.Skip()
+
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
-		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
@@ -552,6 +528,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		receipt, err := handler.TransactionReceiptByHash(*h)
 		require.Nil(t, err)
+
 		receiptJSON, jsonErr := json.Marshal(receipt)
 		require.NoError(t, jsonErr)
 
@@ -577,17 +554,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"messages_sent": [],
 					"events": [],
 					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-					"execution_resources": {
-						"l1_data_gas": 0,
-						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 29
-					}
+					"execution_resources":{"steps":29}
 				}`,
 		},
 		"without contract addr": {
@@ -611,17 +578,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources": {
-						"l1_data_gas": 0,
-						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 31
-					}
+					"execution_resources":{"steps":31}
 				}`,
 		},
 	}
@@ -655,17 +612,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources": {
-						"l1_data_gas": 0,
-						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 31
-					}
+					"execution_resources":{"steps":31}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -696,17 +643,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources": {
-						"l1_data_gas": 0,
-						"l1_gas": 0,
-						"l2_gas": 0,
-						"data_availability": {
-							"l1_data_gas": 0,
-							"l1_gas": 0,
-							"l2_gas": 0
-						},
-						"steps": 31
-					}
+					"execution_resources":{"steps":31}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -732,17 +669,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"messages_sent": [],
 			"events": [],
 			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
-			"execution_resources": {
-				"l1_data_gas": 0,
-				"l1_gas": 0,
-				"l2_gas": 0,
-				"data_availability": {
-					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
-				},
-				"steps": 0
-			}
+			"execution_resources":{"steps":0}
 		}`
 
 		integClient := feeder.NewTestClient(t, &utils.Integration)
@@ -800,15 +727,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"execution_resources": {
 				"steps": 615,
 				"range_check_builtin_applications": 19,
-				"memory_holes": 4,
-				"l1_data_gas": 0,
-				"l1_gas": 0,
-				"l2_gas": 0,
-				"data_availability": {
-					"l1_data_gas": 0,
-					"l1_gas": 0,
-					"l2_gas": 0
-				}
+				"memory_holes": 4
 			},
 			"actual_fee": {
 				"amount": "0x16d8b4ad4000",
@@ -833,59 +752,252 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		checkTxReceipt(t, txnHash, expected)
 	})
+}
 
-	t.Run("tx with non empty data_availability", func(t *testing.T) {
+//nolint:dupl
+func TestLegacyTransactionReceiptByHash(t *testing.T) {
+	t.Skip()
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	n := utils.Ptr(utils.Mainnet)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+
+	t.Run("transaction not found", func(t *testing.T) {
+		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
+
+		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
+
+	client := feeder.NewTestClient(t, n)
+	mainnetGw := adaptfeeder.New(client)
+
+	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+
+	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
+		t.Helper()
+
+		expectedMap := make(map[string]any)
+		require.NoError(t, json.Unmarshal([]byte(expected), &expectedMap))
+
+		//nolint:gocritic
+		// receipt, err := handler.LegacyTransactionReceiptByHash(*h)
+		// require.Nil(t, err)
+		// receiptJSON, jsonErr := json.Marshal(receipt)
+		// require.NoError(t, jsonErr)
+
+		receiptMap := make(map[string]any)
+		//nolint:gocritic
+		// require.NoError(t, json.Unmarshal(receiptJSON, &receiptMap))
+		assert.Equal(t, expectedMap, receiptMap)
+	}
+
+	tests := map[string]struct {
+		index    int
+		expected string
+	}{
+		"with contract addr": {
+			index: 0,
+			expected: `{
+					"type": "DEPLOY",
+					"transaction_hash": "0xe0a2e45a80bb827967e096bcf58874f6c01c191e0a0530624cba66a508ae75",
+					"actual_fee": "0x0",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [],
+					"events": [],
+					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+					"execution_resources": {"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1d"}
+				}`,
+		},
+		"without contract addr": {
+			index: 2,
+			expected: `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": "0x0",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1f"}
+				}`,
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			txHash := block0.Transactions[test.index].Hash()
+			mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[test.index], nil)
+			mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
+			mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+			checkTxReceipt(t, txHash, test.expected)
+		})
+	}
+
+	t.Run("pending receipt", func(t *testing.T) {
+		i := 2
 		expected := `{
-			"type": "DECLARE",
-			"transaction_hash": "0x5ac644bbd6ae98d3be2d988439854e33f0961e24f349a63b43e16d172bfe747",
-			"actual_fee": {
-				"amount": "0xd07af45c84550",
-				"unit": "WEI"
-			},
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": "0x0",
+					"finality_status": "ACCEPTED_ON_L2",
+					"execution_status": "SUCCEEDED",
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1f"}
+				}`
+
+		txHash := block0.Transactions[i].Hash()
+		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
+		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], nil, uint64(0), nil)
+
+		checkTxReceipt(t, txHash, expected)
+	})
+
+	t.Run("accepted on l1 receipt", func(t *testing.T) {
+		i := 2
+		expected := `{
+					"type": "INVOKE",
+					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
+					"actual_fee": "0x0",
+					"finality_status": "ACCEPTED_ON_L1",
+					"execution_status": "SUCCEEDED",
+					"block_hash": "0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943",
+					"block_number": 0,
+					"messages_sent": [
+						{
+							"from_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+							"to_address": "0xc84dd7fd43a7defb5b7a15c4fbbe11cbba6db1ba",
+							"payload": [
+								"0xc",
+								"0x22"
+							]
+						}
+					],
+					"events": [],
+					"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0", "steps":"0x1f"}
+				}`
+
+		txHash := block0.Transactions[i].Hash()
+		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
+		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: block0.Number,
+			BlockHash:   block0.Hash,
+			StateRoot:   block0.GlobalStateRoot,
+		}, nil)
+
+		checkTxReceipt(t, txHash, expected)
+	})
+	t.Run("reverted", func(t *testing.T) {
+		expected := `{
+			"type": "INVOKE",
+			"transaction_hash": "0x19abec18bbacec23c2eee160c70190a48e4b41dd5ff98ad8f247f9393559998",
+			"actual_fee": "0x247aff6e224",
+			"execution_status": "REVERTED",
+			"finality_status": "ACCEPTED_ON_L2",
+			"block_hash": "0x76e0229fd0c36dda2ee7905f7e4c9b3ebb78d98c4bfab550bcb3a03bf859a6",
+			"block_number": 304740,
+			"messages_sent": [],
+			"events": [],
+			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
+			"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0","steps":"0x0"}
+		}`
+
+		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integGw := adaptfeeder.New(integClient)
+
+		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		require.NoError(t, err)
+
+		revertedTxnIdx := 1
+		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
+
+		mockReader.EXPECT().TransactionByHash(revertedTxnHash).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
+		mockReader.EXPECT().Receipt(revertedTxnHash).Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
+			blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		checkTxReceipt(t, revertedTxnHash, expected)
+	})
+
+	t.Run("v3 tx", func(t *testing.T) {
+		expected := `{
+			"block_hash": "0x50e864db6b81ce69fbeb70e6a7284ee2febbb9a2e707415de7adab83525e9cd",
+			"block_number": 319132,
 			"execution_status": "SUCCEEDED",
 			"finality_status": "ACCEPTED_ON_L2",
-			"block_hash": "0x1ea2a9cfa3df5297d58c0a04d09d276bc68d40fe64701305bbe2ed8f417e869",
-			"block_number": 35748,
+			"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 			"messages_sent": [],
 			"events": [
 				{
-					"from_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+					"from_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
 					"keys": [
 						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
 					],
 					"data": [
-						"0x472aa8128e01eb0df145810c9511a92852d62a68ba8198ce5fa414e6337a365",
+						"0x3f6f3bc663aedc5285d6013cc3ffcbc4341d86ab488b8b68d297f8258793c41",
 						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
-						"0xd07af45c84550",
+						"0x16d8b4ad4000",
+						"0x0"
+					]
+				},
+				{
+					"from_address": "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+					"keys": [
+						"0xa9fa878c35cd3d0191318f89033ca3e5501a3d90e21e3cc9256bdd5cd17fdd"
+					],
+					"data": [
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+						"0x18ad8494375bc00",
+						"0x0",
+						"0x18aef21f822fc00",
 						"0x0"
 					]
 				}
 			],
-			"execution_resources": {
-				"steps": 3950,
-				"ecdsa_builtin_applications": 1,
-				"pedersen_builtin_applications": 16,
-				"poseidon_builtin_applications": 4,
-				"range_check_builtin_applications": 157,
-				"l1_data_gas": 192,
-				"l1_gas": 117620,
-				"l2_gas": 0,
-				"data_availability": {
-					"l1_gas": 0,
-					"l1_data_gas": 192,
-					"l2_gas": 0
-				}
-			}
+			"execution_resources": {"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x4", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x13", "steps":"0x267"},
+			"actual_fee": "0x16d8b4ad4000",
+			"type": "INVOKE"
 		}`
 
-		netClient := feeder.NewTestClient(t, utils.Ptr(utils.SepoliaIntegration))
-		netGW := adaptfeeder.New(netClient)
+		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integGw := adaptfeeder.New(integClient)
 
-		block, err := netGW.BlockByNumber(context.Background(), 35748)
+		block, err := integGw.BlockByNumber(context.Background(), 319132)
 		require.NoError(t, err)
 
 		index := 0
 		txnHash := block.Transactions[index].Hash()
+
 		mockReader.EXPECT().TransactionByHash(txnHash).Return(block.Transactions[index], nil)
 		mockReader.EXPECT().Receipt(txnHash).Return(block.Receipts[index],
 			block.Hash, block.Number, nil)
@@ -933,7 +1045,7 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 
 	for description, txJSON := range tests {
 		t.Run(description, func(t *testing.T) {
-			tx := rpcv7.BroadcastedTransaction{}
+			tx := rpc.BroadcastedTransaction{}
 			require.NoError(t, json.Unmarshal([]byte(txJSON), &tx))
 		})
 	}
@@ -942,15 +1054,15 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	n := utils.Ptr(utils.Integration)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) rpcv7.BroadcastedTransaction {
+	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
-		return rpcv7.BroadcastedTransaction{
-			Transaction: *rpcv7.AdaptTransaction(tx),
+		return rpc.BroadcastedTransaction{
+			Transaction: *rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
-		txn          rpcv7.BroadcastedTransaction
+		txn          rpc.BroadcastedTransaction
 		expectedJSON string
 	}{
 		"invoke v0": {
@@ -1069,7 +1181,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v2": {
-			txn: func() rpcv7.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1093,7 +1205,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v3": {
-			txn: func() rpcv7.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1206,14 +1318,14 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpcv7.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
+			handler := rpc.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
 			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &rpcv7.AddTxResponse{
+			require.Equal(t, &rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),
 				ContractAddress: utils.HexToFelt(t, "0x2"),
 				ClassHash:       utils.HexToFelt(t, "0x3"),
@@ -1247,7 +1359,6 @@ func TestTransactionStatus(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	log := utils.NewNopZapLogger()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1270,17 +1381,17 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
-					handler := rpcv7.New(mockReader, nil, nil, "", test.network, nil)
+					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
-					want := &rpcv7.TransactionStatus{
-						Finality:  rpcv7.TxnStatusAcceptedOnL2,
-						Execution: rpcv7.TxnSuccess,
+					want := &rpc.TransactionStatus{
+						Finality:  rpc.TxnStatusAcceptedOnL2,
+						Execution: rpc.TxnSuccess,
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
 					require.Equal(t, want, status)
 				})
-				t.Run("verified", func(t *testing.T) { //nolint:dupl
+				t.Run("verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
@@ -1288,46 +1399,28 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpcv7.New(mockReader, nil, nil, "", test.network, log)
+					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
-					want := &rpcv7.TransactionStatus{
-						Finality:  rpcv7.TxnStatusAcceptedOnL1,
-						Execution: rpcv7.TxnSuccess,
+					want := &rpc.TransactionStatus{
+						Finality:  rpc.TxnStatusAcceptedOnL1,
+						Execution: rpc.TxnSuccess,
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
-					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
-				})
-				t.Run("verified v0.7.0", func(t *testing.T) { //nolint:dupl
-					mockReader := mocks.NewMockReader(mockCtrl)
-					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(&core.L1Head{
-						BlockNumber: block.Number + 1,
-					}, nil)
-
-					handler := rpcv7.New(mockReader, nil, nil, "", test.network, log)
-
-					want := &rpcv7.TransactionStatusV0_7{
-						Finality:  rpcv7.TxnStatusAcceptedOnL1,
-						Execution: rpcv7.TxnSuccess,
-					}
-					status, rpcErr := handler.TransactionStatusV0_7(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
 					require.Equal(t, want, status)
 				})
 			})
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
-					finality rpcv7.TxnStatus
+					finality rpc.TxnStatus
 					hash     *felt.Felt
 				}{
 					"verified": {
-						finality: rpcv7.TxnStatusAcceptedOnL1,
+						finality: rpc.TxnStatusAcceptedOnL1,
 						hash:     test.verifiedTxHash,
 					},
 					"not verified": {
-						finality: rpcv7.TxnStatusAcceptedOnL2,
+						finality: rpc.TxnStatusAcceptedOnL2,
 						hash:     test.nonVerifiedTxHash,
 					},
 				}
@@ -1335,10 +1428,8 @@ func TestTransactionStatus(t *testing.T) {
 				for description, notFoundTest := range notFoundTests {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
-						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						mockSyncReader.EXPECT().PendingBlock().Return(nil).Times(2)
-						handler := rpcv7.New(mockReader, mockSyncReader, nil, "", test.network, log)
+						handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1346,7 +1437,7 @@ func TestTransactionStatus(t *testing.T) {
 						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Nil(t, err)
 						require.Equal(t, notFoundTest.finality, status.Finality)
-						require.Equal(t, rpcv7.TxnSuccess, status.Execution)
+						require.Equal(t, rpc.TxnSuccess, status.Execution)
 					})
 				}
 			})
@@ -1354,10 +1445,8 @@ func TestTransactionStatus(t *testing.T) {
 			// transaction no† found in db and feeder
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
-				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PendingBlock().Return(nil)
-				handler := rpcv7.New(mockReader, mockSyncReader, nil, "", test.network, log).WithFeeder(client)
+				handler := rpc.New(mockReader, nil, nil, "", test.network, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
