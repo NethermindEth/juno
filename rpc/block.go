@@ -262,7 +262,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 
 func (h *Handler) GetNodesFromRoot(key felt.Felt) ([]trie.StorageNode, *jsonrpc.Error) {
 	stateReader, stateCloser, stateReaderErr := h.bcReader.HeadState()
-	defer stateCloser()
+	defer func() { _ = stateCloser() }()
 
 	if stateReaderErr != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, stateReaderErr)
