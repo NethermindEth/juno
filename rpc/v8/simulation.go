@@ -107,7 +107,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 	overallFees, daGas, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
-
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
 
 	if err != nil {

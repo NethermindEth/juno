@@ -37,7 +37,7 @@ func TestEstimateFee(t *testing.T) {
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil).Times(2)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -46,7 +46,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true).
-			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil).Times(2)
+			Return([]*felt.Felt{}, []core.GasConsumed{}, []vm.TransactionTrace{}, uint64(123), nil)
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Nil(t, err)
@@ -58,7 +58,7 @@ func TestEstimateFee(t *testing.T) {
 			Return(nil, nil, nil, uint64(0), vm.TransactionExecutionError{
 				Index: 44,
 				Cause: errors.New("oops"),
-			}).Times(2)
+			})
 
 		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
