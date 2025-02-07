@@ -12,6 +12,11 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const (
+	MissingContractAddress = "missing field: contract_address"
+	MissingStorageKeys     = "missing field: storage_keys"
+)
+
 /****************************************************
 		Contract Handlers
 *****************************************************/
@@ -101,23 +106,12 @@ func (h *Handler) StorageProof(id BlockID,
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	// Do a sanity check and remove duplicates from the keys
+	// Do a sanity check and remove duplicates from the inputs
 	classes = utils.Set(classes)
 	contracts = utils.Set(contracts)
-
-	// Remove duplicates from the storage keys
-	mergedStorageKeys := make(map[felt.Felt][]felt.Felt)
-	for _, storageKey := range storageKeys {
-		if existing, ok := mergedStorageKeys[storageKey.Contract]; ok {
-			mergedStorageKeys[storageKey.Contract] = append(existing, storageKey.Keys...)
-		} else {
-			mergedStorageKeys[storageKey.Contract] = storageKey.Keys
-		}
-	}
-
-	uniqueStorageKeys := make([]StorageKeys, 0, len(mergedStorageKeys))
-	for contract, keys := range mergedStorageKeys {
-		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: contract, Keys: utils.Set(keys)})
+	uniqueStorageKeys, rpcErr := processStorageKeys(storageKeys)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	classProof, err := getClassProof(classTrie, classes)
@@ -155,6 +149,38 @@ func (h *Handler) StorageProof(id BlockID,
 			BlockHash:         head.Hash,
 		},
 	}, nil
+}
+
+// Ensures each contract is unique and each storage key in each contract is unique
+func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Error) {
+	if storageKeys == nil {
+		return nil, nil
+	}
+
+	if len(storageKeys) == 0 {
+		return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+	}
+
+	merged := make(map[felt.Felt][]felt.Felt, len(storageKeys))
+	for _, sk := range storageKeys {
+		// Ensure that both contract and keys are provided
+		if sk.Contract == nil {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+		}
+		if len(sk.Keys) == 0 {
+			return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingStorageKeys)
+		}
+
+		contract := *sk.Contract
+		merged[contract] = append(merged[contract], sk.Keys...)
+	}
+
+	uniqueStorageKeys := make([]StorageKeys, 0, len(merged))
+	for contract, keys := range merged {
+		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: &contract, Keys: utils.Set(keys)})
+	}
+
+	return uniqueStorageKeys, nil
 }
 
 func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
@@ -210,7 +236,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
 	for i, storageKey := range storageKeys {
-		contractStorageTrie, err := state.ContractStorageTrie(&storageKey.Contract)
+		contractStorageTrie, err := state.ContractStorageTrie(storageKey.Contract)
 		if err != nil {
 			return nil, err
 		}
@@ -259,7 +285,7 @@ func adaptProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 }
 
 type StorageKeys struct {
-	Contract felt.Felt   `json:"contract_address"`
+	Contract *felt.Felt  `json:"contract_address"`
 	Keys     []felt.Felt `json:"storage_keys"`
 }
 
