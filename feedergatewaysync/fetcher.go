@@ -1,6 +1,7 @@
 package feedergatewaysync
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 func (s *SyncManager) FetchBlock(blockNumber uint64) (*CustomBlock, error) {
 	reqURL := fmt.Sprintf("%s/feeder_gateway/get_block?blockNumber=%d", s.feederURL, blockNumber)
 
-	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, reqURL, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request for block %d: %w", blockNumber, err)
 	}
