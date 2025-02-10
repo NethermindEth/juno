@@ -158,19 +158,6 @@ type BlockWithReceipts struct {
 		Block Handlers
 *****************************************************/
 
-// BlockNumber returns the latest synced block number.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L500
-func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
-	num, err := h.bcReader.Height()
-	if err != nil {
-		return 0, rpccore.ErrNoBlock
-	}
-
-	return num, nil
-}
-
 // BlockHashAndNumber returns the block hash and number of the latest synced block.
 //
 // It follows the specification defined here:
