@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -226,14 +227,34 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, root, proof.GlobalRoots.ClassesTreeRoot)
 		require.Equal(t, root, proof.GlobalRoots.ContractsTreeRoot)
 	})
-	t.Run("error is returned whenever not latest block is requested", func(t *testing.T) {
+	t.Run("error whenever not latest block is requested", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error is returned even when blknum matches head", func(t *testing.T) {
+	t.Run("error even when blknum matches head", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("error when contract storage keys are provided but empty", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{})
+		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingContractAddress), rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("error when address in contract storage keys is nil", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}})
+		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingContractAddress), rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("error when keys in contract storage keys are nil", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: key, Keys: nil}})
+		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("error when keys in contract storage keys are empty", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: key, Keys: []felt.Felt{}}})
+		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingStorageKeys), rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("empty request", func(t *testing.T) {
@@ -304,7 +325,7 @@ func TestStorageProof(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xdead")
 		mockState.EXPECT().ContractStorageTrie(contract).Return(emptyTrie(t), nil).Times(1)
 
-		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
+		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
@@ -316,7 +337,7 @@ func TestStorageProof(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xabcd")
 		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
 
-		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*noSuchKey}}}
+		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*noSuchKey}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
@@ -330,7 +351,7 @@ func TestStorageProof(t *testing.T) {
 		contract := utils.HexToFelt(t, "0xadd0")
 		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
 
-		storageKeys := []rpc.StorageKeys{{Contract: *contract, Keys: []felt.Felt{*key}}}
+		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, storageKeys)
 		require.NotNil(t, proof)
 		require.Nil(t, rpcErr)
