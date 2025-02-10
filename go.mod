@@ -14,7 +14,6 @@ require (
 	github.com/ethereum/go-ethereum v1.14.13
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.24.0
-	github.com/hashicorp/go-set/v2 v2.1.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.38.1
 	github.com/libp2p/go-libp2p-kad-dht v0.28.2
@@ -35,9 +34,8 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.32.0
 	google.golang.org/grpc v1.70.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.5
 	gopkg.in/yaml.v3 v3.0.1
-	nhooyr.io/websocket v1.8.17
 )
 
 require (
