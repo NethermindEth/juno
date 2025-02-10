@@ -9,32 +9,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
-
-// https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
-type BlockStatus uint8
-
-const (
-	BlockPending BlockStatus = iota
-	BlockAcceptedL2
-	BlockAcceptedL1
-	BlockRejected
-)
-
-func (s BlockStatus) MarshalText() ([]byte, error) {
-	switch s {
-	case BlockPending:
-		return []byte("PENDING"), nil
-	case BlockAcceptedL2:
-		return []byte("ACCEPTED_ON_L2"), nil
-	case BlockAcceptedL1:
-		return []byte("ACCEPTED_ON_L1"), nil
-	case BlockRejected:
-		return []byte("REJECTED"), nil
-	default:
-		return nil, fmt.Errorf("unknown block status %v", s)
-	}
-}
 
 type L1DAMode uint8
 
@@ -132,14 +108,14 @@ type BlockHeader struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status BlockStatus `json:"status,omitempty"`
+	Status rpcv6.BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status BlockStatus `json:"status,omitempty"`
+	Status rpcv6.BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
@@ -150,7 +126,7 @@ type TransactionWithReceipt struct {
 }
 
 type BlockWithReceipts struct {
-	Status BlockStatus `json:"status,omitempty"`
+	Status rpcv6.BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
@@ -236,7 +212,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	}
 
 	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == BlockAcceptedL1 {
+	if blockStatus == rpcv6.BlockAcceptedL1 {
 		finalityStatus = TxnAcceptedOnL1
 	}
 
@@ -287,17 +263,17 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := BlockAcceptedL2
+	status := rpcv6.BlockAcceptedL2
 	if id.Pending {
-		status = BlockPending
+		status = rpcv6.BlockPending
 	} else if isL1Verified(block.Number, l1H) {
-		status = BlockAcceptedL1
+		status = rpcv6.BlockAcceptedL1
 	}
 
 	return status, nil
