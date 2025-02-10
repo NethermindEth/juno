@@ -3,7 +3,6 @@ package rpcv7
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -75,13 +74,6 @@ type BlockWithTxs struct {
 	Transactions []*Transaction `json:"transactions"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
-type BlockWithTxHashes struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
-	rpcv6.BlockHeader
-	TxnHashes []*felt.Felt `json:"transactions"`
-}
-
 type TransactionWithReceipt struct {
 	Transaction *Transaction        `json:"transaction"`
 	Receipt     *TransactionReceipt `json:"receipt"`
@@ -126,7 +118,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashes(id BlockID) (*rpcv6.BlockWithTxHashes, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -142,7 +134,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 		return nil, rpcErr
 	}
 
-	return &BlockWithTxHashes{
+	return &rpcv6.BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
