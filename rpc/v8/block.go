@@ -54,12 +54,6 @@ func (l L1DAMode) MarshalText() ([]byte, error) {
 	}
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534
-type BlockHashAndNumber struct {
-	Hash   *felt.Felt `json:"block_hash"`
-	Number uint64     `json:"block_number"`
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
 type BlockID struct {
 	Pending bool
@@ -170,18 +164,6 @@ func (h *Handler) BlockNumber() (uint64, *jsonrpc.Error) {
 	}
 
 	return num, nil
-}
-
-// BlockHashAndNumber returns the block hash and number of the latest synced block.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L517
-func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
-	block, err := h.bcReader.Head()
-	if err != nil {
-		return nil, rpccore.ErrNoBlock
-	}
-	return &BlockHashAndNumber{Number: block.Number, Hash: block.Hash}, nil
 }
 
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.

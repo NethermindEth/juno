@@ -116,39 +116,6 @@ func TestBlockNumber(t *testing.T) {
 	})
 }
 
-func TestBlockHashAndNumber(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
-
-		block, err := handler.BlockHashAndNumber()
-		assert.Nil(t, block)
-		assert.Equal(t, rpccore.ErrNoBlock, err)
-	})
-
-	t.Run("blockchain height is 147", func(t *testing.T) {
-		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
-
-		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
-		require.NoError(t, err)
-
-		expectedBlockHashAndNumber := &rpcv7.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
-
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
-
-		hashAndNum, rpcErr := handler.BlockHashAndNumber()
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
-	})
-}
-
 func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
