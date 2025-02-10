@@ -185,7 +185,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		newHeadFeed.Send(&core.Header{Number: b1.Number})
 
-		resp, err := marshalSubEventsResp(emittedEvents[0], id.ID)
+		resp, err := marshalSubEventsResp(emittedEvents[0], id)
 		require.NoError(t, err)
 
 		got := make([]byte, len(resp))
@@ -227,7 +227,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		var marshalledResponses [][]byte
 		for _, e := range emittedEvents {
-			resp, err := marshalSubEventsResp(e, id.ID)
+			resp, err := marshalSubEventsResp(e, id)
 			require.NoError(t, err)
 			marshalledResponses = append(marshalledResponses, resp)
 		}
@@ -275,7 +275,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		var marshalledResponses [][]byte
 		for _, e := range emittedEvents {
-			resp, err := marshalSubEventsResp(e, id.ID)
+			resp, err := marshalSubEventsResp(e, id)
 			require.NoError(t, err)
 			marshalledResponses = append(marshalledResponses, resp)
 		}
@@ -319,7 +319,7 @@ func TestSubscribeEvents(t *testing.T) {
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		require.Nil(t, rpcErr)
 
-		resp, err := marshalSubEventsResp(emittedEvents[0], id.ID)
+		resp, err := marshalSubEventsResp(emittedEvents[0], id)
 		require.NoError(t, err)
 
 		got := make([]byte, len(resp))
@@ -335,7 +335,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
 
-		resp, err = marshalSubEventsResp(emittedEvents[1], id.ID)
+		resp, err = marshalSubEventsResp(emittedEvents[1], id)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
@@ -351,7 +351,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
 
-		resp, err = marshalSubEventsResp(emittedEvents[0], id.ID)
+		resp, err = marshalSubEventsResp(emittedEvents[0], id)
 		require.NoError(t, err)
 
 		got = make([]byte, len(resp))
@@ -390,7 +390,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
-		assert.Nil(t, id)
+		assert.Equal(t, SubscriptionID(0), id)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
 
@@ -425,7 +425,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			b, err := TxnStatusRejected.MarshalText()
 			require.NoError(t, err)
 
-			resp := fmt.Sprintf(respStr, txHash, b, id.ID)
+			resp := fmt.Sprintf(respStr, txHash, b, id)
 			got := make([]byte, len(resp))
 			_, err = clientConn.Read(got)
 			require.NoError(t, err)
@@ -455,7 +455,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			b, err := TxnStatusAcceptedOnL1.MarshalText()
 			require.NoError(t, err)
 
-			resp := fmt.Sprintf(respStr, txHash, b, id.ID)
+			resp := fmt.Sprintf(respStr, txHash, b, id)
 			got := make([]byte, len(resp))
 			_, err = clientConn.Read(got)
 			require.NoError(t, err)
@@ -503,7 +503,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		b, err := TxnStatusReceived.MarshalText()
 		require.NoError(t, err)
 
-		resp := fmt.Sprintf(receivedRespStr, txHash, b, id.ID)
+		resp := fmt.Sprintf(receivedRespStr, txHash, b, id)
 		got := make([]byte, len(resp))
 		_, err = clientConn.Read(got)
 		require.NoError(t, err)
@@ -519,7 +519,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		l1AndL2RespStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","execution_status":"SUCCEEDED"}},"subscription_id":%v}}`
-		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id.ID)
+		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id)
 		got = make([]byte, len(resp))
 		_, err = clientConn.Read(got)
 		require.NoError(t, err)
@@ -535,7 +535,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		b, err = TxnStatusAcceptedOnL1.MarshalText()
 		require.NoError(t, err)
 
-		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id.ID)
+		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id)
 		got = make([]byte, len(resp))
 		_, err = clientConn.Read(got)
 		require.NoError(t, err)
@@ -1103,7 +1103,7 @@ func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *we
 }
 
 func subResp(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","result":{"subscription_id":%d},"id":1}`, id)
+	return fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
 }
 
 func subMsg(method string) string {
@@ -1167,7 +1167,7 @@ func sendWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, mess
 	return string(response)
 }
 
-func marshalSubEventsResp(e *EmittedEvent, id uint64) ([]byte, error) {
+func marshalSubEventsResp(e *EmittedEvent, id SubscriptionID) ([]byte, error) {
 	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  "starknet_subscriptionEvents",
