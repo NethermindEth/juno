@@ -478,6 +478,8 @@ func TestBlockWithTxs(t *testing.T) {
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
+		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
+		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})

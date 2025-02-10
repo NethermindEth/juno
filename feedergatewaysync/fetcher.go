@@ -8,8 +8,17 @@ import (
 
 // FetchBlock retrieves a CustomBlock from the feeder gateway
 func (s *SyncManager) FetchBlock(blockNumber uint64) (*CustomBlock, error) {
-	url := fmt.Sprintf("%s/feeder_gateway/get_block?blockNumber=%d", s.feederURL, blockNumber)
-	resp, err := http.Get(url)
+	reqURL := fmt.Sprintf("%s/feeder_gateway/get_block?blockNumber=%d", s.feederURL, blockNumber)
+
+	req, err := http.NewRequest(http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for block %d: %w", blockNumber, err)
+	}
+
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch block %d: %w", blockNumber, err)
 	}

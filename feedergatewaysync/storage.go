@@ -13,7 +13,7 @@ type Storage struct {
 	db *pebble.DB
 }
 
-// NewStorage initializes a new PebbleDB instance
+// NewStorage initialises a new PebbleDB instance
 func NewStorage(dbPath string) (*Storage, error) {
 	db, err := pebble.Open(dbPath, &pebble.Options{})
 	if err != nil {
@@ -26,7 +26,7 @@ func NewStorage(dbPath string) (*Storage, error) {
 func (s *Storage) SaveBlock(block *CustomBlock) error {
 	data, err := json.Marshal(block)
 	if err != nil {
-		return fmt.Errorf("failed to serialize block: %w", err)
+		return fmt.Errorf("failed to serialise block: %w", err)
 	}
 	blockKey := fmt.Sprintf("block-%d", block.Number)
 	err = s.db.Set([]byte(blockKey), data, pebble.Sync)

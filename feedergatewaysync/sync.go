@@ -10,7 +10,7 @@ type SyncManager struct {
 	storage   *Storage
 }
 
-// NewSyncManager initializes the sync manager
+// NewSyncManager initialises the sync manager
 func NewSyncManager(feederURL string, storage *Storage) *SyncManager {
 	return &SyncManager{
 		feederURL: feederURL,
