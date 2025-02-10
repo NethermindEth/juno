@@ -525,18 +525,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	got.Transactions = got.Transactions[:1]
 
 	require.Equal(t, &rpcv7.BlockWithTxs{
-		BlockHeader: rpcv7.BlockHeader{
+		BlockHeader: rpcv6.BlockHeader{
 			Hash:            coreBlock.Hash,
 			StarknetVersion: coreBlock.ProtocolVersion,
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.Ptr(rpcv7.Blob),
-			L1GasPrice: &rpcv7.ResourcePrice{
+			L1DAMode:        utils.Ptr(rpcv6.Blob),
+			L1GasPrice: &rpcv6.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpcv7.ResourcePrice{
+			L1DataGasPrice: &rpcv6.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
 				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
 			},
@@ -637,7 +637,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
 			Status: rpcv6.BlockPending,
-			BlockHeader: rpcv7.BlockHeader{
+			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
@@ -682,7 +682,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
 			Status: rpcv6.BlockAcceptedL1,
-			BlockHeader: rpcv7.BlockHeader{
+			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
