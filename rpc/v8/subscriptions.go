@@ -96,10 +96,10 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
-) (*SubscriptionID, *jsonrpc.Error) {
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	lenKeys := len(keys)
@@ -107,12 +107,12 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		lenKeys += len(k)
 	}
 	if lenKeys > rpccore.MaxEventFilterKeys {
-		return nil, rpccore.ErrTooManyKeysInFilter
+		return 0, rpccore.ErrTooManyKeysInFilter
 	}
 
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
-		return nil, rpcErr
+		return 0, rpcErr
 	}
 
 	id := h.idgen()
@@ -188,7 +188,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		wg.Wait()
 	})
 
-	return &SubscriptionID{ID: id}, nil
+	return SubscriptionID(id), nil
 }
 
 // SubscribeTransactionStatus subscribes to status changes of a transaction. It checks for updates each time a new block is added.
@@ -196,12 +196,12 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 // The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
 //
 //nolint:gocyclo,funlen
-func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt) (*SubscriptionID,
+func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt) (SubscriptionID,
 	*jsonrpc.Error,
 ) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	// If the error is transaction not found that means the transaction has not been submitted to the feeder gateway,
@@ -211,7 +211,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 	curStatus, rpcErr := h.TransactionStatus(ctx, txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
-			return nil, rpcErr
+			return 0, rpcErr
 		}
 
 		timeout := time.NewTimer(subscribeTxStatusTimeout)
@@ -222,12 +222,12 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 			select {
 			case <-timeout.C:
 				ticker.Stop()
-				return nil, rpcErr
+				return 0, rpcErr
 			case <-ticker.C:
 				curStatus, rpcErr = h.TransactionStatus(ctx, txHash)
 				if rpcErr != nil {
 					if rpcErr != rpccore.ErrTxnHashNotFound {
-						return nil, rpcErr
+						return 0, rpcErr
 					}
 					continue
 				}
@@ -335,7 +335,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 		wg.Wait()
 	})
 
-	return &SubscriptionID{ID: id}, nil
+	return SubscriptionID(id), nil
 }
 
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
@@ -429,15 +429,15 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 }
 
 // SubscribeNewHeads creates a WebSocket stream which will fire events when a new block header is added.
-func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (*SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
-		return nil, rpcErr
+		return 0, rpcErr
 	}
 
 	id := h.idgen()
@@ -477,20 +477,20 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		wg.Wait()
 	})
 
-	return &SubscriptionID{ID: id}, nil
+	return SubscriptionID(id), nil
 }
 
 // SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
 // The getDetails flag controls if the response will contain the transaction details or just the transaction hashes.
 // The senderAddr flag is used to filter the transactions by sender address.
-func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (*SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return nil, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	if len(senderAddr) > rpccore.MaxEventFilterKeys {
-		return nil, rpccore.ErrTooManyAddressesInFilter
+		return 0, rpccore.ErrTooManyAddressesInFilter
 	}
 
 	id := h.idgen()
@@ -511,7 +511,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 		h.processPendingTxs(subscriptionCtx, getDetails != nil && *getDetails, senderAddr, pendingSub, w, id)
 	})
 
-	return &SubscriptionID{ID: id}, nil
+	return SubscriptionID(id), nil
 }
 
 func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, senderAddr []felt.Felt,

@@ -12,9 +12,7 @@ type EventsArg struct {
 	ResultPageRequest
 }
 
-type SubscriptionID struct {
-	ID uint64 `json:"subscription_id"`
-}
+type SubscriptionID uint64
 
 type EventFilter struct {
 	FromBlock *BlockID      `json:"from_block"`
