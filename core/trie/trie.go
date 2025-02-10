@@ -796,3 +796,11 @@ func (t *Trie) dump(level int, parentP *BitArray) {
 		storage: t.storage,
 	}).dump(level+1, t.rootKey)
 }
+
+// GetNodesFromRoot returns the set of nodes that need to be traversed from the root
+// of the Trie to reach the node corresponding to the given key.
+func (t *Trie) GetNodesFromRoot(key *felt.Felt) ([]StorageNode, error) {
+	storageKey := t.FeltToKey(key)
+
+	return t.nodesFromRoot(&storageKey)
+}

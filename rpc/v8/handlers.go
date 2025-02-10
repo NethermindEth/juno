@@ -322,6 +322,16 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.BlockWithReceipts,
 		},
 		{
+			Name:    "starknet_getBlockWithTxnHashesAndReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockWithTxnHashesAndReceipts,
+		},
+		{
+			Name:    "starknet_getNodesFromRoot",
+			Params:  []jsonrpc.Parameter{{Name: "key"}},
+			Handler: h.NodesFromRoot,
+		},
+		{
 			Name:    "starknet_getCompiledCasm",
 			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
 			Handler: h.CompiledCasm,

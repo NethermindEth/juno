@@ -155,6 +155,24 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+type BlockWithTxHashesAndReceipts struct {
+	Status       BlockStatus              `json:"status,omitempty"`
+	BlockHeader  BlockHeader              `json:"block_header"`
+	TxnHashes    []*felt.Felt             `json:"transaction_hashes"`
+	Transactions []TransactionWithReceipt `json:"transactions"`
+}
+
+// NodesFromRootResponse represents the response structure for the NodesFromRoot RPC method
+type NodesFromRootResponse struct {
+	Nodes []NodeInfo `json:"nodes"`
+}
+
+// NodeInfo represents the information about each node in the path
+type NodeInfo struct {
+	Key   *felt.Felt `json:"key"`
+	Value *felt.Felt `json:"value"`
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
@@ -256,6 +274,44 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	return &BlockWithReceipts{
 		Status:       blockStatus,
 		BlockHeader:  adaptBlockHeader(block.Header),
+		Transactions: txsWithReceipts,
+	}, nil
+}
+
+// BlockWithTxnHashesAndReceipts returns the block with transaction hashes and receipts.
+func (h *Handler) BlockWithTxnHashesAndReceipts(id BlockID) (*BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	blockStatus, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	finalityStatus := TxnAcceptedOnL2
+	if blockStatus == BlockAcceptedL1 {
+		finalityStatus = TxnAcceptedOnL1
+	}
+
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
+
+	for index, txn := range block.Transactions {
+		txnHashes[index] = txn.Hash()
+		r := block.Receipts[index]
+
+		txsWithReceipts[index] = TransactionWithReceipt{
+			Transaction: AdaptTransaction(txn),
+			Receipt:     AdaptReceipt(r, txn, finalityStatus, nil, 0),
+		}
+	}
+
+	return &BlockWithTxHashesAndReceipts{
+		Status:       blockStatus,
+		BlockHeader:  adaptBlockHeader(block.Header),
+		TxnHashes:    txnHashes,
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -372,4 +428,37 @@ func nilToZero(f *felt.Felt) *felt.Felt {
 		return &felt.Zero
 	}
 	return f
+}
+
+// NodesFromRoot returns all nodes that need to be traversed from the root of the Trie
+// to reach the node corresponding to the given key.
+func (h *Handler) NodesFromRoot(key *felt.Felt) (*NodesFromRootResponse, *jsonrpc.Error) {
+	stateReader, _, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, rpccore.ErrInternal
+	}
+
+	stateTrie, _ := stateReader.ClassTrie()
+
+	nodes, err := stateTrie.GetNodesFromRoot(key)
+	if err != nil {
+		return nil, &jsonrpc.Error{
+			Code:    26,
+			Message: "failed to get nodes from root",
+		}
+	}
+
+	response := &NodesFromRootResponse{
+		Nodes: make([]NodeInfo, len(nodes)),
+	}
+
+	for i, node := range nodes {
+		feltValue := node.Key().Felt()
+		response.Nodes[i] = NodeInfo{
+			Key:   &feltValue,
+			Value: node.Value(),
+		}
+	}
+
+	return response, nil
 }
