@@ -95,6 +95,7 @@ type Resource uint32
 const (
 	ResourceL1Gas Resource = iota + 1
 	ResourceL2Gas
+	ResourceL1DataGas
 )
 
 func (r Resource) MarshalText() ([]byte, error) {
@@ -103,6 +104,8 @@ func (r Resource) MarshalText() ([]byte, error) {
 		return []byte("L1_GAS"), nil
 	case ResourceL2Gas:
 		return []byte("L2_GAS"), nil
+	case ResourceL1DataGas:
+		return []byte("L1_DATA"), nil
 	default:
 		return nil, fmt.Errorf("unknown resource %v", r)
 	}
