@@ -192,10 +192,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.StateUpdate,
 		},
 		{
-			Name:    "starknet_syncing",
-			Handler: h.Syncing,
-		},
-		{
 			Name:    "starknet_getNonce",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
 			Handler: h.Nonce,
