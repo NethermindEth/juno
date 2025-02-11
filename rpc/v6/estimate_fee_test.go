@@ -57,7 +57,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
 			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
-		) ([]*felt.Felt, []core.GasConsumed, []vm.TransactionTrace, uint64, error) {
+		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))
 
@@ -65,16 +65,21 @@ func TestEstimateMessageFee(t *testing.T) {
 			assert.Len(t, paidFeesOnL1, 1)
 
 			actualFee := new(felt.Felt).Mul(expectedGasConsumed, blockInfo.Header.L1GasPriceETH)
-			return []*felt.Felt{actualFee}, []core.GasConsumed{{L1DataGas: 0}}, []vm.TransactionTrace{{
-				StateDiff: &vm.StateDiff{
-					StorageDiffs:              []vm.StorageDiff{},
-					Nonces:                    []vm.Nonce{},
-					DeployedContracts:         []vm.DeployedContract{},
-					DeprecatedDeclaredClasses: []*felt.Felt{},
-					DeclaredClasses:           []vm.DeclaredClass{},
-					ReplacedClasses:           []vm.ReplacedClass{},
-				},
-			}}, 0, nil
+			return vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{actualFee},
+				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
+				Traces: []vm.TransactionTrace{{
+					StateDiff: &vm.StateDiff{
+						StorageDiffs:              []vm.StorageDiff{},
+						Nonces:                    []vm.Nonce{},
+						DeployedContracts:         []vm.DeployedContract{},
+						DeprecatedDeclaredClasses: []*felt.Felt{},
+						DeclaredClasses:           []vm.DeclaredClass{},
+						ReplacedClasses:           []vm.ReplacedClass{},
+					},
+				}},
+				NumSteps: 0,
+			}, nil
 		},
 	)
 

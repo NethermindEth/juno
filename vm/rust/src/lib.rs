@@ -8,24 +8,23 @@ use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    num::NonZeroU128,
     slice,
     sync::Arc,
 };
 
-use blockifier::abi::constants::STORED_BLOCK_HASH_BUFFER;
-use blockifier::blockifier::block::{
-    pre_process_block, BlockInfo as BlockifierBlockInfo, BlockNumberHashPair, GasPrices,
-};
+use anyhow::Result;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::fee::{fee_utils, gas_usage};
-use blockifier::transaction::objects::GasVector;
+use blockifier::{
+    abi::constants::STORED_BLOCK_HASH_BUFFER,
+    transaction::account_transaction::ExecutionFlags as AccountExecutionFlags,
+};
+use blockifier::{
+    blockifier::block::pre_process_block, execution::entry_point::SierraGasRevertTracker,
+};
 use blockifier::{
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
-    execution::{
-        contract_class::ClassInfo,
-        entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
-    },
+    execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     state::{cached_state::CachedState, state_api::State},
     transaction::{
         errors::TransactionExecutionError::{
@@ -37,14 +36,26 @@ use blockifier::{
     },
     versioned_constants::VersionedConstants,
 };
-use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use serde::Deserialize;
 use starknet_api::{
-    block::BlockHash,
+    block::{BlockHash, GasPrice},
+    contract_class::{ClassInfo, EntryPointType, SierraVersion},
     core::PatriciaKey,
-    deprecated_contract_class::EntryPointType,
-    transaction::{Calldata, Fee, Transaction as StarknetApiTransaction, TransactionHash},
+    executable_transaction::AccountTransaction,
+    execution_resources::GasVector,
+    transaction::{
+        fields::{Calldata, Fee, GasVectorComputationMode},
+        DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
+        Transaction as StarknetApiTransaction, TransactionHash,
+    },
+};
+use starknet_api::{
+    block::{
+        BlockHashAndNumber, BlockInfo as BlockifierBlockInfo, GasPriceVector, GasPrices,
+        NonzeroGasPrice,
+    },
+    execution_resources::GasAmount,
 };
 use starknet_api::{
     core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
@@ -52,7 +63,6 @@ use starknet_api::{
 };
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
-
 type StarkFelt = Felt;
 
 extern "C" {
@@ -60,7 +70,13 @@ extern "C" {
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
-    fn JunoAppendGasConsumed(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
+    fn JunoAppendDAGas(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
+    fn JunoAppendGasConsumed(
+        reader_handle: usize,
+        ptr: *const c_uchar,
+        ptr: *const c_uchar,
+        ptr: *const c_uchar,
+    );
     fn JunoAddExecutionSteps(reader_handle: usize, execSteps: c_ulonglong);
 }
 
@@ -80,13 +96,15 @@ pub struct BlockInfo {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
     pub sequencer_address: [c_uchar; 32],
-    pub gas_price_wei: [c_uchar; 32],
-    pub gas_price_fri: [c_uchar; 32],
+    pub l1_gas_price_wei: [c_uchar; 32],
+    pub l1_gas_price_fri: [c_uchar; 32],
     pub version: *const c_char,
     pub block_hash_to_be_revealed: [c_uchar; 32],
-    pub data_gas_price_wei: [c_uchar; 32],
-    pub data_gas_price_fri: [c_uchar; 32],
+    pub l1_data_gas_price_wei: [c_uchar; 32],
+    pub l1_data_gas_price_fri: [c_uchar; 32],
     pub use_blob_data: c_uchar,
+    pub l2_gas_price_wei: [c_uchar; 32],
+    pub l2_gas_price_fri: [c_uchar; 32],
 }
 
 #[no_mangle]
@@ -98,6 +116,7 @@ pub extern "C" fn cairoVMCall(
     chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
+    sierra_version: *const c_char,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
@@ -122,22 +141,32 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
+    let version_constants = get_versioned_constants(block_info.version);
+    let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
+    let sierra_version =
+        SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
+    let initial_gas: u64 = if sierra_version < SierraVersion::new(1, 7, 0) {
+        version_constants.infinite_gas_for_vm_mode()
+    } else {
+        version_constants.os_constants.validate_max_sierra_gas.0
+    };
+    let contract_address =
+        starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
+
     let entry_point = CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
-        storage_address: contract_addr_felt.try_into().unwrap(),
+        storage_address: contract_address,
         call_type: CallType::Call,
         class_hash,
-        code_address: None,
-        caller_address: ContractAddress::default(),
-        initial_gas: get_versioned_constants(block_info.version).tx_initial_gas(),
+        initial_gas,
+        ..Default::default()
     };
 
     let concurrency_mode = concurrency_mode == 1;
     let mut state = CachedState::new(reader);
-    let mut resources = ExecutionResources::default();
-    let context = EntryPointExecutionContext::new_invoke(
+    let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
                 &mut state,
@@ -145,19 +174,22 @@ pub extern "C" fn cairoVMCall(
                 chain_id_str,
                 Some(max_steps),
                 concurrency_mode,
-            ),
+            )
+            .unwrap(),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
+        SierraGasRevertTracker::new(GasAmount::from(initial_gas)),
     );
-    if let Err(e) = context {
-        report_error(reader_handle, e.to_string().as_str(), -1);
-        return;
-    }
-    match entry_point.execute(&mut state, &mut resources, &mut context.unwrap()) {
+    let mut remaining_gas = entry_point.initial_gas;
+    match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
-        Ok(t) => {
-            for data in t.execution.retdata.0 {
+        Ok(call_info) => {
+            if call_info.execution.failed {
+                report_error(reader_handle, "execution failed", -1);
+                return;
+            }
+            for data in call_info.execution.retdata.0 {
                 unsafe {
                     JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
                 };
@@ -229,7 +261,8 @@ pub extern "C" fn cairoVMExecute(
         chain_id_str,
         None,
         concurrency_mode,
-    );
+    )
+    .unwrap();
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
 
@@ -265,12 +298,18 @@ pub extern "C" fn cairoVMExecute(
             _ => None,
         };
 
+        let account_execution_flags = AccountExecutionFlags {
+            only_query: txn_and_query_bit.query_bit,
+            charge_fee,
+            validate,
+        };
+
         let txn = transaction_from_api(
             txn_and_query_bit.txn.clone(),
             txn_and_query_bit.txn_hash,
             class_info,
             paid_fee_on_l1,
-            txn_and_query_bit.query_bit,
+            account_execution_flags,
         );
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
@@ -278,22 +317,27 @@ pub extern "C" fn cairoVMExecute(
         }
 
         let mut txn_state = CachedState::create_transactional(&mut state);
+        let minimal_gas_vector: Option<GasVector>;
         let fee_type;
-        let minimal_l1_gas_amount_vector: Option<GasVector>;
-        let res = match txn.unwrap() {
-            Transaction::AccountTransaction(t) => {
+        let txn = txn.unwrap();
+        let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
+
+        let res = match txn {
+            Transaction::Account(t) => {
+                minimal_gas_vector = Some(gas_usage::estimate_minimal_gas_vector(
+                    &block_context,
+                    &t,
+                    &gas_vector_computation_mode,
+                ));
                 fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector =
-                    Some(gas_usage::estimate_minimal_gas_vector(&block_context, &t).unwrap());
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                t.execute(&mut txn_state, &block_context)
             }
-            Transaction::L1HandlerTransaction(t) => {
+            Transaction::L1Handler(t) => {
+                minimal_gas_vector = None;
                 fee_type = t.fee_type();
-                minimal_l1_gas_amount_vector = None;
-                t.execute(&mut txn_state, &block_context, charge_fee, validate)
+                t.execute(&mut txn_state, &block_context)
             }
         };
-
         match res {
             Err(error) => {
                 let err_string = match &error {
@@ -314,54 +358,76 @@ pub extern "C" fn cairoVMExecute(
                 );
                 return;
             }
-            Ok(mut t) => {
-                if t.is_reverted() && err_on_revert != 0 {
+            Ok(mut tx_execution_info) => {
+                if let Some(call_info) = &tx_execution_info.execute_call_info {
+                    if call_info.execution.failed {
+                        report_error(
+                            reader_handle,
+                            format!("failed call info {}", txn_and_query_bit.txn_hash).as_str(),
+                            txn_index as i64,
+                        );
+                        return;
+                    }
+                }
+                if tx_execution_info.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
-                        format!("reverted: {}", t.revert_error.unwrap()).as_str(),
+                        format!("reverted: {}", tx_execution_info.revert_error.unwrap()).as_str(),
                         txn_index as i64,
                     );
                     return;
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if t.transaction_receipt.fee.0 == 0 {
-                    let minimal_l1_gas_amount_vector =
-                        minimal_l1_gas_amount_vector.unwrap_or_default();
-                    let gas_consumed = t
-                        .transaction_receipt
+                if tx_execution_info.receipt.fee.0 == 0 {
+                    let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
+                    let l1_gas_consumed = tx_execution_info
+                        .receipt
                         .gas
                         .l1_gas
-                        .max(minimal_l1_gas_amount_vector.l1_gas);
-                    let data_gas_consumed = t
-                        .transaction_receipt
+                        .max(minimal_gas_vector.l1_gas);
+                    let l1_data_gas_consumed = tx_execution_info
+                        .receipt
                         .gas
                         .l1_data_gas
-                        .max(minimal_l1_gas_amount_vector.l1_data_gas);
+                        .max(minimal_gas_vector.l1_data_gas);
+                    let l2_gas_consumed = tx_execution_info
+                        .receipt
+                        .gas
+                        .l2_gas
+                        .max(minimal_gas_vector.l2_gas);
 
-                    t.transaction_receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
                         GasVector {
-                            l1_data_gas: data_gas_consumed,
-                            l1_gas: gas_consumed,
+                            l1_data_gas: l1_data_gas_consumed,
+                            l1_gas: l1_gas_consumed,
+                            l2_gas: l2_gas_consumed,
                         },
                         &fee_type,
                     )
                 }
 
-                let actual_fee: Felt = t.transaction_receipt.fee.0.into();
-                let da_gas_l1_gas = t.transaction_receipt.da_gas.l1_gas.into();
-                let da_gas_l1_data_gas = t.transaction_receipt.da_gas.l1_data_gas.into();
-                let execution_steps = t
-                    .transaction_receipt
+                let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
+                let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
+                let da_gas_l1_data_gas = tx_execution_info.receipt.da_gas.l1_data_gas.into();
+                let execution_steps = tx_execution_info
+                    .receipt
                     .resources
+                    .computation
                     .vm_resources
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);
+                let l1_gas_consumed = tx_execution_info.receipt.gas.l1_gas.into();
+                let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
+                let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
 
-                let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
+                let trace = jsonrpc::new_transaction_trace(
+                    &txn_and_query_bit.txn,
+                    tx_execution_info,
+                    &mut txn_state,
+                );
                 if let Err(e) = trace {
                     report_error(
                         reader_handle,
@@ -373,10 +439,16 @@ pub extern "C" fn cairoVMExecute(
 
                 unsafe {
                     JunoAppendActualFee(reader_handle, felt_to_byte_array(&actual_fee).as_ptr());
-                    JunoAppendGasConsumed(
+                    JunoAppendDAGas(
                         reader_handle,
                         felt_to_byte_array(&da_gas_l1_gas).as_ptr(),
                         felt_to_byte_array(&da_gas_l1_data_gas).as_ptr(),
+                    );
+                    JunoAppendGasConsumed(
+                        reader_handle,
+                        felt_to_byte_array(&l1_gas_consumed).as_ptr(),
+                        felt_to_byte_array(&l1_data_gas_consumed).as_ptr(),
+                        felt_to_byte_array(&l2_gas_consumed).as_ptr(),
                     );
                     JunoAddExecutionSteps(reader_handle, execution_steps)
                 }
@@ -384,6 +456,28 @@ pub extern "C" fn cairoVMExecute(
             }
         }
         txn_state.commit();
+    }
+}
+
+fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
+    match &transaction {
+        Transaction::Account(account_tx) => match &account_tx.tx {
+            AccountTransaction::Declare(tx) => match &tx.tx {
+                DeclareTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+            AccountTransaction::DeployAccount(tx) => match &tx.tx {
+                DeployAccountTransaction::V3(tx) => {
+                    tx.resource_bounds.get_gas_vector_computation_mode()
+                }
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+            AccountTransaction::Invoke(tx) => match &tx.tx {
+                InvokeTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
+                _ => GasVectorComputationMode::NoL2Gas,
+            },
+        },
+        Transaction::L1Handler(_) => GasVectorComputationMode::NoL2Gas,
     }
 }
 
@@ -402,7 +496,7 @@ fn transaction_from_api(
     tx_hash: TransactionHash,
     class_info: Option<ClassInfo>,
     paid_fee_on_l1: Option<Fee>,
-    query_bit: bool,
+    execution_flags: AccountExecutionFlags,
 ) -> Result<Transaction, String> {
     match tx {
         StarknetApiTransaction::Deploy(_) => {
@@ -420,8 +514,15 @@ fn transaction_from_api(
         _ => {} // all ok
     };
 
-    Transaction::from_api(tx, tx_hash, class_info, paid_fee_on_l1, None, query_bit)
-        .map_err(|err| format!("failed to create transaction from api: {:?}", err))
+    Transaction::from_api(
+        tx,
+        tx_hash,
+        class_info,
+        paid_fee_on_l1,
+        None,
+        execution_flags,
+    )
+    .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
 fn append_trace(
@@ -447,24 +548,35 @@ fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
     };
 }
 
+// NonzeroGasPrice must be greater than zero to successfully execute transaction.
+fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice, anyhow::Error> {
+    let u128_val = felt_to_u128(StarkFelt::from_bytes_be(bytes));
+    Ok(NonzeroGasPrice::new(GasPrice(if u128_val == 0 {
+        1
+    } else {
+        u128_val
+    }))?)
+}
+
 fn build_block_context(
     state: &mut dyn State,
     block_info: &BlockInfo,
     chain_id_str: &str,
     max_steps: Option<c_ulonglong>,
     _concurrency_mode: bool,
-) -> BlockContext {
+) -> Result<BlockContext> {
     let sequencer_addr = StarkFelt::from_bytes_be(&block_info.sequencer_address);
-    let gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.gas_price_wei);
-    let gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.gas_price_fri);
-    let data_gas_price_wei_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_wei);
-    let data_gas_price_fri_felt = StarkFelt::from_bytes_be(&block_info.data_gas_price_fri);
-    let default_gas_price = NonZeroU128::new(1).unwrap();
+    let l1_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l1_gas_price_wei)?;
+    let l1_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l1_gas_price_fri)?;
+    let l1_data_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l1_data_gas_price_wei)?;
+    let l1_data_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l1_data_gas_price_fri)?;
+    let l2_gas_price_eth = gas_price_from_bytes_bonded(&block_info.l2_gas_price_wei)?;
+    let l2_gas_price_strk = gas_price_from_bytes_bonded(&block_info.l2_gas_price_fri)?;
 
-    let mut old_block_number_and_hash: Option<BlockNumberHashPair> = None;
+    let mut old_block_number_and_hash: Option<BlockHashAndNumber> = None;
     // STORED_BLOCK_HASH_BUFFER const is 10 for now
     if block_info.block_number >= STORED_BLOCK_HASH_BUFFER {
-        old_block_number_and_hash = Some(BlockNumberHashPair {
+        old_block_number_and_hash = Some(BlockHashAndNumber {
             number: starknet_api::block::BlockNumber(
                 block_info.block_number - STORED_BLOCK_HASH_BUFFER,
             ),
@@ -483,21 +595,23 @@ fn build_block_context(
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
         sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
         gas_prices: GasPrices {
-            eth_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_wei_felt))
-                .unwrap_or(default_gas_price),
-            strk_l1_gas_price: NonZeroU128::new(felt_to_u128(gas_price_fri_felt))
-                .unwrap_or(default_gas_price),
-            eth_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_wei_felt))
-                .unwrap_or(default_gas_price),
-            strk_l1_data_gas_price: NonZeroU128::new(felt_to_u128(data_gas_price_fri_felt))
-                .unwrap_or(default_gas_price),
+            eth_gas_prices: GasPriceVector {
+                l1_gas_price: l1_gas_price_eth,
+                l1_data_gas_price: l1_data_gas_price_eth,
+                l2_gas_price: l2_gas_price_eth,
+            },
+            strk_gas_prices: GasPriceVector {
+                l1_gas_price: l1_gas_price_strk,
+                l1_data_gas_price: l1_data_gas_price_strk,
+                l2_gas_price: l2_gas_price_strk,
+            },
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
     let chain_info = ChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
-            // both addresses are the same for all networks
+            // Both addresses are the same for all networks
             eth_fee_token_address: ContractAddress::try_from(
                 StarkHash::from_hex(
                     "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
@@ -515,8 +629,20 @@ fn build_block_context(
         },
     };
 
-    pre_process_block(state, old_block_number_and_hash, block_info.block_number).unwrap();
-    BlockContext::new(block_info, chain_info, constants, BouncerConfig::max())
+    pre_process_block(
+        state,
+        old_block_number_and_hash,
+        block_info.block_number,
+        constants.os_constants.as_ref(),
+    )
+    .unwrap();
+
+    Ok(BlockContext::new(
+        block_info,
+        chain_info,
+        constants,
+        BouncerConfig::max(),
+    ))
 }
 
 lazy_static! {
@@ -524,19 +650,45 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert(
             "0.13.0".to_string(),
-            serde_json::from_slice(include_bytes!("../versioned_constants_13_0.json")).unwrap(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_0.json"
+            ))
+            .unwrap(),
         );
         m.insert(
             "0.13.1".to_string(),
-            serde_json::from_slice(include_bytes!("../versioned_constants_13_1.json")).unwrap(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_1.json"
+            ))
+            .unwrap(),
         );
         m.insert(
             "0.13.1.1".to_string(),
-            serde_json::from_slice(include_bytes!("../versioned_constants_13_1_1.json")).unwrap(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_1_1.json"
+            ))
+            .unwrap(),
         );
         m.insert(
             "0.13.2".to_string(),
-            serde_json::from_slice(include_bytes!("../versioned_constants_13_2.json")).unwrap(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_2.json"
+            ))
+            .unwrap(),
+        );
+        m.insert(
+            "0.13.3".to_string(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_3.json"
+            ))
+            .unwrap(),
+        );
+        m.insert(
+            "0.13.4".to_string(),
+            serde_json::from_slice(include_bytes!(
+                "../resources/versioned_constants_0_13_4.json"
+            ))
+            .unwrap(),
         );
         m
     };
@@ -563,6 +715,10 @@ fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
         CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str("0.13.2.1").unwrap() {
         CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str("0.13.3").unwrap() {
+        CONSTANTS.get(&"0.13.3".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str("0.13.4").unwrap() {
+        CONSTANTS.get(&"0.13.4".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
     }

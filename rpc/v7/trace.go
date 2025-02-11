@@ -110,7 +110,16 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
 	builtins := &resources.BuiltinInstanceCounter
+	var l1Gas, l1DataGas, l2Gas uint64
+	if tgs := resources.TotalGasConsumed; tgs != nil {
+		l1Gas = tgs.L1Gas
+		l1DataGas = tgs.L1DataGas
+		l2Gas = tgs.L2Gas
+	}
 	return &vm.ExecutionResources{
+		L1Gas:     l1Gas,
+		L1DataGas: l1DataGas,
+		L2Gas:     l2Gas,
 		ComputationResources: vm.ComputationResources{
 			Steps:        resources.Steps,
 			MemoryHoles:  resources.MemoryHoles,
@@ -208,6 +217,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 			}
 
 			txDataAvailability := make(map[felt.Felt]vm.DataAvailability, len(block.Receipts))
+			txTotalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(block.Receipts))
 			for _, receipt := range block.Receipts {
 				if receipt.ExecutionResources == nil {
 					continue
@@ -219,16 +229,29 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 					}
 					txDataAvailability[*receipt.TransactionHash] = da
 				}
+				if receiptTGS := receipt.ExecutionResources.TotalGasConsumed; receiptTGS != nil {
+					tgs := core.GasConsumed{
+						L1Gas:     receiptTGS.L1Gas,
+						L1DataGas: receiptTGS.L1DataGas,
+						L2Gas:     receiptTGS.L2Gas,
+					}
+					txTotalGasConsumed[*receipt.TransactionHash] = tgs
+				}
 			}
 
 			// add execution resources on root level
 			for index, trace := range result {
-				executionResources := trace.TraceRoot.TotalExecutionResources()
 				// fgw doesn't provide this data in traces endpoint
 				// some receipts don't have data availability data in this case we don't
 				da := txDataAvailability[*trace.TransactionHash]
-				executionResources.DataAvailability = &da
-				result[index].TraceRoot.ExecutionResources = executionResources
+				tgs := txTotalGasConsumed[*trace.TransactionHash]
+				result[index].TraceRoot.ExecutionResources = &vm.ExecutionResources{
+					L1Gas:                tgs.L1Gas,
+					L1DataGas:            tgs.L1DataGas,
+					L2Gas:                tgs.L2Gas,
+					ComputationResources: trace.TraceRoot.TotalComputationResources(),
+					DataAvailability:     &da,
+				}
 			}
 
 			return result, httpHeader, err
@@ -289,10 +312,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	_, daGas, traces, numSteps, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
+	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
 		&blockInfo, state, network, false, false, false)
 
-	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -303,16 +326,26 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(traces))
-	for index, trace := range traces {
-		executionResources := trace.TotalExecutionResources()
-		executionResources.DataAvailability = &vm.DataAvailability{
-			L1Gas:     daGas[index].L1Gas,
-			L1DataGas: daGas[index].L1DataGas,
+	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
+	for index, trace := range executionResult.Traces {
+		var L1Gas, L1DataGas, L2Gas uint64
+		if gc := executionResult.GasConsumed; gc != nil {
+			L1Gas = gc[index].L1Gas
+			L1DataGas = gc[index].L1DataGas
+			L2Gas = gc[index].L2Gas
 		}
-		traces[index].ExecutionResources = executionResources
+		executionResult.Traces[index].ExecutionResources = &vm.ExecutionResources{
+			L1Gas:                L1Gas,
+			L1DataGas:            L1DataGas,
+			L2Gas:                L2Gas,
+			ComputationResources: trace.TotalComputationResources(),
+			DataAvailability: &vm.DataAvailability{
+				L1Gas:     executionResult.DataAvailability[index].L1Gas,
+				L1DataGas: executionResult.DataAvailability[index].L1DataGas,
+			},
+		}
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &traces[index],
+			TraceRoot:       &executionResult.Traces[index],
 			TransactionHash: block.Transactions[index].Hash(),
 		})
 	}
@@ -369,6 +402,16 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrContractNotFound
 	}
 
+	declaredClass, err := state.Class(classHash)
+	if err != nil {
+		return nil, rpccore.ErrClassHashNotFound
+	}
+
+	var sierraVersion string
+	if class, ok := declaredClass.Class.(*core.Cairo1Class); ok {
+		sierraVersion = class.SemanticVersion
+	}
+
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -382,7 +425,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)
