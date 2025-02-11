@@ -449,7 +449,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 	h.subscriptions.Store(id, sub)
 
 	headerSub := h.newHeads.Subscribe()
-	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the new heads subscription
+	reorgSub := h.reorgs.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
@@ -457,27 +457,59 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 			reorgSub.Unsubscribe()
 		}()
 
-		var wg conc.WaitGroup
+		// Create a channel to signal when historical processing is done
+		historicalDone := make(chan struct{})
 
-		wg.Go(func() {
-			if err := h.sendHistoricalHeaders(subscriptionCtx, startHeader, latestHeader, w, id); err != nil {
-				h.log.Errorw("Error sending old headers", "err", err)
-				return
-			}
-		})
-
-		wg.Go(func() {
+		// Start processing reorgs in a separate goroutine
+		go func() {
 			h.processReorgs(subscriptionCtx, reorgSub, w, id)
-		})
+		}()
 
-		wg.Go(func() {
-			h.processNewHeaders(subscriptionCtx, headerSub, w, id)
-		})
+		// Process historical blocks in a separate goroutine
+		go func() {
+			if err := h.processHistoricalHeaders(subscriptionCtx, w, id, startHeader, latestHeader); err != nil {
+				h.log.Warnw("Error processing historical headers", "err", err)
+			}
+			close(historicalDone)
+		}()
 
-		wg.Wait()
+		// Wait for historical processing to complete or context to be cancelled
+		select {
+		case <-subscriptionCtx.Done():
+			return
+		case <-historicalDone:
+		}
+
+		// Now process new headers until context is cancelled
+		h.processNewHeaders(subscriptionCtx, headerSub, w, id)
 	})
 
 	return SubscriptionID(id), nil
+}
+
+// processHistoricalHeaders sends historical headers from start to end (inclusive)
+func (h *Handler) processHistoricalHeaders(ctx context.Context, w jsonrpc.Conn, id uint64, startHeader, endHeader *core.Header) error {
+	curHeader := startHeader
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if err := h.sendHeader(w, curHeader, id); err != nil {
+				return err
+			}
+
+			if curHeader.Number >= endHeader.Number {
+				return nil
+			}
+
+			nextHeader, err := h.bcReader.BlockHeaderByNumber(curHeader.Number + 1)
+			if err != nil {
+				return err
+			}
+			curHeader = nextHeader
+		}
+	}
 }
 
 // SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
