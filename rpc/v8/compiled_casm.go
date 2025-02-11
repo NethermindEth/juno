@@ -3,6 +3,7 @@ package rpcv8
 import (
 	"encoding/json"
 	"errors"
+	"math/big"
 
 	hintRunnerZero "github.com/NethermindEth/cairo-vm-go/pkg/hintrunner/zero"
 	"github.com/NethermindEth/cairo-vm-go/pkg/parsers/zero"
@@ -18,6 +19,26 @@ type CasmEntryPoint struct {
 	Offset   *felt.Felt `json:"offset"`
 	Selector *felt.Felt `json:"selector"`
 	Builtins []string   `json:"builtins"`
+}
+
+func (c CasmEntryPoint) MarshalJSON() ([]byte, error) {
+	// `offset` field is now returned as an integer and not a hex
+	var offset big.Int
+	if c.Offset != nil {
+		c.Offset.BigInt(&offset)
+	} else {
+		offset.SetUint64(0)
+	}
+
+	return json.Marshal(&struct {
+		Offset   *big.Int   `json:"offset"`
+		Selector *felt.Felt `json:"selector"`
+		Builtins []string   `json:"builtins"`
+	}{
+		Offset:   &offset,
+		Selector: c.Selector,
+		Builtins: c.Builtins,
+	})
 }
 
 type EntryPointsByType struct {
@@ -123,6 +144,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 		Hints:                  json.RawMessage(rawHints),
 		BytecodeSegmentLengths: nil, // Cairo 0 classes don't have this field (it was introduced since Sierra 1.5.0)
 	}
+
 	return result, nil
 }
 
@@ -147,6 +169,7 @@ func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
 		Hints:                  class.Hints,
 		BytecodeSegmentLengths: collectSegmentLengths(class.BytecodeSegmentLengths),
 	}
+
 	return result
 }
 
