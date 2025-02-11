@@ -90,32 +90,6 @@ func TestBlockId(t *testing.T) {
 	}
 }
 
-func TestBlockNumber(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		expectedHeight := uint64(0)
-		mockReader.EXPECT().Height().Return(expectedHeight, errors.New("empty blockchain"))
-
-		num, err := handler.BlockNumber()
-		assert.Equal(t, expectedHeight, num)
-		assert.Equal(t, rpccore.ErrNoBlock, err)
-	})
-
-	t.Run("blockchain height is 21", func(t *testing.T) {
-		expectedHeight := uint64(21)
-		mockReader.EXPECT().Height().Return(expectedHeight, nil)
-
-		num, err := handler.BlockNumber()
-		require.Nil(t, err)
-		assert.Equal(t, expectedHeight, num)
-	})
-}
-
 func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

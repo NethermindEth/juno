@@ -95,7 +95,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv8Handler.BlockNumber,
+			Handler: h.rpcv6Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
@@ -299,7 +299,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv7Handler.BlockNumber,
+			Handler: h.rpcv6Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
