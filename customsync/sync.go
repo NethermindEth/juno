@@ -75,31 +75,28 @@ func (cs *CustomSynchronizer) syncBlocks() {
 	}
 }
 
-func (cs *CustomSynchronizer) verifyAndStoreBlockWithStateUpdate(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) error {
+func (cs *CustomSynchronizer) verifyAndStoreBlockWithStateUpdate(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+) error {
 	// Verify block integrity
 	blockCommitments, sanityCheckErr := cs.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	if sanityCheckErr != nil {
 		return sanityCheckErr
 	}
 
-	// Update blockchain database
-	// Store:
-	// - newly declared classes, classes trie, new contract in storage, contractStorageTrie & stateTrie,
-	// 	 update contracts storages (bc of stateUpdates) + global state trie root,
-	// - block header
-	// - txs & receipts
-	// - state updates
-	// - block commitments
-	// - l1 handler msg hashes
-	// - ChainHeight
-	storeErr := cs.blockchain.Store(block, blockCommitments, stateUpdate, newClasses)
-	if storeErr != nil {
+	// Store block
+	if storeErr := cs.blockchain.Store(block, blockCommitments, stateUpdate, newClasses); storeErr != nil {
 		fmt.Println("Error when trying to store the block")
 		// revert head here
 		return storeErr
-	} else {
-		fmt.Println("Store block: {'number': ", block.Number, ", 'hash': ", block.Hash.ShortString(), ", 'root': ", block.GlobalStateRoot.ShortString(), "}")
 	}
+	fmt.Println(
+		"Store block: {'number': ", block.Number,
+		", 'hash': ", block.Hash.ShortString(),
+		", 'root': ", block.GlobalStateRoot.ShortString(), "}",
+	)
 
 	return nil
 }
@@ -115,7 +112,7 @@ func (cs *CustomSynchronizer) fetchNewClasses(stateUpdate *core.StateUpdate) (ma
 		}
 		// class == nil means it is already in `newClasses` map
 		if class != nil {
-			newClasses[*v0ClassHash] = *class
+			newClasses[*v0ClassHash] = class
 		}
 	}
 
@@ -127,14 +124,14 @@ func (cs *CustomSynchronizer) fetchNewClasses(stateUpdate *core.StateUpdate) (ma
 		}
 		// class == nil means it is already in `newClasses` map
 		if class != nil {
-			newClasses[*v1ClassHash] = *class
+			newClasses[*v1ClassHash] = class
 		}
 	}
 
 	return newClasses, nil
 }
 
-func (cs *CustomSynchronizer) fetchClassIfNotFoundLocally(classHash *felt.Felt, newClasses map[felt.Felt]core.Class) (*core.Class, error) {
+func (cs *CustomSynchronizer) fetchClassIfNotFoundLocally(classHash *felt.Felt, newClasses map[felt.Felt]core.Class) (core.Class, error) {
 	// Make sure class has not already been added
 	if _, classHashPresent := newClasses[*classHash]; classHashPresent {
 		return nil, nil
@@ -169,5 +166,5 @@ func (cs *CustomSynchronizer) fetchClassIfNotFoundLocally(classHash *felt.Felt, 
 		return nil, fetchedClassErr
 	}
 
-	return &class, nil
+	return class, nil
 }

@@ -8,6 +8,7 @@ import (
 
 func main() {
 	cs := sync.NewCustomSynchronizer()
-	cs.Run()
-	fmt.Println(cs)
+	if err := cs.Run(); err != nil {
+		fmt.Println(err)
+	}
 }
