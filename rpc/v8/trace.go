@@ -310,7 +310,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(throttledVMErr)
+			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
@@ -413,7 +413,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)
+			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
 		return nil, makeContractError(err)
 	}

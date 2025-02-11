@@ -20,7 +20,6 @@ type SimulationFlag int
 const (
 	SkipValidateFlag SimulationFlag = iota + 1
 	SkipFeeChargeFlag
-	throttledVMErr = "VM throughput limit reached"
 )
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"

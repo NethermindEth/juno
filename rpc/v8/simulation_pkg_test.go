@@ -125,7 +125,7 @@ func TestHandleExecutionError(t *testing.T) {
 		{
 			name:         "Resource Busy Error",
 			err:          utils.ErrResourceBusy,
-			jsonRPCError: rpccore.ErrInternal.CloneWithData(throttledVMErr),
+			jsonRPCError: rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr),
 		},
 		{
 			name: "Transaction Execution Error",
