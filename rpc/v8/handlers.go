@@ -157,10 +157,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.ChainID,
 		},
 		{
-			Name:    "starknet_blockNumber",
-			Handler: h.BlockNumber,
-		},
-		{
 			Name:    "starknet_blockHashAndNumber",
 			Handler: h.BlockHashAndNumber,
 		},
@@ -313,7 +309,7 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
 			Handler: h.Unsubscribe,
 		},
 		{

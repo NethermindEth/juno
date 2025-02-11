@@ -91,32 +91,6 @@ func TestBlockId(t *testing.T) {
 	}
 }
 
-func TestBlockNumber(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		expectedHeight := uint64(0)
-		mockReader.EXPECT().Height().Return(expectedHeight, errors.New("empty blockchain"))
-
-		num, err := handler.BlockNumber()
-		assert.Equal(t, expectedHeight, num)
-		assert.Equal(t, rpccore.ErrNoBlock, err)
-	})
-
-	t.Run("blockchain height is 21", func(t *testing.T) {
-		expectedHeight := uint64(21)
-		mockReader.EXPECT().Height().Return(expectedHeight, nil)
-
-		num, err := handler.BlockNumber()
-		require.Nil(t, err)
-		assert.Equal(t, expectedHeight, num)
-	})
-}
-
 func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -291,7 +265,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Nil(t, b.Number)
-			assert.Equal(t, rpcv7.BlockPending, b.Status)
+			assert.Equal(t, rpcv6.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -337,7 +311,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(rpcv7.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv7.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -543,7 +517,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 		},
-		Status: rpcv7.BlockAcceptedL2,
+		Status: rpcv6.BlockAcceptedL2,
 		Transactions: []*rpcv7.Transaction{
 			{
 				Hash:               tx.Hash(),
@@ -636,7 +610,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
-			Status: rpcv7.BlockPending,
+			Status: rpcv6.BlockPending,
 			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
@@ -681,7 +655,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
-			Status: rpcv7.BlockAcceptedL1,
+			Status: rpcv6.BlockAcceptedL1,
 			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,

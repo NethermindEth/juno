@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"golang.org/x/sync/errgroup"
 )
 
 type Handler struct {
@@ -77,16 +78,13 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	if err := h.rpcv6Handler.Run(ctx); err != nil {
-		return err
-	}
-	if err := h.rpcv7Handler.Run(ctx); err != nil {
-		return err
-	}
-	if err := h.rpcv8Handler.Run(ctx); err != nil {
-		return err
-	}
-	return nil
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error { return h.rpcv6Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv7Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
+
+	return g.Wait()
 }
 
 func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
@@ -97,7 +95,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv8Handler.BlockNumber,
+			Handler: h.rpcv6Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
@@ -262,7 +260,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
 			Handler: h.rpcv8Handler.Unsubscribe,
 		},
 		{
@@ -301,7 +299,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockNumber",
-			Handler: h.rpcv7Handler.BlockNumber,
+			Handler: h.rpcv6Handler.BlockNumber,
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",

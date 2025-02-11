@@ -109,7 +109,7 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	defer newHeadsSub.Unsubscribe()
-	feed.Tee[*core.Header](newHeadsSub, h.newHeads)
+	feed.Tee(newHeadsSub, h.newHeads)
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {
 		sub := value.(*subscription)
