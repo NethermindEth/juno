@@ -136,7 +136,7 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 
 func handleExecutionError(err error) *jsonrpc.Error {
 	if errors.Is(err, utils.ErrResourceBusy) {
-		return rpccore.ErrInternal.CloneWithData(throttledVMErr)
+		return rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 	}
 	var txnExecutionError vm.TransactionExecutionError
 	if errors.As(err, &txnExecutionError) {
