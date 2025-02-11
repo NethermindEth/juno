@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"golang.org/x/sync/errgroup"
 )
 
 type Handler struct {
@@ -77,16 +78,13 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 }
 
 func (h *Handler) Run(ctx context.Context) error {
-	if err := h.rpcv6Handler.Run(ctx); err != nil {
-		return err
-	}
-	if err := h.rpcv7Handler.Run(ctx); err != nil {
-		return err
-	}
-	if err := h.rpcv8Handler.Run(ctx); err != nil {
-		return err
-	}
-	return nil
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error { return h.rpcv6Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv7Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
+
+	return g.Wait()
 }
 
 func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
