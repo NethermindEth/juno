@@ -3,7 +3,6 @@ package rpcv7
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
