@@ -358,8 +358,8 @@ pub extern "C" fn cairoVMExecute(
                 );
                 return;
             }
-            Ok(mut t) => {
-                if let Some(call_info) = &t.execute_call_info {
+            Ok(mut tx_execution_info) => {
+                if let Some(call_info) = &tx_execution_info.execute_call_info {
                     if call_info.execution.failed {
                         report_error(
                             reader_handle,
@@ -369,27 +369,35 @@ pub extern "C" fn cairoVMExecute(
                         return;
                     }
                 }
-                if t.is_reverted() && err_on_revert != 0 {
+                if tx_execution_info.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
-                        format!("reverted: {}", t.revert_error.unwrap()).as_str(),
+                        format!("reverted: {}", tx_execution_info.revert_error.unwrap()).as_str(),
                         txn_index as i64,
                     );
                     return;
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if t.receipt.fee.0 == 0 {
+                if tx_execution_info.receipt.fee.0 == 0 {
                     let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
-                    let l1_gas_consumed = t.receipt.gas.l1_gas.max(minimal_gas_vector.l1_gas);
-                    let l1_data_gas_consumed = t
+                    let l1_gas_consumed = tx_execution_info
+                        .receipt
+                        .gas
+                        .l1_gas
+                        .max(minimal_gas_vector.l1_gas);
+                    let l1_data_gas_consumed = tx_execution_info
                         .receipt
                         .gas
                         .l1_data_gas
                         .max(minimal_gas_vector.l1_data_gas);
-                    let l2_gas_consumed = t.receipt.gas.l2_gas.max(minimal_gas_vector.l2_gas);
+                    let l2_gas_consumed = tx_execution_info
+                        .receipt
+                        .gas
+                        .l2_gas
+                        .max(minimal_gas_vector.l2_gas);
 
-                    t.receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
                         block_context.block_info(),
                         GasVector {
                             l1_data_gas: l1_data_gas_consumed,
@@ -400,10 +408,10 @@ pub extern "C" fn cairoVMExecute(
                     )
                 }
 
-                let actual_fee: Felt = t.receipt.fee.0.into();
-                let da_gas_l1_gas = t.receipt.da_gas.l1_gas.into();
-                let da_gas_l1_data_gas = t.receipt.da_gas.l1_data_gas.into();
-                let execution_steps = t
+                let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
+                let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
+                let da_gas_l1_data_gas = tx_execution_info.receipt.da_gas.l1_data_gas.into();
+                let execution_steps = tx_execution_info
                     .receipt
                     .resources
                     .computation
@@ -411,12 +419,15 @@ pub extern "C" fn cairoVMExecute(
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);
-                let l1_gas_consumed = t.receipt.gas.l1_gas.into();
-                let l1_data_gas_consumed = t.receipt.gas.l1_data_gas.into();
-                let l2_gas_consumed = t.receipt.gas.l2_gas.into();
+                let l1_gas_consumed = tx_execution_info.receipt.gas.l1_gas.into();
+                let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
+                let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
 
-                let trace =
-                    jsonrpc::new_transaction_trace(&txn_and_query_bit.txn, t, &mut txn_state);
+                let trace = jsonrpc::new_transaction_trace(
+                    &txn_and_query_bit.txn,
+                    tx_execution_info,
+                    &mut txn_state,
+                );
                 if let Err(e) = trace {
                     report_error(
                         reader_handle,
