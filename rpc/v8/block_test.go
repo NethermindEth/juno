@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -264,7 +265,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Nil(t, b.Number)
-			assert.Equal(t, rpcv8.BlockPending, b.Status)
+			assert.Equal(t, rpcv6.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -310,7 +311,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv8.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -520,7 +521,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 		},
-		Status: rpcv8.BlockAcceptedL2,
+		Status: rpcv6.BlockAcceptedL2,
 		Transactions: []*rpcv8.Transaction{
 			{
 				Hash:               tx.Hash(),
@@ -613,7 +614,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
-			Status: rpcv8.BlockPending,
+			Status: rpcv6.BlockPending,
 			BlockHeader: rpcv8.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
@@ -659,7 +660,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
-			Status: rpcv8.BlockAcceptedL1,
+			Status: rpcv6.BlockAcceptedL1,
 			BlockHeader: rpcv8.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
