@@ -185,6 +185,10 @@ pub extern "C" fn cairoVMCall(
     match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(t) => {
+            if t.execution.failed {
+                report_error(reader_handle, "execution failed", -1);
+                return;
+            }
             for data in t.execution.retdata.0 {
                 unsafe {
                     JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
@@ -355,6 +359,16 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(mut t) => {
+                if let Some(call_info) = &t.execute_call_info {
+                    if call_info.execution.failed {
+                        report_error(
+                            reader_handle,
+                            format!("failed call info {}", txn_and_query_bit.txn_hash).as_str(),
+                            txn_index as i64,
+                        );
+                        return;
+                    }
+                }
                 if t.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
