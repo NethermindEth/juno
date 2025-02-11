@@ -1,17 +1,14 @@
 [package]
 name = "juno-starknet-compiler-rs"
-version = "0.0.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[profile.release]
-overflow-checks = true
-
 [dependencies]
-serde = "1.0.208"
-serde_json = { version = "1.0.125", features = ["raw_value"] }
-cairo-lang-starknet-classes = "=2.10.0-rc.1"
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+cairo-lang-starknet-classes = { workspace = true }
 
 [lib]
 crate-type = ["staticlib"]
