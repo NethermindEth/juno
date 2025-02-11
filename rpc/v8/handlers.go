@@ -313,7 +313,7 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_unsubscribe",
-			Params:  []jsonrpc.Parameter{{Name: "id"}},
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
 			Handler: h.Unsubscribe,
 		},
 		{
