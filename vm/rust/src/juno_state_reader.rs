@@ -253,7 +253,7 @@ pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, S
         .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
 }
 
-pub fn parse_deprecated_class_definition(
+fn parse_deprecated_class_definition(
     definition: String,
 ) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
     let class: starknet_api::deprecated_contract_class::ContractClass =
@@ -262,7 +262,7 @@ pub fn parse_deprecated_class_definition(
     Ok(starknet_api::contract_class::ContractClass::V0(class))
 }
 
-pub fn parse_casm_definition(
+fn parse_casm_definition(
     casm_definition: String,
     sierra_version: starknet_api::contract_class::SierraVersion,
 ) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
