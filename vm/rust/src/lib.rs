@@ -65,9 +65,6 @@ use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
 
-pub const ENTRYPOINT_NOT_FOUND_ERROR_ENCODED: Felt =
-    Felt::from_hex_unchecked("0x454e545259504f494e545f4e4f545f464f554e44");
-
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
