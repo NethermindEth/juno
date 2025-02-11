@@ -65,6 +65,9 @@ use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
 
+pub const ENTRYPOINT_NOT_FOUND_ERROR_ENCODED: Felt =
+    Felt::from_hex_unchecked("0x454e545259504f494e545f4e4f545f464f554e44");
+
 extern "C" {
     fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
@@ -185,10 +188,6 @@ pub extern "C" fn cairoVMCall(
     match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
         Ok(call_info) => {
-            if call_info.execution.failed {
-                report_error(reader_handle, "execution failed", -1);
-                return;
-            }
             for data in call_info.execution.retdata.0 {
                 unsafe {
                     JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
@@ -359,16 +358,6 @@ pub extern "C" fn cairoVMExecute(
                 return;
             }
             Ok(mut tx_execution_info) => {
-                if let Some(call_info) = &tx_execution_info.execute_call_info {
-                    if call_info.execution.failed {
-                        report_error(
-                            reader_handle,
-                            format!("failed call info {}", txn_and_query_bit.txn_hash).as_str(),
-                            txn_index as i64,
-                        );
-                        return;
-                    }
-                }
                 if tx_execution_info.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
