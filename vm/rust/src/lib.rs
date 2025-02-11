@@ -184,12 +184,12 @@ pub extern "C" fn cairoVMCall(
     let mut remaining_gas = entry_point.initial_gas;
     match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
-        Ok(t) => {
-            if t.execution.failed {
+        Ok(call_info) => {
+            if call_info.execution.failed {
                 report_error(reader_handle, "execution failed", -1);
                 return;
             }
-            for data in t.execution.retdata.0 {
+            for data in call_info.execution.retdata.0 {
                 unsafe {
                     JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
                 };
