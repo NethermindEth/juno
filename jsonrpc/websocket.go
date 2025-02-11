@@ -18,8 +18,6 @@ const (
 	maxConns            = 2048 // TODO: an arbitrary default number, should be revisited after monitoring
 )
 
-var connTimeout = 5 * time.Second
-
 type Websocket struct {
 	rpc        *Server
 	log        utils.SimpleLogger
@@ -66,6 +64,7 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create a timeout context for the acquisition
+	const connTimeout = 5 * time.Second
 	acquireCtx, cancel := context.WithTimeout(r.Context(), connTimeout)
 	defer cancel()
 
