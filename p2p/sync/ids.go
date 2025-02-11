@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/protocol"
 )
 
@@ -24,4 +25,8 @@ func ClassesPID() protocol.ID {
 
 func StateDiffPID() protocol.ID {
 	return Prefix + "/state_diffs/0.1.0-rc.0"
+}
+
+func DHTPID(network *utils.Network) protocol.ID {
+	return protocol.ID(Prefix + "/kad/" + network.L2ChainID + "/1.0.0")
 }
