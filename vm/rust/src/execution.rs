@@ -6,10 +6,11 @@ use crate::ffi::{
     JunoAddExecutionSteps, JunoAppendActualFee, JunoAppendDAGas, JunoAppendGasConsumed,
     JunoAppendTrace,
 };
+use crate::transaction::{execute_transaction, preprocess_transaction};
 use crate::types::BlockInfo;
 use crate::{
     jsonrpc::{new_transaction_trace, TransactionTrace},
-    juno_state_reader::{class_info_from_json_str, felt_to_byte_array, JunoStateReader},
+    juno_state_reader::{felt_to_byte_array, JunoStateReader},
 };
 use blockifier::fee::gas_usage::estimate_minimal_gas_vector;
 use blockifier::state::cached_state::TransactionalState;
@@ -19,19 +20,16 @@ use blockifier::{
     fee::fee_utils::get_fee_by_gas_vector,
     state::cached_state::CachedState,
     transaction::{
-        account_transaction::ExecutionFlags as AccountExecutionFlags,
         errors::TransactionExecutionError::{
             ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
         },
         objects::HasRelatedFeeType,
         transaction_execution::Transaction,
-        transactions::ExecutableTransaction,
     },
 };
 use serde::Deserialize;
 use starknet_api::block::FeeType;
 use starknet_api::{
-    contract_class::ClassInfo,
     executable_transaction::AccountTransaction,
     execution_resources::GasVector,
     transaction::{
@@ -99,21 +97,57 @@ pub extern "C" fn cairoVMExecute(
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
-        if let Err(e) = process_transaction(
+        let txn = match preprocess_transaction(
             txn_and_query_bit,
-            &mut state,
-            &block_context,
             &mut classes,
             &mut paid_fees_on_l1,
             charge_fee,
             validate,
-            err_on_revert,
+        ) {
+            Ok(txn) => txn,
+            Err(e) => {
+                report_error(reader_handle, &e, txn_index as i64);
+                return;
+            }
+        };
+        let mut txn_state = CachedState::create_transactional(&mut state);
+
+        let res = execute_transaction(&txn, &mut txn_state, &block_context);
+        let gas_usage_vector_computation_mode = determine_gas_vector_mode(&txn);
+        let (minimal_gas_vector, fee_type) = match txn {
+            Transaction::Account(account_tx) => (
+                estimate_minimal_gas_vector(
+                    &block_context,
+                    &account_tx,
+                    &gas_usage_vector_computation_mode,
+                ),
+                account_tx.fee_type(),
+            ),
+
+            Transaction::L1Handler(l1_handler_tx) => {
+                (GasVector::default(), l1_handler_tx.fee_type())
+            }
+        };
+
+        match handle_execution_result(
+            res,
+            txn_and_query_bit,
             reader_handle,
             &mut trace_buffer,
+            &mut txn_state,
+            err_on_revert,
+            minimal_gas_vector,
+            fee_type,
+            &block_context,
         ) {
-            report_error(reader_handle, &e, txn_index as i64);
-            return;
+            Ok(_) => {}
+            Err(e) => {
+                report_error(reader_handle, &e, txn_index as i64);
+                return;
+            }
         }
+
+        txn_state.commit();
     }
 }
 
@@ -125,88 +159,6 @@ fn deserialize_json<T: serde::de::DeserializeOwned>(ptr: *const c_char) -> Resul
         .to_str()
         .map_err(|e| e.to_string())?;
     serde_json::from_str(json_str).map_err(|e| e.to_string())
-}
-
-fn process_transaction(
-    txn_and_query_bit: &TxnAndQueryBit,
-    state: &mut CachedState<JunoStateReader>,
-    block_context: &BlockContext,
-    classes: &mut Vec<Box<serde_json::value::RawValue>>,
-    paid_fees_on_l1: &mut Vec<Box<Fee>>,
-    charge_fee: bool,
-    validate: bool,
-    err_on_revert: c_uchar,
-    reader_handle: usize,
-    trace_buffer: &mut Vec<u8>,
-) -> Result<(), String> {
-    let class_info = match txn_and_query_bit.txn {
-        StarknetApiTransaction::Declare(_) => {
-            if classes.is_empty() {
-                return Err("missing declared class".to_string());
-            }
-            let class_json_str = classes.remove(0);
-            let maybe_cc = class_info_from_json_str(class_json_str.get());
-            match maybe_cc {
-                Ok(cc) => Some(cc),
-                Err(e) => return Err(e),
-            }
-        }
-        _ => None,
-    };
-
-    let paid_fee_on_l1 = match txn_and_query_bit.txn {
-        StarknetApiTransaction::L1Handler(_) => {
-            if paid_fees_on_l1.is_empty() {
-                return Err("missing fee paid on l1b".to_string());
-            }
-            Some(*paid_fees_on_l1.remove(0))
-        }
-        _ => None,
-    };
-
-    let account_execution_flags = AccountExecutionFlags {
-        only_query: txn_and_query_bit.query_bit,
-        charge_fee,
-        validate,
-    };
-
-    let txn = transaction_from_api(
-        txn_and_query_bit.txn.clone(),
-        txn_and_query_bit.txn_hash,
-        class_info,
-        paid_fee_on_l1,
-        account_execution_flags,
-    )?;
-
-    let mut txn_state = CachedState::create_transactional(state);
-    let res = txn.execute(&mut txn_state, block_context);
-    let gas_usage_vector_computation_mode = determine_gas_vector_mode(&txn);
-    let (minimal_gas_vector, fee_type) = match txn {
-        Transaction::Account(account_tx) => (
-            estimate_minimal_gas_vector(
-                block_context,
-                &account_tx,
-                &gas_usage_vector_computation_mode,
-            ),
-            account_tx.fee_type(),
-        ),
-
-        Transaction::L1Handler(l1_handler_tx) => (GasVector::default(), l1_handler_tx.fee_type()),
-    };
-
-    handle_execution_result(
-        res,
-        txn_and_query_bit,
-        reader_handle,
-        trace_buffer,
-        &mut txn_state,
-        err_on_revert,
-        minimal_gas_vector,
-        fee_type,
-        block_context,
-    )?;
-
-    Ok(txn_state.commit())
 }
 
 fn handle_execution_result(
@@ -346,40 +298,6 @@ fn append_trace(reader_handle: usize, trace: &TransactionTrace, trace_buffer: &m
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
     };
-}
-
-fn transaction_from_api(
-    tx: StarknetApiTransaction,
-    tx_hash: TransactionHash,
-    class_info: Option<ClassInfo>,
-    paid_fee_on_l1: Option<Fee>,
-    execution_flags: AccountExecutionFlags,
-) -> Result<Transaction, String> {
-    match tx {
-        StarknetApiTransaction::Deploy(_) => {
-            return Err(format!(
-                "Unsupported deploy transaction in the traced block (transaction_hash={})",
-                tx_hash,
-            ))
-        }
-        StarknetApiTransaction::Declare(_) if class_info.is_none() => {
-            return Err(format!(
-                "Declare transaction must be created with a ContractClass (transaction_hash={})",
-                tx_hash,
-            ))
-        }
-        _ => {} // all ok
-    };
-
-    Transaction::from_api(
-        tx,
-        tx_hash,
-        class_info,
-        paid_fee_on_l1,
-        None,
-        execution_flags,
-    )
-    .map_err(|err| format!("failed to create transaction from api: {:?}", err))
 }
 
 fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
