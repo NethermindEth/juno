@@ -227,15 +227,30 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, root, proof.GlobalRoots.ClassesTreeRoot)
 		require.Equal(t, root, proof.GlobalRoots.ContractsTreeRoot)
 	})
-	t.Run("error whenever not latest block is requested", func(t *testing.T) {
+	t.Run("error whenever block number is not the latest", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error even when blknum matches head", func(t *testing.T) {
-		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
+	t.Run("error whenever block hash is not the latest", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: new(felt.Felt).SetUint64(1)}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
+	})
+	t.Run("error for pending block", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Pending: true}, nil, nil, nil)
+		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("no error when block number matches head", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber}, nil, nil, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
+	})
+	t.Run("no error when block hash matches head", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: blkHash}, nil, nil, nil)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, proof)
 	})
 	t.Run("error when contract storage keys are provided but empty", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{})

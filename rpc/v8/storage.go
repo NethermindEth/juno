@@ -80,14 +80,15 @@ type StorageProofResult struct {
 func (h *Handler) StorageProof(id BlockID,
 	classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
-	// We do not support historical storage proofs for now
-	if !id.Latest {
-		return nil, rpccore.ErrStorageProofNotSupported
-	}
-
 	head, err := h.bcReader.Head()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	// We do not support historical storage proofs for now
+	// Ensure that the block requested is the head block
+	if !headOnly(id, head) {
+		return nil, rpccore.ErrStorageProofNotSupported
 	}
 
 	state, closer, err := h.bcReader.HeadState()
@@ -181,6 +182,20 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 	}
 
 	return uniqueStorageKeys, nil
+}
+
+// Returns true only if the block ID requested matches the head block
+func headOnly(id BlockID, head *core.Block) bool {
+	switch {
+	case id.IsLatest():
+		return true
+	case id.IsPending():
+		return false
+	case id.GetHash() != nil:
+		return id.GetHash().Equal(head.Hash)
+	default:
+		return id.GetNumber() == head.Number
+	}
 }
 
 func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
