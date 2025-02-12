@@ -134,11 +134,21 @@ func TestStorageAt(t *testing.T) {
 	t.Run("non-existent key", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(&felt.Zero, nil)
+
+		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
+		require.Equal(t, storage, &felt.Zero)
+		assert.Nil(t, rpcErr)
+	})
+
+	t.Run("internal error while retrieving key", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("some internal error"))
 
 		storage, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storage)
-		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
+		assert.Equal(t, rpccore.ErrInternal, rpcErr)
 	})
 
 	expectedStorage := new(felt.Felt).SetUint64(1)
