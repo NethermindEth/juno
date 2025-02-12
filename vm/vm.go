@@ -1,46 +1,10 @@
 package vm
 
 /*
-#include <stdint.h>
-#include <stdlib.h>
-#include <stddef.h>
-
-#define FELT_SIZE 32
-
-typedef struct CallInfo {
-	unsigned char contract_address[FELT_SIZE];
-	unsigned char class_hash[FELT_SIZE];
-	unsigned char entry_point_selector[FELT_SIZE];
-	unsigned char** calldata;
-	size_t len_calldata;
-} CallInfo;
-
-typedef struct BlockInfo {
-	unsigned long long block_number;
-	unsigned long long block_timestamp;
-	unsigned char sequencer_address[FELT_SIZE];
-	unsigned char gas_price_wei[FELT_SIZE];
-	unsigned char gas_price_fri[FELT_SIZE];
-	char* version;
-	unsigned char block_hash_to_be_revealed[FELT_SIZE];
-	unsigned char data_gas_price_wei[FELT_SIZE];
-	unsigned char data_gas_price_fri[FELT_SIZE];
-	unsigned char use_blob_data;
-} BlockInfo;
-
-extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode, unsigned char is_mutable);
-
-extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
-					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
-					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
-					unsigned char concurrency_mode);
-
-extern char* setVersionedConstants(char* json);
-extern void freeString(char* str);
-
 #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
 #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
+
+#include "vm_ffi.h"
 */
 import "C"
 
@@ -59,13 +23,22 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+type ExecutionResults struct {
+	OverallFees      []*felt.Felt
+	DataAvailability []core.DataAvailability
+	GasConsumed      []core.GasConsumed
+	Traces           []TransactionTrace
+	NumSteps         uint64
+	Receipts         []TransactionReceipt
+}
+
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64) ([]*felt.Felt, error)
+		maxSteps uint64, sierraVersion string) ([]*felt.Felt, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
-	) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, []TransactionReceipt, uint64, error)
+	) (ExecutionResults, error)
 }
 
 type vm struct {
@@ -103,28 +76,11 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
-	daGas           []core.GasConsumed
+	daGas           []core.DataAvailability
+	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
 	receipts        []json.RawMessage
 	declaredClasses map[felt.Felt]core.Class
-}
-
-func newContext(state core.StateReader, log utils.SimpleLogger, declaredClasses []core.Class) (*callContext, error) {
-	declaredClassesMap := make(map[felt.Felt]core.Class)
-	for _, declaredClass := range declaredClasses {
-		classHash, err := declaredClass.Hash()
-		if err != nil {
-			return nil, fmt.Errorf("calculate declared class hash: %v", err)
-		}
-		declaredClassesMap[*classHash] = declaredClass
-	}
-
-	return &callContext{
-		state:           state,
-		response:        []*felt.Felt{},
-		log:             log,
-		declaredClasses: declaredClassesMap,
-	}, nil
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -169,12 +125,22 @@ func JunoAppendActualFee(readerHandle C.uintptr_t, ptr unsafe.Pointer) {
 	context.actualFees = append(context.actualFees, makeFeltFromPtr(ptr))
 }
 
-//export JunoAppendGasConsumed
-func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
+//export JunoAppendDAGas
+func JunoAppendDAGas(readerHandle C.uintptr_t, ptr, ptr2 unsafe.Pointer) {
 	context := unwrapContext(readerHandle)
-	context.daGas = append(context.daGas, core.GasConsumed{
+	context.daGas = append(context.daGas, core.DataAvailability{
 		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
 		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+	})
+}
+
+//export JunoAppendGasConsumed
+func JunoAppendGasConsumed(readerHandle C.uintptr_t, ptr, ptr2, ptr3 unsafe.Pointer) {
+	context := unwrapContext(readerHandle)
+	context.gasConsumed = append(context.gasConsumed, core.GasConsumed{
+		L1Gas:     makeFeltFromPtr(ptr).Uint64(),
+		L1DataGas: makeFeltFromPtr(ptr2).Uint64(),
+		L2Gas:     makeFeltFromPtr(ptr3).Uint64(),
 	})
 }
 
@@ -242,14 +208,18 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
 	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
-	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.gas_price_wei[0])
-	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.gas_price_fri[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.l1_gas_price_wei[0])
+	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.l1_gas_price_fri[0])
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.data_gas_price_wei[0])
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.data_gas_price_fri[0])
+		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.l1_data_gas_price_wei[0])
+		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.l1_data_gas_price_fri[0])
 		cBlockInfo.use_blob_data = 1
+	}
+	if blockInfo.Header.L2GasPrice != nil {
+		copyFeltIntoCArray(blockInfo.Header.L2GasPrice.PriceInWei, &cBlockInfo.l2_gas_price_wei[0])
+		copyFeltIntoCArray(blockInfo.Header.L2GasPrice.PriceInFri, &cBlockInfo.l2_gas_price_fri[0])
 	}
 	return cBlockInfo
 }
@@ -263,11 +233,12 @@ func makeByteFromBool(b bool) byte {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64,
+	network *utils.Network, maxSteps uint64, sierraVersion string,
 ) ([]*felt.Felt, error) {
-	context, err := newContext(state, v.log, nil)
-	if err != nil {
-		return nil, err
+	context := &callContext{
+		state:    state,
+		response: []*felt.Felt{},
+		log:      v.log,
 	}
 
 	handle := cgo.NewHandle(context)
@@ -284,6 +255,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
+	cSierraVersion := C.CString(sierraVersion)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
@@ -291,12 +263,13 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		chainID,
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
+		cSierraVersion,               //nolint:gocritic
 		C.uchar(mutableStateByte),    //nolint:gocritic
-
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
 	C.free(unsafe.Pointer(cBlockInfo.version))
+	C.free(unsafe.Pointer(cSierraVersion))
 
 	if context.err != "" {
 		return nil, errors.New(context.err)
@@ -310,7 +283,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert bool,
-) ([]*felt.Felt, []core.GasConsumed, []TransactionTrace, []TransactionReceipt, uint64, error) {
+) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
 		log:   v.log,
@@ -320,12 +293,12 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	txnsJSON, classesJSON, err := marshalTxnsAndDeclaredClasses(txns, declaredClasses)
 	if err != nil {
-		return nil, nil, nil, nil, 0, err
+		return ExecutionResults{}, err
 	}
 
 	paidFeesOnL1Bytes, err := json.Marshal(paidFeesOnL1)
 	if err != nil {
-		return nil, nil, nil, nil, 0, err
+		return ExecutionResults{}, err
 	}
 
 	paidFeesOnL1CStr := cstring(paidFeesOnL1Bytes)
@@ -374,29 +347,34 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	if context.err != "" {
 		if context.errTxnIndex >= 0 {
-			return nil, nil, nil, nil, 0, TransactionExecutionError{
+			return ExecutionResults{}, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
 				Cause: errors.New(context.err),
 			}
 		}
-		return nil, nil, nil, nil, 0, errors.New(context.err)
+		return ExecutionResults{}, errors.New(context.err)
 	}
 
 	traces := make([]TransactionTrace, len(context.traces))
 	for index, traceJSON := range context.traces {
 		if err := json.Unmarshal(traceJSON, &traces[index]); err != nil {
-			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal trace: %v", err)
+			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
-
 	receipts := make([]TransactionReceipt, len(context.receipts))
 	for index, traceJSON := range context.receipts {
 		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
-			return nil, nil, nil, nil, 0, fmt.Errorf("unmarshal receipt: %v", err)
+			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
 		}
 	}
-
-	return context.actualFees, context.daGas, traces, receipts, context.executionSteps, nil
+	return ExecutionResults{
+		OverallFees:      context.actualFees,
+		DataAvailability: context.daGas,
+		GasConsumed:      context.gasConsumed,
+		Traces:           traces,
+		NumSteps:         context.executionSteps,
+		Receipts:         receipts,
+	}, nil
 }
 
 func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {

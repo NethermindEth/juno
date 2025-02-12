@@ -14,6 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	trie "github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -53,6 +54,21 @@ func (m *MockStateHistoryReader) Class(arg0 *felt.Felt) (*core.DeclaredClass, er
 func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), arg0)
+}
+
+// ClassTrie mocks base method.
+func (m *MockStateHistoryReader) ClassTrie() (*trie.Trie, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClassTrie")
+	ret0, _ := ret[0].(*trie.Trie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClassTrie indicates an expected call of ClassTrie.
+func (mr *MockStateHistoryReaderMockRecorder) ClassTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClassTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ClassTrie))
 }
 
 // ContractClassHash mocks base method.
@@ -158,4 +174,34 @@ func (m *MockStateHistoryReader) ContractStorageAt(arg0, arg1 *felt.Felt, arg2 u
 func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageAt), arg0, arg1, arg2)
+}
+
+// ContractStorageTrie mocks base method.
+func (m *MockStateHistoryReader) ContractStorageTrie(arg0 *felt.Felt) (*trie.Trie, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractStorageTrie", arg0)
+	ret0, _ := ret[0].(*trie.Trie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContractStorageTrie indicates an expected call of ContractStorageTrie.
+func (mr *MockStateHistoryReaderMockRecorder) ContractStorageTrie(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageTrie), arg0)
+}
+
+// ContractTrie mocks base method.
+func (m *MockStateHistoryReader) ContractTrie() (*trie.Trie, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContractTrie")
+	ret0, _ := ret[0].(*trie.Trie)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContractTrie indicates an expected call of ContractTrie.
+func (mr *MockStateHistoryReaderMockRecorder) ContractTrie() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractTrie))
 }

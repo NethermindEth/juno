@@ -3,6 +3,8 @@ package utils
 import (
 	"encoding"
 	"fmt"
+	"html"
+	"net/http"
 	"strings"
 	"time"
 
@@ -17,7 +19,17 @@ var ErrUnknownLogLevel = fmt.Errorf(
 	TRACE, DEBUG, INFO, WARN, ERROR,
 )
 
-type LogLevel int
+type LogLevel struct {
+	atomicLevel zap.AtomicLevel
+}
+
+func (l LogLevel) GetAtomicLevel() zap.AtomicLevel {
+	return l.atomicLevel
+}
+
+func NewLogLevel(level zapcore.Level) *LogLevel {
+	return &LogLevel{atomicLevel: zap.NewAtomicLevelAt(level)}
+}
 
 // The following are necessary for Cobra and Viper, respectively, to unmarshal log level
 // CLI/config parameters properly.
@@ -27,15 +39,15 @@ var (
 )
 
 const (
-	DEBUG LogLevel = iota
+	TRACE zapcore.Level = iota - 2
+	DEBUG
 	INFO
 	WARN
 	ERROR
-	TRACE
 )
 
 func (l LogLevel) String() string {
-	switch l {
+	switch l.Level() {
 	case DEBUG:
 		return "debug"
 	case INFO:
@@ -52,22 +64,26 @@ func (l LogLevel) String() string {
 	}
 }
 
+func (l LogLevel) Level() zapcore.Level {
+	return l.atomicLevel.Level()
+}
+
 func (l LogLevel) MarshalYAML() (interface{}, error) {
 	return l.String(), nil
 }
 
 func (l *LogLevel) Set(s string) error {
-	switch s {
-	case "DEBUG", "debug":
-		*l = DEBUG
-	case "INFO", "info":
-		*l = INFO
-	case "WARN", "warn":
-		*l = WARN
-	case "ERROR", "error":
-		*l = ERROR
-	case "TRACE", "trace":
-		*l = TRACE
+	switch strings.ToUpper(s) {
+	case "DEBUG":
+		l.atomicLevel.SetLevel(DEBUG)
+	case "INFO":
+		l.atomicLevel.SetLevel(INFO)
+	case "WARN":
+		l.atomicLevel.SetLevel(WARN)
+	case "ERROR":
+		l.atomicLevel.SetLevel(ERROR)
+	case "TRACE":
+		l.atomicLevel.SetLevel(TRACE)
 	default:
 		return ErrUnknownLogLevel
 	}
@@ -103,10 +119,8 @@ type ZapLogger struct {
 	*zap.SugaredLogger
 }
 
-const traceLevel = zapcore.Level(-2)
-
 func (l *ZapLogger) IsTraceEnabled() bool {
-	return l.Desugar().Core().Enabled(traceLevel)
+	return l.Desugar().Core().Enabled(TRACE)
 }
 
 func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
@@ -117,7 +131,7 @@ func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
 		// also check this issue https://github.com/uber-go/zap/issues/930 for updates
 
 		// AddCallerSkip(1) is necessary to skip the caller of this function
-		l.WithOptions(zap.AddCallerSkip(1)).Logw(traceLevel, msg, keysAndValues...)
+		l.WithOptions(zap.AddCallerSkip(1)).Logw(TRACE, msg, keysAndValues...)
 	}
 }
 
@@ -127,7 +141,7 @@ func NewNopZapLogger() *ZapLogger {
 	return &ZapLogger{zap.NewNop().Sugar()}
 }
 
-func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
+func NewZapLogger(logLevel *LogLevel, colour bool) (*ZapLogger, error) {
 	config := zap.NewProductionConfig()
 	config.Sampling = nil
 	config.Encoding = "console"
@@ -139,18 +153,7 @@ func NewZapLogger(logLevel LogLevel, colour bool) (*ZapLogger, error) {
 		enc.AppendString(t.Local().Format("15:04:05.000 02/01/2006 -07:00"))
 	}
 
-	var level zapcore.Level
-	var err error
-	levelStr := logLevel.String()
-	if logLevel == TRACE {
-		level = traceLevel
-	} else {
-		level, err = zapcore.ParseLevel(levelStr)
-		if err != nil {
-			return nil, err
-		}
-	}
-	config.Level.SetLevel(level)
+	config.Level = logLevel.atomicLevel
 	log, err := config.Build()
 	if err != nil {
 		return nil, err
@@ -179,9 +182,8 @@ func (c colour) Add(s string) string {
 
 // capitalColorLevelEncoder adds support for TRACE log level to the default CapitalColorLevelEncoder
 func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	if l == traceLevel {
-		tracePrefix := strings.ToUpper(TRACE.String())
-		enc.AppendString(cyan.Add(tracePrefix))
+	if l == TRACE {
+		enc.AppendString(cyan.Add("TRACE"))
 	} else {
 		zapcore.CapitalColorLevelEncoder(l, enc)
 	}
@@ -189,10 +191,33 @@ func capitalColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder
 
 // capitalLevelEncoder adds support for TRACE log level to the default CapitalLevelEncoder
 func capitalLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	if l == traceLevel {
-		tracePrefix := strings.ToUpper(TRACE.String())
-		enc.AppendString(tracePrefix)
+	if l == TRACE {
+		enc.AppendString("TRACE")
 	} else {
 		zapcore.CapitalLevelEncoder(l, enc)
+	}
+}
+
+// HTTPLogSettings is an HTTP handler that allows changing the log level of the logger.
+// It can also be used to query what's the current log level.
+func HTTPLogSettings(w http.ResponseWriter, r *http.Request, log *LogLevel) {
+	switch r.Method {
+	case http.MethodGet:
+		fmt.Fprint(w, log.String()+"\n")
+	case http.MethodPut:
+		levelStr := r.URL.Query().Get("level")
+		if levelStr == "" {
+			http.Error(w, "missing level query parameter", http.StatusBadRequest)
+			return
+		}
+
+		err := log.Set(levelStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		fmt.Fprint(w, "Replaced log level with '", html.EscapeString(levelStr), "' successfully\n")
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }

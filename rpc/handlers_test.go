@@ -1,104 +1,47 @@
-package rpc_test
+package rpc
 
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/node"
-	"github.com/NethermindEth/juno/rpc"
-	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
+	"github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/rpc/v7"
+	"github.com/NethermindEth/juno/rpc/v8"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func nopCloser() error { return nil }
-
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpc.New(nil, nil, nil, version, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
-func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, "", nil)
-	version, rpcErr := handler.SpecVersion()
-	require.Nil(t, rpcErr)
-	require.Equal(t, "0.8.0", version)
-
-	legacyVersion, rpcErr := handler.SpecVersionV0_7()
-	require.Nil(t, rpcErr)
-	require.Equal(t, "0.7.1", legacyVersion)
-}
-
-func TestThrottledVMError(t *testing.T) {
+func TestRun(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+
+	l1Sub := feed.New[*core.L1Head]()
+	headerSub := feed.New[*core.Header]()
+	reorgSub := feed.New[*sync.ReorgBlockRange]()
+	pendingSub := feed.New[*core.Block]()
+
+	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
-	mockVM := mocks.NewMockVM(mockCtrl)
+	mockBcReader.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Sub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.HeaderSubscription{Subscription: headerSub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribePending().Return(sync.PendingSubscription{Subscription: pendingSub.Subscribe()}).AnyTimes()
 
-	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", nil)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	handler := &Handler{
+		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
+		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
+		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, "", nil),
+	}
 
-	throttledErr := "VM throughput limit reached"
-	t.Run("call", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		_, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
-		assert.Equal(t, throttledErr, rpcErr.Data)
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	t.Cleanup(cancel)
 
-	t.Run("simulate", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
-		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
-	})
-
-	t.Run("trace", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
-		header := &core.Header{
-			// hash is not set because it's pending block
-			ParentHash:      utils.HexToFelt(t, "0x0C3"),
-			Number:          0,
-			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "99.12.3",
-		}
-		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000C"),
-		}
-		declaredClass := &core.DeclaredClass{
-			At:    3002,
-			Class: &core.Cairo1Class{},
-		}
-		declareTx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
-		}
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{l1Tx, declareTx},
-		}
-
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
-		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
-	})
+	err := handler.Run(ctx)
+	require.NoError(t, err)
 }

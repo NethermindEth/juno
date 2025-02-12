@@ -1,24 +1,25 @@
-use std::collections::{HashMap, HashSet};
 use std::{
     ffi::{c_char, c_int, c_uchar, c_void, CStr},
     slice,
+    str::FromStr,
     sync::Mutex,
 };
 
-use blockifier::execution::contract_class::ContractClass;
+use blockifier::execution::contract_class::RunnableCompiledClass;
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::UpdatableState;
 use blockifier::{
-    execution::contract_class::{
-        ClassInfo as BlockifierClassInfo, ContractClassV0, ContractClassV1,
-    },
     state::cached_state::{ContractClassMapping, StateMaps},
     state::state_api::State,
     state::state_api::{StateReader, StateResult},
 };
 use cached::{Cached, SizedCache};
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+use starknet_api::contract_class::{
+    ClassInfo as BlockifierClassInfo, ContractClass, SierraVersion,
+};
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
@@ -67,18 +68,17 @@ extern "C" {
     ) -> *const c_char;
 }
 
-struct CachedContractClass {
-    pub definition: ContractClass,
+struct CachedRunnableCompiledClass {
+    pub definition: RunnableCompiledClass,
     pub cached_on_height: u64,
 }
 
-static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedContractClass>>> =
+static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedRunnableCompiledClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
     pub height: u64,
-    visited_pcs: HashMap<ClassHash, HashSet<usize>>,
 }
 
 impl JunoStateReader {
@@ -86,7 +86,6 @@ impl JunoStateReader {
         Self {
             handle,
             height,
-            visited_pcs: HashMap::default(),
         }
     }
 }
@@ -156,7 +155,7 @@ impl StateReader for JunoStateReader {
     }
 
     /// Returns the contract class of the given class hash.
-    fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+    fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -182,24 +181,29 @@ impl StateReader for JunoStateReader {
         } else {
             let json_str = unsafe { CStr::from_ptr(ptr) }.to_str().unwrap();
             let class_info_res = class_info_from_json_str(json_str);
-            if let Ok(class_info) = &class_info_res {
-                CLASS_CACHE.lock().unwrap().cache_set(
-                    class_hash,
-                    CachedContractClass {
-                        definition: class_info.contract_class(),
-                        cached_on_height: self.height,
-                    },
-                );
-            }
 
             unsafe { JunoFree(ptr as *const c_void) };
 
-            class_info_res.map(|ci| ci.contract_class()).map_err(|err| {
-                StateError::StateReadError(format!(
+            match class_info_res {
+                Ok(class) => {
+                    let runnable_compiled_class =
+                        RunnableCompiledClass::try_from(class.contract_class).unwrap();
+                    CLASS_CACHE.lock().unwrap().cache_set(
+                        class_hash,
+                        CachedRunnableCompiledClass {
+                            // This clone is cheap, it is just a reference copy in the underlying
+                            // RunnableCompiledClass implementation
+                            definition: runnable_compiled_class.clone(),
+                            cached_on_height: self.height,
+                        },
+                    );
+                    Ok(runnable_compiled_class)
+                }
+                Err(e) => Err(StateError::StateReadError(format!(
                     "parsing JSON string for class hash {}: {}",
-                    class_hash.0, err
-                ))
-            })
+                    class_hash.0, e
+                ))),
+            }
         }
     }
 
@@ -210,12 +214,7 @@ impl StateReader for JunoStateReader {
 }
 
 impl UpdatableState for JunoStateReader {
-    fn apply_writes(
-        &mut self,
-        _writes: &StateMaps,
-        _class_hash_to_class: &ContractClassMapping,
-        _visited_pcs: &HashMap<ClassHash, HashSet<usize>>,
-    ) {
+    fn apply_writes(&mut self, _writes: &StateMaps, _class_hash_to_class: &ContractClassMapping) {
         unimplemented!()
     }
 }
@@ -240,10 +239,6 @@ impl State for JunoStateReader {
             )
         });
         result
-    }
-
-    fn add_visited_pcs(&mut self, class_hash: ClassHash, pcs: &HashSet<usize>) {
-        self.visited_pcs.entry(class_hash).or_default().extend(pcs);
     }
 
     /// Increments the nonce of the given contract instance.
@@ -271,7 +266,7 @@ impl State for JunoStateReader {
     fn set_contract_class(
         &mut self,
         class_hash: ClassHash,
-        _contract_class: ContractClass,
+        _contract_class: RunnableCompiledClass,
     ) -> StateResult<()> {
         let class_hash = felt_to_byte_array(&class_hash.0);
         state_read_err(unsafe { JunoStateSetContractClass(self.handle, class_hash.as_ptr()) })
@@ -315,26 +310,70 @@ pub fn ptr_to_felt(bytes: *const c_uchar) -> StarkFelt {
 
 #[derive(Deserialize)]
 pub struct ClassInfo {
+    cairo_version: usize,
     contract_class: Box<serde_json::value::RawValue>,
     sierra_program_length: usize,
     abi_length: usize,
+    sierra_version: String,
 }
 
 pub fn class_info_from_json_str(raw_json: &str) -> Result<BlockifierClassInfo, String> {
     let class_info: ClassInfo = serde_json::from_str(raw_json)
         .map_err(|err| format!("failed parsing class info: {:?}", err))?;
-    let class_def = class_info.contract_class.to_string();
-    let mut sierra_len = class_info.sierra_program_length;
-    let mut abi_len = class_info.abi_length;
-    let class: ContractClass =
-        if let Ok(class) = ContractClassV0::try_from_json_string(class_def.as_str()) {
+
+    let class_def = class_info.contract_class.get();
+    let sierra_version: SierraVersion;
+    let sierra_len;
+    let abi_len;
+    let class: ContractClass = match class_info.cairo_version {
+        0 => {
+            sierra_version = SierraVersion::DEPRECATED;
             sierra_len = 0;
             abi_len = 0;
-            class.into()
-        } else if let Ok(class) = ContractClassV1::try_from_json_string(class_def.as_str()) {
-            class.into()
-        } else {
-            return Err("not a valid contract class".to_string());
-        };
-    Ok(BlockifierClassInfo::new(&class, sierra_len, abi_len).unwrap())
+            match parse_deprecated_class_definition(class_def.to_string()) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing deprecated class: {:?}", err)),
+            }
+        }
+        1 => {
+            sierra_version = SierraVersion::from_str(&class_info.sierra_version)
+                .map_err(|err| format!("failed parsing sierra version: {:?}", err))?;
+            sierra_len = class_info.sierra_program_length;
+            abi_len = class_info.abi_length;
+            match parse_casm_definition(class_def.to_string(), sierra_version.clone()) {
+                Ok(class) => class,
+                Err(err) => return Err(format!("failed parsing casm class: {:?}", err)),
+            }
+        }
+        _ => {
+            return Err(format!(
+                "unsupported class version: {}",
+                class_info.cairo_version
+            ))
+        }
+    };
+
+    BlockifierClassInfo::new(&class, sierra_len, abi_len, sierra_version)
+        .map_err(|err| format!("failed creating BlockifierClassInfo: {:?}", err))
+}
+
+fn parse_deprecated_class_definition(
+    definition: String,
+) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    let class: starknet_api::deprecated_contract_class::ContractClass =
+        serde_json::from_str(&definition)?;
+
+    Ok(starknet_api::contract_class::ContractClass::V0(class))
+}
+
+fn parse_casm_definition(
+    casm_definition: String,
+    sierra_version: starknet_api::contract_class::SierraVersion,
+) -> anyhow::Result<starknet_api::contract_class::ContractClass> {
+    let class: CasmContractClass = serde_json::from_str(&casm_definition)?;
+
+    Ok(starknet_api::contract_class::ContractClass::V1((
+        class,
+        sierra_version,
+    )))
 }

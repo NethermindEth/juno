@@ -728,6 +728,10 @@ func (t *Trie) Dump() {
 	t.dump(0, nil)
 }
 
+func (t *Trie) HashFn() crypto.HashFn {
+	return t.hash
+}
+
 // Try to print a [Trie] in a somewhat human-readable form
 /*
 Todo: create more meaningful representation of trie. In the current format string, storage is being

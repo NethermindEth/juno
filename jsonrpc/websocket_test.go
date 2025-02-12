@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/utils"
@@ -92,4 +93,37 @@ func TestSendFromHandler(t *testing.T) {
 	require.Equal(t, msg, string(resp1))
 
 	require.NoError(t, conn.Close(websocket.StatusNormalClosure, ""))
+}
+
+func TestWebsocketConnectionLimit(t *testing.T) {
+	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
+	ws := jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()).WithMaxConnections(2)
+	httpSrv := httptest.NewServer(ws)
+	defer httpSrv.Close()
+
+	// First connection should succeed
+	conn1, resp1, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp1.StatusCode)
+	defer conn1.Close(websocket.StatusNormalClosure, "")
+
+	// Second connection should succeed
+	conn2, resp2, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp2.StatusCode)
+	defer conn2.Close(websocket.StatusNormalClosure, "")
+
+	// Third connection should fail with 503 Service Unavailable
+	_, resp3, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	require.Error(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, resp3.StatusCode)
+
+	// Close one connection and try again - should succeed
+	require.NoError(t, conn1.Close(websocket.StatusNormalClosure, ""))
+	time.Sleep(10 * time.Millisecond) // Give the server time to clean up
+
+	conn4, resp4, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp4.StatusCode)
+	require.NoError(t, conn4.Close(websocket.StatusNormalClosure, ""))
 }

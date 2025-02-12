@@ -6,13 +6,14 @@ use blockifier::state::cached_state::CachedState;
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
-use blockifier::transaction::objects::GasVector;
 use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
+use starknet_api::contract_class::EntryPointType;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
-use starknet_api::deprecated_contract_class::EntryPointType;
-use starknet_api::transaction::{Calldata, EventContent, Fee, L2ToL1Payload};
+use starknet_api::execution_resources::GasVector;
+use starknet_api::transaction::fields::{Calldata, Fee};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
+use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
 
 type StarkFelt = Felt;
@@ -129,7 +130,9 @@ pub fn new_transaction_trace(
         StarknetApiTransaction::Invoke(_) => {
             trace.validate_invocation = info.validate_call_info.map(|v| v.into());
             trace.execute_invocation = match info.revert_error {
-                Some(str) => Some(ExecuteInvocation::Revert { revert_reason: str }),
+                Some(err) => Some(ExecuteInvocation::Revert {
+                    revert_reason: err.to_string(),
+                }),
                 None => info
                     .execute_call_info
                     .map(|v| ExecuteInvocation::Ok(v.into())),
@@ -332,7 +335,7 @@ fn make_state_diff(
     state: &mut TransactionalState<CachedState<JunoStateReader>>,
     deprecated_declared_class_hash: Option<ClassHash>,
 ) -> Result<StateDiff, StateError> {
-    let diff: CommitmentStateDiff = state.to_state_diff()?.into();
+    let diff: CommitmentStateDiff = state.to_state_diff()?.state_maps.into();
     let mut deployed_contracts = Vec::new();
     let mut replaced_classes = Vec::new();
 
@@ -341,13 +344,11 @@ fn make_state_diff(
         let addr: StarkFelt = addr.into();
 
         if existing_class_hash == ClassHash::default() {
-            #[rustfmt::skip]
             deployed_contracts.push(DeployedContract {
                 address: addr,
                 class_hash: class_hash.0,
             });
         } else {
-            #[rustfmt::skip]
             replaced_classes.push(ReplacedClass {
                 contract_address: addr,
                 class_hash: class_hash.0,

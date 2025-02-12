@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -70,6 +71,18 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	}
 
 	return p.head.Class(classHash)
+}
+
+func (p *PendingState) ClassTrie() (*trie.Trie, error) {
+	return nil, core.ErrHistoricalTrieNotSupported
+}
+
+func (p *PendingState) ContractTrie() (*trie.Trie, error) {
+	return nil, core.ErrHistoricalTrieNotSupported
+}
+
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+	return nil, core.ErrHistoricalTrieNotSupported
 }
 
 type PendingStateWriter struct {

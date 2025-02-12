@@ -115,6 +115,10 @@ type Method struct {
 	// The method takes a context as its first parameter.
 	// Set upon successful registration.
 	needsContext bool
+
+	// The number of required parameters in the method.
+	// Set upon successful registration.
+	requiredParamCount int
 }
 
 type Server struct {
@@ -197,6 +201,14 @@ func (s *Server) registerMethod(method Method) error {
 	if outSize == 3 && handlerT.Out(1) != reflect.TypeOf(http.Header{}) {
 		return errors.New("second return value must be a http.Header for 3 tuple handler")
 	}
+
+	requiredParamCount := 0
+	for _, param := range method.Params {
+		if !param.Optional {
+			requiredParamCount++
+		}
+	}
+	method.requiredParamCount = requiredParamCount
 
 	// The method is valid. Mutate the appropriate fields and register on the server.
 	s.methods[method.Name] = method
@@ -534,7 +546,8 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 	case reflect.Slice:
 		paramsList := params.([]any)
 
-		if len(paramsList) != numArgs-addContext {
+		// Ensure that the number of provided parameters is between required and total parameters
+		if len(paramsList) < method.requiredParamCount || len(paramsList) > len(method.Params) {
 			return nil, errors.New("missing/unexpected params in list")
 		}
 
@@ -544,6 +557,10 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 				return nil, err
 			}
 			args = append(args, v)
+		}
+		// Add remaining optional parameters if available
+		for i := addContext + len(paramsList); i < numArgs; i++ {
+			args = append(args, reflect.New(handlerType.In(i)).Elem())
 		}
 	case reflect.Map:
 		paramsMap := params.(map[string]any)
@@ -603,7 +620,7 @@ func (s *Server) validateParam(param reflect.Value) error {
 			return err
 		}
 	case kind == reflect.Slice || kind == reflect.Array:
-		for i := 0; i < param.Len(); i++ {
+		for i := range param.Len() {
 			if err := s.validateParam(param.Index(i)); err != nil {
 				return err
 			}

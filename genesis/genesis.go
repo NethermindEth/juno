@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/rpc"
+	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
@@ -140,7 +140,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				Calldata:        contractData.ConstructorArgs,
 			}
 			// Call the constructors
-			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps); err != nil {
+			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, ""); err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
 			}
 		}
@@ -164,7 +164,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				Timestamp: 0,
 			},
 		}
-		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps); err != nil {
+		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, ""); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
@@ -203,13 +203,13 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				return nil, nil, fmt.Errorf("unsupported transaction type: %v", txn.Type)
 			}
 		}
-		_, _, trace, _, _, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
+		executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
 			&blockInfo, genesisState, network, true, false, true)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 		for i := range config.Txns {
-			traceSD := vm2core.AdaptStateDiff(trace[i].StateDiff)
+			traceSD := vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff)
 			genesisSD, _ := genesisState.StateDiffAndClasses()
 			genesisSD.Merge(traceSD)
 			genesisState.SetStateDiff(genesisSD)
