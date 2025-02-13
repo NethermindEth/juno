@@ -418,9 +418,13 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, MakeContractError(err)
 	}
 	if res.ExecutionFailed {
+		// the blockifier 0.13.4 update requires us to check if the execution failed,
+		// and if so, return ErrEntrypointNotFound if res.Result[0]==EntrypointNotFoundFelt,
+		// otherwise we should wrap the result in ErrContractError
 		if len(res.Result) != 0 && res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
 			return nil, rpccore.ErrEntrypointNotFound
 		}
+		// Todo: There is currently no standardised way to format these error messages
 		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
 	}
 	return res.Result, nil
