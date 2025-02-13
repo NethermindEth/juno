@@ -91,7 +91,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
-			Handler: h.rpcv8Handler.ChainID,
+			Handler: h.rpcv6Handler.ChainID,
 		},
 		{
 			Name:    "starknet_blockNumber",
@@ -99,7 +99,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: h.rpcv8Handler.BlockHashAndNumber,
+			Handler: h.rpcv6Handler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",
@@ -143,7 +143,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getNonce",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv8Handler.Nonce,
+			Handler: h.rpcv6Handler.Nonce,
 		},
 		{
 			Name:    "starknet_getStorageAt",
@@ -295,7 +295,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
-			Handler: h.rpcv7Handler.ChainID,
+			Handler: h.rpcv6Handler.ChainID,
 		},
 		{
 			Name:    "starknet_blockNumber",
@@ -303,7 +303,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "starknet_blockHashAndNumber",
-			Handler: h.rpcv7Handler.BlockHashAndNumber,
+			Handler: h.rpcv6Handler.BlockHashAndNumber,
 		},
 		{
 			Name:    "starknet_getBlockWithTxHashes",
@@ -347,7 +347,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getNonce",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.rpcv7Handler.Nonce,
+			Handler: h.rpcv6Handler.Nonce,
 		},
 		{
 			Name:    "starknet_getStorageAt",

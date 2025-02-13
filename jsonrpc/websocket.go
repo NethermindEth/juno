@@ -2,14 +2,15 @@ package jsonrpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/utils"
 	"github.com/coder/websocket"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -25,8 +26,7 @@ type Websocket struct {
 	shutdown   <-chan struct{}
 
 	// Add connection tracking
-	connCount atomic.Int32
-	maxConns  int32
+	connSem *semaphore.Weighted
 }
 
 func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger) *Websocket {
@@ -36,15 +36,15 @@ func NewWebsocket(rpc *Server, shutdown <-chan struct{}, log utils.SimpleLogger)
 		connParams: DefaultWebsocketConnParams(),
 		listener:   &SelectiveListener{},
 		shutdown:   shutdown,
-		maxConns:   maxConns,
+		connSem:    semaphore.NewWeighted(maxConns),
 	}
 
 	return ws
 }
 
 // WithMaxConnections sets the maximum number of concurrent websocket connections
-func (ws *Websocket) WithMaxConnections(maxConns int32) *Websocket {
-	ws.maxConns = maxConns
+func (ws *Websocket) WithMaxConnections(maxConns int64) *Websocket {
+	ws.connSem = semaphore.NewWeighted(maxConns)
 	return ws
 }
 
@@ -63,15 +63,22 @@ func (ws *Websocket) WithListener(listener NewRequestListener) *Websocket {
 // ServeHTTP processes an HTTP request and upgrades it to a websocket connection.
 // The connection's entire "lifetime" is spent in this function.
 func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Create a timeout context for the acquisition
+	const connTimeout = 5 * time.Second
+	acquireCtx, cancel := context.WithTimeout(r.Context(), connTimeout)
+	defer cancel()
+
 	// Check connection limit
-	if ws.connCount.Load() >= ws.maxConns {
-		ws.log.Warnw("Max websocket connections reached", "maxConns", ws.maxConns)
-		http.Error(w, "Too many connections", http.StatusServiceUnavailable)
+	if err := ws.connSem.Acquire(acquireCtx, 1); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			ws.log.Warnw("Connection request timed out while waiting for slot")
+			http.Error(w, "Too many connections", http.StatusServiceUnavailable)
+		} else {
+			ws.log.Warnw("Connection request was canceled while waiting for slot")
+		}
 		return
 	}
-	ws.connCount.Add(1)
-	// Ensure we decrease the connection count when the connection closes
-	defer ws.connCount.Add(-1)
+	defer ws.connSem.Release(1)
 
 	conn, err := websocket.Accept(w, r, nil /* TODO: options */)
 	if err != nil {
