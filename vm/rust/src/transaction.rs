@@ -215,55 +215,40 @@ fn determine_l2_gas_limit_and_execute(
     let l2_gas_adjusted = GasAmount(gas_used.saturating_add(gas_used / 10));
     set_l2_gas_limit(transaction, l2_gas_adjusted);
 
-    // Initialize binary search bounds.
-    let mut lower_bound = GasAmount(gas_used);
-    let mut upper_bound = GasAmount::MAX;
-    let mut current_limit = calculate_midpoint(lower_bound, upper_bound);
+    let l2_gas_limit = match simulate_execution(transaction, state, block_context) {
+        Ok(_) => l2_gas_adjusted,
+        Err(SimulationError::OutOfGas) => {
+            // Initialize binary search bounds.
+            let mut lower_bound = GasAmount(gas_used);
+            let mut upper_bound = GasAmount::MAX;
+            let mut current_limit = calculate_midpoint(lower_bound, upper_bound);
 
-    // Perform binary search to find the minimum gas limit required.
-    loop {
-        set_l2_gas_limit(transaction, current_limit);
-        let bounds_diff = upper_bound
-            .checked_sub(lower_bound)
-            .expect("Upper bound >= lower bound");
-
-        // Prevent infinite loop when search is at minimal granularity.
-        if bounds_diff == GasAmount(1) && current_limit == lower_bound {
-            lower_bound = upper_bound;
-            current_limit = upper_bound;
-        }
-
-        match simulate_execution(transaction, state, block_context) {
-            Ok(_) => {
-                // If search is complete within margin, break loop.
-                if is_search_complete(lower_bound, upper_bound, L2_GAS_SEARCH_MARGIN) {
-                    break;
+            // Perform binary search to find the minimum gas limit required.
+            while !is_search_complete(lower_bound, upper_bound, L2_GAS_SEARCH_MARGIN) {
+                set_l2_gas_limit(transaction, current_limit);
+                match simulate_execution(transaction, state, block_context) {
+                    Ok(_) => upper_bound = current_limit,
+                    Err(SimulationError::OutOfGas) => lower_bound = current_limit,
+                    Err(SimulationError::ExecutionError(error)) => return Err(error),
                 }
-                upper_bound = current_limit;
+                current_limit = calculate_midpoint(lower_bound, upper_bound);
             }
-            Err(SimulationError::OutOfGas) => {
-                lower_bound = current_limit;
-            }
-            Err(SimulationError::ExecutionError(error)) => return Err(error),
+            current_limit
         }
-        current_limit = calculate_midpoint(lower_bound, upper_bound);
-    }
+        Err(SimulationError::ExecutionError(error)) => return Err(error),
+    };
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
-    if current_limit > initial_gas_limit {
-        tracing::debug!(
-            initial_limit=%initial_gas_limit,
-            final_limit=%current_limit,
-            "Exceeded initial L2 gas limit"
-        );
+    if l2_gas_limit > initial_gas_limit {
         set_l2_gas_limit(transaction, GasAmount::ZERO);
         return transaction.execute(state, block_context);
     }
 
     // Execute the transaction with the determined gas limit and update the estimate.
-    let mut execution_info = execute_transaction(transaction, state, block_context)
+    let mut execution_info = transaction
+        .execute(state, block_context)
         .expect("Transaction should have already succeeded");
-    execution_info.receipt.gas.l2_gas = current_limit;
+    execution_info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(execution_info)
 }
