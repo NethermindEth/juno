@@ -37,7 +37,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 
 	value, err := stateReader.ContractStorage(&address, &key)
 	if err != nil {
-		return nil, rpccore.ErrContractNotFound
+		return nil, rpccore.ErrInternal
 	}
 
 	return value, nil
