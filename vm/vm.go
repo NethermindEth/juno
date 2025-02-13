@@ -29,6 +29,7 @@ type ExecutionResults struct {
 	GasConsumed      []core.GasConsumed
 	Traces           []TransactionTrace
 	NumSteps         uint64
+	Receipts         []TransactionReceipt
 }
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
@@ -52,6 +53,15 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	}
 }
 
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
+}
+
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
@@ -64,11 +74,13 @@ type callContext struct {
 	// response from the executed Cairo function
 	response []*felt.Felt
 	// fee amount taken per transaction during VM execution
-	actualFees     []*felt.Felt
-	traces         []json.RawMessage
-	daGas          []core.DataAvailability
-	gasConsumed    []core.GasConsumed
-	executionSteps uint64
+	actualFees      []*felt.Felt
+	traces          []json.RawMessage
+	daGas           []core.DataAvailability
+	gasConsumed     []core.GasConsumed
+	executionSteps  uint64
+	receipts        []json.RawMessage
+	declaredClasses map[felt.Felt]core.Class
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -85,6 +97,13 @@ func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
 	context := unwrapContext(readerHandle)
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
+}
+
+//export JunoAppendReceipt
+func JunoAppendReceipt(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.receipts = append(context.receipts, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendTrace
@@ -205,6 +224,14 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string,
 ) ([]*felt.Felt, error) {
@@ -213,6 +240,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		response: []*felt.Felt{},
 		log:      v.log,
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -220,6 +248,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
@@ -234,6 +264,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.ulonglong(maxSteps),        //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
 		cSierraVersion,               //nolint:gocritic
+		C.uchar(mutableStateByte),    //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -247,6 +278,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
+//
+//nolint:gocritic
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert bool,
@@ -328,12 +361,19 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
+	receipts := make([]TransactionReceipt, len(context.receipts))
+	for index, traceJSON := range context.receipts {
+		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
+		}
+	}
 	return ExecutionResults{
 		OverallFees:      context.actualFees,
 		DataAvailability: context.daGas,
 		GasConsumed:      context.gasConsumed,
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
+		Receipts:         receipts,
 	}, nil
 }
 
