@@ -333,7 +333,6 @@ fn set_l2_gas_limit(transaction: &mut Transaction, gas_limit: GasAmount) {
                 }
             }
         }
-        tracing::debug!(transaction=?transaction, "update_l2_gas_limit() called with a transaction that doesn't have L2 gas");
         unreachable!();
     }
 }
@@ -385,7 +384,6 @@ fn extract_l2_gas_limit(transaction: &Transaction) -> GasAmount {
     // have L2 gas. It's a pain to set it up through the type system, so we'll
     // just return early in expected cases (see match above) and panic if we get
     // here.
-    tracing::debug!(transaction=?transaction, "update_l2_gas_limit() called with a transaction that doesn't have L2 gas");
     unreachable!();
 }
 

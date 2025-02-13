@@ -20,7 +20,6 @@ once_cell = { workspace = true }
 lazy_static = { workspace = true }
 semver = { workspace = true }
 anyhow = { workspace = true }
-tracing = { workspace = true }
 
 [lib]
 crate-type = ["staticlib"]
