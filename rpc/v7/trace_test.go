@@ -549,11 +549,13 @@ func TestCall(t *testing.T) {
 			*new(felt.Felt).SetUint64(4),
 			*new(felt.Felt).SetUint64(5),
 		}
-		expectedRes := []*felt.Felt{
-			new(felt.Felt).SetUint64(6),
-			new(felt.Felt).SetUint64(7),
+		expectedRes := vm.CallResult{
+			Result: []*felt.Felt{
+				new(felt.Felt).SetUint64(6),
+				new(felt.Felt).SetUint64(7),
+			},
+			ExecutionFailed: false,
 		}
-
 		headsHeader := &core.Header{
 			Number:    9,
 			Timestamp: 101,
@@ -576,7 +578,7 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes, res)
+		require.Equal(t, expectedRes.Result, res)
 	})
 
 	t.Run("unknown entrypoint blockifier 0.14.0", func(t *testing.T) {
@@ -586,7 +588,11 @@ func TestCall(t *testing.T) {
 		selector := new(felt.Felt).SetUint64(2)
 		classHash := new(felt.Felt).SetUint64(3)
 		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
-		expectedRes := []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)}
+		expectedRes := vm.CallResult{
+			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
+			ExecutionFailed: true,
+		}
+		expectedErr := rpcv7.MakeContractError(errors.New("0x454e545259504f494e545f4e4f545f464f554e44"))
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -610,6 +616,6 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, res)
-		require.Equal(t, rpcErr, rpccore.ErrContractError)
+		require.Equal(t, rpcErr, expectedErr)
 	})
 }

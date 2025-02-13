@@ -415,13 +415,13 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, makeContractError(err)
+		return nil, MakeContractError(err)
 	}
 	if res.ExecutionFailed {
 		if len(res.Result) != 0 && res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
 			return nil, rpccore.ErrEntrypointNotFound
 		}
-		return nil, makeContractError(errors.New(utils.FeltArrToString(res.Result)))
+		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
 	}
 	return res.Result, nil
 }

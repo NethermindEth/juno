@@ -562,10 +562,10 @@ func TestCall(t *testing.T) {
 			*new(felt.Felt).SetUint64(4),
 			*new(felt.Felt).SetUint64(5),
 		}
-		expectedRes := []*felt.Felt{
+		expectedRes := vm.CallResult{Result: []*felt.Felt{
 			new(felt.Felt).SetUint64(6),
 			new(felt.Felt).SetUint64(7),
-		}
+		}}
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -589,7 +589,7 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes, res)
+		require.Equal(t, expectedRes.Result, res)
 	})
 
 	t.Run("entrypoint not found error", func(t *testing.T) {
@@ -599,7 +599,11 @@ func TestCall(t *testing.T) {
 		selector := new(felt.Felt).SetUint64(2)
 		classHash := new(felt.Felt).SetUint64(3)
 		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
-		expectedRes := []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)}
+		expectedRes := vm.CallResult{
+			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
+			ExecutionFailed: true,
+		}
+		expectedErr := rpccore.ErrEntrypointNotFound
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -623,6 +627,6 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, rpc.BlockID{Latest: true})
 		require.Nil(t, res)
-		require.Equal(t, rpcErr, rpccore.ErrEntrypointNotFound)
+		require.Equal(t, rpcErr, expectedErr)
 	})
 }
