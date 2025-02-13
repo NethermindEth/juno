@@ -197,7 +197,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv8Handler.Version,
+			Handler: h.rpcv6Handler.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -391,7 +391,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv7Handler.Version,
+			Handler: h.rpcv6Handler.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
