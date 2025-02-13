@@ -386,8 +386,8 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		}
 		return nil, makeContractError(err)
 	}
-	if len(res) != 0 && res[0].String() == rpccore.EntrypointNotFoundFelt {
-		return nil, rpccore.ErrContractError
+	if res.ExecutionFailed {
+		return nil, makeContractError(errors.New(utils.FeltArrToString(res.Result)))
 	}
-	return res, nil
+	return res.Result, nil
 }
