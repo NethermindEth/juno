@@ -58,7 +58,6 @@ func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.Execution
 		},
 		DataAvailability: &core.DataAvailability{
 			L1Gas:     feltToUint64(er.L1Gas),
-			L2Gas:     feltToUint64(er.L2Gas),
 			L1DataGas: feltToUint64(er.L1DataGas),
 		},
 		MemoryHoles: uint64(er.MemoryHoles),

@@ -28,7 +28,7 @@ func TestCalculateFeeEstimate(t *testing.T) {
 	l1DataGas := uint64(500)
 	overallFee := new(felt.Felt).SetUint64(6000)
 
-	feeEstimate := calculateFeeEstimate(overallFee, l1DataGas, FRI, header)
+	feeEstimate := calculateFeeEstimate(overallFee, l1DataGas, FRI, header, V0_8)
 
 	assert.Equal(t, l1GasPriceSTRK, feeEstimate.L1GasPrice)
 	assert.Equal(t, l2GasPrice.PriceInFri, feeEstimate.L2GasPrice)
