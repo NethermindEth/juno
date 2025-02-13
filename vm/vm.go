@@ -45,7 +45,7 @@ type vm struct {
 	concurrencyMode bool
 }
 
-func New(concurrencyMode bool, log utils.SimpleLogger) VM {
+func New(concurrencyMode bool, log utils.SimpleLogger) *vm {
 	return &vm{
 		log:             log,
 		concurrencyMode: concurrencyMode,

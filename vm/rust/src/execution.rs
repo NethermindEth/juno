@@ -97,7 +97,7 @@ pub extern "C" fn cairoVMExecute(
     let mut trace_buffer = Vec::with_capacity(10_000);
 
     for (txn_index, txn_and_query_bit) in txns_and_query_bits.iter().enumerate() {
-        let txn = match preprocess_transaction(
+        let mut txn = match preprocess_transaction(
             txn_and_query_bit,
             &mut classes,
             &mut paid_fees_on_l1,
@@ -112,7 +112,7 @@ pub extern "C" fn cairoVMExecute(
         };
         let mut txn_state = CachedState::create_transactional(&mut state);
 
-        let res = execute_transaction(&txn, &mut txn_state, &block_context);
+        let res = execute_transaction(&mut txn, &mut txn_state, &block_context);
         let gas_usage_vector_computation_mode = determine_gas_vector_mode(&txn);
         let (minimal_gas_vector, fee_type) = match txn {
             Transaction::Account(account_tx) => (
