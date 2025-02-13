@@ -1,6 +1,8 @@
 use crate::execution::TxnAndQueryBit;
 use crate::juno_state_reader::{class_info_from_json_str, JunoStateReader};
+use blockifier::execution::contract_class::TrackedResource;
 use blockifier::fee::fee_checks::FeeCheckError;
+use blockifier::state::state_api::{StateReader, StateResult};
 use blockifier::transaction::account_transaction::ExecutionFlags;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -10,6 +12,7 @@ use blockifier::{
     transaction::{errors::TransactionExecutionError, objects::TransactionExecutionInfo},
 };
 use starknet_api::contract_class::ClassInfo;
+use starknet_api::core::ClassHash;
 use starknet_api::executable_transaction::AccountTransaction;
 use starknet_api::execution_resources::GasAmount;
 use starknet_api::transaction::fields::{GasVectorComputationMode, ValidResourceBounds};
@@ -23,12 +26,50 @@ pub fn execute_transaction(
     txn_state: &mut TransactionalState<'_, CachedState<JunoStateReader>>,
     block_context: &BlockContext,
 ) -> Result<TransactionExecutionInfo, TransactionExecutionError> {
-    match determine_gas_vector_mode(txn) {
-        GasVectorComputationMode::NoL2Gas => txn.execute(txn_state, &block_context),
-        GasVectorComputationMode::All => {
-            determine_l2_gas_limit_and_execute(txn, txn_state, block_context)
-        }
+    match is_l2_gas_accounting_enabled(
+        txn,
+        txn_state,
+        block_context,
+        &determine_gas_vector_mode(txn),
+    ) {
+        Ok(true) => determine_l2_gas_limit_and_execute(txn, txn_state, block_context),
+        Ok(false) => txn.execute(txn_state, block_context),
+        Err(error) => Err(TransactionExecutionError::StateError(error)),
     }
+}
+
+/// Determines whether L2 gas accounting should be enabled for fee estimation.
+///
+/// Starknet 0.13.4 introduced runtime L2 gas accounting, which is only enabled
+/// if both the caller and the callee contract classes were compiled as Sierra 1.7.
+/// This function checks whether the sender contract meets this requirement.
+pub fn is_l2_gas_accounting_enabled(
+    transaction: &Transaction,
+    state: &mut TransactionalState<'_, CachedState<JunoStateReader>>,
+    block_context: &BlockContext,
+    gas_computation_mode: &GasVectorComputationMode,
+) -> StateResult<bool> {
+    let sender_class_hash = state.get_class_hash_at(transaction.sender_address())?;
+
+    // L2 gas accounting is disabled if the sender contract is uninitialized.
+    if sender_class_hash == ClassHash::default() {
+        return Ok(false);
+    }
+
+    let min_sierra_version = &block_context
+        .versioned_constants()
+        .min_sierra_version_for_sierra_gas;
+    let sender_tracked_resource = state
+        .get_compiled_class(sender_class_hash)?
+        .tracked_resource(min_sierra_version, None);
+
+    // L2 gas accounting is enabled if:
+    // 1. The gas computation mode requires all gas vectors.
+    // 2. The sender contract's tracked resource is Sierra gas.
+    Ok(
+        matches!(gas_computation_mode, GasVectorComputationMode::All)
+            && sender_tracked_resource == TrackedResource::SierraGas,
+    )
 }
 
 pub fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
