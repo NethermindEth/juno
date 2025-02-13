@@ -7,8 +7,6 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/jsonrpc"
-	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -74,74 +72,4 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 	default:
 		return nil, errors.New("empty class")
 	}
-}
-
-/****************************************************
-		Class Handlers
-*****************************************************/
-
-// Class gets the contract class definition in the given block associated with the given hash
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
-func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
-	state, stateCloser, rpcErr := h.stateByBlockID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
-
-	declared, err := state.Class(&classHash)
-	if err != nil {
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	var rpcClass *Class
-	switch c := declared.Class.(type) {
-	case *core.Cairo0Class:
-		adaptEntryPoint := func(ep core.EntryPoint) EntryPoint {
-			return EntryPoint{
-				Offset:   ep.Offset,
-				Selector: ep.Selector,
-			}
-		}
-
-		rpcClass = &Class{
-			Abi:     c.Abi,
-			Program: c.Program,
-			EntryPoints: EntryPoints{
-				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
-				// if it's nil. In the API spec these fields are required.
-				Constructor: utils.Map(c.Constructors, adaptEntryPoint),
-				External:    utils.Map(c.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(c.L1Handlers, adaptEntryPoint),
-			},
-		}
-	case *core.Cairo1Class:
-		adaptEntryPoint := func(ep core.SierraEntryPoint) EntryPoint {
-			return EntryPoint{
-				Index:    &ep.Index,
-				Selector: ep.Selector,
-			}
-		}
-
-		rpcClass = &Class{
-			Abi:                  c.Abi,
-			SierraProgram:        c.Program,
-			ContractClassVersion: c.SemanticVersion,
-			EntryPoints: EntryPoints{
-				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
-				// if it's nil. In the API spec these fields are required.
-				Constructor: utils.Map(c.EntryPoints.Constructor, adaptEntryPoint),
-				External:    utils.Map(c.EntryPoints.External, adaptEntryPoint),
-				L1Handler:   utils.Map(c.EntryPoints.L1Handler, adaptEntryPoint),
-			},
-		}
-	default:
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	return rpcClass, nil
 }
