@@ -153,10 +153,6 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: h.BlockHashAndNumber,
-		},
-		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxHashes,
@@ -190,11 +186,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.StateUpdate,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.Nonce,
 		},
 		{
 			Name:    "starknet_getStorageAt",
