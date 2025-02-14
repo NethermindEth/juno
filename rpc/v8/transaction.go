@@ -371,14 +371,10 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *TransactionR
 		return &TransactionResourceBounds{}
 	}
 
-	l1Gas := getResourceBounds(rb, core.ResourceL1Gas)
-	l1DataGas := getResourceBounds(rb, core.ResourceL1DataGas)
-	l2Gas := getResourceBounds(rb, core.ResourceL2Gas)
-
 	return &TransactionResourceBounds{
-		L1Gas:     l1Gas,
-		L1DataGas: l1DataGas,
-		L2Gas:     l2Gas,
+		L1Gas:     getResourceBounds(rb, core.ResourceL1Gas),
+		L1DataGas: getResourceBounds(rb, core.ResourceL1DataGas),
+		L2Gas:     getResourceBounds(rb, core.ResourceL2Gas),
 	}
 }
 
