@@ -44,10 +44,10 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string) ([]*felt.Felt, error) {
+func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string) (vm.CallResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, network, maxSteps, sierraVersion)
-	ret0, _ := ret[0].([]*felt.Felt)
+	ret0, _ := ret[0].(vm.CallResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
