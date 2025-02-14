@@ -372,13 +372,13 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *TransactionR
 	}
 
 	return &TransactionResourceBounds{
-		L1Gas:     getResourceBounds(rb, core.ResourceL1Gas),
-		L1DataGas: getResourceBounds(rb, core.ResourceL1DataGas),
-		L2Gas:     getResourceBounds(rb, core.ResourceL2Gas),
+		L1Gas:     getResourceBoundsFromMap(rb, core.ResourceL1Gas),
+		L1DataGas: getResourceBoundsFromMap(rb, core.ResourceL1DataGas),
+		L2Gas:     getResourceBoundsFromMap(rb, core.ResourceL2Gas),
 	}
 }
 
-func getResourceBounds(rb map[core.Resource]core.ResourceBounds, resource core.Resource) *ResourceBounds {
+func getResourceBoundsFromMap(rb map[core.Resource]core.ResourceBounds, resource core.Resource) *ResourceBounds {
 	if coreBounds, ok := rb[resource]; ok {
 		return &ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(coreBounds.MaxAmount),
@@ -392,25 +392,21 @@ func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Re
 	if rb == nil {
 		return nil
 	}
-	bounds := []struct {
-		rpcBounds *ResourceBounds
-		resource  starknet.Resource
-	}{
-		{rb.L1Gas, starknet.ResourceL1Gas},
-		{rb.L1DataGas, starknet.ResourceL1DataGas},
-		{rb.L2Gas, starknet.ResourceL2Gas},
-	}
 
-	starknetBounds := make(map[starknet.Resource]starknet.ResourceBounds, len(bounds))
+	starknetBounds := make(map[starknet.Resource]starknet.ResourceBounds, 3)
 
-	for i := range bounds {
-		if rpcBounds := bounds[i].rpcBounds; rpcBounds != nil {
-			starknetBounds[bounds[i].resource] = starknet.ResourceBounds{
-				MaxAmount:       rpcBounds.MaxAmount,
-				MaxPricePerUnit: rpcBounds.MaxPricePerUnit,
+	addResourceBounds := func(resource *ResourceBounds, resourceType starknet.Resource) {
+		if resource != nil {
+			starknetBounds[resourceType] = starknet.ResourceBounds{
+				MaxAmount:       resource.MaxAmount,
+				MaxPricePerUnit: resource.MaxPricePerUnit,
 			}
 		}
 	}
+
+	addResourceBounds(rb.L1Gas, starknet.ResourceL1Gas)
+	addResourceBounds(rb.L1DataGas, starknet.ResourceL1DataGas)
+	addResourceBounds(rb.L2Gas, starknet.ResourceL2Gas)
 
 	return &starknetBounds
 }
