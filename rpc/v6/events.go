@@ -99,7 +99,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	for _, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
-			blockNumber = &(fEvent.BlockNumber)
+			blockNumber = fEvent.BlockNumber
 		}
 		emittedEvents = append(emittedEvents, &EmittedEvent{
 			BlockNumber:     blockNumber,
