@@ -506,6 +506,10 @@ func TestHandle(t *testing.T) {
 			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": [1, [2, 3]], "id": 1}`,
 			res: `{"jsonrpc":"2.0","result":0,"id":1}`,
 		},
+		"junk + valid params": {
+			req: `{"jsonrpc": "2.0", "method": "multipleOptionalParams", "params": {"param1": 1, "param2": [2, 3], "junk": "junk"}, "id": 1}`,
+			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"unexpected params: junk"},"id":1}`,
+		},
 	}
 
 	for desc, test := range tests {
