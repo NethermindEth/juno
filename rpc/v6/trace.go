@@ -255,7 +255,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	overallFees, dataGasConsumed, traces, _, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
+	executionResults, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
 		false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -265,6 +265,9 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		// report them as unexpected errors
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+	overallFees := executionResults.OverallFees
+	dataGasConsumed := executionResults.DataAvailability
+	traces := executionResults.Traces
 
 	result := make([]TracedBlockTransaction, len(traces))
 	for index, trace := range traces {
@@ -293,11 +296,12 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			gasConsumed := new(felt.Felt).Sub(overallFees[index], dataGasFee)
 			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
-			executionResources := trace.TotalExecutionResources()
 			da := vm.NewDataAvailability(gasConsumed, l1DAGas,
 				header.L1DAMode)
-			executionResources.DataAvailability = &da
-			traces[index].ExecutionResources = executionResources
+			traces[index].ExecutionResources = &vm.ExecutionResources{
+				ComputationResources: trace.TotalComputationResources(),
+				DataAvailability:     &da,
+			}
 		}
 		result[index] = TracedBlockTransaction{
 			TraceRoot:       &traces[index],
@@ -375,7 +379,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps)
+	}, state, h.bcReader.Network(), h.callMaxSteps, "")
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

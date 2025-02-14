@@ -50,7 +50,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -70,7 +70,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
 }
@@ -117,7 +117,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
 
@@ -139,7 +139,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
 }
@@ -179,7 +179,7 @@ func TestCall_MaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, "")
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -196,7 +196,7 @@ func TestExecute(t *testing.T) {
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, _, _, _, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		_, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
@@ -208,7 +208,7 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, _, _, _, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		_, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				L1GasPriceETH:    &felt.Zero,
@@ -220,10 +220,16 @@ func TestExecute(t *testing.T) {
 }
 
 func TestSetVersionedConstants(t *testing.T) {
-	t.Run("ok", func(t *testing.T) {
-		err := SetVersionedConstants("./rust/versioned_constants_13_1.json")
-		assert.NoError(t, err)
-	})
+	path := "rust/resources/"
+	f, err := os.Open(path)
+	require.NoError(t, err)
+	files, err := f.Readdir(0)
+	require.NoError(t, err)
+
+	for _, v := range files {
+		require.NoError(t, SetVersionedConstants(path+v.Name()))
+	}
+
 	t.Run("not valid json", func(t *testing.T) {
 		fd, err := os.CreateTemp(t.TempDir(), "versioned_constants_test*")
 		require.NoError(t, err)

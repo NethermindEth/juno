@@ -212,20 +212,18 @@ func TestTotalExecutionResources(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			require.Equal(t, &vm.ExecutionResources{
-				ComputationResources: vm.ComputationResources{
-					Steps:        resources.Steps * test.multiplier,
-					MemoryHoles:  resources.MemoryHoles * test.multiplier,
-					Pedersen:     resources.Pedersen * test.multiplier,
-					RangeCheck:   resources.RangeCheck * test.multiplier,
-					Bitwise:      resources.Bitwise * test.multiplier,
-					Ecdsa:        resources.Ecdsa * test.multiplier,
-					EcOp:         resources.EcOp * test.multiplier,
-					Keccak:       resources.Keccak * test.multiplier,
-					Poseidon:     resources.Poseidon * test.multiplier,
-					SegmentArena: resources.SegmentArena * test.multiplier,
-				},
-			}, test.trace.TotalExecutionResources())
+			require.Equal(t, vm.ComputationResources{
+				Steps:        resources.Steps * test.multiplier,
+				MemoryHoles:  resources.MemoryHoles * test.multiplier,
+				Pedersen:     resources.Pedersen * test.multiplier,
+				RangeCheck:   resources.RangeCheck * test.multiplier,
+				Bitwise:      resources.Bitwise * test.multiplier,
+				Ecdsa:        resources.Ecdsa * test.multiplier,
+				EcOp:         resources.EcOp * test.multiplier,
+				Keccak:       resources.Keccak * test.multiplier,
+				Poseidon:     resources.Poseidon * test.multiplier,
+				SegmentArena: resources.SegmentArena * test.multiplier,
+			}, test.trace.TotalComputationResources())
 		})
 	}
 }

@@ -122,8 +122,8 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
-func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
-	total := new(ExecutionResources)
+func (t *TransactionTrace) TotalComputationResources() ComputationResources {
+	total := ComputationResources{}
 	for _, invocation := range t.allInvocations() {
 		r := invocation.ExecutionResources
 		total.Pedersen += r.Pedersen
@@ -244,6 +244,10 @@ type DataAvailability struct {
 }
 
 type ExecutionResources struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+	L2Gas     uint64 `json:"l2_gas"`
+
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
@@ -259,4 +263,15 @@ func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DA
 	}
 
 	return da
+}
+
+// TODO: add RPC 0.6, 0.7 and 0.8 support
+func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ComputationResources
+		DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+	}{
+		ComputationResources: r.ComputationResources,
+		DataAvailability:     r.DataAvailability,
+	})
 }
