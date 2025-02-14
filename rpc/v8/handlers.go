@@ -173,11 +173,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.TransactionReceiptByHash,
 		},
 		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockTransactionCount,
-		},
-		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
 			Handler: h.TransactionByBlockIDAndIndex,

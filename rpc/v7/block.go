@@ -116,19 +116,6 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
-// BlockTransactionCount returns the number of transactions in a block
-// identified by the given BlockID.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L373
-func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
-	header, rpcErr := h.blockHeaderByID(&id)
-	if rpcErr != nil {
-		return 0, rpcErr
-	}
-	return header.TransactionCount, nil
-}
-
 func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
