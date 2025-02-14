@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -206,30 +205,36 @@ type ResourceBounds struct {
 	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
 }
 
+type TransactionResourceBounds struct {
+	L1Gas     *ResourceBounds `json:"l1_gas,omitempty" validate:"required"`
+	L1DataGas *ResourceBounds `json:"l1_data_gas,omitempty" validate:"required"`
+	L2Gas     *ResourceBounds `json:"l2_gas,omitempty" validate:"required"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
-	Type                  TransactionType              `json:"type" validate:"required"`
-	Version               *felt.Felt                   `json:"version,omitempty" validate:"required"`
-	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee                *felt.Felt                   `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
-	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
-	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
-	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required_if=Version 0x3"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
-	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
-	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	Hash                  *felt.Felt                 `json:"transaction_hash,omitempty"`
+	Type                  TransactionType            `json:"type" validate:"required"`
+	Version               *felt.Felt                 `json:"version,omitempty" validate:"required"`
+	Nonce                 *felt.Felt                 `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
+	MaxFee                *felt.Felt                 `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	ContractAddress       *felt.Felt                 `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt                 `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt                 `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt              `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt                 `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
+	Signature             *[]*felt.Felt              `json:"signature,omitempty" validate:"required"`
+	CallData              *[]*felt.Felt              `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt                 `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash     *felt.Felt                 `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	ResourceBounds        *TransactionResourceBounds `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt                 `json:"tip,omitempty" validate:"required_if=Version 0x3"`
+	PaymasterData         *[]*felt.Felt              `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
+	AccountDeploymentData *[]*felt.Felt              `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
+	NonceDAMode           *DataAvailabilityMode      `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	FeeDAMode             *DataAvailabilityMode      `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
 type TransactionStatus struct {
@@ -311,12 +316,9 @@ type BroadcastedTransaction struct {
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -364,29 +366,57 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
-	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *TransactionResourceBounds {
+	if len(rb) == 0 {
+		return &TransactionResourceBounds{}
 	}
-	return rpcResourceBounds
+
+	l1Gas := getResourceBounds(rb, core.ResourceL1Gas)
+	l1DataGas := getResourceBounds(rb, core.ResourceL1DataGas)
+	l2Gas := getResourceBounds(rb, core.ResourceL2Gas)
+
+	return &TransactionResourceBounds{
+		L1Gas:     l1Gas,
+		L1DataGas: l1DataGas,
+		L2Gas:     l2Gas,
+	}
 }
 
-func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func getResourceBounds(rb map[core.Resource]core.ResourceBounds, resource core.Resource) *ResourceBounds {
+	if coreBounds, ok := rb[resource]; ok {
+		return &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(coreBounds.MaxAmount),
+			MaxPricePerUnit: coreBounds.MaxPricePerUnit,
+		}
+	}
+	return nil
+}
+
+func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	for resource, bounds := range *rb {
-		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount,
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+	bounds := []struct {
+		rpcBounds *ResourceBounds
+		resource  starknet.Resource
+	}{
+		{rb.L1Gas, starknet.ResourceL1Gas},
+		{rb.L1DataGas, starknet.ResourceL1DataGas},
+		{rb.L2Gas, starknet.ResourceL2Gas},
+	}
+
+	starknetBounds := make(map[starknet.Resource]starknet.ResourceBounds, len(bounds))
+
+	for i := range bounds {
+		if rpcBounds := bounds[i].rpcBounds; rpcBounds != nil {
+			starknetBounds[bounds[i].resource] = starknet.ResourceBounds{
+				MaxAmount:       rpcBounds.MaxAmount,
+				MaxPricePerUnit: rpcBounds.MaxPricePerUnit,
+			}
 		}
 	}
-	return &feederResourceBounds
+
+	return &starknetBounds
 }
 
 func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
@@ -867,7 +897,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -892,7 +922,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -917,7 +947,7 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))

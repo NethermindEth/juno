@@ -503,12 +503,12 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Signature:          &tx.TransactionSignature,
 				CallData:           &tx.CallData,
 				EntryPointSelector: tx.EntryPointSelector,
-				ResourceBounds: &map[rpcv8.Resource]rpcv8.ResourceBounds{
-					rpcv8.ResourceL1Gas: {
+				ResourceBounds: &rpcv8.TransactionResourceBounds{
+					L1Gas: &rpcv8.ResourceBounds{
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
-					rpcv8.ResourceL2Gas: {
+					L2Gas: &rpcv8.ResourceBounds{
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
