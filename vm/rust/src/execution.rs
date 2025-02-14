@@ -67,7 +67,7 @@ pub fn is_l2_gas_accounting_enabled(
 }
 
 fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationMode {
-    match &transaction {
+    match transaction {
         Transaction::Account(account_tx) => match &account_tx.tx {
             AccountTransaction::Declare(tx) => match &tx.tx {
                 DeclareTransaction::V3(tx) => tx.resource_bounds.get_gas_vector_computation_mode(),
@@ -171,9 +171,7 @@ where
                             lower_bound = current_l2_gas_limit;
                             current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
                         }
-                        Err(SimulationError::ExecutionError(error)) => {
-                            return Err(error);
-                        }
+                        Err(SimulationError::ExecutionError(error)) => return Err(error),
                     }
                 };
 
@@ -213,7 +211,7 @@ fn is_search_complete(lower: GasAmount, upper: GasAmount, margin: GasAmount) -> 
 fn simulate_execution<'a, S>(
     transaction: &Transaction,
     state: &'a mut S,
-    block_context: &blockifier::context::BlockContext,
+    block_context: &BlockContext,
 ) -> Result<(TransactionExecutionInfo, TransactionalState<'a, S>), SimulationError>
 where
     S: UpdatableState,
@@ -226,79 +224,71 @@ where
     }
 }
 
-/// Updates the L2 gas limit for a given transaction.
 fn set_l2_gas_limit(transaction: &mut Transaction, gas_limit: GasAmount) {
     if let Transaction::Account(ref mut account_transaction) = transaction {
         match &mut account_transaction.tx {
             AccountTransaction::Declare(ref mut tx) => {
                 if let DeclareTransaction::V3(ref mut tx) = &mut tx.tx {
-                    match &mut tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(ref mut all_resource_bounds) => {
-                            all_resource_bounds.l2_gas.max_amount = gas_limit;
-                            return;
-                        }
+                    if let ValidResourceBounds::AllResources(ref mut all_resource_bounds) =
+                        &mut tx.resource_bounds
+                    {
+                        all_resource_bounds.l2_gas.max_amount = gas_limit;
+                        return;
                     }
                 }
             }
             AccountTransaction::DeployAccount(ref mut tx) => {
                 if let DeployAccountTransaction::V3(ref mut tx) = &mut tx.tx {
-                    match &mut tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(ref mut all_resource_bounds) => {
-                            all_resource_bounds.l2_gas.max_amount = gas_limit;
-                            return;
-                        }
+                    if let ValidResourceBounds::AllResources(ref mut all_resource_bounds) =
+                        &mut tx.resource_bounds
+                    {
+                        all_resource_bounds.l2_gas.max_amount = gas_limit;
+                        return;
                     }
                 }
             }
-            AccountTransaction::Invoke(tx) => {
+            AccountTransaction::Invoke(ref mut tx) => {
                 if let InvokeTransaction::V3(ref mut tx) = &mut tx.tx {
-                    match &mut tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(ref mut all_resource_bounds) => {
-                            all_resource_bounds.l2_gas.max_amount = gas_limit;
-                            return;
-                        }
+                    if let ValidResourceBounds::AllResources(ref mut all_resource_bounds) =
+                        &mut tx.resource_bounds
+                    {
+                        all_resource_bounds.l2_gas.max_amount = gas_limit;
+                        return;
                     }
                 }
             }
         }
-        unreachable!();
     }
+    unreachable!();
 }
 
-/// Extracts the L2 gas limit from a transaction.
 fn extract_l2_gas_limit(transaction: &Transaction) -> GasAmount {
     if let Transaction::Account(account_transaction) = transaction {
         match &account_transaction.tx {
             AccountTransaction::Declare(tx) => {
                 if let DeclareTransaction::V3(tx) = &tx.tx {
-                    match &tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(all_resource_bounds) => {
-                            return all_resource_bounds.l2_gas.max_amount;
-                        }
+                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
+                        &tx.resource_bounds
+                    {
+                        return all_resource_bounds.l2_gas.max_amount;
                     }
                 }
             }
             AccountTransaction::DeployAccount(tx) => {
                 if let DeployAccountTransaction::V3(tx) = &tx.tx {
-                    match &tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(all_resource_bounds) => {
-                            return all_resource_bounds.l2_gas.max_amount;
-                        }
+                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
+                        &tx.resource_bounds
+                    {
+                        return all_resource_bounds.l2_gas.max_amount;
                     }
                 }
             }
             AccountTransaction::Invoke(tx) => {
                 if let InvokeTransaction::V3(tx) = &tx.tx {
-                    match &tx.resource_bounds {
-                        ValidResourceBounds::L1Gas(_) => {}
-                        ValidResourceBounds::AllResources(all_resource_bounds) => {
-                            return all_resource_bounds.l2_gas.max_amount;
-                        }
+                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
+                        &tx.resource_bounds
+                    {
+                        return all_resource_bounds.l2_gas.max_amount;
                     }
                 }
             }
@@ -308,8 +298,9 @@ fn extract_l2_gas_limit(transaction: &Transaction) -> GasAmount {
 }
 
 fn is_out_of_gas(execution_info: &TransactionExecutionInfo) -> bool {
-    let Some(revert_error) = &execution_info.revert_error else {
-        return false;
-    };
-    revert_error.to_string().contains("Out of gas")
+    if let Some(revert_error) = &execution_info.revert_error {
+        revert_error.to_string().contains("Out of gas")
+    } else {
+        false
+    }
 }
