@@ -371,21 +371,22 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *TransactionR
 		return &TransactionResourceBounds{}
 	}
 
-	return &TransactionResourceBounds{
-		L1Gas:     getResourceBoundsFromMap(rb, core.ResourceL1Gas),
-		L1DataGas: getResourceBoundsFromMap(rb, core.ResourceL1DataGas),
-		L2Gas:     getResourceBoundsFromMap(rb, core.ResourceL2Gas),
-	}
-}
-
-func getResourceBoundsFromMap(rb map[core.Resource]core.ResourceBounds, resource core.Resource) *ResourceBounds {
-	if coreBounds, ok := rb[resource]; ok {
-		return &ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(coreBounds.MaxAmount),
-			MaxPricePerUnit: coreBounds.MaxPricePerUnit,
+	trb := &TransactionResourceBounds{}
+	for resource, bounds := range rb {
+		rb := &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+		switch resource {
+		case core.ResourceL1Gas:
+			trb.L1Gas = rb
+		case core.ResourceL1DataGas:
+			trb.L1DataGas = rb
+		case core.ResourceL2Gas:
+			trb.L2Gas = rb
 		}
 	}
-	return nil
+	return trb
 }
 
 func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
