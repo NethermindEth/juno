@@ -1,6 +1,7 @@
 package rpcv7_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"

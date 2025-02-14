@@ -2,6 +2,7 @@ package rpcv8_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
