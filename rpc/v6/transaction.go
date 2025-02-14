@@ -370,7 +370,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
