@@ -366,12 +366,12 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *TransactionResourceBounds {
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) TransactionResourceBounds {
 	if len(rb) == 0 {
-		return &TransactionResourceBounds{}
+		return TransactionResourceBounds{}
 	}
 
-	trb := &TransactionResourceBounds{}
+	trb := TransactionResourceBounds{}
 	for resource, bounds := range rb {
 		rb := &ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
@@ -896,7 +896,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
+		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -921,7 +921,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
+		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -946,7 +946,7 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = adaptResourceBounds(t.ResourceBounds)
+		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
