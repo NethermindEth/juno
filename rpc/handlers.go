@@ -151,16 +151,6 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.rpcv8Handler.StorageAt,
 		},
 		{
-			Name: "starknet_getStorageProof",
-			Params: []jsonrpc.Parameter{
-				{Name: "block_id"},
-				{Name: "class_hashes", Optional: true},
-				{Name: "contract_addresses", Optional: true},
-				{Name: "contracts_storage_keys", Optional: true},
-			},
-			Handler: h.rpcv8Handler.StorageProof,
-		},
-		{
 			Name:    "starknet_getClassHashAt",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
 			Handler: h.rpcv8Handler.ClassHashAt,
