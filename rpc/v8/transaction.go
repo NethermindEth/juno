@@ -395,18 +395,24 @@ func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Re
 
 	starknetBounds := make(map[starknet.Resource]starknet.ResourceBounds, 3)
 
-	addResourceBounds := func(resource *ResourceBounds, resourceType starknet.Resource) {
-		if resource != nil {
-			starknetBounds[resourceType] = starknet.ResourceBounds{
-				MaxAmount:       resource.MaxAmount,
-				MaxPricePerUnit: resource.MaxPricePerUnit,
-			}
+	if rb.L1Gas != nil {
+		starknetBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
+			MaxAmount:       rb.L1Gas.MaxAmount,
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
 		}
 	}
-
-	addResourceBounds(rb.L1Gas, starknet.ResourceL1Gas)
-	addResourceBounds(rb.L1DataGas, starknet.ResourceL1DataGas)
-	addResourceBounds(rb.L2Gas, starknet.ResourceL2Gas)
+	if rb.L1DataGas != nil {
+		starknetBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
+			MaxAmount:       rb.L1DataGas.MaxAmount,
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+		}
+	}
+	if rb.L2Gas != nil {
+		starknetBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
+			MaxAmount:       rb.L2Gas.MaxAmount,
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		}
+	}
 
 	return &starknetBounds
 }
