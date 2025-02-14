@@ -685,7 +685,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
+	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
 	got := sendWsMessage(t, ctx, conn, subMsg)
 	require.Equal(t, subResp(id), got)
 
