@@ -30,7 +30,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	n := utils.Ptr(utils.Mainnet)
 	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
-	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
+	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
