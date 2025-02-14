@@ -188,12 +188,12 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
-func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+func adaptResourceBounds(rb map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
-	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	for resource, bounds := range *rb {
+	coreBounds := make(map[core.Resource]core.ResourceBounds, len(rb))
+	for resource, bounds := range rb {
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount.Uint64(),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,

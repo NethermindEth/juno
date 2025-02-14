@@ -389,7 +389,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) TransactionRe
 	return trb
 }
 
-func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *TransactionResourceBounds) map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}
@@ -415,7 +415,7 @@ func adaptToFeederResourceBounds(rb *TransactionResourceBounds) *map[starknet.Re
 		}
 	}
 
-	return &starknetBounds
+	return starknetBounds
 }
 
 func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {

@@ -56,7 +56,7 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 			Nonce:       new(felt.Felt).SetUint64(1),
 			NonceDAMode: utils.Ptr(starknet.DAModeL1),
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
@@ -114,7 +114,7 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			Nonce:       utils.HexToFelt(t, "0xe97"),
 			NonceDAMode: utils.Ptr(starknet.DAModeL1),
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
@@ -218,7 +218,7 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			Nonce:       new(felt.Felt),
 			NonceDAMode: utils.Ptr(starknet.DAModeL1),
 			FeeDAMode:   utils.Ptr(starknet.DAModeL1),
-			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
+			ResourceBounds: map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
