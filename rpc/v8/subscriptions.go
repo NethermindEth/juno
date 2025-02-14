@@ -125,13 +125,11 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 
 	headerSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
-	pendingSub := h.pendingBlock.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
 			headerSub.Unsubscribe()
 			reorgSub.Unsubscribe()
-			pendingSub.Unsubscribe()
 		}()
 
 		// The specification doesn't enforce ordering of events, therefore, events from new blocks can be sent before
@@ -171,8 +169,6 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 							delete(eventsPreviouslySent, fe)
 						}
 					}
-				case pending := <-pendingSub.Recv():
-					h.processEvents(subscriptionCtx, w, id, pending.Number, pending.Number, fromAddr, keys, eventsPreviouslySent)
 				}
 			}
 		})

@@ -289,7 +289,7 @@ func TestSubscribeEvents(t *testing.T) {
 		cancel()
 	})
 
-	t.Run("Events from pending block without duplicates", func(t *testing.T) {
+	t.Run("Events not emitted from pending blocks", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -304,8 +304,8 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil).Times(1)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		serverConn, clientConn := net.Pipe()
@@ -327,37 +327,9 @@ func TestSubscribeEvents(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, string(resp), string(got))
 
-		// Pending block events, due to the use of mocks events which were sent before are resent.
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
-
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
-
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
-
-		resp, err = marshalSubEventsResp(emittedEvents[1], id)
-		require.NoError(t, err)
-
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
-
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
-
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
-			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
-
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
-
-		resp, err = marshalSubEventsResp(emittedEvents[0], id)
-		require.NoError(t, err)
-
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
+		// The subscription shouldn't process any events from the pending block.
+		pendingFeed.Send(&core.Block{Header: &core.Header{}})
+		pendingFeed.Send(&core.Block{Header: &core.Header{}})
 
 		cancel()
 		time.Sleep(100 * time.Millisecond)
