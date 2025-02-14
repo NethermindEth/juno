@@ -3,31 +3,12 @@ package rpcv8
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
-
-type L1DAMode uint8
-
-const (
-	Blob L1DAMode = iota
-	Calldata
-)
-
-func (l L1DAMode) MarshalText() ([]byte, error) {
-	switch l {
-	case Blob:
-		return []byte("BLOB"), nil
-	case Calldata:
-		return []byte("CALLDATA"), nil
-	default:
-		return nil, fmt.Errorf("unknown L1DAMode value = %v", l)
-	}
-}
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
 type BlockID struct {
@@ -79,24 +60,10 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ResourcePrice struct {
-	InFri *felt.Felt `json:"price_in_fri"`
-	InWei *felt.Felt `json:"price_in_wei"`
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
 type BlockHeader struct {
-	Hash             *felt.Felt     `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt     `json:"parent_hash"`
-	Number           *uint64        `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
-	Timestamp        uint64         `json:"timestamp"`
-	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
-	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	L2GasPrice       *ResourcePrice `json:"l2_gas_price"`
-	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
-	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
-	StarknetVersion  string         `json:"starknet_version"`
+	rpcv6.BlockHeader
+	L2GasPrice *rpcv6.ResourcePrice `json:"l2_gas_price"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
@@ -259,55 +226,57 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		sequencerAddress = &felt.Zero
 	}
 
-	var l1DAMode L1DAMode
+	var l1DAMode rpcv6.L1DAMode
 	switch header.L1DAMode {
 	case core.Blob:
-		l1DAMode = Blob
+		l1DAMode = rpcv6.Blob
 	case core.Calldata:
-		l1DAMode = Calldata
+		l1DAMode = rpcv6.Calldata
 	}
 
-	var l1DataGasPrice ResourcePrice
+	var l1DataGasPrice rpcv6.ResourcePrice
 	if header.L1DataGasPrice != nil {
-		l1DataGasPrice = ResourcePrice{
+		l1DataGasPrice = rpcv6.ResourcePrice{
 			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
 			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
 		}
 	} else {
-		l1DataGasPrice = ResourcePrice{
+		l1DataGasPrice = rpcv6.ResourcePrice{
 			InWei: &felt.Zero,
 			InFri: &felt.Zero,
 		}
 	}
 
-	var l2GasPrice ResourcePrice
+	var l2GasPrice rpcv6.ResourcePrice
 	if header.L2GasPrice != nil {
-		l2GasPrice = ResourcePrice{
+		l2GasPrice = rpcv6.ResourcePrice{
 			InWei: nilToZero(header.L2GasPrice.PriceInWei),
 			InFri: nilToZero(header.L2GasPrice.PriceInFri),
 		}
 	} else {
-		l2GasPrice = ResourcePrice{
+		l2GasPrice = rpcv6.ResourcePrice{
 			InWei: &felt.Zero,
 			InFri: &felt.Zero,
 		}
 	}
 
 	return BlockHeader{
-		Hash:             header.Hash,
-		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
-		NewRoot:          header.GlobalStateRoot,
-		Timestamp:        header.Timestamp,
-		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
-			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK),
+		BlockHeader: rpcv6.BlockHeader{
+			Hash:             header.Hash,
+			ParentHash:       header.ParentHash,
+			Number:           blockNumber,
+			NewRoot:          header.GlobalStateRoot,
+			Timestamp:        header.Timestamp,
+			SequencerAddress: sequencerAddress,
+			L1GasPrice: &rpcv6.ResourcePrice{
+				InWei: header.L1GasPriceETH,
+				InFri: nilToZero(header.L1GasPriceSTRK),
+			},
+			L1DataGasPrice:  &l1DataGasPrice,
+			L1DAMode:        &l1DAMode,
+			StarknetVersion: header.ProtocolVersion,
 		},
-		L2GasPrice:      &l2GasPrice,
-		L1DataGasPrice:  &l1DataGasPrice,
-		L1DAMode:        &l1DAMode,
-		StarknetVersion: header.ProtocolVersion,
+		L2GasPrice: &l2GasPrice,
 	}
 }
 
