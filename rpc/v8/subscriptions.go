@@ -522,23 +522,27 @@ func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, sender
 		case <-ctx.Done():
 			return
 		case pendingBlock := <-pendingSub.Recv():
-			filteredTxs := h.filterTxs(pendingBlock.Transactions, getDetails, senderAddr)
-			if err := h.sendPendingTxs(w, filteredTxs, id); err != nil {
-				h.log.Warnw("Error sending pending transactions", "err", err)
-				return
+			// If getDetails is true, response will contain the transaction details.
+			// If getDetails is false, response will only contain the transaction hashes.
+			if getDetails {
+				txns := h.filterTxDetails(pendingBlock.Transactions, senderAddr)
+				for _, txn := range txns {
+					if err := h.sendPendingTxs(w, txn, id); err != nil {
+						h.log.Warnw("Error sending pending transactions", "err", err)
+						return
+					}
+				}
+			} else {
+				hashes := h.filterTxHashes(pendingBlock.Transactions, senderAddr)
+				for _, hash := range hashes {
+					if err := h.sendPendingTxs(w, hash, id); err != nil {
+						h.log.Warnw("Error sending pending transactions", "err", err)
+						return
+					}
+				}
 			}
 		}
 	}
-}
-
-// filterTxs filters the transactions based on the getDetails flag.
-// If getDetails is true, response will contain the transaction details.
-// If getDetails is false, response will only contain the transaction hashes.
-func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) any {
-	if getDetails {
-		return h.filterTxDetails(pendingTxs, senderAddr)
-	}
-	return h.filterTxHashes(pendingTxs, senderAddr)
 }
 
 func (h *Handler) filterTxDetails(pendingTxs []core.Transaction, senderAddr []felt.Felt) []*Transaction {
@@ -551,11 +555,11 @@ func (h *Handler) filterTxDetails(pendingTxs []core.Transaction, senderAddr []fe
 	return filteredTxs
 }
 
-func (h *Handler) filterTxHashes(pendingTxs []core.Transaction, senderAddr []felt.Felt) []felt.Felt {
-	filteredTxHashes := make([]felt.Felt, 0, len(pendingTxs))
+func (h *Handler) filterTxHashes(pendingTxs []core.Transaction, senderAddr []felt.Felt) []*felt.Felt {
+	filteredTxHashes := make([]*felt.Felt, 0, len(pendingTxs))
 	for _, txn := range pendingTxs {
 		if h.filterTxBySender(txn, senderAddr) {
-			filteredTxHashes = append(filteredTxHashes, *txn.Hash())
+			filteredTxHashes = append(filteredTxHashes, txn.Hash())
 		}
 	}
 	return filteredTxHashes

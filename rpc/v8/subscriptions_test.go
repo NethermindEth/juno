@@ -883,12 +883,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 				&core.L1HandlerTransaction{TransactionHash: hash5},
 			},
 		})
-
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Filtered subscription", func(t *testing.T) {
@@ -928,11 +929,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
@@ -964,7 +967,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
