@@ -107,10 +107,6 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
-}
-
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.7.1", nil
 }

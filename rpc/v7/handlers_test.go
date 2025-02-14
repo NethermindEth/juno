@@ -17,15 +17,6 @@ import (
 
 func nopCloser() error { return nil }
 
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpcv7.New(nil, nil, nil, version, utils.Ptr(utils.Mainnet), nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
 	handler := rpcv7.New(nil, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
 	version, rpcErr := handler.SpecVersion()

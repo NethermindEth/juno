@@ -141,10 +141,6 @@ func (h *Handler) Run(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
-}
-
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.8.0", nil
 }
@@ -230,10 +226,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getEvents",
 			Params:  []jsonrpc.Parameter{{Name: "filter"}},
 			Handler: h.Events,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
