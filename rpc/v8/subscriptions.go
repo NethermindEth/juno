@@ -523,9 +523,11 @@ func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, sender
 			return
 		case pendingBlock := <-pendingSub.Recv():
 			filteredTxs := h.filterTxs(pendingBlock.Transactions, getDetails, senderAddr)
-			if err := h.sendPendingTxs(w, filteredTxs, id); err != nil {
-				h.log.Warnw("Error sending pending transactions", "err", err)
-				return
+			for filteredTxn := range filteredTxs {
+				if err := h.sendPendingTxs(w, filteredTxn, id); err != nil {
+					h.log.Warnw("Error sending pending transactions", "err", err)
+					return
+				}
 			}
 		}
 	}
@@ -534,11 +536,20 @@ func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, sender
 // filterTxs filters the transactions based on the getDetails flag.
 // If getDetails is true, response will contain the transaction details.
 // If getDetails is false, response will only contain the transaction hashes.
-func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) any {
+func (h *Handler) filterTxs(pendingTxs []core.Transaction, getDetails bool, senderAddr []felt.Felt) []any {
+	result := make([]any, len(pendingTxs))
 	if getDetails {
-		return h.filterTxDetails(pendingTxs, senderAddr)
+		txs := h.filterTxDetails(pendingTxs, senderAddr)
+		for i, txn := range txs {
+			result[i] = txn
+		}
+	} else {
+		hashes := h.filterTxHashes(pendingTxs, senderAddr)
+		for i, hash := range hashes {
+			result[i] = hash
+		}
 	}
-	return h.filterTxHashes(pendingTxs, senderAddr)
+	return result
 }
 
 func (h *Handler) filterTxDetails(pendingTxs []core.Transaction, senderAddr []felt.Felt) []*Transaction {
