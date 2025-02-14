@@ -91,39 +91,6 @@ func TestBlockId(t *testing.T) {
 	}
 }
 
-func TestBlockHashAndNumber(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv8.New(mockReader, nil, nil, "", nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
-
-		block, err := handler.BlockHashAndNumber()
-		assert.Nil(t, block)
-		assert.Equal(t, rpccore.ErrNoBlock, err)
-	})
-
-	t.Run("blockchain height is 147", func(t *testing.T) {
-		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
-
-		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
-		require.NoError(t, err)
-
-		expectedBlockHashAndNumber := &rpcv8.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
-
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
-
-		hashAndNum, rpcErr := handler.BlockHashAndNumber()
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
-	})
-}
-
 func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -500,26 +467,28 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	require.Equal(t, &rpcv8.BlockWithTxs{
 		BlockHeader: rpcv8.BlockHeader{
-			Hash:            coreBlock.Hash,
-			StarknetVersion: coreBlock.ProtocolVersion,
-			NewRoot:         coreBlock.GlobalStateRoot,
-			Number:          &coreBlock.Number,
-			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.Ptr(rpcv8.Blob),
-			L1GasPrice: &rpcv8.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
-				InWei: utils.HexToFelt(t, "0x3b9aca10"),
+			BlockHeader: rpcv6.BlockHeader{
+				Hash:            coreBlock.Hash,
+				StarknetVersion: coreBlock.ProtocolVersion,
+				NewRoot:         coreBlock.GlobalStateRoot,
+				Number:          &coreBlock.Number,
+				ParentHash:      coreBlock.ParentHash,
+				L1DAMode:        utils.Ptr(rpcv6.Blob),
+				L1GasPrice: &rpcv6.ResourcePrice{
+					InFri: utils.HexToFelt(t, "0x17882b6aa74"),
+					InWei: utils.HexToFelt(t, "0x3b9aca10"),
+				},
+				L1DataGasPrice: &rpcv6.ResourcePrice{
+					InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
+					InWei: utils.HexToFelt(t, "0x716a8f6dd"),
+				},
+				SequencerAddress: coreBlock.SequencerAddress,
+				Timestamp:        coreBlock.Timestamp,
 			},
-			L2GasPrice: &rpcv8.ResourcePrice{
+			L2GasPrice: &rpcv6.ResourcePrice{
 				InFri: &felt.Zero,
 				InWei: &felt.Zero,
 			},
-			L1DataGasPrice: &rpcv8.ResourcePrice{
-				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
-				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
-			},
-			SequencerAddress: coreBlock.SequencerAddress,
-			Timestamp:        coreBlock.Timestamp,
 		},
 		Status: rpcv6.BlockAcceptedL2,
 		Transactions: []*rpcv8.Transaction{
@@ -616,17 +585,19 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
 			Status: rpcv6.BlockPending,
 			BlockHeader: rpcv8.BlockHeader{
-				Hash:             header.Hash,
-				ParentHash:       header.ParentHash,
-				Number:           header.Number,
-				NewRoot:          header.NewRoot,
-				Timestamp:        header.Timestamp,
-				SequencerAddress: header.SequencerAddress,
-				L1GasPrice:       header.L1GasPrice,
-				L2GasPrice:       header.L2GasPrice,
-				L1DataGasPrice:   header.L1DataGasPrice,
-				L1DAMode:         header.L1DAMode,
-				StarknetVersion:  header.StarknetVersion,
+				BlockHeader: rpcv6.BlockHeader{
+					Hash:             header.Hash,
+					ParentHash:       header.ParentHash,
+					Number:           header.Number,
+					NewRoot:          header.NewRoot,
+					Timestamp:        header.Timestamp,
+					SequencerAddress: header.SequencerAddress,
+					L1GasPrice:       header.L1GasPrice,
+					L1DataGasPrice:   header.L1DataGasPrice,
+					L1DAMode:         header.L1DAMode,
+					StarknetVersion:  header.StarknetVersion,
+				},
+				L2GasPrice: header.L2GasPrice,
 			},
 			Transactions: txsWithReceipt,
 		}, resp)
@@ -662,17 +633,19 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
 			Status: rpcv6.BlockAcceptedL1,
 			BlockHeader: rpcv8.BlockHeader{
-				Hash:             header.Hash,
-				ParentHash:       header.ParentHash,
-				Number:           header.Number,
-				NewRoot:          header.NewRoot,
-				Timestamp:        header.Timestamp,
-				SequencerAddress: header.SequencerAddress,
-				L1DAMode:         header.L1DAMode,
-				L1GasPrice:       header.L1GasPrice,
-				L2GasPrice:       header.L2GasPrice,
-				L1DataGasPrice:   header.L1DataGasPrice,
-				StarknetVersion:  header.StarknetVersion,
+				BlockHeader: rpcv6.BlockHeader{
+					Hash:             header.Hash,
+					ParentHash:       header.ParentHash,
+					Number:           header.Number,
+					NewRoot:          header.NewRoot,
+					Timestamp:        header.Timestamp,
+					SequencerAddress: header.SequencerAddress,
+					L1DAMode:         header.L1DAMode,
+					L1GasPrice:       header.L1GasPrice,
+					L1DataGasPrice:   header.L1DataGasPrice,
+					StarknetVersion:  header.StarknetVersion,
+				},
+				L2GasPrice: header.L2GasPrice,
 			},
 			Transactions: transactions,
 		}, resp)
