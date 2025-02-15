@@ -207,7 +207,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_call",
 			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
-			Handler: h.rpcv8Handler.Call,
+			Handler: h.rpcv7Handler.Call,
 		},
 		{
 			Name:    "starknet_estimateFee",
