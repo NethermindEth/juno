@@ -134,7 +134,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv8Handler.StateUpdate,
+			Handler: h.rpcv6Handler.StateUpdate,
 		},
 		{
 			Name:    "starknet_syncing",
@@ -338,7 +338,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv7Handler.StateUpdate,
+			Handler: h.rpcv6Handler.StateUpdate,
 		},
 		{
 			Name:    "starknet_syncing",
