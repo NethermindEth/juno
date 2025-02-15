@@ -35,13 +35,15 @@ JUNO_ARGS="--network=$NETWORK \
         --pprof-port "$PPROF_PORT" \
         --disable-l1-verification"
 
-# Ensure the request file exists
-if [ ! -f "$REQUEST_FILE" ]; then
+# Ensure the request file exists if not set to "none"
+if [ "$REQUEST_FILE" != "none" ] && [ ! -f "$REQUEST_FILE" ]; then
     echo "Error: Request file '$REQUEST_FILE' not found."
     exit 1
 fi
 
-REQUEST_PAYLOAD=$(cat "$REQUEST_FILE")
+if [ "$REQUEST_FILE" != "none" ]; then
+    REQUEST_PAYLOAD=$(cat "$REQUEST_FILE")
+fi
 
 echo "Using profiling duration: $PROFILE_DURATION seconds"
 echo "Using request file: $REQUEST_FILE"
@@ -50,7 +52,6 @@ echo "Using request file: $REQUEST_FILE"
 echo "Starting Juno..."
 tmux new-session -d -s juno_session "bash -c '$JUNO_BINARY $JUNO_ARGS > juno.log 2>&1'"
 
-
 # 2. Wait for Juno to be ready
 echo "Waiting for Juno to start..."
 MAX_WAIT=60
@@ -58,9 +59,9 @@ WAIT_TIME=0
 while ! curl --silent --fail --location 'http://localhost:6060' \
 --header 'Content-Type: application/json' \
 --data '{
-	"jsonrpc":"2.0",
-	"method":"juno_version",
-	"id":1
+    "jsonrpc":"2.0",
+    "method":"juno_version",
+    "id":1
 }'; do
     if ! tmux has-session -t juno_session 2>/dev/null; then
         echo "Error: Juno crashed during startup."
@@ -81,34 +82,36 @@ echo "Juno is up and running."
 echo "Capturing profile for $PROFILE_DURATION seconds..."
 curl -o $OUTPUT_FILE "http://localhost:$PPROF_PORT/debug/pprof/$PROFILE?seconds=$PROFILE_DURATION" &
 
-# 4. Send requests and count responses
-echo "Sending requests for $PROFILE_DURATION seconds..."
-END_TIME=$((SECONDS + PROFILE_DURATION))
-TOTAL_REQUESTS=0
-SUCCESSFUL_REQUESTS=0
+if [ "$REQUEST_FILE" != "none" ]; then
+    # 4. Send requests and count responses
+    echo "Sending requests for $PROFILE_DURATION seconds..."
+    END_TIME=$((SECONDS + PROFILE_DURATION))
+    TOTAL_REQUESTS=0
+    SUCCESSFUL_REQUESTS=0
 
-while [ $SECONDS -lt $END_TIME ]; do
-    RESPONSE=$(curl --silent --location "http://localhost:$JUNO_PORT" \
-        --header "Content-Type: application/json" \
-        --data "$REQUEST_PAYLOAD")
+    while [ $SECONDS -lt $END_TIME ]; do
+        RESPONSE=$(curl --silent --location "http://localhost:$JUNO_PORT" \
+            --header "Content-Type: application/json" \
+            --data "$REQUEST_PAYLOAD")
 
-    ((TOTAL_REQUESTS++))
+        ((TOTAL_REQUESTS++))
 
-    # Check if response contains a result field
-    if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
-        ((SUCCESSFUL_REQUESTS++))
-    else
-        echo "Error in response: $RESPONSE"
-    fi
-done
+        # Check if response contains a result field
+        if echo "$RESPONSE" | jq -e '.result' > /dev/null 2>&1; then
+            ((SUCCESSFUL_REQUESTS++))
+        else
+            echo "Error in response: $RESPONSE"
+        fi
+    done
+
+    # Print request statistics
+    echo "Total requests sent: $TOTAL_REQUESTS"
+    echo "Successful requests: $SUCCESSFUL_REQUESTS"
+fi
 
 # Wait for profiling and requests to complete
 wait
 echo "CPU profile saved to trace.out"
-
-# Print request statistics
-echo "Total requests sent: $TOTAL_REQUESTS"
-echo "Successful requests: $SUCCESSFUL_REQUESTS"
 
 # 5. Stop Juno
 echo "Stopping Juno..."

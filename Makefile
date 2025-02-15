@@ -201,3 +201,15 @@ estimate-fee-heap: juno-cached ## Heap profile estimateFee
 estimate-fee-block: juno-cached ## Goroutine blocking profile estimateFee
 	./scripts/profile_juno.sh block 60 scripts/payload/estimateFee.json sepolia-integration estimateFee_block.out ./p2p-dbs/sepolia-integration_node
 	go tool pprof -http=:3005 estimateFee_block.out
+
+sync-profile: juno-cached ## Goroutine blocking profile estimateFee
+	./scripts/profile_juno.sh profile 60 none sepolia sync-profile.out ""
+	go tool pprof -http=:3006 sync-profile.out
+
+sync-heap: juno-cached ## Goroutine blocking profile estimateFee
+	./scripts/profile_juno.sh heap 60 none sepolia sync-heap.out ""
+	go tool pprof -http=:3007 sync-heap.out
+
+sync-block: juno-cached ## Goroutine blocking profile estimateFee
+	./scripts/profile_juno.sh block 60 none sepolia sync-block.out ""
+	go tool pprof -http=:3008 sync-block.out
