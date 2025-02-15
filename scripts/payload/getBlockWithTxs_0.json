@@ -1,0 +1,10 @@
+{
+	"jsonrpc": "2.0",
+	"method": "starknet_getBlockWithTxs",
+	"params": {
+		"block_id": {
+			"block_number": 0
+		}
+	},
+	"id": 1
+}

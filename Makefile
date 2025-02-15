@@ -177,3 +177,27 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
+
+block-with-transaction-profile: juno-cached ## CPU profile getBlockWithTxs
+	./scripts/profile_juno.sh profile 60 scripts/payload/getBlockWithTxs_0.json "" getBlockWithTxs_profile_0.out ""
+	go tool pprof -http=:3000 getBlockWithTxs_profile_0.out
+
+block-with-transaction-heap: juno-cached ## Heap profile getBlockWithTxs
+	./scripts/profile_juno.sh heap 60 scripts/payload/getBlockWithTxs_0.json "" getBlockWithTxs_heap_0.out ""
+	go tool pprof -http=:3001 getBlockWithTxs_heap_0.out
+	
+block-with-transaction-block: juno-cached ## Goroutine blocking profile getBlockWithTxs
+	./scripts/profile_juno.sh block 60 scripts/payload/getBlockWithTxs_0.json "" getBlockWithTxs_block_0.out ""
+	go tool pprof -http=:3002 getBlockWithTxs_block_0.out
+
+estimate-fee-profile: juno-cached ## CPU profile estimateFee
+	./scripts/profile_juno.sh profile 60 scripts/payload/estimateFee.json sepolia-integration estimateFee_profile.out ./p2p-dbs/sepolia-integration_node
+	go tool pprof -http=:3003 estimateFee_profile.out
+
+estimate-fee-heap: juno-cached ## Heap profile estimateFee
+	./scripts/profile_juno.sh heap 60 scripts/payload/estimateFee.json sepolia-integration estimateFee_heap.out ./p2p-dbs/sepolia-integration_node
+	go tool pprof -http=:3004 estimateFee_heap.out
+
+estimate-fee-block: juno-cached ## Goroutine blocking profile estimateFee
+	./scripts/profile_juno.sh block 60 scripts/payload/estimateFee.json sepolia-integration estimateFee_block.out ./p2p-dbs/sepolia-integration_node
+	go tool pprof -http=:3005 estimateFee_block.out

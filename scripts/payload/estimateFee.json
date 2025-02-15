@@ -1,0 +1,83 @@
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "starknet_estimateFee",
+	"params": {
+		"request": [
+			{
+				"transaction_hash": "0xf9e2327f6edb64a41f54088ca88bcf7f2331efeb0343b668a69b469986d8b8",
+				"version": "0x3",
+				"signature": [],
+				"nonce": "0x2",
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1",
+				"resource_bounds": {
+					"L1_GAS": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x7755370971607"
+					},
+					"L2_GAS": {
+						"max_amount": "0xf4240",
+						"max_price_per_unit": "0x1aae13a2"
+					},
+					"L1_DATA_GAS": {
+						"max_amount": "0x7d0",
+						"max_price_per_unit": "0x6070"
+					}
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x3ad02acd6e492fcccf20d22f66a7f759623ffd243f9b5c71d6e72978d7cfa5c",
+				"calldata": [
+					"0x1",
+					"0x57db596276973cab6285927b2c743bca4f420d6ea4748ebe5038dc83ffa8c08",
+					"0x14a9a610b6c242b01e01b59a4474f46f0213139737c69cab5d3e95f1cbc00f0",
+					"0x1",
+					"0xa"
+				],
+				"account_deployment_data": [],
+				"type": "INVOKE_FUNCTION"
+			},
+			{
+				"transaction_hash": "0xf9e2327f6edb64a41f54088ca88bcf7f2331efeb0343b668a69b469986d8b8",
+				"version": "0x3",
+				"signature": [],
+				"nonce": "0x3",
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1",
+				"resource_bounds": {
+					"L1_GAS": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x7755370971607"
+					},
+					"L2_GAS": {
+						"max_amount": "0xbba0",
+						"max_price_per_unit": "0x1aae13a2"
+					},
+					"L1_DATA_GAS": {
+						"max_amount": "0x7d0",
+						"max_price_per_unit": "0x6070"
+					}
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x3ad02acd6e492fcccf20d22f66a7f759623ffd243f9b5c71d6e72978d7cfa5c",
+				"calldata": [
+					"0x1",
+					"0x57db596276973cab6285927b2c743bca4f420d6ea4748ebe5038dc83ffa8c08",
+					"0x14a9a610b6c242b01e01b59a4474f46f0213139737c69cab5d3e95f1cbc00f0",
+					"0x1",
+					"0xa"
+				],
+				"account_deployment_data": [],
+				"type": "INVOKE_FUNCTION"
+			}
+		],
+		"block_id": {
+			"block_number": 65100
+		},
+		"simulation_flags": [
+			"SKIP_VALIDATE"
+		]
+	}
+}
