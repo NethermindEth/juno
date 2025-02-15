@@ -52,6 +52,7 @@ var (
 	ErrInternal                        = &jsonrpc.Error{Code: jsonrpc.InternalError, Message: "Internal error"}
 	ErrInvalidTransactionNonce         = &jsonrpc.Error{Code: 52, Message: "Invalid transaction nonce"}
 	ErrInsufficientMaxFee              = &jsonrpc.Error{Code: 53, Message: "Max fee is smaller than the minimal transaction cost (validation plus fee transfer)"} //nolint:lll
+	ErrInsufficientResourcesForValidate = &jsonrpc.Error{Code: 53, Message: "The transaction’s resources don’t cover validation or the minimal transaction fee"}   //nolint:lll
 	ErrInsufficientAccountBalance      = &jsonrpc.Error{Code: 54, Message: "Account balance is smaller than the transaction's max_fee"}
 	ErrValidationFailure               = &jsonrpc.Error{Code: 55, Message: "Account validation failed"}
 	ErrCompilationFailed               = &jsonrpc.Error{Code: 56, Message: "Compilation failed"}

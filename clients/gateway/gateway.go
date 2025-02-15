@@ -23,6 +23,7 @@ var (
 	UndeclaredClass                 ErrorCode = "StarknetErrorCode.UNDECLARED_CLASS"
 	ClassAlreadyDeclared            ErrorCode = "StarknetErrorCode.CLASS_ALREADY_DECLARED"
 	InsufficientMaxFee              ErrorCode = "StarknetErrorCode.INSUFFICIENT_MAX_FEE"
+	InsufficientResourcesForValidate ErrorCode = "StarknetErrorCode.INSUFFICIENT_RESOURCES_FOR_VALIDATE"
 	InsufficientAccountBalance      ErrorCode = "StarknetErrorCode.INSUFFICIENT_ACCOUNT_BALANCE"
 	ValidateFailure                 ErrorCode = "StarknetErrorCode.VALIDATE_FAILURE"
 	ContractBytecodeSizeTooLarge    ErrorCode = "StarknetErrorCode.CONTRACT_BYTECODE_SIZE_TOO_LARGE"
