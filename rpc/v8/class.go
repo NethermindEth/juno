@@ -35,13 +35,6 @@ type EntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
-type FunctionCall struct {
-	ContractAddress    felt.Felt   `json:"contract_address"`
-	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
-	Calldata           []felt.Felt `json:"calldata"`
-}
-
 func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)

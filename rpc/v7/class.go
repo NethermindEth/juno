@@ -35,7 +35,7 @@ type EntryPoint struct {
 	Selector *felt.Felt `json:"selector"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
+// https://github.com/starkware-libs/starknet-specs/blob/v0.7.1/api/starknet_api_openrpc.json#L3252
 type FunctionCall struct {
 	ContractAddress    felt.Felt   `json:"contract_address"`
 	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
