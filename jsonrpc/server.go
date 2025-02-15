@@ -573,6 +573,8 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 				if err != nil {
 					return nil, err
 				}
+
+				delete(paramsMap, configuredParam.Name)
 			} else if configuredParam.Optional {
 				// optional parameter
 				v = reflect.New(handlerType.In(i + addContext)).Elem()
@@ -581,6 +583,17 @@ func (s *Server) buildArguments(ctx context.Context, params any, method Method) 
 			}
 
 			args = append(args, v)
+		}
+
+		// If there are any remaining parameters in the given parameters, it means that
+		// there are extra junks in the request, which could be a typo. We return an error
+		// to ensure that the request only contains the expected parameters.
+		remainingKeys := make([]string, 0, len(paramsMap))
+		for k := range paramsMap {
+			remainingKeys = append(remainingKeys, k)
+		}
+		if len(remainingKeys) > 0 {
+			return nil, errors.New("unexpected params: " + strings.Join(remainingKeys, ", "))
 		}
 	default:
 		// Todo: consider returning InternalError

@@ -2,7 +2,6 @@ package rpcv8
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -83,7 +82,7 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 
 func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, errors.New("11 client not found, cannot serve starknet_getMessage"))
+		return nil, jsonrpc.Err(jsonrpc.InternalError, "11 client not found")
 	}
 
 	receipt, err := h.l1Client.TransactionReceipt(ctx, *txHash)

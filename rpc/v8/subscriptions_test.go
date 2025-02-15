@@ -685,12 +685,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
+	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
 	got := sendWsMessage(t, ctx, conn, subMsg)
 	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -884,11 +884,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Filtered subscription", func(t *testing.T) {
@@ -928,11 +930,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
@@ -964,7 +968,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -1133,7 +1137,7 @@ func testHeader(t *testing.T) *core.Header {
 }
 
 func newHeadsResponse(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`, id)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
