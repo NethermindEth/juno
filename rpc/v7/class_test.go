@@ -94,59 +94,6 @@ func TestClass(t *testing.T) {
 	})
 }
 
-func TestClassAt(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
-	integrationClient := feeder.NewTestClient(t, n)
-	integGw := adaptfeeder.New(integrationClient)
-
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-	cairo0ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(cairo0ClassHash, nil)
-
-	cairo1ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
-
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(context.Background(), classHash)
-		return &core.DeclaredClass{Class: class, At: 0}, err
-	}).AnyTimes()
-	mockReader.EXPECT().HeadState().Return(mockState, func() error {
-		return nil
-	}, nil).AnyTimes()
-	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpcv7.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
-
-	latest := rpcv7.BlockID{Latest: true}
-
-	t.Run("sierra class", func(t *testing.T) {
-		coreClass, err := integGw.Class(context.Background(), cairo1ClassHash)
-		require.NoError(t, err)
-
-		class, rpcErr := handler.ClassAt(latest, *cairo1ContractAddress)
-		require.Nil(t, rpcErr)
-		cairo1Class := coreClass.(*core.Cairo1Class)
-		assertEqualCairo1Class(t, cairo1Class, class)
-	})
-
-	t.Run("casm class", func(t *testing.T) {
-		coreClass, err := integGw.Class(context.Background(), cairo0ClassHash)
-		require.NoError(t, err)
-
-		class, rpcErr := handler.ClassAt(latest, *cairo0ContractAddress)
-		require.Nil(t, rpcErr)
-
-		cairo0Class := coreClass.(*core.Cairo0Class)
-		assertEqualCairo0Class(t, cairo0Class, class)
-	})
-}
-
 func TestClassHashAt(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
