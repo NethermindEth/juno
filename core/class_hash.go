@@ -5,8 +5,8 @@ package core
 //#include <stddef.h>
 //
 // extern void Cairo0ClassHash(char* class_json_str, char* hash);
-// #cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_core_rs
-// #cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_core_rs
+// #cgo vm_debug  LDFLAGS: -L../target/debug   -ljuno_starknet_core_rs
+// #cgo !vm_debug LDFLAGS: -L../target/release -ljuno_starknet_core_rs
 import "C"
 
 import (

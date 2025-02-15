@@ -10,8 +10,8 @@ extern char compileSierraToCasm(char* sierra_json, char** result);
 extern void freeCstr(char* ptr);
 
 // Linker flags for Rust shared library
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_compiler_rs
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_compiler_rs
+#cgo vm_debug  LDFLAGS: -L../../target/debug/   -ljuno_starknet_compiler_rs
+#cgo !vm_debug LDFLAGS: -L../../target/release/ -ljuno_starknet_compiler_rs
 */
 import "C"
 

@@ -1,8 +1,8 @@
 package vm
 
 /*
-#cgo vm_debug  LDFLAGS: -L./rust/target/debug   -ljuno_starknet_rs -lbz2
-#cgo !vm_debug LDFLAGS: -L./rust/target/release -ljuno_starknet_rs -lbz2
+#cgo vm_debug  LDFLAGS: -L../target/debug   -ljuno_starknet_rs -lbz2
+#cgo !vm_debug LDFLAGS: -L../target/release -ljuno_starknet_rs -lbz2
 
 #include "vm_ffi.h"
 */
@@ -45,7 +45,7 @@ type vm struct {
 	concurrencyMode bool
 }
 
-func New(concurrencyMode bool, log utils.SimpleLogger) VM {
+func New(concurrencyMode bool, log utils.SimpleLogger) *vm {
 	return &vm{
 		log:             log,
 		concurrencyMode: concurrencyMode,
