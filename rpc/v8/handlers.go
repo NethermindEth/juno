@@ -222,11 +222,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.AddTransaction,
 		},
 		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.Events,
-		},
-		{
 			Name:    "juno_version",
 			Handler: h.Version,
 		},
