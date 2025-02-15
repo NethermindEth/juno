@@ -100,7 +100,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	overallFees, dataGasConsumed, traces, _, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -112,6 +112,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+	overallFees := executionResults.OverallFees
+	dataGasConsumed := executionResults.DataAvailability
+	traces := executionResults.Traces
 
 	result := make([]SimulatedTransaction, len(transactions))
 	for i, overallFee := range overallFees {
@@ -127,7 +130,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		gasConsumed := overallFee.Clone()
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
-		fmt.Println("dataGasConsumed[i]", dataGasConsumed, overallFees)
 		estimate := FeeEstimate{
 			GasConsumed: gasConsumed,
 			GasPrice:    gasPrice,
@@ -137,11 +139,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 		if !v0_6Response {
 			trace := traces[i]
-			executionResources := trace.TotalExecutionResources()
 			da := vm.NewDataAvailability(gasConsumed,
 				new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
-			executionResources.DataAvailability = &da
-			traces[i].ExecutionResources = executionResources
+			traces[i].ExecutionResources = &vm.ExecutionResources{
+				ComputationResources: trace.TotalComputationResources(),
+				DataAvailability:     &da,
+			}
 		}
 
 		result[i] = SimulatedTransaction{

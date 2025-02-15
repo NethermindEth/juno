@@ -153,14 +153,6 @@ func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 	return []jsonrpc.Method{
 		{
-			Name:    "starknet_chainId",
-			Handler: h.ChainID,
-		},
-		{
-			Name:    "starknet_blockHashAndNumber",
-			Handler: h.BlockHashAndNumber,
-		},
-		{
 			Name:    "starknet_getBlockWithTxHashes",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithTxHashes,
@@ -181,11 +173,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.TransactionReceiptByHash,
 		},
 		{
-			Name:    "starknet_getBlockTransactionCount",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.BlockTransactionCount,
-		},
-		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
 			Handler: h.TransactionByBlockIDAndIndex,
@@ -194,15 +181,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_getStateUpdate",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.StateUpdate,
-		},
-		{
-			Name:    "starknet_syncing",
-			Handler: h.Syncing,
-		},
-		{
-			Name:    "starknet_getNonce",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.Nonce,
 		},
 		{
 			Name:    "starknet_getStorageAt",
@@ -220,11 +198,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.Class,
 		},
 		{
-			Name:    "starknet_getClassAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.ClassAt,
-		},
-		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
 			Handler: h.AddTransaction,
@@ -238,11 +211,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "starknet_getEvents",
-			Params:  []jsonrpc.Parameter{{Name: "filter"}},
-			Handler: h.Events,
 		},
 		{
 			Name:    "juno_version",

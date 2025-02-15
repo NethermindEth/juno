@@ -106,10 +106,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
-	overallFees, daGas, traces, numSteps, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
+	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
-	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(numSteps, 10))
+	overallFees := executionResults.OverallFees
+	daGas := executionResults.DataAvailability
+	traces := executionResults.Traces
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -161,12 +164,14 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 
 		trace := traces[i]
-		executionResources := trace.TotalExecutionResources()
-		executionResources.DataAvailability = &vm.DataAvailability{
-			L1Gas:     daGas[i].L1Gas,
-			L1DataGas: daGas[i].L1DataGas,
+
+		traces[i].ExecutionResources = &vm.ExecutionResources{
+			ComputationResources: trace.TotalComputationResources(),
+			DataAvailability: &vm.DataAvailability{
+				L1Gas:     daGas[i].L1Gas,
+				L1DataGas: daGas[i].L1DataGas,
+			},
 		}
-		traces[i].ExecutionResources = executionResources
 
 		result = append(result, SimulatedTransaction{
 			TransactionTrace: &traces[i],

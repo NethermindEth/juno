@@ -91,118 +91,6 @@ func TestBlockId(t *testing.T) {
 	}
 }
 
-func TestBlockHashAndNumber(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Mainnet)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
-
-		block, err := handler.BlockHashAndNumber()
-		assert.Nil(t, block)
-		assert.Equal(t, rpccore.ErrNoBlock, err)
-	})
-
-	t.Run("blockchain height is 147", func(t *testing.T) {
-		client := feeder.NewTestClient(t, n)
-		gw := adaptfeeder.New(client)
-
-		expectedBlock, err := gw.BlockByNumber(context.Background(), 147)
-		require.NoError(t, err)
-
-		expectedBlockHashAndNumber := &rpcv7.BlockHashAndNumber{Hash: expectedBlock.Hash, Number: expectedBlock.Number}
-
-		mockReader.EXPECT().Head().Return(expectedBlock, nil)
-
-		hashAndNum, rpcErr := handler.BlockHashAndNumber()
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedBlockHashAndNumber, hashAndNum)
-	})
-}
-
-func TestBlockTransactionCount(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	n := utils.Ptr(utils.Sepolia)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
-
-	client := feeder.NewTestClient(t, n)
-	gw := adaptfeeder.New(client)
-
-	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
-	require.NoError(t, err)
-	latestBlockHash := latestBlock.Hash
-	expectedCount := latestBlock.TransactionCount
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Latest: true})
-		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))})
-		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Number: uint64(328476)})
-		assert.Equal(t, uint64(0), count)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Latest: true})
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedCount, count)
-	})
-
-	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Hash: latestBlockHash})
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedCount, count)
-	})
-
-	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Number: latestBlockNumber})
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedCount, count)
-	})
-
-	t.Run("blockID - pending", func(t *testing.T) {
-		latestBlock.Hash = nil
-		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: latestBlock,
-		}, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(rpcv7.BlockID{Pending: true})
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedCount, count)
-	})
-}
-
 func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpcv7.BlockID{
 		"latest":  {Latest: true},
@@ -499,18 +387,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	got.Transactions = got.Transactions[:1]
 
 	require.Equal(t, &rpcv7.BlockWithTxs{
-		BlockHeader: rpcv7.BlockHeader{
+		BlockHeader: rpcv6.BlockHeader{
 			Hash:            coreBlock.Hash,
 			StarknetVersion: coreBlock.ProtocolVersion,
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.Ptr(rpcv7.Blob),
-			L1GasPrice: &rpcv7.ResourcePrice{
+			L1DAMode:        utils.Ptr(rpcv6.Blob),
+			L1GasPrice: &rpcv6.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpcv7.ResourcePrice{
+			L1DataGasPrice: &rpcv6.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
 				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
 			},
@@ -611,7 +499,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
 			Status: rpcv6.BlockPending,
-			BlockHeader: rpcv7.BlockHeader{
+			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
@@ -656,7 +544,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
 			Status: rpcv6.BlockAcceptedL1,
-			BlockHeader: rpcv7.BlockHeader{
+			BlockHeader: rpcv6.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
