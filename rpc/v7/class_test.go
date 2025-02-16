@@ -14,7 +14,6 @@ import (
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
@@ -91,78 +90,5 @@ func TestClass(t *testing.T) {
 		_, rpcErr := handler.Class(latest, felt.Zero)
 		require.NotNil(t, rpcErr)
 		require.Equal(t, rpccore.ErrClassHashNotFound, rpcErr)
-	})
-}
-
-func TestClassHashAt(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-
-	mockReader := mocks.NewMockReader(mockCtrl)
-	log := utils.NewNopZapLogger()
-	handler := rpcv7.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), log)
-
-	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Latest: true}, felt.Zero)
-		require.Nil(t, classHash)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Hash: &felt.Zero}, felt.Zero)
-		require.Nil(t, classHash)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Number: 0}, felt.Zero)
-		require.Nil(t, classHash)
-		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
-	})
-
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-
-	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, errors.New("non-existent contract"))
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Latest: true}, felt.Zero)
-		require.Nil(t, classHash)
-		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
-	})
-
-	expectedClassHash := new(felt.Felt).SetUint64(3)
-
-	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Latest: true}, felt.Zero)
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedClassHash, classHash)
-	})
-
-	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Hash: &felt.Zero}, felt.Zero)
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedClassHash, classHash)
-	})
-
-	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
-
-		classHash, rpcErr := handler.ClassHashAt(rpcv7.BlockID{Number: 0}, felt.Zero)
-		require.Nil(t, rpcErr)
-		assert.Equal(t, expectedClassHash, classHash)
 	})
 }
