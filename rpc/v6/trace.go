@@ -3,7 +3,6 @@ package rpcv6
 import (
 	"context"
 	"errors"
-	"net/http"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -143,8 +142,6 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
 
 	var block *core.Block
 	isPendingBlock := blockHash == nil

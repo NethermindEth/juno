@@ -4,18 +4,15 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -129,56 +126,6 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 /****************************************************
 		Tracing Handlers
 *****************************************************/
-
-// TraceTransaction returns the trace for a given executed transaction, including internal calls
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash)
-}
-
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(hash)
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
-
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return nil, httpHeader, rpccore.ErrTxnHashNotFound
-	}
-
-	var block *core.Block
-	isPendingBlock := blockHash == nil
-	if isPendingBlock {
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
-		if err != nil {
-			// for traceTransaction handlers there is no block not found error
-			return nil, httpHeader, rpccore.ErrTxnHashNotFound
-		}
-		block = pending.Block
-	} else {
-		block, err = h.bcReader.BlockByHash(blockHash)
-		if err != nil {
-			// for traceTransaction handlers there is no block not found error
-			return nil, httpHeader, rpccore.ErrTxnHashNotFound
-		}
-	}
-
-	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(hash)
-	})
-	if txIndex == -1 {
-		return nil, httpHeader, rpccore.ErrTxnHashNotFound
-	}
-
-	traceResults, header, traceBlockErr := h.traceBlockTransactions(ctx, block)
-	if traceBlockErr != nil {
-		return nil, header, traceBlockErr
-	}
-
-	return traceResults[txIndex].TraceRoot, header, nil
-}
 
 func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
