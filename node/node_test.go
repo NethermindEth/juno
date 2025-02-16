@@ -75,6 +75,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)), log, 0, false, database)
 			ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 			require.NoError(t, syncer.Run(ctx))
+			time.Sleep(100 * time.Millisecond)
 			cancel()
 			require.NoError(t, database.Close())
 
