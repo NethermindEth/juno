@@ -513,8 +513,8 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 
 		for i, t := range pendingB.Transactions {
-			pendingBIndex = i
 			if hash.Equal(t.Hash()) {
+				pendingBIndex = i
 				txn = t
 				break
 			}

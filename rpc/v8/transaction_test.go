@@ -652,8 +652,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				}`
 
 		txHash := block0.Transactions[i].Hash()
-		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], nil, uint64(0), nil)
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(block0)
 
 		checkTxReceipt(t, txHash, expected)
 	})
