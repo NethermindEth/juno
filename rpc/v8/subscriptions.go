@@ -153,12 +153,14 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 				case <-subscriptionCtx.Done():
 					return
 				case header := <-headerSub.Recv():
+					h.log.Warnw("header", "header", header.Number)
 					// During syncing the events from the new head still need to be sent as there is no pending block.
 					// However, it is not easy to tell when the node is syncing.
 					// To solve this issue, we can send the events regardless, and if the node is done syncing, then the
 					// latest header events would have been sent when the pending block was updated. Hence,
 					// trying to resend the event should be of no consequences and the map can be safely emptied.
 					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys, eventsPreviouslySent)
+					h.log.Warnw("done header", "header", header.Number)
 
 					block, err := h.bcReader.BlockByNumber(header.Number)
 					if err != nil {
@@ -182,8 +184,10 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 						continue
 					}
 
+					h.log.Warnw("pending", "height", height)
 					// TODO: This is a hack to only query pending block events
 					h.processEvents(subscriptionCtx, w, id, height+1, height+1, fromAddr, keys, eventsPreviouslySent)
+					h.log.Warnw("done pending", "height", height)
 				}
 			}
 		})
@@ -193,7 +197,9 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		})
 
 		wg.Go(func() {
+			h.log.Warnw("requested", "requested", requestedHeader.Number, "head", headHeader.Number)
 			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
+			h.log.Warnw("done requested", "requested", requestedHeader.Number, "head", headHeader.Number)
 		})
 
 		wg.Wait()
@@ -434,6 +440,7 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 				return err
 			}
 
+			time.Sleep(1 * time.Second)
 			_, err = w.Write(resp)
 			if err != nil {
 				return err
