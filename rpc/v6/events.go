@@ -45,6 +45,10 @@ type EventsChunk struct {
 	ContinuationToken string          `json:"continuation_token,omitempty"`
 }
 
+/****************************************************
+		Events Handlers
+*****************************************************/
+
 // Events gets the events matching a filter
 //
 // It follows the specification defined here:
@@ -95,7 +99,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	for _, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
-			blockNumber = &(fEvent.BlockNumber)
+			blockNumber = fEvent.BlockNumber
 		}
 		emittedEvents = append(emittedEvents, &EmittedEvent{
 			BlockNumber:     blockNumber,
