@@ -9,6 +9,7 @@ edition = "2021"
 serde = "1.0.208"
 serde_json = { version = "1.0.125", features = ["raw_value"] }
 blockifier = "=0.14.0-rc.0"
+cairo-lang-casm = "=2.10.0-rc.1"
 cairo-lang-starknet-classes = "=2.10.0-rc.1"
 cairo-lang-runner = { version = "2.10.0-rc.0" }
 starknet_api = "=0.14.0-rc.0"

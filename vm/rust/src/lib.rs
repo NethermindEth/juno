@@ -66,7 +66,12 @@ use std::str::FromStr;
 type StarkFelt = Felt;
 
 extern "C" {
-    fn JunoReportError(reader_handle: usize, txnIndex: c_longlong, err: *const c_char);
+    fn JunoReportError(
+        reader_handle: usize,
+        txnIndex: c_longlong,
+        err: *const c_char,
+        execution_failed: usize,
+    );
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
@@ -183,10 +188,10 @@ pub extern "C" fn cairoVMCall(
     );
     let mut remaining_gas = entry_point.initial_gas;
     match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
-        Err(e) => report_error(reader_handle, e.to_string().as_str(), -1),
+        Err(e) => report_error(reader_handle, e.to_string().as_str(), -1, 0),
         Ok(call_info) => {
             if call_info.execution.failed {
-                report_error(reader_handle, "execution failed", -1);
+                report_error(reader_handle, "execution failed", -1, 1);
                 return;
             }
             for data in call_info.execution.retdata.0 {
@@ -226,7 +231,7 @@ pub extern "C" fn cairoVMExecute(
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
     if let Err(e) = txns_and_query_bits {
-        report_error(reader_handle, e.to_string().as_str(), -1);
+        report_error(reader_handle, e.to_string().as_str(), -1, 0);
         return;
     }
 
@@ -236,7 +241,7 @@ pub extern "C" fn cairoVMExecute(
         classes = serde_json::from_str(classes_json_str);
     }
     if let Err(e) = classes {
-        report_error(reader_handle, e.to_string().as_str(), -1);
+        report_error(reader_handle, e.to_string().as_str(), -1, 0);
         return;
     }
 
@@ -246,7 +251,7 @@ pub extern "C" fn cairoVMExecute(
     let mut paid_fees_on_l1: Vec<Box<Fee>> = match serde_json::from_str(paid_fees_on_l1_json_str) {
         Ok(f) => f,
         Err(e) => {
-            report_error(reader_handle, e.to_string().as_str(), -1);
+            report_error(reader_handle, e.to_string().as_str(), -1, 0);
             return;
         }
     };
@@ -272,14 +277,14 @@ pub extern "C" fn cairoVMExecute(
         let class_info = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::Declare(_) => {
                 if classes.is_empty() {
-                    report_error(reader_handle, "missing declared class", txn_index as i64);
+                    report_error(reader_handle, "missing declared class", txn_index as i64, 0);
                     return;
                 }
                 let class_json_str = classes.remove(0);
 
                 let maybe_cc = class_info_from_json_str(class_json_str.get());
                 if let Err(e) = maybe_cc {
-                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
+                    report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
                     return;
                 }
                 Some(maybe_cc.unwrap())
@@ -290,7 +295,12 @@ pub extern "C" fn cairoVMExecute(
         let paid_fee_on_l1: Option<Fee> = match txn_and_query_bit.txn.clone() {
             StarknetApiTransaction::L1Handler(_) => {
                 if paid_fees_on_l1.is_empty() {
-                    report_error(reader_handle, "missing fee paid on l1b", txn_index as i64);
+                    report_error(
+                        reader_handle,
+                        "missing fee paid on l1b",
+                        txn_index as i64,
+                        0,
+                    );
                     return;
                 }
                 Some(*paid_fees_on_l1.remove(0))
@@ -312,7 +322,7 @@ pub extern "C" fn cairoVMExecute(
             account_execution_flags,
         );
         if let Err(e) = txn {
-            report_error(reader_handle, e.to_string().as_str(), txn_index as i64);
+            report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
             return;
         }
 
@@ -355,25 +365,17 @@ pub extern "C" fn cairoVMExecute(
                     )
                     .as_str(),
                     txn_index as i64,
+                    0,
                 );
                 return;
             }
             Ok(mut tx_execution_info) => {
-                if let Some(call_info) = &tx_execution_info.execute_call_info {
-                    if call_info.execution.failed {
-                        report_error(
-                            reader_handle,
-                            format!("failed call info {}", txn_and_query_bit.txn_hash).as_str(),
-                            txn_index as i64,
-                        );
-                        return;
-                    }
-                }
                 if tx_execution_info.is_reverted() && err_on_revert != 0 {
                     report_error(
                         reader_handle,
                         format!("reverted: {}", tx_execution_info.revert_error.unwrap()).as_str(),
                         txn_index as i64,
+                        0,
                     );
                     return;
                 }
@@ -433,6 +435,7 @@ pub extern "C" fn cairoVMExecute(
                         reader_handle,
                         format!("failed building txn state diff reason: {:?}", e).as_str(),
                         txn_index as i64,
+                        0,
                     );
                     return;
                 }
@@ -541,10 +544,10 @@ fn append_trace(
     };
 }
 
-fn report_error(reader_handle: usize, msg: &str, txn_index: i64) {
+fn report_error(reader_handle: usize, msg: &str, txn_index: i64, execution_failed: usize) {
     let err_msg = CString::new(msg).unwrap();
     unsafe {
-        JunoReportError(reader_handle, txn_index, err_msg.as_ptr());
+        JunoReportError(reader_handle, txn_index, err_msg.as_ptr(), execution_failed);
     };
 }
 

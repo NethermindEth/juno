@@ -224,7 +224,7 @@ type Transaction struct {
 	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
 	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
-	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
+	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
 	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required_if=Version 0x3"`
 	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
 	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
@@ -686,8 +686,8 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 		return rpccore.ErrClassHashNotFound
 	case gateway.ClassAlreadyDeclared:
 		return rpccore.ErrClassAlreadyDeclared
-	case gateway.InsufficientMaxFee:
-		return rpccore.ErrInsufficientMaxFee
+	case gateway.InsufficientResourcesForValidate:
+		return rpccore.ErrInsufficientResourcesForValidate
 	case gateway.InsufficientAccountBalance:
 		return rpccore.ErrInsufficientAccountBalance
 	case gateway.ValidateFailure:
