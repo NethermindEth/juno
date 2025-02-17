@@ -59,6 +59,10 @@ func (i *iterator) First() bool {
 	return len(i.currentK) > 0 || len(i.currentV) > 0
 }
 
+func (i *iterator) Prev() bool {
+	panic("does not support Prev")
+}
+
 func (i *iterator) Next() bool {
 	if err := i.doOpAndUpdate(gen.Op_NEXT, nil); err != nil {
 		i.log.Debugw("Error", "op", gen.Op_NEXT, "err", err)
