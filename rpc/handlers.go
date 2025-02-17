@@ -20,19 +20,21 @@ type Handler struct {
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
 	rpcv8Handler *rpcv8.Handler
+	version      string
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
-	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, version, network, logger)
-	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, network, logger)
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
+	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger)
+	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, network, logger)
+	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
 
 	return &Handler{
 		rpcv6Handler: handlerv6,
 		rpcv7Handler: handlerv7,
 		rpcv8Handler: handlerv8,
+		version:      version,
 	}
 }
 
@@ -75,6 +77,10 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.rpcv7Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)
 	return h
+}
+
+func (h *Handler) Version() (string, *jsonrpc.Error) {
+	return h.version, nil
 }
 
 func (h *Handler) Run(ctx context.Context) error {
@@ -187,7 +193,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv6Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -381,7 +387,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv6Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -539,7 +545,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv6Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",

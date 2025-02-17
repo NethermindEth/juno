@@ -115,7 +115,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
-			handler := rpcv7.New(chain, mockSyncReader, nil, "", n, log)
+			handler := rpcv7.New(chain, mockSyncReader, nil, n, log)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -124,7 +124,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	n := utils.Ptr(utils.Sepolia)
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -242,7 +242,7 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
-			handler := rpcv7.New(chain, mockSyncReader, nil, "", n, log)
+			handler := rpcv7.New(chain, mockSyncReader, nil, n, log)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -251,7 +251,7 @@ func TestBlockWithTxs(t *testing.T) {
 	}
 
 	n := utils.Ptr(utils.Mainnet)
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -371,7 +371,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
+	handler := rpcv7.New(mockReader, nil, nil, n, nil)
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -445,7 +445,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := rpcv7.BlockID{Number: 777}
@@ -567,7 +567,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 	n := utils.Ptr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
+	handler := rpcv7.New(mockReader, nil, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

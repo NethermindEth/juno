@@ -39,7 +39,7 @@ func TestStateUpdate(t *testing.T) {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
 			}
-			handler := rpc.New(chain, mockSyncReader, nil, "", n, nil)
+			handler := rpc.New(chain, mockSyncReader, nil, n, nil)
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
@@ -48,7 +48,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 

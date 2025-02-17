@@ -136,7 +136,7 @@ func TestSimulateTransactions(t *testing.T) {
 			mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
-			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				rpc.BlockID{Latest: true},

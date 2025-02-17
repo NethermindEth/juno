@@ -32,7 +32,7 @@ func TestStorageAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -152,7 +152,7 @@ func TestStorageProof(t *testing.T) {
 	mockState.EXPECT().ContractTrie().Return(tempTrie, nil).AnyTimes()
 
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", log)
+	handler := rpc.New(mockReader, nil, nil, log)
 
 	t.Run("global roots are filled", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, nil)
@@ -617,7 +617,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	})
 
 	t.Run("get contract proof", func(t *testing.T) {
-		handler := rpc.New(bc, nil, nil, "", log)
+		handler := rpc.New(bc, nil, nil, log)
 		result, rpcErr := handler.StorageProof(
 			rpc.BlockID{Latest: true}, nil, []felt.Felt{*expectedContractAddress}, nil)
 		require.Nil(t, rpcErr)

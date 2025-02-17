@@ -18,7 +18,7 @@ import (
 func nopCloser() error { return nil }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpcv8.New(nil, nil, nil, "", nil)
+	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.8.0", version)
@@ -33,7 +33,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"

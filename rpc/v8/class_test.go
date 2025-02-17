@@ -37,7 +37,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -68,7 +68,7 @@ func TestClass(t *testing.T) {
 
 	t.Run("state by id error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
@@ -80,7 +80,7 @@ func TestClass(t *testing.T) {
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, "", utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, func() error {
 			return nil
