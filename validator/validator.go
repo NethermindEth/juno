@@ -23,7 +23,8 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	if (req.Version.String() == "0x3" || req.Version.String() == "0x100000000000000000000000000000003") &&
+	version := req.Version.String()
+	if (version == "0x3" || version == "0x100000000000000000000000000000003") &&
 		(req.ResourceBounds == nil || len(*req.ResourceBounds) != 3) {
 		return false
 	}
