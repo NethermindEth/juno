@@ -383,6 +383,91 @@ func TestFirst(t *testing.T) {
 	})
 }
 
+func TestPrev(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	t.Run("empty db", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, false, iter.Prev())
+		assert.Equal(t, []byte(nil), iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	one := []byte{1}
+	two := []byte{2}
+	three := []byte{3}
+	require.NoError(t, txn.Set(one, one))
+	require.NoError(t, txn.Set(two, two))
+	require.NoError(t, txn.Set(three, three))
+
+	t.Run("new iterator", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Prev())
+		assert.Equal(t, one, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("after valid seek", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Seek(two))
+		assert.Equal(t, two, iter.Key())
+		assert.Equal(t, true, iter.Prev())
+		assert.Equal(t, one, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("after invalid seek beyond last key", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, false, iter.Seek([]byte{100}))
+		assert.Equal(t, []byte(nil), iter.Key())
+		assert.Equal(t, true, iter.Prev())
+		assert.Equal(t, three, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("after valid seek first key", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Seek(one))
+		assert.Equal(t, one, iter.Key())
+		assert.Equal(t, false, iter.Prev())
+		assert.Equal(t, one, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("after multiple next", func(t *testing.T) {
+		iter, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Next())
+		assert.Equal(t, one, iter.Key())
+		assert.Equal(t, true, iter.Next())
+		assert.Equal(t, two, iter.Key())
+		assert.Equal(t, true, iter.Prev())
+		assert.Equal(t, one, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+
+	t.Run("with lower bound", func(t *testing.T) {
+		iter, err := txn.NewIterator(one, false)
+		require.NoError(t, err)
+		assert.Equal(t, true, iter.Seek(one))
+		assert.Equal(t, one, iter.Key())
+		assert.Equal(t, false, iter.Prev())
+		assert.Equal(t, one, iter.Key())
+		require.NoError(t, iter.Close())
+	})
+}
+
 func TestNext(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
