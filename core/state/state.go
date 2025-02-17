@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
@@ -61,8 +62,8 @@ func New(txn db.Transaction) (*State, error) {
 }
 
 // Returns the class hash of a contract.
-func (s *State) ContractClassHash(addr felt.Felt) (*felt.Felt, error) {
-	contract, err := s.getContract(addr)
+func (s *State) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
+	contract, err := s.getContract(*addr)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +72,8 @@ func (s *State) ContractClassHash(addr felt.Felt) (*felt.Felt, error) {
 }
 
 // Returns the nonce of a contract.
-func (s *State) ContractNonce(addr felt.Felt) (*felt.Felt, error) {
-	contract, err := s.getContract(addr)
+func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
+	contract, err := s.getContract(*addr)
 	if err != nil {
 		return nil, err
 	}
@@ -81,13 +82,13 @@ func (s *State) ContractNonce(addr felt.Felt) (*felt.Felt, error) {
 }
 
 // Returns the storage value of a contract at a given storage key.
-func (s *State) ContractStorage(addr, key felt.Felt) (*felt.Felt, error) {
-	contract, err := s.getContract(addr)
+func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
+	contract, err := s.getContract(*addr)
 	if err != nil {
 		return nil, err
 	}
 
-	return contract.GetStorage(&key, s.txn)
+	return contract.GetStorage(key, s.txn)
 }
 
 // Returns true if the contract was deployed at or before the given block number.
@@ -103,16 +104,45 @@ func (s *State) ContractDeployedAt(addr felt.Felt, blockNum uint64) (bool, error
 	return contract.DeployHeight <= blockNum, nil
 }
 
-func (s *State) Class(classHash felt.Felt) (*DeclaredClass, error) {
-	classKey := classKey(&classHash)
+// TODO(weiihann): remove this once integration is done
+func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	return s.ContractDeployedAt(*addr, blockNumber)
+}
 
-	var class DeclaredClass
+func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	classKey := classKey(classHash)
+
+	var class core.DeclaredClass
 	err := s.txn.Get(classKey, class.UnmarshalBinary)
 	if err != nil {
 		return nil, err
 	}
 
 	return &class, nil
+}
+
+// func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
+// 	classKey := classKey(classHash)
+
+// 	var class DeclaredClass
+// 	err := s.txn.Get(classKey, class.UnmarshalBinary)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &class, nil
+// }
+
+func (s *State) ClassTrie() (*trie.Trie, error) {
+	panic("not implemented")
+}
+
+func (s *State) ContractTrie() (*trie.Trie, error) {
+	panic("not implemented")
+}
+
+func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+	panic("not implemented")
 }
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
@@ -289,7 +319,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (*cor
 		for key := range stDiffs {
 			value := &felt.Zero
 			if blockNum > 0 {
-				oldValue, err := s.ContractStorageAt(addr, key, blockNum-1)
+				oldValue, err := s.ContractStorageAt(&addr, &key, blockNum-1)
 				if err != nil {
 					return nil, err
 				}
@@ -303,7 +333,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (*cor
 		oldNonce := &felt.Zero
 		if blockNum > 0 {
 			var err error
-			oldNonce, err = s.ContractNonceAt(addr, blockNum-1)
+			oldNonce, err = s.ContractNonceAt(&addr, blockNum-1)
 			if err != nil {
 				return nil, err
 			}
@@ -315,7 +345,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (*cor
 		oldCh := &felt.Zero
 		if blockNum > 0 {
 			var err error
-			oldCh, err = s.ContractClassHashAt(addr, blockNum-1)
+			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
 			if err != nil {
 				return nil, err
 			}
@@ -327,19 +357,19 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (*cor
 }
 
 // Returns the storage value of a contract at a given storage key at a given block number.
-func (s *State) ContractStorageAt(addr, key felt.Felt, blockNum uint64) (*felt.Felt, error) {
+func (s *State) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (*felt.Felt, error) {
 	prefix := db.ContractStorageHistory.Key(addr.Marshal(), key.Marshal())
 	return s.getHistoricalValue(prefix, blockNum)
 }
 
 // Returns the nonce of a contract at a given block number.
-func (s *State) ContractNonceAt(addr felt.Felt, blockNum uint64) (*felt.Felt, error) {
+func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (*felt.Felt, error) {
 	prefix := db.ContractNonceHistory.Key(addr.Marshal())
 	return s.getHistoricalValue(prefix, blockNum)
 }
 
 // Returns the class hash of a contract at a given block number.
-func (s *State) ContractClassHashAt(addr felt.Felt, blockNum uint64) (*felt.Felt, error) {
+func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (*felt.Felt, error) {
 	prefix := db.ContractClassHashHistory.Key(addr.Marshal())
 	return s.getHistoricalValue(prefix, blockNum)
 }
@@ -570,7 +600,7 @@ func (s *State) removeDeclaredClasses(blockNum uint64, v0Classes []*felt.Felt, v
 	}
 
 	for _, cHash := range classHashes {
-		declaredClass, err := s.Class(*cHash)
+		declaredClass, err := s.Class(cHash)
 		if err != nil {
 			return err
 		}
