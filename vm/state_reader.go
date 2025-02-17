@@ -8,9 +8,17 @@ import (
 	"errors"
 	"unsafe"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 )
+
+type StateReader interface {
+	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+}
 
 //export JunoFree
 func JunoFree(ptr unsafe.Pointer) {

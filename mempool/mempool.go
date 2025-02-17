@@ -73,7 +73,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 // in-memory and persistent database.
 type Pool struct {
 	log         utils.SimpleLogger
-	state       core.StateReader
+	state       NonceReader
 	db          db.DB // to store the persistent mempool
 	txPushed    chan struct{}
 	memTxnList  *memTxnList
@@ -84,7 +84,7 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
+func New(mainDB db.DB, state NonceReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
@@ -299,4 +299,9 @@ func (p *Pool) LenDB() (int, error) {
 		return 0, err
 	}
 	return lenDB, txn.Discard()
+}
+
+// mockgen -destination=mocks/mock_mempool.go -package=mocks github.com/NethermindEth/juno/mempool NonceReader
+type NonceReader interface {
+	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 }

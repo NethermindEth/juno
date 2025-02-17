@@ -34,7 +34,7 @@ func TestSimulateTransactions(t *testing.T) {
 			PriceInFri: &felt.Zero,
 		},
 	}
-	defaultMockBehavior := func(mockReader *mocks.MockReader, _ *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+	defaultMockBehavior := func(mockReader *mocks.MockReader, _ *mocks.MockVM, mockState *mocks.MockStateReader) {
 		mockReader.EXPECT().Network().Return(n)
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
@@ -43,14 +43,14 @@ func TestSimulateTransactions(t *testing.T) {
 		name            string
 		stepsUsed       uint64
 		err             *jsonrpc.Error
-		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateHistoryReader)
+		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateReader)
 		simulationFlags []rpc.SimulationFlag
 		simulatedTxs    []rpc.SimulatedTransaction
 	}{
 		{ //nolint:dupl
 			name:      "ok with zero values, skip fee",
 			stepsUsed: 123,
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateReader) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -69,7 +69,7 @@ func TestSimulateTransactions(t *testing.T) {
 		{ //nolint:dupl
 			name:      "ok with zero values, skip validate",
 			stepsUsed: 123,
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateReader) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -87,7 +87,7 @@ func TestSimulateTransactions(t *testing.T) {
 		},
 		{
 			name: "transaction execution error",
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateReader) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -105,7 +105,7 @@ func TestSimulateTransactions(t *testing.T) {
 		},
 		{
 			name: "inconsistent lengths error",
-			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateHistoryReader) {
+			mockBehavior: func(mockReader *mocks.MockReader, mockVM *mocks.MockVM, mockState *mocks.MockStateReader) {
 				defaultMockBehavior(mockReader, mockVM, mockState)
 				mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 					Header: headsHeader,
@@ -133,7 +133,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockVM := mocks.NewMockVM(mockCtrl)
-			mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+			mockState := mocks.NewMockStateReader(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
 			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
