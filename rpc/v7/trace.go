@@ -110,12 +110,14 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
 	builtins := &resources.BuiltinInstanceCounter
+
 	var l1Gas, l1DataGas, l2Gas uint64
 	if tgs := resources.TotalGasConsumed; tgs != nil {
 		l1Gas = tgs.L1Gas
 		l1DataGas = tgs.L1DataGas
 		l2Gas = tgs.L2Gas
 	}
+
 	return &vm.ExecutionResources{
 		L1Gas:     l1Gas,
 		L1DataGas: l1DataGas,
