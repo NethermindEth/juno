@@ -592,7 +592,7 @@ func TestCall(t *testing.T) {
 			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
 		}
-		expectedErr := rpcv7.MakeContractError(errors.New("0x454e545259504f494e545f4e4f545f464f554e44"))
+		expectedErr := rpcv7.MakeContractError(errors.New(rpccore.EntrypointNotFoundFelt))
 
 		headsHeader := &core.Header{
 			Number:    9,
