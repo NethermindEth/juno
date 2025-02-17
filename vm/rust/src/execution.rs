@@ -181,7 +181,6 @@ where
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
     if l2_gas_limit > initial_gas_limit {
-        set_l2_gas_limit(transaction, GasAmount::ZERO);
         return transaction.execute(state, block_context);
     }
 
