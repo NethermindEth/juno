@@ -89,7 +89,7 @@ fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationM
 }
 
 enum SimulationError {
-    OutOfGas,
+    OutOfGas(GasAmount),
     ExecutionError(TransactionExecutionError),
 }
 
@@ -113,13 +113,12 @@ where
     let (simulation_result, _) = match simulate_execution(transaction, state, block_context) {
         Ok(info) => info,
         Err(SimulationError::ExecutionError(error)) => return Err(error),
-        Err(SimulationError::OutOfGas) => {
-            let resource_bounds = extract_l2_gas_limit(transaction);
+        Err(SimulationError::OutOfGas(gas)) => {
             return Err(TransactionExecutionError::FeeCheckError(
                 FeeCheckError::MaxGasAmountExceeded {
                     resource: starknet_api::transaction::fields::Resource::L2Gas,
                     max_amount: GasAmount::MAX,
-                    actual_amount: resource_bounds,
+                    actual_amount: gas,
                 },
             ));
         }
@@ -138,7 +137,7 @@ where
                 // as the estimate and skip the binary search.
                 (l2_gas_adjusted, tx_info, tx_state)
             }
-            Err(SimulationError::OutOfGas) => {
+            Err(SimulationError::OutOfGas(_)) => {
                 let mut lower_bound = GasAmount(gas_used);
                 let mut upper_bound = GasAmount::MAX;
                 let mut current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
@@ -167,7 +166,7 @@ where
                             upper_bound = current_l2_gas_limit;
                             current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
                         }
-                        Err(SimulationError::OutOfGas) => {
+                        Err(SimulationError::OutOfGas(_)) => {
                             lower_bound = current_l2_gas_limit;
                             current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
                         }
@@ -218,7 +217,7 @@ where
 {
     let mut simulated_state = CachedState::<_>::create_transactional(state);
     match transaction.execute(&mut simulated_state, block_context) {
-        Ok(info) if is_out_of_gas(&info) => Err(SimulationError::OutOfGas),
+        Ok(info) if is_out_of_gas(&info) => Err(SimulationError::OutOfGas(info.receipt.gas.l2_gas)),
         Ok(info) => Ok((info, simulated_state)),
         Err(error) => Err(SimulationError::ExecutionError(error)),
     }
