@@ -101,6 +101,11 @@ func New(database db.DB, network *utils.Network, pendingBlockFn func() *core.Blo
 	}
 }
 
+func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {
+	b.pendingBlockFn = pendingBlockFn
+	return b
+}
+
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
 	b.listener = listener
 	return b
