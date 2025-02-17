@@ -27,14 +27,22 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	n := utils.Ptr(utils.Mainnet)
-	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
-	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+	client := feeder.NewTestClient(t, n)
+	mainnetGw := adaptfeeder.New(client)
 
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	require.NoError(t, err)
 
-	tx, rpcErr := handler.TransactionByHash(*txHash)
+	randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
+	mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PendingBlock().Return(block)
+
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+	tx, rpcErr := handler.TransactionByHash(*randomTxHash)
+
 	assert.Nil(t, tx)
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }

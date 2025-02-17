@@ -253,6 +253,11 @@ func TestBlockWithTxs(t *testing.T) {
 	n := utils.Ptr(utils.Mainnet)
 	handler := rpcv7.New(mockReader, mockSyncReader, nil, "", n, nil)
 
+	// Use v6 handler as v7 `starknet_getTransactionByHash` uses v6 handler
+	mockSyncReaderV6 := mocks.NewMockSyncReader(mockCtrl)
+	mockReaderV6 := mocks.NewMockReader(mockCtrl)
+	rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, "", n, nil)
+
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -267,10 +272,10 @@ func TestBlockWithTxs(t *testing.T) {
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
 
 		for i, txnHash := range blockWithTxHashes.TxnHashes {
-			txn, err := handler.TransactionByHash(*txnHash)
+			txn, err := rpcv6Handler.TransactionByHash(*txnHash)
 			require.Nil(t, err)
 
-			assert.Equal(t, txn, blockWithTxs.Transactions[i])
+			assert.Equal(t, AdaptV6TxToV7(t, txn), blockWithTxs.Transactions[i])
 		}
 	}
 
@@ -279,7 +284,7 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
+	mockReaderV6.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 		if tx, found := latestBlockTxMap[*hash]; found {
 			return tx, nil
 		}

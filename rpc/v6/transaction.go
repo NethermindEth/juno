@@ -427,13 +427,30 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
+
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		return nil, rpccore.ErrTxnHashNotFound
+		// check now if tx is in pending block
+		pendingB := h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, rpccore.ErrTxnHashNotFound
+		}
+
+		for _, t := range pendingB.Transactions {
+			if hash.Equal(t.Hash()) {
+				txn = t
+				break
+			}
+		}
+
+		if txn == nil {
+			return nil, rpccore.ErrTxnHashNotFound
+		}
 	}
+
 	return AdaptTransaction(txn), nil
 }
 
@@ -670,7 +687,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeclareTransaction:
 		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTrandaction(v)
+		txn = adaptDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
@@ -814,7 +831,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transaction {
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
 	tx := &Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
