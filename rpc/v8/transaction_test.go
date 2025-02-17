@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -1173,6 +1174,22 @@ func TestAddTransaction(t *testing.T) {
 			}, got)
 		})
 	}
+
+	t.Run("gateway returns InsufficientResourcesForValidate error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockGateway := mocks.NewMockGateway(mockCtrl)
+		mockGateway.
+			EXPECT().
+			AddTransaction(gomock.Any(), gomock.Any()).
+			Return(nil, &gateway.Error{Code: gateway.InsufficientResourcesForValidate})
+
+		handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger()).WithGateway(mockGateway)
+		addTxRes, rpcErr := handler.AddTransaction(context.Background(), tests["invoke v0"].txn)
+		require.Nil(t, addTxRes)
+		require.Equal(t, rpccore.ErrInsufficientResourcesForValidate, rpcErr)
+	})
 }
 
 func TestTransactionStatus(t *testing.T) {
