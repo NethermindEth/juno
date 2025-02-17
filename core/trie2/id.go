@@ -15,10 +15,8 @@ const (
 
 // Represents the identifier for uniquely identifying a trie.
 type ID struct {
-	TrieType    TrieType
-	Root        felt.Felt // The root hash of the trie
-	Owner       felt.Felt // The contract address which the trie belongs to
-	StorageRoot felt.Felt // The root hash of the storage trie of a contract.
+	TrieType TrieType
+	Owner    felt.Felt // The contract address which the trie belongs to
 }
 
 // Returns the corresponding DB bucket for the trie
@@ -39,31 +37,25 @@ func (id *ID) Bucket() db.Bucket {
 }
 
 // Constructs an identifier for a class trie with the provided class trie root hash
-func ClassTrieID(root felt.Felt) *ID {
+func ClassTrieID() *ID {
 	return &ID{
-		TrieType:    ClassTrie,
-		Root:        root,
-		Owner:       felt.Zero, // class trie does not have an owner
-		StorageRoot: felt.Zero, // only contract storage trie has a storage root
+		TrieType: ClassTrie,
+		Owner:    felt.Zero, // class trie does not have an owner
 	}
 }
 
 // Constructs an identifier for a contract trie or a contract's storage trie
-func ContractTrieID(root, owner, storageRoot felt.Felt) *ID {
+func ContractTrieID(owner felt.Felt) *ID {
 	return &ID{
-		TrieType:    ContractTrie,
-		Root:        root,
-		Owner:       owner,
-		StorageRoot: storageRoot,
+		TrieType: ContractTrie,
+		Owner:    owner,
 	}
 }
 
 // A general identifier, typically used for temporary trie
-func TrieID(root felt.Felt) *ID {
+func TrieID() *ID {
 	return &ID{
-		TrieType:    Empty,
-		Root:        root,
-		Owner:       felt.Zero,
-		StorageRoot: felt.Zero,
+		TrieType: Empty,
+		Owner:    felt.Zero,
 	}
 }

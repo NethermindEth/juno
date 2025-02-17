@@ -372,7 +372,7 @@ func TestSingleSideRangeProof(t *testing.T) {
 
 		keys := make([]*felt.Felt, i+1)
 		values := make([]*felt.Felt, i+1)
-		for j := 0; j < i+1; j++ {
+		for j := range i + 1 {
 			keys[j] = records[j].key
 			values[j] = records[j].value
 		}
@@ -487,7 +487,7 @@ func TestBadRangeProof(t *testing.T) {
 	tr, records := randomTrie(t, 5000)
 	root := tr.Hash()
 
-	for i := 0; i < 500; i++ {
+	for range 500 {
 		start := rand.Intn(len(records))
 		end := rand.Intn(len(records)-start) + start + 1
 
@@ -539,7 +539,7 @@ func TestBadRangeProof(t *testing.T) {
 func BenchmarkProve(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		proof := NewProofNodeSet()
 		key := records[i%len(records)].key
 		if err := tr.Prove(key, proof); err != nil {
@@ -552,7 +552,7 @@ func BenchmarkVerifyProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
 	root := tr.Hash()
 
-	var proofs []*ProofNodeSet
+	proofs := make([]*ProofNodeSet, 0, len(records))
 	for _, record := range records {
 		proof := NewProofNodeSet()
 		if err := tr.Prove(record.key, proof); err != nil {
@@ -562,7 +562,7 @@ func BenchmarkVerifyProof(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		index := i % len(records)
 		if _, err := VerifyProof(&root, records[index].key, proofs[index], crypto.Pedersen); err != nil {
 			b.Fatal(err)
@@ -589,7 +589,7 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, err := VerifyRangeProof(&root, keys[0], keys, values, proof)
 		require.NoError(b, err)
 	}
