@@ -106,6 +106,7 @@ fn get_gas_vector_computation_mode<S>(
 where
     S: UpdatableState,
 {
+    let original_tx = transaction.clone();
     let initial_gas_limit = extract_l2_gas_limit(transaction);
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
@@ -183,7 +184,7 @@ where
     if l2_gas_limit > initial_gas_limit {
         tx_state.abort();
         set_l2_gas_limit(transaction, initial_gas_limit);
-        return transaction.execute(state, block_context);
+        return original_tx.execute(state, block_context);
     }
 
     // Execute the transaction with the determined gas limit and update the estimate.
