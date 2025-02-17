@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
@@ -265,7 +266,12 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		st, err := state.New(txn)
+		if err != nil {
+			return err
+		}
+
+		if err := st.Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
 		if err := WriteBlockHeader(txn, block.Header); err != nil {
@@ -451,9 +457,12 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return err
 	}
 
-	state := core.NewState(txn)
+	st, err := state.New(txn)
+	if err != nil {
+		return err
+	}
 	// revert state
-	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+	if err = st.Revert(blockNumber, stateUpdate); err != nil {
 		return err
 	}
 

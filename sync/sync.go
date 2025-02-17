@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -671,7 +672,17 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), noop, nil
+	pending, err := s.Pending()
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	st, err := state.New(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, st), txn.Discard, nil
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
