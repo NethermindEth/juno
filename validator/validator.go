@@ -36,7 +36,7 @@ func Validator() *validator.Validate {
 		v = validator.New()
 
 		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
-			log.Fatalf("failed to register validation: %v", err)
+			panic("failed to register validation: " + err.Error())
 		}
 
 		// Register these types to use their string representation for validation
