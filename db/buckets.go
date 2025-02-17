@@ -23,9 +23,9 @@ const (
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
 	StateUpdatesByBlockNumber
 	ClassesTrie
-	ContractStorageHistory
-	ContractNonceHistory
-	ContractClassHashHistory
+	ContractStorageHistory   // [ContractStorageHistory] + ContractAddr + StorageLocation + BlockHeight -> StorageValue
+	ContractNonceHistory     // [ContractNonceHistory] + ContractAddr + BlockHeight -> ContractNonce
+	ContractClassHashHistory // [ContractClassHashHistory] + ContractAddr + BlockHeight -> ContractClassHash
 	ContractDeploymentHeight
 	L1Height
 	SchemaVersion
@@ -38,9 +38,10 @@ const (
 	MempoolTail               // key of the tail node
 	MempoolLength             // number of transactions
 	MempoolNode
-	ClassTrie            // ClassTrie + Node path -> Trie Node
-	ContractTrieContract // ContractTrieContract + Node path -> Trie Node
-	ContractTrieStorage  // ContractTrieStorage + Contract Address + Node path -> Trie Node
+	ClassTrie            // [ClassTrie] + Node path -> Trie Node
+	ContractTrieContract // [ContractTrieContract] + Node path -> Trie Node
+	ContractTrieStorage  // [ContractTrieStorage] + Contract Address + Node path -> Trie Node
+	Contract             // [Contract] + ContractAddr -> Enc(Contract)
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
