@@ -2,6 +2,7 @@ package trie2
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
@@ -13,8 +14,6 @@ import (
 )
 
 const contractClassTrieHeight = 251
-
-var emptyRoot = felt.Felt{}
 
 type Path = trieutils.BitArray
 
@@ -57,13 +56,13 @@ func New(id *ID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie,
 		nodeTracer: newTracer(),
 	}
 
-	if id.Root != emptyRoot {
-		root, err := tr.resolveNode(&hashNode{Felt: id.Root}, Path{})
-		if err != nil {
-			return nil, err
-		}
+	root, err := tr.resolveNode(nil, Path{})
+	if err == nil {
 		tr.root = root
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
 	}
+
 	return tr, nil
 }
 
@@ -455,7 +454,7 @@ func (t *Trie) delete(n node, prefix, key *Path) (bool, node, error) {
 }
 
 // Resolves the node at the given path from the database
-func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
+func (t *Trie) resolveNode(hn *hashNode, path Path) (node, error) {
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer func() {
@@ -469,7 +468,12 @@ func (t *Trie) resolveNode(hash *hashNode, path Path) (node, error) {
 	}
 
 	blob := buf.Bytes()
-	return decodeNode(blob, hash.Felt, path.Len(), t.height)
+
+	var hash *felt.Felt
+	if hn != nil {
+		hash = &hn.Felt
+	}
+	return decodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculate the hash of the root node
@@ -499,9 +503,9 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
+	return New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
+	return New(TrieID(), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
 }
