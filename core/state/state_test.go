@@ -2,7 +2,7 @@ package state
 
 import (
 	"context"
-	// "encoding/json"
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -436,68 +436,68 @@ func TestRevert(t *testing.T) {
 		assert.Equal(t, &felt.Zero, storage)
 	})
 
-	// t.Run("revert a declare class", func(t *testing.T) {
-	// 	classesM := make(map[felt.Felt]core.Class)
-	// 	cairo0 := &core.Cairo0Class{
-	// 		Abi:          json.RawMessage("some cairo 0 class abi"),
-	// 		Externals:    []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("e1")), Offset: new(felt.Felt).SetBytes([]byte("e2"))}},
-	// 		L1Handlers:   []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("l1")), Offset: new(felt.Felt).SetBytes([]byte("l2"))}},
-	// 		Constructors: []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("c1")), Offset: new(felt.Felt).SetBytes([]byte("c2"))}},
-	// 		Program:      "some cairo 0 program",
-	// 	}
+	t.Run("revert a declare class", func(t *testing.T) {
+		classesM := make(map[felt.Felt]core.Class)
+		cairo0 := &core.Cairo0Class{
+			Abi:          json.RawMessage("some cairo 0 class abi"),
+			Externals:    []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("e1")), Offset: new(felt.Felt).SetBytes([]byte("e2"))}},
+			L1Handlers:   []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("l1")), Offset: new(felt.Felt).SetBytes([]byte("l2"))}},
+			Constructors: []core.EntryPoint{{Selector: new(felt.Felt).SetBytes([]byte("c1")), Offset: new(felt.Felt).SetBytes([]byte("c2"))}},
+			Program:      "some cairo 0 program",
+		}
 
-	// 	cairo0Addr := utils.HexToFelt(t, "0xab1234")
-	// 	classesM[*cairo0Addr] = cairo0
+		cairo0Addr := utils.HexToFelt(t, "0xab1234")
+		classesM[*cairo0Addr] = cairo0
 
-	// 	cairo1 := &core.Cairo1Class{
-	// 		Abi:     "some cairo 1 class abi",
-	// 		AbiHash: utils.HexToFelt(t, "0xcd98"),
-	// 		EntryPoints: struct {
-	// 			Constructor []core.SierraEntryPoint
-	// 			External    []core.SierraEntryPoint
-	// 			L1Handler   []core.SierraEntryPoint
-	// 		}{
-	// 			Constructor: []core.SierraEntryPoint{{Index: 1, Selector: new(felt.Felt).SetBytes([]byte("c1"))}},
-	// 			External:    []core.SierraEntryPoint{{Index: 0, Selector: new(felt.Felt).SetBytes([]byte("e1"))}},
-	// 			L1Handler:   []core.SierraEntryPoint{{Index: 2, Selector: new(felt.Felt).SetBytes([]byte("l1"))}},
-	// 		},
-	// 		Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
-	// 		ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
-	// 		SemanticVersion: "version 1",
-	// 		Compiled:        &core.CompiledClass{},
-	// 	}
+		cairo1 := &core.Cairo1Class{
+			Abi:     "some cairo 1 class abi",
+			AbiHash: utils.HexToFelt(t, "0xcd98"),
+			EntryPoints: struct {
+				Constructor []core.SierraEntryPoint
+				External    []core.SierraEntryPoint
+				L1Handler   []core.SierraEntryPoint
+			}{
+				Constructor: []core.SierraEntryPoint{{Index: 1, Selector: new(felt.Felt).SetBytes([]byte("c1"))}},
+				External:    []core.SierraEntryPoint{{Index: 0, Selector: new(felt.Felt).SetBytes([]byte("e1"))}},
+				L1Handler:   []core.SierraEntryPoint{{Index: 2, Selector: new(felt.Felt).SetBytes([]byte("l1"))}},
+			},
+			Program:         []*felt.Felt{new(felt.Felt).SetBytes([]byte("random program"))},
+			ProgramHash:     new(felt.Felt).SetBytes([]byte("random program hash")),
+			SemanticVersion: "version 1",
+			Compiled:        &core.CompiledClass{},
+		}
 
-	// 	cairo1Addr := utils.HexToFelt(t, "0xcd5678")
-	// 	classesM[*cairo1Addr] = cairo1
+		cairo1Addr := utils.HexToFelt(t, "0xcd5678")
+		classesM[*cairo1Addr] = cairo1
 
-	// 	declaredClassesStateUpdate := &core.StateUpdate{
-	// 		NewRoot: utils.HexToFelt(t, "0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
-	// 		OldRoot: su1.NewRoot,
-	// 		StateDiff: &core.StateDiff{
-	// 			DeclaredV0Classes: []*felt.Felt{cairo0Addr},
-	// 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-	// 				*cairo1Addr: utils.HexToFelt(t, "0xef9123"),
-	// 			},
-	// 		},
-	// 	}
+		declaredClassesStateUpdate := &core.StateUpdate{
+			NewRoot: utils.HexToFelt(t, "0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			OldRoot: su1.NewRoot,
+			StateDiff: &core.StateDiff{
+				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
+				DeclaredV1Classes: map[felt.Felt]*felt.Felt{
+					*cairo1Addr: utils.HexToFelt(t, "0xef9123"),
+				},
+			},
+		}
 
-	// 	state, err := New(txn)
-	// 	require.NoError(t, err)
-	// 	require.NoError(t, state.Update(block2, declaredClassesStateUpdate, classesM))
+		state, err := New(txn)
+		require.NoError(t, err)
+		require.NoError(t, state.Update(block2, declaredClassesStateUpdate, classesM))
 
-	// 	state, err = New(txn)
-	// 	require.NoError(t, err)
-	// 	require.NoError(t, state.Revert(block2, declaredClassesStateUpdate))
+		state, err = New(txn)
+		require.NoError(t, err)
+		require.NoError(t, state.Revert(block2, declaredClassesStateUpdate))
 
-	// 	var decClass *DeclaredClass
-	// 	decClass, err = state.Class(cairo0Addr)
-	// 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
-	// 	assert.Nil(t, decClass)
+		var decClass *core.DeclaredClass
+		decClass, err = state.Class(cairo0Addr)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+		assert.Nil(t, decClass)
 
-	// 	decClass, err = state.Class(cairo1Addr)
-	// 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
-	// 	assert.Nil(t, decClass)
-	// })
+		decClass, err = state.Class(cairo1Addr)
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+		assert.Nil(t, decClass)
+	})
 
 	t.Run("should be able to update after a revert", func(t *testing.T) {
 		state, err := New(txn)

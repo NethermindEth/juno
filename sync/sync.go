@@ -75,7 +75,7 @@ type Reader interface {
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	PendingState() (blockchain.StateReader, blockchain.StateCloser, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -109,7 +109,7 @@ func (n *NoopSynchronizer) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
@@ -662,7 +662,7 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+func (s *Synchronizer) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
 	txn, err := s.db.NewTransaction(false)
 	if err != nil {
 		return nil, nil, err

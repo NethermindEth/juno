@@ -37,7 +37,7 @@ func TestCompiledCasm(t *testing.T) {
 	t.Run("class doesn't exist", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x111")
 
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(nil, db.ErrKeyNotFound)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 
@@ -66,7 +66,7 @@ func TestCompiledCasm(t *testing.T) {
 		err = json.Unmarshal(program, &cairo0Definition)
 		require.NoError(t, err)
 
-		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
 		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 

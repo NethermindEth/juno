@@ -134,8 +134,8 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
-	var reader core.StateReader
+func (h *Handler) stateByBlockID(id *BlockID) (blockchain.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
+	var reader blockchain.StateReader
 	var closer blockchain.StateCloser
 	var err error
 	switch {

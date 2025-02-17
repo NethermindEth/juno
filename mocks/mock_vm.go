@@ -23,7 +23,6 @@ import (
 type MockVM struct {
 	ctrl     *gomock.Controller
 	recorder *MockVMMockRecorder
-	isgomock struct{}
 }
 
 // MockVMMockRecorder is the mock recorder for MockVM.
@@ -44,31 +43,31 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string) (vm.CallResult, error) {
+func (m *MockVM) Call(arg0 *vm.CallInfo, arg1 *vm.BlockInfo, arg2 vm.StateReader, arg3 *utils.Network, arg4 uint64, arg5 string) ([]*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, network, maxSteps, sierraVersion)
-	ret0, _ := ret[0].(vm.CallResult)
+	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].([]*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Call indicates an expected call of Call.
-func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps, sierraVersion any) *gomock.Call {
+func (mr *MockVMMockRecorder) Call(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), callInfo, blockInfo, state, network, maxSteps, sierraVersion)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool) (vm.ExecutionResults, error) {
+func (m *MockVM) Execute(arg0 []core.Transaction, arg1 []core.Class, arg2 []*felt.Felt, arg3 *vm.BlockInfo, arg4 vm.StateReader, arg5 *utils.Network, arg6, arg7, arg8 bool) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert)
+	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(vm.ExecutionResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert any) *gomock.Call {
+func (mr *MockVMMockRecorder) Execute(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 }
