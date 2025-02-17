@@ -686,8 +686,8 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 		return rpccore.ErrClassHashNotFound
 	case gateway.ClassAlreadyDeclared:
 		return rpccore.ErrClassAlreadyDeclared
-	case gateway.InsufficientMaxFee:
-		return rpccore.ErrInsufficientMaxFee
+	case gateway.InsufficientResourcesForValidate:
+		return rpccore.ErrInsufficientResourcesForValidate
 	case gateway.InsufficientAccountBalance:
 		return rpccore.ErrInsufficientAccountBalance
 	case gateway.ValidateFailure:
