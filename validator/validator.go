@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"log"
 	"reflect"
 	"sync"
 
