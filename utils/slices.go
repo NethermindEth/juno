@@ -3,6 +3,9 @@ package utils
 import (
 	"reflect"
 	"slices"
+	"strings"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
@@ -59,4 +62,12 @@ func Set[T comparable](slice []T) []T {
 	}
 
 	return result
+}
+
+func FeltArrToString(arr []*felt.Felt) string {
+	res := make([]string, len(arr))
+	for i, felt := range arr {
+		res[i] = felt.String()
+	}
+	return strings.Join(res, ", ")
 }

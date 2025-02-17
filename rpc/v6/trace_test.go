@@ -440,10 +440,10 @@ func TestCall(t *testing.T) {
 			*new(felt.Felt).SetUint64(4),
 			*new(felt.Felt).SetUint64(5),
 		}
-		expectedRes := []*felt.Felt{
+		expectedRes := vm.CallResult{Result: []*felt.Felt{
 			new(felt.Felt).SetUint64(6),
 			new(felt.Felt).SetUint64(7),
-		}
+		}}
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -466,6 +466,38 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
-		require.Equal(t, expectedRes, res)
+		require.Equal(t, expectedRes.Result, res)
+	})
+
+	t.Run("unknown entrypoint blockifier 0.14.0", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337)
+
+		contractAddr := new(felt.Felt).SetUint64(1)
+		selector := new(felt.Felt).SetUint64(2)
+		classHash := new(felt.Felt).SetUint64(3)
+		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
+		expectedRes := vm.CallResult{
+			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
+			ExecutionFailed: true,
+		}
+		expectedErr := rpc.MakeContractError(errors.New(rpccore.EntrypointNotFoundFelt))
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockReader.EXPECT().Network().Return(n)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{
+			ContractAddress:    *contractAddr,
+			EntryPointSelector: *selector,
+			Calldata:           calldata,
+		}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		require.Equal(t, rpcErr, expectedErr)
 	})
 }

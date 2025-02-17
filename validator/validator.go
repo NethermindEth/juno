@@ -16,10 +16,29 @@ var (
 	v    *validator.Validate
 )
 
+func validateResourceBounds(fl validator.FieldLevel) bool {
+	req, ok := fl.Parent().Interface().(rpcv8.Transaction)
+	if !ok {
+		return false
+	}
+
+	version := req.Version.String()
+	if (version == "0x3" || version == "0x100000000000000000000000000000003") &&
+		(req.ResourceBounds == nil || len(*req.ResourceBounds) != 3) {
+		return false
+	}
+	return true
+}
+
 // Validator returns a singleton that can be used to validate various objects
 func Validator() *validator.Validate {
 	once.Do(func() {
 		v = validator.New()
+
+		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
+			panic("failed to register validation: " + err.Error())
+		}
+
 		// Register these types to use their string representation for validation
 		// purposes
 		v.RegisterCustomTypeFunc(func(field reflect.Value) any {

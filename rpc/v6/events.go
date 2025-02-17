@@ -45,6 +45,10 @@ type EventsChunk struct {
 	ContinuationToken string          `json:"continuation_token,omitempty"`
 }
 
+/****************************************************
+		Events Handlers
+*****************************************************/
+
 // Events gets the events matching a filter
 //
 // It follows the specification defined here:
