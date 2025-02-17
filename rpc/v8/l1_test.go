@@ -97,4 +97,11 @@ func TestGetMessageStatus(t *testing.T) {
 			require.Equal(t, test.msgs, msgStatuses)
 		})
 	}
+
+	t.Run("l1 client not found", func(t *testing.T) {
+		handler := rpc.New(nil, nil, nil, "", nil).WithL1Client(nil)
+		msgStatuses, rpcErr := handler.GetMessageStatus(context.Background(), &common.Hash{})
+		require.Nil(t, msgStatuses)
+		require.NotNil(t, rpcErr)
+	})
 }
