@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	MaxEventChunkSize  = 10240
-	MaxEventFilterKeys = 1024
-	TraceCacheSize     = 128
-	ThrottledVMErr     = "VM throughput limit reached"
-	MaxBlocksBack      = 1024
+	MaxEventChunkSize             = 10240
+	MaxEventFilterKeys            = 1024
+	TraceCacheSize                = 128
+	ThrottledVMErr                = "VM throughput limit reached"
+	MaxBlocksBack                 = 1024
+	EntrypointNotFoundFelt string = "0x454e545259504f494e545f4e4f545f464f554e44"
 )
 
 //go:generate mockgen -destination=../mocks/mock_gateway_handler.go -package=mocks github.com/NethermindEth/juno/rpc Gateway
@@ -34,6 +35,7 @@ type TraceCacheKey struct {
 
 var (
 	ErrContractNotFound                 = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
+	ErrEntrypointNotFound               = &jsonrpc.Error{Code: 21, Message: "Requested entrypoint does not exist in the contract"}
 	ErrBlockNotFound                    = &jsonrpc.Error{Code: 24, Message: "Block not found"}
 	ErrInvalidTxHash                    = &jsonrpc.Error{Code: 25, Message: "Invalid transaction hash"}
 	ErrInvalidBlockHash                 = &jsonrpc.Error{Code: 26, Message: "Invalid block hash"}
