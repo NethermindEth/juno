@@ -182,20 +182,11 @@ func TestHash(t *testing.T) {
 	})
 }
 
-func TestMissingRoot(t *testing.T) {
-	var root felt.Felt
-	root.SetUint64(1)
-
-	tr, err := New(TrieID(root), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
-	require.Nil(t, tr)
-	require.Error(t, err)
-}
-
 func TestCommit(t *testing.T) {
 	verifyCommit := func(t *testing.T, records []*keyValue) {
 		t.Helper()
 		db := db.NewMemTransaction()
-		tr, err := New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, db)
+		tr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 		require.NoError(t, err)
 
 		for _, record := range records {
@@ -203,10 +194,10 @@ func TestCommit(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		root, err := tr.Commit()
+		_, err = tr.Commit()
 		require.NoError(t, err)
 
-		tr2, err := New(TrieID(root), contractClassTrieHeight, crypto.Pedersen, db)
+		tr2, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 		require.NoError(t, err)
 
 		for _, record := range records {
@@ -361,7 +352,7 @@ func runRandTestBool(rt randTest) bool {
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
 	txn := db.NewMemTransaction()
-	tr, err := New(TrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, txn)
+	tr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
 	if err != nil {
 		return err
 	}
@@ -408,11 +399,11 @@ func runRandTest(rt randTest) error {
 		case opHash:
 			tr.Hash()
 		case opCommit:
-			root, err := tr.Commit()
+			_, err := tr.Commit()
 			if err != nil {
 				rt[i].err = fmt.Errorf("commit failed: %w", err)
 			}
-			newtr, err := New(TrieID(root), contractClassTrieHeight, crypto.Pedersen, txn)
+			newtr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}
@@ -451,7 +442,7 @@ func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 	tr, _ := NewEmptyPedersen()
 	records := make([]*keyValue, n)
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		key := new(felt.Felt).SetUint64(uint64(rrand.Uint32() + 1))
 		records[i] = &keyValue{key: key, value: key}
 		err := tr.Update(key, key)

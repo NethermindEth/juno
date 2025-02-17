@@ -152,11 +152,6 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 //   - Zero element proof: A single edge proof suffices for verification. The proof is invalid if there are additional elements.
 //
 // The function returns a boolean indicating if there are more elements and an error if the range proof is invalid.
-//
-// TODO(weiihann): Given a binary leaf and a left-sibling first key, if the right sibling is removed, the proof would still be valid.
-// Conversely, given a binary leaf and a right-sibling last key, if the left sibling is removed, the proof would still be valid.
-// Range proof should not be valid for both of these cases, but currently is, which is an attack vector.
-// The problem probably lies in how we do root hash calculation.
 func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) { //nolint:funlen,gocyclo
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
@@ -164,7 +159,7 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 	}
 
 	// Ensure all keys are monotonically increasing and values contain no deletions
-	for i := 0; i < len(keys); i++ {
+	for i := range keys {
 		if i < len(keys)-1 && keys[i].Cmp(keys[i+1]) > 0 {
 			return false, errors.New("keys are not monotonic increasing")
 		}
