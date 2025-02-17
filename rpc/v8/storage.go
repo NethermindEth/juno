@@ -3,6 +3,7 @@ package rpcv8
 import (
 	"errors"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -194,7 +195,7 @@ func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	return adaptProofNodes(classProof), nil
 }
 
-func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProof(tr *trie.Trie, state blockchain.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 	for i, contract := range contracts {
@@ -233,7 +234,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 	}, nil
 }
 
-func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
+func getContractStorageProof(state blockchain.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
 	for i, storageKey := range storageKeys {
 		contractStorageTrie, err := state.ContractStorageTrie(storageKey.Contract)

@@ -306,7 +306,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(header.Hash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
@@ -390,7 +390,7 @@ func TestTraceTransaction(t *testing.T) {
 		}, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
@@ -637,9 +637,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateHistoryReader(mockCtrl)
+		state := mocks.NewMockStateReader(mockCtrl)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
@@ -757,7 +757,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
@@ -1224,7 +1224,7 @@ func TestCall(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("call - unknown contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

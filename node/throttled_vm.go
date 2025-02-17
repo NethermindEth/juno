@@ -19,7 +19,7 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 	}
 }
 
-func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader,
+func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state vm.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string, errStack, returnStateDiff bool,
 ) (vm.CallResult, error) {
 	ret := vm.CallResult{}
@@ -31,7 +31,7 @@ func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, sta
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
+	blockInfo *vm.BlockInfo, state vm.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 ) (vm.ExecutionResults, error) {
 	var executionResult vm.ExecutionResults
 	return executionResult, tvm.Do(func(vm *vm.VM) error {

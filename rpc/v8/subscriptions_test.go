@@ -387,9 +387,11 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) Pending() (*sync.Pending, error)                       { return nil, nil }
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
+func (fs *fakeSyncer) Pending() (*sync.Pending, error) { return nil, nil }
+func (fs *fakeSyncer) PendingBlock() *core.Block       { return nil }
+func (fs *fakeSyncer) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
+	return nil, nil, nil
+}
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
