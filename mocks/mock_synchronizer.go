@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
@@ -21,7 +22,6 @@ import (
 type MockSyncReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockSyncReaderMockRecorder
-	isgomock struct{}
 }
 
 // MockSyncReaderMockRecorder is the mock recorder for MockSyncReader.
@@ -85,11 +85,11 @@ func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
 }
 
 // PendingState mocks base method.
-func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
+func (m *MockSyncReader) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingState")
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
+	ret0, _ := ret[0].(blockchain.StateReader)
+	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

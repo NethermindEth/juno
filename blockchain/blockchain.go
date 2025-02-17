@@ -23,6 +23,7 @@ type L1HeadSubscription struct {
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
+	StateProvider
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
@@ -41,10 +42,6 @@ type Reader interface {
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
-
-	HeadState() (core.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
@@ -775,80 +772,6 @@ func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey
 		return encoder.Unmarshal(val, &r)
 	})
 	return r, err
-}
-
-type StateCloser = func() error
-
-// HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("HeadState")
-	txn, err := b.database.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = ChainHeight(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	st, err := state.New(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return st, txn.Discard, nil
-}
-
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("StateAtBlockNumber")
-	txn, err := b.database.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	_, err = blockHeaderByNumber(txn, blockNumber)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	st, err := state.New(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return core.NewStateSnapshot(st, blockNumber), txn.Discard, nil
-}
-
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("StateAtBlockHash")
-	if blockHash.IsZero() {
-		txn := db.NewMemTransaction()
-		emptyState, err := state.New(txn)
-		if err != nil {
-			return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-		}
-		return emptyState, txn.Discard, nil
-	}
-
-	txn, err := b.database.NewTransaction(false)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	header, err := blockHeaderByHash(txn, blockHash)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	st, err := state.New(txn)
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return core.NewStateSnapshot(st, header.Number), txn.Discard, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
