@@ -188,6 +188,7 @@ where
     }
 
     // Execute the transaction with the determined gas limit and update the estimate.
+    tx_state.commit();
     execution_info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(execution_info)
