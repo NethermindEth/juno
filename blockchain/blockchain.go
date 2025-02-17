@@ -9,6 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/feed"
@@ -121,7 +122,11 @@ func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, b.database.View(func(txn db.Transaction) error {
 		var err error
-		commitment, err = core.NewState(txn).Root()
+		st, err := state.New(txn)
+		if err != nil {
+			return err
+		}
+		commitment, err = st.Root()
 		return err
 	})
 }
@@ -340,7 +345,12 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		st, err := state.New(txn)
+		if err != nil {
+			return err
+		}
+
+		if err := st.Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
@@ -782,7 +792,12 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewState(txn), txn.Discard, nil
+	st, err := state.New(txn)
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return st, txn.Discard, nil
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
@@ -798,7 +813,12 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), txn.Discard, nil
+	st, err := state.New(txn)
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewStateSnapshot(st, blockNumber), txn.Discard, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -806,7 +826,10 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		txn := db.NewMemTransaction()
-		emptyState := core.NewState(txn)
+		emptyState, err := state.New(txn)
+		if err != nil {
+			return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+		}
 		return emptyState, txn.Discard, nil
 	}
 
@@ -820,7 +843,12 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), txn.Discard, nil
+	st, err := state.New(txn)
+	if err != nil {
+		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return core.NewStateSnapshot(st, header.Number), txn.Discard, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -855,8 +883,11 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 		if err != nil {
 			return err
 		}
-		state := core.NewState(txn)
-		reverseStateDiff, err = state.GetReverseStateDiff(blockNumber, stateUpdate.StateDiff)
+		st, err := state.New(txn)
+		if err != nil {
+			return err
+		}
+		reverseStateDiff, err = st.GetReverseStateDiff(blockNumber, stateUpdate.StateDiff)
 		return err
 	})
 }
@@ -873,9 +904,12 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 		return err
 	}
 
-	state := core.NewState(txn)
+	st, err := state.New(txn)
+	if err != nil {
+		return err
+	}
 	// revert state
-	if err = state.Revert(blockNumber, stateUpdate); err != nil {
+	if err = st.Revert(blockNumber, stateUpdate); err != nil {
 		return err
 	}
 
