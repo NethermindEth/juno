@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db/pebble"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -31,7 +32,8 @@ func TestV0Call(t *testing.T) {
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	testState, err := state.New(txn)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -46,6 +48,8 @@ func TestV0Call(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
+	testState, err = state.New(txn)
+	require.NoError(t, err)
 	ret, err := New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
@@ -54,6 +58,8 @@ func TestV0Call(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
+	testState, err = state.New(txn)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		NewRoot: utils.HexToFelt(t, "0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
@@ -91,7 +97,8 @@ func TestV1Call(t *testing.T) {
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	testState, err := state.New(txn)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
@@ -109,6 +116,8 @@ func TestV1Call(t *testing.T) {
 	require.NoError(t, err)
 
 	// test_storage_read
+	testState, err = state.New(txn)
+	require.NoError(t, err)
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
 	ret, err := New(false, log).Call(&CallInfo{
@@ -160,7 +169,8 @@ func TestCall_MaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(context.Background(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	testState, err := state.New(txn)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -175,6 +185,8 @@ func TestCall_MaxSteps(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
+	testState, err = state.New(txn)
+	require.NoError(t, err)
 	_, err = New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
@@ -193,28 +205,30 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	state := core.NewState(txn)
-
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		testState, err := state.New(txn)
+		require.NoError(t, err)
+		_, err = New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state,
+		}, testState,
 			&network, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		testState, err := state.New(txn)
+		require.NoError(t, err)
+		_, err = New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, &network, false, false, false)
+		}, testState, &network, false, false, false)
 		require.NoError(t, err)
 	})
 }
