@@ -26,7 +26,7 @@ pub fn execute_transaction(
         block_context,
         &determine_gas_vector_mode(txn),
     ) {
-        Ok(true) => determine_l2_gas_limit_and_execute(txn, txn_state, block_context),
+        Ok(true) => get_gas_vector_computation_mode(txn, txn_state, block_context),
         Ok(false) => txn.execute(txn_state, block_context),
         Err(error) => Err(TransactionExecutionError::StateError(error)),
     }
@@ -98,7 +98,7 @@ const L2_GAS_SEARCH_MARGIN: GasAmount = GasAmount(1_000_000);
 
 /// Determines the optimal L2 gas limit required for a transaction to execute successfully.
 /// If the required gas exceeds the initial limit, the transaction is reverted.
-fn determine_l2_gas_limit_and_execute<S>(
+fn get_gas_vector_computation_mode<S>(
     transaction: &mut Transaction,
     state: &mut S,
     block_context: &blockifier::context::BlockContext,
