@@ -91,7 +91,7 @@ func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()

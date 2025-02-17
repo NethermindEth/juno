@@ -40,7 +40,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			node: &edgeNode{
 				path:  newPath(1, 0, 1),
 				child: &valueNode{Felt: newFelt(123)},
-				flags: nodeFlag{},
 			},
 			pathLen: 8,
 			maxPath: 8,
@@ -50,7 +49,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			node: &edgeNode{
 				path:  newPath(0, 1, 0),
 				child: &hashNode{Felt: newFelt(456)},
-				flags: nodeFlag{},
 			},
 			pathLen: 3,
 			maxPath: 8,
@@ -62,7 +60,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 					&hashNode{Felt: newFelt(111)},
 					&hashNode{Felt: newFelt(222)},
 				},
-				flags: nodeFlag{},
 			},
 			pathLen: 0,
 			maxPath: 8,
@@ -74,7 +71,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 					&valueNode{Felt: newFelt(555)},
 					&valueNode{Felt: newFelt(666)},
 				},
-				flags: nodeFlag{},
 			},
 			pathLen: 7,
 			maxPath: 8,
@@ -96,7 +92,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			node: &edgeNode{
 				path:  newPath(),
 				child: &hashNode{Felt: newFelt(1111)},
-				flags: nodeFlag{},
 			},
 			pathLen: 0,
 			maxPath: 8,
@@ -106,7 +101,6 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			node: &edgeNode{
 				path:  newPath(1, 1, 1, 1, 1, 1, 1, 1),
 				child: &valueNode{Felt: newFelt(2222)},
-				flags: nodeFlag{},
 			},
 			pathLen: 0,
 			maxPath: 8,
@@ -120,7 +114,7 @@ func TestNodeEncodingDecoding(t *testing.T) {
 
 			// Try to decode
 			hash := tt.node.hash(crypto.Pedersen)
-			decoded, err := decodeNode(encoded, *hash, tt.pathLen, tt.maxPath)
+			decoded, err := decodeNode(encoded, hash, tt.pathLen, tt.maxPath)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -163,16 +157,14 @@ func TestNodeEncodingDecodingBoundary(t *testing.T) {
 
 	// Test with invalid path lengths
 	t.Run("invalid path lengths", func(t *testing.T) {
-		hash := felt.Zero
 		blob := make([]byte, hashOrValueNodeSize)
-		_, err := decodeNode(blob, hash, 255, 8) // pathLen > maxPath
+		_, err := decodeNode(blob, nil, 255, 8) // pathLen > maxPath
 		require.Error(t, err)
 	})
 
 	// Test with empty buffer
 	t.Run("empty buffer", func(t *testing.T) {
-		hash := felt.Zero
-		_, err := decodeNode([]byte{}, hash, 0, 8)
+		_, err := decodeNode([]byte{}, nil, 0, 8)
 		require.Error(t, err)
 	})
 }
