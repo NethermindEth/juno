@@ -182,6 +182,16 @@ func TestBlockTransactionCount(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
+	t.Run("non-existent pending block", func(t *testing.T) {
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+
+		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Pending: true})
+		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		assert.Equal(t, uint64(0), count)
+	})
+
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 

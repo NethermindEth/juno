@@ -124,16 +124,17 @@ func TestSubscribeEvents(t *testing.T) {
 	fromAddr := new(felt.Felt).SetBytes([]byte("some address"))
 	keys := [][]felt.Felt{{*new(felt.Felt).SetBytes([]byte("key1"))}}
 
+	b2BlockNumber := b1.Number + 1
 	filteredEvents := []*blockchain.FilteredEvent{
 		{
 			Event:           b1.Receipts[0].Events[0],
-			BlockNumber:     b1.Number,
+			BlockNumber:     &b1.Number,
 			BlockHash:       new(felt.Felt).SetBytes([]byte("b1")),
 			TransactionHash: b1.Transactions[0].Hash(),
 		},
 		{
 			Event:           b1.Receipts[1].Events[0],
-			BlockNumber:     b1.Number + 1,
+			BlockNumber:     &b2BlockNumber,
 			BlockHash:       new(felt.Felt).SetBytes([]byte("b2")),
 			TransactionHash: b1.Transactions[1].Hash(),
 		},
@@ -148,7 +149,7 @@ func TestSubscribeEvents(t *testing.T) {
 				Data: e.Data,
 			},
 			BlockHash:       e.BlockHash,
-			BlockNumber:     &e.BlockNumber,
+			BlockNumber:     e.BlockNumber,
 			TransactionHash: e.TransactionHash,
 		})
 	}
@@ -333,7 +334,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
 
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
+		pendingFeed.Send(&core.Block{Header: &core.Header{}})
 
 		resp, err = marshalSubEventsResp(emittedEvents[1], id)
 		require.NoError(t, err)
@@ -349,7 +350,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
 			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
 
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
+		pendingFeed.Send(&core.Block{Header: &core.Header{}})
 
 		resp, err = marshalSubEventsResp(emittedEvents[0], id)
 		require.NoError(t, err)

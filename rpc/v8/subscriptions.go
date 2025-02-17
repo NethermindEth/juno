@@ -163,7 +163,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 						for _, e := range r.Events {
 							fe := blockchain.FilteredEvent{
 								Event:           e,
-								BlockNumber:     header.Number,
+								BlockNumber:     &block.Number,
 								BlockHash:       header.Hash,
 								TransactionHash: block.Transactions[i].Hash(),
 							}
@@ -397,7 +397,7 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 			}
 
 			emittedEvent := &EmittedEvent{
-				BlockNumber:     &event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
+				BlockNumber:     event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
 				Event: &Event{
