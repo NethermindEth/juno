@@ -23,9 +23,9 @@ const (
 	ReceiptsByBlockNumberAndIndex           // maps block number and index to transaction receipt
 	StateUpdatesByBlockNumber
 	ClassesTrie
-	ContractStorageHistory
-	ContractNonceHistory
-	ContractClassHashHistory
+	ContractStorageHistory   // [ContractStorageHistory] + ContractAddr + StorageLocation + BlockHeight -> StorageValue
+	ContractNonceHistory     // [ContractNonceHistory] + ContractAddr + BlockHeight -> ContractNonce
+	ContractClassHashHistory // [ContractClassHashHistory] + ContractAddr + BlockHeight -> ContractClassHash
 	ContractDeploymentHeight
 	L1Height
 	SchemaVersion
