@@ -27,6 +27,7 @@ type TrieDB interface {
 	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray) (int, error)
 	Put(owner felt.Felt, path trieutils.BitArray, blob []byte) error
 	Delete(owner felt.Felt, path trieutils.BitArray) error
+	NewIterator(owner felt.Felt) (db.Iterator, error)
 }
 
 type Database struct {
@@ -91,6 +92,30 @@ func (d *Database) Delete(owner felt.Felt, path trieutils.BitArray) error {
 	return d.txn.Delete(buffer.Bytes())
 }
 
+func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
+	buffer := dbBufferPool.Get().(*bytes.Buffer)
+	buffer.Reset()
+	defer func() {
+		buffer.Reset()
+		dbBufferPool.Put(buffer)
+	}()
+
+	_, err := buffer.Write(d.prefix.Key())
+	if err != nil {
+		return nil, err
+	}
+
+	if owner != (felt.Felt{}) {
+		oBytes := owner.Bytes()
+		_, err := buffer.Write(oBytes[:])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return d.txn.NewIterator(buffer.Bytes(), true)
+}
+
 func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray) error {
 	_, err := buf.Write(d.prefix.Key())
 	if err != nil {
@@ -125,4 +150,8 @@ func (EmptyDatabase) Put(owner felt.Felt, path trieutils.BitArray, blob []byte) 
 
 func (EmptyDatabase) Delete(owner felt.Felt, path trieutils.BitArray) error {
 	return ErrCallEmptyDatabase
+}
+
+func (EmptyDatabase) NewIterator(owner felt.Felt) (db.Iterator, error) {
+	return nil, ErrCallEmptyDatabase
 }
