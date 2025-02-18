@@ -102,6 +102,7 @@ func (s *State) ContractDeployedAt(addr felt.Felt, blockNum uint64) (bool, error
 	return contract.DeployHeight <= blockNum, nil
 }
 
+// Returns the class of a contract.
 func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
 	classKey := classKey(classHash)
 
@@ -114,16 +115,24 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
 	return &class, nil
 }
 
+// Returns the class trie.
 func (s *State) ClassTrie() (*trie2.Trie, error) {
 	return s.classTrie, nil
 }
 
+// Returns the contract trie.
 func (s *State) ContractTrie() (*trie2.Trie, error) {
 	return s.contractTrie, nil
 }
 
+// TODO: add tests for this
 func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
-	panic("not implemented")
+	contract, err := s.getContract(*addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return contract.getTrie(s.txn)
 }
 
 // Applies a state update to a given state. If any error is encountered, state is not updated.
@@ -174,14 +183,11 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 	return nil
 }
 
+// Reverts a state update to a given state at a given block number.
 func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	// Ensure the current root is the same as the new root
 	if err := s.verifyRoot(update.NewRoot); err != nil {
 		return err
-	}
-
-	if err := s.removeDeclaredClasses(blockNum, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
-		return fmt.Errorf("remove declared classes: %v", err)
 	}
 
 	reverseDiff, err := s.GetReverseStateDiff(blockNum, update.StateDiff)
@@ -189,7 +195,11 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		return fmt.Errorf("get reverse state diff: %v", err)
 	}
 
-	if err := s.deleteHistory(blockNum, reverseDiff); err != nil {
+	if err := s.removeDeclaredClasses(blockNum, update.StateDiff.DeclaredV0Classes, update.StateDiff.DeclaredV1Classes); err != nil {
+		return fmt.Errorf("remove declared classes: %v", err)
+	}
+
+	if err := s.deleteHistory(blockNum, update.StateDiff); err != nil {
 		return fmt.Errorf("delete history: %v", err)
 	}
 
@@ -216,21 +226,31 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 
 func (s *State) Commit(storeHistory bool, blockNum uint64) (*felt.Felt, error) {
 	keys := slices.SortedStableFunc(maps.Keys(s.dirtyContracts), func(a, b felt.Felt) int {
-		return a.Cmp(&b) // ascending
+		// Sort in descending order of the number of storage changes
+		// so that we start with the heaviest update first
+		contractA, contractB := s.dirtyContracts[a], s.dirtyContracts[b]
+
+		// Handle nil cases first
+		switch {
+		case contractA == nil && contractB == nil:
+			return 0
+		case contractA == nil:
+			return 1 // Move nil contracts to end
+		case contractB == nil:
+			return -1 // Keep non-nil contracts first
+		}
+
+		return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 	})
+
 	for _, addr := range keys {
 		contract := s.dirtyContracts[addr]
 
 		// Contract is marked as deleted
 		if contract == nil {
-			if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
+			if err := s.deleteContract(addr); err != nil {
 				return nil, err
 			}
-
-			if err := s.txn.Delete(contractKey(&addr)); err != nil {
-				return nil, err
-			}
-
 			continue
 		}
 
@@ -373,6 +393,34 @@ func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {
 		if err := s.txn.Delete(contractHistoryClassHashKey(&addr, blockNum)); err != nil {
 			return err
 		}
+	}
+
+	for addr := range diff.DeployedContracts {
+		if err := s.txn.Delete(contractHistoryNonceKey(&addr, blockNum)); err != nil {
+			return err
+		}
+		if err := s.txn.Delete(contractHistoryClassHashKey(&addr, blockNum)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *State) deleteContract(addr felt.Felt) error {
+	if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
+		return err
+	}
+
+	if err := s.txn.Delete(contractKey(&addr)); err != nil {
+		return err
+	}
+
+	// Create a temporary contract with zero values so that we can delete the storage trie
+	tempContract := NewStateContract(&addr, &felt.Zero, &felt.Zero, 0)
+	err := tempContract.deleteStorageTrie(s.txn)
+	if err != nil {
+		return err
 	}
 
 	return nil
