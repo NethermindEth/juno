@@ -111,13 +111,15 @@ where
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
-    let original_charge_fee = match transaction {
+    let (original_charge_fee, original_validate) = match transaction {
         Transaction::Account(account_transaction) => {
             let charge_fee = account_transaction.execution_flags.charge_fee;
             account_transaction.execution_flags.charge_fee = false;
-            charge_fee
+            let validate = account_transaction.execution_flags.validate;
+            account_transaction.execution_flags.validate = false;
+            (charge_fee, validate)
         }
-        Transaction::L1Handler(_) => false,
+        Transaction::L1Handler(_) => (false, false),
     };
     let (simulation_result, _) = match simulate_execution(transaction, state, block_context) {
         Ok(info) => info,
@@ -195,7 +197,7 @@ where
         return original_tx.execute(state, block_context);
     }
 
-    if original_charge_fee {
+    if original_charge_fee || original_validate {
         if let Transaction::Account(_) = transaction {
             set_l2_gas_limit(&mut original_tx, l2_gas_limit);
             return original_tx.execute(state, block_context);
