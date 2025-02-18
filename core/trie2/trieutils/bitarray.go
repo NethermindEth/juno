@@ -19,7 +19,7 @@ const (
 	MaxBitArraySize = 33 // (1 + 4 * 8) bytes
 )
 
-var emptyBitArray = new(BitArray) // TODO(weiihann): remove this nolint when we replace legacy trie
+var emptyBitArray = new(BitArray)
 
 // Represents a bit array with length representing the number of used bits.
 // It uses a little endian representation to do bitwise operations of the words efficiently.
@@ -395,13 +395,6 @@ func (b *BitArray) Xor(x, y *BitArray) *BitArray {
 
 // Checks if two bit arrays are equal
 func (b *BitArray) Equal(x *BitArray) bool {
-	// TODO(weiihann): this is really not a good thing to do...
-	if b == nil && x == nil {
-		return true
-	} else if b == nil || x == nil {
-		return false
-	}
-
 	return b.len == x.len &&
 		b.words[0] == x.words[0] &&
 		b.words[1] == x.words[1] &&
