@@ -148,7 +148,7 @@ func (s *StateContract) Commit(txn db.Transaction, storeHistory bool, blockNum u
 
 	keys := maps.Keys(s.dirtyStorage)
 	slices.SortFunc(keys, func(a, b felt.Felt) int {
-		return a.Cmp(&b)
+		return b.Cmp(&a)
 	})
 
 	// Commit storage changes to the associated storage trie
@@ -207,6 +207,28 @@ func (s *StateContract) storeStorageHistory(txn db.Transaction, blockNum uint64,
 func (s *StateContract) delete(txn db.Transaction) error {
 	key := contractKey(s.Address)
 	return txn.Delete(key)
+}
+
+func (s *StateContract) deleteStorageTrie(txn db.Transaction) error {
+	tr, err := s.getTrie(txn)
+	if err != nil {
+		return err
+	}
+
+	it, err := tr.NodeIterator()
+	if err != nil {
+		return err
+	}
+	defer it.Close()
+
+	for it.First(); it.Valid(); it.Next() {
+		key := it.Key()
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Flush the contract to the database
