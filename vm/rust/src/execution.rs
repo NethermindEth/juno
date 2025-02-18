@@ -111,9 +111,19 @@ where
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
+    let original_charge_fee = match transaction {
+        Transaction::Account(account_transaction) => {
+            let charge_fee = account_transaction.execution_flags.charge_fee;
+            account_transaction.execution_flags.charge_fee = false;
+            charge_fee
+        }
+        Transaction::L1Handler(_) => false,
+    };
     let (simulation_result, _) = match simulate_execution(transaction, state, block_context) {
         Ok(info) => info,
-        Err(SimulationError::ExecutionError(error)) => return Err(error),
+        Err(SimulationError::ExecutionError(error)) => {
+            return Err(error);
+        }
         Err(SimulationError::OutOfGas(gas)) => {
             return Err(TransactionExecutionError::FeeCheckError(
                 FeeCheckError::MaxGasAmountExceeded {
@@ -183,6 +193,13 @@ where
     // If the computed gas limit exceeds the initial limit, revert the transaction.
     if l2_gas_limit > initial_gas_limit {
         return original_tx.execute(state, block_context);
+    }
+
+    if original_charge_fee {
+        if let Transaction::Account(_) = transaction {
+            set_l2_gas_limit(transaction, l2_gas_limit);
+            return original_tx.execute(state, block_context);
+        }
     }
 
     // Execute the transaction with the determined gas limit and update the estimate.
