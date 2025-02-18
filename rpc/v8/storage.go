@@ -2,11 +2,12 @@ package rpcv8
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -112,23 +113,16 @@ func (h *Handler) StorageProof(id BlockID,
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	contractTreeRoot, err := contractTrie.Root()
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
-
-	classTreeRoot, err := classTrie.Root()
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
+	contractTrieRoot := contractTrie.Hash()
+	classTrieRoot := classTrie.Hash()
 
 	return &StorageProofResult{
 		ClassesProof:           classProof,
 		ContractsProof:         contractProof,
 		ContractsStorageProofs: contractStorageProof,
 		GlobalRoots: &GlobalRoots{
-			ContractsTreeRoot: contractTreeRoot,
-			ClassesTreeRoot:   classTreeRoot,
+			ContractsTreeRoot: &contractTrieRoot,
+			ClassesTreeRoot:   &classTrieRoot,
 			BlockHash:         head.Hash,
 		},
 	}, nil
@@ -184,8 +178,8 @@ func isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error {
 	}
 }
 
-func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
-	classProof := trie.NewProofNodeSet()
+func getClassProof(tr *trie2.Trie, classes []felt.Felt) ([]*HashToNode, error) {
+	classProof := trie2.NewProofNodeSet()
 	for _, class := range classes {
 		if err := tr.Prove(&class, classProof); err != nil {
 			return nil, err
@@ -195,19 +189,15 @@ func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	return adaptProofNodes(classProof), nil
 }
 
-func getContractProof(tr *trie.Trie, state blockchain.StateReader, contracts []felt.Felt) (*ContractProof, error) {
-	contractProof := trie.NewProofNodeSet()
+func getContractProof(tr *trie2.Trie, state blockchain.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+	contractProof := trie2.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 	for i, contract := range contracts {
 		if err := tr.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
 
-		root, err := tr.Root()
-		if err != nil {
-			return nil, err
-		}
-
+		root := tr.Hash()
 		nonce, err := state.ContractNonce(&contract)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
@@ -224,7 +214,7 @@ func getContractProof(tr *trie.Trie, state blockchain.StateReader, contracts []f
 		contractLeavesData[i] = &LeafData{
 			Nonce:       nonce,
 			ClassHash:   classHash,
-			StorageRoot: root,
+			StorageRoot: &root,
 		}
 	}
 
@@ -242,7 +232,7 @@ func getContractStorageProof(state blockchain.StateReader, storageKeys []Storage
 			return nil, err
 		}
 
-		contractStorageProof := trie.NewProofNodeSet()
+		contractStorageProof := trie2.NewProofNodeSet()
 		for _, key := range storageKey.Keys {
 			if err := contractStorageTrie.Prove(&key, contractStorageProof); err != nil {
 				return nil, err
@@ -255,24 +245,24 @@ func getContractStorageProof(state blockchain.StateReader, storageKeys []Storage
 	return contractStorageRes, nil
 }
 
-func adaptProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
+func adaptProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
 	for i, hash := range proof.Keys() {
 		var node Node
 
 		switch n := nodeList[i].(type) {
-		case *trie.Binary:
+		case *trie2.BinaryNode:
 			node = &BinaryNode{
-				Left:  n.LeftHash,
-				Right: n.RightHash,
+				Left:  nodeFelt(n.Children[0]),
+				Right: nodeFelt(n.Children[1]),
 			}
-		case *trie.Edge:
-			path := n.Path.Felt()
+		case *trie2.EdgeNode:
+			pathFelt := n.Path.Felt()
 			node = &EdgeNode{
-				Path:   path.String(),
+				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  n.Child,
+				Child:  nodeFelt(n.Child),
 			}
 		}
 
@@ -285,13 +275,24 @@ func adaptProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	return nodes
 }
 
+func nodeFelt(n trie2.Node) *felt.Felt {
+	switch n := n.(type) {
+	case *trie2.HashNode:
+		return &n.Felt
+	case *trie2.ValueNode:
+		return &n.Felt
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
+}
+
 type StorageKeys struct {
 	Contract *felt.Felt  `json:"contract_address"`
 	Keys     []felt.Felt `json:"storage_keys"`
 }
 
 type Node interface {
-	AsProofNode() trie.ProofNode
+	TrieNode() trie2.Node
 }
 
 type BinaryNode struct {
@@ -305,20 +306,20 @@ type EdgeNode struct {
 	Child  *felt.Felt `json:"child"`
 }
 
-func (e *EdgeNode) AsProofNode() trie.ProofNode {
+func (e *EdgeNode) TrieNode() trie2.Node {
 	f, _ := new(felt.Felt).SetString(e.Path)
 	pbs := f.Bytes()
 
-	return &trie.Edge{
-		Path:  new(trie.BitArray).SetBytes(uint8(e.Length), pbs[:]),
-		Child: e.Child,
+	return &trie2.EdgeNode{
+		Path:  new(trie2.Path).SetBytes(uint8(e.Length), pbs[:]),
+		Child: &trie2.HashNode{Felt: *e.Child}, // TODO(weiihann): this could be a value node too
 	}
 }
 
-func (b *BinaryNode) AsProofNode() trie.ProofNode {
-	return &trie.Binary{
-		LeftHash:  b.Left,
-		RightHash: b.Right,
+func (b *BinaryNode) TrieNode() trie2.Node {
+	return &trie2.BinaryNode{
+		// TODO(weiihann): this could be a value node too
+		Children: [2]trie2.Node{&trie2.HashNode{Felt: *b.Left}, &trie2.HashNode{Felt: *b.Right}},
 	}
 }
 
