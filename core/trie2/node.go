@@ -10,106 +10,106 @@ import (
 )
 
 var (
-	_ node = (*binaryNode)(nil)
-	_ node = (*edgeNode)(nil)
-	_ node = (*hashNode)(nil)
-	_ node = (*valueNode)(nil)
+	_ Node = (*BinaryNode)(nil)
+	_ Node = (*EdgeNode)(nil)
+	_ Node = (*HashNode)(nil)
+	_ Node = (*ValueNode)(nil)
 )
 
-type node interface {
-	hash(crypto.HashFn) *felt.Felt // TODO(weiihann): return felt value instead of pointers
-	cache() (*hashNode, bool)
+type Node interface {
+	Hash(crypto.HashFn) *felt.Felt
+	cache() (*HashNode, bool)
 	write(*bytes.Buffer) error
 	String() string
 }
 
 type (
-	binaryNode struct {
-		children [2]node // 0 = left, 1 = right
+	BinaryNode struct {
+		Children [2]Node // 0 = left, 1 = right
 		flags    nodeFlag
 	}
-	edgeNode struct {
-		child node
-		path  *Path
+	EdgeNode struct {
+		Child Node
+		Path  *Path
 		flags nodeFlag
 	}
-	hashNode  struct{ felt.Felt }
-	valueNode struct{ felt.Felt }
+	HashNode  struct{ felt.Felt }
+	ValueNode struct{ felt.Felt }
 )
 
 // nilValueNode is used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
-var nilValueNode = &valueNode{felt.Felt{}}
+var nilValueNode = &ValueNode{felt.Felt{}}
 
 type nodeFlag struct {
-	hash  *hashNode
+	hash  *HashNode
 	dirty bool
 }
 
 func newFlag() nodeFlag { return nodeFlag{dirty: true} }
 
-func (n *binaryNode) hash(hf crypto.HashFn) *felt.Felt {
-	return hf(n.children[0].hash(hf), n.children[1].hash(hf))
+func (n *BinaryNode) Hash(hf crypto.HashFn) *felt.Felt {
+	return hf(n.Children[0].Hash(hf), n.Children[1].Hash(hf))
 }
 
-func (n *edgeNode) hash(hf crypto.HashFn) *felt.Felt {
+func (n *EdgeNode) Hash(hf crypto.HashFn) *felt.Felt {
 	var length [32]byte
-	length[31] = n.path.Len()
-	pathFelt := n.path.Felt()
+	length[31] = n.Path.Len()
+	pathFelt := n.Path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
-	return new(felt.Felt).Add(hf(n.child.hash(hf), &pathFelt), lengthFelt)
+	return new(felt.Felt).Add(hf(n.Child.Hash(hf), &pathFelt), lengthFelt)
 }
 
-func (n *hashNode) hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
-func (n *valueNode) hash(crypto.HashFn) *felt.Felt { return &n.Felt }
+func (n *HashNode) Hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
+func (n *ValueNode) Hash(crypto.HashFn) *felt.Felt { return &n.Felt }
 
-func (n *binaryNode) cache() (*hashNode, bool) { return n.flags.hash, n.flags.dirty }
-func (n *edgeNode) cache() (*hashNode, bool)   { return n.flags.hash, n.flags.dirty }
-func (n *hashNode) cache() (*hashNode, bool)   { return nil, true }
-func (n *valueNode) cache() (*hashNode, bool)  { return nil, true }
+func (n *BinaryNode) cache() (*HashNode, bool) { return n.flags.hash, n.flags.dirty }
+func (n *EdgeNode) cache() (*HashNode, bool)   { return n.flags.hash, n.flags.dirty }
+func (n *HashNode) cache() (*HashNode, bool)   { return nil, true }
+func (n *ValueNode) cache() (*HashNode, bool)  { return nil, true }
 
-func (n *binaryNode) String() string {
+func (n *BinaryNode) String() string {
 	var left, right string
-	if n.children[0] != nil {
-		left = n.children[0].String()
+	if n.Children[0] != nil {
+		left = n.Children[0].String()
 	}
-	if n.children[1] != nil {
-		right = n.children[1].String()
+	if n.Children[1] != nil {
+		right = n.Children[1].String()
 	}
 	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
 		indent(left),
 		indent(right))
 }
 
-func (n *edgeNode) String() string {
+func (n *EdgeNode) String() string {
 	var child string
-	if n.child != nil {
-		child = n.child.String()
+	if n.Child != nil {
+		child = n.Child.String()
 	}
-	return fmt.Sprintf("Edge{\n  path: %s\n  child: %s\n}",
-		n.path.String(),
+	return fmt.Sprintf("Edge{\n  Path: %s\n  Child: %s\n}",
+		n.Path.String(),
 		indent(child))
 }
 
-func (n hashNode) String() string {
+func (n HashNode) String() string {
 	return fmt.Sprintf("Hash(%s)", n.Felt.String())
 }
 
-func (n valueNode) String() string {
+func (n ValueNode) String() string {
 	return fmt.Sprintf("Value(%s)", n.Felt.String())
 }
 
 // TODO(weiihann): check if we want to return a pointer or a value
-func (n *binaryNode) copy() *binaryNode { cpy := *n; return &cpy }
-func (n *edgeNode) copy() *edgeNode     { cpy := *n; return &cpy }
+func (n *BinaryNode) copy() *BinaryNode { cpy := *n; return &cpy }
+func (n *EdgeNode) copy() *EdgeNode     { cpy := *n; return &cpy }
 
-func (n *edgeNode) pathMatches(key *Path) bool {
-	return n.path.EqualMSBs(key)
+func (n *EdgeNode) pathMatches(key *Path) bool {
+	return n.Path.EqualMSBs(key)
 }
 
 // Returns the common bits between the current node and the given key, starting from the most significant bit
-func (n *edgeNode) commonPath(key *Path) Path {
+func (n *EdgeNode) commonPath(key *Path) Path {
 	var commonPath Path
-	commonPath.CommonMSBs(n.path, key)
+	commonPath.CommonMSBs(n.Path, key)
 	return commonPath
 }
 
