@@ -5,7 +5,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 )
 
 type Pending struct {
@@ -69,14 +69,14 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) ClassTrie() (*trie.Trie, error) {
+func (p *PendingState) ClassTrie() (*trie2.Trie, error) {
 	return nil, state.ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractTrie() (*trie.Trie, error) {
+func (p *PendingState) ContractTrie() (*trie2.Trie, error) {
 	return nil, state.ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
 	return nil, state.ErrHistoricalTrieNotSupported
 }

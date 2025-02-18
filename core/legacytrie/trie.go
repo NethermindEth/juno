@@ -1,5 +1,5 @@
 // Package trie implements a dense Merkle Patricia Trie. See the documentation on [Trie] for details.
-package trie
+package legacytrie
 
 import (
 	"errors"
@@ -13,8 +13,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
-
-const globalTrieHeight = 251 // TODO(weiihann): this is declared in core also, should be moved to a common place
 
 // Trie is a dense Merkle Patricia Trie (i.e., all internal nodes have two children).
 //
