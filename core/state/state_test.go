@@ -260,7 +260,6 @@ func TestNonce(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	t.Skip("TODO(weiihann): remove this once integration is done")
 	txn, commit := setupState(t, nil, 0)
 	defer commit()
 

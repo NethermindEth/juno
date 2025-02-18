@@ -4,7 +4,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -34,9 +34,9 @@ type ClassReader interface {
 }
 
 type TrieProvider interface {
-	ClassTrie() (*trie.Trie, error)
-	ContractTrie() (*trie.Trie, error)
-	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
+	ClassTrie() (*trie2.Trie, error)
+	ContractTrie() (*trie2.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error)
 }
 
 // HeadState returns a StateReader that provides a stable view to the latest state
