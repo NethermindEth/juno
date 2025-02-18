@@ -655,7 +655,6 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("db should be empty after block0 revert", func(t *testing.T) {
-		t.Skip("TODO(weiihann):still has some leftover data in the db, resolve this")
 		txn, commit := setupState(t, stateUpdates, 1)
 		defer commit()
 
