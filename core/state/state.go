@@ -227,23 +227,9 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 }
 
 func (s *State) Commit(storeHistory bool, blockNum uint64) (*felt.Felt, error) {
-	keys := slices.SortedStableFunc(maps.Keys(s.dirtyContracts), func(a, b felt.Felt) int {
-		// Sort in descending order of the number of storage changes
-		// so that we start with the heaviest update first
-		contractA, contractB := s.dirtyContracts[a], s.dirtyContracts[b]
-
-		// Handle nil cases first
-		switch {
-		case contractA == nil && contractB == nil:
-			return 0
-		case contractA == nil:
-			return 1 // Move nil contracts to end
-		case contractB == nil:
-			return -1 // Keep non-nil contracts first
-		}
-
-		return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
-	})
+	// Sort in descending order of the number of storage changes
+	// so that we start with the heaviest update first
+	keys := slices.SortedStableFunc(maps.Keys(s.dirtyContracts), s.compareContracts)
 
 	// Commit contracts in parallel in a buffered transaction
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
@@ -654,4 +640,19 @@ func stateCommitment(contractRoot, classRoot *felt.Felt) *felt.Felt {
 
 func classKey(classHash *felt.Felt) []byte {
 	return db.Class.Key(classHash.Marshal())
+}
+
+func (s *State) compareContracts(a, b felt.Felt) int {
+	contractA, contractB := s.dirtyContracts[a], s.dirtyContracts[b]
+
+	switch {
+	case contractA == nil && contractB == nil:
+		return 0
+	case contractA == nil:
+		return 1 // Move nil contracts to end
+	case contractB == nil:
+		return -1 // Keep non-nil contracts first
+	}
+
+	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 }
