@@ -56,7 +56,7 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	log utils.SimpleLogger, database db.DB,
 ) (*Service, error) {
 	if addr == "" {
-		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
+		// 0.0.0.0/tcp/0 will listen on any interface device and assign a free port.
 		addr = "/ip4/0.0.0.0/tcp/0"
 	}
 	sourceMultiAddr, err := multiaddr.NewMultiaddr(addr)
