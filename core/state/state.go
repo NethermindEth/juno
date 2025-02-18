@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
 )
@@ -115,15 +114,15 @@ func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
 	return &class, nil
 }
 
-func (s *State) ClassTrie() (*trie.Trie, error) {
-	panic("not implemented")
+func (s *State) ClassTrie() (*trie2.Trie, error) {
+	return s.classTrie, nil
 }
 
-func (s *State) ContractTrie() (*trie.Trie, error) {
-	panic("not implemented")
+func (s *State) ContractTrie() (*trie2.Trie, error) {
+	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
+func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
 	panic("not implemented")
 }
 
@@ -134,7 +133,6 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 		return err
 	}
 
-	// TODO(weiihann): try sorting the declaredClass by hashes in descending order
 	// Register the declared classes
 	for hash, class := range declaredClasses {
 		if err := s.putClass(&hash, class, blockNum); err != nil {
