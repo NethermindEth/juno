@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"runtime"
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
@@ -12,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
+	"github.com/sourcegraph/conc/pool"
 )
 
 const (
@@ -243,25 +245,43 @@ func (s *State) Commit(storeHistory bool, blockNum uint64) (*felt.Felt, error) {
 		return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 	})
 
-	for _, addr := range keys {
+	// Commit contracts in parallel in a buffered transaction
+	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
+	bufTxn := db.NewBufferedTransaction(s.txn)
+	comms := make([]*felt.Felt, len(keys))
+	for i, addr := range keys {
 		contract := s.dirtyContracts[addr]
 
-		// Contract is marked as deleted
-		if contract == nil {
-			if err := s.deleteContract(addr); err != nil {
-				return nil, err
+		p.Go(func() error {
+			// Contract is marked as deleted
+			if contract == nil {
+				if err := s.deleteContract(bufTxn, addr); err != nil {
+					return err
+				}
+				comms[i] = &felt.Zero
+				return nil
 			}
-			continue
-		}
 
-		// Otherwise, commit the contract changes and update the contract trie
-		err := contract.Commit(s.txn, storeHistory, blockNum)
-		if err != nil {
-			return nil, err
-		}
+			// Otherwise, commit the contract changes
+			if err := contract.Commit(bufTxn, storeHistory, blockNum); err != nil {
+				return err
+			}
+			comms[i] = contract.Commitment()
+			return nil
+		})
+	}
 
-		ctComm := contract.Commitment()
-		if err := s.contractTrie.Update(contract.Address, ctComm); err != nil {
+	if err := p.Wait(); err != nil {
+		return nil, err
+	}
+
+	if err := bufTxn.Flush(); err != nil {
+		return nil, err
+	}
+
+	// Update the contract trie with the new commitments
+	for i, addr := range keys {
+		if err := s.contractTrie.Update(&addr, comms[i]); err != nil {
 			return nil, err
 		}
 
@@ -269,7 +289,8 @@ func (s *State) Commit(storeHistory bool, blockNum uint64) (*felt.Felt, error) {
 		// Updating contracts with reverse diff will eventually lead to the deletion of noClassContract's storage key from db. Thus,
 		// we can use the lack of key's existence as reason for purging noClassContracts.
 		for nAddr := range noClassContracts {
-			if contract.Address.Equal(&nAddr) {
+			if addr.Equal(&nAddr) {
+				contract := s.dirtyContracts[addr]
 				root, err := contract.GetStorageRoot(s.txn)
 				if err != nil {
 					return nil, err
@@ -297,6 +318,7 @@ func (s *State) Commit(storeHistory bool, blockNum uint64) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return stateCommitment(&contractRoot, &classRoot), nil
 }
 
@@ -407,18 +429,14 @@ func (s *State) deleteHistory(blockNum uint64, diff *core.StateDiff) error {
 	return nil
 }
 
-func (s *State) deleteContract(addr felt.Felt) error {
-	if err := s.contractTrie.Update(&addr, &felt.Zero); err != nil {
-		return err
-	}
-
-	if err := s.txn.Delete(contractKey(&addr)); err != nil {
+func (s *State) deleteContract(txn db.Transaction, addr felt.Felt) error {
+	if err := txn.Delete(contractKey(&addr)); err != nil {
 		return err
 	}
 
 	// Create a temporary contract with zero values so that we can delete the storage trie
 	tempContract := NewStateContract(&addr, &felt.Zero, &felt.Zero, 0)
-	err := tempContract.deleteStorageTrie(s.txn)
+	err := tempContract.deleteStorageTrie(txn)
 	if err != nil {
 		return err
 	}
