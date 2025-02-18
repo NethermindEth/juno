@@ -37,7 +37,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
-		classInfo.SierraVersion = c.SemanticVersion
+		classInfo.SierraVersion = c.Compiled.CompilerVersion
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
