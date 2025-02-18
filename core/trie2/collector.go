@@ -18,11 +18,11 @@ func newCollector(nodes *trienode.NodeSet) *collector {
 }
 
 // Collects the nodes in the node set and collapses a node into a hash node
-func (c *collector) Collect(n node, parallel bool) *hashNode {
-	return c.collect(new(Path), n, parallel).(*hashNode)
+func (c *collector) Collect(n Node, parallel bool) *HashNode {
+	return c.collect(new(Path), n, parallel).(*HashNode)
 }
 
-func (c *collector) collect(path *Path, n node, parallel bool) node {
+func (c *collector) collect(path *Path, n Node, parallel bool) Node {
 	// This path has not been modified, just return the cache
 	hash, dirty := n.cache()
 	if hash != nil && !dirty {
@@ -31,21 +31,21 @@ func (c *collector) collect(path *Path, n node, parallel bool) node {
 
 	// Collect children and then parent
 	switch cn := n.(type) {
-	case *edgeNode:
+	case *EdgeNode:
 		collapsed := cn.copy()
 
 		// If the child is a binary node, recurse into it.
-		// Otherwise, it can only be a hashNode or valueNode.
+		// Otherwise, it can only be a HashNode or ValueNode.
 		// Combination of edge (parent) + edge (child) is not possible.
-		collapsed.child = c.collect(new(Path).Append(path, cn.path), cn.child, parallel)
+		collapsed.Child = c.collect(new(Path).Append(path, cn.Path), cn.Child, parallel)
 		return c.store(path, collapsed)
-	case *binaryNode:
+	case *BinaryNode:
 		collapsed := cn.copy()
-		collapsed.children = c.collectChildren(path, cn, parallel)
+		collapsed.Children = c.collectChildren(path, cn, parallel)
 		return c.store(path, collapsed)
-	case *hashNode:
+	case *HashNode:
 		return cn
-	case *valueNode: // each leaf node is stored as a single entry in the node set
+	case *ValueNode: // each leaf node is stored as a single entry in the node set
 		return c.store(path, cn)
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", cn))
@@ -53,14 +53,14 @@ func (c *collector) collect(path *Path, n node, parallel bool) node {
 }
 
 // Collects the children of a binary node, may apply parallel processing if configured
-func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2]node {
-	children := [2]node{}
+func (c *collector) collectChildren(path *Path, n *BinaryNode, parallel bool) [2]Node {
+	children := [2]Node{}
 
 	// Helper function to process a single child
 	processChild := func(i int) {
-		child := n.children[i]
+		child := n.Children[i]
 		// Return early if it's already a hash node
-		if hn, ok := child.(*hashNode); ok {
+		if hn, ok := child.(*HashNode); ok {
 			children[i] = hn
 			return
 		}
@@ -106,7 +106,7 @@ func (c *collector) collectChildren(path *Path, n *binaryNode, parallel bool) [2
 }
 
 // Stores the node in the node set and returns the hash node
-func (c *collector) store(path *Path, n node) node {
+func (c *collector) store(path *Path, n Node) Node {
 	hash, _ := n.cache()
 
 	blob := nodeToBytes(n)
