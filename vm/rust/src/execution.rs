@@ -106,7 +106,7 @@ fn get_gas_vector_computation_mode<S>(
 where
     S: UpdatableState,
 {
-    let original_tx = transaction.clone();
+    let mut original_tx = transaction.clone();
     let initial_gas_limit = extract_l2_gas_limit(transaction);
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
@@ -197,7 +197,7 @@ where
 
     if original_charge_fee {
         if let Transaction::Account(_) = transaction {
-            set_l2_gas_limit(transaction, l2_gas_limit);
+            set_l2_gas_limit(&mut original_tx, l2_gas_limit);
             return original_tx.execute(state, block_context);
         }
     }
