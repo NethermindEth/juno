@@ -375,7 +375,7 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 
 func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.Transaction, _ *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
-	// We instead define a cutom struct to force the encoder to use the default encoding.
+	// We instead define a custom struct to force the encoder to use the default encoding.
 	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
