@@ -145,34 +145,3 @@ func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error
 
 	return rpcClass, nil
 }
-
-// ClassAt gets the contract class definition in the given block instantiated by the given contract address
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L329
-func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error) {
-	classHash, err := h.ClassHashAt(id, address)
-	if err != nil {
-		return nil, err
-	}
-	return h.Class(id, *classHash)
-}
-
-// ClassHashAt gets the class hash for the contract deployed at the given address in the given block.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
-func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
-
-	classHash, err := stateReader.ContractClassHash(&address)
-	if err != nil {
-		return nil, rpccore.ErrContractNotFound
-	}
-
-	return classHash, nil
-}
