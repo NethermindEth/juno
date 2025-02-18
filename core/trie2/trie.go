@@ -96,9 +96,6 @@ func (t *Trie) Update(key, value *felt.Felt) error {
 // Retrieves the value associated with the given key.
 // Returns felt.Zero if the key doesn't exist.
 // May update the trie's internal structure if nodes need to be resolved.
-// TODO(weiihann):
-// The State should keep track of the modified key and values, so that we can avoid traversing the trie
-// No action needed for the Trie, remove this once State provides the functionality
 func (t *Trie) Get(key *felt.Felt) (felt.Felt, error) {
 	if t.committed {
 		return felt.Zero, ErrCommitted
@@ -196,6 +193,10 @@ func (t *Trie) Commit() (felt.Felt, error) {
 	}
 
 	return rootHash, nil
+}
+
+func (t *Trie) NodeIterator() (db.Iterator, error) {
+	return t.db.NewIterator(t.owner)
 }
 
 func (t *Trie) Copy() *Trie {
@@ -373,9 +374,10 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 		if match.Len() < n.Path.Len() {
 			return false, n, nil
 		}
-		// If the whole key matches, remove the entire edge node
+		// If the whole key matches, remove the entire edge node and its child
 		if match.Len() == key.Len() {
-			t.nodeTracer.onDelete(prefix)
+			t.nodeTracer.onDelete(prefix)                        // delete edge node
+			t.nodeTracer.onDelete(new(Path).Append(prefix, key)) // delete value node
 			return true, nil, nil
 		}
 
@@ -438,6 +440,7 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 		// containing the other child as the child
 		return true, &EdgeNode{Path: bitPrefix, Child: n.Children[other], flags: newFlag()}, nil
 	case *ValueNode:
+		t.nodeTracer.onDelete(key)
 		return true, nil, nil
 	case nil:
 		return false, nil, nil
