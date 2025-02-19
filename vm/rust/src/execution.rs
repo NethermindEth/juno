@@ -26,8 +26,8 @@ pub fn execute_transaction(
         block_context,
         &determine_gas_vector_mode(txn),
     ) {
-        Ok(true) => {println!("{}","get_gas_vector_computation_mode");get_gas_vector_computation_mode(txn, txn_state, block_context)},
-        Ok(false) => {println!("{}","execute");txn.execute(txn_state, block_context)},
+        Ok(true) => get_gas_vector_computation_mode(txn, txn_state, block_context),
+        Ok(false) => txn.execute(txn_state, block_context),
         Err(error) => Err(TransactionExecutionError::StateError(error)),
     }
 }
