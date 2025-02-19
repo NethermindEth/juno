@@ -1,5 +1,3 @@
-use std::os::linux::raw::stat;
-
 use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::fee::fee_checks::FeeCheckError;
@@ -145,7 +143,7 @@ where
     let l2_gas_adjusted = GasAmount(gas_used.saturating_add(gas_used / 10));
     set_l2_gas_limit(transaction, l2_gas_adjusted);
 
-    let (l2_gas_limit, mut execution_info, tx_state) =
+    let (l2_gas_limit, _, tx_state) =
         match simulate_execution(transaction, state, block_context) {
             Ok((tx_info, tx_state)) => {
                 // If 110% of the actual transaction gas fee is enough, we use that
