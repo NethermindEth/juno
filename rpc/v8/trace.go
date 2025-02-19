@@ -329,13 +329,35 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	return result, httpHeader, nil
 }
 
-// Clean trace inner execution resources to return only the expected fields
+// Clean trace's inner execution resources to return only the expected fields
 func cleanTraceInnerExecutionResources(trace *vm.TransactionTrace) {
-	var cleanInnerExecutionResources func(*vm.FunctionInvocation)
-	cleanInnerExecutionResources = func(fnInvocation *vm.FunctionInvocation) {
-		if fnInvocation == nil {
-			return
+	// Stack to process FunctionInvocations iteratively (dfs)
+	stack := []*vm.FunctionInvocation{}
+
+	pushFnInvocationIfNotNil := func(fn *vm.FunctionInvocation) {
+		if fn != nil {
+			stack = append(stack, fn)
 		}
+	}
+
+	pushFnInvocationIfNotNil(trace.FeeTransferInvocation)
+	pushFnInvocationIfNotNil(trace.ValidateInvocation)
+
+	switch trace.Type {
+	case vm.TxnDeploy, vm.TxnDeployAccount:
+		pushFnInvocationIfNotNil(trace.ConstructorInvocation)
+	case vm.TxnInvoke:
+		pushFnInvocationIfNotNil(trace.ExecuteInvocation.FunctionInvocation)
+	case vm.TxnL1Handler:
+		pushFnInvocationIfNotNil(trace.FunctionInvocation)
+	}
+
+	// Clean all inner execution resources
+	for len(stack) > 0 {
+		// Pop a FunctionInvocation from the stack
+		n := len(stack) - 1
+		fnInvocation := stack[n]
+		stack = stack[:n]
 
 		// Keep only wanted execution resources fields
 		if fnInvocation.ExecutionResources != nil {
@@ -350,27 +372,12 @@ func cleanTraceInnerExecutionResources(trace *vm.TransactionTrace) {
 				L1Gas: fnInvocation.ExecutionResources.L1Gas,
 				L2Gas: fnInvocation.ExecutionResources.L2Gas,
 			}
-
 		}
 
-		// Clean inner execution resources recursively
-		for i := range len(fnInvocation.Calls) {
-			cleanInnerExecutionResources(&fnInvocation.Calls[i])
+		// Push child function invocations onto the stack (dfs pre-order even though order does not matter)
+		for i := len(fnInvocation.Calls) - 1; i >= 0; i-- {
+			stack = append(stack, &fnInvocation.Calls[i])
 		}
-	}
-
-	cleanInnerExecutionResources(trace.FeeTransferInvocation)
-	cleanInnerExecutionResources(trace.ValidateInvocation)
-
-	switch trace.Type {
-	case vm.TxnDeploy:
-		cleanInnerExecutionResources(trace.ConstructorInvocation)
-	case vm.TxnDeployAccount:
-		cleanInnerExecutionResources(trace.ConstructorInvocation)
-	case vm.TxnInvoke:
-		cleanInnerExecutionResources(trace.ExecuteInvocation.FunctionInvocation)
-	case vm.TxnL1Handler:
-		cleanInnerExecutionResources(trace.FunctionInvocation)
 	}
 }
 
