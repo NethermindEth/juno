@@ -346,11 +346,15 @@ pub extern "C" fn cairoVMExecute(
         match execute_transaction(&mut txn, &mut txn_state, &block_context) {
             Err(error) => {
                 let err_string = match &error {
-                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
-                        format!("{error} {e}")
-                    }
-                    other => other.to_string(),
+                    execution::ExecutionError::TransactionExecutionError(
+                        transaction_execution_error,
+                    ) => match transaction_execution_error {
+                        ContractConstructorExecutionFailed(e) => format!("{:?}", e),
+                        ExecutionError { error: e, .. } => format!("{:?}", e),
+                        ValidateTransactionError { error: e, .. } => format!("{:?}", e),
+                        other => other.to_string(),
+                    },
+                    execution::ExecutionError::CustomError(error) => error.to_string(),
                 };
                 report_error(
                     reader_handle,
