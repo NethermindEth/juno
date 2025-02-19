@@ -50,6 +50,7 @@ pub fn is_l2_gas_accounting_enabled(
         return Ok(false);
     }
 
+  
     let min_sierra_version = &block_context
         .versioned_constants()
         .min_sierra_version_for_sierra_gas;
@@ -106,14 +107,24 @@ fn get_gas_vector_computation_mode<S>(
 where
     S: UpdatableState,
 {
-    let original_tx = transaction.clone();
     let initial_gas_limit = extract_l2_gas_limit(transaction);
+    let mut original_transaction = transaction.clone();
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
+// TODO: Consider getting the upper bound from the balance and not changing the execution flags
+    match transaction {
+        Transaction::Account(account_transaction) => {
+            account_transaction.execution_flags.charge_fee = false;
+            account_transaction.execution_flags.validate = false;
+        }
+        _ =>{},
+    };
     let (simulation_result, _) = match simulate_execution(transaction, state, block_context) {
         Ok(info) => info,
-        Err(SimulationError::ExecutionError(error)) => return Err(error),
+        Err(SimulationError::ExecutionError(error)) => {
+            return Err(error);
+        }
         Err(SimulationError::OutOfGas(gas)) => {
             return Err(TransactionExecutionError::FeeCheckError(
                 FeeCheckError::MaxGasAmountExceeded {
@@ -131,7 +142,7 @@ where
     let l2_gas_adjusted = GasAmount(gas_used.saturating_add(gas_used / 10));
     set_l2_gas_limit(transaction, l2_gas_adjusted);
 
-    let (l2_gas_limit, mut execution_info, tx_state) =
+    let (l2_gas_limit, _, tx_state) =
         match simulate_execution(transaction, state, block_context) {
             Ok((tx_info, tx_state)) => {
                 // If 110% of the actual transaction gas fee is enough, we use that
@@ -179,17 +190,25 @@ where
             }
             Err(SimulationError::ExecutionError(error)) => return Err(error),
         };
+    tx_state.abort();
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
+    // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
+    // in the case where the user defined gas limit is less than the required gas limit
     if l2_gas_limit > initial_gas_limit {
-        return original_tx.execute(state, block_context);
+        set_l2_gas_limit(&mut original_transaction, GasAmount(0));
+        return original_transaction.execute(state, block_context);
     }
 
-    // Execute the transaction with the determined gas limit and update the estimate.
-    tx_state.commit();
-    execution_info.receipt.gas.l2_gas = l2_gas_limit;
+    set_l2_gas_limit(&mut original_transaction, initial_gas_limit);
+    let mut simulated_state = CachedState::<_>::create_transactional(state);
+    let mut exec_info =  original_transaction.execute(&mut simulated_state, block_context)?;
 
-    Ok(execution_info)
+    // Execute the transaction with the determined gas limit and update the estimate.
+    simulated_state.commit();
+    exec_info.receipt.gas.l2_gas = l2_gas_limit;
+
+    Ok(exec_info)
 }
 
 fn calculate_midpoint(a: GasAmount, b: GasAmount) -> GasAmount {
