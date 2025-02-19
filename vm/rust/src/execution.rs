@@ -109,12 +109,11 @@ where
     S: UpdatableState,
 {
     println!("{}","get_gas_vector_computation_mode");
-    let mut original_tx = transaction.clone();
     let initial_gas_limit = extract_l2_gas_limit(transaction);
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
-    let (original_charge_fee, original_validate) = match transaction {
+    match transaction {
         Transaction::Account(account_transaction) => {
             let charge_fee = account_transaction.execution_flags.charge_fee;
             account_transaction.execution_flags.charge_fee = false;
@@ -194,23 +193,22 @@ where
             }
             Err(SimulationError::ExecutionError(error)) => return Err(error),
         };
+    tx_state.abort();
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
+    // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
+    // in the case where the user defined gas limit is less than the required gas limit
     if l2_gas_limit > initial_gas_limit {
-        return original_tx.execute(state, block_context);
+        set_l2_gas_limit(transaction, GasAmount(0));
+        return transaction.execute(state, block_context);
     }
-
-    // if original_charge_fee || original_validate {
-    //     if let Transaction::Account(_) = transaction {
-    //         set_l2_gas_limit(&mut original_tx, l2_gas_limit);
-    //         return original_tx.execute(state, block_context);
-    //     }
-    // }
-    tx_state.abort();
-    let mut info =  original_tx.execute(state, block_context)?;
     
+    set_l2_gas_limit(transaction, initial_gas_limit);
+    let mut simulated_state = CachedState::<_>::create_transactional(state);
+    let mut info =  transaction.execute(&mut simulated_state, block_context)?;
+
     // Execute the transaction with the determined gas limit and update the estimate.
-    // state.commit();
+    simulated_state.commit();
     info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(info)
