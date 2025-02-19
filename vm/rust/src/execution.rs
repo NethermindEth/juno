@@ -108,6 +108,7 @@ where
     S: UpdatableState,
 {
     let initial_gas_limit = extract_l2_gas_limit(transaction);
+    let mut original_transaction = transaction.clone();
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
@@ -194,13 +195,13 @@ where
     // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
     // in the case where the user defined gas limit is less than the required gas limit
     if l2_gas_limit > initial_gas_limit {
-        set_l2_gas_limit(transaction, GasAmount(0));
-        return transaction.execute(state, block_context);
+        set_l2_gas_limit(&mut original_transaction, GasAmount(0));
+        return original_transaction.execute(state, block_context);
     }
 
-    set_l2_gas_limit(transaction, initial_gas_limit);
+    set_l2_gas_limit(&mut original_transaction, initial_gas_limit);
     let mut simulated_state = CachedState::<_>::create_transactional(state);
-    let mut exec_info =  transaction.execute(&mut simulated_state, block_context)?;
+    let mut exec_info =  original_transaction.execute(&mut simulated_state, block_context)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     simulated_state.commit();
