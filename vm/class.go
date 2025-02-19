@@ -58,6 +58,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 // "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
 // For all subsequent versions the version number is the first three felts
 // representing the three parts of a semantic version number.
+// TODO: There should be an implementation in the blockifier. If there is, move it to the rust part.
 func parseSierraVersion(prog []*felt.Felt) (string, error) {
 	if len(prog) == 0 {
 		return "", errors.New("failed to parse sierra version in classInfo")
