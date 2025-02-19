@@ -87,7 +87,7 @@ func offlineSync(cmd *cobra.Command, _ []string) error {
 	nodeBc := blockchain.New(nodeDB, &utils.Mainnet, nil)
 
 	startTime := time.Now()
-	for i := start + 1; i < end+1; i++ {
+	for i := start; i < end+1; i++ {
 		lastTime := time.Now()
 		block, err := feederBc.BlockByNumber(i)
 		if err != nil {
