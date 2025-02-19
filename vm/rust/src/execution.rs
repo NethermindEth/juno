@@ -1,3 +1,5 @@
+use std::os::linux::raw::stat;
+
 use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::fee::fee_checks::FeeCheckError;
@@ -27,7 +29,7 @@ pub fn execute_transaction(
         &determine_gas_vector_mode(txn),
     ) {
         Ok(true) => get_gas_vector_computation_mode(txn, txn_state, block_context),
-        Ok(false) => txn.execute(txn_state, block_context),
+        Ok(false) => {println!("{}","execute");txn.execute(txn_state, block_context)},
         Err(error) => Err(TransactionExecutionError::StateError(error)),
     }
 }
@@ -106,6 +108,7 @@ fn get_gas_vector_computation_mode<S>(
 where
     S: UpdatableState,
 {
+    println!("{}","get_gas_vector_computation_mode");
     let mut original_tx = transaction.clone();
     let initial_gas_limit = extract_l2_gas_limit(transaction);
 
@@ -197,18 +200,20 @@ where
         return original_tx.execute(state, block_context);
     }
 
-    if original_charge_fee || original_validate {
-        if let Transaction::Account(_) = transaction {
-            set_l2_gas_limit(&mut original_tx, l2_gas_limit);
-            return original_tx.execute(state, block_context);
-        }
-    }
-
+    // if original_charge_fee || original_validate {
+    //     if let Transaction::Account(_) = transaction {
+    //         set_l2_gas_limit(&mut original_tx, l2_gas_limit);
+    //         return original_tx.execute(state, block_context);
+    //     }
+    // }
+    tx_state.abort();
+    let mut info =  original_tx.execute(state, block_context)?;
+    
     // Execute the transaction with the determined gas limit and update the estimate.
-    tx_state.commit();
-    execution_info.receipt.gas.l2_gas = l2_gas_limit;
+    // state.commit();
+    info.receipt.gas.l2_gas = l2_gas_limit;
 
-    Ok(execution_info)
+    Ok(info)
 }
 
 fn calculate_midpoint(a: GasAmount, b: GasAmount) -> GasAmount {
