@@ -143,7 +143,7 @@ func TestTraceTransaction(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		executionResources := `{
+		innerCallExecResources := `{
 			"pedersen": 0,
 			"rangecheck": 0,
 			"bitwise": 0,
@@ -153,11 +153,7 @@ func TestTraceTransaction(t *testing.T) {
 			"poseidon": 0,
 			"segmentarena": 0,
 			"memoryholes": 0,
-			"steps": 1,
-			"data_availability": {
-				"l1_gas": 1,
-				"l1_data_gas": 1
-			}
+			"steps": 1
 		}`
 
 		vmTraceJSON := fmt.Sprintf(`{
@@ -172,7 +168,7 @@ func TestTraceTransaction(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`, executionResources)
+		}`, innerCallExecResources)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 		dataGas := []core.DataAvailability{{L1Gas: 1, L1DataGas: 0}}
@@ -193,8 +189,9 @@ func TestTraceTransaction(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
+		// Root level execution resources
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
-			ComputationResources: vm.ComputationResources{
+			ComputationResources: &vm.ComputationResources{
 				Steps: 3,
 			},
 			DataAvailability: &vm.DataAvailability{
@@ -240,7 +237,7 @@ func TestTraceTransaction(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
-		executionResources := `{
+		innerCallExecResources := `{
 			"pedersen": 0,
 			"rangecheck": 0,
 			"bitwise": 0,
@@ -250,11 +247,7 @@ func TestTraceTransaction(t *testing.T) {
 			"poseidon": 0,
 			"segmentarena": 0,
 			"memoryholes": 0,
-			"steps": 0,
-			"data_availability": {
-				"l1_gas": 1,
-				"l1_data_gas": 1
-			}
+			"steps": 0
 		}`
 
 		vmTraceJSON := fmt.Sprintf(`{
@@ -269,7 +262,7 @@ func TestTraceTransaction(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`, executionResources)
+		}`, innerCallExecResources)
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 		consumedGas := []core.DataAvailability{{L1Gas: 1, L1DataGas: 0}}
@@ -289,8 +282,9 @@ func TestTraceTransaction(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
+		// Root level execution resources
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
-			// other of fields are zero
+			ComputationResources: &vm.ComputationResources{},
 			DataAvailability: &vm.DataAvailability{
 				L1Gas: 1,
 			},
@@ -375,11 +369,24 @@ func TestTraceBlockTransactions(t *testing.T) {
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
+		innerCallExecResources := `{
+			"pedersen": 0,
+			"rangecheck": 0,
+			"bitwise": 0,
+			"ecdsa": 0,
+			"ecop": 0,
+			"keccak": 0,
+			"poseidon": 0,
+			"segmentarena": 0,
+			"memoryholes": 0,
+			"steps": 0
+		}`
+
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
-		vmTraceJSON := json.RawMessage(`{
-			"validate_invocation": {"execution_resources":{}},
-			"execute_invocation": {"execution_resources":{}},
-			"fee_transfer_invocation": {"execution_resources":{}},
+		vmTraceJSON := fmt.Sprintf(`{
+			"validate_invocation": {"execution_resources":%[1]s},
+			"execute_invocation": {"execution_resources":%[1]s},
+			"fee_transfer_invocation": {"execution_resources":%[1]s},
 			"state_diff": {
 				"storage_diffs": [],
 				"nonces": [],
@@ -388,11 +395,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`)
+		}`, innerCallExecResources)
 		vmTrace := vm.TransactionTrace{}
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
-		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
+		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false).
 			Return(vm.ExecutionResults{
@@ -405,13 +412,27 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, &vm.TransactionTrace{
-			ValidateInvocation: &vm.FunctionInvocation{ExecutionResources: &vm.ExecutionResources{}},
-			ExecuteInvocation: &vm.ExecuteInvocation{FunctionInvocation: &vm.FunctionInvocation{
-				ExecutionResources: &vm.ExecutionResources{},
-			}},
-			FeeTransferInvocation: &vm.FunctionInvocation{ExecutionResources: &vm.ExecutionResources{}},
+			ValidateInvocation: &vm.FunctionInvocation{
+				ExecutionResources: &vm.ExecutionResources{
+					ComputationResources: &vm.ComputationResources{},
+				},
+			},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{
+					ExecutionResources: &vm.ExecutionResources{
+						ComputationResources: &vm.ComputationResources{},
+					},
+				},
+			},
+			FeeTransferInvocation: &vm.FunctionInvocation{
+				ExecutionResources: &vm.ExecutionResources{
+					ComputationResources: &vm.ComputationResources{},
+				},
+			},
+			// Root level execution resources
 			ExecutionResources: &vm.ExecutionResources{
-				DataAvailability: &vm.DataAvailability{},
+				ComputationResources: &vm.ComputationResources{},
+				DataAvailability:     &vm.DataAvailability{},
 			},
 			StateDiff: &vm.StateDiff{
 				StorageDiffs:              []vm.StorageDiff{},
@@ -455,11 +476,28 @@ func TestTraceBlockTransactions(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		vmTraceJSON := json.RawMessage(`{
-			"validate_invocation":{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[], "execution_resources":{}},
-			"execute_invocation":{"entry_point_selector":"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194","calldata":["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"CONSTRUCTOR","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","calldata":["0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[{"keys":["0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {}},
-			"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {}},
-			"execution_resources": {"data_availability": {}},
+		innerCallExecResources := `
+			"pedersen": 0,
+			"rangecheck": 0,
+			"bitwise": 0,
+			"ecdsa": 0,
+			"ecop": 0,
+			"keccak": 0,
+			"poseidon": 0,
+			"segmentarena": 0,
+			"memoryholes": 0,
+			"steps": 0
+		`
+
+		rootLevelExecResources := innerCallExecResources + `
+			,"data_availability": {}
+		`
+
+		vmTraceJSON := fmt.Sprintf(`{
+			"validate_invocation":{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"EXTERNAL","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x36fcbf06cd96843058359e1a75928beacfac10727dab22a3972f0af8aa92895","calldata":["0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[],"messages":[]}],"events":[],"messages":[], "execution_resources":{%[1]s}},
+			"execute_invocation":{"entry_point_selector":"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194","calldata":["0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","0x2","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x25ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918","entry_point_type":"CONSTRUCTOR","call_type":"CALL","result":[],"calls":[{"entry_point_selector":"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463","calldata":["0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"],"caller_address":"0x0","class_hash":"0x33434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":[],"calls":[],"events":[{"keys":["0x10c19bef19acd19b2c9f4caa40fd47c9fbe1d9f91324d44dcd36be2dae96784"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x322258135d04971e96b747a5551061aa046ad5d8be11a35c67029d96b23f98","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {%[1]s}},
+			"fee_transfer_invocation":{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3","entry_point_type":"EXTERNAL","call_type":"CALL","result":["0x1"],"calls":[{"entry_point_selector":"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e","calldata":["0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"],"caller_address":"0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","class_hash":"0x2760f25d5a4fb2bdde5f561fd0b44a3dee78c28903577d37d669939d97036a0","entry_point_type":"EXTERNAL","call_type":"DELEGATE","result":["0x1"],"calls":[],"events":[{"keys":["0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"],"data":["0xdac9bcffb3d967f19a7fe21002c98c984d5a9458a88e6fc5d1c478a97ed412","0x5dcd266a80b8a5f29f04d779c6b166b80150c24f2180a75e82427242dab20a9","0x15be","0x0"]}],"messages":[]}],"events":[],"messages":[], "execution_resources": {%[1]s}},
+			"execution_resources": {%[2]s},
 			"state_diff": {
 				"storage_diffs": [],
 				"nonces": [],
@@ -468,9 +506,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`)
+		}`, innerCallExecResources, rootLevelExecResources)
 		vmTrace := vm.TransactionTrace{}
-		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
+		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), &vmTrace))
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
@@ -488,6 +526,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			},
 		}
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)

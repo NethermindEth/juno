@@ -178,10 +178,10 @@ func createSimulatedTransactions(
 	for i, overallFee := range overallFees {
 		trace := traces[i]
 		traces[i].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                gasConsumed[i].L1Gas,
-			L1DataGas:            gasConsumed[i].L1DataGas,
-			L2Gas:                gasConsumed[i].L2Gas,
-			ComputationResources: trace.TotalComputationResources(),
+			L1Gas:                &gasConsumed[i].L1Gas,
+			L1DataGas:            &gasConsumed[i].L1DataGas,
+			L2Gas:                &gasConsumed[i].L2Gas,
+			ComputationResources: utils.Ptr(trace.TotalComputationResources()),
 			DataAvailability: &vm.DataAvailability{
 				L1Gas:     daGas[i].L1Gas,
 				L1DataGas: daGas[i].L1DataGas,

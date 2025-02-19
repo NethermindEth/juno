@@ -142,7 +142,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			da := vm.NewDataAvailability(gasConsumed,
 				new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
 			traces[i].ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: trace.TotalComputationResources(),
+				ComputationResources: utils.Ptr(trace.TotalComputationResources()),
 				DataAvailability:     &da,
 			}
 		}

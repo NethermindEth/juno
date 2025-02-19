@@ -57,9 +57,10 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 		{
 			TransactionTrace: &vm.TransactionTrace{
 				ExecutionResources: &vm.ExecutionResources{
-					L1Gas:     100,
-					L1DataGas: 50,
-					L2Gas:     200,
+					L1Gas:                utils.Ptr(uint64(100)),
+					L1DataGas:            utils.Ptr(uint64(50)),
+					L2Gas:                utils.Ptr(uint64(200)),
+					ComputationResources: &vm.ComputationResources{},
 					DataAvailability: &vm.DataAvailability{
 						L1Gas:     5,
 						L1DataGas: 2,
@@ -80,9 +81,10 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 		{
 			TransactionTrace: &vm.TransactionTrace{
 				ExecutionResources: &vm.ExecutionResources{
-					L1Gas:     150,
-					L1DataGas: 70,
-					L2Gas:     250,
+					L1Gas:                utils.Ptr(uint64(150)),
+					L1DataGas:            utils.Ptr(uint64(70)),
+					L2Gas:                utils.Ptr(uint64(250)),
+					ComputationResources: &vm.ComputationResources{},
 					DataAvailability: &vm.DataAvailability{
 						L1Gas:     6,
 						L1DataGas: 3,

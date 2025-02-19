@@ -166,7 +166,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		trace := traces[i]
 
 		traces[i].ExecutionResources = &vm.ExecutionResources{
-			ComputationResources: trace.TotalComputationResources(),
+			ComputationResources: utils.Ptr(trace.TotalComputationResources()),
 			DataAvailability: &vm.DataAvailability{
 				L1Gas:     daGas[i].L1Gas,
 				L1DataGas: daGas[i].L1DataGas,

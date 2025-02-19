@@ -140,7 +140,7 @@ func TestAllMessages(t *testing.T) {
 
 func TestTotalExecutionResources(t *testing.T) {
 	resources := &vm.ExecutionResources{
-		ComputationResources: vm.ComputationResources{
+		ComputationResources: &vm.ComputationResources{
 			Steps:        1,
 			MemoryHoles:  2,
 			Pedersen:     3,

@@ -110,7 +110,7 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
 	builtins := &resources.BuiltinInstanceCounter
 	return &vm.ExecutionResources{
-		ComputationResources: vm.ComputationResources{
+		ComputationResources: &vm.ComputationResources{
 			Steps:        resources.Steps,
 			MemoryHoles:  resources.MemoryHoles,
 			Pedersen:     builtins.Pedersen,
@@ -296,7 +296,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 			da := vm.NewDataAvailability(gasConsumed, l1DAGas,
 				header.L1DAMode)
 			traces[index].ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: trace.TotalComputationResources(),
+				ComputationResources: utils.Ptr(trace.TotalComputationResources()),
 				DataAvailability:     &da,
 			}
 		}

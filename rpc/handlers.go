@@ -212,7 +212,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_traceTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv7Handler.TraceTransaction,
+			Handler: h.rpcv8Handler.TraceTransaction,
 		},
 		{
 			Name:    "starknet_simulateTransactions",
