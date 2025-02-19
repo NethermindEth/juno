@@ -107,6 +107,7 @@ type FilteredEvent struct {
 	BlockNumber     *uint64
 	BlockHash       *felt.Felt
 	TransactionHash *felt.Felt
+	EventIndex      int
 }
 
 //nolint:gocyclo
@@ -220,7 +221,7 @@ func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 ) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
-		for _, event := range receipt.Events {
+		for i, event := range receipt.Events {
 			var blockNumber *uint64
 			// if header.Hash == nil it's a pending block
 			if header.Hash != nil {
@@ -245,6 +246,7 @@ func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 						BlockNumber:     blockNumber,
 						BlockHash:       header.Hash,
 						TransactionHash: receipt.TransactionHash,
+						EventIndex:      i,
 						Event:           event,
 					})
 				} else {
