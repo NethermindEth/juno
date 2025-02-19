@@ -29,7 +29,7 @@ pub fn execute_transaction(
         &determine_gas_vector_mode(txn),
     ) {
         Ok(true) => get_gas_vector_computation_mode(txn, txn_state, block_context),
-        Ok(false) => {println!("{}","execute");txn.execute(txn_state, block_context)},
+        Ok(false) => txn.execute(txn_state, block_context),
         Err(error) => Err(TransactionExecutionError::StateError(error)),
     }
 }
@@ -49,7 +49,6 @@ pub fn is_l2_gas_accounting_enabled(
 
     // L2 gas accounting is disabled if the sender contract is uninitialized.
     if sender_class_hash == ClassHash::default() {
-        println!("{}","==== sender_class_hash was default");
         return Ok(false);
     }
 
@@ -57,7 +56,6 @@ pub fn is_l2_gas_accounting_enabled(
     let min_sierra_version = &block_context
         .versioned_constants()
         .min_sierra_version_for_sierra_gas;
-    println!("{}",sender_class_hash);
     let sender_tracked_resource = state
         .get_compiled_class(sender_class_hash)?
         .tracked_resource(min_sierra_version, None);
@@ -65,9 +63,6 @@ pub fn is_l2_gas_accounting_enabled(
     // L2 gas accounting is enabled if:
     // 1. The gas computation mode requires all gas vectors.
     // 2. The sender contract's tracked resource is Sierra gas.
-    println!("{}","==========-=-==-=-=");
-    println!("{}",matches!(gas_computation_mode, GasVectorComputationMode::All));
-    println!("{}",sender_tracked_resource == TrackedResource::SierraGas);
     Ok(
         matches!(gas_computation_mode, GasVectorComputationMode::All)
             && sender_tracked_resource == TrackedResource::SierraGas,
@@ -114,7 +109,6 @@ fn get_gas_vector_computation_mode<S>(
 where
     S: UpdatableState,
 {
-    println!("{}","get_gas_vector_computation_mode");
     let initial_gas_limit = extract_l2_gas_limit(transaction);
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
