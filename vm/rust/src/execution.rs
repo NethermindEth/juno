@@ -113,13 +113,10 @@ where
     set_l2_gas_limit(transaction, GasAmount::MAX);
     match transaction {
         Transaction::Account(account_transaction) => {
-            let charge_fee = account_transaction.execution_flags.charge_fee;
             account_transaction.execution_flags.charge_fee = false;
-            let validate = account_transaction.execution_flags.validate;
             account_transaction.execution_flags.validate = false;
-            (charge_fee, validate)
         }
-        Transaction::L1Handler(_) => (false, false),
+        _ =>{},
     };
     let (simulation_result, _) = match simulate_execution(transaction, state, block_context) {
         Ok(info) => info,
@@ -200,16 +197,16 @@ where
         set_l2_gas_limit(transaction, GasAmount(0));
         return transaction.execute(state, block_context);
     }
-    
+
     set_l2_gas_limit(transaction, initial_gas_limit);
     let mut simulated_state = CachedState::<_>::create_transactional(state);
-    let mut info =  transaction.execute(&mut simulated_state, block_context)?;
+    let mut exec_info =  transaction.execute(&mut simulated_state, block_context)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     simulated_state.commit();
-    info.receipt.gas.l2_gas = l2_gas_limit;
+    exec_info.receipt.gas.l2_gas = l2_gas_limit;
 
-    Ok(info)
+    Ok(exec_info)
 }
 
 fn calculate_midpoint(a: GasAmount, b: GasAmount) -> GasAmount {
