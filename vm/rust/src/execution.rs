@@ -112,6 +112,7 @@ where
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX);
+// TODO: Consider getting the upper bound from the balance and not changing the execution flags
     match transaction {
         Transaction::Account(account_transaction) => {
             account_transaction.execution_flags.charge_fee = false;
