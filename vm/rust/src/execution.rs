@@ -201,11 +201,9 @@ where
     }
 
     set_l2_gas_limit(&mut original_transaction, initial_gas_limit);
-    let mut simulated_state = CachedState::<_>::create_transactional(state);
-    let mut exec_info =  original_transaction.execute(&mut simulated_state, block_context)?;
+    let mut exec_info = original_transaction.execute(state, block_context)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
-    simulated_state.commit();
     exec_info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(exec_info)
