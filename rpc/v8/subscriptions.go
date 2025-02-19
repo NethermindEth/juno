@@ -93,6 +93,13 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Currently the order of transactions is deterministic, so the transaction always execute on a deterministic state
+// Therefore, the emitted events are deterministic and we can use the transaction hash and event index to identify.
+type SentEvent struct {
+	TransactionHash felt.Felt
+	EventIndex      int
+}
+
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
 func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
@@ -139,7 +146,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		var wg conc.WaitGroup
 		wg.Go(func() {
 			// Stores the transaction hash -> number of events
-			eventsPreviouslySent := make(map[blockchain.FilteredEvent]struct{})
+			eventsPreviouslySent := make(map[SentEvent]struct{})
 
 			for {
 				select {
@@ -159,20 +166,24 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 						return
 					}
 
-					for i, r := range block.Receipts {
-						for _, e := range r.Events {
-							fe := blockchain.FilteredEvent{
-								Event:           e,
-								BlockNumber:     &block.Number,
-								BlockHash:       header.Hash,
-								TransactionHash: block.Transactions[i].Hash(),
+					for _, r := range block.Receipts {
+						for i := range r.Events {
+							sentEvent := SentEvent{
+								TransactionHash: *r.TransactionHash,
+								EventIndex:      i,
 							}
-
-							delete(eventsPreviouslySent, fe)
+							delete(eventsPreviouslySent, sentEvent)
 						}
 					}
-				case pending := <-pendingSub.Recv():
-					h.processEvents(subscriptionCtx, w, id, pending.Number, pending.Number, fromAddr, keys, eventsPreviouslySent)
+				case <-pendingSub.Recv():
+					height, err := h.bcReader.Height()
+					if err != nil {
+						h.log.Warnw("Error retrieving block height", "err", err)
+						continue
+					}
+
+					// TODO: This is a hack to only query pending block events
+					h.processEvents(subscriptionCtx, w, id, height+1, height+1, fromAddr, keys, eventsPreviouslySent)
 				}
 			}
 		})
@@ -339,7 +350,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 }
 
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
-	keys [][]felt.Felt, eventsPreviouslySent map[blockchain.FilteredEvent]struct{},
+	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
 ) {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys)
 	if err != nil {
@@ -382,7 +393,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 }
 
 func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent map[blockchain.FilteredEvent]struct{}, id uint64,
+	eventsPreviouslySent map[SentEvent]struct{}, id uint64,
 ) error {
 	for _, event := range events {
 		select {
@@ -390,10 +401,14 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 			return ctx.Err()
 		default:
 			if eventsPreviouslySent != nil {
-				if _, ok := eventsPreviouslySent[*event]; ok {
+				sentEvent := SentEvent{
+					TransactionHash: *event.TransactionHash,
+					EventIndex:      event.EventIndex,
+				}
+				if _, ok := eventsPreviouslySent[sentEvent]; ok {
 					continue
 				}
-				eventsPreviouslySent[*event] = struct{}{}
+				eventsPreviouslySent[sentEvent] = struct{}{}
 			}
 
 			emittedEvent := &EmittedEvent{
