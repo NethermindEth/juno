@@ -2,6 +2,7 @@ use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::fee::fee_checks::FeeCheckError;
 use blockifier::state::state_api::{StateReader, StateResult, UpdatableState};
+use blockifier::transaction::objects::HasRelatedFeeType;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use blockifier::{
@@ -12,8 +13,13 @@ use blockifier::{
 use starknet_api::core::ClassHash;
 use starknet_api::executable_transaction::AccountTransaction;
 use starknet_api::execution_resources::GasAmount;
-use starknet_api::transaction::fields::{GasVectorComputationMode, ValidResourceBounds};
-use starknet_api::transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction};
+use starknet_api::transaction::fields::{
+    AllResourceBounds, GasVectorComputationMode, ValidResourceBounds,
+};
+use starknet_api::transaction::{
+    DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
+    InvokeTransaction, InvokeTransactionV3,
+};
 
 pub fn execute_transaction(
     txn: &mut Transaction,
