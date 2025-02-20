@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -25,6 +26,7 @@ import (
 )
 
 type Handler struct {
+	v7Handler     rpcv7.Handler
 	bcReader      blockchain.Reader
 	syncReader    sync.Reader
 	gatewayClient rpccore.Gateway

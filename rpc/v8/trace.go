@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -180,15 +181,30 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.Tr
 	return traceResults[txIndex].TraceRoot, header, nil
 }
 
+// Todo: we can now delete all the other rpcv8 code
 func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
-	if rpcErr != nil {
-		httpHeader := http.Header{}
-		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpcErr
+	v7BlockID := adaptBlockID(id)
+	v7Traces, headers, err := h.v7Handler.TraceBlockTransactions(ctx, v7BlockID)
+	if err != nil {
+		return nil, headers, err
 	}
 
-	return h.traceBlockTransactions(ctx, block)
+	v8Traces, err := adaptV7TracesToV8(v7Traces)
+	if err != nil {
+		return nil, headers, err
+	}
+	return v8Traces, headers, err
+}
+
+// Todo replace rpcv8 BlockID with rpcv7 BlockID
+func adaptBlockID(id BlockID) rpcv7.BlockID {
+	//Todo
+	return rpcv7.BlockID{}
+}
+
+func adaptV7TracesToV8(traces []rpcv7.TracedBlockTransaction) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	// Todo
+	return nil, nil
 }
 
 //nolint:funlen,gocyclo
