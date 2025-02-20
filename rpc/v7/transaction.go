@@ -270,21 +270,31 @@ type ExecutionResources struct {
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
 
+func (ExecutionResources) IsExecutionResourcesLike() {}
+
+type v7TypeFactory struct{}
+
+var V7TypeFactory v7TypeFactory
+
+func (v7TypeFactory) ToExecutionResources(e *core.ExecutionResources) rpccore.ExecutionResourcesLike {
+	return adaptExecutionResources(e)
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
-	Type               TransactionType     `json:"type"`
-	Hash               *felt.Felt          `json:"transaction_hash"`
-	ActualFee          *FeePayment         `json:"actual_fee"`
-	ExecutionStatus    TxnExecutionStatus  `json:"execution_status"`
-	FinalityStatus     TxnFinalityStatus   `json:"finality_status"`
-	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
-	BlockNumber        *uint64             `json:"block_number,omitempty"`
-	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
-	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
-	RevertReason       string              `json:"revert_reason,omitempty"`
-	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
-	MessageHash        string              `json:"message_hash,omitempty"`
+	Type               TransactionType                `json:"type"`
+	Hash               *felt.Felt                     `json:"transaction_hash"`
+	ActualFee          *FeePayment                    `json:"actual_fee"`
+	ExecutionStatus    TxnExecutionStatus             `json:"execution_status"`
+	FinalityStatus     TxnFinalityStatus              `json:"finality_status"`
+	BlockHash          *felt.Felt                     `json:"block_hash,omitempty"`
+	BlockNumber        *uint64                        `json:"block_number,omitempty"`
+	MessagesSent       []*MsgToL1                     `json:"messages_sent"`
+	Events             []*Event                       `json:"events"`
+	ContractAddress    *felt.Felt                     `json:"contract_address,omitempty"`
+	RevertReason       string                         `json:"revert_reason,omitempty"`
+	ExecutionResources rpccore.ExecutionResourcesLike `json:"execution_resources,omitempty"`
+	MessageHash        string                         `json:"message_hash,omitempty"`
 }
 
 type FeePayment struct {
@@ -492,65 +502,68 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
-func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	var (
-		pendingB      *core.Block
-		pendingBIndex int
-	)
+func (h *Handler) TransactionReceiptByHash(factory rpccore.TypeFactory) func(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+	return func(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
+		fmt.Println("-------------------------v7")
+		var (
+			pendingB      *core.Block
+			pendingBIndex int
+		)
 
-	txn, err := h.bcReader.TransactionByHash(&hash)
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
+		txn, err := h.bcReader.TransactionByHash(&hash)
+		if err != nil {
+			if !errors.Is(err, db.ErrKeyNotFound) {
+				return nil, rpccore.ErrInternal.CloneWithData(err)
+			}
 
-		pendingB = h.syncReader.PendingBlock()
-		if pendingB == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
+			pendingB = h.syncReader.PendingBlock()
+			if pendingB == nil {
+				return nil, rpccore.ErrTxnHashNotFound
+			}
 
-		for i, t := range pendingB.Transactions {
-			if hash.Equal(t.Hash()) {
-				pendingBIndex = i
-				txn = t
-				break
+			for i, t := range pendingB.Transactions {
+				if hash.Equal(t.Hash()) {
+					pendingBIndex = i
+					txn = t
+					break
+				}
+			}
+
+			if txn == nil {
+				return nil, rpccore.ErrTxnHashNotFound
 			}
 		}
 
-		if txn == nil {
-			return nil, rpccore.ErrTxnHashNotFound
+		var (
+			receipt     *core.TransactionReceipt
+			blockHash   *felt.Felt
+			blockNumber uint64
+		)
+
+		if pendingB != nil {
+			receipt = pendingB.Receipts[pendingBIndex]
+		} else {
+			receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
+			if err != nil {
+				return nil, rpccore.ErrTxnHashNotFound
+			}
 		}
+
+		status := TxnAcceptedOnL2
+
+		if blockHash != nil {
+			l1H, jsonErr := h.l1Head()
+			if jsonErr != nil {
+				return nil, jsonErr
+			}
+
+			if isL1Verified(blockNumber, l1H) {
+				status = TxnAcceptedOnL1
+			}
+		}
+
+		return AdaptReceipt(factory, receipt, txn, status, blockHash, blockNumber), nil
 	}
-
-	var (
-		receipt     *core.TransactionReceipt
-		blockHash   *felt.Felt
-		blockNumber uint64
-	)
-
-	if pendingB != nil {
-		receipt = pendingB.Receipts[pendingBIndex]
-	} else {
-		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
-		if err != nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-	}
-
-	status := TxnAcceptedOnL2
-
-	if blockHash != nil {
-		l1H, jsonErr := h.l1Head()
-		if jsonErr != nil {
-			return nil, jsonErr
-		}
-
-		if isL1Verified(blockNumber, l1H) {
-			status = TxnAcceptedOnL1
-		}
-	}
-
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
 // AddTransaction relays a transaction to the gateway.
@@ -621,35 +634,37 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 
 var errTransactionNotFound = errors.New("transaction not found")
 
-func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
-	receipt, txErr := h.TransactionReceiptByHash(hash)
-	switch txErr {
-	case nil:
-		return &TransactionStatus{
-			Finality:      TxnStatus(receipt.FinalityStatus),
-			Execution:     receipt.ExecutionStatus,
-			FailureReason: receipt.RevertReason,
-		}, nil
-	case rpccore.ErrTxnHashNotFound:
-		if h.feederClient == nil {
-			break
-		}
-
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
-		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-
-		status, err := adaptTransactionStatus(txStatus)
-		if err != nil {
-			if !errors.Is(err, errTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
+func (h *Handler) TransactionStatus(factory rpccore.TypeFactory) func(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+	return func(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+		receipt, txErr := h.TransactionReceiptByHash(factory)(hash)
+		switch txErr {
+		case nil:
+			return &TransactionStatus{
+				Finality:      TxnStatus(receipt.FinalityStatus),
+				Execution:     receipt.ExecutionStatus,
+				FailureReason: receipt.RevertReason,
+			}, nil
+		case rpccore.ErrTxnHashNotFound:
+			if h.feederClient == nil {
+				break
 			}
-			return nil, rpccore.ErrTxnHashNotFound
+
+			txStatus, err := h.feederClient.Transaction(ctx, &hash)
+			if err != nil {
+				return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+			}
+
+			status, err := adaptTransactionStatus(txStatus)
+			if err != nil {
+				if !errors.Is(err, errTransactionNotFound) {
+					h.log.Errorw("Failed to adapt transaction status", "err", err)
+				}
+				return nil, rpccore.ErrTxnHashNotFound
+			}
+			return status, nil
 		}
-		return status, nil
+		return nil, txErr
 	}
-	return nil, txErr
 }
 
 // In 0.7.0, the failure reason is not returned in the TransactionStatus response.
@@ -658,16 +673,18 @@ type TransactionStatusV0_7 struct {
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
-func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
-	res, err := h.TransactionStatus(ctx, hash)
-	if err != nil {
-		return nil, err
-	}
+func (h *Handler) TransactionStatusV0_7(factory rpccore.TypeFactory) func(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
+	return func(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
+		res, err := h.TransactionStatus(factory)(ctx, hash)
+		if err != nil {
+			return nil, err
+		}
 
-	return &TransactionStatusV0_7{
-		Finality:  res.Finality,
-		Execution: res.Execution,
-	}, nil
+		return &TransactionStatusV0_7{
+			Finality:  res.Finality,
+			Execution: res.Execution,
+		}, nil
+	}
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
@@ -752,7 +769,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+func AdaptReceipt(factory rpccore.TypeFactory, receipt *core.TransactionReceipt, txn core.Transaction,
 	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
@@ -812,7 +829,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 		Events:             events,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
+		ExecutionResources: factory.ToExecutionResources(receipt.ExecutionResources),
 		MessageHash:        messageHash,
 	}
 }

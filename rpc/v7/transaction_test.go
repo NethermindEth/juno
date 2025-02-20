@@ -509,7 +509,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingBlock().Return(nil)
 
-		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+		tx, rpcErr := handler.TransactionReceiptByHash(rpc.V7TypeFactory)(*txHash)
 		assert.Nil(t, tx)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
@@ -526,7 +526,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		expectedMap := make(map[string]any)
 		require.NoError(t, json.Unmarshal([]byte(expected), &expectedMap))
 
-		receipt, err := handler.TransactionReceiptByHash(*h)
+		receipt, err := handler.TransactionReceiptByHash(rpc.V7TypeFactory)(*h)
 		require.Nil(t, err)
 
 		receiptJSON, jsonErr := json.Marshal(receipt)
@@ -772,7 +772,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
 
-		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+		tx, rpcErr := handler.TransactionReceiptByHash(rpc.V7TypeFactory)(*txHash)
 		assert.Nil(t, tx)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 	})
@@ -1391,7 +1391,7 @@ func TestTransactionStatus(t *testing.T) {
 						Finality:  rpc.TxnStatusAcceptedOnL2,
 						Execution: rpc.TxnSuccess,
 					}
-					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
+					status, rpcErr := handler.TransactionStatus(rpc.V7TypeFactory)(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
 					require.Equal(t, want, status)
 				})
@@ -1409,7 +1409,7 @@ func TestTransactionStatus(t *testing.T) {
 						Finality:  rpc.TxnStatusAcceptedOnL1,
 						Execution: rpc.TxnSuccess,
 					}
-					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
+					status, rpcErr := handler.TransactionStatus(rpc.V7TypeFactory)(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
 					require.Equal(t, want, status)
 				})
@@ -1438,11 +1438,11 @@ func TestTransactionStatus(t *testing.T) {
 						mockSyncer.EXPECT().PendingBlock().Return(nil).Times(2)
 
 						handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil)
-						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
+						_, err := handler.TransactionStatus(rpc.V7TypeFactory)(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
 						handler = handler.WithFeeder(client)
-						status, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
+						status, err := handler.TransactionStatus(rpc.V7TypeFactory)(ctx, *notFoundTest.hash)
 						require.Nil(t, err)
 						require.Equal(t, notFoundTest.finality, status.Finality)
 						require.Equal(t, rpc.TxnSuccess, status.Execution)
@@ -1460,7 +1460,7 @@ func TestTransactionStatus(t *testing.T) {
 
 				handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil).WithFeeder(client)
 
-				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
+				_, err := handler.TransactionStatus(rpc.V7TypeFactory)(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
 				require.Equal(t, err, rpccore.ErrTxnHashNotFound)
 			})

@@ -119,7 +119,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv8Handler.TransactionReceiptByHash,
+			Handler: h.rpcv7Handler.TransactionReceiptByHash(rpcv8.V8TypeFactory),
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -313,7 +313,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionReceipt",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv7Handler.TransactionReceiptByHash,
+			Handler: h.rpcv7Handler.TransactionReceiptByHash(rpcv7.V7TypeFactory),
 		},
 		{
 			Name:    "starknet_getBlockTransactionCount",
@@ -386,7 +386,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getTransactionStatus",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
-			Handler: h.rpcv7Handler.TransactionStatusV0_7,
+			Handler: h.rpcv7Handler.TransactionStatusV0_7(rpcv7.V7TypeFactory),
 		},
 		{
 			Name:    "starknet_call",
@@ -425,7 +425,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.rpcv7Handler.BlockWithReceipts,
+			Handler: h.rpcv7Handler.BlockWithReceipts(rpcv7.V7TypeFactory),
 		},
 		{
 			Name:    "juno_subscribeNewHeads",

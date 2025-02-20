@@ -452,7 +452,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(nil, db.ErrKeyNotFound)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(rpcv7.V7TypeFactory)(blockID)
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -466,7 +466,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(nil, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(rpcv7.V7TypeFactory)(blockID)
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -481,7 +481,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: block0}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
-		resp, rpcErr := handler.BlockWithReceipts(rpcv7.BlockID{Pending: true})
+		resp, rpcErr := handler.BlockWithReceipts(rpcv7.V7TypeFactory)(rpcv7.BlockID{Pending: true})
 		header := resp.BlockHeader
 
 		var txsWithReceipt []rpcv7.TransactionWithReceipt
@@ -492,7 +492,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			txsWithReceipt = append(txsWithReceipt, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL2, nil, 0),
+				Receipt:     rpcv7.AdaptReceipt(rpcv7.V7TypeFactory, receipt, tx, rpcv7.TxnAcceptedOnL2, nil, 0),
 			})
 		}
 
@@ -526,7 +526,7 @@ func TestBlockWithReceipts(t *testing.T) {
 			BlockNumber: block1.Number + 1,
 		}, nil)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(rpcv7.V7TypeFactory)(blockID)
 		header := resp.BlockHeader
 
 		var transactions []rpcv7.TransactionWithReceipt
@@ -537,7 +537,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 			transactions = append(transactions, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
-				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL1, nil, 0),
+				Receipt:     rpcv7.AdaptReceipt(rpcv7.V7TypeFactory, receipt, tx, rpcv7.TxnAcceptedOnL1, nil, 0),
 			})
 		}
 

@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
@@ -116,40 +117,42 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
-func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	blockStatus, rpcErr := h.blockStatus(id, block)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == rpcv6.BlockAcceptedL1 {
-		finalityStatus = TxnAcceptedOnL1
-	}
-
-	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
-	for index, txn := range block.Transactions {
-		r := block.Receipts[index]
-
-		t := AdaptTransaction(txn)
-		t.Hash = nil
-		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: t,
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+func (h *Handler) BlockWithReceipts(factory rpccore.TypeFactory) func(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+	return func(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+		block, rpcErr := h.blockByID(&id)
+		if rpcErr != nil {
+			return nil, rpcErr
 		}
-	}
 
-	return &BlockWithReceipts{
-		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txsWithReceipts,
-	}, nil
+		blockStatus, rpcErr := h.blockStatus(id, block)
+		if rpcErr != nil {
+			return nil, rpcErr
+		}
+
+		finalityStatus := TxnAcceptedOnL2
+		if blockStatus == rpcv6.BlockAcceptedL1 {
+			finalityStatus = TxnAcceptedOnL1
+		}
+
+		txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
+		for index, txn := range block.Transactions {
+			r := block.Receipts[index]
+
+			t := AdaptTransaction(txn)
+			t.Hash = nil
+			txsWithReceipts[index] = TransactionWithReceipt{
+				Transaction: t,
+				// block_hash, block_number are optional in BlockWithReceipts response
+				Receipt: AdaptReceipt(factory, r, txn, finalityStatus, nil, 0),
+			}
+		}
+
+		return &BlockWithReceipts{
+			Status:       blockStatus,
+			BlockHeader:  adaptBlockHeader(block.Header),
+			Transactions: txsWithReceipts,
+		}, nil
+	}
 }
 
 // BlockWithTxs returns the block information with full transactions given a block ID.

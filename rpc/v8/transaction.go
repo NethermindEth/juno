@@ -273,6 +273,16 @@ type ExecutionResources struct {
 	L2Gas     uint64 `json:"l2_gas"`
 }
 
+func (e ExecutionResources) IsExecutionResourcesLike() {}
+
+type v8TypeFactory struct{}
+
+var V8TypeFactory = v8TypeFactory{}
+
+func (v8TypeFactory) ToExecutionResources(e *core.ExecutionResources) rpccore.ExecutionResourcesLike {
+	return adaptExecutionResources(e)
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
 type TransactionReceipt struct {
 	Type               TransactionType     `json:"type"`
