@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -189,10 +190,14 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		})
 
 		wg.Go(func() {
+			time.Sleep(2 * time.Second)
 			h.processReorgs(subscriptionCtx, reorgSub, w, id)
 		})
 
 		wg.Go(func() {
+			if id == 2025 {
+				fmt.Println("---------------------------------------------------panic")
+			}
 			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
 		})
 

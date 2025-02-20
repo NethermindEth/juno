@@ -697,7 +697,7 @@ func TestSubscriptionReorg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := createWsConn(t, ctx, server)
 
-			id := uint64(1)
+			id := uint64(2025)
 			handler.WithIDGen(func() uint64 { return id })
 
 			got := sendWsMessage(t, ctx, conn, subMsg(tc.subscribeMethod))
