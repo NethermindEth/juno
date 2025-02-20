@@ -50,7 +50,7 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	return json.Marshal(classInfo)
 }
 
-var pre01 = new(felt.Felt).SetUint64(206933405232)
+var pre01, _ = new(felt.Felt).SetString("0x302e312e30")
 
 // Parse Sierra version from the JSON representation of the program.
 //
@@ -73,12 +73,13 @@ func parseSierraVersion(prog []*felt.Felt) (string, error) {
 		return "", errors.New("failed to parse sierra version in classInfo")
 	}
 
+	const base = 10
 	var buf [32]byte
 	b := buf[:0]
-	b = strconv.AppendUint(b, prog[0].Uint64(), 10)
+	b = strconv.AppendUint(b, prog[0].Uint64(), base)
 	b = append(b, '.')
-	b = strconv.AppendUint(b, prog[1].Uint64(), 10)
+	b = strconv.AppendUint(b, prog[1].Uint64(), base)
 	b = append(b, '.')
-	b = strconv.AppendUint(b, prog[2].Uint64(), 10)
+	b = strconv.AppendUint(b, prog[2].Uint64(), base)
 	return string(b), nil
 }

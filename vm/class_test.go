@@ -5,9 +5,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/require"
-
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
+	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkSierraVersion(b *testing.B) {
@@ -16,7 +15,7 @@ func BenchmarkSierraVersion(b *testing.B) {
 		require.NoError(b, err)
 		b.ResetTimer()
 		var version string
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			version, _ = parseSierraVersion([]*felt.Felt{prog})
 		}
 		_ = version
@@ -30,7 +29,7 @@ func BenchmarkSierraVersion(b *testing.B) {
 		}
 		b.ResetTimer()
 		var version string
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			version, _ = parseSierraVersion(prog)
 		}
 		_ = version
