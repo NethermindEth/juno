@@ -554,10 +554,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Mainnet, nil)
+	chain := blockchain.New(testDB, &utils.Mainnet)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet, nil)
+	chain = blockchain.New(testDB, &utils.Mainnet)
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -55,7 +55,7 @@ func TestSyncBlocks(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, &utils.Mainnet, nil)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
@@ -67,7 +67,7 @@ func TestSyncBlocks(t *testing.T) {
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t)
-		bc := blockchain.New(testDB, &utils.Mainnet, nil)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 		b0, err := gw.BlockByNumber(context.Background(), 0)
 		require.NoError(t, err)
 		s0, err := gw.StateUpdate(context.Background(), 0)

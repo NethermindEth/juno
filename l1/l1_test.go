@@ -54,7 +54,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -85,7 +85,7 @@ func TestMismatchedChainID(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 

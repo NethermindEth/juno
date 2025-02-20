@@ -41,7 +41,7 @@ func TestNew(t *testing.T) {
 		chain := blockchain.New(testDB, &utils.Mainnet, nil)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-		chain = blockchain.New(testDB, &utils.Mainnet, nil)
+		chain = blockchain.New(testDB, &utils.Mainnet)
 		b, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, block0, b)
@@ -188,7 +188,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet, nil)
+	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 
