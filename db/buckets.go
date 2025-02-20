@@ -9,12 +9,12 @@ type Bucket byte
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
 const (
-	StateTrie         Bucket = iota // state metadata (e.g., the state root)
+	StateTrie         Bucket = iota // LEGACY state metadata (e.g., the state root)
 	Peer                            // maps peer ID to peer multiaddresses
-	ContractClassHash               // maps contract addresses and class hashes
-	ContractStorage                 // contract storages
+	ContractClassHash               // LEGACY maps contract addresses and class hashes
+	ContractStorage                 // LEGACY contract storages
 	Class                           // maps class hashes to classes
-	ContractNonce                   // contract nonce
+	ContractNonce                   // LEGACY contract nonce
 	ChainHeight                     // Latest height of the blockchain
 	BlockHeaderNumbersByHash
 	BlockHeadersByNumber
@@ -26,7 +26,7 @@ const (
 	ContractStorageHistory   // [ContractStorageHistory] + ContractAddr + StorageLocation + BlockHeight -> StorageValue
 	ContractNonceHistory     // [ContractNonceHistory] + ContractAddr + BlockHeight -> ContractNonce
 	ContractClassHashHistory // [ContractClassHashHistory] + ContractAddr + BlockHeight -> ContractClassHash
-	ContractDeploymentHeight
+	ContractDeploymentHeight // LEGACY
 	L1Height
 	SchemaVersion
 	Unused // Previously used for storing Pending Block
