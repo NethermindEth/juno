@@ -213,7 +213,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 
 func TestL1HandlerTxns(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Sepolia, nil)
+	chain := blockchain.New(testdb, &utils.Sepolia)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 

@@ -110,7 +110,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(pebble.NewMemTest(t), &network, nil)
+	chain := blockchain.New(pebble.NewMemTest(t), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 	subscriber.
