@@ -93,10 +93,10 @@ type Blockchain struct {
 
 func New(database db.DB, network *utils.Network) *Blockchain {
 	return &Blockchain{
-		database:       database,
-		network:        network,
-		listener:       &SelectiveListener{},
-		l1HeadFeed:     feed.New[*core.L1Head](),
+		database:   database,
+		network:    network,
+		listener:   &SelectiveListener{},
+		l1HeadFeed: feed.New[*core.L1Head](),
 	}
 }
 
