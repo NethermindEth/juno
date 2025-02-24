@@ -1,7 +1,6 @@
 package genesis_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/genesis"
@@ -28,7 +27,6 @@ func TestGenesisStateDiff(t *testing.T) {
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json", "./classes/universaldeployer.json", "./classes/udacnt.json"}
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), network, 40000000) //nolint:gomnd
 		require.NoError(t, err)
-		fmt.Println(stateDiff.DeployedContracts)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {
 			require.NotNil(t, stateDiff.DeclaredV1Classes[con.ClassHash])

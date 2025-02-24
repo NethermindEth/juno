@@ -127,6 +127,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 	if err != nil {
 		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
 	}
+
 	for addressFelt, contractData := range config.Contracts {
 		classHash := contractData.ClassHash
 		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {

@@ -25,7 +25,7 @@ func TestAllEvents(t *testing.T) {
 	numEvents := uint64(10)
 	events := make([]vm.OrderedEvent, 0, numEvents)
 	contractAddr := utils.HexToFelt(t, "0x1337")
-	for i := uint64(0); i < numEvents; i++ {
+	for i := range numEvents {
 		events = append(events, vm.OrderedEvent{Order: i})
 	}
 	tests := map[string]*vm.TransactionTrace{
