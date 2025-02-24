@@ -13,7 +13,7 @@ require (
 	github.com/consensys/gnark-crypto v0.16.0
 	github.com/ethereum/go-ethereum v1.15.0
 	github.com/fxamacker/cbor/v2 v2.7.0
-	github.com/go-playground/validator/v10 v10.24.0
+	github.com/go-playground/validator/v10 v10.25.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.38.2
 	github.com/libp2p/go-libp2p-kad-dht v0.29.0
