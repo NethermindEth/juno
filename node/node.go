@@ -133,7 +133,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network, func() *core.Block { return nil })
+	chain := blockchain.New(database, &cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
