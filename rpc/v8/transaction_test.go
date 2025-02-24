@@ -1491,6 +1491,20 @@ func TestResourceBoundsValidation(t *testing.T) {
 		"fee_data_availability_mode": "L1",
 		"account_deployment_data": []
 	}`
+	invokeV1 := `{
+		"type": "INVOKE",
+		"sender_address": "0x4a7876e03402cf253efdb3b17c760ee7349c7ec2876059b83ec2c92ca451e16",
+		"calldata": [
+			"0x1",
+			"0x3745ab04a431fc02871a139be6b93d9260b0ff3e779ad9c8b377183b23109f1",
+			"0x6a26462a114fa5e0c0e6b9cd8442c79e1ad560232e65427e16de301eb99b89",
+			"0x0"
+		],
+		"max_fee": "0x0",
+		"version": "0x100000000000000000000000000000001",
+		"signature": [],
+		"nonce": "0x34f6"
+	}`
 
 	tests := []struct {
 		name    string
@@ -1506,6 +1520,11 @@ func TestResourceBoundsValidation(t *testing.T) {
 			name:    "valid v3 - resource_bounds fully populated",
 			txnJSON: validInvokeV3,
 			wantErr: false,
+		},
+		{
+			name:    "valid v1",
+			txnJSON: invokeV1,
+			wantErr: true,
 		},
 	}
 
