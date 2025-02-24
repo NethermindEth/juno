@@ -334,22 +334,16 @@ func cleanTraceInnerExecutionResources(trace *vm.TransactionTrace) {
 	// Stack to process FunctionInvocations iteratively (dfs)
 	stack := []*vm.FunctionInvocation{}
 
-	pushFnInvocationIfNotNil := func(fn *vm.FunctionInvocation) {
-		if fn != nil {
-			stack = append(stack, fn)
-		}
-	}
-
-	pushFnInvocationIfNotNil(trace.FeeTransferInvocation)
-	pushFnInvocationIfNotNil(trace.ValidateInvocation)
+	stack = append(stack, trace.FeeTransferInvocation)
+	stack = append(stack, trace.ValidateInvocation)
 
 	switch trace.Type {
 	case vm.TxnDeploy, vm.TxnDeployAccount:
-		pushFnInvocationIfNotNil(trace.ConstructorInvocation)
+		stack = append(stack, trace.ConstructorInvocation)
 	case vm.TxnInvoke:
-		pushFnInvocationIfNotNil(trace.ExecuteInvocation.FunctionInvocation)
+		stack = append(stack, trace.ExecuteInvocation.FunctionInvocation)
 	case vm.TxnL1Handler:
-		pushFnInvocationIfNotNil(trace.FunctionInvocation)
+		stack = append(stack, trace.FunctionInvocation)
 	}
 
 	// Clean all inner execution resources
@@ -359,14 +353,18 @@ func cleanTraceInnerExecutionResources(trace *vm.TransactionTrace) {
 		fnInvocation := stack[n]
 		stack = stack[:n]
 
+		if fnInvocation == nil {
+			continue
+		}
+
 		// Keep only wanted execution resources fields
 		if fnInvocation.ExecutionResources != nil {
 			// Still return them if they are nil
 			if fnInvocation.ExecutionResources.L1Gas == nil {
-				fnInvocation.ExecutionResources.L1Gas = utils.Ptr(uint64(0))
+				fnInvocation.ExecutionResources.L1Gas = new(uint64)
 			}
 			if fnInvocation.ExecutionResources.L2Gas == nil {
-				fnInvocation.ExecutionResources.L2Gas = utils.Ptr(uint64(0))
+				fnInvocation.ExecutionResources.L2Gas = new(uint64)
 			}
 			fnInvocation.ExecutionResources = &vm.ExecutionResources{
 				L1Gas: fnInvocation.ExecutionResources.L1Gas,

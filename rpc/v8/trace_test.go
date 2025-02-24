@@ -408,15 +408,15 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ExecuteInvocation: &vm.ExecuteInvocation{
 				FunctionInvocation: &vm.FunctionInvocation{
 					ExecutionResources: &vm.ExecutionResources{
-						L1Gas: utils.Ptr(uint64(0)),
-						L2Gas: utils.Ptr(uint64(0)),
+						L1Gas: new(uint64),
+						L2Gas: new(uint64),
 					},
 				},
 			},
 			FeeTransferInvocation: &vm.FunctionInvocation{
 				ExecutionResources: &vm.ExecutionResources{
-					L1Gas: utils.Ptr(uint64(0)),
-					L2Gas: utils.Ptr(uint64(0)),
+					L1Gas: new(uint64),
+					L2Gas: new(uint64),
 				},
 			},
 			// Root level execution resources
