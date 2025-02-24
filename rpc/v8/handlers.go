@@ -33,7 +33,7 @@ type Handler struct {
 	log           utils.Logger
 
 	version      string
-	newHeads     *feed.Feed[*core.Header]
+	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
 	pendingBlock *feed.Feed[*core.Block]
 	l1Heads      *feed.Feed[*core.L1Head]
@@ -75,7 +75,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			return n
 		},
 		version:      version,
-		newHeads:     feed.New[*core.Header](),
+		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
 		pendingBlock: feed.New[*core.Block](),
 		l1Heads:      feed.New[*core.L1Head](),

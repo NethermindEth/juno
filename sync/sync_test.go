@@ -140,14 +140,14 @@ func TestReorg(t *testing.T) {
 	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient := feeder.NewTestClient(t, &utils.Integration)
-	integGw := adaptfeeder.New(integClient)
+	sepoliaClient := feeder.NewTestClient(t, &utils.Sepolia)
+	sepoliaGw := adaptfeeder.New(sepoliaClient)
 
 	testDB := pebble.NewMemTest(t)
 
-	// sync to integration for 2 blocks
-	bc := blockchain.New(testDB, &utils.Integration)
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, testDB)
+	// sync to Sepolia for 2 blocks
+	bc := blockchain.New(testDB, &utils.Sepolia)
+	synchronizer := sync.New(bc, sepoliaGw, utils.NewNopZapLogger(), 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -156,12 +156,12 @@ func TestReorg(t *testing.T) {
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		bc := blockchain.New(testDB, &utils.Mainnet)
 
-		// Ensure current head is Integration head
+		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
-		integEnd := head
-		integStart, err := bc.BlockHeaderByNumber(0)
+		require.Equal(t, utils.HexToFelt(t, "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
+		sepoliaEnd := head
+		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
 
 		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
@@ -178,10 +178,10 @@ func TestReorg(t *testing.T) {
 		// Validate reorg event
 		got, ok := <-sub.Recv()
 		require.True(t, ok)
-		assert.Equal(t, integEnd.Hash, got.EndBlockHash)
-		assert.Equal(t, integEnd.Number, got.EndBlockNum)
-		assert.Equal(t, integStart.Hash, got.StartBlockHash)
-		assert.Equal(t, integStart.Number, got.StartBlockNum)
+		assert.Equal(t, sepoliaEnd.Hash, got.EndBlockHash)
+		assert.Equal(t, sepoliaEnd.Number, got.EndBlockNum)
+		assert.Equal(t, sepoliaStart.Hash, got.StartBlockHash)
+		assert.Equal(t, sepoliaStart.Number, got.StartBlockNum)
 	})
 }
 
@@ -267,10 +267,10 @@ func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
 	testDB := pebble.NewMemTest(t)
 	log := utils.NewNopZapLogger()
-	integration := utils.Integration
-	chain := blockchain.New(testDB, &integration)
-	integrationClient := feeder.NewTestClient(t, &integration)
-	gw := adaptfeeder.New(integrationClient)
+	network := utils.Mainnet
+	chain := blockchain.New(testDB, &network)
+	feeder := feeder.NewTestClient(t, &network)
+	gw := adaptfeeder.New(feeder)
 	syncer := sync.New(chain, gw, log, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
@@ -283,7 +283,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 	require.True(t, ok)
 	want, err := gw.BlockByNumber(context.Background(), 0)
 	require.NoError(t, err)
-	require.Equal(t, want.Header, got)
+
+	require.Equal(t, want, got)
 	sub.Unsubscribe()
 }
 
