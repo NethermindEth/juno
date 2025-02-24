@@ -104,9 +104,10 @@ func (c *ContinuationToken) FromString(str string) error {
 
 type FilteredEvent struct {
 	*core.Event
-	BlockNumber     uint64
+	BlockNumber     *uint64
 	BlockHash       *felt.Felt
 	TransactionHash *felt.Felt
+	EventIndex      int
 }
 
 //nolint:gocyclo
@@ -220,7 +221,13 @@ func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 ) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
-		for _, event := range receipt.Events {
+		for i, event := range receipt.Events {
+			var blockNumber *uint64
+			// if header.Hash == nil it's a pending block
+			if header.Hash != nil {
+				blockNumber = &header.Number
+			}
+
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
 			if cToken != nil && header.Number == cToken.fromBlock && processedEvents < cToken.processedEvents {
@@ -236,9 +243,10 @@ func (e *EventFilter) appendBlockEvents(matchedEventsSofar []*FilteredEvent, hea
 			if e.matchesEventKeys(event.Keys, keysMap) {
 				if uint64(len(matchedEventsSofar)) < chunkSize {
 					matchedEventsSofar = append(matchedEventsSofar, &FilteredEvent{
-						BlockNumber:     header.Number,
+						BlockNumber:     blockNumber,
 						BlockHash:       header.Hash,
 						TransactionHash: receipt.TransactionHash,
+						EventIndex:      i,
 						Event:           event,
 					})
 				} else {

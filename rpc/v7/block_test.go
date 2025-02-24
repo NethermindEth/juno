@@ -488,7 +488,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
-			adaptedTx.Hash = nil
 
 			txsWithReceipt = append(txsWithReceipt, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
@@ -533,7 +532,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
-			adaptedTx.Hash = nil
 
 			transactions = append(transactions, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,

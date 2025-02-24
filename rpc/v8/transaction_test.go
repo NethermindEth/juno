@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -18,6 +19,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -1172,6 +1174,22 @@ func TestAddTransaction(t *testing.T) {
 			}, got)
 		})
 	}
+
+	t.Run("gateway returns InsufficientResourcesForValidate error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockGateway := mocks.NewMockGateway(mockCtrl)
+		mockGateway.
+			EXPECT().
+			AddTransaction(gomock.Any(), gomock.Any()).
+			Return(nil, &gateway.Error{Code: gateway.InsufficientResourcesForValidate})
+
+		handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger()).WithGateway(mockGateway)
+		addTxRes, rpcErr := handler.AddTransaction(context.Background(), tests["invoke v0"].txn)
+		require.Nil(t, addTxRes)
+		require.Equal(t, rpccore.ErrInsufficientResourcesForValidate, rpcErr)
+	})
 }
 
 func TestTransactionStatus(t *testing.T) {
@@ -1400,6 +1418,110 @@ func TestResourceUnmarshalJSON(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestResourceBoundsValidation(t *testing.T) {
+	invalidInvokeV3 := `{
+		"type": "INVOKE",
+		"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
+		"calldata": [
+			"0x1",
+			"0x41a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf",
+			"0x1987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d",
+			"0x4",
+			"0x16342ade8a7cc8296920731bc34b5a6530f5ee1dc1bfd3cc83cb3f519d6530a",
+			"0x65d7d6a3cd92f5d836fc410db222801cf70c6966bf5c0dc4d25699def10f4e9",
+			"0x1",
+			"0x0"
+		],
+		"version": "0x3",
+		"signature": [],
+		"nonce": "0x00000000000000000000000000000000000000000000000000000000000077d8",
+		"resource_bounds": {
+			"l2_gas": {
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			},
+			"l1_gas": {
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			}
+		},
+		"tip": "0x0",
+		"paymaster_data": [],
+		"nonce_data_availability_mode": "L1",
+		"fee_data_availability_mode": "L1",
+		"account_deployment_data": []
+	}`
+	validInvokeV3 := `{
+		"type": "INVOKE",
+		"sender_address": "0xf9e998b2853e6d01f3ae3c598c754c1b9a7bd398fec7657de022f3b778679",
+		"calldata": [
+			"0x1",
+			"0x41a78e741e5af2fec34b695679bc6891742439f7afb8484ecd7766661ad02bf",
+			"0x1987cbd17808b9a23693d4de7e246a443cfe37e6e7fbaeabd7d7e6532b07c3d",
+			"0x4",
+			"0x16342ade8a7cc8296920731bc34b5a6530f5ee1dc1bfd3cc83cb3f519d6530a",
+			"0x65d7d6a3cd92f5d836fc410db222801cf70c6966bf5c0dc4d25699def10f4e9",
+			"0x1",
+			"0x0"
+		],
+		"version": "0x3",
+		"signature": [],
+		"nonce": "0x00000000000000000000000000000000000000000000000000000000000077d8",
+		"resource_bounds": {
+			"l2_gas": {
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			},
+			"l1_gas": {
+				"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			},
+			"l1_data_gas": {
+			"max_amount": "0x0",
+				"max_price_per_unit": "0x0"
+			}
+		},
+		"tip": "0x0",
+		"paymaster_data": [],
+		"nonce_data_availability_mode": "L1",
+		"fee_data_availability_mode": "L1",
+		"account_deployment_data": []
+	}`
+
+	tests := []struct {
+		name    string
+		txnJSON string
+		wantErr bool
+	}{
+		{
+			name:    "Invalid v3 - resource_bounds not fully populated",
+			txnJSON: invalidInvokeV3,
+			wantErr: true,
+		},
+		{
+			name:    "valid v3 - resource_bounds fully populated",
+			txnJSON: validInvokeV3,
+			wantErr: false,
+		},
+	}
+
+	validate := validator.Validator()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var txn rpc.Transaction
+			require.NoError(t, json.Unmarshal([]byte(tt.txnJSON), &txn))
+
+			err := validate.Struct(txn)
+			if tt.wantErr {
+				assert.Error(t, err, "Expected validation to fail, but it passed")
+			} else {
+				assert.NoError(t, err, "Expected validation to pass, but it failed")
+			}
 		})
 	}
 }

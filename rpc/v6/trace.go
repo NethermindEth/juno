@@ -381,7 +381,10 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, makeContractError(err)
+		return nil, MakeContractError(err)
 	}
-	return res, nil
+	if res.ExecutionFailed {
+		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
+	}
+	return res.Result, nil
 }
