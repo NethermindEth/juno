@@ -691,7 +691,13 @@ func TestSubscriptionReorg(t *testing.T) {
 		// TODO: test reorg event in TransactionStatus
 	}
 
+	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(nil, nil, nil).AnyTimes()
+	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
+
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
