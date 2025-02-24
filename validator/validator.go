@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -23,19 +24,24 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 	}
 
 	version := req.Version.String()
-	if (version == "0x3" || version == "0x100000000000000000000000000000003") &&
-		(req.ResourceBounds == nil || len(*req.ResourceBounds) != 3) {
-		return false
+	fmt.Println(version)
+
+	// Only enforce resource bounds validation for version 0x3
+	if version == "0x3" || version == "0x100000000000000000000000000000003" {
+		return req.ResourceBounds != nil && len(*req.ResourceBounds) == 3
 	}
+
+	// Allow earlier versions without resource bounds
 	return true
 }
 
-// Validator returns a singleton that can be used to validate various objects
 func Validator() *validator.Validate {
 	once.Do(func() {
 		v = validator.New()
 
-		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
+		// callValidationEvenIfNull is set to true to ensure that the validation is called even if the field is nil
+		// If the field is nil, the validation will return false for v0-2 transactions
+		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds, true); err != nil {
 			panic("failed to register validation: " + err.Error())
 		}
 
