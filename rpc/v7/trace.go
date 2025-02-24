@@ -309,9 +309,6 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	for index := range len(executionResult.Traces) {
 		trace := &executionResult.Traces[index]
 
-		// Clean trace inner execution resources to hold only `ComputationResources` as per the specs
-		cleanTraceInnerExecutionResources(trace)
-
 		// Add execution resources on root level
 		trace.ExecutionResources = &vm.ExecutionResources{
 			ComputationResources: utils.Ptr(trace.TotalComputationResources()),
@@ -334,50 +331,6 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	return result, httpHeader, nil
-}
-
-// Clean trace's inner execution resources to return only the expected fields
-func cleanTraceInnerExecutionResources(trace *vm.TransactionTrace) {
-	// Stack to process FunctionInvocations iteratively (dfs)
-	stack := []*vm.FunctionInvocation{}
-
-	pushFnInvocationIfNotNil := func(fn *vm.FunctionInvocation) {
-		if fn != nil {
-			stack = append(stack, fn)
-		}
-	}
-
-	pushFnInvocationIfNotNil(trace.FeeTransferInvocation)
-	pushFnInvocationIfNotNil(trace.ValidateInvocation)
-
-	switch trace.Type {
-	case vm.TxnDeploy, vm.TxnDeployAccount:
-		pushFnInvocationIfNotNil(trace.ConstructorInvocation)
-	case vm.TxnInvoke:
-		pushFnInvocationIfNotNil(trace.ExecuteInvocation.FunctionInvocation)
-	case vm.TxnL1Handler:
-		pushFnInvocationIfNotNil(trace.FunctionInvocation)
-	}
-
-	// Clean all inner execution resources
-	for len(stack) > 0 {
-		// Pop a FunctionInvocation from the stack
-		lastIndex := len(stack) - 1
-		fnInvocation := stack[lastIndex]
-		stack = stack[:lastIndex]
-
-		// Keep only wanted execution resources fields
-		if fnInvocation.ExecutionResources != nil {
-			fnInvocation.ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: fnInvocation.ExecutionResources.ComputationResources,
-			}
-		}
-
-		// Push child function invocations onto the stack (dfs pre-order even though order does not matter)
-		for i := len(fnInvocation.Calls) - 1; i >= 0; i-- {
-			stack = append(stack, &fnInvocation.Calls[i])
-		}
-	}
 }
 
 func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
