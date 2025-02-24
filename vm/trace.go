@@ -5,7 +5,6 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -250,19 +249,6 @@ type ExecutionResources struct {
 
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
-}
-
-func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) DataAvailability {
-	da := DataAvailability{}
-
-	switch mode {
-	case core.Calldata:
-		da.L1Gas = gasConsumed.Uint64()
-	case core.Blob:
-		da.L1DataGas = dataGasConsumed.Uint64()
-	}
-
-	return da
 }
 
 // TODO: add RPC 0.6, 0.7 and 0.8 support

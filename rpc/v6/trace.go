@@ -135,10 +135,10 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash, true)
+	return h.traceTransaction(ctx, &hash)
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Response bool) (*vm.TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.TransactionTrace, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
@@ -171,7 +171,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt, v0_6Res
 		return nil, rpccore.ErrTxnHashNotFound
 	}
 
-	traceResults, traceBlockErr := h.traceBlockTransactions(ctx, block, v0_6Response)
+	traceResults, traceBlockErr := h.traceBlockTransactions(ctx, block)
 	if traceBlockErr != nil {
 		return nil, traceBlockErr
 	}
@@ -185,10 +185,10 @@ func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]Tra
 		return nil, rpcErr
 	}
 
-	return h.traceBlockTransactions(ctx, block, true)
+	return h.traceBlockTransactions(ctx, block)
 }
 
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, v0_6Response bool, //nolint: gocyclo, funlen
+func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block, //nolint: gocyclo, funlen
 ) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 	if !isPending {
@@ -200,8 +200,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		}
 
 		if trace, hit := h.blockTraceCache.Get(traceCacheKey{
-			blockHash:    *block.Hash,
-			v0_6Response: v0_6Response,
+			blockHash: *block.Hash,
 		}); hit {
 			return trace, nil
 		}
@@ -265,44 +264,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		// report them as unexpected errors
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
-	overallFees := executionResults.OverallFees
-	dataGasConsumed := executionResults.DataAvailability
 	traces := executionResults.Traces
 
 	result := make([]TracedBlockTransaction, len(traces))
-	for index, trace := range traces {
-		if !v0_6Response {
-			feeUnit := feeUnit(block.Transactions[index])
-
-			gasPrice := header.L1GasPriceETH
-			if feeUnit == FRI {
-				if gasPrice = header.L1GasPriceSTRK; gasPrice == nil {
-					gasPrice = &felt.Zero
-				}
-			}
-
-			dataGasPrice := &felt.Zero
-			if header.L1DataGasPrice != nil {
-				switch feeUnit {
-				case FRI:
-					dataGasPrice = header.L1DataGasPrice.PriceInFri
-				case WEI:
-					dataGasPrice = header.L1DataGasPrice.PriceInWei
-				}
-			}
-
-			l1DAGas := new(felt.Felt).SetUint64(dataGasConsumed[index].L1DataGas)
-			dataGasFee := new(felt.Felt).Mul(l1DAGas, dataGasPrice)
-			gasConsumed := new(felt.Felt).Sub(overallFees[index], dataGasFee)
-			gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
-
-			da := vm.NewDataAvailability(gasConsumed, l1DAGas,
-				header.L1DAMode)
-			traces[index].ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: trace.TotalComputationResources(),
-				DataAvailability:     &da,
-			}
-		}
+	for index := range len(traces) {
 		result[index] = TracedBlockTransaction{
 			TraceRoot:       &traces[index],
 			TransactionHash: block.Transactions[index].Hash(),
@@ -311,8 +276,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	if !isPending {
 		h.blockTraceCache.Add(traceCacheKey{
-			blockHash:    *block.Hash,
-			v0_6Response: v0_6Response,
+			blockHash: *block.Hash,
 		}, result)
 	}
 

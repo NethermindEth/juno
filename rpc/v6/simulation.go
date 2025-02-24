@@ -51,12 +51,12 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
 //nolint:funlen
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, v0_6Response, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -113,7 +113,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 	overallFees := executionResults.OverallFees
-	dataGasConsumed := executionResults.DataAvailability
 	traces := executionResults.Traces
 
 	result := make([]SimulatedTransaction, len(transactions))
@@ -135,16 +134,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			GasPrice:    gasPrice,
 			OverallFee:  overallFee,
 			Unit:        utils.Ptr(feeUnit),
-		}
-
-		if !v0_6Response {
-			trace := traces[i]
-			da := vm.NewDataAvailability(gasConsumed,
-				new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
-			traces[i].ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: trace.TotalComputationResources(),
-				DataAvailability:     &da,
-			}
 		}
 
 		result[i] = SimulatedTransaction{
