@@ -43,7 +43,7 @@ func Validator() *validator.Validate {
 			panic("failed to register validation: " + err.Error())
 		}
 
-		if err := v.RegisterValidation("version_min_0x3", validateVersion); err != nil {
+		if err := v.RegisterValidation("version_0x3", validateVersion); err != nil {
 			panic("failed to register validation: " + err.Error())
 		}
 

@@ -212,7 +212,7 @@ type ResourceBounds struct {
 type Transaction struct {
 	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
 	Type                  TransactionType              `json:"type" validate:"required"`
-	Version               *felt.Felt                   `json:"version,omitempty" validate:"required,version_min_0x3"`
+	Version               *felt.Felt                   `json:"version,omitempty" validate:"required,version_0x3"`
 	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required"`
 	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
