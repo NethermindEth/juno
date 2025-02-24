@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
@@ -50,8 +51,6 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 	return json.Marshal(classInfo)
 }
 
-var pre01, _ = new(felt.Felt).SetString("0x302e312e30")
-
 // Parse Sierra version from the JSON representation of the program.
 //
 // Sierra programs contain the version number in two possible formats.
@@ -65,7 +64,8 @@ func parseSierraVersion(prog []*felt.Felt) (string, error) {
 		return "", errors.New("failed to parse sierra version in classInfo")
 	}
 
-	if prog[0].Equal(pre01) {
+	pre01 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+	if prog[0].Equal(&pre01) {
 		return "0.1.0", nil
 	}
 
