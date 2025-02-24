@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -24,7 +23,6 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 	}
 
 	version := req.Version.String()
-	fmt.Println(version)
 
 	// Only enforce resource bounds validation for version 0x3
 	if version == "0x3" || version == "0x100000000000000000000000000000003" {
@@ -35,6 +33,7 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 	return true
 }
 
+// Validator returns a singleton that can be used to validate various objects
 func Validator() *validator.Validate {
 	once.Do(func() {
 		v = validator.New()
