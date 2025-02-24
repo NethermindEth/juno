@@ -133,8 +133,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	synchronizer := new(sync.Synchronizer)
-	chain := blockchain.New(database, &cfg.Network, synchronizer.PendingBlock)
+	chain := blockchain.New(database, &cfg.Network, func() *core.Block { return nil })
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -162,7 +161,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
 		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+	chain.WithPendingBlockFn(synchronizer.PendingBlock)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 	if cfg.PluginPath != "" {

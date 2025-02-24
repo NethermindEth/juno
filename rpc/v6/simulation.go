@@ -130,7 +130,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		gasConsumed := overallFee.Clone()
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
-		fmt.Println("dataGasConsumed[i]", dataGasConsumed, overallFees)
 		estimate := FeeEstimate{
 			GasConsumed: gasConsumed,
 			GasPrice:    gasPrice,

@@ -121,37 +121,19 @@ func TestSubscribeEvents(t *testing.T) {
 	b1, err := gw.BlockByNumber(context.Background(), 56377)
 	require.NoError(t, err)
 
+	b2, err := gw.BlockByNumber(context.Background(), 56378)
+	require.NoError(t, err)
+
+	pending1 := createTestPendingBlock(t, b2, 3)
+	pending2 := createTestPendingBlock(t, b2, 6)
+
 	fromAddr := new(felt.Felt).SetBytes([]byte("some address"))
 	keys := [][]felt.Felt{{*new(felt.Felt).SetBytes([]byte("key1"))}}
 
-	filteredEvents := []*blockchain.FilteredEvent{
-		{
-			Event:           b1.Receipts[0].Events[0],
-			BlockNumber:     b1.Number,
-			BlockHash:       new(felt.Felt).SetBytes([]byte("b1")),
-			TransactionHash: b1.Transactions[0].Hash(),
-		},
-		{
-			Event:           b1.Receipts[1].Events[0],
-			BlockNumber:     b1.Number + 1,
-			BlockHash:       new(felt.Felt).SetBytes([]byte("b2")),
-			TransactionHash: b1.Transactions[1].Hash(),
-		},
-	}
-
-	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
-	for _, e := range filteredEvents {
-		emittedEvents = append(emittedEvents, &EmittedEvent{
-			Event: &Event{
-				From: e.From,
-				Keys: e.Keys,
-				Data: e.Data,
-			},
-			BlockHash:       e.BlockHash,
-			BlockNumber:     &e.BlockNumber,
-			TransactionHash: e.TransactionHash,
-		})
-	}
+	b1Filtered, b1Emitted := createTestEvents(t, b1)
+	b2Filtered, b2Emitted := createTestEvents(t, b2)
+	pending1Filtered, pending1Emitted := createTestEvents(t, pending1)
+	pending2Filtered, pending2Emitted := createTestEvents(t, pending2)
 
 	t.Run("Events from new blocks", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
@@ -162,39 +144,22 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
-		newHeadFeed := feed.New[*core.Header]()
-		handler.newHeads = newHeadFeed
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
+		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		serverConn, clientConn := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
-		})
+		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, nil)
+		t.Cleanup(cleanup)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
-		require.Nil(t, rpcErr)
+		assertNextMessages(t, clientConn, id, b1Emitted)
 
-		newHeadFeed.Send(&core.Header{Number: b1.Number})
-
-		resp, err := marshalSubEventsResp(emittedEvents[0], id)
-		require.NoError(t, err)
-
-		got := make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
-
-		cancel()
-		time.Sleep(100 * time.Millisecond)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		handler.newHeads.Send(b2.Header)
+		assertNextMessages(t, clientConn, id, b2Emitted)
 	})
 
 	t.Run("Events from old blocks", func(t *testing.T) {
@@ -206,39 +171,18 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
+		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(filteredEvents, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		serverConn, clientConn := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
-		})
+		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, &b1.Number)
+		t.Cleanup(cleanup)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
-		require.Nil(t, rpcErr)
-
-		var marshalledResponses [][]byte
-		for _, e := range emittedEvents {
-			resp, err := marshalSubEventsResp(e, id)
-			require.NoError(t, err)
-			marshalledResponses = append(marshalledResponses, resp)
-		}
-
-		for _, m := range marshalledResponses {
-			got := make([]byte, len(m))
-			_, err := clientConn.Read(got)
-			require.NoError(t, err)
-			assert.Equal(t, string(m), string(got))
-		}
-		cancel()
+		assertNextMessages(t, clientConn, id, b1Emitted)
 	})
 
 	t.Run("Events when continuation token is not nil", func(t *testing.T) {
@@ -250,43 +194,20 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
+		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(
-			[]*blockchain.FilteredEvent{filteredEvents[0]}, cToken, nil)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(
-			[]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		serverConn, clientConn := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
-		})
+		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, &b1.Number)
+		t.Cleanup(cleanup)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &SubscriptionBlockID{Number: b1.Number})
-		require.Nil(t, rpcErr)
-
-		var marshalledResponses [][]byte
-		for _, e := range emittedEvents {
-			resp, err := marshalSubEventsResp(e, id)
-			require.NoError(t, err)
-			marshalledResponses = append(marshalledResponses, resp)
-		}
-
-		for _, m := range marshalledResponses {
-			got := make([]byte, len(m))
-			_, err := clientConn.Read(got)
-			require.NoError(t, err)
-			assert.Equal(t, string(m), string(got))
-		}
-		cancel()
+		assertNextMessages(t, clientConn, id, b1Emitted)
 	})
 
 	t.Run("Events from pending block without duplicates", func(t *testing.T) {
@@ -298,69 +219,33 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
-		pendingFeed := feed.New[*core.Block]()
-		handler.pendingBlock = pendingFeed
 
-		mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: b1.Number}, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
-
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[0]}, nil, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil).AnyTimes()
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		serverConn, clientConn := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
-		})
+		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 
-		ctx, cancel := context.WithCancel(context.Background())
-		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
-		require.Nil(t, rpcErr)
+		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, nil)
+		t.Cleanup(cleanup)
 
-		resp, err := marshalSubEventsResp(emittedEvents[0], id)
-		require.NoError(t, err)
+		assertNextMessages(t, clientConn, id, b1Emitted)
 
-		got := make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
+		mockChain.EXPECT().Height().Return(b1.Number, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
+		handler.pendingBlock.Send(pending1)
+		assertNextMessages(t, clientConn, id, pending1Emitted)
 
-		// Pending block events, due to the use of mocks events which were sent before are resent.
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().Height().Return(b1.Number, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
+		handler.pendingBlock.Send(pending2)
+		assertNextMessages(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.FilteredEvent{filteredEvents[1]}, nil, nil)
-
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
-
-		resp, err = marshalSubEventsResp(emittedEvents[1], id)
-		require.NoError(t, err)
-
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
-
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
-
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return([]*blockchain.
-			FilteredEvent{filteredEvents[1], filteredEvents[0]}, nil, nil)
-
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: b1.Number + 1}})
-
-		resp, err = marshalSubEventsResp(emittedEvents[0], id)
-		require.NoError(t, err)
-
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, string(resp), string(got))
-
-		cancel()
-		time.Sleep(100 * time.Millisecond)
+		mockChain.EXPECT().BlockByNumber(b2.Number).Return(b2, nil)
+		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		handler.newHeads.Send(b2.Header)
+		assertNextMessages(t, clientConn, id, b2Emitted[len(pending2Emitted):])
 	})
 }
 
@@ -685,12 +570,12 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	id := uint64(1)
 	handler.WithIDGen(func() uint64 { return id })
 
-	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block":{"block_number":0}}}`
+	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
 	got := sendWsMessage(t, ctx, conn, subMsg)
 	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -884,11 +769,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2","0x3","0x4","0x5"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Filtered subscription", func(t *testing.T) {
@@ -928,11 +815,13 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":["0x1","0x2"],"subscription_id":%d}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
+		for _, expectedResult := range []string{"0x1", "0x2"} {
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want = fmt.Sprintf(want, expectedResult, id)
+			_, pendingTxsGot, err := conn.Read(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want, string(pendingTxsGot))
+		}
 	})
 
 	t.Run("Full details subscription", func(t *testing.T) {
@@ -964,7 +853,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":[{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"}],"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":%d}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -1133,7 +1022,7 @@ func testHeader(t *testing.T) *core.Header {
 }
 
 func newHeadsResponse(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":""},"subscription_id":%d}}`, id)
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","parent_hash":"0x2a70fb03fe363a2d6be843343a1d81ce6abeda1e9bd5cc6ad8fa9f45e30fdeb","block_number":2,"new_root":"0x3ceee867d50b5926bb88c0ec7e0b9c20ae6b537e74aac44b8fcf6bb6da138d9","timestamp":1637084470,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`, id)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
@@ -1176,4 +1065,88 @@ func marshalSubEventsResp(e *EmittedEvent, id SubscriptionID) ([]byte, error) {
 			"result":          e,
 		},
 	})
+}
+
+func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, e *EmittedEvent) {
+	t.Helper()
+
+	resp, err := marshalSubEventsResp(e, id)
+	require.NoError(t, err)
+
+	got := make([]byte, len(resp))
+	_, err = conn.Read(got)
+	require.NoError(t, err)
+	assert.Equal(t, string(resp), string(got))
+}
+
+func assertNextMessages(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+	t.Helper()
+
+	for _, emitted := range emittedEvents {
+		assertNextMessage(t, conn, id, emitted)
+	}
+}
+
+func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Block {
+	t.Helper()
+
+	pending := *b
+	pending.Header.Number = 0
+	pending.Header.Hash = nil
+	pending.Hash = nil
+	pending.Transactions = pending.Transactions[:txCount]
+	pending.Receipts = pending.Receipts[:txCount]
+	return &pending
+}
+
+func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*EmittedEvent) {
+	t.Helper()
+
+	var filtered []*blockchain.FilteredEvent
+	var emitted []*EmittedEvent
+	for _, receipt := range b.Receipts {
+		for i, event := range receipt.Events {
+			filtered = append(filtered, &blockchain.FilteredEvent{
+				Event:           event,
+				BlockNumber:     &b.Number,
+				BlockHash:       b.Hash,
+				TransactionHash: receipt.TransactionHash,
+				EventIndex:      i,
+			})
+			emitted = append(emitted, &EmittedEvent{
+				Event: &Event{
+					From: event.From,
+					Keys: event.Keys,
+					Data: event.Data,
+				},
+				BlockNumber:     &b.Number,
+				BlockHash:       b.Hash,
+				TransactionHash: receipt.TransactionHash,
+			})
+		}
+	}
+	return filtered, emitted
+}
+
+func createTestWebsocket(t *testing.T, handler *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64) (SubscriptionID, net.Conn, func()) {
+	t.Helper()
+
+	serverConn, clientConn := net.Pipe()
+
+	var blockID *SubscriptionBlockID
+	if startBlock != nil {
+		blockID = &SubscriptionBlockID{Number: *startBlock}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+	id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
+	require.Nil(t, rpcErr)
+
+	return id, clientConn, func() {
+		require.NoError(t, serverConn.Close())
+		require.NoError(t, clientConn.Close())
+		cancel()
+		time.Sleep(100 * time.Millisecond)
+	}
 }

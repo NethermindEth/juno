@@ -496,18 +496,18 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 //
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
-	t.Skip()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
 	n := utils.Ptr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncer, nil, "", n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
-		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, errors.New("tx not found"))
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().PendingBlock().Return(nil)
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
@@ -554,7 +554,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"messages_sent": [],
 					"events": [],
 					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-					"execution_resources":{"steps":29}
+					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":29}
 				}`,
 		},
 		"without contract addr": {
@@ -578,7 +578,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
 				}`,
 		},
 	}
@@ -612,12 +612,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
-		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], nil, uint64(0), nil)
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().PendingBlock().Return(block0)
 
 		checkTxReceipt(t, txHash, expected)
 	})
@@ -643,7 +643,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"steps":31}
+					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -669,7 +669,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"messages_sent": [],
 			"events": [],
 			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
-			"execution_resources":{"steps":0}
+			"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":0}
 		}`
 
 		integClient := feeder.NewTestClient(t, &utils.Integration)
@@ -725,6 +725,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				}
 			],
 			"execution_resources": {
+				"data_availability": {
+					"l1_data_gas": 0,
+					"l1_gas": 0
+				},
 				"steps": 615,
 				"range_check_builtin_applications": 19,
 				"memory_holes": 4
@@ -1429,7 +1433,11 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
+
+						mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+						mockSyncer.EXPECT().PendingBlock().Return(nil).Times(2)
+
+						handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1446,7 +1454,11 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, nil, "", test.network, nil).WithFeeder(client)
+
+				mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+				mockSyncer.EXPECT().PendingBlock().Return(nil)
+
+				handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)

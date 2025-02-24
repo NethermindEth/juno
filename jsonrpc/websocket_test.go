@@ -96,6 +96,8 @@ func TestSendFromHandler(t *testing.T) {
 }
 
 func TestWebsocketConnectionLimit(t *testing.T) {
+	t.Parallel()
+
 	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger())
 	ws := jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()).WithMaxConnections(2)
 	httpSrv := httptest.NewServer(ws)

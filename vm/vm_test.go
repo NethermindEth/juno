@@ -52,7 +52,7 @@ func TestV0Call(t *testing.T) {
 		Selector:        entryPoint,
 	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
+	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -72,7 +72,7 @@ func TestV0Call(t *testing.T) {
 		Selector:        entryPoint,
 	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, "")
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret)
+	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
 
 func TestV1Call(t *testing.T) {
@@ -119,7 +119,7 @@ func TestV1Call(t *testing.T) {
 		},
 	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret)
+	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
@@ -141,7 +141,7 @@ func TestV1Call(t *testing.T) {
 		},
 	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, "")
 	require.NoError(t, err)
-	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret)
+	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
 
 func TestCall_MaxSteps(t *testing.T) {
