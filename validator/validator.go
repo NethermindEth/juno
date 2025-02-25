@@ -22,7 +22,7 @@ func validateResourceBounds(fl validator.FieldLevel) bool {
 }
 
 // Custom validation function for version
-func validateVersion(fl validator.FieldLevel) bool {
+func validateVersion03(fl validator.FieldLevel) bool {
 	version, ok := fl.Field().Interface().(string)
 	return ok && (version == "0x3" || version == "0x100000000000000000000000000000003")
 }
@@ -36,7 +36,7 @@ func Validator() *validator.Validate {
 			panic("failed to register validation: " + err.Error())
 		}
 
-		if err := v.RegisterValidation("version_0x3", validateVersion); err != nil {
+		if err := v.RegisterValidation("version_0x3", validateVersion03); err != nil {
 			panic("failed to register validation: " + err.Error())
 		}
 
