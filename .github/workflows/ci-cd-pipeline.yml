@@ -64,6 +64,9 @@ jobs:
 
 
   validate_dev:
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
     permissions:
       id-token: write
       contents: write
