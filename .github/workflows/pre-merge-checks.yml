@@ -58,8 +58,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@b4bd0f1f1234567890abcdef1234567890abcdef
-        with:
-          fetch-depth: 0
 
       - name: Verify Deployment Version (Dev)
         run: |
