@@ -46,10 +46,16 @@ type Trie struct {
 	pendingUpdates int
 }
 
-func New(id *ID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
+// A unique identifier for a trie
+type TrieID interface {
+	Bucket() db.Bucket
+	Owner() felt.Felt
+}
+
+func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
 	database := triedb.New(txn, id.Bucket())
 	tr := &Trie{
-		owner:      id.Owner,
+		owner:      id.Owner(),
 		height:     height,
 		hashFn:     hashFn,
 		db:         database,
@@ -510,15 +516,15 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
+	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(TrieID(), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
+	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(TrieID(), height, crypto.Pedersen, db.NewMemTransaction())
+	trie, err := New(NewEmptyTrieID(), height, crypto.Pedersen, db.NewMemTransaction())
 	if err != nil {
 		return err
 	}
@@ -526,7 +532,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(TrieID(), height, crypto.Poseidon, db.NewMemTransaction())
+	trie, err := New(NewEmptyTrieID(), height, crypto.Poseidon, db.NewMemTransaction())
 	if err != nil {
 		return err
 	}
