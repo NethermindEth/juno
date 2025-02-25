@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/rpc/juno"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
@@ -20,6 +21,7 @@ type Handler struct {
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
 	rpcv8Handler *rpcv8.Handler
+	junoHandler  *juno.Handler
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
@@ -28,11 +30,12 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, version, network, logger)
 	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, network, logger)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
-
+	handlerJuno := juno.New(bcReader, syncReader, version, logger)
 	return &Handler{
 		rpcv6Handler: handlerv6,
 		rpcv7Handler: handlerv7,
 		rpcv8Handler: handlerv8,
+		junoHandler:  handlerJuno,
 	}
 }
 
@@ -57,9 +60,8 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 }
 
 func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
-	h.rpcv6Handler.WithIDGen(idgen)
-	h.rpcv7Handler.WithIDGen(idgen)
 	h.rpcv8Handler.WithIDGen(idgen)
+	h.junoHandler.WithIDGen(idgen)
 	return h
 }
 
@@ -83,6 +85,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	g.Go(func() error { return h.rpcv6Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv7Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
+	g.Go(func() error { return h.junoHandler.Run(ctx) })
 
 	return g.Wait()
 }
@@ -187,7 +190,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv8Handler.Version,
+			Handler: h.junoHandler.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -381,7 +384,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv7Handler.Version,
+			Handler: h.junoHandler.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -429,12 +432,12 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_subscribeNewHeads",
-			Handler: h.rpcv7Handler.SubscribeNewHeads,
+			Handler: h.junoHandler.SubscribeNewHeads(juno.V7Adapter),
 		},
 		{
 			Name:    "juno_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.rpcv7Handler.Unsubscribe,
+			Handler: h.junoHandler.Unsubscribe,
 		},
 	}, "/v0_7"
 }
@@ -539,7 +542,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv6Handler.Version,
+			Handler: h.junoHandler.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -582,12 +585,12 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_subscribeNewHeads",
-			Handler: h.rpcv6Handler.SubscribeNewHeads,
+			Handler: h.junoHandler.SubscribeNewHeads(juno.V6Adapter),
 		},
 		{
 			Name:    "juno_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.rpcv6Handler.Unsubscribe,
+			Handler: h.junoHandler.Unsubscribe,
 		},
 	}, "/v0_6"
 }

@@ -186,7 +186,7 @@ func (h *Handler) blockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: AdaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -244,7 +244,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -271,7 +271,7 @@ func (h *Handler) blockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  AdaptBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -303,7 +303,7 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *json
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func AdaptBlockHeader(header *core.Header) BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {
