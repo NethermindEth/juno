@@ -200,7 +200,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		feederTrace := &blockTrace.Traces[index]
 
 		trace := TransactionTrace{
-			Type:                  TransactionType(block.Transactions[index].Type),
+			Type:                  block.Transactions[index].Type,
 			FeeTransferInvocation: adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
 			ValidateInvocation:    adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
 		}
