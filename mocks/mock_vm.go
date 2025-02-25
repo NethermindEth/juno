@@ -43,10 +43,10 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(arg0 *vm.CallInfo, arg1 *vm.BlockInfo, arg2 vm.StateReader, arg3 *utils.Network, arg4 uint64, arg5 string) ([]*felt.Felt, error) {
+func (m *MockVM) Call(arg0 *vm.CallInfo, arg1 *vm.BlockInfo, arg2 vm.StateReader, arg3 *utils.Network, arg4 uint64, arg5 string) (vm.CallResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].([]*felt.Felt)
+	ret0, _ := ret[0].(vm.CallResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

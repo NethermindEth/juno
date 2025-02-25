@@ -38,7 +38,7 @@ type CallResult struct {
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state StateReader, network *utils.Network,
 		maxSteps uint64, sierraVersion string) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
