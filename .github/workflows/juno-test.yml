@@ -2,10 +2,10 @@ name: Juno Test
 on:
   push:
     branches:
-      - main
       - develop
   pull_request:
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

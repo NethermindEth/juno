@@ -1,9 +1,7 @@
 name: Deploy Documentation to GitHub Pages
 
 on:
-  push:
-    branches:
-      - main
+  merge_group:
   workflow_dispatch:
 
 permissions:

@@ -1,12 +1,11 @@
 name: Container Security
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   schedule:
     - cron: '29 19 * * 4'
+  merge_group:
 
 permissions:
   contents: read

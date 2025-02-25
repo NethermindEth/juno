@@ -10,9 +10,9 @@ env:
 
 on:
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
