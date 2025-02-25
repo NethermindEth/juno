@@ -247,7 +247,7 @@ func (s *StateContract) getTrie(txn db.Transaction) (*trie2.Trie, error) {
 		return s.tr, nil
 	}
 
-	tr, err := trie2.New(trie2.ContractTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn)
+	tr, err := trie2.New(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn)
 	if err != nil {
 		return nil, err
 	}

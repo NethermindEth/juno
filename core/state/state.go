@@ -43,12 +43,12 @@ type State struct {
 }
 
 func New(txn db.Transaction) (*State, error) {
-	contractTrie, err := trie2.New(trie2.ContractTrieID(felt.Zero), ContractTrieHeight, crypto.Pedersen, txn)
+	contractTrie, err := trie2.New(trie2.NewContractTrieID(), ContractTrieHeight, crypto.Pedersen, txn)
 	if err != nil {
 		return nil, err
 	}
 
-	classTrie, err := trie2.New(trie2.ClassTrieID(), ClassTrieHeight, crypto.Poseidon, txn)
+	classTrie, err := trie2.New(trie2.NewClassTrieID(), ClassTrieHeight, crypto.Poseidon, txn)
 	if err != nil {
 		return nil, err
 	}
