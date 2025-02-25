@@ -143,7 +143,7 @@ func TestTraceTransaction(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
 
-		executionResources := `{
+		innerExecutionResources := `{
 			"pedersen": 0,
 			"rangecheck": 0,
 			"bitwise": 0,
@@ -153,11 +153,7 @@ func TestTraceTransaction(t *testing.T) {
 			"poseidon": 0,
 			"segmentarena": 0,
 			"memoryholes": 0,
-			"steps": 1,
-			"data_availability": {
-				"l1_gas": 1,
-				"l1_data_gas": 1
-			}
+			"steps": 1
 		}`
 
 		vmTraceJSON := fmt.Sprintf(`{
@@ -172,13 +168,17 @@ func TestTraceTransaction(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`, executionResources)
+		}`, innerExecutionResources)
+
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
+
 		dataGas := []core.DataAvailability{{L1Gas: 1, L1DataGas: 0}}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
+
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
 			false).
@@ -193,6 +193,7 @@ func TestTraceTransaction(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
+		// Root level execution resources should be the sum of inner execution resources
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
 			ComputationResources: vm.ComputationResources{
 				Steps: 3,
@@ -202,7 +203,7 @@ func TestTraceTransaction(t *testing.T) {
 				L1DataGas: 0,
 			},
 		}
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, rpcv7.AdaptVMTransactionTrace(vmTrace), trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
@@ -240,7 +241,7 @@ func TestTraceTransaction(t *testing.T) {
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
-		executionResources := `{
+		innerExecutionResources := `{
 			"pedersen": 0,
 			"rangecheck": 0,
 			"bitwise": 0,
@@ -250,11 +251,7 @@ func TestTraceTransaction(t *testing.T) {
 			"poseidon": 0,
 			"segmentarena": 0,
 			"memoryholes": 0,
-			"steps": 0,
-			"data_availability": {
-				"l1_gas": 1,
-				"l1_data_gas": 1
-			}
+			"steps": 0
 		}`
 
 		vmTraceJSON := fmt.Sprintf(`{
@@ -269,13 +266,17 @@ func TestTraceTransaction(t *testing.T) {
 				"declared_classes": [],
 				"replaced_classes": []
 			}
-		}`, executionResources)
+		}`, innerExecutionResources)
+
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
+
 		consumedGas := []core.DataAvailability{{L1Gas: 1, L1DataGas: 0}}
 		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
+
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).
 			Return(vm.ExecutionResults{
@@ -289,13 +290,13 @@ func TestTraceTransaction(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
+		// Root level execution resources should be the sum of inner execution resources
 		vmTrace.ExecutionResources = &vm.ExecutionResources{
-			// other of fields are zero
 			DataAvailability: &vm.DataAvailability{
 				L1Gas: 1,
 			},
 		}
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, rpcv7.AdaptVMTransactionTrace(vmTrace), trace)
 	})
 }
 
@@ -389,10 +390,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 				"replaced_classes": []
 			}
 		}`)
+
 		vmTrace := vm.TransactionTrace{}
+		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
+
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
-		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
+
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
 			gomock.Any(), n, false, false, false).
 			Return(vm.ExecutionResults{
@@ -402,16 +406,26 @@ func TestTraceBlockTransactions(t *testing.T) {
 			}, nil)
 
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
-		assert.Equal(t, &vm.TransactionTrace{
-			ValidateInvocation: &vm.FunctionInvocation{ExecutionResources: &vm.ExecutionResources{}},
-			ExecuteInvocation: &vm.ExecuteInvocation{FunctionInvocation: &vm.FunctionInvocation{
-				ExecutionResources: &vm.ExecutionResources{},
-			}},
-			FeeTransferInvocation: &vm.FunctionInvocation{ExecutionResources: &vm.ExecutionResources{}},
-			ExecutionResources: &vm.ExecutionResources{
-				DataAvailability: &vm.DataAvailability{},
+		assert.Equal(t, &rpcv7.TransactionTrace{
+			ValidateInvocation: &rpcv7.FunctionInvocation{
+				Calls:              []rpcv7.FunctionInvocation{},
+				ExecutionResources: &rpcv7.ComputationResources{},
+			},
+			ExecuteInvocation: &rpcv7.ExecuteInvocation{
+				FunctionInvocation: &rpcv7.FunctionInvocation{
+					Calls:              []rpcv7.FunctionInvocation{},
+					ExecutionResources: &rpcv7.ComputationResources{},
+				},
+			},
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				Calls:              []rpcv7.FunctionInvocation{},
+				ExecutionResources: &rpcv7.ComputationResources{},
+			},
+			ExecutionResources: &rpcv7.ExecutionResources{
+				DataAvailability: &rpcv7.DataAvailability{},
 			},
 			StateDiff: &vm.StateDiff{
 				StorageDiffs:              []vm.StorageDiff{},
@@ -424,6 +438,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		}, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
 	})
+
 	t.Run("regular block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
 		tx := &core.DeclareTransaction{
@@ -481,13 +496,15 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
+		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+
 		expectedResult := []rpcv7.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       &vmTrace,
+				TraceRoot:       rpcv7.AdaptVMTransactionTrace(&vmTrace),
 			},
 		}
-		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)

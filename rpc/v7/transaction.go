@@ -253,7 +253,7 @@ type ComputationResources struct {
 	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
 	RangeCheck   uint64 `json:"range_check_builtin_applications,omitempty"`
 	Bitwise      uint64 `json:"bitwise_builtin_applications,omitempty"`
-	Ecsda        uint64 `json:"ecdsa_builtin_applications,omitempty"`
+	Ecdsa        uint64 `json:"ecdsa_builtin_applications,omitempty"`
 	EcOp         uint64 `json:"ec_op_builtin_applications,omitempty"`
 	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
 	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`

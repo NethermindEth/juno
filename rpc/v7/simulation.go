@@ -38,13 +38,13 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 }
 
 type SimulatedTransaction struct {
-	TransactionTrace *vm.TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate          `json:"fee_estimation,omitempty"`
+	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *vm.TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt           `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
 /****************************************************
@@ -112,7 +112,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	overallFees := executionResults.OverallFees
 	daGas := executionResults.DataAvailability
-	traces := executionResults.Traces
+	vmTraces := executionResults.Traces
 
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
@@ -126,7 +126,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	result := make([]SimulatedTransaction, 0, len(overallFees))
+	// For every transaction, we append its trace + fee estimate
 	for i, overallFee := range overallFees {
+		// Compute fee estimate
 		feeUnit := feeUnit(txns[i])
 
 		gasPrice := header.L1GasPriceETH
@@ -163,18 +165,19 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			Unit:            utils.Ptr(feeUnit),
 		}
 
-		trace := traces[i]
+		trace := AdaptVMTransactionTrace(&vmTraces[i])
 
-		traces[i].ExecutionResources = &vm.ExecutionResources{
-			ComputationResources: trace.TotalComputationResources(),
-			DataAvailability: &vm.DataAvailability{
+		// Add execution resources on the trace root level (from all the fct invocations)
+		trace.ExecutionResources = &ExecutionResources{
+			ComputationResources: trace.totalComputationResources(),
+			DataAvailability: &DataAvailability{
 				L1Gas:     daGas[i].L1Gas,
 				L1DataGas: daGas[i].L1DataGas,
 			},
 		}
 
 		result = append(result, SimulatedTransaction{
-			TransactionTrace: &traces[i],
+			TransactionTrace: trace,
 			FeeEstimation:    estimate,
 		})
 	}

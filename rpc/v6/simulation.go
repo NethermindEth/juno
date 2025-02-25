@@ -115,8 +115,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	result := make([]SimulatedTransaction, 0, len(txns))
 
-	// Compute the FeeEstimate for each transaction and add it to the result
+	// For every transaction, we append its trace + fee estimate
 	for i, overallFee := range executionResults.OverallFees {
+		// Compute fee estimate
 		feeUnit := feeUnit(txns[i])
 
 		gasPrice := header.L1GasPriceETH
