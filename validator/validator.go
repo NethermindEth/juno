@@ -18,20 +18,13 @@ var (
 
 func validateResourceBounds(fl validator.FieldLevel) bool {
 	req, ok := fl.Parent().Interface().(rpcv8.Transaction)
-	if !ok {
-		return false
-	}
-
-	return req.ResourceBounds != nil && len(*req.ResourceBounds) == 3
+	return ok && req.ResourceBounds != nil && len(*req.ResourceBounds) == 3
 }
 
 // Custom validation function for version
 func validateVersion(fl validator.FieldLevel) bool {
 	version, ok := fl.Field().Interface().(string)
-	if !ok {
-		return false
-	}
-	return version == "0x3" || version == "0x100000000000000000000000000000003"
+	return ok && (version == "0x3" || version == "0x100000000000000000000000000000003")
 }
 
 // Validator returns a singleton that can be used to validate various objects
