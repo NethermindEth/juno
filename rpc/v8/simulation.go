@@ -38,13 +38,13 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 }
 
 type SimulatedTransaction struct {
-	TransactionTrace *vm.TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate          `json:"fee_estimation,omitempty"`
+	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *vm.TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt           `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
 /****************************************************
@@ -152,6 +152,7 @@ func createSimulatedTransactions(
 	traces := executionResults.Traces
 	gasConsumed := executionResults.GasConsumed
 	daGas := executionResults.DataAvailability
+
 	if len(overallFees) != len(traces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
 		return nil, fmt.Errorf("inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
@@ -174,20 +175,21 @@ func createSimulatedTransactions(
 		l1DataGasPriceStrk = gasPrice.PriceInFri
 	}
 
-	simulatedTransactions := make([]SimulatedTransaction, len(overallFees))
+	simulatedTransactions := make([]SimulatedTransaction, 0, len(overallFees))
 	for i, overallFee := range overallFees {
-		trace := traces[i]
-		traces[i].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                gasConsumed[i].L1Gas,
-			L1DataGas:            gasConsumed[i].L1DataGas,
-			L2Gas:                gasConsumed[i].L2Gas,
-			ComputationResources: trace.TotalComputationResources(),
-			DataAvailability: &vm.DataAvailability{
-				L1Gas:     daGas[i].L1Gas,
-				L1DataGas: daGas[i].L1DataGas,
+		// Adapt transaction trace to rpc v8 trace
+		trace := AdaptVMTransactionTrace(&traces[i])
+
+		// Add root level execution resources
+		trace.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
+				L1Gas: gasConsumed[i].L1Gas,
+				L2Gas: gasConsumed[i].L2Gas,
 			},
+			L1DataGas: gasConsumed[i].L1DataGas,
 		}
 
+		// Compute data for FeeEstimate
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
 		feeUnit := feeUnit(txns[i])
 		switch feeUnit {
@@ -201,8 +203,9 @@ func createSimulatedTransactions(
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
 
-		simulatedTransactions[i] = SimulatedTransaction{
-			TransactionTrace: &traces[i],
+		// Append simulated transaction (trace + fee estimate)
+		simulatedTransactions = append(simulatedTransactions, SimulatedTransaction{
+			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
 				L1GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
@@ -213,7 +216,7 @@ func createSimulatedTransactions(
 				OverallFee:        overallFee,
 				Unit:              utils.Ptr(feeUnit),
 			},
-		}
+		})
 	}
 	return simulatedTransactions, nil
 }
