@@ -1,8 +1,10 @@
 name: Pre-merge e2e checks
 
+# Add default permissions for the workflow
+permissions: {}
+
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
-
   REPO_DEV: nubia-oci-local-dev
 
 on:
@@ -12,6 +14,9 @@ on:
 jobs:
   build_docker_image:
     runs-on: ubuntu-latest
+    # Add minimal permissions for this job
+    permissions:
+      contents: read
     outputs:
       DOCKER_IMAGE_TAG: ${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}
 
