@@ -193,7 +193,6 @@ pub extern "C" fn cairoVMCall(
         Ok(call_info) => {
             if call_info.execution.failed {
                 report_error(reader_handle, "execution failed", -1, 1);
-                return;
             }
             for data in call_info.execution.retdata.0 {
                 unsafe {
