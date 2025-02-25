@@ -212,24 +212,24 @@ type ResourceBounds struct {
 type Transaction struct {
 	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
 	Type                  TransactionType              `json:"type" validate:"required"`
-	Version               *felt.Felt                   `json:"version,omitempty" validate:"required"`
-	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee                *felt.Felt                   `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	Version               *felt.Felt                   `json:"version,omitempty" validate:"required,version_0x3"`
+	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required"`
+	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
+	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
 	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
 	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
+	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
 	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
-	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required_if=Version 0x3"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
-	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
-	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required"`
+	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required"`
+	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required"`
 }
 
 type TransactionStatus struct {
