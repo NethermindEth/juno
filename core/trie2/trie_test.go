@@ -186,7 +186,7 @@ func TestCommit(t *testing.T) {
 	verifyCommit := func(t *testing.T, records []*keyValue) {
 		t.Helper()
 		db := db.NewMemTransaction()
-		tr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 		require.NoError(t, err)
 
 		for _, record := range records {
@@ -197,7 +197,7 @@ func TestCommit(t *testing.T) {
 		_, err = tr.Commit()
 		require.NoError(t, err)
 
-		tr2, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+		tr2, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 		require.NoError(t, err)
 
 		for _, record := range records {
@@ -352,7 +352,7 @@ func runRandTestBool(rt randTest) bool {
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
 	txn := db.NewMemTransaction()
-	tr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
+	tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
 	if err != nil {
 		return err
 	}
@@ -403,7 +403,7 @@ func runRandTest(rt randTest) error {
 			if err != nil {
 				rt[i].err = fmt.Errorf("commit failed: %w", err)
 			}
-			newtr, err := New(TrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
+			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}
