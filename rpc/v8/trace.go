@@ -2,6 +2,7 @@ package rpcv8
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -24,6 +25,50 @@ var traceFallbackVersion = semver.MustParse("0.13.1")
 
 const excludedVersion = "0.13.1.1"
 
+type TransactionTrace struct {
+	Type                  TransactionType     `json:"type,omitempty"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
+	StateDiff             *vm.StateDiff       `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
+}
+
+type FunctionInvocation struct {
+	ContractAddress    felt.Felt                 `json:"contract_address"`
+	EntryPointSelector *felt.Felt                `json:"entry_point_selector,omitempty"`
+	Calldata           []felt.Felt               `json:"calldata"`
+	CallerAddress      felt.Felt                 `json:"caller_address"`
+	ClassHash          *felt.Felt                `json:"class_hash,omitempty"`
+	EntryPointType     string                    `json:"entry_point_type,omitempty"`
+	CallType           string                    `json:"call_type,omitempty"`
+	Result             []felt.Felt               `json:"result"`
+	Calls              []FunctionInvocation      `json:"calls"`
+	Events             []vm.OrderedEvent         `json:"events"`
+	Messages           []vm.OrderedL2toL1Message `json:"messages"`
+	ExecutionResources *InnerExecutionResources  `json:"execution_resources,omitempty"`
+}
+
+type ExecuteInvocation struct {
+	RevertReason        string `json:"revert_reason"`
+	*FunctionInvocation `json:",omitempty"`
+}
+
+func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	if e.FunctionInvocation != nil {
+		return json.Marshal(e.FunctionInvocation)
+	}
+	type alias ExecuteInvocation
+	return json.Marshal(alias(e))
+}
+
+type InnerExecutionResources struct {
+	L1Gas uint64 `json:"l1_gas"`
+	L2Gas uint64 `json:"l2_gas"`
+}
+
 func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
@@ -34,20 +79,20 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]Tr
 	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
-		trace := vm.TransactionTrace{}
-		trace.Type = vm.TransactionType(block.Transactions[index].Type)
+		trace := TransactionTrace{}
+		trace.Type = block.Transactions[index].Type
 
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation)
+		trace.FeeTransferInvocation = functionInvocationFromSN(feederTrace.FeeTransferInvocation)
+		trace.ValidateInvocation = functionInvocationFromSN(feederTrace.ValidateInvocation)
 
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation)
+		fnInvocation := functionInvocationFromSN(feederTrace.FunctionInvocation)
 		switch block.Transactions[index].Type {
 		case TxnDeploy:
 			trace.ConstructorInvocation = fnInvocation
 		case TxnDeployAccount:
 			trace.ConstructorInvocation = fnInvocation
 		case TxnInvoke:
-			trace.ExecuteInvocation = new(vm.ExecuteInvocation)
+			trace.ExecuteInvocation = new(ExecuteInvocation)
 			if feederTrace.RevertError != "" {
 				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
 			} else {
@@ -65,12 +110,12 @@ func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]Tr
 	return traces, nil
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.FunctionInvocation {
+func functionInvocationFromSN(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
 	if snFnInvocation == nil {
 		return nil
 	}
 
-	fnInvocation := vm.FunctionInvocation{
+	fnInvocation := FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
@@ -79,14 +124,14 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 		EntryPointType:     snFnInvocation.EntryPointType,
 		CallType:           snFnInvocation.CallType,
 		Result:             snFnInvocation.Result,
-		Calls:              make([]vm.FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
+		Calls:              make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
 		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
 		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
-		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
+		ExecutionResources: innerExecutionResourcesFromSN(&snFnInvocation.ExecutionResources),
 	}
 
 	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+		fnInvocation.Calls = append(fnInvocation.Calls, *functionInvocationFromSN(&snFnInvocation.InternalCalls[index]))
 	}
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
@@ -108,21 +153,15 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 	return &fnInvocation
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
-	builtins := &resources.BuiltinInstanceCounter
-	return &vm.ExecutionResources{
-		ComputationResources: vm.ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     builtins.Pedersen,
-			RangeCheck:   builtins.RangeCheck,
-			Bitwise:      builtins.Bitwise,
-			Ecdsa:        builtins.Ecsda,
-			EcOp:         builtins.EcOp,
-			Keccak:       builtins.Keccak,
-			Poseidon:     builtins.Poseidon,
-			SegmentArena: builtins.SegmentArena,
-		},
+func innerExecutionResourcesFromSN(resources *starknet.ExecutionResources) *InnerExecutionResources {
+	var l1Gas, l2Gas uint64
+	if tgc := resources.TotalGasConsumed; tgc != nil {
+		l1Gas = tgc.L1Gas
+		l2Gas = tgc.L2Gas
+	}
+	return &InnerExecutionResources{
+		L1Gas: l1Gas,
+		L2Gas: l2Gas,
 	}
 }
 
@@ -134,11 +173,11 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	return h.traceTransaction(ctx, &hash)
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -234,14 +273,11 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 			for index, trace := range result {
 				// fgw doesn't provide this data in traces endpoint
 				// some receipts don't have data availability data in this case we don't
-				da := txDataAvailability[*trace.TransactionHash]
 				tgs := txTotalGasConsumed[*trace.TransactionHash]
-				result[index].TraceRoot.ExecutionResources = &vm.ExecutionResources{
-					L1Gas:                tgs.L1Gas,
-					L1DataGas:            tgs.L1DataGas,
-					L2Gas:                tgs.L2Gas,
-					ComputationResources: trace.TraceRoot.TotalComputationResources(),
-					DataAvailability:     &da,
+				result[index].TraceRoot.ExecutionResources = &ExecutionResources{
+					L1Gas:     tgs.L1Gas,
+					L1DataGas: tgs.L1DataGas,
+					L2Gas:     tgs.L2Gas,
 				}
 			}
 
@@ -330,7 +366,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 			},
 		}
 		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &executionResult.Traces[index],
+			TraceRoot:       AdaptTrace(&executionResult.Traces[index]),
 			TransactionHash: block.Transactions[index].Hash(),
 		})
 	}
@@ -342,6 +378,75 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	return result, httpHeader, nil
+}
+
+func AdaptTrace(trace *vm.TransactionTrace) *TransactionTrace {
+	var executeInvocation *ExecuteInvocation
+	if vmExecuteInvocation := trace.ExecuteInvocation; vmExecuteInvocation != nil {
+		executeInvocation = &ExecuteInvocation{
+			RevertReason:       vmExecuteInvocation.RevertReason,
+			FunctionInvocation: functionInvocationFromVM(vmExecuteInvocation.FunctionInvocation),
+		}
+	}
+
+	return &TransactionTrace{
+		Type:                  TransactionType(trace.Type),
+		ValidateInvocation:    functionInvocationFromVM(trace.ValidateInvocation),
+		ExecuteInvocation:     executeInvocation,
+		FeeTransferInvocation: functionInvocationFromVM(trace.FeeTransferInvocation),
+		ConstructorInvocation: functionInvocationFromVM(trace.ConstructorInvocation),
+		FunctionInvocation:    functionInvocationFromVM(trace.FunctionInvocation),
+		StateDiff:             trace.StateDiff,
+		ExecutionResources:    executionResourcesFromVM(trace.ExecutionResources),
+	}
+}
+
+func executionResourcesFromVM(resources *vm.ExecutionResources) *ExecutionResources {
+	if resources == nil {
+		return nil
+	}
+	return &ExecutionResources{
+		L1Gas:     resources.L1Gas,
+		L1DataGas: resources.L1DataGas,
+		L2Gas:     resources.L2Gas,
+	}
+}
+
+func functionInvocationFromVM(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
+	if vmFnInvocation == nil {
+		return nil
+	}
+	var calls []FunctionInvocation
+	if vmCalls := vmFnInvocation.Calls; vmCalls != nil {
+		calls = make([]FunctionInvocation, len(vmCalls))
+		for i := range vmCalls {
+			calls[i] = *functionInvocationFromVM(&vmCalls[i])
+		}
+	}
+	return &FunctionInvocation{
+		ContractAddress:    vmFnInvocation.ContractAddress,
+		EntryPointSelector: vmFnInvocation.EntryPointSelector,
+		Calldata:           vmFnInvocation.Calldata,
+		CallerAddress:      vmFnInvocation.CallerAddress,
+		ClassHash:          vmFnInvocation.ClassHash,
+		EntryPointType:     vmFnInvocation.EntryPointType,
+		CallType:           vmFnInvocation.CallType,
+		Result:             vmFnInvocation.Result,
+		Calls:              calls,
+		Events:             vmFnInvocation.Events,
+		Messages:           vmFnInvocation.Messages,
+		ExecutionResources: innerExecutionResourcesFromVM(vmFnInvocation.ExecutionResources),
+	}
+}
+
+func innerExecutionResourcesFromVM(resources *vm.ExecutionResources) *InnerExecutionResources {
+	if resources == nil {
+		return nil
+	}
+	return &InnerExecutionResources{
+		L1Gas: resources.L1Gas,
+		L2Gas: resources.L2Gas,
+	}
 }
 
 func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {

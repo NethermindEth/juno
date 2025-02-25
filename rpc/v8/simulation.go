@@ -43,8 +43,8 @@ type SimulatedTransaction struct {
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *vm.TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt           `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
 /****************************************************
