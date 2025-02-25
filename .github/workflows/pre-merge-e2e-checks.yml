@@ -5,7 +5,7 @@ permissions: {}
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
   REPO_DEV: nubia-oci-local-dev
-
+#some change
 on:
   merge_group:
 
