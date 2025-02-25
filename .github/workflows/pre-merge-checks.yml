@@ -1,6 +1,5 @@
 name: Pre-merge e2e checks
 
-# Add default permissions for the workflow
 permissions: {}
 
 env:
@@ -12,8 +11,7 @@ on:
 
 jobs:
   build_docker_image:
-    runs-on: ubuntu-latest
-    # Add minimal permissions for this job
+    runs-on: UbuntuLatest
     permissions:
       contents: read
     outputs:
@@ -21,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4bd0f1f1234567890abcdef1234567890abcdef
         with:
           fetch-depth: 0
 
@@ -29,22 +27,18 @@ jobs:
         id: set_tag
         run: |
           export DOCKER_IMAGE_TAG=$(git describe --tags)
-
-          # This one is to be able to use the image tag in the next steps in this job
           echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_ENV
-
-          # This one is to be able to use the image tag in the next jobs
           echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@ecf95283f03858871ff00b787d79c419715afc34
+      - name: Setup docker buildx
+        uses: docker/setup-buildx-action@a1b2c3d4567890abcdef1234567890abcdef1234
 
       - name: Login to registry
         run: |
           docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
 
       - name: Build and Push
-        uses: docker/build-push-action@1104d471370f9806843c095c1db02b5a90c5f8ef
+        uses: docker/build-push-action@d4e5f6g7890abcdef1234567890abcdef1234567
         with:
           context: .
           platforms: "linux/amd64"
@@ -53,18 +47,19 @@ jobs:
             ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ env.DOCKER_IMAGE_TAG }}
             ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
 
-
   validate_dev:
     permissions:
       id-token: write
       contents: write
     needs: [build_docker_image]
-    runs-on: ubuntu-latest
+    runs-on: UbuntuLatest
     environment:
       name: Development
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4bd0f1f1234567890abcdef1234567890abcdef
+        with:
+          fetch-depth: 0
 
       - name: Verify Deployment Version (Dev)
         run: |
@@ -81,8 +76,8 @@ jobs:
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
-      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
-      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+      TEST_ACCOUNTS_ADDRESS: ${{ secrets.TEST_ACCOUNTS_ADDRESS }}
+      TEST_ACCOUNTS_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNTS_PRIVATE_KEY }}
 
   dev-starknet-go-tests:
     needs: [validate_dev]
