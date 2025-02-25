@@ -148,7 +148,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
@@ -207,7 +207,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), trace)
 	})
 }
 
@@ -376,7 +376,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       &vmTrace,
+				TraceRoot:       rpc.AdaptVMTransactionTrace(&vmTrace),
 			},
 		}
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
