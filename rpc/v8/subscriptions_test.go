@@ -232,17 +232,14 @@ func TestSubscribeEvents(t *testing.T) {
 
 		assertNextMessages(t, clientConn, id, b1Emitted)
 
-		mockChain.EXPECT().Height().Return(b1.Number, nil)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
 		handler.pendingBlock.Send(pending1)
 		assertNextMessages(t, clientConn, id, pending1Emitted)
 
-		mockChain.EXPECT().Height().Return(b1.Number, nil)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
 		handler.pendingBlock.Send(pending2)
 		assertNextMessages(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
-		mockChain.EXPECT().BlockByNumber(b2.Number).Return(b2, nil)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		handler.newHeads.Send(b2)
 		assertNextMessages(t, clientConn, id, b2Emitted[len(pending2Emitted):])
