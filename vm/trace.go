@@ -122,24 +122,6 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
-func (t *TransactionTrace) TotalComputationResources() ComputationResources {
-	total := ComputationResources{}
-	for _, invocation := range t.allInvocations() {
-		r := invocation.ExecutionResources
-		total.Pedersen += r.Pedersen
-		total.RangeCheck += r.RangeCheck
-		total.Bitwise += r.Bitwise
-		total.Ecdsa += r.Ecdsa
-		total.EcOp += r.EcOp
-		total.Keccak += r.Keccak
-		total.Poseidon += r.Poseidon
-		total.SegmentArena += r.SegmentArena
-		total.MemoryHoles += r.MemoryHoles
-		total.Steps += r.Steps
-	}
-	return total
-}
-
 func (t *TransactionTrace) RevertReason() string {
 	if t.ExecuteInvocation == nil {
 		return ""

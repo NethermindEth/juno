@@ -169,7 +169,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 				da := txDataAvailability[*trace.TransactionHash]
 
 				trace.TraceRoot.ExecutionResources = &ExecutionResources{
-					ComputationResources: trace.TraceRoot.totalComputationResources(),
+					ComputationResources: trace.TraceRoot.TotalComputationResources(),
 					DataAvailability:     &da,
 				}
 			}
@@ -253,7 +253,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 		// Add root level execution resources
 		trace.ExecutionResources = &ExecutionResources{
-			ComputationResources: trace.totalComputationResources(),
+			ComputationResources: trace.TotalComputationResources(),
 			DataAvailability: &DataAvailability{
 				L1Gas:     executionResult.DataAvailability[index].L1Gas,
 				L1DataGas: executionResult.DataAvailability[index].L1DataGas,

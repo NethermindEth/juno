@@ -196,7 +196,7 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
-func (t *TransactionTrace) totalComputationResources() ComputationResources {
+func (t *TransactionTrace) TotalComputationResources() ComputationResources {
 	total := ComputationResources{}
 
 	for _, invocation := range t.allInvocations() {

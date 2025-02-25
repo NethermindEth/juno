@@ -169,7 +169,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 		// Add execution resources on the trace root level (from all the fct invocations)
 		trace.ExecutionResources = &ExecutionResources{
-			ComputationResources: trace.totalComputationResources(),
+			ComputationResources: trace.TotalComputationResources(),
 			DataAvailability: &DataAvailability{
 				L1Gas:     daGas[i].L1Gas,
 				L1DataGas: daGas[i].L1DataGas,
