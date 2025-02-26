@@ -550,7 +550,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	testDB := pebble.NewMemTest(t)
-	bc := blockchain.New(testDB, &utils.Mainnet, nil)
+	bc := blockchain.New(testDB, &utils.Mainnet)
 	synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 

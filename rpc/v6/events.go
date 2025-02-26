@@ -99,7 +99,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	for _, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
-			blockNumber = &(fEvent.BlockNumber)
+			blockNumber = fEvent.BlockNumber
 		}
 		emittedEvents = append(emittedEvents, &EmittedEvent{
 			BlockNumber:     blockNumber,
@@ -170,7 +170,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 					Version: "2.0",
 					Method:  "juno_subscribeNewHeads",
 					Params: map[string]any{
-						"result":       adaptBlockHeader(header),
+						"result":       adaptBlockHeader(header.Header),
 						"subscription": id,
 					},
 				})

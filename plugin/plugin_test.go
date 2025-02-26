@@ -38,7 +38,7 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
-	bc := blockchain.New(testDB, &utils.Integration, nil)
+	bc := blockchain.New(testDB, &utils.Integration)
 	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -46,7 +46,7 @@ func TestPlugin(t *testing.T) {
 	cancel()
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet, nil)
+		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()

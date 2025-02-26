@@ -33,7 +33,7 @@ type Handler struct {
 	log           utils.Logger
 
 	version      string
-	newHeads     *feed.Feed[*core.Header]
+	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
 	pendingBlock *feed.Feed[*core.Block]
 	l1Heads      *feed.Feed[*core.L1Head]
@@ -75,7 +75,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			return n
 		},
 		version:      version,
-		newHeads:     feed.New[*core.Header](),
+		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
 		pendingBlock: feed.New[*core.Block](),
 		l1Heads:      feed.New[*core.L1Head](),
@@ -178,24 +178,9 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.TransactionByBlockIDAndIndex,
 		},
 		{
-			Name:    "starknet_getStateUpdate",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
-			Handler: h.StateUpdate,
-		},
-		{
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
-		},
-		{
-			Name:    "starknet_getClassHashAt",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
-			Handler: h.ClassHashAt,
-		},
-		{
-			Name:    "starknet_getClass",
-			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
-			Handler: h.Class,
 		},
 		{
 			Name:    "starknet_addInvokeTransaction",

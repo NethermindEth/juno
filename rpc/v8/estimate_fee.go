@@ -92,7 +92,7 @@ func estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (
 	if rpcErr != nil {
 		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)
-			return nil, httpHeader, makeContractError(errors.New(data.ExecutionError))
+			return nil, httpHeader, MakeContractError(errors.New(data.ExecutionError))
 		}
 		return nil, httpHeader, rpcErr
 	}
@@ -103,7 +103,7 @@ type ContractErrorData struct {
 	RevertError string `json:"revert_error"`
 }
 
-func makeContractError(err error) *jsonrpc.Error {
+func MakeContractError(err error) *jsonrpc.Error {
 	return rpccore.ErrContractError.CloneWithData(ContractErrorData{
 		RevertError: err.Error(),
 	})

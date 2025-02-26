@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
@@ -37,9 +40,46 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
-		classInfo.SierraVersion = c.SemanticVersion
+		sierraVersion, err := parseSierraVersion(c.Program)
+		if err != nil {
+			return nil, err
+		}
+		classInfo.SierraVersion = sierraVersion
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 	return json.Marshal(classInfo)
+}
+
+// Parse Sierra version from the JSON representation of the program.
+//
+// Sierra programs contain the version number in two possible formats.
+// For pre-1.0-rc0 Cairo versions the program contains the Sierra version
+// "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
+// For all subsequent versions the version number is the first three felts
+// representing the three parts of a semantic version number.
+// TODO: There should be an implementation in the blockifier. If there is, move it to the rust part.
+func parseSierraVersion(prog []*felt.Felt) (string, error) {
+	if len(prog) == 0 {
+		return "", errors.New("failed to parse sierra version in classInfo")
+	}
+
+	pre01 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+	if prog[0].Equal(&pre01) {
+		return "0.1.0", nil
+	}
+
+	if len(prog) < 3 {
+		return "", errors.New("failed to parse sierra version in classInfo")
+	}
+
+	const base = 10
+	var buf [32]byte
+	b := buf[:0]
+	b = strconv.AppendUint(b, prog[0].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, prog[1].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, prog[2].Uint64(), base)
+	return string(b), nil
 }

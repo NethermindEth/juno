@@ -116,10 +116,10 @@ func (mr *MockSyncReaderMockRecorder) StartingBlockNumber() *gomock.Call {
 }
 
 // SubscribeNewHeads mocks base method.
-func (m *MockSyncReader) SubscribeNewHeads() sync.HeaderSubscription {
+func (m *MockSyncReader) SubscribeNewHeads() sync.NewHeadSubscription {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubscribeNewHeads")
-	ret0, _ := ret[0].(sync.HeaderSubscription)
+	ret0, _ := ret[0].(sync.NewHeadSubscription)
 	return ret0
 }
 
