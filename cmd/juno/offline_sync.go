@@ -49,7 +49,7 @@ func offlineSync(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	feederBc := blockchain.New(feederDB, &utils.Mainnet, nil)
+	feederBc := blockchain.New(feederDB, &utils.Mainnet)
 
 	nodeDBPath, err := cmd.Flags().GetString(dbPathF)
 	if err != nil {
@@ -84,7 +84,7 @@ func offlineSync(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	nodeBc := blockchain.New(nodeDB, &utils.Mainnet, nil)
+	nodeBc := blockchain.New(nodeDB, &utils.Mainnet)
 
 	startTime := time.Now()
 	for i := start + 1; i < end+1; i++ {
