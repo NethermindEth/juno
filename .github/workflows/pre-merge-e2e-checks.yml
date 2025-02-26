@@ -7,9 +7,9 @@ env:
   REPO_DEV: nubia-oci-local-dev
 
 on:
-  merge_group:
+  pull_request:
     branches: [main-pretender]
-#some change
+
 concurrency:
   group: shared_dev_environment
   cancel-in-progress: false

@@ -12,10 +12,11 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  workflow_dispatch:
 
 concurrency:
-  group: shared_dev_environment
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   id-token: write
@@ -64,9 +65,8 @@ jobs:
 
   validate_dev:
     concurrency:
-      group: dev_deployment
-      cancel-in-progress: true
-
+      group: shared_dev_environment
+      cancel-in-progress: false
     permissions:
       id-token: write
       contents: write
