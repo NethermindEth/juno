@@ -104,7 +104,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, txn1, AdaptV6TxToV7(t, txn2))
+		assert.Equal(t, txn1, adaptV6TxToV7(t, txn2))
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -131,7 +131,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, txn1, AdaptV6TxToV7(t, txn2))
+		assert.Equal(t, txn1, adaptV6TxToV7(t, txn2))
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -158,7 +158,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, txn1, AdaptV6TxToV7(t, txn2))
+		assert.Equal(t, txn1, adaptV6TxToV7(t, txn2))
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
@@ -185,12 +185,12 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, txn1, AdaptV6TxToV7(t, txn2))
+		assert.Equal(t, txn1, adaptV6TxToV7(t, txn2))
 	})
 }
 
 // Convert a v6 transaction object to a v7 transaction object
-func AdaptV6TxToV7(t *testing.T, tx *rpcv6.Transaction) *rpc.Transaction {
+func adaptV6TxToV7(t *testing.T, tx *rpcv6.Transaction) *rpc.Transaction {
 	t.Helper()
 
 	var v7ResourceBounds *map[rpc.Resource]rpc.ResourceBounds

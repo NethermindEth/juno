@@ -275,7 +275,7 @@ func TestBlockWithTxs(t *testing.T) {
 			txn, err := rpcv6Handler.TransactionByHash(*txnHash)
 			require.Nil(t, err)
 
-			assert.Equal(t, AdaptV6TxToV7(t, txn), blockWithTxs.Transactions[i])
+			assert.Equal(t, adaptV6TxToV7(t, txn), blockWithTxs.Transactions[i])
 		}
 	}
 
