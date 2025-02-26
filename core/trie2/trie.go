@@ -166,10 +166,10 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		// case (b)
 		nodes := trienode.NewNodeSet(t.owner)
 		for _, path := range paths {
-			nodes.Add(path, trienode.NewDeleted())
+			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		err := nodes.ForEach(true, func(key trieutils.BitArray, node *trienode.Node) error {
-			return t.db.Delete(t.owner, key)
+		err := nodes.ForEach(true, func(key trieutils.BitArray, node trienode.TrieNode) error {
+			return t.db.Delete(t.owner, key, node.IsLeaf())
 		})
 		return felt.Zero, err
 	}
@@ -181,18 +181,18 @@ func (t *Trie) Commit() (felt.Felt, error) {
 	}
 
 	nodes := trienode.NewNodeSet(t.owner)
-	for _, Path := range t.nodeTracer.deletedNodes() {
-		nodes.Add(Path, trienode.NewDeleted())
+	for _, path := range t.nodeTracer.deletedNodes() {
+		nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 	}
 
 	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
 
-	err := nodes.ForEach(true, func(key trieutils.BitArray, node *trienode.Node) error {
-		if node.IsDeleted() {
-			return t.db.Delete(t.owner, key)
+	err := nodes.ForEach(true, func(key trieutils.BitArray, node trienode.TrieNode) error {
+		if dn, ok := node.(*trienode.DeletedNode); ok {
+			return t.db.Delete(t.owner, key, dn.IsLeaf())
 		}
-		return t.db.Put(t.owner, key, node.Blob())
+		return t.db.Put(t.owner, key, node.Blob(), node.IsLeaf())
 	})
 	if err != nil {
 		return felt.Felt{}, err
@@ -475,7 +475,7 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		bufferPool.Put(buf)
 	}()
 
-	_, err := t.db.Get(buf, t.owner, path)
+	_, err := t.db.Get(buf, t.owner, path, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
