@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -265,8 +266,19 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 }
 
 func TestSierraVersion(t *testing.T) {
-	t.Run("cairo zero should return 0.1.0 by default", func(t *testing.T) {
+	t.Run("cairo zero should return 0.0.0 by default", func(t *testing.T) {
 		class := core.Cairo0Class{}
+		sierraVersion := class.SierraVersion()
+		require.Equal(t, "0.0.0", sierraVersion)
+	})
+
+	t.Run("cairo one should return 0.1.0 when only one felt", func(t *testing.T) {
+		sierraVersion010 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+		class := core.Cairo1Class{
+			Program: []*felt.Felt{
+				&sierraVersion010,
+			},
+		}
 		sierraVersion := class.SierraVersion()
 		require.Equal(t, "0.1.0", sierraVersion)
 	})
@@ -282,4 +294,5 @@ func TestSierraVersion(t *testing.T) {
 		sierraVersion := class.SierraVersion()
 		require.Equal(t, "7.3.11", sierraVersion)
 	})
+
 }

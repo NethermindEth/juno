@@ -564,8 +564,21 @@ func TestClassV1(t *testing.T) {
 		}
 	})
 
-	t.Run("sierra class too small", func(t *testing.T) {
+	// TODO: A test is missing where we adapt a class with Sierra Version 0.1.0
+
+	t.Run("sierra class is empty", func(t *testing.T) {
 		snClass := starknet.SierraDefinition{}
+		_, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		require.Contains(t, "sierra program size is too small", err.Error())
+	})
+
+	t.Run("sierra class doesn't have the minimum size", func(t *testing.T) {
+		snClass := starknet.SierraDefinition{
+			Program: []*felt.Felt{
+				new(felt.Felt), // this value doesn't matter as long as their different from `SierraVersion010`
+				new(felt.Felt),
+			},
+		}
 		_, err := sn2core.AdaptCairo1Class(&snClass, nil)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})

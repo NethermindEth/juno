@@ -264,8 +264,9 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
 	var err error
 
-	// A Sierra program minimum size should be three to contain the version
-	if len(response.Program) < 3 {
+	// TODO: what's the absolute minimum size of a Sierra Definition?
+	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
+	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
 		return nil, errors.New("sierra program size is too small")
 	}
 
