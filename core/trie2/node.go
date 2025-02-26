@@ -24,16 +24,21 @@ type Node interface {
 }
 
 type (
+	// Represents a binary branch node in the trie with two children
 	BinaryNode struct {
 		Children [2]Node // 0 = left, 1 = right
 		flags    nodeFlag
 	}
+	// Represents a path-compressed node that stores a path segment
+	// and a single child node
 	EdgeNode struct {
-		Child Node
-		Path  *Path
+		Child Node  // The child node at the end of the path
+		Path  *Path // The compressed path segment
 		flags nodeFlag
 	}
-	HashNode  struct{ felt.Felt }
+	// Represents a node that only contains a hash reference to another node
+	HashNode struct{ felt.Felt }
+	// Represents a leaf node that stores an actual value in the trie
 	ValueNode struct{ felt.Felt }
 )
 
@@ -98,7 +103,6 @@ func (n ValueNode) String() string {
 	return fmt.Sprintf("Value(%s)", n.Felt.String())
 }
 
-// TODO(weiihann): check if we want to return a pointer or a value
 func (n *BinaryNode) copy() *BinaryNode { cpy := *n; return &cpy }
 func (n *EdgeNode) copy() *EdgeNode     { cpy := *n; return &cpy }
 
