@@ -22,14 +22,14 @@ func TestRun(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	l1Sub := feed.New[*core.L1Head]()
-	headerSub := feed.New[*core.Header]()
+	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
 	pendingSub := feed.New[*core.Block]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockBcReader.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Sub.Subscribe()}).AnyTimes()
-	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.HeaderSubscription{Subscription: headerSub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribePending().Return(sync.PendingSubscription{Subscription: pendingSub.Subscribe()}).AnyTimes()
 

@@ -11,7 +11,7 @@ overflow-checks = true
 [dependencies]
 serde = "1.0.208"
 serde_json = { version = "1.0.125", features = ["raw_value"] }
-cairo-lang-starknet-classes = "=2.10.0-rc.1"
+cairo-lang-starknet-classes = "=2.10.0"
 
 [lib]
 crate-type = ["staticlib"]

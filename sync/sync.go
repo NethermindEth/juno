@@ -34,8 +34,8 @@ const (
 )
 
 // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type HeaderSubscription struct {
-	*feed.Subscription[*core.Header]
+type NewHeadSubscription struct {
+	*feed.Subscription[*core.Block]
 }
 
 type ReorgSubscription struct {
@@ -68,7 +68,7 @@ type ReorgBlockRange struct {
 type Reader interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
-	SubscribeNewHeads() HeaderSubscription
+	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePending() PendingSubscription
 
@@ -88,8 +88,8 @@ func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (n *NoopSynchronizer) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{feed.New[*core.Header]().Subscribe()}
+func (n *NoopSynchronizer) SubscribeNewHeads() NewHeadSubscription {
+	return NewHeadSubscription{feed.New[*core.Block]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
@@ -120,7 +120,7 @@ type Synchronizer struct {
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
-	newHeads            *feed.Feed[*core.Header]
+	newHeads            *feed.Feed[*core.Block]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingFeed         *feed.Feed[*core.Block]
 
@@ -143,7 +143,7 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 		db:                  database,
 		starknetData:        starkNetData,
 		log:                 log,
-		newHeads:            feed.New[*core.Header](),
+		newHeads:            feed.New[*core.Block](),
 		reorgFeed:           feed.New[*ReorgBlockRange](),
 		pendingFeed:         feed.New[*core.Block](),
 		pendingPollInterval: pendingPollInterval,
@@ -367,7 +367,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				s.currReorg = nil // reset the reorg data
 			}
 
-			s.newHeads.Send(block.Header)
+			s.newHeads.Send(block)
 			s.log.Infow("Stored Block", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			if s.plugin != nil {
@@ -589,8 +589,8 @@ func (s *Synchronizer) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
 }
 
-func (s *Synchronizer) SubscribeNewHeads() HeaderSubscription {
-	return HeaderSubscription{s.newHeads.Subscribe()}
+func (s *Synchronizer) SubscribeNewHeads() NewHeadSubscription {
+	return NewHeadSubscription{s.newHeads.Subscribe()}
 }
 
 func (s *Synchronizer) SubscribeReorg() ReorgSubscription {

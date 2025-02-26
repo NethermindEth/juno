@@ -44,7 +44,8 @@ func TestEvents(t *testing.T) {
 	}
 	testDB := pebble.NewMemTest(t)
 	n := utils.Ptr(utils.Sepolia)
-	chain := blockchain.New(testDB, n, pendingBlockFn)
+	chain := blockchain.New(testDB, n)
+	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

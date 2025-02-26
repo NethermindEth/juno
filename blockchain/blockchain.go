@@ -91,14 +91,18 @@ type Blockchain struct {
 	pendingBlockFn func() *core.Block
 }
 
-func New(database db.DB, network *utils.Network, pendingBlockFn func() *core.Block) *Blockchain {
+func New(database db.DB, network *utils.Network) *Blockchain {
 	return &Blockchain{
-		database:       database,
-		network:        network,
-		listener:       &SelectiveListener{},
-		l1HeadFeed:     feed.New[*core.L1Head](),
-		pendingBlockFn: pendingBlockFn,
+		database:   database,
+		network:    network,
+		listener:   &SelectiveListener{},
+		l1HeadFeed: feed.New[*core.L1Head](),
 	}
+}
+
+func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {
+	b.pendingBlockFn = pendingBlockFn
+	return b
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {

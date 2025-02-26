@@ -108,7 +108,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -235,7 +235,7 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -488,7 +488,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
-			adaptedTx.Hash = nil
 
 			txsWithReceipt = append(txsWithReceipt, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
@@ -533,7 +532,6 @@ func TestBlockWithReceipts(t *testing.T) {
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
-			adaptedTx.Hash = nil
 
 			transactions = append(transactions, rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,

@@ -31,10 +31,15 @@ type ExecutionResults struct {
 	NumSteps         uint64
 }
 
+type CallResult struct {
+	Result          []*felt.Felt
+	ExecutionFailed bool
+}
+
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string) ([]*felt.Felt, error)
+		maxSteps uint64, sierraVersion string) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 	) (ExecutionResults, error)
@@ -64,11 +69,12 @@ type callContext struct {
 	// response from the executed Cairo function
 	response []*felt.Felt
 	// fee amount taken per transaction during VM execution
-	actualFees     []*felt.Felt
-	traces         []json.RawMessage
-	daGas          []core.DataAvailability
-	gasConsumed    []core.GasConsumed
-	executionSteps uint64
+	actualFees      []*felt.Felt
+	traces          []json.RawMessage
+	daGas           []core.DataAvailability
+	gasConsumed     []core.GasConsumed
+	executionSteps  uint64
+	executionFailed bool
 }
 
 func unwrapContext(readerHandle C.uintptr_t) *callContext {
@@ -81,10 +87,11 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 }
 
 //export JunoReportError
-func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char) {
+func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char, executionFailed C.uchar) {
 	context := unwrapContext(readerHandle)
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
+	context.executionFailed = executionFailed == 1
 }
 
 //export JunoAppendTrace
@@ -207,7 +214,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string,
-) ([]*felt.Felt, error) {
+) (CallResult, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
@@ -241,9 +248,9 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	C.free(unsafe.Pointer(cSierraVersion))
 
 	if context.err != "" {
-		return nil, errors.New(context.err)
+		return CallResult{}, errors.New(context.err)
 	}
-	return context.response, nil
+	return CallResult{Result: context.response, ExecutionFailed: context.executionFailed}, nil
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
