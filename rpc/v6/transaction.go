@@ -359,12 +359,12 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
+func adaptResourceBounds(coreResourceBounds map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+	for _, resourceEnum := range []int{int(ResourceL1Gas), int(ResourceL2Gas)} {
+		rpcResourceBounds[Resource(resourceEnum)] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(coreResourceBounds[core.Resource(resourceEnum)].MaxAmount),
+			MaxPricePerUnit: coreResourceBounds[core.Resource(resourceEnum)].MaxPricePerUnit,
 		}
 	}
 	return rpcResourceBounds
