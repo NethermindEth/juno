@@ -422,36 +422,6 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 		Transaction Handlers
 *****************************************************/
 
-// TransactionByHash returns the details of a transaction identified by the given hash.
-//
-// It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
-func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
-	txn, err := h.bcReader.TransactionByHash(&hash)
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
-
-		pendingB := h.syncReader.PendingBlock()
-		if pendingB == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-
-		for _, t := range pendingB.Transactions {
-			if hash.Equal(t.Hash()) {
-				txn = t
-				break
-			}
-		}
-
-		if txn == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-	}
-	return AdaptTransaction(txn), nil
-}
-
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
 // BlockID and index.
 //
