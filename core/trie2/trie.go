@@ -52,6 +52,7 @@ type TrieID interface {
 	Owner() felt.Felt
 }
 
+// Creates a new trie
 func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
 	database := triedb.New(txn, id.Bucket())
 	tr := &Trie{
@@ -223,6 +224,17 @@ func (t *Trie) HashFn() crypto.HashFn {
 	return t.hashFn
 }
 
+// Traverses the trie to find a value associated with a given key.
+// It handles different node types:
+// - EdgeNode: Checks if the path matches the key, then recursively traverses the child node
+// - BinaryNode: Determines which child to follow based on the most significant bit of the key
+// - HashNode: Resolves the actual node from the database before continuing traversal
+// - ValueNode: Returns the stored value when found
+// - nil: Returns nil when no value exists
+//
+// The method returns four values: the found value (or nil), the possibly updated node,
+// a flag indicating if node resolution occurred, and any error encountered.
+// When nodes are resolved from the database, the trie structure is updated to cache the resolved nodes.
 func (t *Trie) get(n Node, prefix, key *Path) (*felt.Felt, Node, bool, error) {
 	switch n := n.(type) {
 	case *EdgeNode:
@@ -279,6 +291,13 @@ func (t *Trie) update(key, value *felt.Felt) error {
 	return nil
 }
 
+// Inserts a value into the trie. Handles different node types:
+// - EdgeNode: Creates branch nodes when paths diverge, or updates existing paths
+// - BinaryNode: Follows the appropriate child based on the key's MSB
+// - HashNode: Resolves the actual node before insertion
+// - nil: Creates a new edge or value node depending on key length
+// Returns whether the trie was modified, the new/updated node, and any error.
+//
 //nolint:gocyclo,funlen
 func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error) {
 	// We reach the end of the key
@@ -371,6 +390,14 @@ func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error)
 	}
 }
 
+// Deletes a key from the trie. Handles different node types:
+// - EdgeNode: Removes the node if path matches, or recursively deletes from child
+// - BinaryNode: Follows the appropriate child and may collapse the node if a child is removed
+// - HashNode: Resolves the actual node before deletion
+// - ValueNode: Removes the value node when found
+// - nil: Returns false as there's nothing to delete
+// Returns whether the trie was modified, the new/updated node, and any error.
+//
 //nolint:gocyclo,funlen
 func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 	switch n := n.(type) {
@@ -489,7 +516,7 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 	return decodeNode(blob, hash, path.Len(), t.height)
 }
 
-// Calculate the hash of the root node
+// Calculates the hash of the root node
 func (t *Trie) hashRoot() (Node, Node) {
 	if t.root == nil {
 		return &HashNode{Felt: felt.Zero}, nil
