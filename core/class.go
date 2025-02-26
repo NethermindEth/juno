@@ -17,7 +17,13 @@ var (
 )
 
 // Single felt identifying the number "0.1.0" as a short string
-var SierraVersion010 felt.Felt = felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+var SierraVersion010 felt.Felt = felt.New(
+	fp.Element([4]uint64{
+		18446737451840584193,
+		18446744073709551615,
+		18446744073709551615,
+		576348180530977296,
+	}))
 
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
@@ -71,8 +77,9 @@ type Cairo1Class struct {
 		External    []SierraEntryPoint
 		L1Handler   []SierraEntryPoint
 	}
-	Program         []*felt.Felt
-	ProgramHash     *felt.Felt
+	Program     []*felt.Felt
+	ProgramHash *felt.Felt
+	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
 	Compiled        *CompiledClass
 }
