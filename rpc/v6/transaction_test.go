@@ -822,7 +822,6 @@ func TestAdaptTransaction(t *testing.T) {
 
 		require.Equal(t, expectedTx, tx)
 	})
-
 }
 
 func TestAddTransaction(t *testing.T) {
