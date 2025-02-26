@@ -521,50 +521,71 @@ func TestTransactionV3(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	t.Run("cairo one class adapt", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Integration)
+	tests := []struct {
+		name                  string
+		classHash             string
+		network               *utils.Network
+		expectedSierraVersion string
+	}{
+		{
+			name:                  "cairo one class adapt sierra version 0.1.0",
+			classHash:             "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+			network:               &utils.Integration,
+			expectedSierraVersion: "0.1.0",
+		},
+		{
+			name:                  "cairo one class adapt sierra version 1.6.0",
+			classHash:             "0x03cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b",
+			network:               &utils.Sepolia,
+			expectedSierraVersion: "1.6.0",
+		},
+	}
 
-		classHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := feeder.NewTestClient(t, test.network)
+			classHash := utils.HexToFelt(t, test.classHash)
 
-		feederClass, err := client.ClassDefinition(context.Background(), classHash)
-		require.NoError(t, err)
-		compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
-		require.NoError(t, err)
+			feederClass, err := client.ClassDefinition(context.Background(), classHash)
+			require.NoError(t, err)
+			compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
+			require.NoError(t, err)
 
-		v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
-		require.NoError(t, err)
+			v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)
+			require.NoError(t, err)
 
-		assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
-		assert.Equal(t, feederClass.V1.Program, v1Class.Program)
-		assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
-		assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
-		assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
-		assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
-		assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
-		assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
-		assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
-		assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
+			assert.Equal(t, feederClass.V1.Abi, v1Class.Abi)
+			assert.Equal(t, feederClass.V1.Program, v1Class.Program)
+			assert.Equal(t, feederClass.V1.Version, v1Class.SemanticVersion)
+			assert.Equal(t, compiled.Prime, "0x"+v1Class.Compiled.Prime.Text(felt.Base16))
+			assert.Equal(t, compiled.Bytecode, v1Class.Compiled.Bytecode)
+			assert.Equal(t, compiled.Hints, v1Class.Compiled.Hints)
+			assert.Equal(t, compiled.CompilerVersion, v1Class.Compiled.CompilerVersion)
+			assert.Equal(t, len(compiled.EntryPoints.External), len(v1Class.Compiled.External))
+			assert.Equal(t, len(compiled.EntryPoints.Constructor), len(v1Class.Compiled.Constructor))
+			assert.Equal(t, len(compiled.EntryPoints.L1Handler), len(v1Class.Compiled.L1Handler))
 
-		assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
-		for i, v := range feederClass.V1.EntryPoints.External {
-			assert.Equal(t, v.Selector, v1Class.EntryPoints.External[i].Selector)
-			assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
-		}
+			assert.Equal(t, len(feederClass.V1.EntryPoints.External), len(v1Class.EntryPoints.External))
+			for i, v := range feederClass.V1.EntryPoints.External {
+				assert.Equal(t, v.Selector, v1Class.EntryPoints.External[i].Selector)
+				assert.Equal(t, v.Index, v1Class.EntryPoints.External[i].Index)
+			}
 
-		assert.Equal(t, len(feederClass.V1.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
-		for i, v := range feederClass.V1.EntryPoints.Constructor {
-			assert.Equal(t, v.Selector, v1Class.EntryPoints.Constructor[i].Selector)
-			assert.Equal(t, v.Index, v1Class.EntryPoints.Constructor[i].Index)
-		}
+			assert.Equal(t, len(feederClass.V1.EntryPoints.Constructor), len(v1Class.EntryPoints.Constructor))
+			for i, v := range feederClass.V1.EntryPoints.Constructor {
+				assert.Equal(t, v.Selector, v1Class.EntryPoints.Constructor[i].Selector)
+				assert.Equal(t, v.Index, v1Class.EntryPoints.Constructor[i].Index)
+			}
 
-		assert.Equal(t, len(feederClass.V1.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
-		for i, v := range feederClass.V1.EntryPoints.L1Handler {
-			assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
-			assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
-		}
-	})
+			assert.Equal(t, len(feederClass.V1.EntryPoints.L1Handler), len(v1Class.EntryPoints.L1Handler))
+			for i, v := range feederClass.V1.EntryPoints.L1Handler {
+				assert.Equal(t, v.Selector, v1Class.EntryPoints.L1Handler[i].Selector)
+				assert.Equal(t, v.Index, v1Class.EntryPoints.L1Handler[i].Index)
+			}
 
-	// TODO: A test is missing where we adapt a class with Sierra Version 0.1.0
+			assert.Equal(t, test.expectedSierraVersion, v1Class.SierraVersion())
+		})
+	}
 
 	t.Run("sierra class is empty", func(t *testing.T) {
 		snClass := starknet.SierraDefinition{}
