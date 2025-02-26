@@ -10,7 +10,7 @@ env:
 
 on:
   push:
-    branches: [main]
+    branches: [wojciechos/update-sdk-tests]
     tags: ["v*"]
   workflow_dispatch:
 
