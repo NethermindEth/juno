@@ -18,16 +18,13 @@ var (
 
 func validateResourceBounds(fl validator.FieldLevel) bool {
 	req, ok := fl.Parent().Interface().(rpcv8.Transaction)
-	if !ok {
-		return false
-	}
+	return ok && req.ResourceBounds != nil && len(*req.ResourceBounds) == 3
+}
 
-	version := req.Version.String()
-	if (version == "0x3" || version == "0x100000000000000000000000000000003") &&
-		(req.ResourceBounds == nil || len(*req.ResourceBounds) != 3) {
-		return false
-	}
-	return true
+// Custom validation function for version
+func validateVersion03(fl validator.FieldLevel) bool {
+	version, ok := fl.Field().Interface().(string)
+	return ok && (version == "0x3" || version == "0x100000000000000000000000000000003")
 }
 
 // Validator returns a singleton that can be used to validate various objects
@@ -36,6 +33,10 @@ func Validator() *validator.Validate {
 		v = validator.New()
 
 		if err := v.RegisterValidation("resource_bounds_required", validateResourceBounds); err != nil {
+			panic("failed to register validation: " + err.Error())
+		}
+
+		if err := v.RegisterValidation("version_0x3", validateVersion03); err != nil {
 			panic("failed to register validation: " + err.Error())
 		}
 

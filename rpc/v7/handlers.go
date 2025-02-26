@@ -41,7 +41,7 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	newHeads *feed.Feed[*core.Header]
+	newHeads *feed.Feed[*core.Block]
 
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
@@ -72,7 +72,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		newHeads: feed.New[*core.Header](),
+
+		newHeads: feed.New[*core.Block](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
 		filterLimit:     math.MaxUint,

@@ -320,7 +320,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 			handler := rpc.New(chain, nil, nil, log)
 
 			if description == "pending" {

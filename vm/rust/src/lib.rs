@@ -1,9 +1,11 @@
+pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
 
 #[macro_use]
 extern crate lazy_static;
 
+use crate::execution::execute_transaction;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use std::{
     collections::HashMap,
@@ -32,7 +34,6 @@ use blockifier::{
         },
         objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
         transaction_execution::Transaction,
-        transactions::ExecutableTransaction,
     },
     versioned_constants::VersionedConstants,
 };
@@ -150,7 +151,7 @@ pub extern "C" fn cairoVMCall(
     let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
     let sierra_version =
         SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
-    let initial_gas: u64 = if sierra_version < SierraVersion::new(1, 7, 0) {
+    let initial_gas: u64 = if sierra_version < version_constants.min_sierra_version_for_sierra_gas {
         version_constants.infinite_gas_for_vm_mode()
     } else {
         version_constants.os_constants.validate_max_sierra_gas.0
@@ -327,28 +328,22 @@ pub extern "C" fn cairoVMExecute(
         }
 
         let mut txn_state = CachedState::create_transactional(&mut state);
-        let minimal_gas_vector: Option<GasVector>;
-        let fee_type;
-        let txn = txn.unwrap();
+        let mut txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
 
-        let res = match txn {
-            Transaction::Account(t) => {
-                minimal_gas_vector = Some(gas_usage::estimate_minimal_gas_vector(
+        let (minimal_gas_vector, fee_type) = match &txn {
+            Transaction::Account(t) => (
+                Some(gas_usage::estimate_minimal_gas_vector(
                     &block_context,
                     &t,
                     &gas_vector_computation_mode,
-                ));
-                fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context)
-            }
-            Transaction::L1Handler(t) => {
-                minimal_gas_vector = None;
-                fee_type = t.fee_type();
-                t.execute(&mut txn_state, &block_context)
-            }
+                )),
+                t.fee_type(),
+            ),
+            Transaction::L1Handler(t) => (None, t.fee_type()),
         };
-        match res {
+
+        match execute_transaction(&mut txn, &mut txn_state, &block_context) {
             Err(error) => {
                 let err_string = match &error {
                     ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
