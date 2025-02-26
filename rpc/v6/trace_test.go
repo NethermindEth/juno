@@ -225,7 +225,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)

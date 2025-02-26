@@ -188,40 +188,69 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.1](https://docs.starknet.io/starknet-versions/version-notes/) support.
-- JSON-RPC [v0.7.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.0-rc2) (Available under `/v0_7` and default`/` endpoints)
+- Starknet [v0.13.4](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.4) support.
+- JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0-rc3) (Available under `/v0_8` and default`/` endpoints)
+  
+  Chain/Network Information:
   - `starknet_chainId`
+  - `starknet_specVersion`
+  - `starknet_syncing`
+
+  Block Related:
   - `starknet_blockNumber`
   - `starknet_blockHashAndNumber`
   - `starknet_getBlockWithTxHashes`
   - `starknet_getBlockWithTxs`
   - `starknet_getBlockWithReceipts`
+  - `starknet_getBlockTransactionCount`
+
+  Transaction Related:
   - `starknet_getTransactionByHash`
   - `starknet_getTransactionReceipt`
-  - `starknet_getBlockTransactionCount`
   - `starknet_getTransactionByBlockIdAndIndex`
-  - `starknet_getStateUpdate`
+  - `starknet_getTransactionStatus`
+  - `starknet_getMessagesStatus`
+
+  State & Storage:
   - `starknet_getNonce`
   - `starknet_getStorageAt`
-  - `starknet_getTransactionStatus`
+  - `starknet_getStorageProof`
+  - `starknet_getStateUpdate`
+
+  Contract Related:
   - `starknet_getClassHashAt`
   - `starknet_getClass`
   - `starknet_getClassAt`
-  - `starknet_syncing`
-  - `starknet_getEvents`
+  - `starknet_getCompiledCasm`
   - `starknet_call`
-  - `starknet_estimateFee`
+
+  Event Related:
+  - `starknet_getEvents`
+
+  Write Operations:
   - `starknet_addInvokeTransaction`
   - `starknet_addDeclareTransaction`
   - `starknet_addDeployAccountTransaction`
-  - `starkent_estimateMessageFee`
+
+  Fee Estimation & Simulation:
+  - `starknet_estimateFee`
+  - `starknet_estimateMessageFee`
+  - `starknet_simulateTransactions`
+
+  Tracing & Debug:
   - `starknet_traceTransaction`
   - `starknet_traceBlockTransactions`
-  - `starknet_simulateTransactions`
-  - `starknet_specVersion` 
-  
+
+  Websocket Subscriptions:
+  - `starknet_subscribeNewHeads`
+  - `starknet_subscribeEvents`
+  - `starknet_subscribeTransactionStatus`
+  - `starknet_subscribePendingTransactions`
+  - `starknet_unsubscribe`
+
 - Juno's JSON-RPC:
   - `juno_version`
+- JSON-RPC [v0.7.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.1) (Available under `/v0_7` endpoint)
 - JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.

@@ -81,7 +81,7 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 
 func TestRecalculateBloomFilters(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet, nil)
+	chain := blockchain.New(testdb, &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -189,7 +189,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 func TestCalculateBlockCommitments(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet, nil)
+	chain := blockchain.New(testdb, &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -213,7 +213,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 
 func TestL1HandlerTxns(t *testing.T) {
 	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Sepolia, nil)
+	chain := blockchain.New(testdb, &utils.Sepolia)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
