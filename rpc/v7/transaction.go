@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -179,13 +180,14 @@ func (r Resource) MarshalText() ([]byte, error) {
 }
 
 func (r *Resource) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"l1_gas"`:
+	str := string(data)
+	switch strings.ToLower(strings.Trim(str, `"`)) {
+	case "l1_gas":
 		*r = ResourceL1Gas
-	case `"l2_gas"`:
+	case "l2_gas":
 		*r = ResourceL2Gas
 	default:
-		return fmt.Errorf("unknown Resource: %q", string(data))
+		return fmt.Errorf("unknown Resource: %q", str)
 	}
 	return nil
 }
@@ -361,12 +363,12 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
+func adaptResourceBounds(coreResourceBounds map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+	for _, resourceEnum := range []int{int(ResourceL1Gas), int(ResourceL2Gas)} {
+		rpcResourceBounds[Resource(resourceEnum)] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(coreResourceBounds[core.Resource(resourceEnum)].MaxAmount),
+			MaxPricePerUnit: coreResourceBounds[core.Resource(resourceEnum)].MaxPricePerUnit,
 		}
 	}
 	return rpcResourceBounds
