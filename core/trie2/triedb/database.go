@@ -116,6 +116,13 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 	return d.txn.NewIterator(buffer.Bytes(), true)
 }
 
+// Construct key bytes to insert a trie node. The format is as follows:
+//
+// ClassTrie/ContractTrie:
+// [1 byte prefix][1 byte node-type][path]
+//
+// StorageTrie of a Contract :
+// [1 byte prefix][32 bytes owner][1 byte node-type][path]
 func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray, isLeaf bool) error {
 	_, err := buf.Write(d.prefix.Key())
 	if err != nil {
