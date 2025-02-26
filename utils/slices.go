@@ -21,7 +21,7 @@ func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	return result
 }
 
-// The same as Map but the function recieves a reference type
+// The same as Map but the function receives a reference type
 func MapByRef[T1, T2 any](slice []T1, f func(*T1) T2) []T2 {
 	if slice == nil {
 		return nil

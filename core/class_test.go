@@ -282,5 +282,4 @@ func TestSierraVersion(t *testing.T) {
 		sierraVersion := class.SierraVersion()
 		require.Equal(t, "7.3.11", sierraVersion)
 	})
-
 }

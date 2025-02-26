@@ -568,7 +568,6 @@ func TestClassV1(t *testing.T) {
 		snClass := starknet.SierraDefinition{}
 		_, err := sn2core.AdaptCairo1Class(&snClass, nil)
 		require.Contains(t, "sierra program size is too small", err.Error())
-
 	})
 }
 
