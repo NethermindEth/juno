@@ -1,6 +1,7 @@
 package rpcv8
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -93,7 +94,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, network, skipFeeCharge, skipValidate, errOnRevert)
+		state, network, skipFeeCharge, skipValidate, errOnRevert, true)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -219,13 +220,13 @@ func createSimulatedTransactions(
 }
 
 type TransactionExecutionErrorData struct {
-	TransactionIndex uint64 `json:"transaction_index"`
-	ExecutionError   string `json:"execution_error"`
+	TransactionIndex uint64          `json:"transaction_index"`
+	ExecutionError   json.RawMessage `json:"execution_error"`
 }
 
 func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
 	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
 		TransactionIndex: err.Index,
-		ExecutionError:   err.Cause.Error(),
+		ExecutionError:   err.Cause,
 	})
 }

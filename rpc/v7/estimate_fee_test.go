@@ -2,7 +2,6 @@ package rpcv7_test
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -36,7 +35,7 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -50,7 +49,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -64,16 +63,16 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
-				Cause: errors.New("oops"),
+				Cause: json.RawMessage("oops"),
 			})
 
 		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
-			ExecutionError:   "oops",
+			ExecutionError:   json.RawMessage("oops"),
 		}), err)
 		require.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
 	})

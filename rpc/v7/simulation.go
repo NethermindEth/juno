@@ -1,6 +1,7 @@
 package rpcv7
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -107,7 +108,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
+		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, false)
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
 	overallFees := executionResults.OverallFees
@@ -183,13 +184,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 }
 
 type TransactionExecutionErrorData struct {
-	TransactionIndex uint64 `json:"transaction_index"`
-	ExecutionError   string `json:"execution_error"`
+	TransactionIndex uint64          `json:"transaction_index"`
+	ExecutionError   json.RawMessage `json:"execution_error"`
 }
 
 func makeTransactionExecutionError(err *vm.TransactionExecutionError) *jsonrpc.Error {
 	return rpccore.ErrTransactionExecutionError.CloneWithData(TransactionExecutionErrorData{
 		TransactionIndex: err.Index,
-		ExecutionError:   err.Cause.Error(),
+		ExecutionError:   err.Cause,
 	})
 }

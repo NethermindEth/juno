@@ -1,7 +1,7 @@
 package rpcv7_test
 
 import (
-	"errors"
+	"encoding/json"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -39,7 +39,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, false).
+		}, mockState, n, true, false, false, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -56,7 +56,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false).
+		}, mockState, n, false, true, false, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -73,16 +73,16 @@ func TestSimulateTransactions(t *testing.T) {
 		t.Run("v0_7, v0_8", func(t *testing.T) { //nolint:dupl
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 				Header: headsHeader,
-			}, mockState, n, false, true, false).
+			}, mockState, n, false, true, false, false).
 				Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 					Index: 44,
-					Cause: errors.New("oops"),
+					Cause: json.RawMessage("oops"),
 				})
 
 			_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag})
 			require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 				TransactionIndex: 44,
-				ExecutionError:   "oops",
+				ExecutionError:   json.RawMessage("oops"),
 			}), err)
 			require.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
 		})

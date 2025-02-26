@@ -1,3 +1,4 @@
+use crate::error::ExecutionError;
 use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::state::state_api::{StateReader, StateResult, UpdatableState};
@@ -13,62 +14,12 @@ use starknet_api::executable_transaction::AccountTransaction;
 use starknet_api::execution_resources::GasAmount;
 use starknet_api::transaction::fields::{GasVectorComputationMode, ValidResourceBounds};
 use starknet_api::transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction};
-use std::fmt;
 
-#[derive(Debug)]
-pub enum ExecutionError {
-    TransactionExecutionError(TransactionExecutionError),
-    CustomError(anyhow::Error),
-}
-
-impl fmt::Display for ExecutionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ExecutionError::TransactionExecutionError(err) => {
-                write!(f, "Transaction execution error: {}", err)
-            }
-            ExecutionError::CustomError(err) => write!(f, "Custom error: {}", err),
-        }
-    }
-}
-
-impl From<TransactionExecutionError> for ExecutionError {
-    fn from(err: TransactionExecutionError) -> Self {
-        ExecutionError::TransactionExecutionError(err)
-    }
-}
-
-impl From<anyhow::Error> for ExecutionError {
-    fn from(err: anyhow::Error) -> Self {
-        ExecutionError::CustomError(err)
-    }
-}
-
-#[derive(Debug)]
-enum SimulationError {
-    OutOfGas(GasAmount),
-    ExecutionError(TransactionExecutionError),
-}
-
-impl fmt::Display for SimulationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SimulationError::OutOfGas(gas) => write!(f, "Out of gas: {}", gas),
-            SimulationError::ExecutionError(err) => write!(f, "Execution error: {}", err),
-        }
-    }
-}
-
-impl From<TransactionExecutionError> for SimulationError {
-    fn from(err: TransactionExecutionError) -> Self {
-        SimulationError::ExecutionError(err)
-    }
-}
-
-pub fn execute_transaction(
+pub fn process_transaction(
     txn: &mut Transaction,
     txn_state: &mut TransactionalState<'_, CachedState<JunoStateReader>>,
     block_context: &BlockContext,
+    error_on_revert: bool,
 ) -> Result<TransactionExecutionInfo, ExecutionError> {
     match is_l2_gas_accounting_enabled(
         txn,
@@ -76,13 +27,40 @@ pub fn execute_transaction(
         block_context,
         &determine_gas_vector_mode(txn),
     ) {
-        Ok(true) => get_gas_vector_computation_mode(txn, txn_state, block_context),
-        Ok(false) => txn
-            .execute(txn_state, block_context)
-            .map_err(ExecutionError::from),
-        Err(error) => Err(ExecutionError::TransactionExecutionError(
-            TransactionExecutionError::StateError(error),
-        )),
+        Ok(true) => {
+            execute_transaction_with_binary_search(txn, txn_state, block_context, error_on_revert)
+        }
+        Ok(false) => execute_transaction(txn, txn_state, block_context, error_on_revert),
+        Err(error) => Err(ExecutionError::new(TransactionExecutionError::StateError(
+            error,
+        ))),
+    }
+}
+
+pub(crate) fn execute_transaction<S>(
+    tx: &Transaction,
+    state: &mut S,
+    block_context: &blockifier::context::BlockContext,
+    error_on_revert: bool,
+) -> Result<TransactionExecutionInfo, ExecutionError>
+where
+    S: UpdatableState,
+{
+    match tx.execute(state, block_context) {
+        Ok(tx_info) => {
+            if tx_info.is_reverted() && error_on_revert {
+                if let Some(revert_error) = tx_info.revert_error {
+                    let revert_string = revert_error.to_string();
+                    return Err(ExecutionError::ExecutionError {
+                        error: revert_string,
+                        error_stack: revert_error.into(),
+                    });
+                }
+            }
+
+            Ok(tx_info)
+        }
+        Err(error) => Err(ExecutionError::new(error)),
     }
 }
 
@@ -134,11 +112,16 @@ fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationM
 }
 
 const L2_GAS_SEARCH_MARGIN: GasAmount = GasAmount(1_000_000);
+enum SimulationError {
+    OutOfGas,
+    ExecutionError(ExecutionError),
+}
 
-fn get_gas_vector_computation_mode<S>(
+fn execute_transaction_with_binary_search<S>(
     transaction: &mut Transaction,
     state: &mut S,
     block_context: &blockifier::context::BlockContext,
+    error_on_revert: bool,
 ) -> Result<TransactionExecutionInfo, ExecutionError>
 where
     S: UpdatableState,
@@ -154,14 +137,11 @@ where
 
     let simulation_result = match simulate_execution(transaction, state, block_context) {
         Ok((tx_info, _)) => tx_info,
-        Err(SimulationError::ExecutionError(error)) => {
-            return Err(ExecutionError::TransactionExecutionError(error))
-        }
-        Err(SimulationError::OutOfGas(gas)) => {
-            return Err(ExecutionError::CustomError(anyhow::anyhow!(
-                "Transaction ran out of gas during simulation: {}",
-                gas
-            )));
+        Err(SimulationError::ExecutionError(error)) => return Err(error),
+        Err(SimulationError::OutOfGas) => {
+            return Err(ExecutionError::Custom(
+                "Transaction ran out of gas during simulation".to_string(),
+            ));
         }
     };
 
@@ -175,7 +155,7 @@ where
             // as the estimate and skip the binary search.
             (l2_gas_adjusted, tx_info, tx_state)
         }
-        Err(SimulationError::OutOfGas(_)) => {
+        Err(SimulationError::OutOfGas) => {
             let mut lower_bound = GasAmount(gas_used);
             let mut upper_bound = GasAmount::MAX;
             let mut current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
@@ -204,33 +184,28 @@ where
                         upper_bound = current_l2_gas_limit;
                         current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
                     }
-                    Err(SimulationError::OutOfGas(_)) => {
+                    Err(SimulationError::OutOfGas) => {
                         lower_bound = current_l2_gas_limit;
                         current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
                     }
-                    Err(SimulationError::ExecutionError(error)) => {
-                        return Err(ExecutionError::TransactionExecutionError(error))
-                    }
+                    Err(SimulationError::ExecutionError(error)) => return Err(error),
                 }
             };
 
             (current_l2_gas_limit, tx_info, tx_state)
         }
-        Err(SimulationError::ExecutionError(error)) => {
-            return Err(ExecutionError::TransactionExecutionError(error))
-        }
+        Err(SimulationError::ExecutionError(error)) => return Err(error),
     };
     tx_state.abort();
 
     if l2_gas_limit > initial_gas_limit {
         set_l2_gas_limit(&mut original_transaction, GasAmount(0))?;
-        return original_transaction
-            .execute(state, block_context)
-            .map_err(ExecutionError::from);
+        return execute_transaction(&original_transaction, state, block_context, error_on_revert);
     }
 
     set_l2_gas_limit(&mut original_transaction, initial_gas_limit)?;
-    let mut exec_info = original_transaction.execute(state, block_context)?;
+    let mut exec_info =
+        execute_transaction(&original_transaction, state, block_context, error_on_revert)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     exec_info.receipt.gas.l2_gas = l2_gas_limit;
@@ -253,18 +228,32 @@ fn is_search_complete(lower: GasAmount, upper: GasAmount, margin: GasAmount) -> 
 }
 
 fn simulate_execution<'a, S>(
-    transaction: &Transaction,
+    tx: &Transaction,
     state: &'a mut S,
-    block_context: &BlockContext,
+    block_context: &blockifier::context::BlockContext,
 ) -> Result<(TransactionExecutionInfo, TransactionalState<'a, S>), SimulationError>
 where
     S: UpdatableState,
 {
-    let mut simulated_state = CachedState::<_>::create_transactional(state);
-    match transaction.execute(&mut simulated_state, block_context) {
-        Ok(info) if is_out_of_gas(&info) => Err(SimulationError::OutOfGas(info.receipt.gas.l2_gas)),
-        Ok(info) => Ok((info, simulated_state)),
-        Err(error) => Err(SimulationError::ExecutionError(error)),
+    let mut tx_state = CachedState::<_>::create_transactional(state);
+    match tx.execute(&mut tx_state, block_context) {
+        Ok(tx_info) if is_out_of_gas(&tx_info) => Err(SimulationError::OutOfGas),
+        Ok(tx_info) => {
+            if tx_info.is_reverted() {
+                if let Some(revert_error) = tx_info.revert_error {
+                    let revert_string = revert_error.to_string();
+                    return Err(SimulationError::ExecutionError(
+                        ExecutionError::ExecutionError {
+                            error: revert_string,
+                            error_stack: revert_error.into(),
+                        },
+                    ));
+                }
+            }
+
+            Ok((tx_info, tx_state))
+        }
+        Err(error) => Err(SimulationError::ExecutionError(ExecutionError::new(error))),
     }
 }
 
