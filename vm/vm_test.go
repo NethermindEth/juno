@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -235,7 +236,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}}, testState, &utils.Sepolia, 1_000_000, "")
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
-	require.Equal(t, ret.Result[0].String(), "0x454e545259504f494e545f4e4f545f464f554e44")
+	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)
 	require.Nil(t, err)
 }
 
