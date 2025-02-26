@@ -20,7 +20,14 @@
         "max_amount": "0x186a0",
         "max_price_per_unit": "0x5af3107a4000"
       },
-      "L2_GAS": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+      "L2_GAS": {
+        "max_amount": "0x0",
+        "max_price_per_unit": "0x0"
+      },
+      "L1_DATA_GAS": {
+        "max_amount": "0x0",
+        "max_price_per_unit": "0x0"
+      }
     },
     "tip": "0x0",
     "paymaster_data": [],

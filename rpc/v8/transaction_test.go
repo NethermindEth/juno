@@ -969,6 +969,10 @@ func TestAddTransaction(t *testing.T) {
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
+				  },
+				  "L1_DATA": {
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
 				  }
 				},
 				"tip": "0x0",
@@ -1070,6 +1074,10 @@ func TestAddTransaction(t *testing.T) {
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
+				  },
+				  "L1_DATA": {
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
 				  }
 				},
 				"tip": "0x0",
@@ -1121,6 +1129,10 @@ func TestAddTransaction(t *testing.T) {
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
 				  "L2_GAS": {
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
+				  },
+				  "L1_DATA": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
 				  }
