@@ -133,7 +133,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
 
-	chain := blockchain.New(database, &cfg.Network, func() *core.Block { return nil })
+	chain := blockchain.New(database, &cfg.Network)
 
 	// Verify that cfg.Network is compatible with the database.
 	head, err := chain.Head()
@@ -214,12 +214,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	jsonrpcServerV07 := jsonrpc.NewServer(maxGoroutines, log)
 	methodsV07, pathV07 := rpcHandler.MethodsV0_7()
 	if err = jsonrpcServerV07.RegisterMethods(methodsV07...); err != nil {
 		return nil, err
 	}
-	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	jsonrpcServerV06 := jsonrpc.NewServer(maxGoroutines, log)
 	methodsV06, pathV06 := rpcHandler.MethodsV0_6()
 	if err = jsonrpcServerV06.RegisterMethods(methodsV06...); err != nil {
 		return nil, err

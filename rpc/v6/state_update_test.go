@@ -34,7 +34,7 @@ func TestStateUpdate(t *testing.T) {
 	n := utils.Ptr(utils.Mainnet)
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
