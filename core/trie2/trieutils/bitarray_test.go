@@ -1048,7 +1048,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   8,
 				words: [4]uint64{0xFF, 0, 0, 0},
 			},
-			want: []byte{8, 0xFF}, // length byte + 1 data byte
+			want: []byte{0xFF, 0x08}, // 1 data byte + length byte
 		},
 		{
 			name: "10 bits requiring 2 bytes",
@@ -1056,7 +1056,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   10,
 				words: [4]uint64{0x3FF, 0, 0, 0}, // 1111111111 in binary
 			},
-			want: []byte{10, 0x3, 0xFF}, // length byte + 2 data bytes
+			want: []byte{0x3, 0xFF, 0x0A}, // 2 data bytes + length byte
 		},
 		{
 			name: "64 bits",
@@ -1065,8 +1065,8 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				words: [4]uint64{maxUint64, 0, 0, 0},
 			},
 			want: append(
-				[]byte{64}, // length byte
-				[]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}..., // 8 data bytes
+				[]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, // 8 data bytes
+				[]byte{64}..., // length byte
 			),
 		},
 		{
@@ -1077,13 +1077,13 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 			},
 			want: func() []byte {
 				b := make([]byte, 33) // 1 length byte + 32 data bytes
-				b[0] = 251            // length byte
 				// First byte is 0x07 (from the most significant bits)
-				b[1] = 0x07
+				b[0] = 0x07
 				// Rest of the bytes are 0xFF
-				for i := 2; i < 33; i++ {
+				for i := 1; i < 32; i++ {
 					b[i] = 0xFF
 				}
+				b[32] = 251 // length byte
 				return b
 			}(),
 		},
@@ -1093,7 +1093,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   16,
 				words: [4]uint64{0xAAAA, 0, 0, 0}, // 1010101010101010 in binary
 			},
-			want: []byte{16, 0xAA, 0xAA}, // length byte + 2 data bytes
+			want: []byte{0xAA, 0xAA, 0x10}, // 2 data bytes + length byte
 		},
 		{
 			name: "leading zeros in first byte",
@@ -1101,7 +1101,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   8,
 				words: [4]uint64{0x0F, 0, 0, 0}, // 00001111
 			},
-			want: []byte{8, 0x0F}, // length byte + 1 data byte
+			want: []byte{0x0F, 0x08}, // 1 data byte + length byte
 		},
 		{
 			name: "all leading zeros in first byte",
@@ -1109,7 +1109,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   8,
 				words: [4]uint64{0x00, 0, 0, 0}, // 00000000
 			},
-			want: []byte{8, 0x00}, // length byte + 1 data byte
+			want: []byte{0x00, 0x08}, // 1 data byte + length byte
 		},
 		{
 			name: "leading zeros across multiple bytes",
@@ -1117,7 +1117,7 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				len:   24,
 				words: [4]uint64{0x0000FF, 0, 0, 0}, // 000000000000000011111111
 			},
-			want: []byte{24, 0xFF}, // length byte + 1 data byte
+			want: []byte{0xFF, 0x18}, // 1 data byte + length byte
 		},
 		{
 			name: "leading zeros in large number",
@@ -1126,8 +1126,8 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 				words: [4]uint64{maxUint64, maxUint64, 0, 0}, // All 1s in lower bits, zeros in upper bits
 			},
 			want: append(
-				[]byte{255},                       // length byte
-				bytes.Repeat([]byte{0xFF}, 16)..., // 16 bytes of all 1s
+				bytes.Repeat([]byte{0xFF}, 16), // 16 bytes of all 1s
+				[]byte{0xFF}...,                // length byte
 			),
 		},
 	}

@@ -449,17 +449,18 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First byte: length of the bit array (0-255)
-// - Remaining bytes: the necessary bytes included in big endian order, without leading zeros
+// - First few bytes: the necessary bytes included in big endian order, without leading zeros
+// - Last byte: length of the bit array (0-255)
 // Example:
 //
-//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x0A, 0x03, 0xFF]
+//	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
+	n, err := buf.Write(b.activeBytes())
+
 	if err := buf.WriteByte(b.len); err != nil {
 		return 0, err
 	}
 
-	n, err := buf.Write(b.activeBytes())
 	return n + 1, err
 }
 
@@ -474,7 +475,7 @@ func (b *BitArray) UnmarshalBinary(data []byte) error {
 		return errors.New("empty data")
 	}
 
-	length := data[0]
+	length := data[len(data)-1]
 	byteCount := (int(length) + 7) / 8 // Get the total number of bytes needed to represent the bit array
 
 	if len(data) > byteCount+1 {
@@ -484,7 +485,7 @@ func (b *BitArray) UnmarshalBinary(data []byte) error {
 	b.len = length
 
 	var bs [32]byte
-	bitArrBytes := data[1:]
+	bitArrBytes := data[:len(data)-1]
 	copy(bs[32-len(bitArrBytes):], bitArrBytes) // Fill up the non-zero bytes at the end of the byte array
 	b.setBytes32(bs[:])
 
