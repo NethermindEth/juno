@@ -22,14 +22,14 @@ func TestNodeSet(t *testing.T) {
 
 		// Add a regular node
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
+		node1 := NewLeaf([]byte{1, 2, 3})
 		ns.Add(key1, node1)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 0, ns.deletes)
 
 		// Add a deleted node
 		key2 := trieutils.NewBitArray(8, 0xAA)
-		node2 := NewDeleted()
+		node2 := NewDeleted(false)
 		ns.Add(key2, node2)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 1, ns.deletes)
@@ -45,12 +45,12 @@ func TestNodeSet(t *testing.T) {
 
 		// Add nodes to first set
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
+		node1 := NewLeaf([]byte{1, 2, 3})
 		ns1.Add(key1, node1)
 
 		// Add nodes to second set
 		key2 := trieutils.NewBitArray(8, 0xAA)
-		node2 := NewDeleted()
+		node2 := NewDeleted(false)
 		ns2.Add(key2, node2)
 
 		// Merge sets
@@ -80,9 +80,9 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(*owner)
 
 		// Create a map to merge
-		nodes := make(map[trieutils.BitArray]*Node)
+		nodes := make(map[trieutils.BitArray]TrieNode)
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewNode(felt.Zero, []byte{1, 2, 3})
+		node1 := NewLeaf([]byte{1, 2, 3})
 		nodes[key1] = node1
 
 		// Merge map
@@ -106,12 +106,12 @@ func TestNodeSet(t *testing.T) {
 			trieutils.NewBitArray(8, 0x55),
 		}
 		for _, key := range keys {
-			ns.Add(key, NewNode(felt.Zero, []byte{1}))
+			ns.Add(key, NewLeaf([]byte{1}))
 		}
 
 		t.Run("ascending order", func(t *testing.T) {
 			var visited []trieutils.BitArray
-			_ = ns.ForEach(false, func(key trieutils.BitArray, node *Node) error {
+			_ = ns.ForEach(false, func(key trieutils.BitArray, node TrieNode) error {
 				visited = append(visited, key)
 				return nil
 			})
@@ -124,7 +124,7 @@ func TestNodeSet(t *testing.T) {
 
 		t.Run("descending order", func(t *testing.T) {
 			var visited []trieutils.BitArray
-			_ = ns.ForEach(true, func(key trieutils.BitArray, node *Node) error {
+			_ = ns.ForEach(true, func(key trieutils.BitArray, node TrieNode) error {
 				visited = append(visited, key)
 				return nil
 			})
@@ -134,55 +134,5 @@ func TestNodeSet(t *testing.T) {
 				require.True(t, visited[i-1].Cmp(&visited[i]) > 0)
 			}
 		})
-	})
-}
-
-func TestNode(t *testing.T) {
-	t.Run("new node", func(t *testing.T) {
-		hash := new(felt.Felt).SetUint64(123)
-		blob := []byte{1, 2, 3}
-		node := NewNode(*hash, blob)
-
-		require.Equal(t, *hash, node.hash)
-		require.Equal(t, blob, node.blob)
-		require.False(t, node.IsDeleted())
-	})
-
-	t.Run("new deleted node", func(t *testing.T) {
-		node := NewDeleted()
-		require.True(t, node.IsDeleted())
-		require.Equal(t, felt.Zero, node.hash)
-		require.Nil(t, node.blob)
-	})
-
-	t.Run("is deleted", func(t *testing.T) {
-		tests := []struct {
-			name     string
-			blob     []byte
-			expected bool
-		}{
-			{
-				name:     "nil blob",
-				blob:     nil,
-				expected: true,
-			},
-			{
-				name:     "empty blob",
-				blob:     []byte{},
-				expected: true,
-			},
-			{
-				name:     "non-empty blob",
-				blob:     []byte{1, 2, 3},
-				expected: false,
-			},
-		}
-
-		for _, test := range tests {
-			t.Run(test.name, func(t *testing.T) {
-				node := NewNode(felt.Zero, test.blob)
-				require.Equal(t, test.expected, node.IsDeleted())
-			})
-		}
 	})
 }

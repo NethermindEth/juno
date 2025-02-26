@@ -228,46 +228,52 @@ func TestRandom(t *testing.T) {
 }
 
 func TestSpecificRandomFailure(t *testing.T) {
-	// Create test steps that match the failing sequence
-	key1 := utils.HexToFelt(t, "0x5c0d77d04056ae1e0c49bce8a3223b0373ccf94c1b04935d")
-	key2 := utils.HexToFelt(t, "0x19bc6d500358f3046b0743c903")
-	key3 := utils.HexToFelt(t, "0xf7d2180a5a138b325ea522e2b65b58a5dffb859b1fbbdab0e5efb125e8a840")
+	// Create a key that matches the failing key from the error log
+	key1 := utils.HexToFelt(t, "0xbc41e72617a6765fcb5902")
+	key2 := utils.HexToFelt(t, "0x0") // The second key from the error log
 
 	steps := []randTestStep{
-		{op: opProve, key: key1},
 		{op: opCommit},
+		{op: opGet, key: key1},
+		{op: opCommit},
+		{op: opHash},
+		{op: opCommit},
+		{op: opHash},
+		{op: opCommit},
+		{op: opCommit},
+		{op: opHash},
+		{op: opCommit},
+		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(12)},
+		{op: opGet, key: key2},
+		{op: opCommit},
+		{op: opHash},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(16)},
+		{op: opCommit},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(18)},
 		{op: opDelete, key: key2},
-		{op: opHash},
-		{op: opCommit},
-		{op: opCommit},
-		{op: opGet, key: key2},
-		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(7)},
-		{op: opHash},
 		{op: opDelete, key: key1},
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(10)},
 		{op: opHash},
-		{op: opGet, key: key2},
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(13)},
 		{op: opCommit},
-		{op: opHash},
-		{op: opProve, key: key1},
-		{op: opProve, key: key3},
-		{op: opUpdate, key: key3, value: new(felt.Felt).SetUint64(18)},
+		{op: opGet, key: key1}, // This is where the original failure occurred
 		{op: opCommit},
 		{op: opGet, key: key2},
-		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(21)},
+		{op: opProve, key: key2},
+		{op: opHash},
+		{op: opGet, key: key1},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(32)},
+		{op: opHash},
+		{op: opGet, key: key1},
+		{op: opDelete, key: key1},
+		{op: opCommit},
+		{op: opDelete, key: key1},
+		{op: opHash},
+		{op: opDelete, key: key2},
+		{op: opGet, key: key1},
 		{op: opHash},
 		{op: opHash},
 		{op: opGet, key: key2},
-		{op: opProve, key: key1},
-		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(26)},
-		{op: opHash},
-		{op: opGet, key: key2},
 		{op: opCommit},
-		{op: opCommit},
-		{op: opProve, key: key3}, // This is where the original failure occurred
 	}
-
 	// Add debug logging
 	t.Log("Starting test sequence")
 	err := runRandTest(steps)

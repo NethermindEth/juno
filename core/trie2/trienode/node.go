@@ -4,28 +4,40 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// Represents a raw trie node, which contains the encoded blob and the hash of the node.
-type Node struct {
+// Represents a raw non-leaf trie node, which contains the encoded blob and the hash of the node.
+type NonLeafNode struct {
 	blob []byte
 	hash felt.Felt
 }
 
-func (r *Node) IsDeleted() bool {
-	return len(r.blob) == 0
+func NewNonLeaf(hash felt.Felt, blob []byte) *NonLeafNode {
+	return &NonLeafNode{hash: hash, blob: blob}
 }
 
-func (r *Node) Blob() []byte {
-	return r.blob
+func (r *NonLeafNode) Blob() []byte    { return r.blob }
+func (r *NonLeafNode) Hash() felt.Felt { return r.hash }
+func (r *NonLeafNode) IsLeaf() bool    { return false }
+
+type LeafNode struct {
+	blob []byte
 }
 
-func (r *Node) Hash() felt.Felt {
-	return r.hash
+func NewLeaf(blob []byte) *LeafNode {
+	return &LeafNode{blob: blob}
 }
 
-func NewNode(hash felt.Felt, blob []byte) *Node {
-	return &Node{hash: hash, blob: blob}
+func (r *LeafNode) Blob() []byte    { return r.blob }
+func (r *LeafNode) Hash() felt.Felt { return felt.Felt{} }
+func (r *LeafNode) IsLeaf() bool    { return true }
+
+type DeletedNode struct {
+	isLeaf bool
 }
 
-func NewDeleted() *Node {
-	return &Node{hash: felt.Felt{}, blob: nil}
+func NewDeleted(isLeaf bool) *DeletedNode {
+	return &DeletedNode{isLeaf: isLeaf}
 }
+
+func (r *DeletedNode) Blob() []byte    { return nil }
+func (r *DeletedNode) Hash() felt.Felt { return felt.Felt{} }
+func (r *DeletedNode) IsLeaf() bool    { return r.isLeaf }
