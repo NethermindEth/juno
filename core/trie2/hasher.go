@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 )
 
-// A tool for shashing nodes in the trie. It supports both sequential and parallel
+// A tool for hashing nodes in the trie. It supports both sequential and parallel
 // hashing modes.
 type hasher struct {
 	hashFn   crypto.HashFn // The hash function to use
