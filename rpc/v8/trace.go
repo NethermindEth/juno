@@ -392,10 +392,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrClassHashNotFound
 	}
 
-	var sierraVersion string
-	if class, ok := declaredClass.Class.(*core.Cairo1Class); ok {
-		sierraVersion = class.SemanticVersion
-	}
+	sierraVersion := declaredClass.Class.SierraVersion()
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
