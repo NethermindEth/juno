@@ -130,13 +130,13 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	}
 	h.subscriptions.Store(id, sub)
 
-	headerSub := h.newHeads.Subscribe()
+	newHeadsSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
 	pendingSub := h.pendingBlock.Subscribe()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			headerSub.Unsubscribe()
+			newHeadsSub.Unsubscribe()
 			reorgSub.Unsubscribe()
 			pendingSub.Unsubscribe()
 		}()
@@ -152,17 +152,17 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 				select {
 				case <-subscriptionCtx.Done():
 					return
-				case header := <-headerSub.Recv():
+				case head := <-newHeadsSub.Recv():
 					// During syncing the events from the new head still need to be sent as there is no pending block.
 					// However, it is not easy to tell when the node is syncing.
 					// To solve this issue, we can send the events regardless, and if the node is done syncing, then the
 					// latest header events would have been sent when the pending block was updated. Hence,
 					// trying to resend the event should be of no consequences and the map can be safely emptied.
-					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys, eventsPreviouslySent)
+					h.processEvents(subscriptionCtx, w, id, head.Number, head.Number, fromAddr, keys, eventsPreviouslySent)
 
-					block, err := h.bcReader.BlockByNumber(header.Number)
+					block, err := h.bcReader.BlockByNumber(head.Number)
 					if err != nil {
-						h.log.Warnw("Error retrieving block", "block number", header.Number, "err", err)
+						h.log.Warnw("Error retrieving block", "block number", head.Number, "err", err)
 						return
 					}
 
@@ -463,12 +463,12 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 	}
 	h.subscriptions.Store(id, sub)
 
-	headerSub := h.newHeads.Subscribe()
+	newHeadsSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the new heads subscription
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			headerSub.Unsubscribe()
+			newHeadsSub.Unsubscribe()
 			reorgSub.Unsubscribe()
 		}()
 
@@ -486,7 +486,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		})
 
 		wg.Go(func() {
-			h.processNewHeaders(subscriptionCtx, headerSub, w, id)
+			h.processNewHeaders(subscriptionCtx, newHeadsSub, w, id)
 		})
 
 		wg.Wait()
@@ -683,13 +683,13 @@ func (h *Handler) sendHistoricalHeaders(
 	}
 }
 
-func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], w jsonrpc.Conn, id uint64) {
+func (h *Handler) processNewHeaders(ctx context.Context, newHeadsSub *feed.Subscription[*core.Block], w jsonrpc.Conn, id uint64) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case header := <-headerSub.Recv():
-			if err := h.sendHeader(w, header, id); err != nil {
+		case head := <-newHeadsSub.Recv():
+			if err := h.sendHeader(w, head.Header, id); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
 			}
