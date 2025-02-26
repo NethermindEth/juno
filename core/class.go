@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -17,6 +18,7 @@ var (
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
+	SierraVersion() string
 	Hash() (*felt.Felt, error)
 }
 
@@ -50,10 +52,16 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	return cairo0ClassHash(c)
 }
 
+func (c *Cairo0Class) SierraVersion() string {
+	return "0.1.0"
+}
+
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
+	Abi     string
+	AbiHash *felt.Felt
+	// TODO: will implement this on a follow up PR commit to avoid the migration
+	// EntryPoints     SierraEntryPointsByType
 	EntryPoints struct {
 		Constructor []SierraEntryPoint
 		External    []SierraEntryPoint
@@ -88,6 +96,13 @@ type CompiledEntryPoint struct {
 	Selector *felt.Felt
 }
 
+// TODO: will implement this on a follow up PR commit to avoid the migration
+// type SierraEntryPointsByType struct {
+// 	Constructor []SierraEntryPoint
+// 	External    []SierraEntryPoint
+// 	L1Handler   []SierraEntryPoint
+// }
+
 type SierraEntryPoint struct {
 	Index    uint64
 	Selector *felt.Felt
@@ -106,6 +121,26 @@ func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 		c.AbiHash,
 		c.ProgramHash,
 	), nil
+}
+
+// Parse Sierra version from the JSON representation of the program.
+//
+// Sierra programs contain the version number in two possible formats.
+// For pre-1.0-rc0 Cairo versions the program contains the Sierra version
+// "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
+// For all subsequent versions the version number is the first three felts
+// representing the three parts of a semantic version number.
+func (c *Cairo1Class) SierraVersion() string {
+	// It is defined in this weird way because it is fast :)
+	const base = 10
+	var buf [32]byte
+	b := buf[:0]
+	b = strconv.AppendUint(b, c.Program[0].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, c.Program[1].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, c.Program[2].Uint64(), base)
+	return string(b)
 }
 
 var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))

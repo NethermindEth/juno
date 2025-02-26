@@ -263,3 +263,24 @@ func TestSegmentedBytecodeHash(t *testing.T) {
 			},
 		}).String())
 }
+
+func TestSierraVersion(t *testing.T) {
+	t.Run("cairo zero should return 0.1.0 by default", func(t *testing.T) {
+		class := core.Cairo0Class{}
+		sierraVersion := class.SierraVersion()
+		require.Equal(t, "0.1.0", sierraVersion)
+	})
+
+	t.Run("cairo one should return based on the program data", func(t *testing.T) {
+		class := core.Cairo1Class{
+			Program: []*felt.Felt{
+				new(felt.Felt).SetUint64(7),
+				new(felt.Felt).SetUint64(3),
+				new(felt.Felt).SetUint64(11),
+			},
+		}
+		sierraVersion := class.SierraVersion()
+		require.Equal(t, "7.3.11", sierraVersion)
+	})
+
+}
