@@ -362,6 +362,11 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
+		// ResourceL1DataGas is not supported in v6
+		if resource == core.ResourceL1DataGas {
+			continue
+		}
+
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
