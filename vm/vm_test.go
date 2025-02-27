@@ -226,14 +226,14 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	// Starknet version <0.13.4 should return an error
 	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.0",
-	}}, testState, &utils.Sepolia, 1_000_000, "")
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
 	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.4",
-	}}, testState, &utils.Sepolia, 1_000_000, "")
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
 	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)
