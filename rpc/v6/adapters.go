@@ -42,9 +42,9 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 	}
 
 	// Adapt inner calls
-	adaptedCalls := make([]FunctionInvocation, 0, len(vmFnInvocation.Calls))
+	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls = append(adaptedCalls, *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
+		adaptedCalls[index] = *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt execution resources
@@ -82,69 +82,69 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 
 func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
 	// Adapt storage diffs
-	adaptedStorageDiffs := make([]StorageDiff, 0, len(vmStateDiff.StorageDiffs))
+	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
 	for index := range vmStateDiff.StorageDiffs {
 		vmStorageDiff := &vmStateDiff.StorageDiffs[index]
 
 		// Adapt storage entries
-		adaptedEntries := make([]Entry, 0, len(vmStorageDiff.StorageEntries))
+		adaptedEntries := make([]Entry, len(vmStorageDiff.StorageEntries))
 		for entryIndex := range vmStorageDiff.StorageEntries {
 			vmEntry := &vmStorageDiff.StorageEntries[entryIndex]
 
-			adaptedEntries = append(adaptedEntries, Entry{
+			adaptedEntries[entryIndex] = Entry{
 				Key:   vmEntry.Key,
 				Value: vmEntry.Value,
-			})
+			}
 		}
 
-		adaptedStorageDiffs = append(adaptedStorageDiffs, StorageDiff{
+		adaptedStorageDiffs[index] = StorageDiff{
 			Address:        vmStorageDiff.Address,
 			StorageEntries: adaptedEntries,
-		})
+		}
 	}
 
-	// Adapt adaptedNonces
-	adaptedNonces := make([]Nonce, 0, len(vmStateDiff.Nonces))
+	// Adapt nonces
+	adaptedNonces := make([]Nonce, len(vmStateDiff.Nonces))
 	for index := range vmStateDiff.Nonces {
 		vmNonce := &vmStateDiff.Nonces[index]
 
-		adaptedNonces = append(adaptedNonces, Nonce{
+		adaptedNonces[index] = Nonce{
 			ContractAddress: vmNonce.ContractAddress,
 			Nonce:           vmNonce.Nonce,
-		})
+		}
 	}
 
 	// Adapt deployed contracts
-	adaptedDeployedContracts := make([]DeployedContract, 0, len(vmStateDiff.DeployedContracts))
+	adaptedDeployedContracts := make([]DeployedContract, len(vmStateDiff.DeployedContracts))
 	for index := range vmStateDiff.DeployedContracts {
 		vmDeployedContract := &vmStateDiff.DeployedContracts[index]
 
-		adaptedDeployedContracts = append(adaptedDeployedContracts, DeployedContract{
+		adaptedDeployedContracts[index] = DeployedContract{
 			Address:   vmDeployedContract.Address,
 			ClassHash: vmDeployedContract.ClassHash,
-		})
+		}
 	}
 
 	// Adapt declared classes
-	adaptedDeclaredClasses := make([]DeclaredClass, 0, len(vmStateDiff.DeclaredClasses))
+	adaptedDeclaredClasses := make([]DeclaredClass, len(vmStateDiff.DeclaredClasses))
 	for index := range vmStateDiff.DeclaredClasses {
 		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
 
-		adaptedDeclaredClasses = append(adaptedDeclaredClasses, DeclaredClass{
+		adaptedDeclaredClasses[index] = DeclaredClass{
 			ClassHash:         vmDeclaredClass.ClassHash,
 			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
-		})
+		}
 	}
 
 	// Adapt replaced classes
-	adaptedReplacedClasses := make([]ReplacedClass, 0, len(vmStateDiff.ReplacedClasses))
+	adaptedReplacedClasses := make([]ReplacedClass, len(vmStateDiff.ReplacedClasses))
 	for index := range vmStateDiff.ReplacedClasses {
 		vmReplacedClass := &vmStateDiff.ReplacedClasses[index]
 
-		adaptedReplacedClasses = append(adaptedReplacedClasses, ReplacedClass{
+		adaptedReplacedClasses[index] = ReplacedClass{
 			ContractAddress: vmReplacedClass.ContractAddress,
 			ClassHash:       vmReplacedClass.ClassHash,
-		})
+		}
 	}
 
 	return &StateDiff{
@@ -171,7 +171,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	}
 
 	// Adapt every feeder block trace to rpc v6 trace
-	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
+	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -196,10 +196,10 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
+		adaptedTraces[index] = TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
-		})
+		}
 	}
 
 	return adaptedTraces, nil
@@ -211,33 +211,33 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt internal calls
-	adaptedCalls := make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls))
+	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls = append(adaptedCalls, *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+		adaptedCalls[index] = *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
-	adaptedEvents := make([]vm.OrderedEvent, 0, len(snFnInvocation.Events))
+	adaptedEvents := make([]vm.OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		adaptedEvents = append(adaptedEvents, vm.OrderedEvent{
+		adaptedEvents[index] = vm.OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
-		})
+		}
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages))
+	adaptedMessages := make([]vm.OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
-		adaptedMessages = append(adaptedMessages, vm.OrderedL2toL1Message{
+		adaptedMessages[index] = vm.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			To:      snMessage.ToAddr,
 			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
-		})
+		}
 	}
 
 	return &FunctionInvocation{

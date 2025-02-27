@@ -112,7 +112,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]SimulatedTransaction, 0, len(txns))
+	result := make([]SimulatedTransaction, len(txns))
 
 	// For every transaction, we append its trace + fee estimate
 	for i, overallFee := range executionResults.OverallFees {
@@ -136,10 +136,10 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			Unit:        utils.Ptr(feeUnit),
 		}
 
-		result = append(result, SimulatedTransaction{
+		result[i] = SimulatedTransaction{
 			TransactionTrace: AdaptVMTransactionTrace(&executionResults.Traces[i]),
 			FeeEstimation:    estimate,
-		})
+		}
 	}
 
 	return result, nil

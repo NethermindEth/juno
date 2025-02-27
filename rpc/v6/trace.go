@@ -201,12 +201,12 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(executionResults.Traces))
+	result := make([]TracedBlockTransaction, len(executionResults.Traces))
 	for i := range executionResults.Traces {
-		result = append(result, TracedBlockTransaction{
+		result[i] = TracedBlockTransaction{
 			TraceRoot:       AdaptVMTransactionTrace(&executionResults.Traces[i]),
 			TransactionHash: block.Transactions[i].Hash(),
-		})
+		}
 	}
 
 	if !isPending {

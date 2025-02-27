@@ -78,7 +78,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, httpHeader, rpcErr
 	}
 
-	txns := make([]core.Transaction, 0, len(transactions))
+	txns := make([]core.Transaction, len(transactions))
 	var classes []core.Class
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
@@ -92,7 +92,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
 		}
 
-		txns = append(txns, txn)
+		txns[idx] = txn
 		if declaredClass != nil {
 			classes = append(classes, declaredClass)
 		}
@@ -125,7 +125,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]SimulatedTransaction, 0, len(overallFees))
+	result := make([]SimulatedTransaction, len(overallFees))
 	// For every transaction, we append its trace + fee estimate
 	for i, overallFee := range overallFees {
 		// Compute fee estimate
@@ -176,10 +176,10 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			},
 		}
 
-		result = append(result, SimulatedTransaction{
+		result[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation:    estimate,
-		})
+		}
 	}
 
 	return result, httpHeader, nil

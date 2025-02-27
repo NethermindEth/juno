@@ -111,7 +111,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
 	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
 ) {
-	txns := make([]core.Transaction, 0, len(transactions))
+	txns := make([]core.Transaction, len(transactions))
 	var classes []core.Class
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
@@ -125,7 +125,7 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
 		}
 
-		txns = append(txns, txn)
+		txns[idx] = txn
 		if declaredClass != nil {
 			classes = append(classes, declaredClass)
 		}
@@ -175,7 +175,7 @@ func createSimulatedTransactions(
 		l1DataGasPriceStrk = gasPrice.PriceInFri
 	}
 
-	simulatedTransactions := make([]SimulatedTransaction, 0, len(overallFees))
+	simulatedTransactions := make([]SimulatedTransaction, len(overallFees))
 	for i, overallFee := range overallFees {
 		// Adapt transaction trace to rpc v8 trace
 		trace := AdaptVMTransactionTrace(&traces[i])
@@ -204,7 +204,7 @@ func createSimulatedTransactions(
 		}
 
 		// Append simulated transaction (trace + fee estimate)
-		simulatedTransactions = append(simulatedTransactions, SimulatedTransaction{
+		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
 				L1GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L1Gas),
@@ -216,7 +216,7 @@ func createSimulatedTransactions(
 				OverallFee:        overallFee,
 				Unit:              utils.Ptr(feeUnit),
 			},
-		})
+		}
 	}
 	return simulatedTransactions, nil
 }

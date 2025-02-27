@@ -246,7 +246,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
+	result := make([]TracedBlockTransaction, len(executionResult.Traces))
 	// Adapt every vm transaction trace to rpc v8 trace and add root level execution resources
 	for index := range executionResult.Traces {
 		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
@@ -259,10 +259,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 			L1DataGas: executionResult.GasConsumed[index].L1DataGas,
 		}
 
-		result = append(result, TracedBlockTransaction{
+		result[index] = TracedBlockTransaction{
 			TraceRoot:       trace,
 			TransactionHash: block.Transactions[index].Hash(),
-		})
+		}
 	}
 
 	if !isPending {

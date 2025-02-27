@@ -71,7 +71,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	}
 
 	// Adapt every feeder block trace to rpc v7 trace
-	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
+	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -96,10 +96,10 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
+		adaptedTraces[index] = TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
-		})
+		}
 	}
 
 	return adaptedTraces, nil

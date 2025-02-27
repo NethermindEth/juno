@@ -43,9 +43,9 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 	}
 
 	// Adapt inner calls
-	adaptedCalls := make([]FunctionInvocation, 0, len(vmFnInvocation.Calls))
+	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls = append(adaptedCalls, *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
+		adaptedCalls[index] = *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt execution resources
@@ -101,7 +101,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	}
 
 	// Adapt every feeder block trace to rpc v8 trace
-	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
+	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -126,10 +126,10 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
+		adaptedTraces[index] = TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
-		})
+		}
 	}
 
 	return adaptedTraces, nil
@@ -141,31 +141,31 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt inner calls
-	adaptedCalls := make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls))
+	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls = append(adaptedCalls, *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+		adaptedCalls[index] = *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
-	adaptedEvents := make([]vm.OrderedEvent, 0, len(snFnInvocation.Events))
+	adaptedEvents := make([]vm.OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
-		adaptedEvents = append(adaptedEvents, vm.OrderedEvent{
+		adaptedEvents[index] = vm.OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
-		})
+		}
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages))
+	adaptedMessages := make([]vm.OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
-		adaptedMessages = append(adaptedMessages, vm.OrderedL2toL1Message{
+		adaptedMessages[index] = vm.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
 			To:      snMessage.ToAddr,
-		})
+		}
 	}
 
 	return &FunctionInvocation{
