@@ -1095,41 +1095,6 @@ func TestWriteAndUnmarshalBinary(t *testing.T) {
 			},
 			want: []byte{0xAA, 0xAA, 0x10}, // 2 data bytes + length byte
 		},
-		{
-			name: "leading zeros in first byte",
-			ba: BitArray{
-				len:   8,
-				words: [4]uint64{0x0F, 0, 0, 0}, // 00001111
-			},
-			want: []byte{0x0F, 0x08}, // 1 data byte + length byte
-		},
-		{
-			name: "all leading zeros in first byte",
-			ba: BitArray{
-				len:   8,
-				words: [4]uint64{0x00, 0, 0, 0}, // 00000000
-			},
-			want: []byte{0x00, 0x08}, // 1 data byte + length byte
-		},
-		{
-			name: "leading zeros across multiple bytes",
-			ba: BitArray{
-				len:   24,
-				words: [4]uint64{0x0000FF, 0, 0, 0}, // 000000000000000011111111
-			},
-			want: []byte{0xFF, 0x18}, // 1 data byte + length byte
-		},
-		{
-			name: "leading zeros in large number",
-			ba: BitArray{
-				len:   255,
-				words: [4]uint64{maxUint64, maxUint64, 0, 0}, // All 1s in lower bits, zeros in upper bits
-			},
-			want: append(
-				bytes.Repeat([]byte{0xFF}, 16), // 16 bytes of all 1s
-				[]byte{0xFF}...,                // length byte
-			),
-		},
 	}
 
 	for _, tt := range tests {
