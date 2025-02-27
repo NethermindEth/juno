@@ -449,7 +449,7 @@ func (b *BitArray) IsEmpty() bool {
 }
 
 // Serialises the BitArray into a bytes buffer in the following format:
-// - First few bytes: the necessary bytes included in big endian order, without leading zeros
+// - First few bytes: the necessary bytes included in big endian order
 // - Last byte: length of the bit array (0-255)
 // Example:
 //
@@ -711,8 +711,7 @@ func (b *BitArray) byteCount() uint {
 }
 
 // Returns a slice containing only the bytes that are actually used by the bit array,
-// as specified by the length. Leading zero bytes will be removed.
-// The returned slice is in big-endian order.
+// as specified by the length. The returned slice is in big-endian order.
 //
 // Example:
 //
@@ -723,19 +722,7 @@ func (b *BitArray) activeBytes() []byte {
 	}
 
 	wordsBytes := b.Bytes()
-	end := uint(bytes32)
-	start := end - b.byteCount()
-
-	// Find first non-zero byte
-	for start < end-1 && wordsBytes[start] == 0 {
-		start++
-	}
-
-	if start == end {
-		return nil
-	}
-
-	return wordsBytes[start:end]
+	return wordsBytes[32-b.byteCount():]
 }
 
 func (b *BitArray) rsh64(x *BitArray) {
