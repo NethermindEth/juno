@@ -32,7 +32,6 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version      string
 	newHeads     *feed.Feed[*core.Block]
 	reorgs       *feed.Feed[*sync.ReorgBlockRange]
 	pendingBlock *feed.Feed[*core.Block]
@@ -56,9 +55,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
-	logger utils.Logger,
-) *Handler {
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, logger utils.Logger) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
 	if err != nil {
 		log.Fatalf("Failed to parse ABI: %v", err)
@@ -74,7 +71,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:      version,
+
 		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
 		pendingBlock: feed.New[*core.Block](),
@@ -141,10 +138,6 @@ func (h *Handler) Run(ctx context.Context) error {
 	return nil
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
-}
-
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
 	return "0.8.0", nil
 }
@@ -196,10 +189,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
