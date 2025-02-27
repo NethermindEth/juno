@@ -161,7 +161,7 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
 		Feeder Adapters
 *****************************************************/
 
-func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}

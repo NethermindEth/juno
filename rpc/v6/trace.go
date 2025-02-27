@@ -235,7 +235,7 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(fErr.Error())
 	}
 
-	traces, aErr := adaptFeederBlockTrace(rpcBlock, blockTrace)
+	traces, aErr := AdaptFeederBlockTrace(rpcBlock, blockTrace)
 	if aErr != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(aErr.Error())
 	}

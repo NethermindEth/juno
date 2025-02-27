@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -509,6 +510,90 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)
+	})
+}
+
+func TestAdaptFeederBlockTrace(t *testing.T) {
+	t.Run("nil block trace", func(t *testing.T) {
+		block := &rpcv7.BlockWithTxs{}
+
+		res, err := rpcv7.AdaptFeederBlockTrace(block, nil)
+		require.Nil(t, res)
+		require.Nil(t, err)
+	})
+
+	t.Run("inconsistent blockWithTxs and blockTrace", func(t *testing.T) {
+		blockWithTxs := &rpcv7.BlockWithTxs{
+			Transactions: []*rpcv7.Transaction{
+				{},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{}
+
+		res, err := rpcv7.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, res)
+		require.Equal(t, errors.New("mismatched number of txs and traces"), err)
+	})
+
+	t.Run("L1_HANDLER tx gets successfully adapted", func(t *testing.T) {
+		blockWithTxs := &rpcv7.BlockWithTxs{
+			Transactions: []*rpcv7.Transaction{
+				{
+					Type: rpcv7.TxnL1Handler,
+				},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{
+			Traces: []starknet.TransactionTrace{
+				{
+					TransactionHash: *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{
+						Events: []starknet.OrderedEvent{{
+							Order: 1,
+							Keys:  []felt.Felt{*new(felt.Felt).SetUint64(2)},
+							Data:  []felt.Felt{*new(felt.Felt).SetUint64(3)},
+						}},
+					},
+					ValidateInvocation: &starknet.FunctionInvocation{},
+					FunctionInvocation: &starknet.FunctionInvocation{},
+				},
+			},
+		}
+
+		expectedAdaptedTrace := []rpcv7.TracedBlockTransaction{
+			{
+				TransactionHash: new(felt.Felt).SetUint64(1),
+				TraceRoot: &rpcv7.TransactionTrace{
+					Type: rpcv7.TxnL1Handler,
+					FeeTransferInvocation: &rpcv6.FunctionInvocation{
+						Calls: []rpcv6.FunctionInvocation{},
+						Events: []vm.OrderedEvent{{
+							Order: 1,
+							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
+							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+						}},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+					ValidateInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []vm.OrderedEvent{},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+					FunctionInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []vm.OrderedEvent{},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+				},
+			},
+		}
+
+		res, err := rpcv7.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, err)
+		require.Equal(t, expectedAdaptedTrace, res)
 	})
 }
 

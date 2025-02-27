@@ -61,7 +61,7 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
 		Feeder Adapters
 *****************************************************/
 
-func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
