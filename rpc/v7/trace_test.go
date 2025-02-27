@@ -428,13 +428,13 @@ func TestTraceBlockTransactions(t *testing.T) {
 			ExecutionResources: &rpcv7.ExecutionResources{
 				DataAvailability: &rpcv7.DataAvailability{},
 			},
-			StateDiff: &vm.StateDiff{
-				StorageDiffs:              []vm.StorageDiff{},
-				Nonces:                    []vm.Nonce{},
-				DeployedContracts:         []vm.DeployedContract{},
+			StateDiff: &rpcv6.StateDiff{
+				StorageDiffs:              []rpcv6.StorageDiff{},
+				Nonces:                    []rpcv6.Nonce{},
+				DeployedContracts:         []rpcv6.DeployedContract{},
 				DeprecatedDeclaredClasses: []*felt.Felt{},
-				DeclaredClasses:           []vm.DeclaredClass{},
-				ReplacedClasses:           []vm.ReplacedClass{},
+				DeclaredClasses:           []rpcv6.DeclaredClass{},
+				ReplacedClasses:           []rpcv6.ReplacedClass{},
 			},
 		}, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)

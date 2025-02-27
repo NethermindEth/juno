@@ -21,7 +21,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
 		FeeTransferInvocation: AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
 		ConstructorInvocation: AdaptVMFunctionInvocation(trace.ConstructorInvocation),
 		FunctionInvocation:    AdaptVMFunctionInvocation(trace.FunctionInvocation),
-		StateDiff:             adaptVMStateDiff(trace.StateDiff),
+		StateDiff:             AdaptVMStateDiff(trace.StateDiff),
 	}
 }
 
@@ -80,7 +80,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 	return &fnInvocation
 }
 
-func adaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
+func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
 	stateDiff := &StateDiff{
 		StorageDiffs:              make([]StorageDiff, 0, len(vmStateDiff.StorageDiffs)),
 		Nonces:                    make([]Nonce, 0, len(vmStateDiff.Nonces)),

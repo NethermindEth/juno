@@ -20,7 +20,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
 		FeeTransferInvocation: rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
 		ConstructorInvocation: rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation),
 		FunctionInvocation:    rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation),
-		StateDiff:             trace.StateDiff,
+		StateDiff:             rpcv6.AdaptVMStateDiff(trace.StateDiff),
 		ExecutionResources:    adaptVMExecutionResources(trace.ExecutionResources),
 	}
 }
