@@ -589,7 +589,8 @@ func TestClassV1(t *testing.T) {
 
 	t.Run("sierra class is empty", func(t *testing.T) {
 		snClass := starknet.SierraDefinition{}
-		_, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		class, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		require.Nil(t, class)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})
 
@@ -600,7 +601,8 @@ func TestClassV1(t *testing.T) {
 				new(felt.Felt),
 			},
 		}
-		_, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		class, err := sn2core.AdaptCairo1Class(&snClass, nil)
+		require.Nil(t, class)
 		require.Contains(t, "sierra program size is too small", err.Error())
 	})
 }
