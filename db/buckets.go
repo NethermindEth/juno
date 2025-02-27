@@ -41,6 +41,7 @@ const (
 	ClassTrie            // ClassTrie + nodetype + path + pathlength -> Trie Node
 	ContractTrieContract // ContractTrieContract + nodetype + path + pathlength -> Trie Node
 	ContractTrieStorage  // ContractTrieStorage + nodetype + path + pathlength -> Trie Node
+	Contract             // Contract + ContractAddr -> Contract
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
