@@ -345,11 +345,11 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	return h.call(funcCall, id)
 }
 
-func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -366,6 +366,13 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrContractNotFound
 	}
 
+	declaredClass, err := state.Class(classHash)
+	if err != nil {
+		return nil, rpccore.ErrClassHashNotFound
+	}
+
+	sierraVersion := declaredClass.Class.SierraVersion()
+
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -379,7 +386,7 @@ func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, "")
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
