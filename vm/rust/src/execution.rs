@@ -64,6 +64,11 @@ where
     }
 }
 
+/// Determines whether L2 gas accounting should be enabled for fee estimation.
+///
+/// Starknet 0.13.4 introduced runtime L2 gas accounting, which is only enabled
+/// if both the caller and the callee contract classes were compiled as Sierra 1.7.
+/// This function checks whether the sender contract meets this requirement.
 pub fn is_l2_gas_accounting_enabled(
     transaction: &Transaction,
     state: &mut TransactionalState<'_, CachedState<JunoStateReader>>,
@@ -72,6 +77,7 @@ pub fn is_l2_gas_accounting_enabled(
 ) -> StateResult<bool> {
     let sender_class_hash = state.get_class_hash_at(transaction.sender_address())?;
 
+    // L2 gas accounting is disabled if the sender contract is uninitialized.
     if sender_class_hash == ClassHash::default() {
         return Ok(false);
     }
@@ -83,6 +89,9 @@ pub fn is_l2_gas_accounting_enabled(
         .get_compiled_class(sender_class_hash)?
         .tracked_resource(min_sierra_version, None);
 
+    // L2 gas accounting is enabled if:
+    // 1. The gas computation mode requires all gas vectors.
+    // 2. The sender contract's tracked resource is Sierra gas.
     Ok(
         matches!(gas_computation_mode, GasVectorComputationMode::All)
             && sender_tracked_resource == TrackedResource::SierraGas,
@@ -111,12 +120,15 @@ fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationM
     }
 }
 
+/// The margin used in binary search for finding the minimal L2 gas limit.
 const L2_GAS_SEARCH_MARGIN: GasAmount = GasAmount(1_000_000);
 enum SimulationError {
     OutOfGas,
     ExecutionError(ExecutionError),
 }
 
+/// Determines the optimal L2 gas limit required for a transaction to execute successfully.
+/// If the required gas exceeds the initial limit, the transaction is reverted.
 fn execute_transaction_with_binary_search<S>(
     transaction: &mut Transaction,
     state: &mut S,
@@ -129,7 +141,9 @@ where
     let initial_gas_limit = extract_l2_gas_limit(transaction)?;
     let mut original_transaction = transaction.clone();
 
+    // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, GasAmount::MAX)?;
+    // TODO: Consider getting the upper bound from the balance and not changing the execution flags
     if let Transaction::Account(account_transaction) = transaction {
         account_transaction.execution_flags.charge_fee = false;
         account_transaction.execution_flags.validate = false;
@@ -146,6 +160,8 @@ where
     };
 
     let GasAmount(gas_used) = simulation_result.receipt.gas.l2_gas;
+
+    // Add a 10% buffer to the actual gas usage to prevent underestimation.
     let l2_gas_adjusted = GasAmount(gas_used.saturating_add(gas_used / 10));
     set_l2_gas_limit(transaction, l2_gas_adjusted)?;
 
@@ -198,6 +214,9 @@ where
     };
     tx_state.abort();
 
+    // If the computed gas limit exceeds the initial limit, revert the transaction.
+    // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
+    // in the case where the user defined gas limit is less than the required gas limit
     if l2_gas_limit > initial_gas_limit {
         set_l2_gas_limit(&mut original_transaction, GasAmount(0))?;
         return execute_transaction(&original_transaction, state, block_context, error_on_revert);
