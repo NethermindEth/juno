@@ -272,6 +272,42 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 	return traces, nil
 }
 
+func (t *TransactionTrace) TotalComputationResources() ComputationResources {
+	total := ComputationResources{}
+
+	for _, invocation := range t.allInvocations() {
+		r := invocation.ExecutionResources
+
+		total.Pedersen += r.Pedersen
+		total.RangeCheck += r.RangeCheck
+		total.Bitwise += r.Bitwise
+		total.Ecdsa += r.Ecdsa
+		total.EcOp += r.EcOp
+		total.Keccak += r.Keccak
+		total.Poseidon += r.Poseidon
+		total.SegmentArena += r.SegmentArena
+		total.MemoryHoles += r.MemoryHoles
+		total.Steps += r.Steps
+	}
+
+	return total
+}
+
+func (t *TransactionTrace) allInvocations() []*rpcv6.FunctionInvocation {
+	var executeInvocation *rpcv6.FunctionInvocation
+	if t.ExecuteInvocation != nil {
+		executeInvocation = t.ExecuteInvocation.FunctionInvocation
+	}
+
+	return slices.DeleteFunc([]*rpcv6.FunctionInvocation{
+		t.ConstructorInvocation,
+		t.ValidateInvocation,
+		t.FeeTransferInvocation,
+		executeInvocation,
+		t.FunctionInvocation,
+	}, func(i *rpcv6.FunctionInvocation) bool { return i == nil })
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
 func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
 	state, closer, rpcErr := h.stateByBlockID(&id)

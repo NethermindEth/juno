@@ -5,7 +5,6 @@ package rpcv7
 
 import (
 	"errors"
-	"slices"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -13,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -180,40 +178,4 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 	return reader, closer, nil
-}
-
-func (t *TransactionTrace) allInvocations() []*rpcv6.FunctionInvocation {
-	var executeInvocation *rpcv6.FunctionInvocation
-	if t.ExecuteInvocation != nil {
-		executeInvocation = t.ExecuteInvocation.FunctionInvocation
-	}
-
-	return slices.DeleteFunc([]*rpcv6.FunctionInvocation{
-		t.ConstructorInvocation,
-		t.ValidateInvocation,
-		t.FeeTransferInvocation,
-		executeInvocation,
-		t.FunctionInvocation,
-	}, func(i *rpcv6.FunctionInvocation) bool { return i == nil })
-}
-
-func (t *TransactionTrace) TotalComputationResources() ComputationResources {
-	total := ComputationResources{}
-
-	for _, invocation := range t.allInvocations() {
-		r := invocation.ExecutionResources
-
-		total.Pedersen += r.Pedersen
-		total.RangeCheck += r.RangeCheck
-		total.Bitwise += r.Bitwise
-		total.Ecdsa += r.Ecdsa
-		total.EcOp += r.EcOp
-		total.Keccak += r.Keccak
-		total.Poseidon += r.Poseidon
-		total.SegmentArena += r.SegmentArena
-		total.MemoryHoles += r.MemoryHoles
-		total.Steps += r.Steps
-	}
-
-	return total
 }
