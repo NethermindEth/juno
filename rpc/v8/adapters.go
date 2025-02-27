@@ -42,7 +42,22 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		return nil
 	}
 
-	fnInvocation := FunctionInvocation{
+	// Adapt inner calls
+	adaptedCalls := make([]FunctionInvocation, 0, len(vmFnInvocation.Calls))
+	for index := range vmFnInvocation.Calls {
+		adaptedCalls = append(adaptedCalls, *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
+	}
+
+	// Adapt execution resources
+	var adaptedResources *InnerExecutionResources
+	if r := vmFnInvocation.ExecutionResources; r != nil {
+		adaptedResources = &InnerExecutionResources{
+			L1Gas: r.L1Gas,
+			L2Gas: r.L2Gas,
+		}
+	}
+
+	return &FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
 		Calldata:           vmFnInvocation.Calldata,
@@ -51,26 +66,11 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		EntryPointType:     vmFnInvocation.EntryPointType,
 		CallType:           vmFnInvocation.CallType,
 		Result:             vmFnInvocation.Result,
-		Calls:              make([]FunctionInvocation, 0, len(vmFnInvocation.Calls)),
+		Calls:              adaptedCalls,
 		Events:             vmFnInvocation.Events,
 		Messages:           vmFnInvocation.Messages,
+		ExecutionResources: adaptedResources,
 	}
-
-	// Adapt inner calls
-	for index := range vmFnInvocation.Calls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
-	}
-
-	// Adapt execution resources
-	r := vmFnInvocation.ExecutionResources
-	if r != nil {
-		fnInvocation.ExecutionResources = &InnerExecutionResources{
-			L1Gas: r.L1Gas,
-			L2Gas: r.L2Gas,
-		}
-	}
-
-	return &fnInvocation
 }
 
 func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
@@ -78,15 +78,13 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
 		return nil
 	}
 
-	execResources := &ExecutionResources{
+	return &ExecutionResources{
 		InnerExecutionResources: InnerExecutionResources{
 			L1Gas: r.L1Gas,
 			L2Gas: r.L2Gas,
 		},
 		L1DataGas: r.L1DataGas,
 	}
-
-	return execResources
 }
 
 /****************************************************
@@ -102,8 +100,8 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	// Adapt every feeder block trace to rpc v8 trace
+	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -128,13 +126,13 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		traces = append(traces, TracedBlockTransaction{
+		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
 		})
 	}
 
-	return traces, nil
+	return adaptedTraces, nil
 }
 
 func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
@@ -142,7 +140,35 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		return nil
 	}
 
-	fnInvocation := FunctionInvocation{
+	// Adapt inner calls
+	adaptedCalls := make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls))
+	for index := range snFnInvocation.InternalCalls {
+		adaptedCalls = append(adaptedCalls, *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+	}
+
+	// Adapt events
+	adaptedEvents := make([]vm.OrderedEvent, 0, len(snFnInvocation.Events))
+	for index := range snFnInvocation.Events {
+		snEvent := &snFnInvocation.Events[index]
+		adaptedEvents = append(adaptedEvents, vm.OrderedEvent{
+			Order: snEvent.Order,
+			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
+			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
+		})
+	}
+
+	// Adapt messages
+	adaptedMessages := make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages))
+	for index := range snFnInvocation.Messages {
+		snMessage := &snFnInvocation.Messages[index]
+		adaptedMessages = append(adaptedMessages, vm.OrderedL2toL1Message{
+			Order:   snMessage.Order,
+			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
+			To:      snMessage.ToAddr,
+		})
+	}
+
+	return &FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
@@ -151,42 +177,22 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		EntryPointType:     snFnInvocation.EntryPointType,
 		CallType:           snFnInvocation.CallType,
 		Result:             snFnInvocation.Result,
-		Calls:              make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
-		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
-		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
+		Calls:              adaptedCalls,
+		Events:             adaptedEvents,
+		Messages:           adaptedMessages,
 		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
-
-	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
-	}
-	for index := range snFnInvocation.Events {
-		snEvent := &snFnInvocation.Events[index]
-		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
-			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
-		})
-	}
-	for index := range snFnInvocation.Messages {
-		snMessage := &snFnInvocation.Messages[index]
-		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
-			Order:   snMessage.Order,
-			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
-			To:      snMessage.ToAddr,
-		})
-	}
-
-	return &fnInvocation
 }
 
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *InnerExecutionResources {
-	executionResources := &InnerExecutionResources{}
-
+	var l1Gas, l2Gas uint64
 	if tgs := resources.TotalGasConsumed; tgs != nil {
-		executionResources.L1Gas = tgs.L1Gas
-		executionResources.L2Gas = tgs.L2Gas
+		l1Gas = tgs.L1Gas
+		l2Gas = tgs.L2Gas
 	}
 
-	return executionResources
+	return &InnerExecutionResources{
+		L1Gas: l1Gas,
+		L2Gas: l2Gas,
+	}
 }

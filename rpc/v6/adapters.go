@@ -41,29 +41,16 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		return nil
 	}
 
-	fnInvocation := FunctionInvocation{
-		ContractAddress:    vmFnInvocation.ContractAddress,
-		EntryPointSelector: vmFnInvocation.EntryPointSelector,
-		Calldata:           vmFnInvocation.Calldata,
-		CallerAddress:      vmFnInvocation.CallerAddress,
-		ClassHash:          vmFnInvocation.ClassHash,
-		EntryPointType:     vmFnInvocation.EntryPointType,
-		CallType:           vmFnInvocation.CallType,
-		Result:             vmFnInvocation.Result,
-		Calls:              make([]FunctionInvocation, 0, len(vmFnInvocation.Calls)),
-		Events:             vmFnInvocation.Events,
-		Messages:           vmFnInvocation.Messages,
-	}
-
 	// Adapt inner calls
+	adaptedCalls := make([]FunctionInvocation, 0, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
+		adaptedCalls = append(adaptedCalls, *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
 	}
 
 	// Adapt execution resources
-	r := vmFnInvocation.ExecutionResources
-	if r != nil {
-		fnInvocation.ExecutionResources = &ComputationResources{
+	var adaptedResources *ComputationResources
+	if r := vmFnInvocation.ExecutionResources; r != nil {
+		adaptedResources = &ComputationResources{
 			Steps:        r.Steps,
 			MemoryHoles:  r.MemoryHoles,
 			Pedersen:     r.Pedersen,
@@ -77,82 +64,97 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		}
 	}
 
-	return &fnInvocation
+	return &FunctionInvocation{
+		ContractAddress:    vmFnInvocation.ContractAddress,
+		EntryPointSelector: vmFnInvocation.EntryPointSelector,
+		Calldata:           vmFnInvocation.Calldata,
+		CallerAddress:      vmFnInvocation.CallerAddress,
+		ClassHash:          vmFnInvocation.ClassHash,
+		EntryPointType:     vmFnInvocation.EntryPointType,
+		CallType:           vmFnInvocation.CallType,
+		Result:             vmFnInvocation.Result,
+		Calls:              adaptedCalls,
+		Events:             vmFnInvocation.Events,
+		Messages:           vmFnInvocation.Messages,
+		ExecutionResources: adaptedResources,
+	}
 }
 
 func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
-	stateDiff := &StateDiff{
-		StorageDiffs:              make([]StorageDiff, 0, len(vmStateDiff.StorageDiffs)),
-		Nonces:                    make([]Nonce, 0, len(vmStateDiff.Nonces)),
-		DeployedContracts:         make([]DeployedContract, 0, len(vmStateDiff.DeployedContracts)),
-		DeprecatedDeclaredClasses: vmStateDiff.DeprecatedDeclaredClasses,
-		DeclaredClasses:           make([]DeclaredClass, 0, len(vmStateDiff.DeclaredClasses)),
-		ReplacedClasses:           make([]ReplacedClass, 0, len(vmStateDiff.ReplacedClasses)),
-	}
-
 	// Adapt storage diffs
+	adaptedStorageDiffs := make([]StorageDiff, 0, len(vmStateDiff.StorageDiffs))
 	for index := range vmStateDiff.StorageDiffs {
 		vmStorageDiff := &vmStateDiff.StorageDiffs[index]
 
 		// Adapt storage entries
-		entries := make([]Entry, 0, len(vmStorageDiff.StorageEntries))
-
+		adaptedEntries := make([]Entry, 0, len(vmStorageDiff.StorageEntries))
 		for entryIndex := range vmStorageDiff.StorageEntries {
 			vmEntry := &vmStorageDiff.StorageEntries[entryIndex]
 
-			entries = append(entries, Entry{
+			adaptedEntries = append(adaptedEntries, Entry{
 				Key:   vmEntry.Key,
 				Value: vmEntry.Value,
 			})
 		}
 
-		stateDiff.StorageDiffs = append(stateDiff.StorageDiffs, StorageDiff{
+		adaptedStorageDiffs = append(adaptedStorageDiffs, StorageDiff{
 			Address:        vmStorageDiff.Address,
-			StorageEntries: entries,
+			StorageEntries: adaptedEntries,
 		})
 	}
 
-	// Adapt nonces
+	// Adapt adaptedNonces
+	adaptedNonces := make([]Nonce, 0, len(vmStateDiff.Nonces))
 	for index := range vmStateDiff.Nonces {
 		vmNonce := &vmStateDiff.Nonces[index]
 
-		stateDiff.Nonces = append(stateDiff.Nonces, Nonce{
+		adaptedNonces = append(adaptedNonces, Nonce{
 			ContractAddress: vmNonce.ContractAddress,
 			Nonce:           vmNonce.Nonce,
 		})
 	}
 
 	// Adapt deployed contracts
+	adaptedDeployedContracts := make([]DeployedContract, 0, len(vmStateDiff.DeployedContracts))
 	for index := range vmStateDiff.DeployedContracts {
 		vmDeployedContract := &vmStateDiff.DeployedContracts[index]
 
-		stateDiff.DeployedContracts = append(stateDiff.DeployedContracts, DeployedContract{
+		adaptedDeployedContracts = append(adaptedDeployedContracts, DeployedContract{
 			Address:   vmDeployedContract.Address,
 			ClassHash: vmDeployedContract.ClassHash,
 		})
 	}
 
 	// Adapt declared classes
+	adaptedDeclaredClasses := make([]DeclaredClass, 0, len(vmStateDiff.DeclaredClasses))
 	for index := range vmStateDiff.DeclaredClasses {
 		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
 
-		stateDiff.DeclaredClasses = append(stateDiff.DeclaredClasses, DeclaredClass{
+		adaptedDeclaredClasses = append(adaptedDeclaredClasses, DeclaredClass{
 			ClassHash:         vmDeclaredClass.ClassHash,
 			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
 		})
 	}
 
 	// Adapt replaced classes
+	adaptedReplacedClasses := make([]ReplacedClass, 0, len(vmStateDiff.ReplacedClasses))
 	for index := range vmStateDiff.ReplacedClasses {
 		vmReplacedClass := &vmStateDiff.ReplacedClasses[index]
 
-		stateDiff.ReplacedClasses = append(stateDiff.ReplacedClasses, ReplacedClass{
+		adaptedReplacedClasses = append(adaptedReplacedClasses, ReplacedClass{
 			ContractAddress: vmReplacedClass.ContractAddress,
 			ClassHash:       vmReplacedClass.ClassHash,
 		})
 	}
 
-	return stateDiff
+	return &StateDiff{
+		StorageDiffs:              adaptedStorageDiffs,
+		Nonces:                    adaptedNonces,
+		DeployedContracts:         adaptedDeployedContracts,
+		DeprecatedDeclaredClasses: vmStateDiff.DeprecatedDeclaredClasses,
+		DeclaredClasses:           adaptedDeclaredClasses,
+		ReplacedClasses:           adaptedReplacedClasses,
+	}
 }
 
 /****************************************************
@@ -169,7 +171,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	}
 
 	// Adapt every feeder block trace to rpc v6 trace
-	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
+	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -194,12 +196,13 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		traces = append(traces, TracedBlockTransaction{
+		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
 		})
 	}
-	return traces, nil
+
+	return adaptedTraces, nil
 }
 
 func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
@@ -207,7 +210,37 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		return nil
 	}
 
-	fnInvocation := FunctionInvocation{
+	// Adapt internal calls
+	adaptedCalls := make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls))
+	for index := range snFnInvocation.InternalCalls {
+		adaptedCalls = append(adaptedCalls, *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+	}
+
+	// Adapt events
+	adaptedEvents := make([]vm.OrderedEvent, 0, len(snFnInvocation.Events))
+	for index := range snFnInvocation.Events {
+		snEvent := &snFnInvocation.Events[index]
+
+		adaptedEvents = append(adaptedEvents, vm.OrderedEvent{
+			Order: snEvent.Order,
+			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
+			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
+		})
+	}
+
+	// Adapt messages
+	adaptedMessages := make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages))
+	for index := range snFnInvocation.Messages {
+		snMessage := &snFnInvocation.Messages[index]
+
+		adaptedMessages = append(adaptedMessages, vm.OrderedL2toL1Message{
+			Order:   snMessage.Order,
+			To:      snMessage.ToAddr,
+			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
+		})
+	}
+
+	return &FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
@@ -216,41 +249,11 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		EntryPointType:     snFnInvocation.EntryPointType,
 		CallType:           snFnInvocation.CallType,
 		Result:             snFnInvocation.Result,
-		Calls:              make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
-		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
-		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
+		Calls:              adaptedCalls,
+		Events:             adaptedEvents,
+		Messages:           adaptedMessages,
 		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
-
-	// Adapt internal calls
-	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
-	}
-
-	// Adapt events
-	for index := range snFnInvocation.Events {
-		snEvent := &snFnInvocation.Events[index]
-
-		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
-			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
-		})
-	}
-
-	// TODO: try using utils.Map
-	// Adapt messages
-	for index := range snFnInvocation.Messages {
-		snMessage := &snFnInvocation.Messages[index]
-
-		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
-			Order:   snMessage.Order,
-			To:      snMessage.ToAddr,
-			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
-		})
-	}
-
-	return &fnInvocation
 }
 
 func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ComputationResources {

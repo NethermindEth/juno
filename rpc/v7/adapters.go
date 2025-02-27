@@ -30,7 +30,16 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
 		return nil
 	}
 
-	execResources := &ExecutionResources{
+	// Adapt data availability
+	var adaptedDataAvailability *DataAvailability
+	if r.DataAvailability != nil {
+		adaptedDataAvailability = &DataAvailability{
+			L1Gas:     r.DataAvailability.L1Gas,
+			L1DataGas: r.DataAvailability.L1DataGas,
+		}
+	}
+
+	return &ExecutionResources{
 		ComputationResources: ComputationResources{
 			Steps:        r.Steps,
 			MemoryHoles:  r.MemoryHoles,
@@ -43,16 +52,9 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
 			Poseidon:     r.Poseidon,
 			SegmentArena: r.SegmentArena,
 		},
+		DataAvailability: adaptedDataAvailability,
 	}
 
-	if r.DataAvailability != nil {
-		execResources.DataAvailability = &DataAvailability{
-			L1Gas:     r.DataAvailability.L1Gas,
-			L1DataGas: r.DataAvailability.L1DataGas,
-		}
-	}
-
-	return execResources
 }
 
 /****************************************************
@@ -68,8 +70,8 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	// Adapt every feeder block trace to rpc v7 trace
+	adaptedTraces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
 
@@ -94,11 +96,11 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.FunctionInvocation = fnInvocation
 		}
 
-		traces = append(traces, TracedBlockTransaction{
+		adaptedTraces = append(adaptedTraces, TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
 			TraceRoot:       &trace,
 		})
 	}
 
-	return traces, nil
+	return adaptedTraces, nil
 }
