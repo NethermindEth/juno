@@ -215,6 +215,8 @@ func (s *StateContract) deleteStorageTrie(txn db.Transaction) error {
 		return err
 	}
 
+	// TODO: Instead of using node iterator and delete each node one by one,
+	// use the underlying DeleteRange from PebbleDB.
 	it, err := tr.NodeIterator()
 	if err != nil {
 		return err
