@@ -74,6 +74,7 @@ extern "C" {
         execution_failed: usize,
     );
     fn JunoAppendTrace(reader_handle: usize, json_trace: *const c_void, len: usize);
+    fn JunoAppendReceipt(reader_handle: usize, json_trace: *const c_void, len: usize);
     fn JunoAppendResponse(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendActualFee(reader_handle: usize, ptr: *const c_uchar);
     fn JunoAppendDAGas(reader_handle: usize, ptr: *const c_uchar, ptr: *const c_uchar);
@@ -123,11 +124,11 @@ pub extern "C" fn cairoVMCall(
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
     sierra_version: *const c_char,
+    is_mutable: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -159,7 +160,7 @@ pub extern "C" fn cairoVMCall(
     let contract_address =
         starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
 
-    let entry_point = CallEntryPoint {
+    let mut entry_point = CallEntryPoint {
         entry_point_type: EntryPointType::External,
         entry_point_selector: EntryPointSelector(entry_point_selector_felt),
         calldata: Calldata(calldata_vec.into()),
@@ -170,12 +171,35 @@ pub extern "C" fn cairoVMCall(
         ..Default::default()
     };
 
+    // Allow users to call CONSTRUCTOR entry point type
+    // which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
+    let constuctor_entry_point_felt =
+        StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194");
+    match constuctor_entry_point_felt {
+        Ok(felt) => {
+            if felt.eq(&entry_point_selector_felt) {
+                entry_point.entry_point_type = EntryPointType::Constructor
+            }
+        }
+        Err(err) => {
+            // This should not happen
+            report_error(reader_handle, err.to_string().as_str(), -1, 1);
+            return;
+        }
+    }
+
+    let mut state: Box<dyn State>;
+    let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    if is_mutable == 1 {
+        state = Box::new(JunoStateReader::new(reader_handle, block_info.block_number));
+    } else {
+        state = Box::new(CachedState::new(juno_reader));
+    }
     let concurrency_mode = concurrency_mode == 1;
-    let mut state = CachedState::new(reader);
     let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
             block_context: build_block_context(
-                &mut state,
+                &mut *state,
                 &block_info,
                 chain_id_str,
                 Some(max_steps),
@@ -188,7 +212,7 @@ pub extern "C" fn cairoVMCall(
         SierraGasRevertTracker::new(GasAmount::from(initial_gas)),
     );
     let mut remaining_gas = entry_point.initial_gas;
-    match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
+    match entry_point.execute(&mut *state, &mut context, &mut remaining_gas) {
         Err(e) => report_error(reader_handle, e.to_string().as_str(), -1, 0),
         Ok(call_info) => {
             if call_info.execution.failed {
@@ -201,7 +225,7 @@ pub extern "C" fn cairoVMCall(
                 };
             }
         }
-    }
+    };
 }
 
 #[derive(Deserialize)]
@@ -225,7 +249,7 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
 ) {
-    let block_info = unsafe { *block_info_ptr };
+    let block_info: BlockInfo = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
@@ -327,6 +351,7 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
+        let is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
         let mut txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
@@ -376,7 +401,7 @@ pub extern "C" fn cairoVMExecute(
                 }
 
                 // we are estimating fee, override actual fee calculation
-                if tx_execution_info.receipt.fee.0 == 0 {
+                if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
                     let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
                     let l1_gas_consumed = tx_execution_info
                         .receipt
@@ -420,6 +445,12 @@ pub extern "C" fn cairoVMExecute(
                 let l1_data_gas_consumed = tx_execution_info.receipt.gas.l1_data_gas.into();
                 let l2_gas_consumed = tx_execution_info.receipt.gas.l2_gas.into();
 
+                let transaction_receipt = jsonrpc::TransactionReceipt {
+                    gas: tx_execution_info.receipt.gas,
+                    da_gas: tx_execution_info.receipt.da_gas,
+                    fee: tx_execution_info.receipt.fee,
+                };
+                append_receipt(reader_handle, &transaction_receipt, &mut trace_buffer);
                 let trace = jsonrpc::new_transaction_trace(
                     &txn_and_query_bit.txn,
                     tx_execution_info,
@@ -536,6 +567,21 @@ fn append_trace(
 
     unsafe {
         JunoAppendTrace(reader_handle, ptr as *const c_void, len);
+    };
+}
+fn append_receipt(
+    reader_handle: usize,
+    trace: &jsonrpc::TransactionReceipt,
+    trace_buffer: &mut Vec<u8>,
+) {
+    trace_buffer.clear();
+    serde_json::to_writer(&mut *trace_buffer, trace).unwrap();
+
+    let ptr = trace_buffer.as_ptr();
+    let len = trace_buffer.len();
+
+    unsafe {
+        JunoAppendReceipt(reader_handle, ptr as *const c_void, len);
     };
 }
 
