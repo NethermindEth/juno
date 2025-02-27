@@ -756,27 +756,6 @@ func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint
 	return err
 }
 
-func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
-	w, ok := jsonrpc.ConnFromContext(ctx)
-	if !ok {
-		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
-	}
-	sub, ok := h.subscriptions.Load(id)
-	if !ok {
-		return false, rpccore.ErrInvalidSubscriptionID
-	}
-
-	subs := sub.(*subscription)
-	if !subs.conn.Equal(w) {
-		return false, rpccore.ErrInvalidSubscriptionID
-	}
-
-	subs.cancel()
-	subs.wg.Wait() // Let the subscription finish before responding.
-	h.subscriptions.Delete(id)
-	return true, nil
-}
-
 type SubscriptionTransactionStatus struct {
 	TransactionHash *felt.Felt        `json:"transaction_hash"`
 	Status          TransactionStatus `json:"status"`

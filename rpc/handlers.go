@@ -251,7 +251,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
-			Handler: h.rpcv8Handler.Unsubscribe,
+			Handler: h.rpcv6Handler.Unsubscribe,
 		},
 		{
 			Name:    "starknet_getBlockWithReceipts",
@@ -434,7 +434,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "juno_unsubscribe",
 			Params:  []jsonrpc.Parameter{{Name: "id"}},
-			Handler: h.rpcv7Handler.Unsubscribe,
+			Handler: h.rpcv6Handler.Unsubscribe,
 		},
 	}, "/v0_7"
 }
