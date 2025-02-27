@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -410,19 +411,19 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, &rpcv7.TransactionTrace{
-			ValidateInvocation: &rpcv7.FunctionInvocation{
-				Calls:              []rpcv7.FunctionInvocation{},
-				ExecutionResources: &rpcv7.ComputationResources{},
+			ValidateInvocation: &rpcv6.FunctionInvocation{
+				Calls:              []rpcv6.FunctionInvocation{},
+				ExecutionResources: &rpcv6.ComputationResources{},
 			},
-			ExecuteInvocation: &rpcv7.ExecuteInvocation{
-				FunctionInvocation: &rpcv7.FunctionInvocation{
-					Calls:              []rpcv7.FunctionInvocation{},
-					ExecutionResources: &rpcv7.ComputationResources{},
+			ExecuteInvocation: &rpcv6.ExecuteInvocation{
+				FunctionInvocation: &rpcv6.FunctionInvocation{
+					Calls:              []rpcv6.FunctionInvocation{},
+					ExecutionResources: &rpcv6.ComputationResources{},
 				},
 			},
-			FeeTransferInvocation: &rpcv7.FunctionInvocation{
-				Calls:              []rpcv7.FunctionInvocation{},
-				ExecutionResources: &rpcv7.ComputationResources{},
+			FeeTransferInvocation: &rpcv6.FunctionInvocation{
+				Calls:              []rpcv6.FunctionInvocation{},
+				ExecutionResources: &rpcv6.ComputationResources{},
 			},
 			ExecutionResources: &rpcv7.ExecutionResources{
 				DataAvailability: &rpcv7.DataAvailability{},

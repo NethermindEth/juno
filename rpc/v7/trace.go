@@ -2,7 +2,6 @@ package rpcv7
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -15,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -25,42 +25,14 @@ var traceFallbackVersion = semver.MustParse("0.13.1")
 const excludedVersion = "0.13.1.1"
 
 type TransactionTrace struct {
-	Type                  TransactionType     `json:"type"`
-	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
-	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
-	StateDiff             *vm.StateDiff       `json:"state_diff,omitempty"`
-	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
-}
-
-type ExecuteInvocation struct {
-	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
-}
-
-func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
-	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
-	}
-	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
-}
-
-type FunctionInvocation struct {
-	ContractAddress    felt.Felt                 `json:"contract_address"`
-	EntryPointSelector *felt.Felt                `json:"entry_point_selector,omitempty"`
-	Calldata           []felt.Felt               `json:"calldata"`
-	CallerAddress      felt.Felt                 `json:"caller_address"`
-	ClassHash          *felt.Felt                `json:"class_hash,omitempty"`
-	EntryPointType     string                    `json:"entry_point_type,omitempty"`
-	CallType           string                    `json:"call_type,omitempty"`
-	Result             []felt.Felt               `json:"result"`
-	Calls              []FunctionInvocation      `json:"calls"`
-	Events             []vm.OrderedEvent         `json:"events"`
-	Messages           []vm.OrderedL2toL1Message `json:"messages"`
-	ExecutionResources *ComputationResources     `json:"execution_resources,omitempty"`
+	Type                  TransactionType           `json:"type"`
+	ValidateInvocation    *rpcv6.FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *rpcv6.ExecuteInvocation  `json:"execute_invocation,omitempty"`
+	FeeTransferInvocation *rpcv6.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty"`
+	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty"`
+	StateDiff             *vm.StateDiff             `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources       `json:"execution_resources,omitempty"`
 }
 
 /****************************************************

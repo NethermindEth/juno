@@ -16,27 +16,27 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
 	return &TransactionTrace{
 		Type:                  TransactionType(trace.Type),
-		ValidateInvocation:    adaptVMFunctionInvocation(trace.ValidateInvocation),
-		ExecuteInvocation:     adaptVMExecuteInvocation(trace.ExecuteInvocation),
-		FeeTransferInvocation: adaptVMFunctionInvocation(trace.FeeTransferInvocation),
-		ConstructorInvocation: adaptVMFunctionInvocation(trace.ConstructorInvocation),
-		FunctionInvocation:    adaptVMFunctionInvocation(trace.FunctionInvocation),
+		ValidateInvocation:    AdaptVMFunctionInvocation(trace.ValidateInvocation),
+		ExecuteInvocation:     AdaptVMExecuteInvocation(trace.ExecuteInvocation),
+		FeeTransferInvocation: AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
+		ConstructorInvocation: AdaptVMFunctionInvocation(trace.ConstructorInvocation),
+		FunctionInvocation:    AdaptVMFunctionInvocation(trace.FunctionInvocation),
 		StateDiff:             adaptVMStateDiff(trace.StateDiff),
 	}
 }
 
-func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
+func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
 	if vmFnInvocation == nil {
 		return nil
 	}
 
 	return &ExecuteInvocation{
 		RevertReason:       vmFnInvocation.RevertReason,
-		FunctionInvocation: adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
+		FunctionInvocation: AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
 	}
 }
 
-func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
+func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
 	if vmFnInvocation == nil {
 		return nil
 	}
@@ -51,55 +51,29 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		CallType:           vmFnInvocation.CallType,
 		Result:             vmFnInvocation.Result,
 		Calls:              make([]FunctionInvocation, 0, len(vmFnInvocation.Calls)),
-		Events:             make([]OrderedEvent, 0, len(vmFnInvocation.Events)),
-		Messages:           make([]OrderedL2toL1Message, 0, len(vmFnInvocation.Messages)),
+		Events:             vmFnInvocation.Events,
+		Messages:           vmFnInvocation.Messages,
 	}
 
 	// Adapt inner calls
 	for index := range vmFnInvocation.Calls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
-	}
-
-	// Adapt events
-	for index := range vmFnInvocation.Events {
-		vmEvent := &vmFnInvocation.Events[index]
-
-		fnInvocation.Events = append(fnInvocation.Events, OrderedEvent{
-			Order: vmEvent.Order,
-			From:  vmEvent.From,
-			Keys:  vmEvent.Keys,
-			Data:  vmEvent.Data,
-		})
-	}
-
-	// Adapt L2 to L1 messages
-	for index := range vmFnInvocation.Messages {
-		vmMessage := &vmFnInvocation.Messages[index]
-
-		fnInvocation.Messages = append(fnInvocation.Messages, OrderedL2toL1Message{
-			Order:   vmMessage.Order,
-			From:    vmMessage.From,
-			To:      vmMessage.To,
-			Payload: vmMessage.Payload,
-		})
+		fnInvocation.Calls = append(fnInvocation.Calls, *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index]))
 	}
 
 	// Adapt execution resources
 	r := vmFnInvocation.ExecutionResources
 	if r != nil {
-		fnInvocation.ExecutionResources = &ExecutionResources{
-			ComputationResources: ComputationResources{
-				Steps:        r.Steps,
-				MemoryHoles:  r.MemoryHoles,
-				Pedersen:     r.Pedersen,
-				RangeCheck:   r.RangeCheck,
-				Bitwise:      r.Bitwise,
-				Ecdsa:        r.Ecdsa,
-				EcOp:         r.EcOp,
-				Keccak:       r.Keccak,
-				Poseidon:     r.Poseidon,
-				SegmentArena: r.SegmentArena,
-			},
+		fnInvocation.ExecutionResources = &ComputationResources{
+			Steps:        r.Steps,
+			MemoryHoles:  r.MemoryHoles,
+			Pedersen:     r.Pedersen,
+			RangeCheck:   r.RangeCheck,
+			Bitwise:      r.Bitwise,
+			Ecdsa:        r.Ecdsa,
+			EcOp:         r.EcOp,
+			Keccak:       r.Keccak,
+			Poseidon:     r.Poseidon,
+			SegmentArena: r.SegmentArena,
 		}
 	}
 
@@ -201,11 +175,11 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 
 		trace := TransactionTrace{
 			Type:                  block.Transactions[index].Type,
-			FeeTransferInvocation: adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
-			ValidateInvocation:    adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+			FeeTransferInvocation: AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+			ValidateInvocation:    AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
 		}
 
-		fnInvocation := adaptFeederFunctionInvocation(feederTrace.FunctionInvocation)
+		fnInvocation := AdaptFeederFunctionInvocation(feederTrace.FunctionInvocation)
 		switch block.Transactions[index].Type {
 		case TxnDeploy, TxnDeployAccount:
 			trace.ConstructorInvocation = fnInvocation
@@ -228,7 +202,7 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	return traces, nil
 }
 
-func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
+func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
 	if snFnInvocation == nil {
 		return nil
 	}
@@ -243,21 +217,21 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		CallType:           snFnInvocation.CallType,
 		Result:             snFnInvocation.Result,
 		Calls:              make([]FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
-		Events:             make([]OrderedEvent, 0, len(snFnInvocation.Events)),
-		Messages:           make([]OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
+		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
+		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
 		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
 	}
 
 	// Adapt internal calls
 	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
+		fnInvocation.Calls = append(fnInvocation.Calls, *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index]))
 	}
 
 	// Adapt events
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		fnInvocation.Events = append(fnInvocation.Events, OrderedEvent{
+		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
@@ -269,7 +243,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
-		fnInvocation.Messages = append(fnInvocation.Messages, OrderedL2toL1Message{
+		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			To:      snMessage.ToAddr,
 			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
@@ -279,21 +253,19 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	return &fnInvocation
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ExecutionResources {
+func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ComputationResources {
 	builtins := &resources.BuiltinInstanceCounter
 
-	return &ExecutionResources{
-		ComputationResources: ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     builtins.Pedersen,
-			RangeCheck:   builtins.RangeCheck,
-			Bitwise:      builtins.Bitwise,
-			Ecdsa:        builtins.Ecsda,
-			EcOp:         builtins.EcOp,
-			Keccak:       builtins.Keccak,
-			Poseidon:     builtins.Poseidon,
-			SegmentArena: builtins.SegmentArena,
-		},
+	return &ComputationResources{
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     builtins.Pedersen,
+		RangeCheck:   builtins.RangeCheck,
+		Bitwise:      builtins.Bitwise,
+		Ecdsa:        builtins.Ecsda,
+		EcOp:         builtins.EcOp,
+		Keccak:       builtins.Keccak,
+		Poseidon:     builtins.Poseidon,
+		SegmentArena: builtins.SegmentArena,
 	}
 }

@@ -3,12 +3,13 @@ package rpcv7_test
 import (
 	"testing"
 
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/stretchr/testify/require"
 )
 
 func TestTotalExecutionResources(t *testing.T) {
-	resources := &rpcv7.ComputationResources{
+	resources := &rpcv6.ComputationResources{
 		Steps:        1,
 		MemoryHoles:  2,
 		Pedersen:     3,
@@ -28,21 +29,21 @@ func TestTotalExecutionResources(t *testing.T) {
 		"many top-level invocations": {
 			multiplier: 5,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv7.FunctionInvocation{
+				ValidateInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				FunctionInvocation: &rpcv7.FunctionInvocation{
+				FunctionInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				ConstructorInvocation: &rpcv7.FunctionInvocation{
+				ConstructorInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				ExecuteInvocation: &rpcv7.ExecuteInvocation{
-					FunctionInvocation: &rpcv7.FunctionInvocation{
+				ExecuteInvocation: &rpcv6.ExecuteInvocation{
+					FunctionInvocation: &rpcv6.FunctionInvocation{
 						ExecutionResources: resources,
 					},
 				},
-				FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				FeeTransferInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
 				},
 			},
@@ -50,7 +51,7 @@ func TestTotalExecutionResources(t *testing.T) {
 		"only validate invocation": {
 			multiplier: 1,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv7.FunctionInvocation{
+				ValidateInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
 				},
 			},
@@ -58,17 +59,17 @@ func TestTotalExecutionResources(t *testing.T) {
 		"present in some sub-calls": {
 			multiplier: 2,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv7.FunctionInvocation{
+				ValidateInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
-					Calls: []rpcv7.FunctionInvocation{
+					Calls: []rpcv6.FunctionInvocation{
 						{
 							ExecutionResources: resources,
 						},
 					},
 				},
-				FunctionInvocation: &rpcv7.FunctionInvocation{
+				FunctionInvocation: &rpcv6.FunctionInvocation{
 					ExecutionResources: resources,
-					Calls: []rpcv7.FunctionInvocation{
+					Calls: []rpcv6.FunctionInvocation{
 						{
 							ExecutionResources: resources,
 						},
