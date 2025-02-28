@@ -344,6 +344,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 				L1DataGas: executionResult.DataAvailability[index].L1DataGas,
 			},
 		}
+		if executionResult.Traces[index].FeeTransferInvocation.ExecutionResources.Steps == 0 {
+			h.log.Warnw("FeeTransferInvocation.ExecutionResources.Steps==0, THIS SHOULD NOT HAPPEN, OVERRIDE TO 3")
+			executionResult.Traces[index].FeeTransferInvocation.ExecutionResources.Steps = 3 // HACK to verify that steps is zero
+		}
 		result = append(result, TracedBlockTransaction{
 			TraceRoot:       &executionResult.Traces[index],
 			TransactionHash: block.Transactions[index].Hash(),
