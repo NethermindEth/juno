@@ -27,11 +27,10 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
-	StateDiff             *StateDiff          `json:"state_diff"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 }
 

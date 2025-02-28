@@ -19,6 +19,7 @@ import (
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,6 +71,86 @@ func TestTraceFallback(t *testing.T) {
 			jsonStr, err := json.Marshal(trace)
 			require.NoError(t, err)
 			assert.JSONEq(t, test.want, string(jsonStr))
+		})
+	}
+}
+
+func TestTransactionTraceValidation(t *testing.T) {
+	validInvokeTransactionTrace := rpc.TransactionTrace{
+		Type:              rpc.TxnInvoke,
+		ExecuteInvocation: &rpc.ExecuteInvocation{},
+	}
+
+	invalidInvokeTransactionTrace := rpc.TransactionTrace{
+		Type: rpc.TxnInvoke,
+	}
+
+	validDeployAccountTransactionTrace := rpc.TransactionTrace{
+		Type:                  rpc.TxnDeployAccount,
+		ConstructorInvocation: &rpc.FunctionInvocation{},
+	}
+
+	invalidDeployAccountTransactionTrace := rpc.TransactionTrace{
+		Type: rpc.TxnDeployAccount,
+	}
+
+	validL1HandlerTransactionTrace := rpc.TransactionTrace{
+		Type:               rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.FunctionInvocation{},
+	}
+
+	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
+		Type: rpc.TxnL1Handler,
+	}
+
+	tests := []struct {
+		name    string
+		trace   rpc.TransactionTrace
+		wantErr bool
+	}{
+		{
+			name:    "valid INVOKE tx",
+			trace:   validInvokeTransactionTrace,
+			wantErr: false,
+		},
+		{
+			name:    "invalid INVOKE tx",
+			trace:   invalidInvokeTransactionTrace,
+			wantErr: true,
+		},
+		{
+			name:    "valid DEPLOY_ACCOUNT tx",
+			trace:   validDeployAccountTransactionTrace,
+			wantErr: false,
+		},
+		{
+			name:    "invalid DEPLOY_ACCOUNT tx",
+			trace:   invalidDeployAccountTransactionTrace,
+			wantErr: true,
+		},
+		{
+			name:    "valid L1_HANDLER tx",
+			trace:   validL1HandlerTransactionTrace,
+			wantErr: false,
+		},
+		{
+			name:    "invalid L1_HANDLER tx",
+			trace:   invalidL1HandlerTransactionTrace,
+			wantErr: true,
+		},
+	}
+
+	validate := validator.Validator()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validate.Struct(test.trace)
+
+			if test.wantErr {
+				assert.Error(t, err, "Expected validation to fail, but it passed")
+			} else {
+				assert.NoError(t, err, "Expected validation to pass, but it failed")
+			}
 		})
 	}
 }
