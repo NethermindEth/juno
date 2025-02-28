@@ -422,7 +422,9 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				RevertReason:       "",
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
-			StateDiff: &vm.StateDiff{
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
 						Address: felt.Zero,
@@ -490,7 +492,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					Calls: []rpc.FunctionInvocation{},
 				},
 			},
-			StateDiff: &rpc.StateDiff{
+			ConstructorInvocation: &rpc.FunctionInvocation{
+				Calls: []rpc.FunctionInvocation{},
+			},
+			FunctionInvocation: &rpc.FunctionInvocation{
+				Calls: []rpc.FunctionInvocation{},
+			},
+			StateDiff: &rpc.StateDiff{ //nolint:dupl
 				StorageDiffs: []rpc.StorageDiff{
 					{
 						Address: felt.Zero,
@@ -571,15 +579,13 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 			Traces: []starknet.TransactionTrace{
 				{
 					TransactionHash: *new(felt.Felt).SetUint64(1),
-					FeeTransferInvocation: &starknet.FunctionInvocation{
+					FunctionInvocation: &starknet.FunctionInvocation{
 						Events: []starknet.OrderedEvent{{
 							Order: 1,
 							Keys:  []felt.Felt{*new(felt.Felt).SetUint64(2)},
 							Data:  []felt.Felt{*new(felt.Felt).SetUint64(3)},
 						}},
 					},
-					ValidateInvocation: &starknet.FunctionInvocation{},
-					FunctionInvocation: &starknet.FunctionInvocation{},
 				},
 			},
 		}
@@ -589,7 +595,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
-					FeeTransferInvocation: &rpc.FunctionInvocation{
+					FunctionInvocation: &rpc.FunctionInvocation{
 						Calls: []rpc.FunctionInvocation{},
 						Events: []vm.OrderedEvent{{
 							Order: 1,
@@ -599,17 +605,54 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 						Messages:           []vm.OrderedL2toL1Message{},
 						ExecutionResources: &rpc.ComputationResources{},
 					},
+				},
+			},
+		}
+
+		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, err)
+		require.Equal(t, expectedAdaptedTrace, res)
+	})
+
+	t.Run("INVOKE tx gets successfully adapted (with revert error)", func(t *testing.T) {
+		blockWithTxs := &rpc.BlockWithTxs{
+			Transactions: []*rpc.Transaction{
+				{
+					Type: rpc.TxnInvoke,
+				},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{
+			Traces: []starknet.TransactionTrace{
+				{
+					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{},
+					ValidateInvocation:    &starknet.FunctionInvocation{},
+					FunctionInvocation:    &starknet.FunctionInvocation{},
+					RevertError:           "some error",
+				},
+			},
+		}
+
+		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
+			{
+				TransactionHash: new(felt.Felt).SetUint64(1),
+				TraceRoot: &rpc.TransactionTrace{
+					Type: rpc.TxnInvoke,
+					FeeTransferInvocation: &rpc.FunctionInvocation{
+						Calls:              []rpc.FunctionInvocation{},
+						Events:             []vm.OrderedEvent{},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpc.ComputationResources{},
+					},
 					ValidateInvocation: &rpc.FunctionInvocation{
 						Calls:              []rpc.FunctionInvocation{},
 						Events:             []vm.OrderedEvent{},
 						Messages:           []vm.OrderedL2toL1Message{},
 						ExecutionResources: &rpc.ComputationResources{},
 					},
-					FunctionInvocation: &rpc.FunctionInvocation{
-						Calls:              []rpc.FunctionInvocation{},
-						Events:             []vm.OrderedEvent{},
-						Messages:           []vm.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.ComputationResources{},
+					ExecuteInvocation: &rpc.ExecuteInvocation{
+						RevertReason: "some error",
 					},
 				},
 			},
