@@ -14,33 +14,55 @@ import (
 *****************************************************/
 
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
+	var validateInvocation *FunctionInvocation
+	if trace.ValidateInvocation != nil {
+		validateInvocation = AdaptVMFunctionInvocation(trace.ValidateInvocation)
+	}
+
+	var executeInvocation *ExecuteInvocation
+	if trace.ExecuteInvocation != nil {
+		executeInvocation = AdaptVMExecuteInvocation(trace.ExecuteInvocation)
+	}
+
+	var feeTransferInvocation *FunctionInvocation
+	if trace.FeeTransferInvocation != nil {
+		feeTransferInvocation = AdaptVMFunctionInvocation(trace.FeeTransferInvocation)
+	}
+
+	var constructorInvocation *FunctionInvocation
+	if trace.ConstructorInvocation != nil {
+		constructorInvocation = AdaptVMFunctionInvocation(trace.ConstructorInvocation)
+	}
+
+	var functionInvocation *FunctionInvocation
+	if trace.FunctionInvocation != nil {
+		functionInvocation = AdaptVMFunctionInvocation(trace.FunctionInvocation)
+	}
+
 	return &TransactionTrace{
 		Type:                  TransactionType(trace.Type),
-		ValidateInvocation:    AdaptVMFunctionInvocation(trace.ValidateInvocation),
-		ExecuteInvocation:     AdaptVMExecuteInvocation(trace.ExecuteInvocation),
-		FeeTransferInvocation: AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
-		ConstructorInvocation: AdaptVMFunctionInvocation(trace.ConstructorInvocation),
-		FunctionInvocation:    AdaptVMFunctionInvocation(trace.FunctionInvocation),
+		ValidateInvocation:    validateInvocation,
+		ExecuteInvocation:     executeInvocation,
+		FeeTransferInvocation: feeTransferInvocation,
+		ConstructorInvocation: constructorInvocation,
+		FunctionInvocation:    functionInvocation,
 		StateDiff:             AdaptVMStateDiff(trace.StateDiff),
 	}
 }
 
 func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
-	if vmFnInvocation == nil {
-		return nil
+	var functionInvocation *FunctionInvocation
+	if vmFnInvocation.FunctionInvocation != nil {
+		functionInvocation = AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation)
 	}
 
 	return &ExecuteInvocation{
 		RevertReason:       vmFnInvocation.RevertReason,
-		FunctionInvocation: AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
+		FunctionInvocation: functionInvocation,
 	}
 }
 
 func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
-	if vmFnInvocation == nil {
-		return nil
-	}
-
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
@@ -176,24 +198,33 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		feederTrace := &blockTrace.Traces[index]
 
 		trace := TransactionTrace{
-			Type:                  block.Transactions[index].Type,
-			FeeTransferInvocation: AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
-			ValidateInvocation:    AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+			Type: block.Transactions[index].Type,
 		}
 
-		fnInvocation := AdaptFeederFunctionInvocation(feederTrace.FunctionInvocation)
-		switch block.Transactions[index].Type {
-		case TxnDeploy, TxnDeployAccount:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnInvoke:
-			trace.ExecuteInvocation = new(ExecuteInvocation)
-			if feederTrace.RevertError != "" {
-				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-			} else {
-				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
+		if fee := feederTrace.FeeTransferInvocation; fee != nil {
+			trace.FeeTransferInvocation = AdaptFeederFunctionInvocation(fee)
+		}
+
+		if val := feederTrace.ValidateInvocation; val != nil {
+			trace.ValidateInvocation = AdaptFeederFunctionInvocation(val)
+		}
+
+		if fct := feederTrace.FunctionInvocation; fct != nil {
+			fnInvocation := AdaptFeederFunctionInvocation(fct)
+
+			switch block.Transactions[index].Type {
+			case TxnDeploy, TxnDeployAccount:
+				trace.ConstructorInvocation = fnInvocation
+			case TxnInvoke:
+				trace.ExecuteInvocation = new(ExecuteInvocation)
+				if feederTrace.RevertError != "" {
+					trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
+				} else {
+					trace.ExecuteInvocation.FunctionInvocation = fnInvocation
+				}
+			case TxnL1Handler:
+				trace.FunctionInvocation = fnInvocation
 			}
-		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
 		}
 
 		adaptedTraces[index] = TracedBlockTransaction{
@@ -206,10 +237,6 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 }
 
 func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
-	if snFnInvocation == nil {
-		return nil
-	}
-
 	// Adapt internal calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
