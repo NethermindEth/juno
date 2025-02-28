@@ -555,7 +555,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
-				Calls: []rpc.FunctionInvocation{},
+				Calls:  []rpc.FunctionInvocation{},
+				Events: []rpc.OrderedEvent{},
 				ExecutionResources: &rpc.ComputationResources{
 					Steps:        1,
 					MemoryHoles:  2,
@@ -570,19 +571,23 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				},
 			},
 			FeeTransferInvocation: &rpc.FunctionInvocation{
-				Calls: []rpc.FunctionInvocation{},
+				Calls:  []rpc.FunctionInvocation{},
+				Events: []rpc.OrderedEvent{},
 			},
 			ExecuteInvocation: &rpc.ExecuteInvocation{
 				RevertReason: "",
 				FunctionInvocation: &rpc.FunctionInvocation{
-					Calls: []rpc.FunctionInvocation{},
+					Calls:  []rpc.FunctionInvocation{},
+					Events: []rpc.OrderedEvent{},
 				},
 			},
 			ConstructorInvocation: &rpc.FunctionInvocation{
-				Calls: []rpc.FunctionInvocation{},
+				Calls:  []rpc.FunctionInvocation{},
+				Events: []rpc.OrderedEvent{},
 			},
 			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls: []rpc.FunctionInvocation{},
+				Calls:  []rpc.FunctionInvocation{},
+				Events: []rpc.OrderedEvent{},
 			},
 			StateDiff: &rpc.StateDiff{ //nolint:dupl
 				StorageDiffs: []rpc.StorageDiff{
@@ -682,7 +687,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpc.TxnL1Handler,
 					FunctionInvocation: &rpc.FunctionInvocation{
 						Calls: []rpc.FunctionInvocation{},
-						Events: []vm.OrderedEvent{{
+						Events: []rpc.OrderedEvent{{
 							Order: 1,
 							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
 							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
@@ -726,13 +731,13 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpc.TxnInvoke,
 					FeeTransferInvocation: &rpc.FunctionInvocation{
 						Calls:              []rpc.FunctionInvocation{},
-						Events:             []vm.OrderedEvent{},
+						Events:             []rpc.OrderedEvent{},
 						Messages:           []vm.OrderedL2toL1Message{},
 						ExecutionResources: &rpc.ComputationResources{},
 					},
 					ValidateInvocation: &rpc.FunctionInvocation{
 						Calls:              []rpc.FunctionInvocation{},
-						Events:             []vm.OrderedEvent{},
+						Events:             []rpc.OrderedEvent{},
 						Messages:           []vm.OrderedL2toL1Message{},
 						ExecutionResources: &rpc.ComputationResources{},
 					},

@@ -91,6 +91,18 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		}
 	}
 
+	// Adapt events
+	adaptedEvents := make([]OrderedEvent, len(vmFnInvocation.Events))
+	for index := range vmFnInvocation.Events {
+		vmEvent := &vmFnInvocation.Events[index]
+
+		adaptedEvents[index] = OrderedEvent{
+			Order: vmEvent.Order,
+			Keys:  vmEvent.Keys,
+			Data:  vmEvent.Data,
+		}
+	}
+
 	return FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
@@ -101,7 +113,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		CallType:           vmFnInvocation.CallType,
 		Result:             vmFnInvocation.Result,
 		Calls:              adaptedCalls,
-		Events:             vmFnInvocation.Events,
+		Events:             adaptedEvents,
 		Messages:           vmFnInvocation.Messages,
 		ExecutionResources: adaptedResources,
 	}
@@ -249,11 +261,11 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt events
-	adaptedEvents := make([]vm.OrderedEvent, len(snFnInvocation.Events))
+	adaptedEvents := make([]OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		adaptedEvents[index] = vm.OrderedEvent{
+		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),

@@ -57,9 +57,15 @@ type FunctionInvocation struct {
 	CallType           string                    `json:"call_type,omitempty"`
 	Result             []felt.Felt               `json:"result"`
 	Calls              []FunctionInvocation      `json:"calls"`
-	Events             []vm.OrderedEvent         `json:"events"`
+	Events             []OrderedEvent            `json:"events"`
 	Messages           []vm.OrderedL2toL1Message `json:"messages"`
 	ExecutionResources *ComputationResources     `json:"execution_resources,omitempty"`
+}
+
+type OrderedEvent struct {
+	Order uint64       `json:"order"`
+	Keys  []*felt.Felt `json:"keys"`
+	Data  []*felt.Felt `json:"data"`
 }
 
 /****************************************************
