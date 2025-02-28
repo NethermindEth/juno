@@ -264,27 +264,41 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
 	var err error
 
-	class := new(core.Cairo1Class)
-	class.SemanticVersion = response.Version
-	class.Program = response.Program
-	class.ProgramHash = crypto.PoseidonArray(class.Program...)
-
-	class.Abi = response.Abi
-	class.AbiHash = crypto.StarknetKeccak([]byte(class.Abi))
-
-	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
-		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+	// TODO: what's the absolute minimum size of a Sierra Definition?
+	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
+	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
+		return nil, errors.New("sierra program size is too small")
 	}
-	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
-	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
-	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
 
-	class.Compiled, err = AdaptCompiledClass(compiledClass)
+	coreCompiledClass, err := AdaptCompiledClass(compiledClass)
 	if err != nil {
 		return nil, err
 	}
 
-	return class, nil
+	adapt := func(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
+		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+	}
+
+	return &core.Cairo1Class{
+		SemanticVersion: response.Version,
+		Program:         response.Program,
+		ProgramHash:     crypto.PoseidonArray(response.Program...),
+
+		Abi:     response.Abi,
+		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
+
+		Compiled: coreCompiledClass,
+
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{
+			Constructor: utils.MapByRef(utils.NonNilSlice(response.EntryPoints.Constructor), adapt),
+			External:    utils.MapByRef(utils.NonNilSlice(response.EntryPoints.External), adapt),
+			L1Handler:   utils.MapByRef(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt),
+		},
+	}, nil
 }
 
 func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {

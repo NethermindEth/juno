@@ -51,7 +51,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -71,7 +71,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
@@ -118,7 +118,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -140,7 +140,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
@@ -180,7 +180,7 @@ func TestCall_MaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion())
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -226,14 +226,14 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	// Starknet version <0.13.4 should return an error
 	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.0",
-	}}, testState, &utils.Sepolia, 1_000_000, "")
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
 	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.4",
-	}}, testState, &utils.Sepolia, 1_000_000, "")
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
 	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)

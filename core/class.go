@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 var (
@@ -14,9 +16,19 @@ var (
 	_ Class = (*Cairo1Class)(nil)
 )
 
+// Single felt identifying the number "0.1.0" as a short string
+var SierraVersion010 felt.Felt = felt.New(
+	fp.Element([4]uint64{
+		18446737451840584193,
+		18446744073709551615,
+		18446744073709551615,
+		576348180530977296,
+	}))
+
 // Class unambiguously defines a [Contract]'s semantics.
 type Class interface {
 	Version() uint64
+	SierraVersion() string
 	Hash() (*felt.Felt, error)
 }
 
@@ -50,17 +62,24 @@ func (c *Cairo0Class) Hash() (*felt.Felt, error) {
 	return cairo0ClassHash(c)
 }
 
+func (c *Cairo0Class) SierraVersion() string {
+	return "0.0.0"
+}
+
 // Cairo1Class unambiguously defines a [Contract]'s semantics.
 type Cairo1Class struct {
-	Abi         string
-	AbiHash     *felt.Felt
+	Abi     string
+	AbiHash *felt.Felt
+	// TODO: will implement this on a follow up PR commit to avoid the migration
+	// EntryPoints     SierraEntryPointsByType
 	EntryPoints struct {
 		Constructor []SierraEntryPoint
 		External    []SierraEntryPoint
 		L1Handler   []SierraEntryPoint
 	}
-	Program         []*felt.Felt
-	ProgramHash     *felt.Felt
+	Program     []*felt.Felt
+	ProgramHash *felt.Felt
+	// TODO: Remove this semantic version on a follow up PR. Let's put Sierra version instead
 	SemanticVersion string
 	Compiled        *CompiledClass
 }
@@ -88,6 +107,13 @@ type CompiledEntryPoint struct {
 	Selector *felt.Felt
 }
 
+// TODO: will implement this on a follow up PR commit to avoid the migration
+// type SierraEntryPointsByType struct {
+// 	Constructor []SierraEntryPoint
+// 	External    []SierraEntryPoint
+// 	L1Handler   []SierraEntryPoint
+// }
+
 type SierraEntryPoint struct {
 	Index    uint64
 	Selector *felt.Felt
@@ -106,6 +132,29 @@ func (c *Cairo1Class) Hash() (*felt.Felt, error) {
 		c.AbiHash,
 		c.ProgramHash,
 	), nil
+}
+
+// Returns the Sierra version for the Cairo 1 class
+//
+// Sierra programs contain the version number in two possible formats.
+// For pre-1.0-rc0 Cairo versions the program contains the Sierra version
+// "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
+// For all subsequent versions the version number is the first three felts
+// representing the three parts of a semantic version number.
+func (c *Cairo1Class) SierraVersion() string {
+	if c.Program[0].Equal(&SierraVersion010) {
+		return "0.1.0"
+	}
+
+	const base = 10
+	var buf [32]byte
+	b := buf[:0]
+	b = strconv.AppendUint(b, c.Program[0].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, c.Program[1].Uint64(), base)
+	b = append(b, '.')
+	b = strconv.AppendUint(b, c.Program[2].Uint64(), base)
+	return string(b)
 }
 
 var compiledClassV1Prefix = new(felt.Felt).SetBytes([]byte("COMPILED_CLASS_V1"))
