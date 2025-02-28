@@ -242,10 +242,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps),           //nolint:gocritic
-		C.uchar(concurrencyModeByte),    //nolint:gocritic
-		cSierraVersion,                  //nolint:gocritic
-		C.uchar(structuredErrStackByte), //nolint:gocritic
+		C.ulonglong(maxSteps),
+		C.uchar(concurrencyModeByte),
+		cSierraVersion,
+		C.uchar(structuredErrStackByte), //nolint:gocritic // don't know why the linter is annoyed
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
