@@ -221,7 +221,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	result := make([]TracedBlockTransaction, len(executionResult.Traces))
 	// Add execution resources on root level for every trace in block
 	for index := range executionResult.Traces {
-		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
+		trace := utils.Ptr(AdaptVMTransactionTrace(&executionResult.Traces[index]))
 
 		// Add root level execution resources
 		trace.ExecutionResources = &ExecutionResources{

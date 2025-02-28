@@ -165,7 +165,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			Unit:            utils.Ptr(feeUnit),
 		}
 
-		trace := AdaptVMTransactionTrace(&vmTraces[i])
+		trace := utils.Ptr(AdaptVMTransactionTrace(&vmTraces[i]))
 
 		// Add execution resources on the trace root level (from all the fct invocations)
 		trace.ExecutionResources = &ExecutionResources{

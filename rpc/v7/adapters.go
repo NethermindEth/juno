@@ -5,6 +5,7 @@ import (
 
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
@@ -12,50 +13,50 @@ import (
 		VM Adapters
 *****************************************************/
 
-func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
+func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *rpcv6.FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		validateInvocation = rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation)
+		validateInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *rpcv6.ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		executeInvocation = rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation)
+		executeInvocation = utils.Ptr(rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *rpcv6.FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		feeTransferInvocation = rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation)
+		feeTransferInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *rpcv6.FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		constructorInvocation = rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation)
+		constructorInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *rpcv6.FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		functionInvocation = rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation)
+		functionInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
 	var resources *ExecutionResources
 	if trace.ExecutionResources != nil {
-		resources = adaptVMExecutionResources(trace.ExecutionResources)
+		resources = utils.Ptr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
-	return &TransactionTrace{
+	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
 		ValidateInvocation:    validateInvocation,
 		ExecuteInvocation:     executeInvocation,
 		FeeTransferInvocation: feeTransferInvocation,
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
-		StateDiff:             rpcv6.AdaptVMStateDiff(trace.StateDiff),
+		StateDiff:             utils.Ptr(rpcv6.AdaptVMStateDiff(trace.StateDiff)),
 		ExecutionResources:    resources,
 	}
 }
 
-func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
+func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 	// Adapt data availability
 	var adaptedDataAvailability *DataAvailability
 	if r.DataAvailability != nil {
@@ -65,7 +66,7 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
 		}
 	}
 
-	return &ExecutionResources{
+	return ExecutionResources{
 		ComputationResources: ComputationResources{
 			Steps:        r.Steps,
 			MemoryHoles:  r.MemoryHoles,
@@ -106,15 +107,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil {
-			trace.FeeTransferInvocation = rpcv6.AdaptFeederFunctionInvocation(fee)
+			trace.FeeTransferInvocation = utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil {
-			trace.ValidateInvocation = rpcv6.AdaptFeederFunctionInvocation(val)
+			trace.ValidateInvocation = utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(val))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := rpcv6.AdaptFeederFunctionInvocation(fct)
+			fnInvocation := utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:

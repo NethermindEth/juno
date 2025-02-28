@@ -13,38 +13,38 @@ import (
 		VM Adapters
 *****************************************************/
 
-func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
+func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		validateInvocation = adaptVMFunctionInvocation(trace.ValidateInvocation)
+		validateInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		executeInvocation = adaptVMExecuteInvocation(trace.ExecuteInvocation)
+		executeInvocation = utils.Ptr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		feeTransferInvocation = adaptVMFunctionInvocation(trace.FeeTransferInvocation)
+		feeTransferInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		constructorInvocation = adaptVMFunctionInvocation(trace.ConstructorInvocation)
+		constructorInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		functionInvocation = adaptVMFunctionInvocation(trace.FunctionInvocation)
+		functionInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
 	var resources *ExecutionResources
 	if trace.ExecutionResources != nil {
-		resources = adaptVMExecutionResources(trace.ExecutionResources)
+		resources = utils.Ptr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
-	return &TransactionTrace{
+	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
 		ValidateInvocation:    validateInvocation,
 		ExecuteInvocation:     executeInvocation,
@@ -56,23 +56,23 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
 	}
 }
 
-func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
+func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation)
+		functionInvocation = utils.Ptr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
-	return &ExecuteInvocation{
+	return ExecuteInvocation{
 		RevertReason:       vmFnInvocation.RevertReason,
 		FunctionInvocation: functionInvocation,
 	}
 }
 
-func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
+func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = *adaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
+		adaptedCalls[index] = adaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt execution resources
@@ -84,7 +84,7 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		}
 	}
 
-	return &FunctionInvocation{
+	return FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
 		Calldata:           vmFnInvocation.Calldata,
@@ -100,8 +100,8 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 	}
 }
 
-func adaptVMExecutionResources(r *vm.ExecutionResources) *ExecutionResources {
-	return &ExecutionResources{
+func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
+	return ExecutionResources{
 		InnerExecutionResources: InnerExecutionResources{
 			L1Gas: r.L1Gas,
 			L2Gas: r.L2Gas,
@@ -133,15 +133,15 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil {
-			trace.FeeTransferInvocation = adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation)
+			trace.FeeTransferInvocation = utils.Ptr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
 		}
 
 		if feederTrace.ValidateInvocation != nil {
-			trace.ValidateInvocation = adaptFeederFunctionInvocation(feederTrace.ValidateInvocation)
+			trace.ValidateInvocation = utils.Ptr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := adaptFeederFunctionInvocation(fct)
+			fnInvocation := utils.Ptr(adaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:
@@ -167,11 +167,11 @@ func adaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	return adaptedTraces, nil
 }
 
-func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
+func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = *adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
+		adaptedCalls[index] = adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
@@ -196,7 +196,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		}
 	}
 
-	return &FunctionInvocation{
+	return FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
@@ -208,18 +208,18 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
+		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
 	}
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *InnerExecutionResources {
+func adaptFeederExecutionResources(resources *starknet.ExecutionResources) InnerExecutionResources {
 	var l1Gas, l2Gas uint64
 	if tgs := resources.TotalGasConsumed; tgs != nil {
 		l1Gas = tgs.L1Gas
 		l2Gas = tgs.L2Gas
 	}
 
-	return &InnerExecutionResources{
+	return InnerExecutionResources{
 		L1Gas: l1Gas,
 		L2Gas: l2Gas,
 	}

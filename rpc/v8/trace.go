@@ -249,7 +249,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	result := make([]TracedBlockTransaction, len(executionResult.Traces))
 	// Adapt every vm transaction trace to rpc v8 trace and add root level execution resources
 	for index := range executionResult.Traces {
-		trace := AdaptVMTransactionTrace(&executionResult.Traces[index])
+		trace := utils.Ptr(AdaptVMTransactionTrace(&executionResult.Traces[index]))
 
 		trace.ExecutionResources = &ExecutionResources{
 			InnerExecutionResources: InnerExecutionResources{

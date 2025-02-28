@@ -13,60 +13,60 @@ import (
 		VM Adapters
 *****************************************************/
 
-func AdaptVMTransactionTrace(trace *vm.TransactionTrace) *TransactionTrace {
+func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		validateInvocation = AdaptVMFunctionInvocation(trace.ValidateInvocation)
+		validateInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		executeInvocation = AdaptVMExecuteInvocation(trace.ExecuteInvocation)
+		executeInvocation = utils.Ptr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		feeTransferInvocation = AdaptVMFunctionInvocation(trace.FeeTransferInvocation)
+		feeTransferInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		constructorInvocation = AdaptVMFunctionInvocation(trace.ConstructorInvocation)
+		constructorInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		functionInvocation = AdaptVMFunctionInvocation(trace.FunctionInvocation)
+		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
-	return &TransactionTrace{
+	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
 		ValidateInvocation:    validateInvocation,
 		ExecuteInvocation:     executeInvocation,
 		FeeTransferInvocation: feeTransferInvocation,
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
-		StateDiff:             AdaptVMStateDiff(trace.StateDiff),
+		StateDiff:             utils.Ptr(AdaptVMStateDiff(trace.StateDiff)),
 	}
 }
 
-func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
+func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation)
+		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
-	return &ExecuteInvocation{
+	return ExecuteInvocation{
 		RevertReason:       vmFnInvocation.RevertReason,
 		FunctionInvocation: functionInvocation,
 	}
 }
 
-func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
+func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
+		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt execution resources
@@ -86,7 +86,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 		}
 	}
 
-	return &FunctionInvocation{
+	return FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
 		Calldata:           vmFnInvocation.Calldata,
@@ -102,7 +102,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionI
 	}
 }
 
-func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
+func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 	// Adapt storage diffs
 	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
 	for index := range vmStateDiff.StorageDiffs {
@@ -169,7 +169,7 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
 		}
 	}
 
-	return &StateDiff{
+	return StateDiff{
 		StorageDiffs:              adaptedStorageDiffs,
 		Nonces:                    adaptedNonces,
 		DeployedContracts:         adaptedDeployedContracts,
@@ -202,15 +202,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil {
-			trace.FeeTransferInvocation = AdaptFeederFunctionInvocation(fee)
+			trace.FeeTransferInvocation = utils.Ptr(AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil {
-			trace.ValidateInvocation = AdaptFeederFunctionInvocation(val)
+			trace.ValidateInvocation = utils.Ptr(AdaptFeederFunctionInvocation(val))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := AdaptFeederFunctionInvocation(fct)
+			fnInvocation := utils.Ptr(AdaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:
@@ -236,11 +236,11 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	return adaptedTraces, nil
 }
 
-func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
+func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
 	// Adapt internal calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
+		adaptedCalls[index] = AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
@@ -267,7 +267,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		}
 	}
 
-	return &FunctionInvocation{
+	return FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
@@ -279,14 +279,14 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
+		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
 	}
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *ComputationResources {
+func adaptFeederExecutionResources(resources *starknet.ExecutionResources) ComputationResources {
 	builtins := &resources.BuiltinInstanceCounter
 
-	return &ComputationResources{
+	return ComputationResources{
 		Steps:        resources.Steps,
 		MemoryHoles:  resources.MemoryHoles,
 		Pedersen:     builtins.Pedersen,
