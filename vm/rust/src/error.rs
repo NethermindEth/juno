@@ -4,6 +4,7 @@ use blockifier::execution::errors::{
 use blockifier::execution::stack_trace::gen_tx_execution_error_trace;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector};
 
 use crate::error_stack::ErrorStack;
 
@@ -16,10 +17,9 @@ pub enum CallError {
 
 impl From<TransactionExecutionError> for CallError {
     fn from(value: TransactionExecutionError) -> Self {
-        use TransactionExecutionError::*;
-
         let error_stack = gen_tx_execution_error_trace(&value);
 
+        use TransactionExecutionError::*;
         match value {
             ContractConstructorExecutionFailed(
                 ConstructorEntryPointExecutionError::ExecutionError { error, .. },
@@ -36,17 +36,17 @@ impl From<TransactionExecutionError> for CallError {
 impl CallError {
     pub fn from_entry_point_execution_error(
         error: EntryPointExecutionError,
-        contract_address: &starknet_api::core::ContractAddress,
-        class_hash: &starknet_api::core::ClassHash,
-        entry_point: &starknet_api::core::EntryPointSelector,
+        contract_address: ContractAddress,
+        class_hash: ClassHash,
+        entry_point: EntryPointSelector,
     ) -> Self {
-        let error = TransactionExecutionError::ExecutionError {
+        TransactionExecutionError::ExecutionError {
             error,
-            class_hash: *class_hash,
-            storage_address: *contract_address,
-            selector: *entry_point,
-        };
-        error.into()
+            class_hash,
+            storage_address: contract_address,
+            selector: entry_point,
+        }
+        .into()
     }
 }
 

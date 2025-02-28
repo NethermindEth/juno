@@ -8,7 +8,7 @@ mod juno_state_reader;
 extern crate lazy_static;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use error::{CallError, ExecutionError};
-use error_stack::Frame;
+use error_stack::{ErrorStack, Frame};
 use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
@@ -173,7 +173,7 @@ pub extern "C" fn cairoVMCall(
     };
 
     let concurrency_mode = concurrency_mode == 1;
-    let err_stack = err_stack == 1;
+    let structured_err_stack = err_stack == 1;
     let mut state = CachedState::new(reader);
     let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
@@ -196,16 +196,16 @@ pub extern "C" fn cairoVMCall(
         .map_err(|e| {
             CallError::from_entry_point_execution_error(
                 e,
-                &contract_address,
-                class_hash.as_ref().unwrap_or(&ClassHash::default()),
-                &entry_point_selector,
+                contract_address,
+                class_hash.unwrap_or(ClassHash::default()),
+                entry_point_selector,
             )
         });
 
     match call_info {
         Err(CallError::ContractError(revert_error, error_stack)) => {
-            let err_string = if err_stack {
-                error_stack_frames_to_json(&error_stack.0).to_string()
+            let err_string = if structured_err_stack {
+                error_stack_frames_to_json(error_stack).to_string()
             } else {
                 json!(revert_error).to_string()
             };
@@ -373,7 +373,7 @@ pub extern "C" fn cairoVMExecute(
             Err(e) => match e {
                 ExecutionError::ExecutionError { error, error_stack } => {
                     let err_string = if err_stack {
-                        error_stack_frames_to_json(&error_stack.0).to_string()
+                        error_stack_frames_to_json(error_stack).to_string()
                     } else {
                         json!(error).to_string()
                     };
@@ -553,8 +553,11 @@ fn append_trace(
     };
 }
 
-fn error_stack_frames_to_json(frames: &[Frame]) -> serde_json::Value {
-    let last_string_frame_contents = frames
+fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
+    let frames = err_stack.0;
+
+    // We are assuming they will be only one of these
+    let string_frame = frames
         .iter()
         .rev()
         .find_map(|frame| match frame {
@@ -563,19 +566,21 @@ fn error_stack_frames_to_json(frames: &[Frame]) -> serde_json::Value {
         })
         .unwrap_or_else(|| "Unknown error, no string frame available.".to_string());
 
+    // Start building the error from the ground up, starting from the string frame
+    // into the parent call frame and so on ...
     frames
-        .iter()
+        .into_iter()
         .filter_map(|frame| match frame {
             Frame::CallFrame(call_frame) => Some(call_frame),
             _ => None,
         })
         .rev()
-        .fold(json!(last_string_frame_contents), |child, frame| {
+        .fold(json!(string_frame), |prev_err, frame| {
             json!({
                 "contract_address": frame.storage_address,
                 "class_hash": frame.class_hash,
                 "selector": frame.selector,
-                "error": child,
+                "error": prev_err,
             })
         })
 }
