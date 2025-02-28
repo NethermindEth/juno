@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -11,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, classes []*gen.Class) *core.StateDiff {
+func AdaptStateDiff(reader blockchain.StateReader, contractDiffs []*gen.ContractDiff, classes []*gen.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)

@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -74,7 +75,7 @@ type Reader interface {
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	PendingState() (blockchain.StateReader, blockchain.StateCloser, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -108,7 +109,7 @@ func (n *NoopSynchronizer) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
@@ -661,7 +662,7 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+func (s *Synchronizer) PendingState() (blockchain.StateReader, blockchain.StateCloser, error) {
 	txn, err := s.db.NewTransaction(false)
 	if err != nil {
 		return nil, nil, err
@@ -672,7 +673,12 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+	st, err := state.New(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, st), txn.Discard, nil
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {

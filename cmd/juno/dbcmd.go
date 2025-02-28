@@ -215,7 +215,7 @@ func dbSize(cmd *cobra.Command, args []string) error {
 		totalSize += bucketItem.Size
 		totalCount += bucketItem.Count
 
-		if utils.AnyOf(b, db.StateTrie, db.ContractStorage, db.Class, db.ContractNonce, db.ContractDeploymentHeight) {
+		if utils.AnyOf(b, db.ContractTrieContract, db.ContractTrieStorage, db.ClassTrie) {
 			withoutHistorySize += bucketItem.Size
 			withHistorySize += bucketItem.Size
 
