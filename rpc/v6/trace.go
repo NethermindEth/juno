@@ -31,7 +31,7 @@ type TransactionTrace struct {
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
-	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	StateDiff             *StateDiff          `json:"state_diff"`
 }
 
 type ExecuteInvocation struct {
