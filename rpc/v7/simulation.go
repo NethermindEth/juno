@@ -108,6 +108,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
 		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert)
+
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
 	overallFees := executionResults.OverallFees
@@ -124,6 +125,9 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+
+	// Log raw VM execution results
+	h.log.Errorw("VM Execution Results", "overallFees", overallFees, "daGas", daGas, "numSteps", executionResults.NumSteps)
 
 	result := make([]SimulatedTransaction, 0, len(overallFees))
 	for i, overallFee := range overallFees {
@@ -146,13 +150,40 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
+		// Log input values
+		h.log.Errorw("Fee Calculation Inputs", "txnIndex", i, "overallFee", overallFee.String(),
+			"feeUnit", feeUnit, "gasPrice", gasPrice.String(), "dataGasPrice", dataGasPrice.String(),
+			"daGasL1DataGas", daGas[i].L1DataGas)
+
 		var gasConsumed *felt.Felt
 		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
 
 		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
-		gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
+		temp := new(felt.Felt).Sub(overallFee, dataGasFee)
 
-		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
+		// Validate intermediate result and compute gasConsumed
+		if temp.Cmp(&felt.Zero) < 0 {
+			h.log.Errorw("Negative gas consumed intermediate", "overallFee", overallFee.String(),
+				"dataGasFee", dataGasFee.String(), "temp", temp.String())
+			gasConsumed = &felt.Zero
+		} else if gasPrice.IsZero() {
+			h.log.Errorw("Zero gas price detected", "gasPrice", gasPrice.String())
+			gasConsumed = &felt.Zero
+		} else {
+			gasConsumed = new(felt.Felt).Div(temp, gasPrice)
+			h.log.Errorw("Gas Consumed Computed", "txnIndex", i, "gasConsumed", gasConsumed.String(),
+				"temp", temp.String(), "dataGasFee", dataGasFee.String())
+		}
+
+		// Verify overall fee consistency
+		expectedFee := new(felt.Felt).Add(
+			new(felt.Felt).Mul(gasConsumed, gasPrice),
+			new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice),
+		)
+		if expectedFee.Cmp(overallFee) != 0 {
+			h.log.Errorw("Overall fee mismatch", "txnIndex", i, "reportedOverallFee", overallFee.String(),
+				"computedOverallFee", expectedFee.String())
+		}
 
 		estimate := FeeEstimate{
 			GasConsumed:     gasConsumed,
