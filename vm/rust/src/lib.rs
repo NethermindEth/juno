@@ -757,11 +757,11 @@ fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
         CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str("0.13.2").unwrap() {
         CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.2.1").unwrap() {
-        CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str("0.13.3").unwrap() {
-        CONSTANTS.get(&"0.13.3".to_string()).unwrap().to_owned()
+        CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
     } else if version < StarknetVersion::from_str("0.13.4").unwrap() {
+        CONSTANTS.get(&"0.13.3".to_string()).unwrap().to_owned()
+    } else if version < StarknetVersion::from_str("0.13.5").unwrap() {
         CONSTANTS.get(&"0.13.4".to_string()).unwrap().to_owned()
     } else {
         VersionedConstants::latest_constants().to_owned()
