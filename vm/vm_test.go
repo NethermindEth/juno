@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -70,7 +71,7 @@ func TestV0Call(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
@@ -117,7 +118,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -139,7 +140,7 @@ func TestV1Call(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, "")
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion())
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
@@ -179,8 +180,64 @@ func TestCall_MaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, "")
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion())
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
+}
+
+func TestCallInfoErrorHandling(t *testing.T) {
+	testDB := pebble.NewMemTest(t)
+	txn, err := testDB.NewTransaction(true)
+	require.NoError(t, err)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+	t.Cleanup(func() {
+		require.NoError(t, txn.Discard())
+	})
+
+	contractAddr := utils.HexToFelt(t, "0x123")
+	classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+	simpleClass, err := gw.Class(context.Background(), classHash)
+	require.NoError(t, err)
+
+	testState := core.NewState(txn)
+	require.NoError(t, testState.Update(0, &core.StateUpdate{
+		OldRoot: &felt.Zero,
+		NewRoot: utils.HexToFelt(t, "0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
+		StateDiff: &core.StateDiff{
+			DeployedContracts: map[felt.Felt]*felt.Felt{
+				*contractAddr: classHash,
+			},
+		},
+	}, map[felt.Felt]core.Class{
+		*classHash: simpleClass,
+	}))
+
+	logLevel := utils.NewLogLevel(utils.ERROR)
+	log, err := utils.NewZapLogger(logLevel, false)
+	require.NoError(t, err)
+
+	callInfo := &CallInfo{
+		ClassHash:       classHash,
+		ContractAddress: contractAddr,
+		Selector:        utils.HexToFelt(t, "0x123"), // doesn't exist
+		Calldata:        []felt.Felt{},
+	}
+
+	// Starknet version <0.13.4 should return an error
+	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
+		ProtocolVersion: "0.13.0",
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
+	require.Equal(t, CallResult{}, ret)
+	require.ErrorContains(t, err, "not found in contract")
+
+	// Starknet version 0.13.4 should return an "error" in the CallInfo
+	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
+		ProtocolVersion: "0.13.4",
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion())
+	require.True(t, ret.ExecutionFailed)
+	require.Equal(t, len(ret.Result), 1)
+	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)
+	require.Nil(t, err)
 }
 
 func TestExecute(t *testing.T) {

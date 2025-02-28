@@ -149,8 +149,7 @@ pub extern "C" fn cairoVMCall(
 
     let version_constants = get_versioned_constants(block_info.version);
     let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
-    let sierra_version =
-        SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
+    let sierra_version = SierraVersion::from_str(sierra_version_str).unwrap();
     let initial_gas: u64 = if sierra_version < version_constants.min_sierra_version_for_sierra_gas {
         version_constants.infinite_gas_for_vm_mode()
     } else {
@@ -193,7 +192,6 @@ pub extern "C" fn cairoVMCall(
         Ok(call_info) => {
             if call_info.execution.failed {
                 report_error(reader_handle, "execution failed", -1, 1);
-                return;
             }
             for data in call_info.execution.retdata.0 {
                 unsafe {

@@ -790,6 +790,40 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 	}
 }
 
+func TestAdaptTransaction(t *testing.T) {
+	t.Run("core.Resource `ResourceL1DataGas` should be ignored when converted to v6.Resource", func(t *testing.T) {
+		coreTx := core.InvokeTransaction{
+			Version: new(core.TransactionVersion).SetUint64(3),
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				core.ResourceL2Gas:     {MaxAmount: 3, MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+				core.ResourceL1DataGas: {MaxAmount: 5, MaxPricePerUnit: new(felt.Felt).SetUint64(6)},
+			},
+		}
+
+		tx := rpc.AdaptTransaction(&coreTx)
+
+		expectedTx := &rpc.Transaction{
+			Type:    rpc.TxnInvoke,
+			Version: new(felt.Felt).SetUint64(3),
+			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
+				rpc.ResourceL1Gas: {MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				rpc.ResourceL2Gas: {MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+			},
+			Tip: new(felt.Felt).SetUint64(0),
+			// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)
+			Signature:             new([]*felt.Felt),
+			CallData:              new([]*felt.Felt),
+			PaymasterData:         new([]*felt.Felt),
+			AccountDeploymentData: new([]*felt.Felt),
+			NonceDAMode:           utils.Ptr(rpc.DAModeL1),
+			FeeDAMode:             utils.Ptr(rpc.DAModeL1),
+		}
+
+		require.Equal(t, expectedTx, tx)
+	})
+}
+
 func TestAddTransaction(t *testing.T) {
 	n := utils.Ptr(utils.Integration)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))

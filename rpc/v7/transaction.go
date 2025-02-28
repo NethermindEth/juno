@@ -364,6 +364,11 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
+		// ResourceL1DataGas is not supported in v7
+		if resource == core.ResourceL1DataGas {
+			continue
+		}
+
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
@@ -726,7 +731,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeclareTransaction:
 		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTrandaction(v)
+		txn = adaptDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
@@ -900,7 +905,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transaction {
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
 	tx := &Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,

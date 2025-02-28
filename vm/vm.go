@@ -247,7 +247,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	C.free(unsafe.Pointer(cBlockInfo.version))
 	C.free(unsafe.Pointer(cSierraVersion))
 
-	if context.err != "" {
+	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)
 	}
 	return CallResult{Result: context.response, ExecutionFailed: context.executionFailed}, nil
