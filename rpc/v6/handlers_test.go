@@ -57,7 +57,7 @@ func TestThrottledVMError(t *testing.T) {
 				new(felt.Felt),
 			},
 		}}, nil)
-		_, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		_, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 

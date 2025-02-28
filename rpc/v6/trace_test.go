@@ -397,7 +397,7 @@ func TestCall(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -405,7 +405,7 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Hash: &felt.Zero})
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -413,7 +413,7 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Number: 0})
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -425,7 +425,7 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -470,11 +470,11 @@ func TestCall(t *testing.T) {
 			Calldata:        calldata,
 		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion()).Return(expectedRes, nil)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{
+		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
 			Calldata:           calldata,
-		}, rpc.BlockID{Latest: true})
+		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		require.Equal(t, expectedRes.Result, res)
 	})
@@ -511,11 +511,11 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().Network().Return(n)
 		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{
+		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
 			Calldata:           calldata,
-		}, rpc.BlockID{Latest: true})
+		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, rpcErr, expectedErr)
 	})

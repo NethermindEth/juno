@@ -345,18 +345,14 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
-	return h.call(funcCall, id)
-}
-
-func (h *Handler) call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) {
-	state, closer, rpcErr := h.stateByBlockID(&id)
+func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
+	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
