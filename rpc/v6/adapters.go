@@ -39,6 +39,11 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
+	var stateDiff *StateDiff
+	if trace.StateDiff != nil {
+		stateDiff = utils.Ptr(AdaptVMStateDiff(trace.StateDiff))
+	}
+
 	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
 		ValidateInvocation:    validateInvocation,
@@ -46,7 +51,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		FeeTransferInvocation: feeTransferInvocation,
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
-		StateDiff:             utils.Ptr(AdaptVMStateDiff(trace.StateDiff)),
+		StateDiff:             stateDiff,
 	}
 }
 
