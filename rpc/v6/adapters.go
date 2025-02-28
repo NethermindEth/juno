@@ -16,35 +16,28 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		res := AdaptVMFunctionInvocation(trace.ValidateInvocation)
-		validateInvocation = &res
+		validateInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		res := AdaptVMExecuteInvocation(trace.ExecuteInvocation)
-		executeInvocation = &res
+		executeInvocation = utils.Ptr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		res := AdaptVMFunctionInvocation(trace.FeeTransferInvocation)
-		feeTransferInvocation = &res
+		feeTransferInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		res := AdaptVMFunctionInvocation(trace.ConstructorInvocation)
-		constructorInvocation = &res
+		constructorInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		res := AdaptVMFunctionInvocation(trace.FunctionInvocation)
-		functionInvocation = &res
+		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
-
-	stateDiff := AdaptVMStateDiff(trace.StateDiff)
 
 	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
@@ -53,15 +46,14 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		FeeTransferInvocation: feeTransferInvocation,
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
-		StateDiff:             &stateDiff,
+		StateDiff:             utils.Ptr(AdaptVMStateDiff(trace.StateDiff)),
 	}
 }
 
 func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		res := AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation)
-		functionInvocation = &res
+		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
 	return ExecuteInvocation{
@@ -210,30 +202,28 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil {
-			res := AdaptFeederFunctionInvocation(fee)
-			trace.FeeTransferInvocation = &res
+			trace.FeeTransferInvocation = utils.Ptr(AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil {
-			res := AdaptFeederFunctionInvocation(val)
-			trace.ValidateInvocation = &res
+			trace.ValidateInvocation = utils.Ptr(AdaptFeederFunctionInvocation(val))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := AdaptFeederFunctionInvocation(fct)
+			fnInvocation := utils.Ptr(AdaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:
-				trace.ConstructorInvocation = &fnInvocation
+				trace.ConstructorInvocation = fnInvocation
 			case TxnInvoke:
 				trace.ExecuteInvocation = new(ExecuteInvocation)
 				if feederTrace.RevertError != "" {
 					trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
 				} else {
-					trace.ExecuteInvocation.FunctionInvocation = &fnInvocation
+					trace.ExecuteInvocation.FunctionInvocation = fnInvocation
 				}
 			case TxnL1Handler:
-				trace.FunctionInvocation = &fnInvocation
+				trace.FunctionInvocation = fnInvocation
 			}
 		}
 
@@ -277,9 +267,6 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		}
 	}
 
-	// Adapt execution resources
-	adaptedExecutionResources := adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)
-
 	return FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
@@ -292,7 +279,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: &adaptedExecutionResources,
+		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
 	}
 }
 
