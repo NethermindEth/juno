@@ -181,7 +181,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
-			false).
+			false, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      overallFee,
 				DataAvailability: dataGas,
@@ -277,7 +277,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      overallFee,
 				DataAvailability: consumedGas,
@@ -394,7 +394,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false).
+			gomock.Any(), n, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{{}, {}},
 				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
@@ -474,7 +474,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false).
+			gomock.Any(), n, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{{}, {}},
 				Traces:           []vm.TransactionTrace{vmTrace},
@@ -579,7 +579,7 @@ func TestCall(t *testing.T) {
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion()).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -601,7 +601,7 @@ func TestCall(t *testing.T) {
 			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
 		}
-		expectedErr := rpcv7.MakeContractError(errors.New(rpccore.EntrypointNotFoundFelt))
+		expectedErr := rpcv7.MakeContractError(json.RawMessage(rpccore.EntrypointNotFoundFelt))
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -625,7 +625,7 @@ func TestCall(t *testing.T) {
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion()).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,

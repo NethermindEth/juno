@@ -1,6 +1,7 @@
 package rpcv8
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -131,7 +132,7 @@ func TestHandleExecutionError(t *testing.T) {
 			name: "Transaction Execution Error",
 			err: &vm.TransactionExecutionError{
 				Index: 0,
-				Cause: errors.New("some error"),
+				Cause: json.RawMessage("some error"),
 			},
 			jsonRPCError: &jsonrpc.Error{
 				Code:    rpccore.ErrUnexpectedError.Code,

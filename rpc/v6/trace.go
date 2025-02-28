@@ -2,6 +2,7 @@ package rpcv6
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -256,7 +257,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	executionResults, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false)
+		false, false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
@@ -382,15 +383,15 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, MakeContractError(err)
+		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
-		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
+		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
 	}
 	return res.Result, nil
 }

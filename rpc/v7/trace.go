@@ -2,6 +2,7 @@ package rpcv7
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -313,7 +314,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false)
+		&blockInfo, state, network, false, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -422,15 +423,15 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)
 		}
-		return nil, MakeContractError(err)
+		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
-		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
+		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
 	}
 	return res.Result, nil
 }

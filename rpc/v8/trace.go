@@ -2,6 +2,7 @@ package rpcv8
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -304,7 +305,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false)
+		&blockInfo, state, network, false, false, false, true)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -407,12 +408,12 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, true)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
-		return nil, MakeContractError(err)
+		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
 		// the blockifier 0.13.4 update requires us to check if the execution failed,
@@ -422,7 +423,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 			return nil, rpccore.ErrEntrypointNotFound
 		}
 		// Todo: There is currently no standardised way to format these error messages
-		return nil, MakeContractError(errors.New(utils.FeltArrToString(res.Result)))
+		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
 	}
 	return res.Result, nil
 }
