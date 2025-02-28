@@ -34,13 +34,13 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 }
 
 type SimulatedTransaction struct {
-	TransactionTrace *vm.TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate          `json:"fee_estimation,omitempty"`
+	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
 }
 
 type TracedBlockTransaction struct {
-	TraceRoot       *vm.TransactionTrace `json:"trace_root,omitempty"`
-	TransactionHash *felt.Felt           `json:"transaction_hash,omitempty"`
+	TraceRoot       *TransactionTrace `json:"trace_root,omitempty"`
+	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
 /****************************************************
@@ -51,12 +51,11 @@ type TracedBlockTransaction struct {
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, true, false)
+	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
-//nolint:funlen
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, v0_6Response, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
@@ -112,12 +111,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		}
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
-	overallFees := executionResults.OverallFees
-	dataGasConsumed := executionResults.DataAvailability
-	traces := executionResults.Traces
 
-	result := make([]SimulatedTransaction, len(transactions))
-	for i, overallFee := range overallFees {
+	result := make([]SimulatedTransaction, len(txns))
+
+	// For every transaction, we append its trace + fee estimate
+	for i, overallFee := range executionResults.OverallFees {
+		// Compute fee estimate
 		feeUnit := feeUnit(txns[i])
 
 		gasPrice := header.L1GasPriceETH
@@ -137,18 +136,8 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			Unit:        utils.Ptr(feeUnit),
 		}
 
-		if !v0_6Response {
-			trace := traces[i]
-			da := vm.NewDataAvailability(gasConsumed,
-				new(felt.Felt).SetUint64(dataGasConsumed[i].L1DataGas), header.L1DAMode)
-			traces[i].ExecutionResources = &vm.ExecutionResources{
-				ComputationResources: trace.TotalComputationResources(),
-				DataAvailability:     &da,
-			}
-		}
-
 		result[i] = SimulatedTransaction{
-			TransactionTrace: &traces[i],
+			TransactionTrace: utils.Ptr(AdaptVMTransactionTrace(&executionResults.Traces[i])),
 			FeeEstimation:    estimate,
 		}
 	}

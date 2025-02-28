@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -148,7 +149,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, utils.Ptr(rpc.AdaptVMTransactionTrace(vmTrace)), trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
@@ -207,7 +208,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 
 		trace, err := handler.TraceTransaction(context.Background(), *hash)
 		require.Nil(t, err)
-		assert.Equal(t, vmTrace, trace)
+		assert.Equal(t, utils.Ptr(rpc.AdaptVMTransactionTrace(vmTrace)), trace)
 	})
 }
 
@@ -376,12 +377,247 @@ func TestTraceBlockTransactions(t *testing.T) {
 		expectedResult := []rpc.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       &vmTrace,
+				TraceRoot:       utils.Ptr(rpc.AdaptVMTransactionTrace(&vmTrace)),
 			},
 		}
 		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
+	})
+}
+
+func TestAdaptVMTransactionTrace(t *testing.T) {
+	t.Run("successfully adapt trace from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type: vm.TxnInvoke,
+			ValidateInvocation: &vm.FunctionInvocation{
+				ExecutionResources: &vm.ExecutionResources{
+					L1Gas:     1,
+					L1DataGas: 2,
+					L2Gas:     3,
+					ComputationResources: vm.ComputationResources{
+						Steps:        1,
+						MemoryHoles:  2,
+						Pedersen:     3,
+						RangeCheck:   4,
+						Bitwise:      5,
+						Ecdsa:        6,
+						EcOp:         7,
+						Keccak:       8,
+						Poseidon:     9,
+						SegmentArena: 10,
+						AddMod:       11,
+						MulMod:       12,
+						RangeCheck96: 13,
+						Output:       14,
+					},
+					DataAvailability: &vm.DataAvailability{
+						L1Gas:     1,
+						L1DataGas: 2,
+					},
+				},
+			},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			StateDiff: &vm.StateDiff{
+				StorageDiffs: []vm.StorageDiff{
+					{
+						Address: felt.Zero,
+						StorageEntries: []vm.Entry{
+							{
+								Key:   felt.Zero,
+								Value: felt.Zero,
+							},
+						},
+					},
+				},
+				Nonces: []vm.Nonce{
+					{
+						ContractAddress: felt.Zero,
+						Nonce:           felt.Zero,
+					},
+				},
+				DeployedContracts: []vm.DeployedContract{
+					{
+						Address:   felt.Zero,
+						ClassHash: felt.Zero,
+					},
+				},
+				DeprecatedDeclaredClasses: []*felt.Felt{
+					&felt.Zero,
+				},
+				DeclaredClasses: []vm.DeclaredClass{
+					{
+						ClassHash:         felt.Zero,
+						CompiledClassHash: felt.Zero,
+					},
+				},
+				ReplacedClasses: []vm.ReplacedClass{
+					{
+						ContractAddress: felt.Zero,
+						ClassHash:       felt.Zero,
+					},
+				},
+			},
+		}
+
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnInvoke,
+			ValidateInvocation: &rpc.FunctionInvocation{
+				Calls: []rpc.FunctionInvocation{},
+				ExecutionResources: &rpc.ComputationResources{
+					Steps:        1,
+					MemoryHoles:  2,
+					Pedersen:     3,
+					RangeCheck:   4,
+					Bitwise:      5,
+					Ecdsa:        6,
+					EcOp:         7,
+					Keccak:       8,
+					Poseidon:     9,
+					SegmentArena: 10,
+				},
+			},
+			FeeTransferInvocation: &rpc.FunctionInvocation{
+				Calls: []rpc.FunctionInvocation{},
+			},
+			ExecuteInvocation: &rpc.ExecuteInvocation{
+				RevertReason: "",
+				FunctionInvocation: &rpc.FunctionInvocation{
+					Calls: []rpc.FunctionInvocation{},
+				},
+			},
+			StateDiff: &rpc.StateDiff{
+				StorageDiffs: []rpc.StorageDiff{
+					{
+						Address: felt.Zero,
+						StorageEntries: []rpc.Entry{
+							{
+								Key:   felt.Zero,
+								Value: felt.Zero,
+							},
+						},
+					},
+				},
+				Nonces: []rpc.Nonce{
+					{
+						ContractAddress: felt.Zero,
+						Nonce:           felt.Zero,
+					},
+				},
+				DeployedContracts: []rpc.DeployedContract{
+					{
+						Address:   felt.Zero,
+						ClassHash: felt.Zero,
+					},
+				},
+				DeprecatedDeclaredClasses: []*felt.Felt{
+					&felt.Zero,
+				},
+				DeclaredClasses: []rpc.DeclaredClass{
+					{
+						ClassHash:         felt.Zero,
+						CompiledClassHash: felt.Zero,
+					},
+				},
+				ReplacedClasses: []rpc.ReplacedClass{
+					{
+						ContractAddress: felt.Zero,
+						ClassHash:       felt.Zero,
+					},
+				},
+			},
+		}
+
+		result := utils.Ptr(rpc.AdaptVMTransactionTrace(&vmTrace))
+		assert.Equal(t, &expectedAdaptedTrace, result)
+	})
+}
+
+func TestAdaptFeederBlockTrace(t *testing.T) {
+	t.Run("nil block trace", func(t *testing.T) {
+		block := &rpc.BlockWithTxs{}
+
+		res, err := rpc.AdaptFeederBlockTrace(block, nil)
+		require.Nil(t, res)
+		require.Nil(t, err)
+	})
+
+	t.Run("inconsistent blockWithTxs and blockTrace", func(t *testing.T) {
+		blockWithTxs := &rpc.BlockWithTxs{
+			Transactions: []*rpc.Transaction{
+				{},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{}
+
+		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, res)
+		require.Equal(t, errors.New("mismatched number of txs and traces"), err)
+	})
+
+	t.Run("L1_HANDLER tx gets successfully adapted", func(t *testing.T) {
+		blockWithTxs := &rpc.BlockWithTxs{
+			Transactions: []*rpc.Transaction{
+				{
+					Type: rpc.TxnL1Handler,
+				},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{
+			Traces: []starknet.TransactionTrace{
+				{
+					TransactionHash: *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{
+						Events: []starknet.OrderedEvent{{
+							Order: 1,
+							Keys:  []felt.Felt{*new(felt.Felt).SetUint64(2)},
+							Data:  []felt.Felt{*new(felt.Felt).SetUint64(3)},
+						}},
+					},
+					ValidateInvocation: &starknet.FunctionInvocation{},
+					FunctionInvocation: &starknet.FunctionInvocation{},
+				},
+			},
+		}
+
+		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
+			{
+				TransactionHash: new(felt.Felt).SetUint64(1),
+				TraceRoot: &rpc.TransactionTrace{
+					Type: rpc.TxnL1Handler,
+					FeeTransferInvocation: &rpc.FunctionInvocation{
+						Calls: []rpc.FunctionInvocation{},
+						Events: []vm.OrderedEvent{{
+							Order: 1,
+							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
+							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+						}},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpc.ComputationResources{},
+					},
+					ValidateInvocation: &rpc.FunctionInvocation{
+						Calls:              []rpc.FunctionInvocation{},
+						Events:             []vm.OrderedEvent{},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpc.ComputationResources{},
+					},
+					FunctionInvocation: &rpc.FunctionInvocation{
+						Calls:              []rpc.FunctionInvocation{},
+						Events:             []vm.OrderedEvent{},
+						Messages:           []vm.OrderedL2toL1Message{},
+						ExecutionResources: &rpc.ComputationResources{},
+					},
+				},
+			},
+		}
+
+		res, err := rpc.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, err)
+		require.Equal(t, expectedAdaptedTrace, res)
 	})
 }
 
