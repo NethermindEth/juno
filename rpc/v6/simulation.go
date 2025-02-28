@@ -133,11 +133,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			GasConsumed: gasConsumed,
 			GasPrice:    gasPrice,
 			OverallFee:  overallFee,
-			Unit:        utils.Ptr(feeUnit),
+			Unit:        &feeUnit,
 		}
 
+		trace := AdaptVMTransactionTrace(&executionResults.Traces[i])
+
 		result[i] = SimulatedTransaction{
-			TransactionTrace: utils.Ptr(AdaptVMTransactionTrace(&executionResults.Traces[i])),
+			TransactionTrace: &trace,
 			FeeEstimation:    estimate,
 		}
 	}

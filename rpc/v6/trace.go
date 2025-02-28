@@ -203,8 +203,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 
 	result := make([]TracedBlockTransaction, len(executionResults.Traces))
 	for i := range executionResults.Traces {
+		trace := AdaptVMTransactionTrace(&executionResults.Traces[i])
+
 		result[i] = TracedBlockTransaction{
-			TraceRoot:       utils.Ptr(AdaptVMTransactionTrace(&executionResults.Traces[i])),
+			TraceRoot:       &trace,
 			TransactionHash: block.Transactions[i].Hash(),
 		}
 	}
