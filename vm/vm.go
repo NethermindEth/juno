@@ -39,7 +39,7 @@ type CallResult struct {
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string, errStack bool) (CallResult, error)
+		maxSteps uint64, sierraVersion string, structuredErrStack bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 	) (ExecutionResults, error)
@@ -213,7 +213,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string, errStack bool,
+	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -227,9 +227,9 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
-	var errorStackByte byte
-	if errStack {
-		errorStackByte = 1
+	var structuredErrStackByte byte
+	if structuredErrStack {
+		structuredErrStackByte = 1
 	}
 	C.setVersionedConstants(C.CString("my_json"))
 
@@ -242,10 +242,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps),        //nolint:gocritic
-		C.uchar(concurrencyModeByte), //nolint:gocritic
-		cSierraVersion,               //nolint:gocritic
-		C.uchar(errorStackByte),      //nolint:gocritic
+		C.ulonglong(maxSteps),           //nolint:gocritic
+		C.uchar(concurrencyModeByte),    //nolint:gocritic
+		cSierraVersion,                  //nolint:gocritic
+		C.uchar(structuredErrStackByte), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
