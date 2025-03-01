@@ -184,8 +184,9 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 		return nil, err
 	}
 
+	keyType := pb.KeyType_Ed25519
 	privKeyBytesPB, err := proto.Marshal(&pb.PrivateKey{
-		Type: utils.Ptr(pb.KeyType_Ed25519),
+		Type: &keyType,
 		Data: privKeyBytes,
 	})
 	if err != nil {

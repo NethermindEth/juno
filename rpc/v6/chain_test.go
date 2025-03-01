@@ -12,8 +12,8 @@ import (
 )
 
 func TestChainId(t *testing.T) {
-	for _, n := range []*utils.Network{
-		utils.Ptr(utils.Mainnet), utils.Ptr(utils.Sepolia), utils.Ptr(utils.SepoliaIntegration),
+	for _, n := range []utils.Network{
+		utils.Mainnet, utils.Sepolia, utils.SepoliaIntegration,
 	} {
 		t.Run(n.String(), func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
@@ -21,7 +21,7 @@ func TestChainId(t *testing.T) {
 
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().Network().Return(n)
-			handler := rpc.New(mockReader, nil, nil, "", n, nil)
+			handler := rpc.New(mockReader, nil, nil, "", &n, nil)
 
 			cID, err := handler.ChainID()
 			require.Nil(t, err)
