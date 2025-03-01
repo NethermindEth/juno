@@ -74,23 +74,6 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
-	// Adapt execution resources
-	var adaptedResources *ComputationResources
-	if r := vmFnInvocation.ExecutionResources; r != nil {
-		adaptedResources = &ComputationResources{
-			Steps:        r.Steps,
-			MemoryHoles:  r.MemoryHoles,
-			Pedersen:     r.Pedersen,
-			RangeCheck:   r.RangeCheck,
-			Bitwise:      r.Bitwise,
-			Ecdsa:        r.Ecdsa,
-			EcOp:         r.EcOp,
-			Keccak:       r.Keccak,
-			Poseidon:     r.Poseidon,
-			SegmentArena: r.SegmentArena,
-		}
-	}
-
 	// Adapt events
 	adaptedEvents := make([]OrderedEvent, len(vmFnInvocation.Events))
 	for index := range vmFnInvocation.Events {
@@ -115,6 +98,23 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 			From:    vmMessage.From,
 			To:      toAddr,
 			Payload: vmMessage.Payload,
+		}
+	}
+
+	// Adapt execution resources
+	var adaptedResources *ComputationResources
+	if r := vmFnInvocation.ExecutionResources; r != nil {
+		adaptedResources = &ComputationResources{
+			Steps:        r.Steps,
+			MemoryHoles:  r.MemoryHoles,
+			Pedersen:     r.Pedersen,
+			RangeCheck:   r.RangeCheck,
+			Bitwise:      r.Bitwise,
+			Ecdsa:        r.Ecdsa,
+			EcOp:         r.EcOp,
+			Keccak:       r.Keccak,
+			Poseidon:     r.Poseidon,
+			SegmentArena: r.SegmentArena,
 		}
 	}
 

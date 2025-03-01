@@ -474,9 +474,32 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt trace from vm", func(t *testing.T) {
+		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
+		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
+
+		payload0, _ := new(felt.Felt).SetString("0x0")
+		payload1, _ := new(felt.Felt).SetString("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2, _ := new(felt.Felt).SetString("0x455448")
+		payload3, _ := new(felt.Felt).SetString("0x31da07977d000")
+		payload4, _ := new(felt.Felt).SetString("0x0")
+
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
 			ValidateInvocation: &vm.FunctionInvocation{
+				Messages: []vm.OrderedL2toL1Message{
+					{
+						Order: 0,
+						From:  fromAddr,
+						To:    toAddrStr,
+						Payload: []*felt.Felt{
+							payload0,
+							payload1,
+							payload2,
+							payload3,
+							payload4,
+						},
+					},
+				},
 				ExecutionResources: &vm.ExecutionResources{
 					L1Gas:     1,
 					L1DataGas: 2,
@@ -552,12 +575,27 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
+		toAddr, _ := new(felt.Felt).SetString(toAddrStr)
+
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpc.OrderedEvent{},
-				Messages: []rpc.OrderedL2toL1Message{},
+				Calls:  []rpc.FunctionInvocation{},
+				Events: []rpc.OrderedEvent{},
+				Messages: []rpc.OrderedL2toL1Message{
+					{
+						Order: 0,
+						From:  fromAddr,
+						To:    toAddr,
+						Payload: []*felt.Felt{
+							payload0,
+							payload1,
+							payload2,
+							payload3,
+							payload4,
+						},
+					},
+				},
 				ExecutionResources: &rpc.ComputationResources{
 					Steps:        1,
 					MemoryHoles:  2,
