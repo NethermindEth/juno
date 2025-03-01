@@ -29,6 +29,8 @@ else
 	NPROCS = $(shell grep -c 'processor' /proc/cpuinfo)
 endif
 
+PKG ?= ./...
+
 MAKEFLAGS += -j$(NPROCS)
 
 rustdeps: check-rust vm core-rust compiler
@@ -82,8 +84,9 @@ benchmarks: rustdeps ## Run benchmarks
 
 test-cover: clean-testcache rustdeps ## Run tests with coverage
 	mkdir -p coverage
-	go test $(GO_TAGS) -coverpkg=./... -coverprofile=coverage/coverage.out -covermode=atomic ./...
+	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.out -covermode=atomic $(PKG)
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
+	open coverage/coverage.html
 
 install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
 
