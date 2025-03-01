@@ -393,7 +393,7 @@ func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityM
 	if mode == nil {
 		return nil
 	}
-	return utils.Ptr(starknet.DataAvailabilityMode(*mode))
+	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
 }
 
 func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
@@ -858,7 +858,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
 		Version:            t.Version.AsFelt(),
-		Signature:          utils.Ptr(t.Signature()),
+		Signature:          utils.HeapPtr(t.Signature()),
 		Nonce:              t.Nonce,
 		CallData:           &t.CallData,
 		ContractAddress:    t.ContractAddress,
@@ -867,12 +867,12 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 	return tx
 }
@@ -884,7 +884,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
 		Version:           t.Version.AsFelt(),
-		Signature:         utils.Ptr(t.Signature()),
+		Signature:         utils.HeapPtr(t.Signature()),
 		Nonce:             t.Nonce,
 		ClassHash:         t.ClassHash,
 		SenderAddress:     t.SenderAddress,
@@ -892,12 +892,12 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx
@@ -908,7 +908,7 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
-		Signature:           utils.Ptr(t.Signature()),
+		Signature:           utils.HeapPtr(t.Signature()),
 		Nonce:               t.Nonce,
 		Type:                TxnDeployAccount,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -917,11 +917,11 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx

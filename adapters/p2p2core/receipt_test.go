@@ -34,7 +34,7 @@ func TestAdaptReceipt(t *testing.T) {
 				Type: &gen.Receipt_L1Handler_{
 					L1Handler: &gen.Receipt_L1Handler{
 						Common: &gen.Receipt_Common{
-							RevertReason: utils.Ptr(reason),
+							RevertReason: &reason,
 						},
 					},
 				},

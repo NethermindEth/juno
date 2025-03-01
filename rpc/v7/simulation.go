@@ -161,7 +161,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			DataGasConsumed: daGasL1DataGas,
 			DataGasPrice:    dataGasPrice,
 			OverallFee:      overallFee,
-			Unit:            utils.Ptr(feeUnit),
+			Unit:            &feeUnit,
 		}
 
 		trace := traces[i]

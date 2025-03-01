@@ -20,7 +20,7 @@ import (
 )
 
 func TestClass(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
+	n := &utils.Integration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 
@@ -95,7 +95,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestClassAt(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
+	n := &utils.Integration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 
@@ -151,7 +151,7 @@ func TestClassHashAt(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
 	handler := rpc.New(mockReader, nil, nil, "", n, log)

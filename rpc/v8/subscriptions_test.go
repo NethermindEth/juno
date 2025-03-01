@@ -114,7 +114,7 @@ func TestSubscribeEvents(t *testing.T) {
 		})
 	})
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
@@ -1008,7 +1008,7 @@ func subMsg(method string) string {
 func testHeadBlock(t *testing.T) *core.Block {
 	t.Helper()
 
-	n := utils.Ptr(utils.Sepolia)
+	n := utils.HeapPtr(utils.Sepolia)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
