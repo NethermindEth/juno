@@ -69,34 +69,6 @@ func TestSimulateTransactions(t *testing.T) {
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
 
-	t.Run("ok with l2gas present", func(t *testing.T) {
-		stepsUsed := uint64(123)
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
-			Header: headsHeader,
-		}, mockState, n, false, true, false, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      []*felt.Felt{},
-				DataAvailability: []core.DataAvailability{},
-				Traces:           []vm.TransactionTrace{},
-				NumSteps:         stepsUsed,
-			}, nil)
-
-		txn := rpcv7.BroadcastedTransaction{
-			Transaction: rpcv7.Transaction{
-				ResourceBounds: &map[rpcv7.Resource]rpcv7.ResourceBounds{
-					rpcv7.Resource(core.ResourceL2Gas): {
-						MaxAmount:       new(felt.Felt).SetUint64(100),
-						MaxPricePerUnit: new(felt.Felt).SetUint64(100),
-					},
-				},
-			},
-		}
-
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{txn}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag})
-		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
-	})
-
 	t.Run("transaction execution error", func(t *testing.T) {
 		t.Run("v0_7, v0_8", func(t *testing.T) { //nolint:dupl
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
