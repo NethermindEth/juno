@@ -103,6 +103,21 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		}
 	}
 
+	// Adapt messages
+	adaptedMessages := make([]OrderedL2toL1Message, len(vmFnInvocation.Messages))
+	for index := range vmFnInvocation.Messages {
+		vmMessage := &vmFnInvocation.Messages[index]
+
+		toAddr, _ := new(felt.Felt).SetString(vmMessage.To)
+
+		adaptedMessages[index] = OrderedL2toL1Message{
+			Order:   vmMessage.Order,
+			From:    vmMessage.From,
+			To:      toAddr,
+			Payload: vmMessage.Payload,
+		}
+	}
+
 	return FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
@@ -114,7 +129,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		Result:             vmFnInvocation.Result,
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
-		Messages:           vmFnInvocation.Messages,
+		Messages:           adaptedMessages,
 		ExecutionResources: adaptedResources,
 	}
 }
@@ -273,13 +288,16 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]vm.OrderedL2toL1Message, len(snFnInvocation.Messages))
+	adaptedMessages := make([]OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
-		adaptedMessages[index] = vm.OrderedL2toL1Message{
+		toAddr, _ := new(felt.Felt).SetString(snMessage.ToAddr)
+
+		adaptedMessages[index] = OrderedL2toL1Message{
 			Order:   snMessage.Order,
-			To:      snMessage.ToAddr,
+			From:    &snFnInvocation.ContractAddress,
+			To:      toAddr,
 			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
 		}
 	}
