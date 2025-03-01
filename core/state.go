@@ -416,7 +416,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		}
 	}
 
-	// sort the contracts in decending diff size order
+	// sort the contracts in descending diff size order
 	// so we start with the heaviest update first
 	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 
