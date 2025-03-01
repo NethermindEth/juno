@@ -20,7 +20,7 @@ func TestChainId(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 
 			mockReader := mocks.NewMockReader(mockCtrl)
-			mockReader.EXPECT().Network().Return(n)
+			mockReader.EXPECT().Network().Return(&n)
 			handler := rpc.New(mockReader, nil, nil, "", &n, nil)
 
 			cID, err := handler.ChainID()

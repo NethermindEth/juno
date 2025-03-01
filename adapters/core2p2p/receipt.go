@@ -63,12 +63,12 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *gen.Receipt
 }
 
 func receiptCommon(r *core.TransactionReceipt) *gen.Receipt_Common {
-	var revertReason string
+	var revertReason *string
 	if r.RevertReason != "" {
-		revertReason = r.RevertReason
+		revertReason = &r.RevertReason
 	} else if r.Reverted {
 		// in some cases receipt marked as reverted may contain empty string in revert_reason
-		revertReason = ""
+		revertReason = utils.HeapPtr("")
 	}
 
 	return &gen.Receipt_Common{
@@ -76,7 +76,7 @@ func receiptCommon(r *core.TransactionReceipt) *gen.Receipt_Common {
 		PriceUnit:          adaptPriceUnit(r.FeeUnit),
 		MessagesSent:       utils.Map(r.L2ToL1Message, AdaptMessageToL1),
 		ExecutionResources: AdaptExecutionResources(r.ExecutionResources),
-		RevertReason:       &revertReason,
+		RevertReason:       revertReason,
 	}
 }
 
