@@ -86,7 +86,6 @@ test-cover: clean-testcache rustdeps ## Run tests with coverage
 	mkdir -p coverage
 	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.out -covermode=atomic $(PKG)
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
-	open coverage/coverage.html
 
 install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
 
