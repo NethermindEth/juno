@@ -51,7 +51,7 @@ func TestThrottler(t *testing.T) {
 	waitOn <- struct{}{} // release one of the slots
 	time.Sleep(time.Millisecond)
 	assert.Equal(t, 1, throttledRes.QueueLen())
-	waitOn <- struct{}{} // release another slot, qeueue should be empty
+	waitOn <- struct{}{} // release another slot, queue should be empty
 	time.Sleep(time.Millisecond)
 	assert.Equal(t, 0, throttledRes.QueueLen())
 
