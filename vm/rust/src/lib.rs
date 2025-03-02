@@ -4,8 +4,6 @@ pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
 
-#[macro_use]
-extern crate lazy_static;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
 use error::{CallError, ExecutionError};
 use error_stack::{ErrorStack, Frame};
@@ -13,7 +11,6 @@ use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
 use std::{
-    collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
     slice,
     sync::Arc,
@@ -41,7 +38,7 @@ use blockifier::{
 };
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use starknet_api::{
-    block::{BlockHash, GasPrice},
+    block::{BlockHash, GasPrice, StarknetVersion},
     contract_class::{ClassInfo, EntryPointType, SierraVersion},
     core::PatriciaKey,
     executable_transaction::AccountTransaction,
@@ -689,116 +686,20 @@ fn build_block_context(
     ))
 }
 
-lazy_static! {
-    static ref CONSTANTS: HashMap<String, VersionedConstants> = {
-        let mut m = HashMap::new();
-        m.insert(
-            "0.13.0".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_0.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.1".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_1.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.1.1".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_1_1.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.2".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_2.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.3".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_3.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.4".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_4.json"
-            ))
-            .unwrap(),
-        );
-        m
-    };
-}
-
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }
-        .to_str()
-        .unwrap_or("0.0.0");
-
-    let version = match StarknetVersion::from_str(version_str) {
-        Ok(v) => v,
-        Err(_) => StarknetVersion::from_str("0.0.0").unwrap(),
-    };
-
     if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
-        constants.clone()
-    } else if version < StarknetVersion::from_str("0.13.1").unwrap() {
-        CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.1.1").unwrap() {
-        CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.2").unwrap() {
-        CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.3").unwrap() {
-        CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.4").unwrap() {
-        CONSTANTS.get(&"0.13.3".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.5").unwrap() {
-        CONSTANTS.get(&"0.13.4".to_string()).unwrap().to_owned()
-    } else {
-        VersionedConstants::latest_constants().to_owned()
+        return constants.clone();
     }
-}
 
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StarknetVersion(u8, u8, u8, u8);
+    let version_str = unsafe { CStr::from_ptr(version) }.to_str();
 
-impl StarknetVersion {
-    pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
-        StarknetVersion(a, b, c, d)
-    }
-}
-
-impl FromStr for StarknetVersion {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Ok(StarknetVersion::new(0, 0, 0, 0));
-        }
-
-        let parts: Vec<_> = s.split('.').collect();
-        anyhow::ensure!(
-            parts.len() == 3 || parts.len() == 4,
-            "Invalid version string, expected 3 or 4 parts but got {}",
-            parts.len()
-        );
-
-        let a = parts[0].parse()?;
-        let b = parts[1].parse()?;
-        let c = parts[2].parse()?;
-        let d = parts.get(3).map(|x| x.parse()).transpose()?.unwrap_or(0);
-
-        Ok(StarknetVersion(a, b, c, d))
-    }
+    version_str
+        .ok()
+        .and_then(|version| StarknetVersion::try_from(version).ok())
+        .and_then(|version| VersionedConstants::get(&version).ok())
+        .unwrap_or(VersionedConstants::latest_constants())
+        .to_owned()
 }
 
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
