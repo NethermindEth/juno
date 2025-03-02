@@ -166,6 +166,18 @@ func TestTransactionTraceValidation(t *testing.T) {
 	}
 }
 
+func TestFunctionInvocationMarshalling(t *testing.T) {
+	t.Run("All FunctionInvocation fields must get marshalled", func(t *testing.T) {
+		zeroValuedFnInvocation := rpc.FunctionInvocation{}
+		expected := `{"contract_address": {}, "entry_point_selector": null, "calldata": null, "caller_address": {}, "class_hash": null, "entry_point_type": "","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null}`
+
+		jsonStr, err := json.Marshal(zeroValuedFnInvocation)
+
+		require.NoError(t, err)
+		assert.JSONEq(t, expected, string(jsonStr))
+	})
+}
+
 func TestTraceTransactionV0_6(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)

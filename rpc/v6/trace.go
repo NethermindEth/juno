@@ -49,17 +49,17 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 
 type FunctionInvocation struct {
 	ContractAddress    felt.Felt              `json:"contract_address"`
-	EntryPointSelector *felt.Felt             `json:"entry_point_selector,omitempty"`
+	EntryPointSelector *felt.Felt             `json:"entry_point_selector"`
 	Calldata           []felt.Felt            `json:"calldata"`
 	CallerAddress      felt.Felt              `json:"caller_address"`
-	ClassHash          *felt.Felt             `json:"class_hash,omitempty"`
-	EntryPointType     string                 `json:"entry_point_type,omitempty"`
-	CallType           string                 `json:"call_type,omitempty"`
+	ClassHash          *felt.Felt             `json:"class_hash"`
+	EntryPointType     string                 `json:"entry_point_type"`
+	CallType           string                 `json:"call_type"`
 	Result             []felt.Felt            `json:"result"`
 	Calls              []FunctionInvocation   `json:"calls"`
 	Events             []OrderedEvent         `json:"events"`
 	Messages           []OrderedL2toL1Message `json:"messages"`
-	ExecutionResources *ComputationResources  `json:"execution_resources,omitempty"`
+	ExecutionResources *ComputationResources  `json:"execution_resources"`
 }
 
 type OrderedEvent struct {
