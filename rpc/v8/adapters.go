@@ -130,7 +130,7 @@ func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
 		ExecutionResources: adaptedResources,
-		IsReverted:         false, // TODO
+		IsReverted:         vmFnInvocation.IsReverted,
 	}
 }
 
@@ -248,7 +248,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
 		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
-		IsReverted:         false, // TODO
+		IsReverted:         snFnInvocation.Failed,
 	}
 }
 

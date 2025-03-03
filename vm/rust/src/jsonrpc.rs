@@ -258,6 +258,7 @@ pub struct FunctionInvocation {
     pub messages: Vec<OrderedMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub execution_resources: Option<ExecutionResources>,
+    pub is_reverted: bool,
 }
 
 use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;
@@ -291,6 +292,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                 })
                 .collect(),
             execution_resources: Some(val.resources.into()),
+            is_reverted: val.execution.failed,
         }
     }
 }

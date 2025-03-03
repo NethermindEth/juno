@@ -158,6 +158,7 @@ type FunctionInvocation struct {
 	Events             []OrderedEvent         `json:"events"`
 	Messages           []OrderedL2toL1Message `json:"messages"`
 	ExecutionResources *ExecutionResources    `json:"execution_resources,omitempty"`
+	IsReverted         bool                   `json:"is_reverted,omitempty"`
 }
 
 func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
