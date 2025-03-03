@@ -1,11 +1,12 @@
 package db
 
 import (
-	"errors"
+	"sync"
 )
 
 // BufferedTransaction buffers the updates in the memory to be later flushed to the underlying Transaction
 type BufferedTransaction struct {
+	mu      sync.RWMutex
 	updates map[string][]byte
 	txn     Transaction
 }
@@ -34,6 +35,9 @@ func (t *BufferedTransaction) Commit() error {
 
 // Set : see db.Transaction.Set
 func (t *BufferedTransaction) Set(key, val []byte) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	valueCopy := make([]byte, 0, len(val))
 	t.updates[string(key)] = append(valueCopy, val...)
 	return nil
@@ -41,12 +45,18 @@ func (t *BufferedTransaction) Set(key, val []byte) error {
 
 // Delete : see db.Transaction.Delete
 func (t *BufferedTransaction) Delete(key []byte) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	t.updates[string(key)] = nil
 	return nil
 }
 
 // Get : see db.Transaction.Get
 func (t *BufferedTransaction) Get(key []byte, cb func([]byte) error) error {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	if value, found := t.updates[string(key)]; found {
 		if value == nil {
 			return ErrKeyNotFound
@@ -57,7 +67,11 @@ func (t *BufferedTransaction) Get(key []byte, cb func([]byte) error) error {
 }
 
 // Flush applies the pending changes to the underlying Transaction
+// The underlying updates will be cleared after the flush
 func (t *BufferedTransaction) Flush() error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	for key, value := range t.updates {
 		keyBytes := []byte(key)
 		if value == nil {
@@ -70,6 +84,9 @@ func (t *BufferedTransaction) Flush() error {
 			}
 		}
 	}
+
+	t.updates = make(map[string][]byte)
+
 	return nil
 }
 
@@ -79,6 +96,6 @@ func (t *BufferedTransaction) Impl() any {
 }
 
 // NewIterator : see db.Transaction.NewIterator
-func (t *BufferedTransaction) NewIterator(_ []byte, _ bool) (Iterator, error) {
-	return nil, errors.New("buffered transactions dont support iterators")
+func (t *BufferedTransaction) NewIterator(lowerBound []byte, withUpperBound bool) (Iterator, error) {
+	return t.txn.NewIterator(lowerBound, withUpperBound)
 }

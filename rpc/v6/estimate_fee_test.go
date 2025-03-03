@@ -46,7 +46,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		Timestamp:     456,
 		L1GasPriceETH: new(felt.Felt).SetUint64(42),
 	}
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
@@ -56,7 +56,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		Header: latestHeader,
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
-			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
+			state vm.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
 		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))

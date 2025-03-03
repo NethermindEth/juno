@@ -1,9 +1,11 @@
 package sync
 
 import (
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2"
 )
 
 type Pending struct {
@@ -15,10 +17,10 @@ type Pending struct {
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class
-	head       core.StateReader
+	head       blockchain.StateReader
 }
 
-func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingState {
+func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head blockchain.StateReader) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
 		newClasses: newClasses,
@@ -67,14 +69,14 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 	return p.head.Class(classHash)
 }
 
-func (p *PendingState) ClassTrie() (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+func (p *PendingState) ClassTrie() (*trie2.Trie, error) {
+	return nil, state.ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractTrie() (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+func (p *PendingState) ContractTrie() (*trie2.Trie, error) {
+	return nil, state.ErrHistoricalTrieNotSupported
 }
 
-func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+	return nil, state.ErrHistoricalTrieNotSupported
 }

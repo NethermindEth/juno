@@ -1,85 +1,77 @@
-package trie_test
+package trie2
 
 import (
 	"math/rand"
-	"sort"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProve(t *testing.T) {
-	t.Parallel()
-
 	n := 1000
 	tempTrie, records := nonRandomTrie(t, n)
 
 	for _, record := range records {
-		proofSet := trie.NewProofNodeSet()
+		root := tempTrie.Hash()
+
+		proofSet := NewProofNodeSet()
 		err := tempTrie.Prove(record.key, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		val, err := trie.VerifyProof(root, record.key, proofSet, crypto.Pedersen)
+		val, err := VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
 		if err != nil {
 			t.Fatalf("failed for key %s", record.key.String())
 		}
-		require.Equal(t, record.value, val)
+
+		if !val.Equal(record.value) {
+			t.Fatalf("expected value %s, got %s", record.value.String(), val.String())
+		}
 	}
 }
 
 func TestProveNonExistent(t *testing.T) {
-	t.Parallel()
-
 	n := 1000
 	tempTrie, _ := nonRandomTrie(t, n)
 
 	for i := 1; i < n+1; i++ {
-		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
+		root := tempTrie.Hash()
 
-		proofSet := trie.NewProofNodeSet()
+		keyFelt := new(felt.Felt).SetUint64(uint64(i + n))
+		proofSet := NewProofNodeSet()
 		err := tempTrie.Prove(keyFelt, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
-		require.NoError(t, err)
-
-		val, err := trie.VerifyProof(root, keyFelt, proofSet, crypto.Pedersen)
+		val, err := VerifyProof(&root, keyFelt, proofSet, crypto.Pedersen)
 		if err != nil {
 			t.Fatalf("failed for key %s", keyFelt.String())
 		}
-		require.Equal(t, &felt.Zero, val)
+		require.Equal(t, felt.Zero, val)
 	}
 }
 
 func TestProveRandom(t *testing.T) {
-	t.Parallel()
 	tempTrie, records := randomTrie(t, 1000)
 
 	for _, record := range records {
-		proofSet := trie.NewProofNodeSet()
+		root := tempTrie.Hash()
+
+		proofSet := NewProofNodeSet()
 		err := tempTrie.Prove(record.key, proofSet)
 		require.NoError(t, err)
 
-		root, err := tempTrie.Root()
+		val, err := VerifyProof(&root, record.key, proofSet, crypto.Pedersen)
 		require.NoError(t, err)
 
-		val, err := trie.VerifyProof(root, record.key, proofSet, crypto.Pedersen)
-		require.NoError(t, err)
-		require.Equal(t, record.value, val)
+		if !val.Equal(record.value) {
+			t.Fatalf("expected value %s, got %s", record.value.String(), val.String())
+		}
 	}
 }
 
 func TestProveCustom(t *testing.T) {
-	t.Parallel()
-
 	tests := []testTrie{
 		{
 			name:    "simple binary",
@@ -131,12 +123,8 @@ func TestProveCustom(t *testing.T) {
 		},
 		{
 			name: "left-right edge",
-			buildFn: func(t *testing.T) (*trie.Trie, []*keyValue) {
-				memdb := pebble.NewMemTest(t)
-				txn, err := memdb.NewTransaction(true)
-				require.NoError(t, err)
-
-				tr, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+			buildFn: func(t *testing.T) (*Trie, []*keyValue) {
+				tr, err := NewEmptyPedersen()
 				require.NoError(t, err)
 
 				records := []*keyValue{
@@ -144,10 +132,9 @@ func TestProveCustom(t *testing.T) {
 				}
 
 				for _, record := range records {
-					_, err = tr.Put(record.key, record.value)
+					err = tr.Update(record.key, record.value)
 					require.NoError(t, err)
 				}
-				require.NoError(t, tr.Commit())
 				return tr, records
 			},
 			testKeys: []testKey{
@@ -173,22 +160,21 @@ func TestProveCustom(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			tr, _ := test.buildFn(t)
 
 			for _, tc := range test.testKeys {
 				t.Run(tc.name, func(t *testing.T) {
-					proofSet := trie.NewProofNodeSet()
+					proofSet := NewProofNodeSet()
+
+					root := tr.Hash()
 					err := tr.Prove(tc.key, proofSet)
 					require.NoError(t, err)
 
-					root, err := tr.Root()
+					val, err := VerifyProof(&root, tc.key, proofSet, crypto.Pedersen)
 					require.NoError(t, err)
-
-					val, err := trie.VerifyProof(root, tc.key, proofSet, crypto.Pedersen)
-					require.NoError(t, err)
-					require.Equal(t, tc.expected, val)
+					if !val.Equal(tc.expected) {
+						t.Fatalf("expected value %s, got %s", tc.expected.String(), val.String())
+					}
 				})
 			}
 		})
@@ -197,18 +183,15 @@ func TestProveCustom(t *testing.T) {
 
 // TestRangeProof tests normal range proof with both edge proofs
 func TestRangeProof(t *testing.T) {
-	t.Parallel()
-
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
-	for range 100 {
+	for i := 0; i < 100; i++ {
 		start := rand.Intn(n)
 		end := rand.Intn(n-start) + start + 1
 
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		err := tr.GetRangeProof(records[start].key, records[end-1].key, proof)
 		require.NoError(t, err)
 
@@ -219,21 +202,18 @@ func TestRangeProof(t *testing.T) {
 			values = append(values, records[i].value)
 		}
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, keys, values, proof)
+		_, err = VerifyRangeProof(&root, records[start].key, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
 
 // TestRangeProofWithNonExistentProof tests normal range proof with non-existent proofs
 func TestRangeProofWithNonExistentProof(t *testing.T) {
-	t.Parallel()
-
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
-	for range 100 {
+	for i := 0; i < 100; i++ {
 		start := rand.Intn(n)
 		end := rand.Intn(n-start) + start + 1
 
@@ -242,7 +222,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 			continue
 		}
 
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		err := tr.GetRangeProof(first, records[end-1].key, proof)
 		require.NoError(t, err)
 
@@ -253,7 +233,7 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 			values[i-start] = records[i].value
 		}
 
-		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		_, err = VerifyRangeProof(&root, first, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
@@ -261,18 +241,15 @@ func TestRangeProofWithNonExistentProof(t *testing.T) {
 // TestRangeProofWithInvalidNonExistentProof tests range proof with invalid non-existent proofs.
 // One scenario is when there is a gap between the first element and the left edge proof.
 func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
-	t.Parallel()
-
 	n := 500
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
 	start, end := 100, 200
 	first := decrementFelt(records[start].key)
 
-	proof := trie.NewProofNodeSet()
-	err = tr.GetRangeProof(first, records[end-1].key, proof)
+	proof := NewProofNodeSet()
+	err := tr.GetRangeProof(first, records[end-1].key, proof)
 	require.NoError(t, err)
 
 	start = 105 // Gap created
@@ -283,91 +260,86 @@ func TestRangeProofWithInvalidNonExistentProof(t *testing.T) {
 		values[i-start] = records[i].value
 	}
 
-	_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+	_, err = VerifyRangeProof(&root, first, keys, values, proof)
 	require.Error(t, err)
 }
 
-func TestOneElementRangeProof(t *testing.T) {
-	t.Parallel()
+func TestRangeProofCustom(t *testing.T) {
+	tr, records := build4KeysTrieD(t)
+	root := tr.Hash()
 
-	n := 1000
-	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
+	proof := NewProofNodeSet()
+	err := tr.GetRangeProof(records[0].key, records[2].key, proof)
 	require.NoError(t, err)
 
-	t.Run("both edge proofs with the same key", func(t *testing.T) {
-		t.Parallel()
+	_, err = VerifyRangeProof(&root, records[0].key, []*felt.Felt{records[0].key, records[1].key, records[2].key, records[3].key}, []*felt.Felt{records[0].value, records[1].value, records[2].value, records[3].value}, proof)
+	require.NoError(t, err)
+}
 
+func TestOneElementRangeProof(t *testing.T) {
+	n := 1000
+	tr, records := randomTrie(t, n)
+	root := tr.Hash()
+
+	t.Run("both edge proofs with the same key", func(t *testing.T) {
 		start := 100
-		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(records[start].key, records[start].key, proof)
+		proof := NewProofNodeSet()
+		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = VerifyRangeProof(&root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
 		require.NoError(t, err)
 	})
 
 	t.Run("left non-existent edge proof", func(t *testing.T) {
-		t.Parallel()
-
 		start := 100
-		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
+		proof := NewProofNodeSet()
+		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = VerifyRangeProof(&root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
 		require.NoError(t, err)
 	})
 
 	t.Run("right non-existent edge proof", func(t *testing.T) {
-		t.Parallel()
-
 		end := 100
-		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
+		proof := NewProofNodeSet()
+		err := tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[end].key, []*felt.Felt{records[end].key}, []*felt.Felt{records[end].value}, proof)
+		_, err = VerifyRangeProof(&root, records[end].key, []*felt.Felt{records[end].key}, []*felt.Felt{records[end].value}, proof)
 		require.NoError(t, err)
 	})
 
 	t.Run("both non-existent edge proofs", func(t *testing.T) {
-		t.Parallel()
-
 		start := 100
 		first, last := decrementFelt(records[start].key), incrementFelt(records[start].key)
-		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(first, last, proof)
+		proof := NewProofNodeSet()
+		err := tr.GetRangeProof(first, last, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, first, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = VerifyRangeProof(&root, first, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
 		require.NoError(t, err)
 	})
 
 	t.Run("1 key trie", func(t *testing.T) {
-		t.Parallel()
-
 		tr, records := build1KeyTrie(t)
-		root, err := tr.Root()
+		root := tr.Hash()
+
+		proof := NewProofNodeSet()
+		err := tr.GetRangeProof(&felt.Zero, records[0].key, proof)
 		require.NoError(t, err)
 
-		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(&felt.Zero, records[0].key, proof)
-		require.NoError(t, err)
-
-		_, err = trie.VerifyRangeProof(root, records[0].key, []*felt.Felt{records[0].key}, []*felt.Felt{records[0].value}, proof)
+		_, err = VerifyRangeProof(&root, records[0].key, []*felt.Felt{records[0].key}, []*felt.Felt{records[0].value}, proof)
 		require.NoError(t, err)
 	})
 }
 
 // TestAllElementsRangeProof tests the range proof with all elements and nil proof.
 func TestAllElementsRangeProof(t *testing.T) {
-	t.Parallel()
-
 	n := 1000
 	tr, records := randomTrie(t, n)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
 	keys := make([]*felt.Felt, n)
 	values := make([]*felt.Felt, n)
@@ -376,28 +348,25 @@ func TestAllElementsRangeProof(t *testing.T) {
 		values[i] = record.value
 	}
 
-	_, err = trie.VerifyRangeProof(root, nil, keys, values, nil)
+	_, err := VerifyRangeProof(&root, nil, keys, values, nil)
 	require.NoError(t, err)
 
 	// Should also work with proof
-	proof := trie.NewProofNodeSet()
+	proof := NewProofNodeSet()
 	err = tr.GetRangeProof(records[0].key, records[n-1].key, proof)
 	require.NoError(t, err)
 
-	_, err = trie.VerifyRangeProof(root, keys[0], keys, values, proof)
+	_, err = VerifyRangeProof(&root, keys[0], keys, values, proof)
 	require.NoError(t, err)
 }
 
 // TestSingleSideRangeProof tests the range proof starting with zero.
 func TestSingleSideRangeProof(t *testing.T) {
-	t.Parallel()
-
 	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
 	for i := 0; i < len(records); i += 100 {
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		err := tr.GetRangeProof(&felt.Zero, records[i].key, proof)
 		require.NoError(t, err)
 
@@ -408,22 +377,18 @@ func TestSingleSideRangeProof(t *testing.T) {
 			values[j] = records[j].value
 		}
 
-		_, err = trie.VerifyRangeProof(root, &felt.Zero, keys, values, proof)
+		_, err = VerifyRangeProof(&root, &felt.Zero, keys, values, proof)
 		require.NoError(t, err)
 	}
 }
 
 func TestGappedRangeProof(t *testing.T) {
-	t.Parallel()
-	t.Skip("gapped keys will sometimes succeed, the current proof format is not able to handle this")
-
 	tr, records := nonRandomTrie(t, 5)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
 	first, last := 1, 4
-	proof := trie.NewProofNodeSet()
-	err = tr.GetRangeProof(records[first].key, records[last].key, proof)
+	proof := NewProofNodeSet()
+	err := tr.GetRangeProof(records[first].key, records[last].key, proof)
 	require.NoError(t, err)
 
 	keys := []*felt.Felt{}
@@ -437,16 +402,13 @@ func TestGappedRangeProof(t *testing.T) {
 		values = append(values, records[i].value)
 	}
 
-	_, err = trie.VerifyRangeProof(root, records[first].key, keys, values, proof)
+	_, err = VerifyRangeProof(&root, records[first].key, keys, values, proof)
 	require.Error(t, err)
 }
 
 func TestEmptyRangeProof(t *testing.T) {
-	t.Parallel()
-
 	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	root := tr.Hash()
 
 	cases := []struct {
 		pos int
@@ -457,12 +419,12 @@ func TestEmptyRangeProof(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		first := incrementFelt(records[c.pos].key)
-		err = tr.GetRangeProof(first, first, proof)
+		err := tr.GetRangeProof(first, first, proof)
 		require.NoError(t, err)
 
-		_, err := trie.VerifyRangeProof(root, first, nil, nil, proof)
+		_, err = VerifyRangeProof(&root, first, nil, nil, proof)
 		if c.err {
 			require.Error(t, err)
 		} else {
@@ -472,11 +434,8 @@ func TestEmptyRangeProof(t *testing.T) {
 }
 
 func TestHasRightElement(t *testing.T) {
-	t.Parallel()
-
-	tr, records := randomTrie(t, 500)
-	root, err := tr.Root()
-	require.NoError(t, err)
+	tr, records := randomTrie(t, 10000)
+	root := tr.Hash()
 
 	cases := []struct {
 		start   int
@@ -498,7 +457,7 @@ func TestHasRightElement(t *testing.T) {
 			first *felt.Felt
 			start = c.start
 			end   = c.end
-			proof = trie.NewProofNodeSet()
+			proof = NewProofNodeSet()
 		)
 		if start == -1 {
 			first = &felt.Zero
@@ -517,7 +476,7 @@ func TestHasRightElement(t *testing.T) {
 			values = append(values, records[i].value)
 		}
 
-		hasMore, err := trie.VerifyRangeProof(root, first, keys, values, proof)
+		hasMore, err := VerifyRangeProof(&root, first, keys, values, proof)
 		require.NoError(t, err)
 		require.Equal(t, c.hasMore, hasMore)
 	}
@@ -525,17 +484,14 @@ func TestHasRightElement(t *testing.T) {
 
 // TestBadRangeProof generates random bad proof scenarios and verifies that the proof is invalid.
 func TestBadRangeProof(t *testing.T) {
-	t.Parallel()
+	tr, records := randomTrie(t, 5000)
+	root := tr.Hash()
 
-	tr, records := randomTrie(t, 1000)
-	root, err := tr.Root()
-	require.NoError(t, err)
-
-	for range 100 {
+	for range 500 {
 		start := rand.Intn(len(records))
 		end := rand.Intn(len(records)-start) + start + 1
 
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		err := tr.GetRangeProof(records[start].key, records[end-1].key, proof)
 		require.NoError(t, err)
 
@@ -547,7 +503,7 @@ func TestBadRangeProof(t *testing.T) {
 		}
 
 		first := keys[0]
-		testCase := rand.Intn(5)
+		testCase := rand.Intn(6)
 
 		index := rand.Intn(end - start)
 		switch testCase {
@@ -566,15 +522,14 @@ func TestBadRangeProof(t *testing.T) {
 			keys[index] = &felt.Zero
 		case 4: // set random value to empty
 			values[index] = &felt.Zero
-			// TODO(weiihann): gapped proof will fail sometimes
-			// case 5: // gapped
-			// 	if end-start < 100 || index == 0 || index == end-start-1 {
-			// 		continue
-			// 	}
-			// 	keys = append(keys[:index], keys[index+1:]...)
-			// 	values = append(values[:index], values[index+1:]...)
+		case 5: // gapped
+			if end-start < 100 || index == 0 || index == end-start-1 {
+				continue
+			}
+			keys = append(keys[:index], keys[index+1:]...)
+			values = append(values[:index], values[index+1:]...)
 		}
-		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
+		_, err = VerifyRangeProof(&root, first, keys, values, proof)
 		if err == nil {
 			t.Fatalf("expected error for test case %d, index %d, start %d, end %d", testCase, index, start, end)
 		}
@@ -585,7 +540,7 @@ func BenchmarkProve(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
 	b.ResetTimer()
 	for i := range b.N {
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		key := records[i%len(records)].key
 		if err := tr.Prove(key, proof); err != nil {
 			b.Fatal(err)
@@ -595,12 +550,11 @@ func BenchmarkProve(b *testing.B) {
 
 func BenchmarkVerifyProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root, err := tr.Root()
-	require.NoError(b, err)
+	root := tr.Hash()
 
-	proofs := make([]*trie.ProofNodeSet, 0, len(records))
+	proofs := make([]*ProofNodeSet, 0, len(records))
 	for _, record := range records {
-		proof := trie.NewProofNodeSet()
+		proof := NewProofNodeSet()
 		if err := tr.Prove(record.key, proof); err != nil {
 			b.Fatal(err)
 		}
@@ -610,7 +564,7 @@ func BenchmarkVerifyProof(b *testing.B) {
 	b.ResetTimer()
 	for i := range b.N {
 		index := i % len(records)
-		if _, err := trie.VerifyProof(root, records[index].key, proofs[index], crypto.Pedersen); err != nil {
+		if _, err := VerifyProof(&root, records[index].key, proofs[index], crypto.Pedersen); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -618,14 +572,13 @@ func BenchmarkVerifyProof(b *testing.B) {
 
 func BenchmarkVerifyRangeProof(b *testing.B) {
 	tr, records := randomTrie(b, 1000)
-	root, err := tr.Root()
-	require.NoError(b, err)
+	root := tr.Hash()
 
 	start := 2
 	end := start + 500
 
-	proof := trie.NewProofNodeSet()
-	err = tr.GetRangeProof(records[start].key, records[end-1].key, proof)
+	proof := NewProofNodeSet()
+	err := tr.GetRangeProof(records[start].key, records[end-1].key, proof)
 	require.NoError(b, err)
 
 	keys := make([]*felt.Felt, end-start)
@@ -637,38 +590,32 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		_, err := trie.VerifyRangeProof(root, keys[0], keys, values, proof)
+		_, err := VerifyRangeProof(&root, keys[0], keys, values, proof)
 		require.NoError(b, err)
 	}
 }
 
-func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
+func buildTrie(t *testing.T, records []*keyValue) *Trie {
 	if len(records) == 0 {
 		t.Fatal("records must have at least one element")
 	}
 
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
-
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := NewEmptyPedersen()
 	require.NoError(t, err)
 
 	for _, record := range records {
-		_, err = tempTrie.Put(record.key, record.value)
+		err = tempTrie.Update(record.key, record.value)
 		require.NoError(t, err)
 	}
-
-	require.NoError(t, tempTrie.Commit())
 
 	return tempTrie
 }
 
-func build1KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func build1KeyTrie(t *testing.T) (*Trie, []*keyValue) {
 	return nonRandomTrie(t, 1)
 }
 
-func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleTrie(t *testing.T) (*Trie, []*keyValue) {
 	//   (250, 0, x1)		edge
 	//        |
 	//     (0,0,x1)			binary
@@ -682,7 +629,7 @@ func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, records), records
 }
 
-func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleBinaryRootTrie(t *testing.T) (*Trie, []*keyValue) {
 	// PF
 	//           (0, 0, x)
 	//    /                    \
@@ -702,7 +649,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 }
 
 //nolint:dupl
-func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleDoubleBinaryTrie(t *testing.T) (*Trie, []*keyValue) {
 	//           (249,0,x3)         // Edge
 	//               |
 	//           (0, 0, x3)         // Binary
@@ -719,7 +666,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 }
 
 //nolint:dupl
-func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func build3KeyTrie(t *testing.T) (*Trie, []*keyValue) {
 	// 			Starknet
 	//			--------
 	//
@@ -748,59 +695,6 @@ func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, records), records
 }
 
-func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
-
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
-	require.NoError(t, err)
-
-	records := make([]*keyValue, numKeys)
-	for i := 1; i < numKeys+1; i++ {
-		key := new(felt.Felt).SetUint64(uint64(i))
-		records[i-1] = &keyValue{key: key, value: key}
-		_, err := tempTrie.Put(key, key)
-		require.NoError(t, err)
-	}
-
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].key.Cmp(records[j].key) < 0
-	})
-
-	require.NoError(t, tempTrie.Commit())
-
-	return tempTrie, records
-}
-
-func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
-	rrand := rand.New(rand.NewSource(3))
-
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
-
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
-	require.NoError(t, err)
-
-	records := make([]*keyValue, n)
-	for i := range n {
-		key := new(felt.Felt).SetUint64(uint64(rrand.Uint32() + 1))
-		records[i] = &keyValue{key: key, value: key}
-		_, err := tempTrie.Put(key, key)
-		require.NoError(t, err)
-	}
-
-	require.NoError(t, tempTrie.Commit())
-
-	// Sort records by key
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].key.Cmp(records[j].key) < 0
-	})
-
-	return tempTrie, records
-}
-
 func decrementFelt(f *felt.Felt) *felt.Felt {
 	return new(felt.Felt).Sub(f, new(felt.Felt).SetUint64(1))
 }
@@ -817,11 +711,6 @@ type testKey struct {
 
 type testTrie struct {
 	name     string
-	buildFn  func(*testing.T) (*trie.Trie, []*keyValue)
+	buildFn  func(*testing.T) (*Trie, []*keyValue)
 	testKeys []testKey
-}
-
-type keyValue struct {
-	key   *felt.Felt
-	value *felt.Felt
 }
