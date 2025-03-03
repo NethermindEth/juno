@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -64,9 +65,9 @@ func (f FeeEstimate) MarshalJSON() ([]byte, error) {
 *****************************************************/
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
+	simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true)
+	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv6.SkipFeeChargeFlag), true)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -76,16 +77,16 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), httpHeader, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
 	return h.estimateMessageFee(msg, id, h.EstimateFee)
 }
 
 type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
+	simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
 //nolint:gocritic
-func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
+func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
 	http.Header, *jsonrpc.Error,
 ) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
