@@ -1,4 +1,4 @@
-package triedb
+package pathdb
 
 type leafType uint8
 
