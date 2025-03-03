@@ -164,7 +164,7 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 		return nil, fmt.Errorf("invalid edge node size: %d", len(blob))
 	}
 
-	edge := &EdgeNode{Path: &trieutils.BitArray{}}
+	edge := &EdgeNode{Path: &trieutils.Path{}}
 	if hash != nil {
 		edge.flags.hash = &HashNode{Felt: *hash}
 	}

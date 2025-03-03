@@ -24,9 +24,9 @@ var (
 )
 
 type TrieDB interface {
-	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray, isLeaf bool) (int, error)
-	Put(owner felt.Felt, path trieutils.BitArray, blob []byte, isLeaf bool) error
-	Delete(owner felt.Felt, path trieutils.BitArray, isLeaf bool) error
+	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error)
+	Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error
+	Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error
 	NewIterator(owner felt.Felt) (db.Iterator, error)
 }
 
@@ -39,7 +39,7 @@ func New(txn db.Transaction, prefix db.Bucket) *Database {
 	return &Database{txn: txn, prefix: prefix}
 }
 
-func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray, isLeaf bool) (int, error) {
+func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
 	dbBuf := dbBufferPool.Get().(*bytes.Buffer)
 	dbBuf.Reset()
 	defer func() {
@@ -62,7 +62,7 @@ func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArr
 	return buf.Len(), nil
 }
 
-func (d *Database) Put(owner felt.Felt, path trieutils.BitArray, blob []byte, isLeaf bool) error {
+func (d *Database) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error {
 	buffer := dbBufferPool.Get().(*bytes.Buffer)
 	buffer.Reset()
 	defer func() {
@@ -77,7 +77,7 @@ func (d *Database) Put(owner felt.Felt, path trieutils.BitArray, blob []byte, is
 	return d.txn.Set(buffer.Bytes(), blob)
 }
 
-func (d *Database) Delete(owner felt.Felt, path trieutils.BitArray, isLeaf bool) error {
+func (d *Database) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
 	buffer := dbBufferPool.Get().(*bytes.Buffer)
 	buffer.Reset()
 	defer func() {
@@ -123,7 +123,7 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray, isLeaf bool) error {
+func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) error {
 	_, err := buf.Write(d.prefix.Key())
 	if err != nil {
 		return err
@@ -159,15 +159,15 @@ func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitA
 
 type EmptyDatabase struct{}
 
-func (EmptyDatabase) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.BitArray, isLeaf bool) (int, error) {
+func (EmptyDatabase) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
 	return 0, ErrCallEmptyDatabase
 }
 
-func (EmptyDatabase) Put(owner felt.Felt, path trieutils.BitArray, blob []byte, isLeaf bool) error {
+func (EmptyDatabase) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error {
 	return ErrCallEmptyDatabase
 }
 
-func (EmptyDatabase) Delete(owner felt.Felt, path trieutils.BitArray, isLeaf bool) error {
+func (EmptyDatabase) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
 	return ErrCallEmptyDatabase
 }
 
