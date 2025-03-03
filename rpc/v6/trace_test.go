@@ -67,7 +67,6 @@ func TestTraceFallback(t *testing.T) {
 
 		AssertTracedBlockTransactions(t, &utils.Sepolia, tests)
 	})
-
 }
 
 func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[string]expectedBlockTrace) {
