@@ -1005,7 +1005,7 @@ func TestCall(t *testing.T) {
 			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
 		}
-		expectedErr := rpc.MakeContractError(json.RawMessage(rpccore.EntrypointNotFoundFelt))
+		expectedErr := rpc.MakeContractError(json.RawMessage(rpccore.ExecutionFailed))
 
 		headsHeader := &core.Header{
 			Number:    9,
@@ -1032,6 +1032,6 @@ func TestCall(t *testing.T) {
 			Calldata:           calldata,
 		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
-		require.Equal(t, rpcErr, expectedErr)
+		require.Equal(t, expectedErr, rpcErr)
 	})
 }
