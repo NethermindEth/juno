@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -31,7 +32,7 @@ type Trie struct {
 	hashFn crypto.HashFn
 
 	// The underlying database to store and retrieve trie nodes
-	db pathdb.TrieDB
+	db *triedb.Database
 
 	// Check if the trie has been committed. Trie is unusable once committed.
 	committed bool
@@ -54,7 +55,7 @@ type TrieID interface {
 
 // Creates a new trie
 func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
-	database := pathdb.New(txn, id.Bucket())
+	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
 	tr := &Trie{
 		owner:      id.Owner(),
 		height:     height,
@@ -80,7 +81,7 @@ func NewEmpty(height uint8, hashFn crypto.HashFn) *Trie {
 		hashFn:     hashFn,
 		root:       nil,
 		nodeTracer: newTracer(),
-		db:         pathdb.EmptyDatabase{},
+		db:         triedb.NewEmptyPathDatabase(),
 	}
 }
 
