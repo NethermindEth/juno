@@ -75,3 +75,11 @@ func (o *OrderedSet[K, V]) Keys() []K {
 	}
 	return keys
 }
+
+func (o *OrderedSet[K, V]) Clear() {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	o.items = nil
+	o.itemPos = make(map[K]int)
+}
