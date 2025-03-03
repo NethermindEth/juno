@@ -2,11 +2,10 @@ name: Dev Environment Pipeline
 
 on:
   workflow_call:
-    inputs:
+    outputs:
       docker_image_tag:
-        required: true
-        type: string
-        description: "The Docker image tag to deploy and test"
+        description: "The Docker image tag that was deployed"
+        value: ${{ jobs.build.outputs.DOCKER_IMAGE_TAG }}
     secrets:
       ARTIFACTORY_NUBIA_USERNAME:
         required: true
@@ -23,35 +22,46 @@ env:
   DOCKER_REGISTRY: nethermind.jfrog.io
   REPO_DEV: nubia-oci-local-dev
 
+  #testing
 jobs:
-  deploy_to_dev:
+  build:
     runs-on: ubuntu-latest
-    concurrency:
-      group: shared_dev_environment
-      cancel-in-progress: false
     outputs:
-      DOCKER_IMAGE_TAG: ${{ inputs.docker_image_tag }}
+      DOCKER_IMAGE_TAG: ${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}
     
     steps:
-      - name: Login to registry
-        run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Tag and Push to Dev
+      - name: Define image tag
+        id: set_tag
+        run: |
+          export DOCKER_IMAGE_TAG=$(git describe --tags)
+          echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: "linux/amd64"
-          push: true
-          tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ inputs.docker_image_tag }}
-            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
+          push: false
+          outputs: type=docker,dest=/tmp/juno-image.tar
 
-  validate_dev:
-    permissions:
-      id-token: write
-      contents: write
-    needs: [deploy_to_dev]
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: juno-image
+          path: /tmp/juno-image.tar
+          retention-days: 1
+
+  deploy:
+    needs: [build]
     runs-on: ubuntu-latest
     concurrency:
       group: shared_dev_environment
@@ -62,35 +72,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: juno-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/juno-image.tar
+
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+
+      - name: Tag and Push to Dev
+        run: |
+          docker tag $(docker images -q | head -n 1) ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
+          docker tag $(docker images -q | head -n 1) ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
+
       - name: Verify Deployment Version (Dev)
         run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.deploy_to_dev.outputs.DOCKER_IMAGE_TAG }}
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
 
-  dev-starknet-rs-tests:
-    needs: [validate_dev]
-    concurrency:
-      group: shared_dev_environment
-      cancel-in-progress: false
+  starknet-rs:
+    needs: [deploy]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
 
-  dev-starknet-js-tests:
-    needs: [validate_dev]
-    concurrency:
-      group: shared_dev_environment
-      cancel-in-progress: false
+  starknet-js:
+    needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  dev-starknet-go-tests:
-    needs: [validate_dev]
-    concurrency:
-      group: shared_dev_environment
-      cancel-in-progress: false
+  starknet-go:
+    needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     secrets:
       TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7 
