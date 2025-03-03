@@ -20,7 +20,7 @@ import (
 
 func TestSimulateTransactions(t *testing.T) {
 	t.Parallel()
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 		L1GasPriceETH:    &felt.Zero,

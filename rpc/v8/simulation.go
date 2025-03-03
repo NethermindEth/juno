@@ -212,7 +212,7 @@ func createSimulatedTransactions(
 				L1DataGasConsumed: new(felt.Felt).SetUint64(gasConsumed[i].L1DataGas),
 				L1DataGasPrice:    l1DataGasPrice,
 				OverallFee:        overallFee,
-				Unit:              utils.Ptr(feeUnit),
+				Unit:              &feeUnit,
 			},
 		}
 	}

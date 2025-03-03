@@ -27,7 +27,7 @@ import (
 func TestTraceFallback(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := utils.Ptr(utils.Integration)
+	n := &utils.Integration
 	client := feeder.NewTestClient(t, n)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	gateway := adaptfeeder.New(client)
@@ -82,7 +82,7 @@ func TestTraceTransactionV0_6(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.Ptr(utils.Mainnet), utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", &utils.Mainnet, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -224,7 +224,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
+			n := &utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), n)
 			handler := rpc.New(chain, nil, nil, "", n, log)
 
@@ -236,7 +236,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
@@ -389,7 +389,7 @@ func TestCall(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := utils.HeapPtr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())

@@ -135,7 +135,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			GasConsumed: gasConsumed,
 			GasPrice:    gasPrice,
 			OverallFee:  overallFee,
-			Unit:        utils.Ptr(feeUnit),
+			Unit:        &feeUnit,
 		}
 
 		if !v0_6Response {

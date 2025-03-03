@@ -93,15 +93,15 @@ func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.Fu
 		snEvent := &snFnInvocation.Events[index]
 		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
+			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
+			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
 		})
 	}
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
 			Order:   snMessage.Order,
-			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
+			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
 			To:      snMessage.ToAddr,
 		})
 	}
