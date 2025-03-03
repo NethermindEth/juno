@@ -22,8 +22,7 @@ import (
 )
 
 type traceCacheKey struct {
-	blockHash    felt.Felt
-	v0_6Response bool
+	blockHash felt.Felt
 }
 
 type Handler struct {
