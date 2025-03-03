@@ -277,15 +277,9 @@ func TestExecute(t *testing.T) {
 }
 
 func TestSetVersionedConstants(t *testing.T) {
-	path := "rust/resources/"
-	f, err := os.Open(path)
-	require.NoError(t, err)
-	files, err := f.Readdir(0)
-	require.NoError(t, err)
-
-	for _, v := range files {
-		require.NoError(t, SetVersionedConstants(path+v.Name()))
-	}
+	t.Run("valid json", func(t *testing.T) {
+		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/0_13_2.json"))
+	})
 
 	t.Run("not valid json", func(t *testing.T) {
 		fd, err := os.CreateTemp(t.TempDir(), "versioned_constants_test*")
@@ -294,5 +288,9 @@ func TestSetVersionedConstants(t *testing.T) {
 
 		err = SetVersionedConstants(fd.Name())
 		assert.ErrorContains(t, err, "Failed to parse JSON")
+	})
+
+	t.Run("not exists", func(t *testing.T) {
+		assert.ErrorContains(t, SetVersionedConstants("not_exists.json"), "no such file or directory")
 	})
 }
