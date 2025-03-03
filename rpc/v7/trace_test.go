@@ -316,7 +316,7 @@ func TestTraceTransaction(t *testing.T) {
 				L1DataGas: 0,
 			},
 		}
-		assert.Equal(t, utils.Ptr(rpcv7.AdaptVMTransactionTrace(vmTrace)), trace)
+		assert.Equal(t, rpcv7.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
 	t.Run("pending block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
@@ -409,7 +409,7 @@ func TestTraceTransaction(t *testing.T) {
 				L1Gas: 1,
 			},
 		}
-		assert.Equal(t, utils.Ptr(rpcv7.AdaptVMTransactionTrace(vmTrace)), trace)
+		assert.Equal(t, rpcv7.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
 }
 
@@ -617,10 +617,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
 
+		expectedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
 		expectedResult := []rpcv7.TracedBlockTransaction{
 			{
 				TransactionHash: tx.Hash(),
-				TraceRoot:       utils.Ptr(rpcv7.AdaptVMTransactionTrace(&vmTrace)),
+				TraceRoot:       &expectedTrace,
 			},
 		}
 
