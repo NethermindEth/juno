@@ -179,3 +179,6 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
+
+cairo: ## Compile Cairo
+	$(MAKE) -C vm/fixtures build
