@@ -127,39 +127,46 @@ func TestTransactionTraceValidation(t *testing.T) {
 	}
 
 	tests := []struct {
-		name    string
-		trace   rpcv7.TransactionTrace
-		wantErr bool
+		name     string
+		trace    rpcv7.TransactionTrace
+		wantErr  bool
+		expected string
 	}{
 		{
-			name:    "valid INVOKE tx",
-			trace:   validInvokeTransactionTrace,
-			wantErr: false,
+			name:     "valid INVOKE tx",
+			trace:    validInvokeTransactionTrace,
+			wantErr:  false,
+			expected: `{"type":"INVOKE","execute_invocation":{"revert_reason":""},"execution_resources":null}`,
 		},
 		{
-			name:    "invalid INVOKE tx",
-			trace:   invalidInvokeTransactionTrace,
-			wantErr: true,
+			name:     "invalid INVOKE tx",
+			trace:    invalidInvokeTransactionTrace,
+			wantErr:  true,
+			expected: ``,
 		},
 		{
-			name:    "valid DEPLOY_ACCOUNT tx",
-			trace:   validDeployAccountTransactionTrace,
-			wantErr: false,
+			name:     "valid DEPLOY_ACCOUNT tx",
+			trace:    validDeployAccountTransactionTrace,
+			wantErr:  false,
+			expected: `{"type":"DEPLOY_ACCOUNT","constructor_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null},"execution_resources":null}`,
 		},
 		{
-			name:    "invalid DEPLOY_ACCOUNT tx",
-			trace:   invalidDeployAccountTransactionTrace,
-			wantErr: true,
+			name:     "invalid DEPLOY_ACCOUNT tx",
+			trace:    invalidDeployAccountTransactionTrace,
+			wantErr:  true,
+			expected: ``,
 		},
 		{
-			name:    "valid L1_HANDLER tx",
-			trace:   validL1HandlerTransactionTrace,
-			wantErr: false,
+			name:     "valid L1_HANDLER tx",
+			trace:    validL1HandlerTransactionTrace,
+			wantErr:  false,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null},"execution_resources":null}`,
 		},
 		{
-			name:    "invalid L1_HANDLER tx",
-			trace:   invalidL1HandlerTransactionTrace,
-			wantErr: true,
+			name:     "invalid L1_HANDLER tx",
+			trace:    invalidL1HandlerTransactionTrace,
+			wantErr:  true,
+			expected: ``,
 		},
 	}
 
@@ -173,6 +180,10 @@ func TestTransactionTraceValidation(t *testing.T) {
 				assert.Error(t, err, "Expected validation to fail, but it passed")
 			} else {
 				assert.NoError(t, err, "Expected validation to pass, but it failed")
+
+				// Check marshalling (check required fields)
+				j, _ := json.Marshal(test.trace)
+				assert.Equal(t, test.expected, string(j))
 			}
 		})
 	}
