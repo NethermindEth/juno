@@ -1,7 +1,7 @@
 package rpcv6
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -88,7 +88,7 @@ func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHan
 	if rpcErr != nil {
 		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)
-			return nil, MakeContractError(errors.New(data.ExecutionError))
+			return nil, MakeContractError(data.ExecutionError)
 		}
 		return nil, rpcErr
 	}
@@ -96,11 +96,11 @@ func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHan
 }
 
 type ContractErrorData struct {
-	RevertError string `json:"revert_error"`
+	RevertError json.RawMessage `json:"revert_error"`
 }
 
-func MakeContractError(err error) *jsonrpc.Error {
+func MakeContractError(err json.RawMessage) *jsonrpc.Error {
 	return rpccore.ErrContractError.CloneWithData(ContractErrorData{
-		RevertError: err.Error(),
+		RevertError: err,
 	})
 }

@@ -16,12 +16,12 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
@@ -31,21 +31,21 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.Ptr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
+			executeInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
+			functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
 		}
 	}
 
 	var stateDiff *StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.Ptr(AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{
@@ -62,7 +62,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.Ptr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
 	return ExecuteInvocation{
@@ -238,15 +238,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.Ptr(AdaptFeederFunctionInvocation(fee))
+			trace.FeeTransferInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.Ptr(AdaptFeederFunctionInvocation(val))
+			trace.ValidateInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(val))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := utils.Ptr(AdaptFeederFunctionInvocation(fct))
+			fnInvocation := utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:
@@ -286,8 +286,8 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 
 		adaptedEvents[index] = OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
+			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
+			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
 		}
 	}
 
@@ -302,7 +302,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,
-			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
+			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
 		}
 	}
 
@@ -318,7 +318,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
+		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
 	}
 }
 

@@ -1,6 +1,7 @@
 package rpcv8
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: new(felt.Felt).SetUint64(50),
 				L1DataGasPrice:    new(felt.Felt).SetUint64(5),
 				OverallFee:        new(felt.Felt).SetUint64(10),
-				Unit:              utils.Ptr(WEI),
+				Unit:              utils.HeapPtr(WEI),
 			},
 		},
 		{
@@ -97,7 +98,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				L1DataGasConsumed: new(felt.Felt).SetUint64(70),
 				L1DataGasPrice:    new(felt.Felt).SetUint64(6),
 				OverallFee:        new(felt.Felt).SetUint64(20),
-				Unit:              utils.Ptr(FRI),
+				Unit:              utils.HeapPtr(FRI),
 			},
 		},
 	}
@@ -131,7 +132,7 @@ func TestHandleExecutionError(t *testing.T) {
 			name: "Transaction Execution Error",
 			err: &vm.TransactionExecutionError{
 				Index: 0,
-				Cause: errors.New("some error"),
+				Cause: json.RawMessage("some error"),
 			},
 			jsonRPCError: &jsonrpc.Error{
 				Code:    rpccore.ErrUnexpectedError.Code,
