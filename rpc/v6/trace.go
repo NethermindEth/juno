@@ -302,7 +302,13 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
-		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
+		var strErr string
+		if len(res.Result) != 0 && res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
+			strErr = `"execution failed"`
+		} else {
+			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
+		}
+		return nil, MakeContractError(json.RawMessage(strErr))
 	}
 	return res.Result, nil
 }
