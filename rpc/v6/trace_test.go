@@ -522,7 +522,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 }
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
-	t.Run("successfully adapt trace from vm", func(t *testing.T) {
+	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
 		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
 		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
 
@@ -671,16 +671,6 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					Messages: []rpc.OrderedL2toL1Message{},
 				},
 			},
-			ConstructorInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpc.OrderedEvent{},
-				Messages: []rpc.OrderedL2toL1Message{},
-			},
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpc.OrderedEvent{},
-				Messages: []rpc.OrderedL2toL1Message{},
-			},
 			StateDiff: &rpc.StateDiff{ //nolint:dupl
 				StorageDiffs: []rpc.StorageDiff{
 					{
@@ -724,6 +714,70 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 		}
 
 		assert.Equal(t, expectedAdaptedTrace, rpc.AdaptVMTransactionTrace(&vmTrace))
+	})
+
+	t.Run("successfully adapt DEPLOY_ACCOUNT tx from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnDeployAccount,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
+
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnDeployAccount,
+			ValidateInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpc.OrderedEvent{},
+				Messages: []rpc.OrderedL2toL1Message{},
+			},
+			FeeTransferInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpc.OrderedEvent{},
+				Messages: []rpc.OrderedL2toL1Message{},
+			},
+			ConstructorInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpc.OrderedEvent{},
+				Messages: []rpc.OrderedL2toL1Message{},
+			},
+		}
+
+		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+	})
+
+	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnL1Handler,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
+
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnL1Handler,
+			FunctionInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpc.OrderedEvent{},
+				Messages: []rpc.OrderedL2toL1Message{},
+			},
+		}
+
+		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
 }
 
