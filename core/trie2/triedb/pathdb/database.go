@@ -18,25 +18,16 @@ var dbBufferPool = sync.Pool{
 	},
 }
 
-var (
-	_ TrieDB = (*Database)(nil)
-	_ TrieDB = (*EmptyDatabase)(nil)
-)
-
-type TrieDB interface {
-	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error)
-	Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error
-	Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error
-	NewIterator(owner felt.Felt) (db.Iterator, error)
-}
+type Config struct{} // TODO(weiihann): handle this
 
 type Database struct {
 	txn    db.Transaction
 	prefix db.Bucket
+	config *Config
 }
 
-func New(txn db.Transaction, prefix db.Bucket) *Database {
-	return &Database{txn: txn, prefix: prefix}
+func New(txn db.Transaction, prefix db.Bucket, config *Config) *Database {
+	return &Database{txn: txn, prefix: prefix, config: config}
 }
 
 func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
