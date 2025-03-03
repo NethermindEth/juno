@@ -1,0 +1,96 @@
+name: Dev Environment Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      docker_image_tag:
+        required: true
+        type: string
+        description: "The Docker image tag to deploy and test"
+    secrets:
+      ARTIFACTORY_NUBIA_USERNAME:
+        required: true
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
+        required: true
+      DEV_SEPOLIA_URL:
+        required: true
+      TEST_ACCOUNT_ADDRESS:
+        required: true
+      TEST_ACCOUNT_PRIVATE_KEY:
+        required: true
+
+env:
+  DOCKER_REGISTRY: nethermind.jfrog.io
+  REPO_DEV: nubia-oci-local-dev
+
+jobs:
+  deploy_to_dev:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
+    outputs:
+      DOCKER_IMAGE_TAG: ${{ inputs.docker_image_tag }}
+    
+    steps:
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+
+      - name: Tag and Push to Dev
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: "linux/amd64"
+          push: true
+          tags: |
+            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ inputs.docker_image_tag }}
+            ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
+
+  validate_dev:
+    permissions:
+      id-token: write
+      contents: write
+    needs: [deploy_to_dev]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
+    environment:
+      name: Development
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Deployment Version (Dev)
+        run: |
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.deploy_to_dev.outputs.DOCKER_IMAGE_TAG }}
+
+  dev-starknet-rs-tests:
+    needs: [validate_dev]
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
+    uses: ./.github/workflows/starknet-rs-tests.yml
+    secrets:
+      STARKNET_RPC: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
+
+  dev-starknet-js-tests:
+    needs: [validate_dev]
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
+    uses: ./.github/workflows/starknet-js-tests.yml
+    secrets:
+      TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+
+  dev-starknet-go-tests:
+    needs: [validate_dev]
+    concurrency:
+      group: shared_dev_environment
+      cancel-in-progress: false
+    uses: ./.github/workflows/starknet-go-tests.yml
+    secrets:
+      TEST_RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}/v0_7 
