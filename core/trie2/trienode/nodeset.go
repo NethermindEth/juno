@@ -19,16 +19,16 @@ type TrieNode interface {
 // It is not thread safe.
 type NodeSet struct {
 	Owner   felt.Felt // The owner (i.e. contract address)
-	Nodes   map[trieutils.BitArray]TrieNode
+	Nodes   map[trieutils.Path]TrieNode
 	updates int // the count of updated and inserted nodes
 	deletes int // the count of deleted nodes
 }
 
 func NewNodeSet(owner felt.Felt) *NodeSet {
-	return &NodeSet{Owner: owner, Nodes: make(map[trieutils.BitArray]TrieNode)}
+	return &NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
 }
 
-func (ns *NodeSet) Add(key trieutils.BitArray, node TrieNode) {
+func (ns *NodeSet) Add(key trieutils.Path, node TrieNode) {
 	if _, ok := node.(*DeletedNode); ok {
 		ns.deletes += 1
 	} else {
@@ -38,8 +38,8 @@ func (ns *NodeSet) Add(key trieutils.BitArray, node TrieNode) {
 }
 
 // Iterates over the nodes in a sorted order and calls the callback for each node.
-func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.BitArray, node TrieNode) error) error {
-	paths := make([]trieutils.BitArray, 0, len(ns.Nodes))
+func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.Path, node TrieNode) error) error {
+	paths := make([]trieutils.Path, 0, len(ns.Nodes))
 	for key := range ns.Nodes {
 		paths = append(paths, key)
 	}
@@ -76,7 +76,7 @@ func (ns *NodeSet) MergeSet(other *NodeSet) error {
 }
 
 // Adds a set of nodes to the current node set.
-func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.BitArray]TrieNode) error {
+func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.Path]TrieNode) error {
 	if ns.Owner != owner {
 		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, owner)
 	}

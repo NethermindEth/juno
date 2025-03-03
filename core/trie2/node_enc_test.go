@@ -19,8 +19,8 @@ func TestNodeEncodingDecoding(t *testing.T) {
 	}
 
 	// Helper to create a path with specific bits
-	newPath := func(bits ...uint8) *trieutils.BitArray {
-		path := &trieutils.BitArray{}
+	newPath := func(bits ...uint8) *trieutils.Path {
+		path := &trieutils.Path{}
 		for _, bit := range bits {
 			path.AppendBit(path, bit)
 		}

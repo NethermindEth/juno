@@ -15,7 +15,7 @@ import (
 
 const contractClassTrieHeight = 251
 
-type Path = trieutils.BitArray
+type Path = trieutils.Path
 
 type Trie struct {
 	// Height of the trie
@@ -169,7 +169,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		for _, path := range paths {
 			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		err := nodes.ForEach(true, func(key trieutils.BitArray, node trienode.TrieNode) error {
+		err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
 			return t.db.Delete(t.owner, key, node.IsLeaf())
 		})
 		return felt.Zero, err
@@ -189,7 +189,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
 
-	err := nodes.ForEach(true, func(key trieutils.BitArray, node trienode.TrieNode) error {
+	err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
 		if dn, ok := node.(*trienode.DeletedNode); ok {
 			return t.db.Delete(t.owner, key, dn.IsLeaf())
 		}

@@ -80,7 +80,7 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(*owner)
 
 		// Create a map to merge
-		nodes := make(map[trieutils.BitArray]TrieNode)
+		nodes := make(map[trieutils.Path]TrieNode)
 		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewLeaf([]byte{1, 2, 3})
 		nodes[key1] = node1
@@ -100,7 +100,7 @@ func TestNodeSet(t *testing.T) {
 		ns := NewNodeSet(felt.Zero)
 
 		// Add nodes in random order
-		keys := []trieutils.BitArray{
+		keys := []trieutils.Path{
 			trieutils.NewBitArray(8, 0xFF),
 			trieutils.NewBitArray(8, 0xAA),
 			trieutils.NewBitArray(8, 0x55),
@@ -110,8 +110,8 @@ func TestNodeSet(t *testing.T) {
 		}
 
 		t.Run("ascending order", func(t *testing.T) {
-			var visited []trieutils.BitArray
-			_ = ns.ForEach(false, func(key trieutils.BitArray, node TrieNode) error {
+			var visited []trieutils.Path
+			_ = ns.ForEach(false, func(key trieutils.Path, node TrieNode) error {
 				visited = append(visited, key)
 				return nil
 			})
@@ -123,8 +123,8 @@ func TestNodeSet(t *testing.T) {
 		})
 
 		t.Run("descending order", func(t *testing.T) {
-			var visited []trieutils.BitArray
-			_ = ns.ForEach(true, func(key trieutils.BitArray, node TrieNode) error {
+			var visited []trieutils.Path
+			_ = ns.ForEach(true, func(key trieutils.Path, node TrieNode) error {
 				visited = append(visited, key)
 				return nil
 			})
