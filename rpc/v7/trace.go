@@ -433,7 +433,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	if res.ExecutionFailed {
 		var strErr string
 		if len(res.Result) != 0 && res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
-			strErr = `"execution failed"`
+			strErr = rpccore.ExecutionFailed
 		} else {
 			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
 		}
