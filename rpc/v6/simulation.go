@@ -113,6 +113,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
+	daGas := executionResults.DataAvailability
 	result := make([]SimulatedTransaction, len(txns))
 
 	// For every transaction, we append its trace + fee estimate
@@ -127,7 +128,22 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		gasConsumed := overallFee.Clone()
+		var gasConsumed *felt.Felt
+		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
+
+		dataGasPrice := &felt.Zero
+		if header.L1DataGasPrice != nil {
+			switch feeUnit {
+			case FRI:
+				dataGasPrice = header.L1DataGasPrice.PriceInFri
+			case WEI:
+				dataGasPrice = header.L1DataGasPrice.PriceInWei
+			}
+		}
+
+		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
+		gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
+
 		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		estimate := FeeEstimate{
