@@ -16,28 +16,32 @@ import (
 
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
-	if trace.ValidateInvocation != nil {
+	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
 		validateInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
-	var executeInvocation *ExecuteInvocation
-	if trace.ExecuteInvocation != nil {
-		executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
-	}
-
 	var feeTransferInvocation *FunctionInvocation
-	if trace.FeeTransferInvocation != nil {
+	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
 		feeTransferInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
-	if trace.ConstructorInvocation != nil {
-		constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
-	}
-
+	var executeInvocation *ExecuteInvocation
 	var functionInvocation *FunctionInvocation
-	if trace.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
+
+	switch trace.Type {
+	case vm.TxnDeployAccount, vm.TxnDeploy:
+		if trace.ConstructorInvocation != nil {
+			constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
+		}
+	case vm.TxnInvoke:
+		if trace.ExecuteInvocation != nil {
+			executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
+		}
+	case vm.TxnL1Handler:
+		if trace.FunctionInvocation != nil {
+			functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
+		}
 	}
 
 	var resources *ExecutionResources
@@ -166,11 +170,11 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			Type: block.Transactions[index].Type,
 		}
 
-		if feederTrace.FeeTransferInvocation != nil {
+		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
 			trace.FeeTransferInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
 		}
 
-		if feederTrace.ValidateInvocation != nil {
+		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
 			trace.ValidateInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
 		}
 

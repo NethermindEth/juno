@@ -472,6 +472,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
+			"type": "INVOKE",
 			"validate_invocation": {"execution_resources":{"l1_gas":1,"l2_gas":2}},
 			"execute_invocation": {"execution_resources":{"l1_gas":3,"l2_gas":4}},
 			"fee_transfer_invocation": {"execution_resources":{"l1_gas":5,"l2_gas":6}},
@@ -507,6 +508,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, &rpc.TransactionTrace{
+			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
 				Calls:    []rpc.FunctionInvocation{},
 				Events:   []rpcv6.OrderedEvent{},
@@ -631,7 +633,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 }
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
-	t.Run("successfully adapt trace from vm", func(t *testing.T) {
+	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
 		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
 		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
 
@@ -775,18 +777,6 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					IsReverted: false,
 				},
 			},
-			ConstructorInvocation: &rpc.FunctionInvocation{
-				Calls:      []rpc.FunctionInvocation{},
-				Events:     []rpcv6.OrderedEvent{},
-				Messages:   []rpcv6.OrderedL2toL1Message{},
-				IsReverted: false,
-			},
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:      []rpc.FunctionInvocation{},
-				Events:     []rpcv6.OrderedEvent{},
-				Messages:   []rpcv6.OrderedL2toL1Message{},
-				IsReverted: false,
-			},
 			StateDiff: &rpcv6.StateDiff{ //nolint:dupl
 				StorageDiffs: []rpcv6.StorageDiff{
 					{
@@ -831,6 +821,70 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		assert.Equal(t, expectedAdaptedTrace, rpc.AdaptVMTransactionTrace(&vmTrace))
 	})
+
+	t.Run("successfully adapt DEPLOY_ACCOUNT tx from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnDeployAccount,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
+
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnDeployAccount,
+			ValidateInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+			FeeTransferInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+			ConstructorInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+		}
+
+		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+	})
+
+	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnL1Handler,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
+
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnL1Handler,
+			FunctionInvocation: &rpc.FunctionInvocation{
+				Calls:    []rpc.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+		}
+
+		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+	})
 }
 
 func TestAdaptFeederBlockTrace(t *testing.T) {
@@ -866,8 +920,10 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash: *new(felt.Felt).SetUint64(1),
-					FeeTransferInvocation: &starknet.FunctionInvocation{
+					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{},
+					ValidateInvocation:    &starknet.FunctionInvocation{},
+					FunctionInvocation: &starknet.FunctionInvocation{
 						Events: []starknet.OrderedEvent{{
 							Order: 1,
 							Keys:  []felt.Felt{*new(felt.Felt).SetUint64(2)},
@@ -881,8 +937,6 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 							},
 						},
 					},
-					ValidateInvocation: &starknet.FunctionInvocation{},
-					FunctionInvocation: &starknet.FunctionInvocation{},
 				},
 			},
 		}
@@ -892,7 +946,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
-					FeeTransferInvocation: &rpc.FunctionInvocation{
+					FunctionInvocation: &rpc.FunctionInvocation{
 						Calls: []rpc.FunctionInvocation{},
 						Events: []rpcv6.OrderedEvent{{
 							Order: 1,
@@ -904,18 +958,6 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 							L1Gas: 10,
 							L2Gas: 11,
 						},
-					},
-					ValidateInvocation: &rpc.FunctionInvocation{
-						Calls:              []rpc.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{},
-					},
-					FunctionInvocation: &rpc.FunctionInvocation{
-						Calls:              []rpc.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{},
 					},
 				},
 			},
