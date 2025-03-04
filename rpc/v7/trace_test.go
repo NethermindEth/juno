@@ -129,8 +129,9 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 func TestTransactionTraceValidation(t *testing.T) {
 	validInvokeTransactionTrace := rpcv7.TransactionTrace{
-		Type:              rpcv7.TxnInvoke,
-		ExecuteInvocation: &rpcv6.ExecuteInvocation{},
+		Type:               rpcv7.TxnInvoke,
+		ExecuteInvocation:  &rpcv6.ExecuteInvocation{},
+		ExecutionResources: &rpcv7.ExecutionResources{},
 	}
 
 	invalidInvokeTransactionTrace := rpcv7.TransactionTrace{
@@ -165,7 +166,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 			name:     "valid INVOKE tx",
 			trace:    validInvokeTransactionTrace,
 			wantErr:  false,
-			expected: `{"type":"INVOKE","execute_invocation":{"revert_reason":""},"execution_resources":null}`,
+			expected: `{"type":"INVOKE","execute_invocation":{"revert_reason":""},"execution_resources":{"steps":0,"data_availability":null}}`,
 		},
 		{
 			name:     "invalid INVOKE tx",

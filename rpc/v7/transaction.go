@@ -267,7 +267,7 @@ type DataAvailability struct {
 
 type ExecutionResources struct {
 	ComputationResources
-	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
+	DataAvailability *DataAvailability `json:"data_availability"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871
