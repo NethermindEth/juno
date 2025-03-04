@@ -12,7 +12,3 @@ starknet = ">=2.10.1"
 
 [lib]
 casm = true
-
-[cairo]
-unstable-add-statements-functions-debug-info = false
-unstable-add-statements-code-locations-debug-info = false

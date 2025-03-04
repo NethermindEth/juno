@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: vm juno
+.PHONY: vm juno cairo
 
 ifeq ($(VM_DEBUG),true)
     GO_TAGS = -tags vm_debug
@@ -181,4 +181,4 @@ test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
 
 cairo: ## Compile Cairo
-	$(MAKE) -C vm/fixtures build
+	$(MAKE) -C cairo build
