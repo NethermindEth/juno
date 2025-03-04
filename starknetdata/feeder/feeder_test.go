@@ -183,7 +183,7 @@ func TestTransaction(t *testing.T) {
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
-		responseTx.ResourceBounds = utils.Ptr(map[starknet.Resource]starknet.ResourceBounds{
+		responseTx.ResourceBounds = utils.HeapPtr(map[starknet.Resource]starknet.ResourceBounds{
 			starknet.ResourceL2Gas: {
 				MaxAmount:       new(felt.Felt).SetUint64(100),
 				MaxPricePerUnit: new(felt.Felt).SetUint64(100),
