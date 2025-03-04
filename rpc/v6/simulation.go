@@ -49,14 +49,13 @@ type TracedBlockTransaction struct {
 *****************************************************/
 
 // pre 13.1
-func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, transactions, simulationFlags, false)
+	return h.simulateTransactions(id, broadcastedTxns, simulationFlags, false)
 }
 
-//nolint:funlen,gocyclo
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -73,12 +72,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpcErr
 	}
 
-	txns := make([]core.Transaction, len(transactions))
+	txns := make([]core.Transaction, len(broadcastedTxns))
 	var classes []core.Class
 
 	paidFeesOnL1 := make([]*felt.Felt, 0)
-	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], h.bcReader.Network())
+	for idx := range broadcastedTxns {
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.bcReader.Network())
 		if aErr != nil {
 			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -114,6 +113,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
+	return createSimulatedTransactions(&executionResults, header, txns), nil
+}
+
+func createSimulatedTransactions(executionResults *vm.ExecutionResults, header *core.Header,
+	txns []core.Transaction,
+) []SimulatedTransaction {
 	daGas := executionResults.DataAvailability
 	result := make([]SimulatedTransaction, len(txns))
 
@@ -129,9 +134,6 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		var gasConsumed *felt.Felt
-		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
-
 		dataGasPrice := &felt.Zero
 		if header.L1DataGasPrice != nil {
 			switch feeUnit {
@@ -142,10 +144,12 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			}
 		}
 
-		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
-		gasConsumed = new(felt.Felt).Sub(overallFee, dataGasFee)
+		daGasL1DataGas := new(felt.Felt).SetUint64(daGas[i].L1DataGas)
 
-		gasConsumed = gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
+		dataGasFee := new(felt.Felt).Mul(daGasL1DataGas, dataGasPrice)
+		gasConsumed := new(felt.Felt).Sub(overallFee, dataGasFee)
+
+		gasConsumed.Div(gasConsumed, gasPrice) // division by zero felt is zero felt
 
 		estimate := FeeEstimate{
 			GasConsumed: gasConsumed,
@@ -159,8 +163,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 			FeeEstimation:    estimate,
 		}
 	}
-
-	return result, nil
+	return result
 }
 
 type TransactionExecutionErrorData struct {
