@@ -2,6 +2,7 @@ package rpcv6_test
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -94,5 +95,23 @@ func TestSimulateTransactions(t *testing.T) {
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
 		}), err)
+	})
+
+	t.Run("incosistant length error", func(t *testing.T) {
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
+			Header: headsHeader,
+		}, mockState, n, false, true, false, false).
+			Return(vm.ExecutionResults{
+				OverallFees:      []*felt.Felt{&felt.Zero},
+				DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
+				GasConsumed:      []core.GasConsumed{{L1Gas: 0, L1DataGas: 0, L2Gas: 0}},
+				Traces:           []vm.TransactionTrace{{}},
+				NumSteps:         uint64(0),
+			}, nil)
+
+		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
+			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
+		)), err)
 	})
 }
