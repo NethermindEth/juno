@@ -90,7 +90,6 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 		},
 		DataAvailability: adaptedDataAvailability,
 	}
-
 }
 
 /****************************************************
