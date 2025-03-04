@@ -22,13 +22,11 @@ env:
   DOCKER_REGISTRY: nethermind.jfrog.io
   REPO_DEV: nubia-oci-local-dev
 
-  #testing
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
       DOCKER_IMAGE_TAG: ${{ steps.set_tag.outputs.DOCKER_IMAGE_TAG }}
-    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -78,21 +76,24 @@ jobs:
           name: juno-image
           path: /tmp
 
-      - name: Load Docker image
-        run: |
-          docker load --input /tmp/juno-image.tar
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        id: buildx
 
       - name: Login to registry
         run: |
           docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+          echo "Testing login:" && docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest --dry-run || echo "Login failed"
 
-      - name: Tag and Push to Dev
+      - name: Load and Push
         run: |
+          docker load --input /tmp/juno-image.tar
+          echo "Loaded image ID: $(docker images -q | head -n 1)"
           docker tag $(docker images -q | head -n 1) ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
           docker tag $(docker images -q | head -n 1) ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
-          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
           docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:latest
-
+          docker push ${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.DOCKER_IMAGE_TAG }}
+            
       - name: Verify Deployment Version (Dev)
         run: |
           bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.DEV_SEPOLIA_URL }} ${{ needs.build.outputs.DOCKER_IMAGE_TAG }}

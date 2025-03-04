@@ -55,7 +55,7 @@ jobs:
           oras cp -r $OLD_TAG $NEW_TAG,latest
       - name: Verify Deployment Version (Staging)
         run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.dev_deployment.outputs.docker_image_tag }}
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.dev.outputs.docker_image_tag }}
 
   staging-starknet-rs-tests:
     needs: [promote_to_staging]
