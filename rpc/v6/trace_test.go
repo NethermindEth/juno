@@ -910,7 +910,7 @@ func TestCall(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.HeapPtr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())

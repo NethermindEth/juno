@@ -226,7 +226,7 @@ func TestTraceTransaction(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, "", utils.HeapPtr(utils.Mainnet), utils.NewNopZapLogger())
+	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, "", &utils.Mainnet, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
