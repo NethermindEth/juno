@@ -289,7 +289,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
-			false).Return(vm.ExecutionResults{
+			false, true).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{*vmTrace},

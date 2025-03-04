@@ -17,37 +17,37 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		validateInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		executeInvocation = utils.Ptr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
+		executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		feeTransferInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		constructorInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
+		constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		functionInvocation = utils.Ptr(adaptVMFunctionInvocation(trace.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
 	var resources *ExecutionResources
 	if trace.ExecutionResources != nil {
-		resources = utils.Ptr(adaptVMExecutionResources(trace.ExecutionResources))
+		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
 	var stateDiff *rpcv6.StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.Ptr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{
@@ -65,7 +65,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.Ptr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
 	return ExecuteInvocation{
@@ -167,15 +167,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil {
-			trace.FeeTransferInvocation = utils.Ptr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
+			trace.FeeTransferInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
 		}
 
 		if feederTrace.ValidateInvocation != nil {
-			trace.ValidateInvocation = utils.Ptr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
+			trace.ValidateInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := utils.Ptr(adaptFeederFunctionInvocation(fct))
+			fnInvocation := utils.HeapPtr(adaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:
@@ -215,8 +215,8 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 
 		adaptedEvents[index] = rpcv6.OrderedEvent{
 			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.Ptr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.Ptr[felt.Felt]),
+			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
+			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
 		}
 	}
 
@@ -231,7 +231,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,
-			Payload: utils.Map(snMessage.Payload, utils.Ptr[felt.Felt]),
+			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
 		}
 	}
 
@@ -247,7 +247,7 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: utils.Ptr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
+		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
 		IsReverted:         snFnInvocation.Failed,
 	}
 }
