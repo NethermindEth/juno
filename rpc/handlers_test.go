@@ -9,13 +9,24 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/rpc/v7"
-	"github.com/NethermindEth/juno/rpc/v8"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sync"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func TestVersion(t *testing.T) {
+	const version = "1.2.3-rc1"
+
+	handler := New(nil, nil, nil, version, nil, nil)
+	ver, err := handler.Version()
+
+	require.Nil(t, err)
+	assert.Equal(t, version, ver)
+}
 
 func TestRun(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -34,9 +45,9 @@ func TestRun(t *testing.T) {
 	mockSyncReader.EXPECT().SubscribePending().Return(sync.PendingSubscription{Subscription: pendingSub.Subscribe()}).AnyTimes()
 
 	handler := &Handler{
-		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
-		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
-		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, "", nil),
+		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
+		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, nil, nil),
+		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
