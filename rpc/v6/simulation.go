@@ -55,7 +55,7 @@ func (h *Handler) SimulateTransactions(id BlockID, broadcastedTxns []Broadcasted
 	return h.simulateTransactions(id, broadcastedTxns, simulationFlags, false)
 }
 
-func (h *Handler) simulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
@@ -72,24 +72,10 @@ func (h *Handler) simulateTransactions(id BlockID, broadcastedTxns []Broadcasted
 		return nil, rpcErr
 	}
 
-	txns := make([]core.Transaction, len(broadcastedTxns))
-	var classes []core.Class
-
-	paidFeesOnL1 := make([]*felt.Felt, 0)
-	for idx := range broadcastedTxns {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&broadcastedTxns[idx], h.bcReader.Network())
-		if aErr != nil {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
-		}
-
-		if paidFeeOnL1 != nil {
-			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
-		}
-
-		txns[idx] = txn
-		if declaredClass != nil {
-			classes = append(classes, declaredClass)
-		}
+	network := h.bcReader.Network()
+	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
@@ -100,20 +86,53 @@ func (h *Handler) simulateTransactions(id BlockID, broadcastedTxns []Broadcasted
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
+
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, h.bcReader.Network(), skipFeeCharge, skipValidate, errOnRevert, false)
+		state, network, skipFeeCharge, skipValidate, errOnRevert, false)
 	if err != nil {
-		if errors.Is(err, utils.ErrResourceBusy) {
-			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
-		}
-		var txnExecutionError vm.TransactionExecutionError
-		if errors.As(err, &txnExecutionError) {
-			return nil, makeTransactionExecutionError(&txnExecutionError)
-		}
-		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, handleExecutionError(err)
 	}
 
-	return createSimulatedTransactions(&executionResults, header, txns), nil
+	simulatedTransactions := createSimulatedTransactions(&executionResults, header, txns)
+
+	return simulatedTransactions, nil
+}
+
+func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
+	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
+) {
+	txns := make([]core.Transaction, 0, len(transactions))
+	var classes []core.Class
+	paidFeesOnL1 := make([]*felt.Felt, 0)
+
+	for idx := range transactions {
+		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], network)
+		if aErr != nil {
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
+		}
+
+		if paidFeeOnL1 != nil {
+			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
+		}
+
+		txns = append(txns, txn)
+		if declaredClass != nil {
+			classes = append(classes, declaredClass)
+		}
+	}
+
+	return txns, classes, paidFeesOnL1, nil
+}
+
+func handleExecutionError(err error) *jsonrpc.Error {
+	if errors.Is(err, utils.ErrResourceBusy) {
+		return rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
+	}
+	var txnExecutionError vm.TransactionExecutionError
+	if errors.As(err, &txnExecutionError) {
+		return makeTransactionExecutionError(&txnExecutionError)
+	}
+	return rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 }
 
 func createSimulatedTransactions(executionResults *vm.ExecutionResults, header *core.Header,
@@ -126,7 +145,6 @@ func createSimulatedTransactions(executionResults *vm.ExecutionResults, header *
 	for i, overallFee := range executionResults.OverallFees {
 		// Compute fee estimate
 		feeUnit := feeUnit(txns[i])
-
 		gasPrice := header.L1GasPriceETH
 		if feeUnit == FRI {
 			if gasPrice = header.L1GasPriceSTRK; gasPrice == nil {
@@ -157,7 +175,6 @@ func createSimulatedTransactions(executionResults *vm.ExecutionResults, header *
 			OverallFee:  overallFee,
 			Unit:        &feeUnit,
 		}
-
 		result[i] = SimulatedTransaction{
 			TransactionTrace: utils.HeapPtr(AdaptVMTransactionTrace(&executionResults.Traces[i])),
 			FeeEstimation:    estimate,
