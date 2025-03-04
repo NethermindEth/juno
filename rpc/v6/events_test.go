@@ -230,7 +230,7 @@ func TestEvents(t *testing.T) {
 
 func TestUnsubscribe(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	n := utils.Ptr(utils.Sepolia)
+	n := utils.HeapPtr(utils.Sepolia)
 
 	t.Run("error when no connection in context", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
