@@ -268,9 +268,13 @@ type ComputationResources struct {
 }
 
 type ExecutionResources struct {
-	L1Gas     uint64 `json:"l1_gas"`
+	InnerExecutionResources
 	L1DataGas uint64 `json:"l1_data_gas"`
-	L2Gas     uint64 `json:"l2_gas"`
+}
+
+type InnerExecutionResources struct {
+	L1Gas uint64 `json:"l1_gas"`
+	L2Gas uint64 `json:"l2_gas"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L1871

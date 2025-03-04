@@ -24,6 +24,7 @@ type FunctionInvocation struct {
 	Selector           *felt.Felt             `json:"selector"`
 	EntryPointType     string                 `json:"entry_point_type"`
 	Result             []felt.Felt            `json:"result"`
+	Failed             bool                   `json:"failed"`
 	ExecutionResources ExecutionResources     `json:"execution_resources"`
 	InternalCalls      []FunctionInvocation   `json:"internal_calls"`
 	Events             []OrderedEvent         `json:"events"`
