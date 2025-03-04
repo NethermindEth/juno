@@ -43,3 +43,5 @@ func TestUnmarshalFinalityStatus(t *testing.T) {
 
 	require.ErrorContains(t, json.Unmarshal([]byte(`"ABC"`), fs), "unknown FinalityStatus")
 }
+
+// TODO: add more tests for other types (e.g. Resource, DataAvailabilityMode, etc.)
