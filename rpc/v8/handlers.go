@@ -260,6 +260,11 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribePendingTxs,
 		},
 		{
+			Name:    "starknet_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
+			Handler: h.Unsubscribe,
+		},
+		{
 			Name:    "starknet_getBlockWithReceipts",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
 			Handler: h.BlockWithReceipts,
