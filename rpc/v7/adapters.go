@@ -16,37 +16,37 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *rpcv6.FunctionInvocation
 	if trace.ValidateInvocation != nil {
-		validateInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var executeInvocation *rpcv6.ExecuteInvocation
 	if trace.ExecuteInvocation != nil {
-		executeInvocation = utils.Ptr(rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation))
+		executeInvocation = utils.HeapPtr(rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 	}
 
 	var feeTransferInvocation *rpcv6.FunctionInvocation
 	if trace.FeeTransferInvocation != nil {
-		feeTransferInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *rpcv6.FunctionInvocation
 	if trace.ConstructorInvocation != nil {
-		constructorInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+		constructorInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 	}
 
 	var functionInvocation *rpcv6.FunctionInvocation
 	if trace.FunctionInvocation != nil {
-		functionInvocation = utils.Ptr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation))
 	}
 
 	var resources *ExecutionResources
 	if trace.ExecutionResources != nil {
-		resources = utils.Ptr(adaptVMExecutionResources(trace.ExecutionResources))
+		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
 	var stateDiff *rpcv6.StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.Ptr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{
@@ -112,15 +112,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil {
-			trace.FeeTransferInvocation = utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(fee))
+			trace.FeeTransferInvocation = utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil {
-			trace.ValidateInvocation = utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(val))
+			trace.ValidateInvocation = utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(val))
 		}
 
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := utils.Ptr(rpcv6.AdaptFeederFunctionInvocation(fct))
+			fnInvocation := utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(fct))
 
 			switch block.Transactions[index].Type {
 			case TxnDeploy, TxnDeployAccount:

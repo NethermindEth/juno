@@ -1,7 +1,9 @@
-package rpcv6_test
+package rpcv6
 
 import (
 	"context"
+	"io"
+	"net"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -9,13 +11,31 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
-	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
+
+type fakeConn struct {
+	w io.Writer
+}
+
+func (fc *fakeConn) Write(p []byte) (int, error) {
+	return fc.w.Write(p)
+}
+
+func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
+	fc2, ok := other.(*fakeConn)
+	if !ok {
+		return false
+	}
+	return fc.w == fc2.w
+}
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
@@ -23,7 +43,7 @@ func TestEvents(t *testing.T) {
 		return pendingB
 	}
 	testDB := pebble.NewMemTest(t)
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	chain := blockchain.New(testDB, n)
 	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
@@ -45,16 +65,16 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, nil, nil, "", n, utils.NewNopZapLogger())
+	handler := New(chain, nil, nil, "", n, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
-	args := rpc.EventsArg{
-		EventFilter: rpc.EventFilter{
-			FromBlock: &rpc.BlockID{Number: 0},
-			ToBlock:   &rpc.BlockID{Latest: true},
+	args := EventsArg{
+		EventFilter: EventFilter{
+			FromBlock: &BlockID{Number: 0},
+			ToBlock:   &BlockID{Latest: true},
 			Address:   from,
 			Keys:      [][]felt.Felt{},
 		},
-		ResultPageRequest: rpc.ResultPageRequest{
+		ResultPageRequest: ResultPageRequest{
 			ChunkSize:         100,
 			ContinuationToken: "",
 		},
@@ -62,14 +82,14 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter non-existent", func(t *testing.T) {
 		t.Run("block number", func(t *testing.T) {
-			args.ToBlock = &rpc.BlockID{Number: 55}
+			args.ToBlock = &BlockID{Number: 55}
 			events, err := handler.Events(args)
 			require.Nil(t, err)
 			require.Len(t, events.Events, 5)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			args.ToBlock = &rpc.BlockID{Hash: new(felt.Felt).SetUint64(55)}
+			args.ToBlock = &BlockID{Hash: new(felt.Felt).SetUint64(55)}
 			_, err := handler.Events(args)
 			require.Equal(t, rpccore.ErrBlockNotFound, err)
 		})
@@ -77,29 +97,29 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with no from_block", func(t *testing.T) {
 		args.FromBlock = nil
-		args.ToBlock = &rpc.BlockID{Latest: true}
+		args.ToBlock = &BlockID{Latest: true}
 		_, err := handler.Events(args)
 		require.Nil(t, err)
 	})
 
 	t.Run("filter with no to_block", func(t *testing.T) {
-		args.FromBlock = &rpc.BlockID{Number: 0}
+		args.FromBlock = &BlockID{Number: 0}
 		args.ToBlock = nil
 		_, err := handler.Events(args)
 		require.Nil(t, err)
 	})
 
 	t.Run("filter with no address", func(t *testing.T) {
-		args.ToBlock = &rpc.BlockID{Latest: true}
+		args.ToBlock = &BlockID{Latest: true}
 		args.Address = nil
 		_, err := handler.Events(args)
 		require.Nil(t, err)
 	})
 
 	t.Run("filter with no keys", func(t *testing.T) {
-		var allEvents []*rpc.EmittedEvent
+		var allEvents []*EmittedEvent
 		t.Run("get canonical events without pagination", func(t *testing.T) {
-			args.ToBlock = &rpc.BlockID{Latest: true}
+			args.ToBlock = &BlockID{Latest: true}
 			args.Address = from
 			events, err := handler.Events(args)
 			require.Nil(t, err)
@@ -109,7 +129,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("accumulate events with pagination", func(t *testing.T) {
-			var accEvents []*rpc.EmittedEvent
+			var accEvents []*EmittedEvent
 			args.ChunkSize = 1
 
 			for range len(allEvents) + 1 {
@@ -187,12 +207,12 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("get pending events without pagination", func(t *testing.T) {
-		args = rpc.EventsArg{
-			EventFilter: rpc.EventFilter{
-				FromBlock: &rpc.BlockID{Pending: true},
-				ToBlock:   &rpc.BlockID{Pending: true},
+		args = EventsArg{
+			EventFilter: EventFilter{
+				FromBlock: &BlockID{Pending: true},
+				ToBlock:   &BlockID{Pending: true},
 			},
-			ResultPageRequest: rpc.ResultPageRequest{
+			ResultPageRequest: ResultPageRequest{
 				ChunkSize:         100,
 				ContinuationToken: "",
 			},
@@ -205,5 +225,107 @@ func TestEvents(t *testing.T) {
 		assert.Nil(t, events.Events[0].BlockHash)
 		assert.Nil(t, events.Events[0].BlockNumber)
 		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
+	})
+}
+
+func TestUnsubscribe(t *testing.T) {
+	log := utils.NewNopZapLogger()
+	n := utils.HeapPtr(utils.Sepolia)
+
+	t.Run("error when no connection in context", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", n, log)
+
+		success, rpcErr := handler.Unsubscribe(context.Background(), 1)
+		assert.False(t, success)
+		assert.Equal(t, jsonrpc.Err(jsonrpc.MethodNotFound, nil), rpcErr)
+	})
+
+	t.Run("error when subscription ID doesn't exist", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", n, log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		success, rpcErr := handler.Unsubscribe(ctx, 999)
+		assert.False(t, success)
+		assert.Equal(t, rpccore.ErrInvalidSubscriptionID, rpcErr)
+	})
+
+	t.Run("return false when connection doesn't match", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", n, log)
+
+		// Create original subscription
+		serverConn1, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn1.Close())
+		})
+
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   &fakeConn{w: serverConn1},
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		// Try to unsubscribe with different connection
+		serverConn2, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn2.Close())
+		})
+
+		unsubCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
+		success, rpcErr := handler.Unsubscribe(unsubCtx, 1)
+		assert.False(t, success)
+		assert.NotNil(t, rpcErr)
+	})
+
+	t.Run("successful unsubscribe", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockChain := mocks.NewMockReader(mockCtrl)
+		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+		handler := New(mockChain, mockSyncer, nil, "", n, log)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		conn := &fakeConn{w: serverConn}
+		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, conn)
+		_, subscriptionCtxCancel := context.WithCancel(subCtx)
+		sub := &subscription{
+			cancel: subscriptionCtxCancel,
+			conn:   conn,
+		}
+		handler.subscriptions.Store(uint64(1), sub)
+
+		success, rpcErr := handler.Unsubscribe(subCtx, 1)
+		assert.True(t, success)
+		assert.Nil(t, rpcErr)
+
+		// Verify subscription was removed
+		_, exists := handler.subscriptions.Load(uint64(1))
+		assert.False(t, exists)
 	})
 }
