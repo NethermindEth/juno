@@ -68,6 +68,7 @@ func TestEstimateMessageFee(t *testing.T) {
 			return vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{actualFee},
 				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
+				GasConsumed:      []core.GasConsumed{{L1Gas: 37}},
 				Traces: []vm.TransactionTrace{{
 					StateDiff: &vm.StateDiff{
 						StorageDiffs:              []vm.StorageDiff{},
