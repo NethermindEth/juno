@@ -39,9 +39,9 @@ type CallResult struct {
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string) (CallResult, error)
+		maxSteps uint64, sierraVersion string, structuredErrStack bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert bool,
+		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 	) (ExecutionResults, error)
 }
 
@@ -213,7 +213,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string,
+	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -227,6 +227,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
+	var structuredErrStackByte byte
+	if structuredErrStack {
+		structuredErrStackByte = 1
+	}
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
@@ -238,16 +242,17 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.ulonglong(maxSteps),        //nolint:gocritic
-		C.uchar(concurrencyModeByte), //nolint:gocritic
-		cSierraVersion,               //nolint:gocritic
+		C.ulonglong(maxSteps),
+		C.uchar(concurrencyModeByte),
+		cSierraVersion,
+		C.uchar(structuredErrStackByte), //nolint:gocritic // don't know why the linter is annoyed
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 	C.free(unsafe.Pointer(cSierraVersion))
 
-	if context.err != "" {
+	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)
 	}
 	return CallResult{Result: context.response, ExecutionFailed: context.executionFailed}, nil
@@ -256,7 +261,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert bool,
+	skipChargeFee, skipValidate, errOnRevert, errorStack bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -294,6 +299,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		errOnRevertByte = 1
 	}
 
+	var errorStackByte byte
+	if errorStack {
+		errorStackByte = 1
+	}
+
 	var concurrencyModeByte byte
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
@@ -311,6 +321,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		C.uchar(skipValidateByte),
 		C.uchar(errOnRevertByte),     //nolint:gocritic
 		C.uchar(concurrencyModeByte), //nolint:gocritic
+		C.uchar(errorStackByte),      //nolint:gocritic
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -323,7 +334,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		if context.errTxnIndex >= 0 {
 			return ExecutionResults{}, TransactionExecutionError{
 				Index: uint64(context.errTxnIndex),
-				Cause: errors.New(context.err),
+				Cause: json.RawMessage(context.err),
 			}
 		}
 		return ExecutionResults{}, errors.New(context.err)

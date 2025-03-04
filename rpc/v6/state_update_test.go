@@ -31,7 +31,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	var mockSyncReader *mocks.MockSyncReader
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(pebble.NewMemTest(t), n)

@@ -107,7 +107,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
+			n := &utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" { //nolint:goconst
@@ -123,7 +123,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -134,7 +134,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkBlock := func(t *testing.T, b *rpcv7.BlockWithTxHashes) {
+	checkBlock := func(t *testing.T, b *rpcv6.BlockWithTxHashes) {
 		t.Helper()
 		assert.Equal(t, latestBlock.Hash, b.Hash)
 		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
@@ -147,7 +147,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		}
 	}
 
-	checkLatestBlock := func(t *testing.T, b *rpcv7.BlockWithTxHashes) {
+	checkLatestBlock := func(t *testing.T, b *rpcv6.BlockWithTxHashes) {
 		t.Helper()
 		if latestBlock.Hash != nil {
 			assert.Equal(t, latestBlock.Number, *b.Number)
@@ -234,7 +234,7 @@ func TestBlockWithTxs(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
+			n := &utils.Mainnet
 			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" {
@@ -250,7 +250,7 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -261,7 +261,7 @@ func TestBlockWithTxs(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpcv7.BlockWithTxHashes, blockWithTxs *rpcv7.BlockWithTxs) {
+	checkLatestBlock := func(t *testing.T, blockWithTxHashes *rpcv6.BlockWithTxHashes, blockWithTxs *rpcv7.BlockWithTxs) {
 		t.Helper()
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
 		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
@@ -367,7 +367,7 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	n := utils.Ptr(utils.SepoliaIntegration)
+	n := &utils.SepoliaIntegration
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -393,7 +393,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.Ptr(rpcv6.Blob),
+			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
 			L1GasPrice: &rpcv6.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
@@ -431,8 +431,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.Ptr(rpcv7.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.Ptr(rpcv7.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           utils.HeapPtr(rpcv7.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.HeapPtr(rpcv7.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)
@@ -442,7 +442,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv7.New(mockReader, mockSyncReader, nil, n, nil)
@@ -563,7 +563,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpcv7.New(mockReader, nil, nil, n, nil)
 

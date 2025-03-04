@@ -1,14 +1,16 @@
+pub mod error;
+pub mod error_stack;
 pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
 
-#[macro_use]
-extern crate lazy_static;
-
-use crate::execution::execute_transaction;
 use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use error::{CallError, ExecutionError};
+use error_stack::{ErrorStack, Frame};
+use execution::process_transaction;
+use serde::Deserialize;
+use serde_json::json;
 use std::{
-    collections::HashMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
     slice,
     sync::Arc,
@@ -29,18 +31,14 @@ use blockifier::{
     execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     state::{cached_state::CachedState, state_api::State},
     transaction::{
-        errors::TransactionExecutionError::{
-            ContractConstructorExecutionFailed, ExecutionError, ValidateTransactionError,
-        },
         objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
         transaction_execution::Transaction,
     },
     versioned_constants::VersionedConstants,
 };
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
-use serde::Deserialize;
 use starknet_api::{
-    block::{BlockHash, GasPrice},
+    block::{BlockHash, GasPrice, StarknetVersion},
     contract_class::{ClassInfo, EntryPointType, SierraVersion},
     core::PatriciaKey,
     executable_transaction::AccountTransaction,
@@ -59,7 +57,7 @@ use starknet_api::{
     execution_resources::GasAmount,
 };
 use starknet_api::{
-    core::{ChainId, ClassHash, ContractAddress, EntryPointSelector},
+    core::{ChainId, ClassHash, ContractAddress},
     hash::StarkHash,
 };
 use starknet_types_core::felt::Felt;
@@ -123,6 +121,7 @@ pub extern "C" fn cairoVMCall(
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
     sierra_version: *const c_char,
+    err_stack: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
@@ -149,8 +148,7 @@ pub extern "C" fn cairoVMCall(
 
     let version_constants = get_versioned_constants(block_info.version);
     let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
-    let sierra_version =
-        SierraVersion::from_str(sierra_version_str).unwrap_or(SierraVersion::DEPRECATED);
+    let sierra_version = SierraVersion::from_str(sierra_version_str).unwrap();
     let initial_gas: u64 = if sierra_version < version_constants.min_sierra_version_for_sierra_gas {
         version_constants.infinite_gas_for_vm_mode()
     } else {
@@ -158,10 +156,11 @@ pub extern "C" fn cairoVMCall(
     };
     let contract_address =
         starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
+    let entry_point_selector = starknet_api::core::EntryPointSelector(entry_point_selector_felt);
 
     let entry_point = CallEntryPoint {
         entry_point_type: EntryPointType::External,
-        entry_point_selector: EntryPointSelector(entry_point_selector_felt),
+        entry_point_selector,
         calldata: Calldata(calldata_vec.into()),
         storage_address: contract_address,
         call_type: CallType::Call,
@@ -171,6 +170,7 @@ pub extern "C" fn cairoVMCall(
     };
 
     let concurrency_mode = concurrency_mode == 1;
+    let structured_err_stack = err_stack == 1;
     let mut state = CachedState::new(reader);
     let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
@@ -188,17 +188,37 @@ pub extern "C" fn cairoVMCall(
         SierraGasRevertTracker::new(GasAmount::from(initial_gas)),
     );
     let mut remaining_gas = entry_point.initial_gas;
-    match entry_point.execute(&mut state, &mut context, &mut remaining_gas) {
-        Err(e) => report_error(reader_handle, e.to_string().as_str(), -1, 0),
+    let call_info = entry_point
+        .execute(&mut state, &mut context, &mut remaining_gas)
+        .map_err(|e| {
+            CallError::from_entry_point_execution_error(
+                e,
+                contract_address,
+                class_hash.unwrap_or(ClassHash::default()),
+                entry_point_selector,
+            )
+        });
+
+    match call_info {
+        Err(CallError::ContractError(revert_error, error_stack)) => {
+            let err_string = if structured_err_stack {
+                error_stack_frames_to_json(error_stack).to_string()
+            } else {
+                json!(revert_error).to_string()
+            };
+            report_error(reader_handle, err_string.as_str(), -1, 0);
+        }
+        Err(CallError::Internal(e)) | Err(CallError::Custom(e)) => {
+            report_error(reader_handle, &e, -1, 0);
+        }
         Ok(call_info) => {
             if call_info.execution.failed {
                 report_error(reader_handle, "execution failed", -1, 1);
-                return;
             }
             for data in call_info.execution.retdata.0 {
                 unsafe {
                     JunoAppendResponse(reader_handle, felt_to_byte_array(&data).as_ptr());
-                };
+                }
             }
         }
     }
@@ -224,6 +244,7 @@ pub extern "C" fn cairoVMExecute(
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
+    err_stack: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, block_info.block_number);
@@ -271,6 +292,8 @@ pub extern "C" fn cairoVMExecute(
     .unwrap();
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
+    let err_stack = err_stack == 1;
+    let err_on_revert = err_on_revert == 1;
 
     let mut trace_buffer = Vec::with_capacity(10_000);
 
@@ -343,38 +366,26 @@ pub extern "C" fn cairoVMExecute(
             Transaction::L1Handler(t) => (None, t.fee_type()),
         };
 
-        match execute_transaction(&mut txn, &mut txn_state, &block_context) {
-            Err(error) => {
-                let err_string = match &error {
-                    ContractConstructorExecutionFailed(e) => format!("{error} {e}"),
-                    ExecutionError { error: e, .. } | ValidateTransactionError { error: e, .. } => {
-                        format!("{error} {e}")
-                    }
-                    other => other.to_string(),
-                };
-                report_error(
-                    reader_handle,
-                    format!(
-                        "failed txn {} reason: {}",
-                        txn_and_query_bit.txn_hash, err_string,
-                    )
-                    .as_str(),
-                    txn_index as i64,
-                    0,
-                );
-                return;
-            }
-            Ok(mut tx_execution_info) => {
-                if tx_execution_info.is_reverted() && err_on_revert != 0 {
+        match process_transaction(&mut txn, &mut txn_state, &block_context, err_on_revert) {
+            Err(e) => match e {
+                ExecutionError::ExecutionError { error, error_stack } => {
+                    let err_string = if err_stack {
+                        error_stack_frames_to_json(error_stack).to_string()
+                    } else {
+                        json!(error).to_string()
+                    };
+                    report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
+                }
+                ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
                         reader_handle,
-                        format!("reverted: {}", tx_execution_info.revert_error.unwrap()).as_str(),
+                        json!(e).to_string().as_str(),
                         txn_index as i64,
                         0,
                     );
-                    return;
                 }
-
+            },
+            Ok(mut tx_execution_info) => {
                 // we are estimating fee, override actual fee calculation
                 if tx_execution_info.receipt.fee.0 == 0 {
                     let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
@@ -539,6 +550,38 @@ fn append_trace(
     };
 }
 
+fn error_stack_frames_to_json(err_stack: ErrorStack) -> serde_json::Value {
+    let frames = err_stack.0;
+
+    // We are assuming they will be only one of these
+    let string_frame = frames
+        .iter()
+        .rev()
+        .find_map(|frame| match frame {
+            Frame::StringFrame(string) => Some(string.clone()),
+            _ => None,
+        })
+        .unwrap_or_else(|| "Unknown error, no string frame available.".to_string());
+
+    // Start building the error from the ground up, starting from the string frame
+    // into the parent call frame and so on ...
+    frames
+        .into_iter()
+        .filter_map(|frame| match frame {
+            Frame::CallFrame(call_frame) => Some(call_frame),
+            _ => None,
+        })
+        .rev()
+        .fold(json!(string_frame), |prev_err, frame| {
+            json!({
+                "contract_address": frame.storage_address,
+                "class_hash": frame.class_hash,
+                "selector": frame.selector,
+                "error": prev_err,
+            })
+        })
+}
+
 fn report_error(reader_handle: usize, msg: &str, txn_index: i64, execution_failed: usize) {
     let err_msg = CString::new(msg).unwrap();
     unsafe {
@@ -643,116 +686,20 @@ fn build_block_context(
     ))
 }
 
-lazy_static! {
-    static ref CONSTANTS: HashMap<String, VersionedConstants> = {
-        let mut m = HashMap::new();
-        m.insert(
-            "0.13.0".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_0.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.1".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_1.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.1.1".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_1_1.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.2".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_2.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.3".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_3.json"
-            ))
-            .unwrap(),
-        );
-        m.insert(
-            "0.13.4".to_string(),
-            serde_json::from_slice(include_bytes!(
-                "../resources/versioned_constants_0_13_4.json"
-            ))
-            .unwrap(),
-        );
-        m
-    };
-}
-
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let version_str = unsafe { CStr::from_ptr(version) }
-        .to_str()
-        .unwrap_or("0.0.0");
-
-    let version = match StarknetVersion::from_str(version_str) {
-        Ok(v) => v,
-        Err(_) => StarknetVersion::from_str("0.0.0").unwrap(),
-    };
-
     if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
-        constants.clone()
-    } else if version < StarknetVersion::from_str("0.13.1").unwrap() {
-        CONSTANTS.get(&"0.13.0".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.1.1").unwrap() {
-        CONSTANTS.get(&"0.13.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.2").unwrap() {
-        CONSTANTS.get(&"0.13.1.1".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.2.1").unwrap() {
-        CONSTANTS.get(&"0.13.2".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.3").unwrap() {
-        CONSTANTS.get(&"0.13.3".to_string()).unwrap().to_owned()
-    } else if version < StarknetVersion::from_str("0.13.4").unwrap() {
-        CONSTANTS.get(&"0.13.4".to_string()).unwrap().to_owned()
-    } else {
-        VersionedConstants::latest_constants().to_owned()
+        return constants.clone();
     }
-}
 
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StarknetVersion(u8, u8, u8, u8);
+    let version_str = unsafe { CStr::from_ptr(version) }.to_str();
 
-impl StarknetVersion {
-    pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
-        StarknetVersion(a, b, c, d)
-    }
-}
-
-impl FromStr for StarknetVersion {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Ok(StarknetVersion::new(0, 0, 0, 0));
-        }
-
-        let parts: Vec<_> = s.split('.').collect();
-        anyhow::ensure!(
-            parts.len() == 3 || parts.len() == 4,
-            "Invalid version string, expected 3 or 4 parts but got {}",
-            parts.len()
-        );
-
-        let a = parts[0].parse()?;
-        let b = parts[1].parse()?;
-        let c = parts[2].parse()?;
-        let d = parts.get(3).map(|x| x.parse()).transpose()?.unwrap_or(0);
-
-        Ok(StarknetVersion(a, b, c, d))
-    }
+    version_str
+        .ok()
+        .and_then(|version| StarknetVersion::try_from(version).ok())
+        .and_then(|version| VersionedConstants::get(&version).ok())
+        .unwrap_or(VersionedConstants::latest_constants())
+        .to_owned()
 }
 
 static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
