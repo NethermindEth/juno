@@ -926,6 +926,38 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
+
+	t.Run("successfully adapt DECLARE tx from vm", func(t *testing.T) {
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnDeclare,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
+
+		expectedAdaptedTrace := rpcv7.TransactionTrace{
+			Type: rpcv7.TxnDeclare,
+			ValidateInvocation: &rpcv6.FunctionInvocation{
+				Calls:    []rpcv6.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+			FeeTransferInvocation: &rpcv6.FunctionInvocation{
+				Calls:    []rpcv6.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+		}
+
+		adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
+
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+	})
 }
 
 func TestAdaptFeederBlockTrace(t *testing.T) {
@@ -1038,6 +1070,102 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					},
 					ExecuteInvocation: &rpcv6.ExecuteInvocation{
 						RevertReason: "some error",
+					},
+				},
+			},
+		}
+
+		res, err := rpcv7.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, err)
+		require.Equal(t, expectedAdaptedTrace, res)
+	})
+
+	t.Run("DEPLOY_ACCOUNT tx gets successfully adapted", func(t *testing.T) {
+		blockWithTxs := &rpcv7.BlockWithTxs{
+			Transactions: []*rpcv7.Transaction{
+				{
+					Type: rpcv7.TxnDeployAccount,
+				},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{
+			Traces: []starknet.TransactionTrace{
+				{
+					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{},
+					ValidateInvocation:    &starknet.FunctionInvocation{},
+					FunctionInvocation:    &starknet.FunctionInvocation{},
+				},
+			},
+		}
+
+		expectedAdaptedTrace := []rpcv7.TracedBlockTransaction{
+			{
+				TransactionHash: new(felt.Felt).SetUint64(1),
+				TraceRoot: &rpcv7.TransactionTrace{
+					Type: rpcv7.TxnDeployAccount,
+					FeeTransferInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []rpcv6.OrderedEvent{},
+						Messages:           []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+					ValidateInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []rpcv6.OrderedEvent{},
+						Messages:           []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+					ConstructorInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []rpcv6.OrderedEvent{},
+						Messages:           []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+				},
+			},
+		}
+
+		res, err := rpcv7.AdaptFeederBlockTrace(blockWithTxs, blockTrace)
+		require.Nil(t, err)
+		require.Equal(t, expectedAdaptedTrace, res)
+	})
+
+	t.Run("DECLARE tx gets successfully adapted", func(t *testing.T) {
+		blockWithTxs := &rpcv7.BlockWithTxs{
+			Transactions: []*rpcv7.Transaction{
+				{
+					Type: rpcv7.TxnDeclare,
+				},
+			},
+		}
+		blockTrace := &starknet.BlockTrace{
+			Traces: []starknet.TransactionTrace{
+				{
+					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					FeeTransferInvocation: &starknet.FunctionInvocation{},
+					ValidateInvocation:    &starknet.FunctionInvocation{},
+					FunctionInvocation:    &starknet.FunctionInvocation{},
+				},
+			},
+		}
+
+		expectedAdaptedTrace := []rpcv7.TracedBlockTransaction{
+			{
+				TransactionHash: new(felt.Felt).SetUint64(1),
+				TraceRoot: &rpcv7.TransactionTrace{
+					Type: rpcv7.TxnDeclare,
+					FeeTransferInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []rpcv6.OrderedEvent{},
+						Messages:           []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
+					},
+					ValidateInvocation: &rpcv6.FunctionInvocation{
+						Calls:              []rpcv6.FunctionInvocation{},
+						Events:             []rpcv6.OrderedEvent{},
+						Messages:           []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 				},
 			},
