@@ -1,14 +1,13 @@
 package vm
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type TransactionExecutionError struct {
 	Index uint64
-	Cause error
-}
-
-func (e TransactionExecutionError) Unwrap() error {
-	return e.Cause
+	Cause json.RawMessage
 }
 
 func (e TransactionExecutionError) Error() string {

@@ -74,6 +74,10 @@ func (rb ResourceBounds) Bytes(resource Resource) []byte {
 	)
 }
 
+func (rb ResourceBounds) IsZero() bool {
+	return rb.MaxAmount == 0 && (rb.MaxPricePerUnit == nil || rb.MaxPricePerUnit.IsZero())
+}
+
 type Event struct {
 	Data []*felt.Felt
 	From *felt.Felt

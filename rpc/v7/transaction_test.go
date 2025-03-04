@@ -27,7 +27,7 @@ import (
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
@@ -207,12 +207,12 @@ func adaptV6TxToV7(t *testing.T, tx *rpcv6.Transaction) *rpc.Transaction {
 
 	var v7NonceDAMode *rpc.DataAvailabilityMode
 	if tx.NonceDAMode != nil {
-		v7NonceDAMode = utils.Ptr(rpc.DataAvailabilityMode(*tx.NonceDAMode))
+		v7NonceDAMode = utils.HeapPtr(rpc.DataAvailabilityMode(*tx.NonceDAMode))
 	}
 
 	var v7FeeDAMode *rpc.DataAvailabilityMode
 	if tx.FeeDAMode != nil {
-		v7FeeDAMode = utils.Ptr(rpc.DataAvailabilityMode(*tx.FeeDAMode))
+		v7FeeDAMode = utils.HeapPtr(rpc.DataAvailabilityMode(*tx.FeeDAMode))
 	}
 
 	return &rpc.Transaction{
@@ -247,7 +247,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncer, nil, "", n, nil)
@@ -512,7 +512,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
@@ -803,8 +803,42 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 	}
 }
 
+func TestAdaptTransaction(t *testing.T) {
+	t.Run("core.Resource `ResourceL1DataGas` should be ignored when converted to v7.Resource", func(t *testing.T) {
+		coreTx := core.InvokeTransaction{
+			Version: new(core.TransactionVersion).SetUint64(3),
+			ResourceBounds: map[core.Resource]core.ResourceBounds{
+				core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				core.ResourceL2Gas:     {MaxAmount: 3, MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+				core.ResourceL1DataGas: {MaxAmount: 5, MaxPricePerUnit: new(felt.Felt).SetUint64(6)},
+			},
+		}
+
+		tx := rpc.AdaptTransaction(&coreTx)
+
+		expectedTx := &rpc.Transaction{
+			Type:    rpc.TxnInvoke,
+			Version: new(felt.Felt).SetUint64(3),
+			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
+				rpc.ResourceL1Gas: {MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				rpc.ResourceL2Gas: {MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+			},
+			Tip: new(felt.Felt).SetUint64(0),
+			// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)
+			Signature:             new([]*felt.Felt),
+			CallData:              new([]*felt.Felt),
+			PaymasterData:         new([]*felt.Felt),
+			AccountDeploymentData: new([]*felt.Felt),
+			NonceDAMode:           utils.HeapPtr(rpc.DAModeL1),
+			FeeDAMode:             utils.HeapPtr(rpc.DAModeL1),
+		}
+
+		require.Equal(t, expectedTx, tx)
+	})
+}
+
 func TestAddTransaction(t *testing.T) {
-	n := utils.Ptr(utils.Integration)
+	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
@@ -1097,13 +1131,13 @@ func TestTransactionStatus(t *testing.T) {
 		notFoundTxHash    *felt.Felt
 	}{
 		{
-			network:           utils.Ptr(utils.Mainnet),
+			network:           &utils.Mainnet,
 			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
 			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
-			network:           utils.Ptr(utils.Integration),
+			network:           &utils.Integration,
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),

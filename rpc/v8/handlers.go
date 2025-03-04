@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
-	"log"
 	"math"
 	"strings"
 	stdsync "sync"
@@ -61,7 +60,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
 	if err != nil {
-		log.Fatalf("Failed to parse ABI: %v", err)
+		logger.Fatalf("Failed to parse ABI: %v", err)
 	}
 	return &Handler{
 		bcReader:   bcReader,
