@@ -363,6 +363,11 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
 	for resource, bounds := range rb {
+		// ResourceL1DataGas is not supported in v7
+		if resource == core.ResourceL1DataGas {
+			continue
+		}
+
 		rpcResourceBounds[Resource(resource)] = ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
@@ -575,7 +580,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeclareTransaction:
 		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTrandaction(v)
+		txn = adaptDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
@@ -704,7 +709,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
 		Version:            t.Version.AsFelt(),
-		Signature:          utils.Ptr(t.Signature()),
+		Signature:          utils.HeapPtr(t.Signature()),
 		Nonce:              t.Nonce,
 		CallData:           &t.CallData,
 		ContractAddress:    t.ContractAddress,
@@ -713,12 +718,12 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 	return tx
 }
@@ -730,7 +735,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
 		Version:           t.Version.AsFelt(),
-		Signature:         utils.Ptr(t.Signature()),
+		Signature:         utils.HeapPtr(t.Signature()),
 		Nonce:             t.Nonce,
 		ClassHash:         t.ClassHash,
 		SenderAddress:     t.SenderAddress,
@@ -738,23 +743,23 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx
 }
 
-func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transaction {
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
 	tx := &Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
-		Signature:           utils.Ptr(t.Signature()),
+		Signature:           utils.HeapPtr(t.Signature()),
 		Nonce:               t.Nonce,
 		Type:                TxnDeployAccount,
 		ContractAddressSalt: t.ContractAddressSalt,
@@ -763,11 +768,11 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.Ptr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
-		tx.NonceDAMode = utils.Ptr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.Ptr(DataAvailabilityMode(t.FeeDAMode))
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 	}
 
 	return tx

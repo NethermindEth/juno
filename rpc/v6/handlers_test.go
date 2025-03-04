@@ -20,14 +20,14 @@ func nopCloser() error { return nil }
 func TestVersion(t *testing.T) {
 	const version = "1.2.3-rc1"
 
-	handler := rpc.New(nil, nil, nil, version, utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(nil, nil, nil, version, &utils.Mainnet, nil)
 	ver, err := handler.Version()
 	require.Nil(t, err)
 	assert.Equal(t, version, ver)
 }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(nil, nil, nil, "", &utils.Mainnet, nil)
 	legacyVersion, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", legacyVersion)
@@ -42,7 +42,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", &utils.Mainnet, nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -50,7 +50,14 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		_, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
+			Program: []*felt.Felt{
+				new(felt.Felt),
+				new(felt.Felt),
+				new(felt.Felt),
+			},
+		}}, nil)
+		_, rpcErr := handler.Call(&rpc.FunctionCall{}, &rpc.BlockID{Latest: true})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
