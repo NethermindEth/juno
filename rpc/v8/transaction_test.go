@@ -962,14 +962,18 @@ func TestAddTransaction(t *testing.T) {
 				"nonce_data_availability_mode": 0,
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
-				  "L1_GAS": {
+					"L1_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x5af3107a4000"
+				  },
+					"L1_DATA_GAS": {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
-				  }
+					}
 				},
 				"tip": "0x0",
 				"paymaster_data": [],
@@ -1067,6 +1071,10 @@ func TestAddTransaction(t *testing.T) {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x2540be400"
 				  },
+				  "L1_DATA_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x2540be400"
+				  },
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
@@ -1117,6 +1125,10 @@ func TestAddTransaction(t *testing.T) {
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
 				  "L1_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x5af3107a4000"
+				  },
+				  "L1_DATA_GAS": {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
