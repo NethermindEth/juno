@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-ci-cd
   cancel-in-progress: true
 
 permissions:
@@ -22,8 +22,17 @@ permissions:
   contents: write
 
 jobs:
-  dev:
-    uses: ./.github/workflows/dev-environment-pipeline.yml
+  build:
+    uses: ./.github/workflows/build-image.yaml
+    secrets:
+      ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+
+  dev_deploy_test:
+    needs: [build]
+    uses: ./.github/workflows/dev-deploy-test.yaml
+    with:
+      docker_image_tag: ${{ needs.build.outputs.docker_image_tag }}
     secrets:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
@@ -32,7 +41,7 @@ jobs:
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   promote_to_staging:
-    needs: [dev]
+    needs: [build, dev_deploy_test]
     runs-on: ubuntu-latest
     environment:
       name: Staging
@@ -49,13 +58,13 @@ jobs:
 
       - name: Promote to Staging
         run: |
-          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.dev.outputs.docker_image_tag }}
-          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.dev.outputs.docker_image_tag }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${{ needs.build.outputs.docker_image_tag }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build.outputs.docker_image_tag }}
 
           oras cp -r $OLD_TAG $NEW_TAG,latest
       - name: Verify Deployment Version (Staging)
         run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.dev.outputs.docker_image_tag }}
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.STAGING_SEPOLIA_URL }} ${{ needs.build.outputs.docker_image_tag }}
 
   staging-starknet-rs-tests:
     needs: [promote_to_staging]
@@ -78,7 +87,7 @@ jobs:
       TEST_RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}/v0_7
 
   promote_to_production:
-    needs: [dev, promote_to_staging]
+    needs: [build, promote_to_staging]
     runs-on: ubuntu-latest
     environment:
       name: Production
@@ -92,8 +101,8 @@ jobs:
 
       - name: Promote to Production
         run: |
-          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.dev.outputs.docker_image_tag }}
-          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_PROD }}/juno:${{ needs.dev.outputs.docker_image_tag }}
+          OLD_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_STAGING }}/juno:${{ needs.build.outputs.docker_image_tag }}
+          NEW_TAG=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_PROD }}/juno:${{ needs.build.outputs.docker_image_tag }}
 
           oras cp -r $OLD_TAG $NEW_TAG,latest
 
