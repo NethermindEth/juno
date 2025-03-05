@@ -1,0 +1,16 @@
+[package]
+name = "universal_deployer"
+version = "0.1.0"
+edition = "2024_07"
+
+# See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
+
+[dependencies]
+starknet = ">=2.10.1"
+openzeppelin_utils = ">=1.0.0"
+
+[[target.starknet-contract]]
+allowed-libfuncs-list.name = "experimental"
+
+[lib]
+casm = true
