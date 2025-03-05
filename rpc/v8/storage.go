@@ -68,8 +68,8 @@ func (h *Handler) StorageProof(id BlockID,
 
 	// We do not support historical storage proofs for now
 	// Ensure that the block requested is the head block
-	if !headOnly(id, head) {
-		return nil, rpccore.ErrStorageProofNotSupported
+	if rpcErr := isBlockSupported(id, head); rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	state, closer, err := h.bcReader.HeadState()
@@ -165,17 +165,25 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 	return uniqueStorageKeys, nil
 }
 
-// Returns true only if the block ID requested matches the head block
-func headOnly(id BlockID, head *core.Block) bool {
+// isBlockSupported checks if the block ID requested is supported for storage proofs
+// Currently returns true only if the block ID requested matches the head block
+func isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error {
 	switch {
 	case id.IsLatest():
-		return true
+		return nil
 	case id.IsPending():
-		return false
+		// TODO: Remove this case when specs replaced BLOCK_ID by another type.
+		return rpccore.ErrCallOnPending
 	case id.GetHash() != nil:
-		return id.GetHash().Equal(head.Hash)
+		if id.GetHash().Equal(head.Hash) {
+			return nil
+		}
+		return rpccore.ErrStorageProofNotSupported
 	default:
-		return id.GetNumber() == head.Number
+		if id.GetNumber() == head.Number {
+			return nil
+		}
+		return rpccore.ErrStorageProofNotSupported
 	}
 }
 
