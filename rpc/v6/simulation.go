@@ -93,7 +93,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		return nil, handleExecutionError(err)
 	}
 
-	simulatedTransactions, err := createSimulatedTransactions(executionResults, txns, header)
+	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -139,7 +139,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 }
 
 func createSimulatedTransactions(
-	executionResults vm.ExecutionResults, txns []core.Transaction, header *core.Header, //nolint: gocritic
+	executionResults *vm.ExecutionResults, txns []core.Transaction, header *core.Header,
 ) ([]SimulatedTransaction, error) {
 	overallFees := executionResults.OverallFees
 	traces := executionResults.Traces
