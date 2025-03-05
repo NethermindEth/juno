@@ -1005,7 +1005,10 @@ func TestCall(t *testing.T) {
 			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
 		}
-		expectedErr := rpccore.ErrEntrypointNotFound
+		expectedErr := rpccore.ErrContractError
+		expectedErr.Data = rpc.ContractErrorData{
+			RevertError: json.RawMessage(`"` + rpccore.ErrEntrypointNotFound.Message + `"`),
+		}
 
 		headsHeader := &core.Header{
 			Number:    9,

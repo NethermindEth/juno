@@ -437,9 +437,11 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		var strErr string
 		if len(res.Result) != 0 {
 			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
-				return nil, rpccore.ErrEntrypointNotFound
+				strErr = rpccore.ErrEntrypointNotFound.Message
+			} else {
+				strErr = utils.FeltArrToString(res.Result)
 			}
-			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
+			strErr = `"` + strErr + `"`
 		}
 		// Todo: There is currently no standardised way to format these error messages
 		return nil, MakeContractError(json.RawMessage(strErr))
