@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"6nsqrr694krfi","package_name":"account","contract_name":"AccountUpgradeable","module_path":"account::AccountUpgradeable","artifacts":{"sierra":"account_AccountUpgradeable.contract_class.json","casm":null}}]}
