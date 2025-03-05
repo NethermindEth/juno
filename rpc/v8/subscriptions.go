@@ -152,7 +152,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 			case <-subscriptionCtx.Done():
 				return
 			case reorg := <-reorgSub.Recv():
-				if err := h.sendReorg(w, reorg, id); err != nil {
+				if err := sendReorg(w, reorg, id); err != nil {
 					h.log.Warnw("Error sending reorg", "err", err)
 					return
 				}
@@ -237,7 +237,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 
 		var wg conc.WaitGroup
 
-		err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
+		err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
 		if err != nil {
 			h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
 			return
@@ -272,7 +272,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 						}
 
 						if curStatus.Finality > prevStatus.Finality {
-							err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
+							err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
 							if err != nil {
 								h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
 								return
@@ -296,7 +296,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Fe
 							FailureReason: receipt.RevertReason,
 						}
 
-						err := h.sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *s}, id)
+						err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *s}, id)
 						if err != nil {
 							h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
 						}
@@ -396,20 +396,7 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 				},
 			}
 
-			resp, err := json.Marshal(SubscriptionResponse{
-				Version: "2.0",
-				Method:  "starknet_subscriptionEvents",
-				Params: map[string]any{
-					"subscription_id": id,
-					"result":          emittedEvent,
-				},
-			})
-			if err != nil {
-				return err
-			}
-
-			_, err = w.Write(resp)
-			if err != nil {
+			if err := sendResponse("starknet_subscriptionEvents", w, id, emittedEvent); err != nil {
 				return err
 			}
 		}
@@ -513,7 +500,7 @@ func (h *Handler) processPendingTxs(ctx context.Context, getDetails bool, sender
 		case pendingBlock := <-pendingSub.Recv():
 			filteredTxs := h.filterTxs(pendingBlock.Transactions, getDetails, senderAddr)
 			for _, filteredTxn := range filteredTxs {
-				if err := h.sendPendingTxs(w, filteredTxn, id); err != nil {
+				if err := sendPendingTxs(w, filteredTxn, id); err != nil {
 					h.log.Warnw("Error sending pending transactions", "err", err)
 					return
 				}
@@ -579,21 +566,8 @@ func (h *Handler) filterTxBySender(txn core.Transaction, senderAddr []felt.Felt)
 	return false
 }
 
-func (h *Handler) sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
-	resp, err := json.Marshal(SubscriptionResponse{
-		Version: "2.0",
-		Method:  "starknet_subscriptionPendingTransactions",
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          result,
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(resp)
-	return err
+func sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
+	return sendResponse("starknet_subscriptionPendingTransactions", w, id, result)
 }
 
 // resolveBlockRange returns the start and latest headers based on the blockID.
@@ -641,7 +615,7 @@ func (h *Handler) sendHistoricalHeaders(
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if err := h.sendHeader(w, curHeader, id); err != nil {
+			if err := sendHeader(w, curHeader, id); err != nil {
 				return err
 			}
 
@@ -663,7 +637,7 @@ func (h *Handler) processNewHeaders(ctx context.Context, newHeadsSub *feed.Subsc
 		case <-ctx.Done():
 			return
 		case head := <-newHeadsSub.Recv():
-			if err := h.sendHeader(w, head.Header, id); err != nil {
+			if err := sendHeader(w, head.Header, id); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
 			}
@@ -672,20 +646,8 @@ func (h *Handler) processNewHeaders(ctx context.Context, newHeadsSub *feed.Subsc
 }
 
 // sendHeader creates a request and sends it to the client
-func (h *Handler) sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
-	resp, err := json.Marshal(SubscriptionResponse{
-		Version: "2.0",
-		Method:  "starknet_subscriptionNewHeads",
-		Params: map[string]any{
-			"subscription_id": id,
-			"result":          adaptBlockHeader(header),
-		},
-	})
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(resp)
-	return err
+func sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
+	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
 }
 
 func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgBlockRange], w jsonrpc.Conn, id uint64) {
@@ -694,7 +656,7 @@ func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription
 		case <-ctx.Done():
 			return
 		case reorg := <-reorgSub.Recv():
-			if err := h.sendReorg(w, reorg, id); err != nil {
+			if err := sendReorg(w, reorg, id); err != nil {
 				h.log.Warnw("Error sending reorg", "err", err)
 				return
 			}
@@ -709,25 +671,34 @@ type ReorgEvent struct {
 	EndBlockNum    uint64     `json:"ending_block_number"`
 }
 
-func (h *Handler) sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
-	resp, err := json.Marshal(jsonrpc.Request{
-		Version: "2.0",
-		Method:  "starknet_subscriptionReorg",
-		Params: map[string]any{
-			"subscription_id": id,
-			"result": &ReorgEvent{
-				StartBlockHash: reorg.StartBlockHash,
-				StartBlockNum:  reorg.StartBlockNum,
-				EndBlockHash:   reorg.EndBlockHash,
-				EndBlockNum:    reorg.EndBlockNum,
-			},
-		},
+func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
+	return sendResponse("starknet_subscriptionReorg", w, id, &ReorgEvent{
+		StartBlockHash: reorg.StartBlockHash,
+		StartBlockNum:  reorg.StartBlockNum,
+		EndBlockHash:   reorg.EndBlockHash,
+		EndBlockNum:    reorg.EndBlockNum,
 	})
-	if err != nil {
-		return err
+}
+
+func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
+	w, ok := jsonrpc.ConnFromContext(ctx)
+	if !ok {
+		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
-	_, err = w.Write(resp)
-	return err
+	sub, ok := h.subscriptions.Load(id)
+	if !ok {
+		return false, rpccore.ErrInvalidSubscriptionID
+	}
+
+	subs := sub.(*subscription)
+	if !subs.conn.Equal(w) {
+		return false, rpccore.ErrInvalidSubscriptionID
+	}
+
+	subs.cancel()
+	subs.wg.Wait() // Let the subscription finish before responding.
+	h.subscriptions.Delete(id)
+	return true, nil
 }
 
 type SubscriptionTransactionStatus struct {
@@ -736,13 +707,17 @@ type SubscriptionTransactionStatus struct {
 }
 
 // sendTxnStatus creates a response and sends it to the client
-func (h *Handler) sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id uint64) error {
+func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id uint64) error {
+	return sendResponse("starknet_subscriptionTransactionsStatus", w, id, status)
+}
+
+func sendResponse(method string, w jsonrpc.Conn, id uint64, result any) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
-		Method:  "starknet_subscriptionTransactionsStatus",
+		Method:  method,
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          status,
+			"result":          result,
 		},
 	})
 	if err != nil {
