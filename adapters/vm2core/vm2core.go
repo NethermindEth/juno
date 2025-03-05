@@ -55,25 +55,26 @@ func AdaptStateDiff(stateDiff *vm.StateDiff) *core.StateDiff {
 		newStorageDiffs[sd.Address] = entries
 	}
 
-	newNonces := make(map[felt.Felt]*felt.Felt)
+	newNonces := make(map[felt.Felt]*felt.Felt, len(stateDiff.Nonces))
 	for _, nonce := range stateDiff.Nonces {
 		newNonce := nonce.Nonce
 		newNonces[nonce.ContractAddress] = &newNonce
 	}
 
-	newDeployedContracts := make(map[felt.Felt]*felt.Felt)
+	newDeployedContracts := make(map[felt.Felt]*felt.Felt, len(stateDiff.DeployedContracts))
 	for _, dc := range stateDiff.DeployedContracts {
 		ch := dc.ClassHash
 		newDeployedContracts[dc.Address] = &ch
 	}
 
-	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt)
+	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt, len(stateDiff.DeclaredClasses))
+
 	for _, dc := range stateDiff.DeclaredClasses {
 		cch := dc.CompiledClassHash
 		newDeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
-	newReplacedClasses := make(map[felt.Felt]*felt.Felt)
+	newReplacedClasses := make(map[felt.Felt]*felt.Felt, len(stateDiff.ReplacedClasses))
 	for _, rc := range stateDiff.ReplacedClasses {
 		ch := rc.ClassHash
 		newReplacedClasses[rc.ContractAddress] = &ch
