@@ -659,7 +659,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		expectedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
 
-		// The VM trace's root-level ExecutionResources get overriden by the sum of inner call's ComputationResources and ExecutionResults.DataAvailability
+		// The VM trace's root-level ExecutionResources get overridden by the sum of inner call's
+		// ComputationResources and ExecutionResults.DataAvailability
 		expectedTrace.ExecutionResources = &rpcv7.ExecutionResources{
 			ComputationResources: rpcv7.ComputationResources{Steps: 6},
 			DataAvailability:     &rpcv7.DataAvailability{L1Gas: 123, L1DataGas: 456},
