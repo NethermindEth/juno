@@ -420,6 +420,128 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
+
+	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
+		n := &utils.Sepolia
+
+		handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+
+		client := feeder.NewTestClient(t, n)
+		handler.WithFeeder(client)
+		gateway := adaptfeeder.New(client)
+
+		// Tx at index 3 in the block
+		revertedTxHash := utils.HexToFelt(t, "0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
+
+		blockNumber := uint64(18)
+		blockHash := utils.HexToFelt(t, "0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
+
+		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
+		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+			return gateway.BlockByNumber(context.Background(), blockNumber)
+		}).Times(2)
+
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: 19, // Doesn't really matter for this test
+		}, nil)
+
+		expectedRevertedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnInvoke,
+			ValidateInvocation: &rpc.FunctionInvocation{
+				ContractAddress:    *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				EntryPointSelector: utils.HexToFelt(t, "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
+				Calldata: []felt.Felt{
+					*utils.HexToFelt(t, "0x1"),
+					*utils.HexToFelt(t, "0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
+					*utils.HexToFelt(t, "0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5"),
+					*utils.HexToFelt(t, "0x1"),
+					*utils.HexToFelt(t, "0xa"),
+				},
+				CallerAddress:  *utils.HexToFelt(t, "0x0"),
+				ClassHash:      utils.HexToFelt(t, "0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
+				EntryPointType: "EXTERNAL",
+				CallType:       "CALL",
+				Result:         []felt.Felt{*utils.HexToFelt(t, "0x56414c4944")},
+				Calls:          []rpc.FunctionInvocation{},
+				Events:         []rpcv6.OrderedEvent{},
+				Messages:       []rpcv6.OrderedL2toL1Message{},
+				ExecutionResources: &rpc.InnerExecutionResources{
+					L1Gas: 0,
+					L2Gas: 0,
+				},
+			},
+			FeeTransferInvocation: &rpc.FunctionInvocation{
+				ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				Calldata: []felt.Felt{
+					*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					*utils.HexToFelt(t, "0x2847291f968"),
+					*utils.HexToFelt(t, "0x0"),
+				},
+				CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				ClassHash:      utils.HexToFelt(t, "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
+				EntryPointType: "EXTERNAL",
+				CallType:       "CALL",
+				Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
+				Calls: []rpc.FunctionInvocation{
+					{
+						ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+						EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+						Calldata: []felt.Felt{
+							*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+							*utils.HexToFelt(t, "0x2847291f968"),
+							*utils.HexToFelt(t, "0x0"),
+						},
+						CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+						ClassHash:      utils.HexToFelt(t, "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
+						EntryPointType: "EXTERNAL",
+						CallType:       "DELEGATE",
+						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
+						Calls:          []rpc.FunctionInvocation{},
+						Events: []rpcv6.OrderedEvent{
+							{
+								Order: 0,
+								Keys:  []*felt.Felt{utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
+								Data: []*felt.Felt{
+									utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+									utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+									utils.HexToFelt(t, "0x2847291f968"),
+									utils.HexToFelt(t, "0x0"),
+								},
+							},
+						},
+						Messages: []rpcv6.OrderedL2toL1Message{},
+						ExecutionResources: &rpc.InnerExecutionResources{
+							L1Gas: 0,
+							L2Gas: 0,
+						},
+					},
+				},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+				ExecutionResources: &rpc.InnerExecutionResources{
+					L1Gas: 0,
+					L2Gas: 0,
+				},
+			},
+			ExecuteInvocation: &rpc.ExecuteInvocation{
+				RevertReason: "Error in the called contract (0x070503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84):\nError at pc=0:4288:\nGot an exception while executing a hint: Custom Hint Error: Execution failed. Failure reason: 'Fatal'.\nCairo traceback (most recent call last):\nUnknown location (pc=0:67)\nUnknown location (pc=0:1997)\nUnknown location (pc=0:2729)\nUnknown location (pc=0:3577)\n",
+			},
+			ExecutionResources: &rpc.ExecutionResources{
+				InnerExecutionResources: rpc.InnerExecutionResources{
+					L1Gas: 0,
+					L2Gas: 0,
+				},
+				L1DataGas: 0,
+			},
+		}
+
+		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *revertedTxHash)
+
+		require.Nil(t, err)
+		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		assert.Equal(t, expectedRevertedTrace, *trace)
+	})
 }
 
 func TestTraceBlockTransactions(t *testing.T) {
@@ -1010,8 +1132,8 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					TransactionHash:       *new(felt.Felt).SetUint64(1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
-					FunctionInvocation:    &starknet.FunctionInvocation{},
-					RevertError:           "some error",
+					// When revert error, feeder trace has no FunctionInvocation only RevertError is set
+					RevertError: "some error",
 				},
 			},
 		}
