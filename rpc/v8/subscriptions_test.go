@@ -752,6 +752,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
+		parentHash := new(felt.Felt).SetUint64(1)
+
 		hash1 := new(felt.Felt).SetUint64(1)
 		addr1 := new(felt.Felt).SetUint64(11)
 
@@ -763,6 +765,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash5 := new(felt.Felt).SetUint64(5)
 
 		syncer.pending.Send(&core.Block{
+			Header: &core.Header{
+				ParentHash: parentHash,
+			},
 			Transactions: []core.Transaction{
 				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
 				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
@@ -790,6 +795,8 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
+		parentHash := new(felt.Felt).SetUint64(1)
+
 		hash1 := new(felt.Felt).SetUint64(1)
 		addr1 := new(felt.Felt).SetUint64(11)
 
@@ -807,6 +814,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 		addr7 := new(felt.Felt).SetUint64(77)
 
 		syncer.pending.Send(&core.Block{
+			Header: &core.Header{
+				ParentHash: parentHash,
+			},
 			Transactions: []core.Transaction{
 				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
 				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
@@ -836,7 +846,11 @@ func TestSubscribePendingTxs(t *testing.T) {
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
+		parentHash := new(felt.Felt).SetUint64(1)
 		syncer.pending.Send(&core.Block{
+			Header: &core.Header{
+				ParentHash: parentHash,
+			},
 			Transactions: []core.Transaction{
 				&core.InvokeTransaction{
 					TransactionHash:       new(felt.Felt).SetUint64(1),
