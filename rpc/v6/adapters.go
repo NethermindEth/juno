@@ -14,68 +14,35 @@ import (
 *****************************************************/
 
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
-	var validateInvocation *FunctionInvocation
-	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
-	}
-
-	var feeTransferInvocation *FunctionInvocation
-	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
-	}
-
-	var constructorInvocation *FunctionInvocation
-	var executeInvocation *ExecuteInvocation
-	var functionInvocation *FunctionInvocation
-
-	switch trace.Type {
-	case vm.TxnDeployAccount, vm.TxnDeploy:
-		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
-		}
-	case vm.TxnInvoke:
-		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
-		}
-	case vm.TxnL1Handler:
-		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
-		}
-	}
-
-	var stateDiff *StateDiff
-	if trace.StateDiff != nil {
-		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
-	}
-
 	return TransactionTrace{
 		Type:                  TransactionType(trace.Type),
-		ValidateInvocation:    validateInvocation,
-		ExecuteInvocation:     executeInvocation,
-		FeeTransferInvocation: feeTransferInvocation,
-		ConstructorInvocation: constructorInvocation,
-		FunctionInvocation:    functionInvocation,
-		StateDiff:             stateDiff,
+		ValidateInvocation:    AdaptVMFunctionInvocation(trace.ValidateInvocation),
+		ExecuteInvocation:     AdaptVMExecuteInvocation(trace.ExecuteInvocation),
+		FeeTransferInvocation: AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
+		ConstructorInvocation: AdaptVMFunctionInvocation(trace.ConstructorInvocation),
+		FunctionInvocation:    AdaptVMFunctionInvocation(trace.FunctionInvocation),
+		StateDiff:             AdaptVMStateDiff(trace.StateDiff),
 	}
 }
 
-func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
-	var functionInvocation *FunctionInvocation
-	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) *ExecuteInvocation {
+	if vmFnInvocation == nil {
+		return nil
 	}
-
-	return ExecuteInvocation{
+	return &ExecuteInvocation{
 		RevertReason:       vmFnInvocation.RevertReason,
-		FunctionInvocation: functionInvocation,
+		FunctionInvocation: AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
 	}
 }
 
-func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
+func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) *FunctionInvocation {
+	if vmFnInvocation == nil {
+		return nil
+	}
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
+		adaptedCalls[index] = *AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt events
@@ -122,7 +89,7 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		}
 	}
 
-	return FunctionInvocation{
+	return &FunctionInvocation{
 		ContractAddress:    vmFnInvocation.ContractAddress,
 		EntryPointSelector: vmFnInvocation.EntryPointSelector,
 		Calldata:           vmFnInvocation.Calldata,
@@ -138,7 +105,10 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 }
 
-func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
+func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) *StateDiff {
+	if vmStateDiff == nil {
+		return nil
+	}
 	// Adapt storage diffs
 	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
 	for index := range vmStateDiff.StorageDiffs {
@@ -205,7 +175,7 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 		}
 	}
 
-	return StateDiff{
+	return &StateDiff{
 		StorageDiffs:              adaptedStorageDiffs,
 		Nonces:                    adaptedNonces,
 		DeployedContracts:         adaptedDeployedContracts,
@@ -232,51 +202,40 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
-
-		trace := TransactionTrace{
-			Type: block.Transactions[index].Type,
-		}
-
-		if fee := feederTrace.FeeTransferInvocation; fee != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fee))
-		}
-
-		if val := feederTrace.ValidateInvocation; val != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(val))
-		}
-
-		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
-
-			switch block.Transactions[index].Type {
-			case TxnDeploy, TxnDeployAccount:
-				trace.ConstructorInvocation = fnInvocation
-			case TxnInvoke:
-				trace.ExecuteInvocation = new(ExecuteInvocation)
-				if feederTrace.RevertError != "" {
-					trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-				} else {
-					trace.ExecuteInvocation.FunctionInvocation = fnInvocation
-				}
-			case TxnL1Handler:
-				trace.FunctionInvocation = fnInvocation
-			}
-		}
-
 		adaptedTraces[index] = TracedBlockTransaction{
 			TransactionHash: &feederTrace.TransactionHash,
-			TraceRoot:       &trace,
+			TraceRoot: &TransactionTrace{
+				Type:                  block.Transactions[index].Type,
+				ValidateInvocation:    AdaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+				ExecuteInvocation:     AdaptFeederExecuteInvocation(feederTrace),
+				FeeTransferInvocation: AdaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+				ConstructorInvocation: AdaptFeederFunctionInvocation(feederTrace.FunctionInvocation),
+				FunctionInvocation:    AdaptFeederFunctionInvocation(feederTrace.FunctionInvocation),
+			},
 		}
 	}
 
 	return adaptedTraces, nil
 }
 
-func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
+func AdaptFeederExecuteInvocation(trace *starknet.TransactionTrace) *ExecuteInvocation {
+	if trace == nil {
+		return nil
+	}
+	return &ExecuteInvocation{
+		RevertReason:       trace.RevertError,
+		FunctionInvocation: AdaptFeederFunctionInvocation(trace.FunctionInvocation),
+	}
+}
+
+func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *FunctionInvocation {
+	if snFnInvocation == nil {
+		return nil
+	}
 	// Adapt internal calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
+		adaptedCalls[index] = *AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
@@ -306,7 +265,7 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		}
 	}
 
-	return FunctionInvocation{
+	return &FunctionInvocation{
 		ContractAddress:    snFnInvocation.ContractAddress,
 		EntryPointSelector: snFnInvocation.Selector,
 		Calldata:           snFnInvocation.Calldata,
