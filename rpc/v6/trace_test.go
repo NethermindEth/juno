@@ -410,7 +410,7 @@ func TestTraceTransaction(t *testing.T) {
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
 				Calls: []rpc.FunctionInvocation{
-					rpc.FunctionInvocation{
+					{
 						ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 						EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 						Calldata: []felt.Felt{
@@ -425,7 +425,7 @@ func TestTraceTransaction(t *testing.T) {
 						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
 						Calls:          []rpc.FunctionInvocation{},
 						Events: []rpc.OrderedEvent{
-							rpc.OrderedEvent{
+							{
 								Order: 0,
 								Keys:  []*felt.Felt{utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
 								Data: []*felt.Felt{
