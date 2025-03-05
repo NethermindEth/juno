@@ -107,8 +107,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			n := &utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -123,7 +123,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -234,8 +234,8 @@ func TestBlockWithTxs(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			n := &utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -250,7 +250,7 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -367,7 +367,7 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	n := utils.Ptr(utils.SepoliaIntegration)
+	n := utils.HeapPtr(utils.SepoliaIntegration)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -394,7 +394,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				NewRoot:         coreBlock.GlobalStateRoot,
 				Number:          &coreBlock.Number,
 				ParentHash:      coreBlock.ParentHash,
-				L1DAMode:        utils.Ptr(rpcv6.Blob),
+				L1DAMode:        utils.HeapPtr(rpcv6.Blob),
 				L1GasPrice: &rpcv6.ResourcePrice{
 					InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 					InWei: utils.HexToFelt(t, "0x3b9aca10"),
@@ -437,8 +437,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.Ptr(rpcv8.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.Ptr(rpcv8.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           utils.HeapPtr(rpcv8.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.HeapPtr(rpcv8.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)
@@ -448,7 +448,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := utils.HeapPtr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
@@ -577,7 +577,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Sepolia)
+	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpcv8.New(mockReader, nil, nil, "", nil)
 

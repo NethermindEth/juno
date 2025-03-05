@@ -4,12 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/NethermindEth/juno/adapters/core2sn"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 )
 
 func marshalClassInfo(class core.Class) (json.RawMessage, error) {
@@ -40,48 +37,9 @@ func marshalClassInfo(class core.Class) (json.RawMessage, error) {
 		classInfo.Class = core2sn.AdaptCompiledClass(c.Compiled)
 		classInfo.AbiLength = uint32(len(c.Abi))
 		classInfo.SierraLength = uint32(len(c.Program))
-		sierraVersion, err := parseSierraVersion(c.Program)
-		if err != nil {
-			return nil, err
-		}
-		classInfo.SierraVersion = sierraVersion
+		classInfo.SierraVersion = c.SierraVersion()
 	default:
 		return nil, fmt.Errorf("unsupported class type %T", c)
 	}
 	return json.Marshal(classInfo)
-}
-
-// Parse Sierra version from the JSON representation of the program.
-//
-// Sierra programs contain the version number in two possible formats.
-// For pre-1.0-rc0 Cairo versions the program contains the Sierra version
-// "0.1.0" as a shortstring in its first Felt (0x302e312e30 = "0.1.0").
-// For all subsequent versions the version number is the first three felts
-// representing the three parts of a semantic version number.
-// TODO: There should be an implementation in the blockifier. If there is, move it to the rust part.
-func parseSierraVersion(prog []*felt.Felt) (string, error) {
-	if len(prog) == 0 {
-		return "", errors.New("failed to parse sierra version in classInfo")
-	}
-
-	pre01, err := new(felt.Felt).SetString("0x302e312e30")
-	if err != nil {
-		return "", err
-	}
-
-	if prog[0].Equal(pre01) {
-		return "0.1.0", nil
-	}
-
-	if len(prog) < 3 {
-		return "", errors.New("failed to parse sierra version in classInfo")
-	}
-
-	parts := []string{
-		strconv.FormatUint(prog[0].Uint64(), 10),
-		strconv.FormatUint(prog[1].Uint64(), 10),
-		strconv.FormatUint(prog[2].Uint64(), 10),
-	}
-
-	return strings.Join(parts, "."), nil
 }

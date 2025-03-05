@@ -199,6 +199,21 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
+
+	// Ensures that the L1DataGas resource is always present if L2Gas is non-zero.
+	// In RPC v8, L1Gas, L2Gas and L1DataGas are part of the spec and required.
+	// In RPC v6 and v7, only L1Gas and L2Gas are part of the spec and required.
+	// Blockifier will throw an error if L1DataGas is absent and L2Gas is non-zero.
+	// To avoid that, if L2Gas is non-zero, we set the L1DataGas resource to zero.
+	if l2Gas, ok := coreBounds[core.ResourceL2Gas]; ok && !l2Gas.IsZero() {
+		if _, ok := coreBounds[core.ResourceL1DataGas]; !ok {
+			coreBounds[core.ResourceL1DataGas] = core.ResourceBounds{
+				MaxAmount:       0,
+				MaxPricePerUnit: &felt.Zero,
+			}
+		}
+	}
+
 	return coreBounds
 }
 
@@ -264,27 +279,41 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
 	var err error
 
-	class := new(core.Cairo1Class)
-	class.SemanticVersion = response.Version
-	class.Program = response.Program
-	class.ProgramHash = crypto.PoseidonArray(class.Program...)
-
-	class.Abi = response.Abi
-	class.AbiHash = crypto.StarknetKeccak([]byte(class.Abi))
-
-	adapt := func(ep starknet.SierraEntryPoint) core.SierraEntryPoint {
-		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+	// TODO: what's the absolute minimum size of a Sierra Definition?
+	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
+	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
+		return nil, errors.New("sierra program size is too small")
 	}
-	class.EntryPoints.External = utils.Map(utils.NonNilSlice(response.EntryPoints.External), adapt)
-	class.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt)
-	class.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(response.EntryPoints.Constructor), adapt)
 
-	class.Compiled, err = AdaptCompiledClass(compiledClass)
+	coreCompiledClass, err := AdaptCompiledClass(compiledClass)
 	if err != nil {
 		return nil, err
 	}
 
-	return class, nil
+	adapt := func(ep *starknet.SierraEntryPoint) core.SierraEntryPoint {
+		return core.SierraEntryPoint{Index: ep.Index, Selector: ep.Selector}
+	}
+
+	return &core.Cairo1Class{
+		SemanticVersion: response.Version,
+		Program:         response.Program,
+		ProgramHash:     crypto.PoseidonArray(response.Program...),
+
+		Abi:     response.Abi,
+		AbiHash: crypto.StarknetKeccak([]byte(response.Abi)),
+
+		Compiled: coreCompiledClass,
+
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{
+			Constructor: utils.MapByRef(utils.NonNilSlice(response.EntryPoints.Constructor), adapt),
+			External:    utils.MapByRef(utils.NonNilSlice(response.EntryPoints.External), adapt),
+			L1Handler:   utils.MapByRef(utils.NonNilSlice(response.EntryPoints.L1Handler), adapt),
+		},
+	}, nil
 }
 
 func AdaptCompiledClass(compiledClass *starknet.CompiledClass) (*core.CompiledClass, error) {

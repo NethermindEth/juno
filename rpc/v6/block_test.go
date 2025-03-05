@@ -95,7 +95,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", utils.Ptr(utils.Mainnet), nil)
+	handler := rpc.New(mockReader, nil, nil, "", &utils.Mainnet, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -120,7 +120,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
@@ -153,7 +153,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	n := utils.Ptr(utils.Sepolia)
+	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
@@ -253,8 +253,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			n := &utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
@@ -267,7 +267,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -376,8 +376,8 @@ func TestBlockWithTxs(t *testing.T) {
 	for description, id := range errTests { //nolint:dupl
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
-			n := utils.Ptr(utils.Mainnet)
-			chain := blockchain.New(pebble.NewMemTest(t), n, nil)
+			n := &utils.Mainnet
+			chain := blockchain.New(pebble.NewMemTest(t), n)
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
@@ -390,7 +390,7 @@ func TestBlockWithTxs(t *testing.T) {
 		})
 	}
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
 	client := feeder.NewTestClient(t, n)
@@ -505,7 +505,7 @@ func TestBlockWithTxs(t *testing.T) {
 }
 
 func TestBlockWithTxHashesV013(t *testing.T) {
-	n := utils.Ptr(utils.SepoliaIntegration)
+	n := &utils.SepoliaIntegration
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -564,8 +564,8 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
-				NonceDAMode:           utils.Ptr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
-				FeeDAMode:             utils.Ptr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
+				NonceDAMode:           utils.HeapPtr(rpc.DataAvailabilityMode(tx.NonceDAMode)),
+				FeeDAMode:             utils.HeapPtr(rpc.DataAvailabilityMode(tx.FeeDAMode)),
 			},
 		},
 	}, got)
@@ -576,7 +576,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	n := utils.Ptr(utils.Mainnet)
+	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
 
@@ -694,7 +694,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := utils.Ptr(utils.Sepolia)
+	n := &utils.Sepolia
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, nil, nil, "", n, nil)
 

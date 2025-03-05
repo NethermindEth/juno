@@ -130,73 +130,40 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	}
 	h.subscriptions.Store(id, sub)
 
-	headerSub := h.newHeads.Subscribe()
-	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the events subscription
-	pendingSub := h.pendingBlock.Subscribe()
+	newHeadsSub := h.newHeads.SubscribeKeepLast()
+	reorgSub := h.reorgs.SubscribeKeepLast() // as per the spec, reorgs are also sent in the events subscription
+	pendingSub := h.pendingBlock.SubscribeKeepLast()
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			headerSub.Unsubscribe()
+			newHeadsSub.Unsubscribe()
 			reorgSub.Unsubscribe()
 			pendingSub.Unsubscribe()
 		}()
 
-		// The specification doesn't enforce ordering of events, therefore, events from new blocks can be sent before
-		// old blocks.
-		var wg conc.WaitGroup
-		wg.Go(func() {
-			// Stores the transaction hash -> number of events
-			eventsPreviouslySent := make(map[SentEvent]struct{})
+		// We still need to run this separately outside of the loop to capture the latest block before subscription.
+		h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
 
-			for {
-				select {
-				case <-subscriptionCtx.Done():
+		nextBlock := headHeader.Number + 1
+		eventsPreviouslySent := make(map[SentEvent]struct{})
+
+		for {
+			select {
+			case <-subscriptionCtx.Done():
+				return
+			case reorg := <-reorgSub.Recv():
+				if err := h.sendReorg(w, reorg, id); err != nil {
+					h.log.Warnw("Error sending reorg", "err", err)
 					return
-				case header := <-headerSub.Recv():
-					// During syncing the events from the new head still need to be sent as there is no pending block.
-					// However, it is not easy to tell when the node is syncing.
-					// To solve this issue, we can send the events regardless, and if the node is done syncing, then the
-					// latest header events would have been sent when the pending block was updated. Hence,
-					// trying to resend the event should be of no consequences and the map can be safely emptied.
-					h.processEvents(subscriptionCtx, w, id, header.Number, header.Number, fromAddr, keys, eventsPreviouslySent)
-
-					block, err := h.bcReader.BlockByNumber(header.Number)
-					if err != nil {
-						h.log.Warnw("Error retrieving block", "block number", header.Number, "err", err)
-						return
-					}
-
-					for _, r := range block.Receipts {
-						for i := range r.Events {
-							sentEvent := SentEvent{
-								TransactionHash: *r.TransactionHash,
-								EventIndex:      i,
-							}
-							delete(eventsPreviouslySent, sentEvent)
-						}
-					}
-				case <-pendingSub.Recv():
-					height, err := h.bcReader.Height()
-					if err != nil {
-						h.log.Warnw("Error retrieving block height", "err", err)
-						continue
-					}
-
-					// TODO: This is a hack to only query pending block events
-					h.processEvents(subscriptionCtx, w, id, height+1, height+1, fromAddr, keys, eventsPreviouslySent)
 				}
+				nextBlock = reorg.StartBlockNum
+			case head := <-newHeadsSub.Recv():
+				h.processEvents(subscriptionCtx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent)
+				nextBlock = head.Number + 1
+			case <-pendingSub.Recv():
+				h.processEvents(subscriptionCtx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent)
 			}
-		})
-
-		wg.Go(func() {
-			h.processReorgs(subscriptionCtx, reorgSub, w, id)
-		})
-
-		wg.Go(func() {
-			h.processEvents(subscriptionCtx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
-		})
-
-		wg.Wait()
+		}
 	})
 
 	return SubscriptionID(id), nil
@@ -408,7 +375,14 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 				if _, ok := eventsPreviouslySent[sentEvent]; ok {
 					continue
 				}
-				eventsPreviouslySent[sentEvent] = struct{}{}
+				// This describe the lifecycle of SentEvent.
+				// It's added when the event is received from a pending block.
+				// It's deleted when the event is received from a head block.
+				if isPending := event.BlockHash == nil; isPending {
+					eventsPreviouslySent[sentEvent] = struct{}{}
+				} else {
+					delete(eventsPreviouslySent, sentEvent)
+				}
 			}
 
 			emittedEvent := &EmittedEvent{
@@ -463,12 +437,12 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 	}
 	h.subscriptions.Store(id, sub)
 
-	headerSub := h.newHeads.Subscribe()
+	newHeadsSub := h.newHeads.Subscribe()
 	reorgSub := h.reorgs.Subscribe() // as per the spec, reorgs are also sent in the new heads subscription
 	sub.wg.Go(func() {
 		defer func() {
 			h.unsubscribe(sub, id)
-			headerSub.Unsubscribe()
+			newHeadsSub.Unsubscribe()
 			reorgSub.Unsubscribe()
 		}()
 
@@ -486,7 +460,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		})
 
 		wg.Go(func() {
-			h.processNewHeaders(subscriptionCtx, headerSub, w, id)
+			h.processNewHeaders(subscriptionCtx, newHeadsSub, w, id)
 		})
 
 		wg.Wait()
@@ -683,13 +657,13 @@ func (h *Handler) sendHistoricalHeaders(
 	}
 }
 
-func (h *Handler) processNewHeaders(ctx context.Context, headerSub *feed.Subscription[*core.Header], w jsonrpc.Conn, id uint64) {
+func (h *Handler) processNewHeaders(ctx context.Context, newHeadsSub *feed.Subscription[*core.Block], w jsonrpc.Conn, id uint64) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case header := <-headerSub.Recv():
-			if err := h.sendHeader(w, header, id); err != nil {
+		case head := <-newHeadsSub.Recv():
+			if err := h.sendHeader(w, head.Header, id); err != nil {
 				h.log.Warnw("Error sending header", "err", err)
 				return
 			}

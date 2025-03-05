@@ -23,8 +23,9 @@ func TestEvents(t *testing.T) {
 		return pendingB
 	}
 	testDB := pebble.NewMemTest(t)
-	n := utils.Ptr(utils.Sepolia)
-	chain := blockchain.New(testDB, n, pendingBlockFn)
+	n := &utils.Sepolia
+	chain := blockchain.New(testDB, n)
+	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

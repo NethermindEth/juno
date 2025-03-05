@@ -110,6 +110,8 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 	genesisState := sync.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
 
+	classhashToSierraVersion := map[felt.Felt]string{}
+	contractAddressToSierraVersion := map[felt.Felt]string{}
 	for classHash, class := range newClasses {
 		// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
 		if err = genesisState.SetContractClass(&classHash, class); err != nil {
@@ -121,6 +123,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
 			}
 		}
+		classhashToSierraVersion[classHash] = class.SierraVersion()
 	}
 
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
@@ -130,6 +133,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 
 	for addressFelt, contractData := range config.Contracts {
 		classHash := contractData.ClassHash
+		contractAddressToSierraVersion[addressFelt] = classhashToSierraVersion[classHash]
 		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
@@ -141,7 +145,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				Calldata:        contractData.ConstructorArgs,
 			}
 			// Call the constructors
-			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, ""); err != nil {
+			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, classhashToSierraVersion[classHash], true); err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
 			}
 		}
@@ -165,7 +169,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				Timestamp: 0,
 			},
 		}
-		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, ""); err != nil {
+		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, contractAddressToSierraVersion[contractAddress], true); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 	}
@@ -205,7 +209,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			}
 		}
 		executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-			&blockInfo, genesisState, network, true, false, true)
+			&blockInfo, genesisState, network, true, false, true, true)
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
