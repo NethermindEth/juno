@@ -34,3 +34,4 @@ endif
 build: install_scrab ## Build the project
 	$(MAKE) -C bs/ build
 	$(MAKE) -C universal_deployer/ build
+	$(MAKE) -C account/ build
