@@ -122,22 +122,23 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			trace.ValidateInvocation = utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(val))
 		}
 
+		var fnInvocation *rpcv6.FunctionInvocation
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation := utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(fct))
+			fnInvocation = utils.HeapPtr(rpcv6.AdaptFeederFunctionInvocation(fct))
+		}
 
-			switch block.Transactions[index].Type {
-			case TxnDeploy, TxnDeployAccount:
-				trace.ConstructorInvocation = fnInvocation
-			case TxnInvoke:
-				trace.ExecuteInvocation = new(rpcv6.ExecuteInvocation)
-				if feederTrace.RevertError != "" {
-					trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-				} else {
-					trace.ExecuteInvocation.FunctionInvocation = fnInvocation
-				}
-			case TxnL1Handler:
-				trace.FunctionInvocation = fnInvocation
+		switch trace.Type {
+		case TxnDeploy, TxnDeployAccount:
+			trace.ConstructorInvocation = fnInvocation
+		case TxnInvoke:
+			trace.ExecuteInvocation = new(rpcv6.ExecuteInvocation)
+			if feederTrace.RevertError != "" {
+				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
+			} else {
+				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
 			}
+		case TxnL1Handler:
+			trace.FunctionInvocation = fnInvocation
 		}
 
 		adaptedTraces[index] = TracedBlockTransaction{
