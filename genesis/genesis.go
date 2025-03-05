@@ -22,6 +22,11 @@ import (
 // The constructor entrypoint for cairo contracts
 const constructorSelector = "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
 
+var genesisHeader = core.Header{
+	Number:    0,
+	Timestamp: 0,
+}
+
 type GenesisConfig struct {
 	Classes           []string                          `json:"classes"`            // []path-to-class.json
 	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
@@ -102,10 +107,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		return nil, nil, err
 	}
 	blockInfo := vm.BlockInfo{
-		Header: &core.Header{
-			Number:    0,
-			Timestamp: 0,
-		},
+		Header: &genesisHeader,
 	}
 	genesisState := sync.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
@@ -164,10 +166,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			Calldata:        fnCall.Calldata,
 		}
 		blockInfo := vm.BlockInfo{
-			Header: &core.Header{
-				Number:    0,
-				Timestamp: 0,
-			},
+			Header: &genesisHeader,
 		}
 		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, contractAddressToSierraVersion[contractAddress], true); err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
