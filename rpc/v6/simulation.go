@@ -104,7 +104,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
 	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
 ) {
-	txns := make([]core.Transaction, 0, len(transactions))
+	txns := make([]core.Transaction, len(transactions))
 	var classes []core.Class
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
@@ -118,7 +118,7 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 			paidFeesOnL1 = append(paidFeesOnL1, paidFeeOnL1)
 		}
 
-		txns = append(txns, txn)
+		txns[idx] = txn
 		if declaredClass != nil {
 			classes = append(classes, declaredClass)
 		}
