@@ -107,7 +107,7 @@ func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResou
 			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
 			RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
 			Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
-			Ecsda:        resources.BuiltinInstanceCounter.Ecsda,
+			Ecdsa:        resources.BuiltinInstanceCounter.Ecsda,
 			EcOp:         resources.BuiltinInstanceCounter.EcOp,
 			Keccak:       resources.BuiltinInstanceCounter.Keccak,
 			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,

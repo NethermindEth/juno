@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/starknet"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -25,115 +25,51 @@ var traceFallbackVersion = semver.MustParse("0.13.1")
 
 const excludedVersion = "0.13.1.1"
 
-func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
-	if blockTrace == nil {
-		return nil, nil
-	}
-	if len(block.Transactions) != len(blockTrace.Traces) {
-		return nil, errors.New("mismatched number of txs and traces")
-	}
-	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
-	for index := range blockTrace.Traces {
-		feederTrace := &blockTrace.Traces[index]
-		trace := vm.TransactionTrace{}
-		trace.Type = vm.TransactionType(block.Transactions[index].Type)
-
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation)
-
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation)
-		switch block.Transactions[index].Type {
-		case TxnDeploy:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnDeployAccount:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnInvoke:
-			trace.ExecuteInvocation = new(vm.ExecuteInvocation)
-			if feederTrace.RevertError != "" {
-				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-			} else {
-				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
-			}
-		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
-		}
-
-		traces = append(traces, TracedBlockTransaction{
-			TransactionHash: &feederTrace.TransactionHash,
-			TraceRoot:       &trace,
-		})
-	}
-	return traces, nil
+type TransactionTrace struct {
+	Type                  TransactionType           `json:"type"`
+	ValidateInvocation    *rpcv6.FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *rpcv6.ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	FeeTransferInvocation *rpcv6.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	StateDiff             *rpcv6.StateDiff          `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources       `json:"execution_resources"`
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.FunctionInvocation {
-	if snFnInvocation == nil {
-		return nil
+func (t *TransactionTrace) TotalComputationResources() ComputationResources {
+	total := ComputationResources{}
+
+	for _, invocation := range t.allInvocations() {
+		r := invocation.ExecutionResources
+
+		total.Pedersen += r.Pedersen
+		total.RangeCheck += r.RangeCheck
+		total.Bitwise += r.Bitwise
+		total.Ecdsa += r.Ecdsa
+		total.EcOp += r.EcOp
+		total.Keccak += r.Keccak
+		total.Poseidon += r.Poseidon
+		total.SegmentArena += r.SegmentArena
+		total.MemoryHoles += r.MemoryHoles
+		total.Steps += r.Steps
 	}
 
-	fnInvocation := vm.FunctionInvocation{
-		ContractAddress:    snFnInvocation.ContractAddress,
-		EntryPointSelector: snFnInvocation.Selector,
-		Calldata:           snFnInvocation.Calldata,
-		CallerAddress:      snFnInvocation.CallerAddress,
-		ClassHash:          snFnInvocation.ClassHash,
-		EntryPointType:     snFnInvocation.EntryPointType,
-		CallType:           snFnInvocation.CallType,
-		Result:             snFnInvocation.Result,
-		Calls:              make([]vm.FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
-		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
-		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
-		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
-	}
-
-	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index]))
-	}
-	for index := range snFnInvocation.Events {
-		snEvent := &snFnInvocation.Events[index]
-		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
-			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
-		})
-	}
-	for index := range snFnInvocation.Messages {
-		snMessage := &snFnInvocation.Messages[index]
-		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
-			Order:   snMessage.Order,
-			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
-			To:      snMessage.ToAddr,
-		})
-	}
-
-	return &fnInvocation
+	return total
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
-	builtins := &resources.BuiltinInstanceCounter
-	var l1Gas, l1DataGas, l2Gas uint64
-	if tgs := resources.TotalGasConsumed; tgs != nil {
-		l1Gas = tgs.L1Gas
-		l1DataGas = tgs.L1DataGas
-		l2Gas = tgs.L2Gas
+func (t *TransactionTrace) allInvocations() []*rpcv6.FunctionInvocation {
+	var executeInvocation *rpcv6.FunctionInvocation
+	if t.ExecuteInvocation != nil {
+		executeInvocation = t.ExecuteInvocation.FunctionInvocation
 	}
-	return &vm.ExecutionResources{
-		L1Gas:     l1Gas,
-		L1DataGas: l1DataGas,
-		L2Gas:     l2Gas,
-		ComputationResources: vm.ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     builtins.Pedersen,
-			RangeCheck:   builtins.RangeCheck,
-			Bitwise:      builtins.Bitwise,
-			Ecdsa:        builtins.Ecsda,
-			EcOp:         builtins.EcOp,
-			Keccak:       builtins.Keccak,
-			Poseidon:     builtins.Poseidon,
-			SegmentArena: builtins.SegmentArena,
-		},
-	}
+
+	return slices.DeleteFunc([]*rpcv6.FunctionInvocation{
+		t.ConstructorInvocation,
+		t.ValidateInvocation,
+		t.FeeTransferInvocation,
+		executeInvocation,
+		t.FunctionInvocation,
+	}, func(i *rpcv6.FunctionInvocation) bool { return i == nil })
 }
 
 /****************************************************
@@ -144,11 +80,11 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	return h.traceTransaction(ctx, &hash)
 }
 
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -217,39 +153,31 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 				return nil, httpHeader, err
 			}
 
-			txDataAvailability := make(map[felt.Felt]vm.DataAvailability, len(block.Receipts))
-			txTotalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(block.Receipts))
+			txDataAvailability := make(map[felt.Felt]DataAvailability, len(block.Receipts))
+			// Get Data Availability from every receipt in block to store them in traces
 			for _, receipt := range block.Receipts {
 				if receipt.ExecutionResources == nil {
 					continue
 				}
+
 				if receiptDA := receipt.ExecutionResources.DataAvailability; receiptDA != nil {
-					da := vm.DataAvailability{
+					da := DataAvailability{
 						L1Gas:     receiptDA.L1Gas,
 						L1DataGas: receiptDA.L1DataGas,
 					}
 					txDataAvailability[*receipt.TransactionHash] = da
 				}
-				if receiptTGS := receipt.ExecutionResources.TotalGasConsumed; receiptTGS != nil {
-					tgs := core.GasConsumed{
-						L1Gas:     receiptTGS.L1Gas,
-						L1DataGas: receiptTGS.L1DataGas,
-						L2Gas:     receiptTGS.L2Gas,
-					}
-					txTotalGasConsumed[*receipt.TransactionHash] = tgs
-				}
 			}
 
-			// add execution resources on root level
-			for index, trace := range result {
+			// Add execution resources on root level for every trace in block
+			for index := range result {
+				trace := &result[index]
+
 				// fgw doesn't provide this data in traces endpoint
 				// some receipts don't have data availability data in this case we don't
 				da := txDataAvailability[*trace.TransactionHash]
-				tgs := txTotalGasConsumed[*trace.TransactionHash]
-				result[index].TraceRoot.ExecutionResources = &vm.ExecutionResources{
-					L1Gas:                tgs.L1Gas,
-					L1DataGas:            tgs.L1DataGas,
-					L2Gas:                tgs.L2Gas,
+
+				trace.TraceRoot.ExecutionResources = &ExecutionResources{
 					ComputationResources: trace.TraceRoot.TotalComputationResources(),
 					DataAvailability:     &da,
 				}
@@ -327,28 +255,24 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
-	for index, trace := range executionResult.Traces {
-		var L1Gas, L1DataGas, L2Gas uint64
-		if gc := executionResult.GasConsumed; gc != nil {
-			L1Gas = gc[index].L1Gas
-			L1DataGas = gc[index].L1DataGas
-			L2Gas = gc[index].L2Gas
-		}
-		executionResult.Traces[index].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                L1Gas,
-			L1DataGas:            L1DataGas,
-			L2Gas:                L2Gas,
+	result := make([]TracedBlockTransaction, len(executionResult.Traces))
+	// Add execution resources on root level for every trace in block
+	for index := range executionResult.Traces {
+		trace := utils.HeapPtr(AdaptVMTransactionTrace(&executionResult.Traces[index]))
+
+		// Add root level execution resources
+		trace.ExecutionResources = &ExecutionResources{
 			ComputationResources: trace.TotalComputationResources(),
-			DataAvailability: &vm.DataAvailability{
+			DataAvailability: &DataAvailability{
 				L1Gas:     executionResult.DataAvailability[index].L1Gas,
 				L1DataGas: executionResult.DataAvailability[index].L1DataGas,
 			},
 		}
-		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &executionResult.Traces[index],
+
+		result[index] = TracedBlockTransaction{
+			TraceRoot:       trace,
 			TransactionHash: block.Transactions[index].Hash(),
-		})
+		}
 	}
 
 	if !isPending {
@@ -377,7 +301,7 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(fErr.Error())
 	}
 
-	traces, aErr := adaptBlockTrace(rpcBlock, blockTrace)
+	traces, aErr := AdaptFeederBlockTrace(rpcBlock, blockTrace)
 	if aErr != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(aErr.Error())
 	}
