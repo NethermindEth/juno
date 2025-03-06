@@ -1,6 +1,7 @@
 {
-    "execution_status": "REJECTED",
-    "finality_status": "RECEIVED",
+    "revert_error": "some error",
+    "finality_status": "ACCEPTED_ON_L2",
+    "execution_status": "REVERTED",
     "status": "this is deprecated",
     "block_hash": "0x01010101",
     "block_number": 304740,
