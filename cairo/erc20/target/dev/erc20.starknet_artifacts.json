@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"rolq12crgd3mg","package_name":"erc20","contract_name":"ERC20Upgradeable","module_path":"erc20::ERC20Upgradeable","artifacts":{"sierra":"erc20_ERC20Upgradeable.contract_class.json","casm":null}}]}
