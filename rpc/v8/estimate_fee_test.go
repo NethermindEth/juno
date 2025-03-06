@@ -22,7 +22,6 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	snUtils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -134,7 +133,7 @@ func TestCairo(t *testing.T) {
 	declareTxn := rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:              rpc.TxnDeclare,
-			Version:           new(felt.Felt).SetUint64(3),
+			Version:           utils.HexToFelt(t, "0x3"),
 			Nonce:             &felt.Zero,
 			ClassHash:         bsClassHash,
 			SenderAddress:     accountAddr,
@@ -166,17 +165,17 @@ func TestCairo(t *testing.T) {
 	deployTxn := rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			Version:       new(felt.Felt).SetUint64(3),
-			Nonce:         new(felt.Felt).SetUint64(1),
+			Version:       utils.HexToFelt(t, "0x3"),
+			Nonce:         utils.HexToFelt(t, "0x1"),
 			SenderAddress: accountAddr,
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
-				new(felt.Felt).SetUint64(1),
+				utils.HexToFelt(t, "0x1"),
 				deployerAddr,
 				// Entry point selector for the called contract
-				new(felt.Felt).SetBigInt(snUtils.GetSelectorFromName("deploy_contract")),
+				crypto.StarknetKeccak([]byte("deploy_contract")),
 				// Length of the call data for the called contract
-				new(felt.Felt).SetUint64(4),
+				utils.HexToFelt(t, "0x4"),
 				// classHash
 				bsClassHash,
 				// salt
@@ -192,7 +191,7 @@ func TestCairo(t *testing.T) {
 					MaxPricePerUnit: &felt.Zero,
 				},
 				rpc.ResourceL2Gas: {
-					MaxAmount:       &felt.Zero,
+					MaxAmount:       utils.HexToFelt(t, "0xfdcc5"),
 					MaxPricePerUnit: &felt.Zero,
 				},
 				rpc.ResourceL1DataGas: {
@@ -210,6 +209,47 @@ func TestCairo(t *testing.T) {
 		PaidFeeOnL1:   &felt.Felt{},
 	}
 
+	invokeTxn := rpc.BroadcastedTransaction{
+		Transaction: rpc.Transaction{
+			Type:          rpc.TxnInvoke,
+			Version:       utils.HexToFelt(t, "0x3"),
+			Nonce:         utils.HexToFelt(t, "0x2"),
+			SenderAddress: accountAddr,
+			Signature:     &[]*felt.Felt{},
+			CallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x1"),
+				// Address of the deployed test contract
+				utils.HexToFelt(t, "0x5715f1e9c6ab89b6624fa464b02acd3edc054cc6add51305affce40aa781d08"),
+				// Entry point selector for the called contract
+				crypto.StarknetKeccak([]byte("test_redeposits")),
+				// Length of the call data for the called contract
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x7"),
+			},
+			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
+				rpc.ResourceL1Gas: {
+					MaxAmount:       new(felt.Felt).SetUint64(50),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
+				},
+				rpc.ResourceL2Gas: {
+					MaxAmount:       new(felt.Felt).SetUint64(800_000),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
+				},
+				rpc.ResourceL1DataGas: {
+					MaxAmount:       new(felt.Felt).SetUint64(100),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
+				},
+			},
+			Tip:                   &felt.Zero,
+			PaymasterData:         &[]*felt.Felt{},
+			AccountDeploymentData: &[]*felt.Felt{},
+			NonceDAMode:           utils.HeapPtr(rpc.DAModeL2),
+			FeeDAMode:             utils.HeapPtr(rpc.DAModeL2),
+		},
+		ContractClass: contractClass,
+		PaidFeeOnL1:   &felt.Felt{},
+	}
+
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -220,11 +260,45 @@ func TestCairo(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	_, _, jsonErr := handler.EstimateFee([]rpc.BroadcastedTransaction{declareTxn, deployTxn}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
-	executionError, ok := jsonErr.Data.(rpc.TransactionExecutionErrorData)
-	require.True(t, ok)
-	fmt.Println(string(executionError.ExecutionError))
+	feeEstimate, _, jsonErr := handler.EstimateFee(
+		[]rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
+		[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		rpc.BlockID{Latest: true},
+	)
 	require.Nil(t, jsonErr)
+
+	declareExpected := rpc.FeeEstimate{
+		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
+		L1GasPrice:        utils.HexToFelt(t, "0x2"),
+		L2GasConsumed:     utils.HexToFelt(t, "0x4237680"),
+		L2GasPrice:        utils.HexToFelt(t, "0x1"),
+		L1DataGasConsumed: utils.HexToFelt(t, "0xc0"),
+		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
+		OverallFee:        utils.HexToFelt(t, "0x4237800"),
+		Unit:              utils.HeapPtr(rpc.FRI),
+	}
+	deployExpected := rpc.FeeEstimate{
+		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
+		L1GasPrice:        utils.HexToFelt(t, "0x2"),
+		L2GasConsumed:     utils.HexToFelt(t, "0xfdcc5"),
+		L2GasPrice:        utils.HexToFelt(t, "0x1"),
+		L1DataGasConsumed: utils.HexToFelt(t, "0xe0"),
+		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
+		OverallFee:        utils.HexToFelt(t, "0xe6d5c"),
+		Unit:              utils.HeapPtr(rpc.FRI),
+	}
+	invokeExpected := rpc.FeeEstimate{
+		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
+		L1GasPrice:        utils.HexToFelt(t, "0x2"),
+		L2GasConsumed:     utils.HexToFelt(t, "0xbe18b"),
+		L2GasPrice:        utils.HexToFelt(t, "0x1"),
+		L1DataGasConsumed: utils.HexToFelt(t, "0x80"),
+		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
+		OverallFee:        utils.HexToFelt(t, "0xace0a"),
+		Unit:              utils.HeapPtr(rpc.FRI),
+	}
+
+	require.Equal(t, []rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected}, feeEstimate)
 }
 
 func testStorage(t *testing.T, protocolVersion string) (*blockchain.Blockchain, *felt.Felt, *felt.Felt) {
@@ -268,10 +342,11 @@ func testStorage(t *testing.T, protocolVersion string) (*blockchain.Blockchain, 
 	require.NoError(t, err)
 
 	accountBalanceKey := fromNameAndKey(t, "ERC20_balances", accountAddr)
+	fmt.Printf("accountBalanceKey: %s\n", accountBalanceKey.String())
 
 	stateUpdate := &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x13bd4534776b6417fcee058e4236fcfa235f7d3a08d910b04899606de137661"),
+		NewRoot: utils.HexToFelt(t, "0x5403e8bee8d88c4a36879d7236988aeb0b2eb62df16426150181df76b5872af"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*accountAddr:      accountClassHash,
@@ -335,14 +410,14 @@ func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *star
 
 func fromNameAndKey(t *testing.T, name string, key *felt.Felt) *felt.Felt {
 	t.Helper()
-	intermediate := new(felt.Felt).SetBytes(snUtils.Keccak256([]byte(name)))
+	intermediate := crypto.StarknetKeccak([]byte(name))
 	byteArr := crypto.Pedersen(intermediate, key).Bytes()
 	value := new(big.Int).SetBytes(byteArr[:])
 
 	maxAddr, ok := new(big.Int).SetString("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00", 0)
 	require.True(t, ok)
 
-	value = value.Mod(value, maxAddr)
+	value = value.Rem(value, maxAddr)
 
 	return new(felt.Felt).SetBigInt(value)
 }
