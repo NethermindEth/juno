@@ -32,7 +32,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingBlock().Return(nil)
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
@@ -324,7 +324,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(context.Background(), hash)
 			}).Times(1)
-			handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
+			handler := rpc.New(mockReader, nil, nil, test.network, nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -358,7 +358,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -501,7 +501,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncer, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncer, nil, n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -765,7 +765,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, "", n, nil)
+	handler := rpc.New(mockReader, nil, nil, n, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -1135,7 +1135,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
+					handler := rpc.New(mockReader, nil, nil, test.network, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL2,
@@ -1153,7 +1153,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
+					handler := rpc.New(mockReader, nil, nil, test.network, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1187,7 +1187,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 						mockSyncer.EXPECT().PendingBlock().Return(nil).Times(2)
 
-						handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil)
+						handler := rpc.New(mockReader, mockSyncer, nil, test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1208,7 +1208,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 				mockSyncer.EXPECT().PendingBlock().Return(nil)
 
-				handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil).WithFeeder(client)
+				handler := rpc.New(mockReader, mockSyncer, nil, test.network, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
