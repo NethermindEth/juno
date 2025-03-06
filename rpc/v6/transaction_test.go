@@ -24,27 +24,113 @@ import (
 )
 
 func TestTransactionByHashNotFound(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	t.Cleanup(mockCtrl.Finish)
-	mockReader := mocks.NewMockReader(mockCtrl)
-	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	t.Run("internal error", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	n := &utils.Mainnet
-	client := feeder.NewTestClient(t, n)
-	mainnetGw := adaptfeeder.New(client)
+		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, errors.New("some internal error"))
 
-	block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
-	require.NoError(t, err)
+		n := &utils.Mainnet
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+		tx, rpcErr := handler.TransactionByHash(*randomTxHash)
 
-	randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
-	mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingBlock().Return(block)
+		assert.Nil(t, tx)
+		assert.Equal(t, rpcErr, rpccore.ErrInternal.CloneWithData(errors.New("some internal error")))
+	})
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
-	tx, rpcErr := handler.TransactionByHash(*randomTxHash)
+	t.Run("tx not found and no pending block", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	assert.Nil(t, tx)
-	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+
+		n := &utils.Mainnet
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+		tx, rpcErr := handler.TransactionByHash(*randomTxHash)
+
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
+
+	t.Run("tx found in pending block", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+		n := &utils.Mainnet
+		client := feeder.NewTestClient(t, n)
+		mainnetGw := adaptfeeder.New(client)
+
+		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		require.NoError(t, err)
+
+		txAtIdx1InBlock := utils.HexToFelt(t, "0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
+		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(block)
+
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+		tx, rpcErr := handler.TransactionByHash(*txAtIdx1InBlock)
+
+		expectedTx := rpc.Transaction{
+			Type:    rpc.TxnInvoke,
+			Hash:    txAtIdx1InBlock,
+			MaxFee:  utils.HexToFelt(t, "0x65d5eabc5218"),
+			Version: utils.HexToFelt(t, "0x0"),
+			Signature: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x2ccb8d2b482d67d8358482832705549d1e5278dc4d04878d9f8256a47423d6a"),
+				utils.HexToFelt(t, "0x6958e023ab0ffa07a84bd4e79032a5f2312ca4a2937585e49534877d13ea918"),
+			},
+			Nonce: nil,
+			CallData: &[]*felt.Felt{
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796"),
+				utils.HexToFelt(t, "0x1474f761b9a93b1c727b60fb4cc7aa6c6c1c866ad7f1cd88ec9545ff065ddad"),
+				utils.HexToFelt(t, "0x0"),
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x1"),
+				utils.HexToFelt(t, "0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"),
+				utils.HexToFelt(t, "0x7d1"),
+			},
+			ContractAddress:    utils.HexToFelt(t, "0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796"),
+			SenderAddress:      nil,
+			EntryPointSelector: utils.HexToFelt(t, "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+		}
+
+		assert.Nil(t, rpcErr)
+		assert.Equal(t, &expectedTx, tx)
+	})
+
+	t.Run("tx not found anywhere", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+		n := &utils.Mainnet
+		client := feeder.NewTestClient(t, n)
+		mainnetGw := adaptfeeder.New(client)
+
+		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		require.NoError(t, err)
+
+		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(block)
+
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+		tx, rpcErr := handler.TransactionByHash(*randomTxHash)
+
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
 }
 
 func TestTransactionByHash(t *testing.T) {
