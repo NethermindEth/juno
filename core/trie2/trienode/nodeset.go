@@ -11,7 +11,6 @@ import (
 
 type TrieNode interface {
 	Blob() []byte
-	Hash() felt.Felt
 	IsLeaf() bool
 }
 
