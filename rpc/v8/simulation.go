@@ -101,7 +101,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResults.NumSteps, 10))
 
-	simulatedTransactions, err := createSimulatedTransactions(executionResults, txns, header)
+	simulatedTransactions, err := createSimulatedTransactions(&executionResults, txns, header)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
@@ -147,7 +147,7 @@ func handleExecutionError(err error) *jsonrpc.Error {
 }
 
 func createSimulatedTransactions(
-	executionResults vm.ExecutionResults, txns []core.Transaction, header *core.Header, //nolint: gocritic
+	executionResults *vm.ExecutionResults, txns []core.Transaction, header *core.Header,
 ) ([]SimulatedTransaction, error) {
 	overallFees := executionResults.OverallFees
 	traces := executionResults.Traces
