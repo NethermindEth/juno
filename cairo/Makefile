@@ -36,3 +36,9 @@ build: install_scrab ## Build the project
 	$(MAKE) -C universal_deployer/ build
 	$(MAKE) -C account/ build
 	$(MAKE) -C erc20/ build
+
+clean: install_scrab ## Clean the project
+	$(MAKE) -C bs/ clean
+	$(MAKE) -C universal_deployer/ clean
+	$(MAKE) -C account/ clean
+	$(MAKE) -C erc20/ clean
