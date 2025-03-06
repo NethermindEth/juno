@@ -13,6 +13,3 @@ openzeppelin_upgrades = ">=1.0.0"
 
 [[target.starknet-contract]]
 allowed-libfuncs-list.name = "experimental"
-
-[lib]
-casm = true

@@ -16,6 +16,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4 h1:sAdffkxtfPBOGjxhyHUC4q0yUQJ/0ut8Rci+hctn/M4=
 github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4/go.mod h1:U1ls2WSMF5cxRI7jjm4G7mnS8f/XiFafMHCikN+tTQw=
+github.com/NethermindEth/starknet.go v0.7.3 h1:IM7w+0n/4ftLDTAnHMnJ1veUDq0wb3RGDLUxxWWmdI4=
+github.com/NethermindEth/starknet.go v0.7.3/go.mod h1:qDb22jUUbOT5hWC4mgyuFp5q40JIyHfVo13XIB0OLy4=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=
 github.com/VictoriaMetrics/fastcache v1.12.2/go.mod h1:AmC+Nzz1+3G2eCPapF6UcsnkThDcMsQicp4xDukwJYI=
 github.com/alecthomas/assert/v2 v2.2.2 h1:Z/iVC0xZfWTaFNE6bA3z07T86hd45Xe2eLt6WVy2bbk=

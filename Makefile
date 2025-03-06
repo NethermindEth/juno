@@ -182,3 +182,6 @@ test-fuzz: ## Run fuzzing script
 
 cairo: ## Compile Cairo
 	$(MAKE) -C cairo build
+
+cairo-clean: ## Clean Cairo
+	$(MAKE) -C cairo clean
