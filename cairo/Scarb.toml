@@ -1,5 +1,5 @@
 [package]
-name = "account"
+name = "juno"
 version = "0.1.0"
 edition = "2024_07"
 
@@ -7,9 +7,12 @@ edition = "2024_07"
 
 [dependencies]
 starknet = ">=2.10.1"
+openzeppelin_upgrades = ">=1.0.0"
+openzeppelin_access = ">=1.0.0"
+openzeppelin_token = ">=1.0.0"
 openzeppelin_account = ">=1.0.0"
 openzeppelin_introspection = ">=1.0.0"
-openzeppelin_upgrades = ">=1.0.0"
+openzeppelin_utils = ">=1.0.0"
 
 [[target.starknet-contract]]
 allowed-libfuncs-list.name = "experimental"

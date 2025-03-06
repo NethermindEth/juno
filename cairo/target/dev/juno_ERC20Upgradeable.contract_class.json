@@ -121,7 +121,7 @@
     "0x47",
     "0x358f4bf88951260abbc2ca3e111e2e32432b563fa321326f0a408b880755514",
     "0x48",
-    "0x1e56c6b73dd1a331189c2bb78c844f3475cc20f53bf9d7c3a6f82389f133767",
+    "0x11557e3ed4d98cf0918c6390d71478292590e398d15688218dd8872ef38da2b",
     "0x45",
     "0x3a",
     "0x49",
@@ -129,17 +129,17 @@
     "0x43616c6c6572206973206e6f7420746865206f776e6572",
     "0x4661696c656420746f20646573657269616c697a6520706172616d202334",
     "0x4661696c656420746f20646573657269616c697a6520706172616d202335",
-    "0x9306fb8ee2e9408dd4225d6ff287b3584bcb095683ed69d3a2b8b809fad856",
-    "0x1eee08192a048dbb1636736825b138697bc88afb2d69a1db0fae1d9e4586862",
-    "0x1dc36312ceb81392e7cea75d80e7e1899a467ac485331b938cab72887d6f2be",
+    "0x202b263a0a66eb29380e45c2b26f778e7092d981d2507711891cea392f5adc4",
+    "0x2077eac5f246e7ea793bbbec3ecabd5423fc0a6e83c8d7e8d5cc79bef490ee3",
+    "0x11d4dd4fab5cf33b3562c6b50d70516652c3a55d74f1b9f338487dae63095b2",
     "0x800000000000000f00000000000000000000000000000004",
-    "0xcaffc99187c23ce890471780c025ac19d8f686f16164cf7e37311b8aa91377",
+    "0x1696100bff7f1f91e546afadc902a5338531435201af61db4bab039e707591a",
     "0x4f",
     "0x50",
     "0x51",
     "0x800000000000000f00000000000000000000000000000003",
     "0x52",
-    "0xd449f5ea8b1adffcee3f3f95de9443821ec9ec1d4ab8733ed7033858c27666",
+    "0xa04a0c79e467c2e5a9b81c3c10db0de4deb73ac35ba2c388d1fab70f763cea",
     "0x53",
     "0x800000000000000300000000000000000000000000000004",
     "0x36775737a2dc48f3b19f9a1f4bc3ab9cb367d1e2e827cef96323826fd39f53f",
@@ -163,9 +163,9 @@
     "0x4661696c656420746f20646573657269616c697a6520706172616d202333",
     "0x3288d594b9a45d15bb2fcb7903f06cdb06b27f0ba88186ec4cfaa98307cb972",
     "0x69",
-    "0x378885cf052f102a192910f87a601cffbeb8ec78e6b70360200eb22df83d3f4",
+    "0x5f22da870bee8c4d6bc08e56cb3c0d1aa6ef8d9891c7becbaa9ce58395b4b8",
     "0x6a",
-    "0x192258442a714f6a3c617bdd3c3fffd497a6c5f726212e2c1b9305935983d8a",
+    "0x2ed453864a53e4237e623df7e41f73c054d2daa2e29d83ed83ebd5c4042adaa",
     "0x6d",
     "0x45524332303a207472616e7366657220746f2030",
     "0x45524332303a207472616e736665722066726f6d2030",
@@ -202,7 +202,7 @@
     "0x87",
     "0x268e4078627d9364ab472ed410c0ea6fe44919b24eafd69d665019c5a1c0c88",
     "0x110e2f729c9c2b988559994a3daccd838cf52faf88e18101373e67dd061455a",
-    "0x3532ebc31826b0e2521dcc98df62dfa93488f6ec9e394d412d76d581c1eb87",
+    "0x225295a5da148df40ab733d84d19ae85d18daf13736abc1bcb124dc2427967b",
     "0x8b",
     "0x4e6577206f776e657220697320746865207a65726f2061646472657373",
     "0x4e6f6e20436f6e747261637441646472657373",
@@ -210,7 +210,7 @@
     "0x183a1b309b77fa43aa409ee3681db27df849965d2e5d22fb671795a0d00c912",
     "0x4661696c656420746f20646573657269616c697a6520706172616d202331",
     "0x4f7574206f6620676173",
-    "0x1ee0839695b2cd160466e3dc438bfc00ff44e053681cf8288104ae066ac88df",
+    "0x13713fd343758b321794a183e88815bc8a2e812642de51ead1582a3fe507582",
     "0x96",
     "0x800000000000000f00000000000000000000000000000002",
     "0xcc5e86243f861d2d64b08c35db21013e773ac5cf10097946fe0011304886d5",
@@ -4529,7 +4529,7 @@
       ],
       [
         74,
-        "erc20::ERC20Upgradeable::Event"
+        "juno::erc20::ERC20Upgradeable::Event"
       ],
       [
         75,
@@ -4549,27 +4549,27 @@
       ],
       [
         79,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>"
       ],
       [
         80,
-        "openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>"
       ],
       [
         81,
-        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>"
+        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>"
       ],
       [
         82,
-        "erc20::ERC20Upgradeable::ContractState"
+        "juno::erc20::ERC20Upgradeable::ContractState"
       ],
       [
         83,
-        "Tuple<erc20::ERC20Upgradeable::ContractState, Unit>"
+        "Tuple<juno::erc20::ERC20Upgradeable::ContractState, Unit>"
       ],
       [
         84,
-        "core::panics::PanicResult::<(erc20::ERC20Upgradeable::ContractState, ())>"
+        "core::panics::PanicResult::<(juno::erc20::ERC20Upgradeable::ContractState, ())>"
       ],
       [
         85,
@@ -4657,11 +4657,11 @@
       ],
       [
         106,
-        "Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool>"
+        "Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool>"
       ],
       [
         107,
-        "core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool)>"
+        "core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool)>"
       ],
       [
         108,
@@ -4669,11 +4669,11 @@
       ],
       [
         109,
-        "Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>"
+        "Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>"
       ],
       [
         110,
-        "core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>"
+        "core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>"
       ],
       [
         111,
@@ -4789,11 +4789,11 @@
       ],
       [
         139,
-        "Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>"
+        "Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>"
       ],
       [
         140,
-        "core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>"
+        "core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>"
       ],
       [
         141,
@@ -4833,11 +4833,11 @@
       ],
       [
         150,
-        "Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>"
+        "Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>"
       ],
       [
         151,
-        "core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>"
+        "core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>"
       ],
       [
         152,
@@ -5011,19 +5011,19 @@
       ],
       [
         35,
-        "struct_construct<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "struct_construct<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         36,
-        "snapshot_take<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "snapshot_take<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         37,
-        "drop<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "drop<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         38,
-        "function_call<user@openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::assert_only_owner>"
+        "function_call<user@openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::assert_only_owner>"
       ],
       [
         39,
@@ -5035,7 +5035,7 @@
       ],
       [
         41,
-        "struct_construct<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "struct_construct<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         42,
@@ -5043,15 +5043,15 @@
       ],
       [
         43,
-        "function_call<user@openzeppelin_upgrades::upgradeable::UpgradeableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_UpgradeableComponent>::upgrade>"
+        "function_call<user@openzeppelin_upgrades::upgradeable::UpgradeableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_UpgradeableComponent>::upgrade>"
       ],
       [
         44,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         45,
-        "drop<Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "drop<Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         46,
@@ -5179,15 +5179,15 @@
       ],
       [
         77,
-        "function_call<user@openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::_transfer_ownership>"
+        "function_call<user@openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::_transfer_ownership>"
       ],
       [
         78,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         79,
-        "drop<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "drop<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         80,
@@ -5407,7 +5407,7 @@
       ],
       [
         134,
-        "struct_construct<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "struct_construct<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         135,
@@ -5415,15 +5415,15 @@
       ],
       [
         136,
-        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::update>"
+        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::update>"
       ],
       [
         137,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         138,
-        "drop<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "drop<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         139,
@@ -5451,19 +5451,19 @@
       ],
       [
         145,
-        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::ERC20::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::transfer_from>"
+        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::ERC20::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::transfer_from>"
       ],
       [
         146,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool)>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool)>>"
       ],
       [
         147,
-        "struct_deconstruct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool>>"
+        "struct_deconstruct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool>>"
       ],
       [
         148,
-        "drop<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "drop<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         149,
@@ -5479,7 +5479,7 @@
       ],
       [
         152,
-        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::_approve>"
+        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::_approve>"
       ],
       [
         153,
@@ -5659,7 +5659,7 @@
       ],
       [
         197,
-        "struct_construct<erc20::ERC20Upgradeable::ContractState>"
+        "struct_construct<juno::erc20::ERC20Upgradeable::ContractState>"
       ],
       [
         198,
@@ -5667,15 +5667,15 @@
       ],
       [
         199,
-        "function_call<user@erc20::ERC20Upgradeable::constructor>"
+        "function_call<user@juno::erc20::ERC20Upgradeable::constructor>"
       ],
       [
         200,
-        "enum_match<core::panics::PanicResult::<(erc20::ERC20Upgradeable::ContractState, ())>>"
+        "enum_match<core::panics::PanicResult::<(juno::erc20::ERC20Upgradeable::ContractState, ())>>"
       ],
       [
         201,
-        "drop<Tuple<erc20::ERC20Upgradeable::ContractState, Unit>>"
+        "drop<Tuple<juno::erc20::ERC20Upgradeable::ContractState, Unit>>"
       ],
       [
         202,
@@ -5719,7 +5719,7 @@
       ],
       [
         212,
-        "drop<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>>"
+        "drop<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>>"
       ],
       [
         213,
@@ -5727,11 +5727,11 @@
       ],
       [
         214,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
       ],
       [
         215,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         216,
@@ -5747,23 +5747,23 @@
       ],
       [
         219,
-        "enum_init<erc20::ERC20Upgradeable::Event, 2>"
+        "enum_init<juno::erc20::ERC20Upgradeable::Event, 2>"
       ],
       [
         220,
-        "snapshot_take<erc20::ERC20Upgradeable::Event>"
+        "snapshot_take<juno::erc20::ERC20Upgradeable::Event>"
       ],
       [
         221,
-        "drop<erc20::ERC20Upgradeable::Event>"
+        "drop<juno::erc20::ERC20Upgradeable::Event>"
       ],
       [
         222,
-        "store_temp<erc20::ERC20Upgradeable::Event>"
+        "store_temp<juno::erc20::ERC20Upgradeable::Event>"
       ],
       [
         223,
-        "function_call<user@erc20::ERC20Upgradeable::EventIsEvent::append_keys_and_data>"
+        "function_call<user@juno::erc20::ERC20Upgradeable::EventIsEvent::append_keys_and_data>"
       ],
       [
         224,
@@ -5771,11 +5771,11 @@
       ],
       [
         225,
-        "struct_construct<Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "struct_construct<Tuple<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         226,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
       ],
       [
         227,
@@ -5811,23 +5811,23 @@
       ],
       [
         235,
-        "enum_init<erc20::ERC20Upgradeable::Event, 0>"
+        "enum_init<juno::erc20::ERC20Upgradeable::Event, 0>"
       ],
       [
         236,
-        "struct_construct<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "struct_construct<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         237,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
       ],
       [
         238,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         239,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
       ],
       [
         240,
@@ -5967,11 +5967,11 @@
       ],
       [
         274,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 1>"
       ],
       [
         275,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>>"
       ],
       [
         276,
@@ -6039,15 +6039,15 @@
       ],
       [
         292,
-        "enum_init<erc20::ERC20Upgradeable::Event, 1>"
+        "enum_init<juno::erc20::ERC20Upgradeable::Event, 1>"
       ],
       [
         293,
-        "struct_construct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "struct_construct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         294,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, ())>, 0>"
       ],
       [
         295,
@@ -6055,27 +6055,27 @@
       ],
       [
         296,
-        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::_spend_allowance>"
+        "function_call<user@openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::_spend_allowance>"
       ],
       [
         297,
-        "struct_deconstruct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "struct_deconstruct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         298,
-        "struct_construct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool>>"
+        "struct_construct<Tuple<openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool>>"
       ],
       [
         299,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool)>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool)>, 0>"
       ],
       [
         300,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool)>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool)>>"
       ],
       [
         301,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<erc20::ERC20Upgradeable::ContractState>, core::bool)>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_token::erc20::erc20::ERC20Component::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, core::bool)>, 1>"
       ],
       [
         302,
@@ -6327,7 +6327,7 @@
       ],
       [
         364,
-        "struct_deconstruct<erc20::ERC20Upgradeable::ContractState>"
+        "struct_deconstruct<juno::erc20::ERC20Upgradeable::ContractState>"
       ],
       [
         365,
@@ -6347,27 +6347,27 @@
       ],
       [
         369,
-        "struct_deconstruct<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<erc20::ERC20Upgradeable::ContractState>, Unit>>"
+        "struct_deconstruct<Tuple<openzeppelin_access::ownable::ownable::OwnableComponent::ComponentState::<juno::erc20::ERC20Upgradeable::ContractState>, Unit>>"
       ],
       [
         370,
-        "struct_construct<Tuple<erc20::ERC20Upgradeable::ContractState, Unit>>"
+        "struct_construct<Tuple<juno::erc20::ERC20Upgradeable::ContractState, Unit>>"
       ],
       [
         371,
-        "enum_init<core::panics::PanicResult::<(erc20::ERC20Upgradeable::ContractState, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(juno::erc20::ERC20Upgradeable::ContractState, ())>, 0>"
       ],
       [
         372,
-        "store_temp<core::panics::PanicResult::<(erc20::ERC20Upgradeable::ContractState, ())>>"
+        "store_temp<core::panics::PanicResult::<(juno::erc20::ERC20Upgradeable::ContractState, ())>>"
       ],
       [
         373,
-        "enum_init<core::panics::PanicResult::<(erc20::ERC20Upgradeable::ContractState, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(juno::erc20::ERC20Upgradeable::ContractState, ())>, 1>"
       ],
       [
         374,
-        "enum_match<erc20::ERC20Upgradeable::Event>"
+        "enum_match<juno::erc20::ERC20Upgradeable::Event>"
       ],
       [
         375,
@@ -6653,91 +6653,91 @@
     "user_func_names": [
       [
         0,
-        "erc20::ERC20Upgradeable::__wrapper__UpgradeableImpl__upgrade"
+        "juno::erc20::ERC20Upgradeable::__wrapper__UpgradeableImpl__upgrade"
       ],
       [
         1,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__owner::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__owner::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
       ],
       [
         2,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__transfer_ownership::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__transfer_ownership::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
       ],
       [
         3,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__renounce_ownership::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__renounce_ownership::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
       ],
       [
         4,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__transferOwnership::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__transferOwnership::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
       ],
       [
         5,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__renounceOwnership::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::__wrapper__OwnableMixinImpl__renounceOwnership::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateOwnableMixinImpl>"
       ],
       [
         6,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__total_supply::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__total_supply::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         7,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__balance_of::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__balance_of::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         8,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__allowance::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__allowance::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         9,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transfer::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transfer::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         10,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transfer_from::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transfer_from::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         11,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__approve::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__approve::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         12,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__name::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__name::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         13,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__symbol::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__symbol::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         14,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__decimals::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__decimals::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         15,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__totalSupply::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__totalSupply::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         16,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__balanceOf::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__balanceOf::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         17,
-        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transferFrom::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>, erc20::ERC20Upgradeable::ContractStateDrop, erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
+        "openzeppelin_token::erc20::erc20::ERC20Component::__wrapper__ERC20MixinImpl__transferFrom::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>, juno::erc20::ERC20Upgradeable::ContractStateDrop, juno::erc20::ERC20Upgradeable::ContractStateERC20MixinImpl>"
       ],
       [
         18,
-        "erc20::ERC20Upgradeable::__wrapper__constructor"
+        "juno::erc20::ERC20Upgradeable::__wrapper__constructor"
       ],
       [
         19,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::assert_only_owner"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::assert_only_owner"
       ],
       [
         20,
-        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_UpgradeableComponent>::upgrade"
+        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_UpgradeableComponent>::upgrade"
       ],
       [
         21,
-        "openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::_transfer_ownership"
+        "openzeppelin_access::ownable::ownable::OwnableComponent::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_OwnableComponent>::_transfer_ownership"
       ],
       [
         22,
@@ -6753,15 +6753,15 @@
       ],
       [
         25,
-        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::update"
+        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::update"
       ],
       [
         26,
-        "openzeppelin_token::erc20::erc20::ERC20Component::ERC20::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::transfer_from"
+        "openzeppelin_token::erc20::erc20::ERC20Component::ERC20::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::transfer_from"
       ],
       [
         27,
-        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::_approve"
+        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::_approve"
       ],
       [
         28,
@@ -6777,11 +6777,11 @@
       ],
       [
         31,
-        "erc20::ERC20Upgradeable::constructor"
+        "juno::erc20::ERC20Upgradeable::constructor"
       ],
       [
         32,
-        "erc20::ERC20Upgradeable::EventIsEvent::append_keys_and_data"
+        "juno::erc20::ERC20Upgradeable::EventIsEvent::append_keys_and_data"
       ],
       [
         33,
@@ -6789,7 +6789,7 @@
       ],
       [
         34,
-        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<erc20::ERC20Upgradeable::ContractState, erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<erc20::ERC20Upgradeable::ContractState>>::_spend_allowance"
+        "openzeppelin_token::erc20::erc20::ERC20Component::InternalImpl::<juno::erc20::ERC20Upgradeable::ContractState, juno::erc20::ERC20Upgradeable::HasComponentImpl_ERC20Component, openzeppelin_token::erc20::erc20::ERC20HooksEmptyImpl::<juno::erc20::ERC20Upgradeable::ContractState>>::_spend_allowance"
       ],
       [
         35,
@@ -6897,5 +6897,5 @@
       }
     ]
   },
-  "abi": "[{\"type\":\"impl\",\"name\":\"UpgradeableImpl\",\"interface_name\":\"openzeppelin_upgrades::interface::IUpgradeable\"},{\"type\":\"interface\",\"name\":\"openzeppelin_upgrades::interface::IUpgradeable\",\"items\":[{\"type\":\"function\",\"name\":\"upgrade\",\"inputs\":[{\"name\":\"new_class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"OwnableMixinImpl\",\"interface_name\":\"openzeppelin_access::ownable::interface::OwnableABI\"},{\"type\":\"interface\",\"name\":\"openzeppelin_access::ownable::interface::OwnableABI\",\"items\":[{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer_ownership\",\"inputs\":[{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"renounce_ownership\",\"inputs\":[],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"ERC20MixinImpl\",\"interface_name\":\"openzeppelin_token::erc20::interface::IERC20Mixin\"},{\"type\":\"struct\",\"name\":\"core::integer::u256\",\"members\":[{\"name\":\"low\",\"type\":\"core::integer::u128\"},{\"name\":\"high\",\"type\":\"core::integer::u128\"}]},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"struct\",\"name\":\"core::byte_array::ByteArray\",\"members\":[{\"name\":\"data\",\"type\":\"core::array::Array::<core::bytes_31::bytes31>\"},{\"name\":\"pending_word\",\"type\":\"core::felt252\"},{\"name\":\"pending_word_len\",\"type\":\"core::integer::u32\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_token::erc20::interface::IERC20Mixin\",\"items\":[{\"type\":\"function\",\"name\":\"total_supply\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"balance_of\",\"inputs\":[{\"name\":\"account\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"allowance\",\"inputs\":[{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"transfer_from\",\"inputs\":[{\"name\":\"sender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"type\":\"core::byte_array::ByteArray\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"symbol\",\"inputs\":[],\"outputs\":[{\"type\":\"core::byte_array::ByteArray\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"decimals\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u8\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"totalSupply\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"balanceOf\",\"inputs\":[{\"name\":\"account\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferFrom\",\"inputs\":[{\"name\":\"sender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"}]},{\"type\":\"constructor\",\"name\":\"constructor\",\"inputs\":[{\"name\":\"name\",\"type\":\"core::byte_array::ByteArray\"},{\"name\":\"symbol\",\"type\":\"core::byte_array::ByteArray\"},{\"name\":\"fixed_supply\",\"type\":\"core::integer::u256\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred\",\"kind\":\"struct\",\"members\":[{\"name\":\"previous_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted\",\"kind\":\"struct\",\"members\":[{\"name\":\"previous_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnershipTransferred\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred\",\"kind\":\"nested\"},{\"name\":\"OwnershipTransferStarted\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Transfer\",\"kind\":\"struct\",\"members\":[{\"name\":\"from\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"to\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"value\",\"type\":\"core::integer::u256\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Approval\",\"kind\":\"struct\",\"members\":[{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"value\",\"type\":\"core::integer::u256\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Transfer\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Transfer\",\"kind\":\"nested\"},{\"name\":\"Approval\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Approval\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"struct\",\"members\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Upgraded\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"erc20::ERC20Upgradeable::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnableEvent\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::Event\",\"kind\":\"flat\"},{\"name\":\"ERC20Event\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Event\",\"kind\":\"flat\"},{\"name\":\"UpgradeableEvent\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"flat\"}]}]"
+  "abi": "[{\"type\":\"impl\",\"name\":\"UpgradeableImpl\",\"interface_name\":\"openzeppelin_upgrades::interface::IUpgradeable\"},{\"type\":\"interface\",\"name\":\"openzeppelin_upgrades::interface::IUpgradeable\",\"items\":[{\"type\":\"function\",\"name\":\"upgrade\",\"inputs\":[{\"name\":\"new_class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"OwnableMixinImpl\",\"interface_name\":\"openzeppelin_access::ownable::interface::OwnableABI\"},{\"type\":\"interface\",\"name\":\"openzeppelin_access::ownable::interface::OwnableABI\",\"items\":[{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer_ownership\",\"inputs\":[{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"renounce_ownership\",\"inputs\":[],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"ERC20MixinImpl\",\"interface_name\":\"openzeppelin_token::erc20::interface::IERC20Mixin\"},{\"type\":\"struct\",\"name\":\"core::integer::u256\",\"members\":[{\"name\":\"low\",\"type\":\"core::integer::u128\"},{\"name\":\"high\",\"type\":\"core::integer::u128\"}]},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"struct\",\"name\":\"core::byte_array::ByteArray\",\"members\":[{\"name\":\"data\",\"type\":\"core::array::Array::<core::bytes_31::bytes31>\"},{\"name\":\"pending_word\",\"type\":\"core::felt252\"},{\"name\":\"pending_word_len\",\"type\":\"core::integer::u32\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_token::erc20::interface::IERC20Mixin\",\"items\":[{\"type\":\"function\",\"name\":\"total_supply\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"balance_of\",\"inputs\":[{\"name\":\"account\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"allowance\",\"inputs\":[{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transfer\",\"inputs\":[{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"transfer_from\",\"inputs\":[{\"name\":\"sender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"name\",\"inputs\":[],\"outputs\":[{\"type\":\"core::byte_array::ByteArray\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"symbol\",\"inputs\":[],\"outputs\":[{\"type\":\"core::byte_array::ByteArray\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"decimals\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u8\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"totalSupply\",\"inputs\":[],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"balanceOf\",\"inputs\":[{\"name\":\"account\",\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"outputs\":[{\"type\":\"core::integer::u256\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferFrom\",\"inputs\":[{\"name\":\"sender\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"amount\",\"type\":\"core::integer::u256\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"external\"}]},{\"type\":\"constructor\",\"name\":\"constructor\",\"inputs\":[{\"name\":\"name\",\"type\":\"core::byte_array::ByteArray\"},{\"name\":\"symbol\",\"type\":\"core::byte_array::ByteArray\"},{\"name\":\"fixed_supply\",\"type\":\"core::integer::u256\"},{\"name\":\"recipient\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred\",\"kind\":\"struct\",\"members\":[{\"name\":\"previous_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted\",\"kind\":\"struct\",\"members\":[{\"name\":\"previous_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"new_owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_access::ownable::ownable::OwnableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnershipTransferred\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferred\",\"kind\":\"nested\"},{\"name\":\"OwnershipTransferStarted\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::OwnershipTransferStarted\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Transfer\",\"kind\":\"struct\",\"members\":[{\"name\":\"from\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"to\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"value\",\"type\":\"core::integer::u256\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Approval\",\"kind\":\"struct\",\"members\":[{\"name\":\"owner\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"spender\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"key\"},{\"name\":\"value\",\"type\":\"core::integer::u256\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_token::erc20::erc20::ERC20Component::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Transfer\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Transfer\",\"kind\":\"nested\"},{\"name\":\"Approval\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Approval\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"struct\",\"members\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Upgraded\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"juno::erc20::ERC20Upgradeable::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnableEvent\",\"type\":\"openzeppelin_access::ownable::ownable::OwnableComponent::Event\",\"kind\":\"flat\"},{\"name\":\"ERC20Event\",\"type\":\"openzeppelin_token::erc20::erc20::ERC20Component::Event\",\"kind\":\"flat\"},{\"name\":\"UpgradeableEvent\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"flat\"}]}]"
 }

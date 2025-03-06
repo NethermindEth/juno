@@ -35,7 +35,7 @@
     "0x800000000000000200000000000000000000000000000001",
     "0xf",
     "0x800000000000000f00000000000000000000000000000001",
-    "0x30da888e3051718b55ef9cdd9dae94b98577707cf42bff6614b2cbca367b024",
+    "0x9b7dd134d51df068f08ed877633e35b485b78a3c48cd43e8d321cb75bb3592",
     "0x800000000000000700000000000000000000000000000003",
     "0x11",
     "0x16a4c8d7c05909052238a862d8cc3e7975bf05a07b3a69c6b28951083a6d672",
@@ -45,7 +45,7 @@
     "0x13",
     "0x14",
     "0x456e756d",
-    "0x196f62a1d65f23afb050d282285d1aa087ea2f17fb1d57c6c1056aeae6b3811",
+    "0x18ec29e1c82ea100ee0071e0d68eff635d52a63aff251579bbc3b1dfe8b0970",
     "0x12",
     "0x15",
     "0x506f736569646f6e",
@@ -700,11 +700,11 @@
       ],
       [
         17,
-        "bs::HelloStarknet::ContractState"
+        "juno::binary_search::HelloStarknet::ContractState"
       ],
       [
         18,
-        "Tuple<bs::HelloStarknet::ContractState, felt252>"
+        "Tuple<juno::binary_search::HelloStarknet::ContractState, felt252>"
       ],
       [
         19,
@@ -720,7 +720,7 @@
       ],
       [
         22,
-        "core::panics::PanicResult::<(bs::HelloStarknet::ContractState, core::felt252)>"
+        "core::panics::PanicResult::<(juno::binary_search::HelloStarknet::ContractState, core::felt252)>"
       ],
       [
         23,
@@ -930,7 +930,7 @@
       ],
       [
         36,
-        "function_call<user@bs::HelloStarknet::non_trivial_recursion>"
+        "function_call<user@juno::binary_search::HelloStarknet::non_trivial_recursion>"
       ],
       [
         37,
@@ -986,23 +986,23 @@
       ],
       [
         50,
-        "struct_construct<bs::HelloStarknet::ContractState>"
+        "struct_construct<juno::binary_search::HelloStarknet::ContractState>"
       ],
       [
         51,
-        "function_call<user@bs::HelloStarknet::SomeImpl::test_redeposits>"
+        "function_call<user@juno::binary_search::HelloStarknet::SomeImpl::test_redeposits>"
       ],
       [
         52,
-        "enum_match<core::panics::PanicResult::<(bs::HelloStarknet::ContractState, core::felt252)>>"
+        "enum_match<core::panics::PanicResult::<(juno::binary_search::HelloStarknet::ContractState, core::felt252)>>"
       ],
       [
         53,
-        "struct_deconstruct<Tuple<bs::HelloStarknet::ContractState, felt252>>"
+        "struct_deconstruct<Tuple<juno::binary_search::HelloStarknet::ContractState, felt252>>"
       ],
       [
         54,
-        "drop<bs::HelloStarknet::ContractState>"
+        "drop<juno::binary_search::HelloStarknet::ContractState>"
       ],
       [
         55,
@@ -1098,15 +1098,15 @@
       ],
       [
         78,
-        "struct_construct<Tuple<bs::HelloStarknet::ContractState, felt252>>"
+        "struct_construct<Tuple<juno::binary_search::HelloStarknet::ContractState, felt252>>"
       ],
       [
         79,
-        "enum_init<core::panics::PanicResult::<(bs::HelloStarknet::ContractState, core::felt252)>, 0>"
+        "enum_init<core::panics::PanicResult::<(juno::binary_search::HelloStarknet::ContractState, core::felt252)>, 0>"
       ],
       [
         80,
-        "store_temp<core::panics::PanicResult::<(bs::HelloStarknet::ContractState, core::felt252)>>"
+        "store_temp<core::panics::PanicResult::<(juno::binary_search::HelloStarknet::ContractState, core::felt252)>>"
       ],
       [
         81,
@@ -1138,25 +1138,25 @@
       ],
       [
         88,
-        "enum_init<core::panics::PanicResult::<(bs::HelloStarknet::ContractState, core::felt252)>, 1>"
+        "enum_init<core::panics::PanicResult::<(juno::binary_search::HelloStarknet::ContractState, core::felt252)>, 1>"
       ]
     ],
     "user_func_names": [
       [
         0,
-        "bs::HelloStarknet::__wrapper__SomeImpl__test_stack_overflow"
+        "juno::binary_search::HelloStarknet::__wrapper__SomeImpl__test_stack_overflow"
       ],
       [
         1,
-        "bs::HelloStarknet::__wrapper__SomeImpl__test_redeposits"
+        "juno::binary_search::HelloStarknet::__wrapper__SomeImpl__test_redeposits"
       ],
       [
         2,
-        "bs::HelloStarknet::non_trivial_recursion"
+        "juno::binary_search::HelloStarknet::non_trivial_recursion"
       ],
       [
         3,
-        "bs::HelloStarknet::SomeImpl::test_redeposits"
+        "juno::binary_search::HelloStarknet::SomeImpl::test_redeposits"
       ]
     ]
   },
@@ -1175,5 +1175,5 @@
     "L1_HANDLER": [],
     "CONSTRUCTOR": []
   },
-  "abi": "[{\"type\":\"function\",\"name\":\"test_stack_overflow\",\"inputs\":[{\"name\":\"depth\",\"type\":\"core::integer::u128\"}],\"outputs\":[{\"type\":\"core::integer::u128\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"test_redeposits\",\"inputs\":[{\"name\":\"depth\",\"type\":\"core::integer::u128\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"external\"},{\"type\":\"event\",\"name\":\"bs::HelloStarknet::Event\",\"kind\":\"enum\",\"variants\":[]}]"
+  "abi": "[{\"type\":\"function\",\"name\":\"test_stack_overflow\",\"inputs\":[{\"name\":\"depth\",\"type\":\"core::integer::u128\"}],\"outputs\":[{\"type\":\"core::integer::u128\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"test_redeposits\",\"inputs\":[{\"name\":\"depth\",\"type\":\"core::integer::u128\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"external\"},{\"type\":\"event\",\"name\":\"juno::binary_search::HelloStarknet::Event\",\"kind\":\"enum\",\"variants\":[]}]"
 }

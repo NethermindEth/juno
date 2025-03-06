@@ -145,7 +145,7 @@
     "0x63",
     "0x358f4bf88951260abbc2ca3e111e2e32432b563fa321326f0a408b880755514",
     "0x64",
-    "0x16b87fca0fe9711dc0c25faf2c6f17628e83678f27ef1fe19170fe98101cc98",
+    "0xfe613348608125736ce5d7ee0fbaf400f23c982388de10f9b3a7e40307a5bb",
     "0x48",
     "0x35",
     "0x34",
@@ -161,9 +161,9 @@
     "0x2487213a2e92e8c6a8727c551b670514a7796fa30e2e4c9ef4309fa53c3c313",
     "0x1d1144bb2138366ff28d8e9ab57456b1d332ac42196230c3a602003c89872",
     "0x28978a9a1b7b50e1bf71d1e2c04143c3b20ea0c3ec0a79abcb0909801c9b41c",
-    "0x3265fda121c68435b6241aaba572d84992e4c52eddba7d649b4959f0c1113a6",
+    "0xf6973c6877b1ebb6e9b53908186f4cf55d6f0c786c1c7ed9b816640c204b6",
     "0x6f",
-    "0x21c0eccc4d1a3901f6338eeb1bdae83b10345dd5144f0a10314ac82615de009",
+    "0x6dc7ab4d365fd6b807a00ac30f9d2ebc526f416a18760bb0ae12c7556e769",
     "0x70",
     "0x23517339cb5485fc98821b1350ed3163e438d9c223d74b37eb9e6bf6420c31d",
     "0x86d08dd5b289dda0a0131dca2a8c44a34a8a60d3bac43c79144b5fc9fd7b6d",
@@ -179,10 +179,10 @@
     "0x357f22cfa0a31436fa9d89042e9ee63e7cd722921741927f2de8c1800f046a5",
     "0x10e5fcd68658d0cf6ed280e34d0d0da9a510b7a6779230c9912806a2c939b9",
     "0x3f918d17e5ee77373b56385708f855659a07f75997f365cf87748628532a055",
-    "0x751856627085aea773dbae09068974064d27c36e97271285007ac1a2905b15",
+    "0x1b32caba32bbcb01a5582b944dfe2d50d3a7c5149a8e0000776779cd1b44897",
     "0x800000000000000f00000000000000000000000000000003",
     "0x80",
-    "0xfac2d44a4e876fe3c6306af7e4fb62452a243f20394150abf95b9be145137d",
+    "0x175af86020960cc7dab0abd731b90a10d0554fcfbd8d19d7a31407bc949fe9e",
     "0x81",
     "0x1d49f7a4b277bf7b55a2664ce8cef5d6922b5ffb806b89644b9e0cdbbcac378",
     "0x83",
@@ -217,14 +217,14 @@
     "0x9f",
     "0x4661696c656420746f20646573657269616c697a6520706172616d202331",
     "0x4f7574206f6620676173",
-    "0x1dd1fd15473d2e9d2be6d50881147111fa20bfe4774a4ecb0a9547dd7a9d1ba",
-    "0x226b99c55f1e82679e8b234718b38cc2db350cf03ed39589931eb39913caabd",
+    "0xfb353717441bcbe116570e789778fdfb3ebde75364a4629a6f938b97899d3d",
+    "0x14add06c9dbfb774795ede4f936a1a8930f01301ec64a71fc36777c76791c7c",
     "0x800000000000000f00000000000000000000000000000005",
-    "0xf9099be0ebdfa69d3c66d2e5f097345e4abd1e7af3701296170a048d6490f6",
+    "0xba606e7d1383338457d0a5c622036317ddb8d13aa559ee25594ffda1f71973",
     "0xa4",
     "0xa5",
     "0xa6",
-    "0x20f15dd8b07dff4b1cc8903d2c02eea491e7445a5ad83c7b183f9fbbb70b2b2",
+    "0x34fea599ff5b6dea16acc726aba61ab3c7c08bb415a34b1dd871b95ca81efcd",
     "0xa7",
     "0x4275696c74696e436f737473",
     "0x9931c641b913035ae674b400b61a51476d506bbe8bba2ff8a6272790aba9e6",
@@ -4155,7 +4155,7 @@
       ],
       [
         102,
-        "account::AccountUpgradeable::Event"
+        "juno::account::AccountUpgradeable::Event"
       ],
       [
         103,
@@ -4191,15 +4191,15 @@
       ],
       [
         111,
-        "openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>"
+        "openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         112,
-        "Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>"
+        "Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>"
       ],
       [
         113,
-        "core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>"
+        "core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>"
       ],
       [
         114,
@@ -4259,15 +4259,15 @@
       ],
       [
         128,
-        "openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>"
+        "openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         129,
-        "Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, Unit>"
+        "Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Unit>"
       ],
       [
         130,
-        "core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, ())>"
+        "core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, ())>"
       ],
       [
         131,
@@ -4403,23 +4403,23 @@
       ],
       [
         164,
-        "openzeppelin_introspection::src5::SRC5Component::ComponentState::<account::AccountUpgradeable::ContractState>"
+        "openzeppelin_introspection::src5::SRC5Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         165,
-        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<account::AccountUpgradeable::ContractState>"
+        "openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         166,
-        "account::AccountUpgradeable::ContractState"
+        "juno::account::AccountUpgradeable::ContractState"
       ],
       [
         167,
-        "Tuple<account::AccountUpgradeable::ContractState, Unit>"
+        "Tuple<juno::account::AccountUpgradeable::ContractState, Unit>"
       ],
       [
         168,
-        "core::panics::PanicResult::<(account::AccountUpgradeable::ContractState, ())>"
+        "core::panics::PanicResult::<(juno::account::AccountUpgradeable::ContractState, ())>"
       ],
       [
         169,
@@ -4585,23 +4585,23 @@
       ],
       [
         35,
-        "struct_construct<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "struct_construct<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         36,
-        "struct_construct<openzeppelin_introspection::src5::SRC5Component::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "struct_construct<openzeppelin_introspection::src5::SRC5Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         37,
-        "struct_construct<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "struct_construct<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         38,
-        "struct_construct<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "struct_construct<openzeppelin_upgrades::upgradeable::UpgradeableComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         39,
-        "struct_construct<account::AccountUpgradeable::ContractState>"
+        "struct_construct<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         40,
@@ -4609,15 +4609,15 @@
       ],
       [
         41,
-        "function_call<user@account::AccountUpgradeable::UpgradeableImpl::upgrade>"
+        "function_call<user@juno::account::AccountUpgradeable::UpgradeableImpl::upgrade>"
       ],
       [
         42,
-        "enum_match<core::panics::PanicResult::<(account::AccountUpgradeable::ContractState, ())>>"
+        "enum_match<core::panics::PanicResult::<(juno::account::AccountUpgradeable::ContractState, ())>>"
       ],
       [
         43,
-        "drop<Tuple<account::AccountUpgradeable::ContractState, Unit>>"
+        "drop<Tuple<juno::account::AccountUpgradeable::ContractState, Unit>>"
       ],
       [
         44,
@@ -4717,15 +4717,15 @@
       ],
       [
         68,
-        "snapshot_take<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "snapshot_take<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         69,
-        "drop<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "drop<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         70,
-        "function_call<user@openzeppelin_account::account::AccountComponent::SRC6::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::__execute__>"
+        "function_call<user@openzeppelin_account::account::AccountComponent::SRC6::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::__execute__>"
       ],
       [
         71,
@@ -4789,7 +4789,7 @@
       ],
       [
         86,
-        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::validate_transaction>"
+        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::validate_transaction>"
       ],
       [
         87,
@@ -4937,15 +4937,15 @@
       ],
       [
         123,
-        "function_call<user@openzeppelin_account::account::AccountComponent::PublicKey::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::set_public_key>"
+        "function_call<user@openzeppelin_account::account::AccountComponent::PublicKey::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::set_public_key>"
       ],
       [
         124,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, ())>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, ())>>"
       ],
       [
         125,
-        "drop<Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, Unit>>"
+        "drop<Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Unit>>"
       ],
       [
         126,
@@ -5077,7 +5077,7 @@
       ],
       [
         158,
-        "function_call<user@openzeppelin_account::extensions::src9::src9::SRC9Component::OutsideExecutionV2::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_SRC9Component, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::execute_from_outside_v2>"
+        "function_call<user@openzeppelin_account::extensions::src9::src9::SRC9Component::OutsideExecutionV2::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_SRC9Component, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::execute_from_outside_v2>"
       ],
       [
         159,
@@ -5089,15 +5089,15 @@
       ],
       [
         161,
-        "enum_match<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>>"
+        "enum_match<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>>"
       ],
       [
         162,
-        "struct_deconstruct<Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>>"
+        "struct_deconstruct<Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>>"
       ],
       [
         163,
-        "drop<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>>"
+        "drop<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>>"
       ],
       [
         164,
@@ -5113,7 +5113,7 @@
       ],
       [
         167,
-        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::initializer>"
+        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::initializer>"
       ],
       [
         168,
@@ -5189,7 +5189,7 @@
       ],
       [
         186,
-        "drop<account::AccountUpgradeable::ContractState>"
+        "drop<juno::account::AccountUpgradeable::ContractState>"
       ],
       [
         187,
@@ -5209,31 +5209,31 @@
       ],
       [
         191,
-        "enum_init<account::AccountUpgradeable::Event, 3>"
+        "enum_init<juno::account::AccountUpgradeable::Event, 3>"
       ],
       [
         192,
-        "store_temp<account::AccountUpgradeable::Event>"
+        "store_temp<juno::account::AccountUpgradeable::Event>"
       ],
       [
         193,
-        "function_call<user@account::AccountUpgradeable::ContractStateEventEmitter::emit::<account::AccountUpgradeable::Event, core::traits::TIntoT::<account::AccountUpgradeable::Event>>>"
+        "function_call<user@juno::account::AccountUpgradeable::ContractStateEventEmitter::emit::<juno::account::AccountUpgradeable::Event, core::traits::TIntoT::<juno::account::AccountUpgradeable::Event>>>"
       ],
       [
         194,
-        "struct_construct<Tuple<account::AccountUpgradeable::ContractState, Unit>>"
+        "struct_construct<Tuple<juno::account::AccountUpgradeable::ContractState, Unit>>"
       ],
       [
         195,
-        "enum_init<core::panics::PanicResult::<(account::AccountUpgradeable::ContractState, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(juno::account::AccountUpgradeable::ContractState, ())>, 0>"
       ],
       [
         196,
-        "store_temp<core::panics::PanicResult::<(account::AccountUpgradeable::ContractState, ())>>"
+        "store_temp<core::panics::PanicResult::<(juno::account::AccountUpgradeable::ContractState, ())>>"
       ],
       [
         197,
-        "enum_init<core::panics::PanicResult::<(account::AccountUpgradeable::ContractState, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(juno::account::AccountUpgradeable::ContractState, ())>, 1>"
       ],
       [
         198,
@@ -5605,7 +5605,7 @@
       ],
       [
         290,
-        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::assert_valid_new_owner>"
+        "function_call<user@openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::assert_valid_new_owner>"
       ],
       [
         291,
@@ -5625,7 +5625,7 @@
       ],
       [
         295,
-        "enum_init<account::AccountUpgradeable::Event, 0>"
+        "enum_init<juno::account::AccountUpgradeable::Event, 0>"
       ],
       [
         296,
@@ -5637,19 +5637,19 @@
       ],
       [
         298,
-        "struct_construct<Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, Unit>>"
+        "struct_construct<Tuple<openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Unit>>"
       ],
       [
         299,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, ())>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, ())>, 0>"
       ],
       [
         300,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, ())>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, ())>>"
       ],
       [
         301,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<account::AccountUpgradeable::ContractState>, ())>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_account::account::AccountComponent::ComponentState::<juno::account::AccountUpgradeable::ContractState>, ())>, 1>"
       ],
       [
         302,
@@ -5773,11 +5773,11 @@
       ],
       [
         332,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>, 1>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>, 1>"
       ],
       [
         333,
-        "store_temp<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>>"
+        "store_temp<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>>"
       ],
       [
         334,
@@ -5837,11 +5837,11 @@
       ],
       [
         348,
-        "struct_construct<Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>>"
+        "struct_construct<Tuple<openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, Array<core::array::Span::<core::felt252>>>>"
       ],
       [
         349,
-        "enum_init<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>, 0>"
+        "enum_init<core::panics::PanicResult::<(openzeppelin_account::extensions::src9::src9::SRC9Component::ComponentState::<juno::account::AccountUpgradeable::ContractState>, core::array::Array::<core::array::Span::<core::felt252>>)>, 0>"
       ],
       [
         350,
@@ -5865,15 +5865,15 @@
       ],
       [
         355,
-        "snapshot_take<account::AccountUpgradeable::Event>"
+        "snapshot_take<juno::account::AccountUpgradeable::Event>"
       ],
       [
         356,
-        "drop<account::AccountUpgradeable::Event>"
+        "drop<juno::account::AccountUpgradeable::Event>"
       ],
       [
         357,
-        "enum_match<account::AccountUpgradeable::Event>"
+        "enum_match<juno::account::AccountUpgradeable::Event>"
       ],
       [
         358,
@@ -6399,67 +6399,67 @@
     "user_func_names": [
       [
         0,
-        "account::AccountUpgradeable::__wrapper__UpgradeableImpl__upgrade"
+        "juno::account::AccountUpgradeable::__wrapper__UpgradeableImpl__upgrade"
       ],
       [
         1,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____execute__::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____execute__::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         2,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate__::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate__::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         3,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__is_valid_signature::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__is_valid_signature::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         4,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__isValidSignature::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__isValidSignature::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         5,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate_declare__::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate_declare__::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         6,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate_deploy__::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl____validate_deploy__::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         7,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__get_public_key::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__get_public_key::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         8,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__set_public_key::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__set_public_key::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         9,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__getPublicKey::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__getPublicKey::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         10,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__setPublicKey::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__setPublicKey::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         11,
-        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__supports_interface::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateAccountMixinImpl>"
+        "openzeppelin_account::account::AccountComponent::__wrapper__AccountMixinImpl__supports_interface::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateAccountMixinImpl>"
       ],
       [
         12,
-        "openzeppelin_account::extensions::src9::src9::SRC9Component::__wrapper__OutsideExecutionV2Impl__execute_from_outside_v2::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_SRC9Component, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateOutsideExecutionV2Impl>"
+        "openzeppelin_account::extensions::src9::src9::SRC9Component::__wrapper__OutsideExecutionV2Impl__execute_from_outside_v2::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_SRC9Component, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateOutsideExecutionV2Impl>"
       ],
       [
         13,
-        "openzeppelin_account::extensions::src9::src9::SRC9Component::__wrapper__OutsideExecutionV2Impl__is_valid_outside_execution_nonce::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_SRC9Component, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop, account::AccountUpgradeable::ContractStateOutsideExecutionV2Impl>"
+        "openzeppelin_account::extensions::src9::src9::SRC9Component::__wrapper__OutsideExecutionV2Impl__is_valid_outside_execution_nonce::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_SRC9Component, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop, juno::account::AccountUpgradeable::ContractStateOutsideExecutionV2Impl>"
       ],
       [
         14,
-        "account::AccountUpgradeable::__wrapper__constructor"
+        "juno::account::AccountUpgradeable::__wrapper__constructor"
       ],
       [
         15,
-        "account::AccountUpgradeable::UpgradeableImpl::upgrade"
+        "juno::account::AccountUpgradeable::UpgradeableImpl::upgrade"
       ],
       [
         16,
@@ -6467,7 +6467,7 @@
       ],
       [
         17,
-        "openzeppelin_account::account::AccountComponent::SRC6::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::__execute__"
+        "openzeppelin_account::account::AccountComponent::SRC6::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::__execute__"
       ],
       [
         18,
@@ -6475,7 +6475,7 @@
       ],
       [
         19,
-        "openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::validate_transaction"
+        "openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::validate_transaction"
       ],
       [
         20,
@@ -6491,7 +6491,7 @@
       ],
       [
         23,
-        "openzeppelin_account::account::AccountComponent::PublicKey::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::set_public_key"
+        "openzeppelin_account::account::AccountComponent::PublicKey::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::set_public_key"
       ],
       [
         24,
@@ -6499,15 +6499,15 @@
       ],
       [
         25,
-        "openzeppelin_account::extensions::src9::src9::SRC9Component::OutsideExecutionV2::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_SRC9Component, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::execute_from_outside_v2"
+        "openzeppelin_account::extensions::src9::src9::SRC9Component::OutsideExecutionV2::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_SRC9Component, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::execute_from_outside_v2"
       ],
       [
         26,
-        "openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::initializer"
+        "openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::initializer"
       ],
       [
         27,
-        "account::AccountUpgradeable::ContractStateEventEmitter::emit::<account::AccountUpgradeable::Event, core::traits::TIntoT::<account::AccountUpgradeable::Event>>"
+        "juno::account::AccountUpgradeable::ContractStateEventEmitter::emit::<juno::account::AccountUpgradeable::Event, core::traits::TIntoT::<juno::account::AccountUpgradeable::Event>>"
       ],
       [
         28,
@@ -6531,7 +6531,7 @@
       ],
       [
         33,
-        "openzeppelin_account::account::AccountComponent::InternalImpl::<account::AccountUpgradeable::ContractState, account::AccountUpgradeable::HasComponentImpl_AccountComponent, account::AccountUpgradeable::HasComponentImpl_SRC5Component, account::AccountUpgradeable::ContractStateDrop>::assert_valid_new_owner"
+        "openzeppelin_account::account::AccountComponent::InternalImpl::<juno::account::AccountUpgradeable::ContractState, juno::account::AccountUpgradeable::HasComponentImpl_AccountComponent, juno::account::AccountUpgradeable::HasComponentImpl_SRC5Component, juno::account::AccountUpgradeable::ContractStateDrop>::assert_valid_new_owner"
       ],
       [
         34,
@@ -6635,5 +6635,5 @@
       }
     ]
   },
-  "abi": "[{\"type\":\"impl\",\"name\":\"UpgradeableImpl\",\"interface_name\":\"openzeppelin_upgrades::interface::IUpgradeable\"},{\"type\":\"interface\",\"name\":\"openzeppelin_upgrades::interface::IUpgradeable\",\"items\":[{\"type\":\"function\",\"name\":\"upgrade\",\"inputs\":[{\"name\":\"new_class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"AccountMixinImpl\",\"interface_name\":\"openzeppelin_account::interface::AccountABI\"},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::felt252>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::felt252>\"}]},{\"type\":\"struct\",\"name\":\"core::starknet::account::Call\",\"members\":[{\"name\":\"to\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"selector\",\"type\":\"core::felt252\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\"}]},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_account::interface::AccountABI\",\"items\":[{\"type\":\"function\",\"name\":\"__execute__\",\"inputs\":[{\"name\":\"calls\",\"type\":\"core::array::Array::<core::starknet::account::Call>\"}],\"outputs\":[{\"type\":\"core::array::Array::<core::array::Span::<core::felt252>>\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate__\",\"inputs\":[{\"name\":\"calls\",\"type\":\"core::array::Array::<core::starknet::account::Call>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"is_valid_signature\",\"inputs\":[{\"name\":\"hash\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Array::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"supports_interface\",\"inputs\":[{\"name\":\"interface_id\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate_declare__\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate_deploy__\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::felt252\"},{\"name\":\"contract_address_salt\",\"type\":\"core::felt252\"},{\"name\":\"public_key\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"get_public_key\",\"inputs\":[],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"set_public_key\",\"inputs\":[{\"name\":\"new_public_key\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"isValidSignature\",\"inputs\":[{\"name\":\"hash\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Array::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPublicKey\",\"inputs\":[],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"setPublicKey\",\"inputs\":[{\"name\":\"newPublicKey\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"OutsideExecutionV2Impl\",\"interface_name\":\"openzeppelin_account::extensions::src9::interface::ISRC9_V2\"},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::starknet::account::Call>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::starknet::account::Call>\"}]},{\"type\":\"struct\",\"name\":\"openzeppelin_account::extensions::src9::interface::OutsideExecution\",\"members\":[{\"name\":\"caller\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"nonce\",\"type\":\"core::felt252\"},{\"name\":\"execute_after\",\"type\":\"core::integer::u64\"},{\"name\":\"execute_before\",\"type\":\"core::integer::u64\"},{\"name\":\"calls\",\"type\":\"core::array::Span::<core::starknet::account::Call>\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_account::extensions::src9::interface::ISRC9_V2\",\"items\":[{\"type\":\"function\",\"name\":\"execute_from_outside_v2\",\"inputs\":[{\"name\":\"outside_execution\",\"type\":\"openzeppelin_account::extensions::src9::interface::OutsideExecution\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::array::Array::<core::array::Span::<core::felt252>>\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"is_valid_outside_execution_nonce\",\"inputs\":[{\"name\":\"nonce\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"view\"}]},{\"type\":\"constructor\",\"name\":\"constructor\",\"inputs\":[{\"name\":\"public_key\",\"type\":\"core::felt252\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::OwnerAdded\",\"kind\":\"struct\",\"members\":[{\"name\":\"new_owner_guid\",\"type\":\"core::felt252\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::OwnerRemoved\",\"kind\":\"struct\",\"members\":[{\"name\":\"removed_owner_guid\",\"type\":\"core::felt252\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnerAdded\",\"type\":\"openzeppelin_account::account::AccountComponent::OwnerAdded\",\"kind\":\"nested\"},{\"name\":\"OwnerRemoved\",\"type\":\"openzeppelin_account::account::AccountComponent::OwnerRemoved\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_introspection::src5::SRC5Component::Event\",\"kind\":\"enum\",\"variants\":[]},{\"type\":\"event\",\"name\":\"openzeppelin_account::extensions::src9::src9::SRC9Component::Event\",\"kind\":\"enum\",\"variants\":[]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"struct\",\"members\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Upgraded\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"account::AccountUpgradeable::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"AccountEvent\",\"type\":\"openzeppelin_account::account::AccountComponent::Event\",\"kind\":\"flat\"},{\"name\":\"SRC5Event\",\"type\":\"openzeppelin_introspection::src5::SRC5Component::Event\",\"kind\":\"flat\"},{\"name\":\"SRC9Event\",\"type\":\"openzeppelin_account::extensions::src9::src9::SRC9Component::Event\",\"kind\":\"flat\"},{\"name\":\"UpgradeableEvent\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"flat\"}]}]"
+  "abi": "[{\"type\":\"impl\",\"name\":\"UpgradeableImpl\",\"interface_name\":\"openzeppelin_upgrades::interface::IUpgradeable\"},{\"type\":\"interface\",\"name\":\"openzeppelin_upgrades::interface::IUpgradeable\",\"items\":[{\"type\":\"function\",\"name\":\"upgrade\",\"inputs\":[{\"name\":\"new_class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"AccountMixinImpl\",\"interface_name\":\"openzeppelin_account::interface::AccountABI\"},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::felt252>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::felt252>\"}]},{\"type\":\"struct\",\"name\":\"core::starknet::account::Call\",\"members\":[{\"name\":\"to\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"selector\",\"type\":\"core::felt252\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\"}]},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_account::interface::AccountABI\",\"items\":[{\"type\":\"function\",\"name\":\"__execute__\",\"inputs\":[{\"name\":\"calls\",\"type\":\"core::array::Array::<core::starknet::account::Call>\"}],\"outputs\":[{\"type\":\"core::array::Array::<core::array::Span::<core::felt252>>\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate__\",\"inputs\":[{\"name\":\"calls\",\"type\":\"core::array::Array::<core::starknet::account::Call>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"is_valid_signature\",\"inputs\":[{\"name\":\"hash\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Array::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"supports_interface\",\"inputs\":[{\"name\":\"interface_id\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate_declare__\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"__validate_deploy__\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::felt252\"},{\"name\":\"contract_address_salt\",\"type\":\"core::felt252\"},{\"name\":\"public_key\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"get_public_key\",\"inputs\":[],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"set_public_key\",\"inputs\":[{\"name\":\"new_public_key\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"isValidSignature\",\"inputs\":[{\"name\":\"hash\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Array::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"getPublicKey\",\"inputs\":[],\"outputs\":[{\"type\":\"core::felt252\"}],\"state_mutability\":\"view\"},{\"type\":\"function\",\"name\":\"setPublicKey\",\"inputs\":[{\"name\":\"newPublicKey\",\"type\":\"core::felt252\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[],\"state_mutability\":\"external\"}]},{\"type\":\"impl\",\"name\":\"OutsideExecutionV2Impl\",\"interface_name\":\"openzeppelin_account::extensions::src9::interface::ISRC9_V2\"},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::starknet::account::Call>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::starknet::account::Call>\"}]},{\"type\":\"struct\",\"name\":\"openzeppelin_account::extensions::src9::interface::OutsideExecution\",\"members\":[{\"name\":\"caller\",\"type\":\"core::starknet::contract_address::ContractAddress\"},{\"name\":\"nonce\",\"type\":\"core::felt252\"},{\"name\":\"execute_after\",\"type\":\"core::integer::u64\"},{\"name\":\"execute_before\",\"type\":\"core::integer::u64\"},{\"name\":\"calls\",\"type\":\"core::array::Span::<core::starknet::account::Call>\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_account::extensions::src9::interface::ISRC9_V2\",\"items\":[{\"type\":\"function\",\"name\":\"execute_from_outside_v2\",\"inputs\":[{\"name\":\"outside_execution\",\"type\":\"openzeppelin_account::extensions::src9::interface::OutsideExecution\"},{\"name\":\"signature\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::array::Array::<core::array::Span::<core::felt252>>\"}],\"state_mutability\":\"external\"},{\"type\":\"function\",\"name\":\"is_valid_outside_execution_nonce\",\"inputs\":[{\"name\":\"nonce\",\"type\":\"core::felt252\"}],\"outputs\":[{\"type\":\"core::bool\"}],\"state_mutability\":\"view\"}]},{\"type\":\"constructor\",\"name\":\"constructor\",\"inputs\":[{\"name\":\"public_key\",\"type\":\"core::felt252\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::OwnerAdded\",\"kind\":\"struct\",\"members\":[{\"name\":\"new_owner_guid\",\"type\":\"core::felt252\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::OwnerRemoved\",\"kind\":\"struct\",\"members\":[{\"name\":\"removed_owner_guid\",\"type\":\"core::felt252\",\"kind\":\"key\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_account::account::AccountComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"OwnerAdded\",\"type\":\"openzeppelin_account::account::AccountComponent::OwnerAdded\",\"kind\":\"nested\"},{\"name\":\"OwnerRemoved\",\"type\":\"openzeppelin_account::account::AccountComponent::OwnerRemoved\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_introspection::src5::SRC5Component::Event\",\"kind\":\"enum\",\"variants\":[]},{\"type\":\"event\",\"name\":\"openzeppelin_account::extensions::src9::src9::SRC9Component::Event\",\"kind\":\"enum\",\"variants\":[]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"struct\",\"members\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"Upgraded\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded\",\"kind\":\"nested\"}]},{\"type\":\"event\",\"name\":\"juno::account::AccountUpgradeable::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"AccountEvent\",\"type\":\"openzeppelin_account::account::AccountComponent::Event\",\"kind\":\"flat\"},{\"name\":\"SRC5Event\",\"type\":\"openzeppelin_introspection::src5::SRC5Component::Event\",\"kind\":\"flat\"},{\"name\":\"SRC9Event\",\"type\":\"openzeppelin_account::extensions::src9::src9::SRC9Component::Event\",\"kind\":\"flat\"},{\"name\":\"UpgradeableEvent\",\"type\":\"openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event\",\"kind\":\"flat\"}]}]"
 }

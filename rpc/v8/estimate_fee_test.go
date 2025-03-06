@@ -113,7 +113,7 @@ func TestEstimateFee(t *testing.T) {
 func TestEstimateFeeWithVM(t *testing.T) {
 	chain, accountAddr, deployerAddr := testutils.TestBlockchain(t, "0.13.4")
 
-	snClass, compliedClass, bsClass := testutils.ClassFromFile(t, "../../cairo/bs/target/dev/bs_HelloStarknet.contract_class.json")
+	snClass, compliedClass, bsClass := testutils.ClassFromFile(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
 	bsClassHash, err := bsClass.Hash()
 	require.NoError(t, err)
 
@@ -213,7 +213,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
 				// Address of the deployed test contract
-				utils.HexToFelt(t, "0x5715f1e9c6ab89b6624fa464b02acd3edc054cc6add51305affce40aa781d08"),
+				utils.HexToFelt(t, "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"),
 				// Entry point selector for the called contract
 				crypto.StarknetKeccak([]byte("test_redeposits")),
 				// Length of the call data for the called contract
@@ -252,16 +252,23 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		[]rpc.SimulationFlag{rpc.SkipValidateFlag},
 		rpc.BlockID{Latest: true},
 	)
-	require.Nil(t, jsonErr)
+	if jsonErr != nil {
+		if jsonErr.Data != nil {
+			executionErr, ok := jsonErr.Data.(rpc.TransactionExecutionErrorData)
+			require.True(t, ok, jsonErr)
+			t.Fatal(string(executionErr.ExecutionError))
+		}
+		t.Fatal(jsonErr)
+	}
 
 	declareExpected := rpc.FeeEstimate{
 		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
 		L1GasPrice:        utils.HexToFelt(t, "0x2"),
-		L2GasConsumed:     utils.HexToFelt(t, "0x4237680"),
+		L2GasConsumed:     utils.HexToFelt(t, "0x423cb80"),
 		L2GasPrice:        utils.HexToFelt(t, "0x1"),
 		L1DataGasConsumed: utils.HexToFelt(t, "0xc0"),
 		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
-		OverallFee:        utils.HexToFelt(t, "0x4237800"),
+		OverallFee:        utils.HexToFelt(t, "0x423cd00"),
 		Unit:              utils.HeapPtr(rpc.FRI),
 	}
 	deployExpected := rpc.FeeEstimate{

@@ -45,12 +45,12 @@
     "0xd",
     "0x66656c74323532",
     "0x800000000000000700000000000000000000000000000007",
-    "0x2771c84684a84b651060d8eb0129e0b18570d4e1a4fc2bc4af29e130ab5225e",
+    "0x2e860918a93e7c73fb3b3c441e8c7e87c379098b7a4a8ce7b1e3af980740241",
     "0xa",
     "0xb",
     "0xc",
     "0xe",
-    "0x3e00ec1183c0f3996903dcf0cc1d3033efa375c5d43a59e2e08ae608b46a926",
+    "0x2d17b630bc02bc005b08b54ed99b1f19a3f9f0f4441011befecde7f0eb18fac",
     "0x10",
     "0x426f78",
     "0x1b",
@@ -91,9 +91,9 @@
     "0x4661696c656420746f20646573657269616c697a6520706172616d202333",
     "0x4661696c656420746f20646573657269616c697a6520706172616d202334",
     "0x4f7574206f6620676173",
-    "0x26fa83e67746689020363e9b0175851c3259d2fa8ead291fc6d7e52794fc7e1",
+    "0x2fb9535d62e70b53caf321308b195338d2cff97db3aa807528de67332f4aff3",
     "0x31",
-    "0x17852cead0338a421477131f289f2a6174de78774215e1a7834082edfc6f4be",
+    "0x29a9125f40a903cff8bd8d2909199190ddb2281d5234d420a70a36ded7f8cf8",
     "0x32",
     "0x4275696c74696e436f737473",
     "0x9931c641b913035ae674b400b61a51476d506bbe8bba2ff8a6272790aba9e6",
@@ -638,11 +638,11 @@
       ],
       [
         16,
-        "universal_deployer::UniversalDeployer::ContractDeployed"
+        "juno::universal_deployer::UniversalDeployer::ContractDeployed"
       ],
       [
         17,
-        "universal_deployer::UniversalDeployer::Event"
+        "juno::universal_deployer::UniversalDeployer::Event"
       ],
       [
         18,
@@ -770,15 +770,15 @@
       ],
       [
         49,
-        "universal_deployer::UniversalDeployer::ContractState"
+        "juno::universal_deployer::UniversalDeployer::ContractState"
       ],
       [
         50,
-        "Tuple<universal_deployer::UniversalDeployer::ContractState, ContractAddress>"
+        "Tuple<juno::universal_deployer::UniversalDeployer::ContractState, ContractAddress>"
       ],
       [
         51,
-        "core::panics::PanicResult::<(universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>"
+        "core::panics::PanicResult::<(juno::universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>"
       ],
       [
         52,
@@ -1024,7 +1024,7 @@
       ],
       [
         51,
-        "struct_construct<universal_deployer::UniversalDeployer::ContractState>"
+        "struct_construct<juno::universal_deployer::UniversalDeployer::ContractState>"
       ],
       [
         52,
@@ -1032,19 +1032,19 @@
       ],
       [
         53,
-        "function_call<user@universal_deployer::UniversalDeployer::UniversalDeployerImpl::deploy_contract>"
+        "function_call<user@juno::universal_deployer::UniversalDeployer::UniversalDeployerImpl::deploy_contract>"
       ],
       [
         54,
-        "enum_match<core::panics::PanicResult::<(universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>>"
+        "enum_match<core::panics::PanicResult::<(juno::universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>>"
       ],
       [
         55,
-        "struct_deconstruct<Tuple<universal_deployer::UniversalDeployer::ContractState, ContractAddress>>"
+        "struct_deconstruct<Tuple<juno::universal_deployer::UniversalDeployer::ContractState, ContractAddress>>"
       ],
       [
         56,
-        "drop<universal_deployer::UniversalDeployer::ContractState>"
+        "drop<juno::universal_deployer::UniversalDeployer::ContractState>"
       ],
       [
         57,
@@ -1284,27 +1284,27 @@
       ],
       [
         116,
-        "struct_construct<universal_deployer::UniversalDeployer::ContractDeployed>"
+        "struct_construct<juno::universal_deployer::UniversalDeployer::ContractDeployed>"
       ],
       [
         117,
-        "enum_init<universal_deployer::UniversalDeployer::Event, 0>"
+        "enum_init<juno::universal_deployer::UniversalDeployer::Event, 0>"
       ],
       [
         118,
-        "snapshot_take<universal_deployer::UniversalDeployer::Event>"
+        "snapshot_take<juno::universal_deployer::UniversalDeployer::Event>"
       ],
       [
         119,
-        "drop<universal_deployer::UniversalDeployer::Event>"
+        "drop<juno::universal_deployer::UniversalDeployer::Event>"
       ],
       [
         120,
-        "store_temp<universal_deployer::UniversalDeployer::Event>"
+        "store_temp<juno::universal_deployer::UniversalDeployer::Event>"
       ],
       [
         121,
-        "enum_match<universal_deployer::UniversalDeployer::Event>"
+        "enum_match<juno::universal_deployer::UniversalDeployer::Event>"
       ],
       [
         122,
@@ -1312,7 +1312,7 @@
       ],
       [
         123,
-        "store_temp<universal_deployer::UniversalDeployer::ContractDeployed>"
+        "store_temp<juno::universal_deployer::UniversalDeployer::ContractDeployed>"
       ],
       [
         124,
@@ -1324,7 +1324,7 @@
       ],
       [
         126,
-        "function_call<user@universal_deployer::UniversalDeployer::ContractDeployedIsEvent::append_keys_and_data>"
+        "function_call<user@juno::universal_deployer::UniversalDeployer::ContractDeployedIsEvent::append_keys_and_data>"
       ],
       [
         127,
@@ -1340,15 +1340,15 @@
       ],
       [
         130,
-        "struct_construct<Tuple<universal_deployer::UniversalDeployer::ContractState, ContractAddress>>"
+        "struct_construct<Tuple<juno::universal_deployer::UniversalDeployer::ContractState, ContractAddress>>"
       ],
       [
         131,
-        "enum_init<core::panics::PanicResult::<(universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>, 0>"
+        "enum_init<core::panics::PanicResult::<(juno::universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>, 0>"
       ],
       [
         132,
-        "store_temp<core::panics::PanicResult::<(universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>>"
+        "store_temp<core::panics::PanicResult::<(juno::universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>>"
       ],
       [
         133,
@@ -1360,7 +1360,7 @@
       ],
       [
         135,
-        "enum_init<core::panics::PanicResult::<(universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>, 1>"
+        "enum_init<core::panics::PanicResult::<(juno::universal_deployer::UniversalDeployer::ContractState, core::starknet::contract_address::ContractAddress)>, 1>"
       ],
       [
         136,
@@ -1376,11 +1376,11 @@
       ],
       [
         139,
-        "dup<universal_deployer::UniversalDeployer::ContractDeployed>"
+        "dup<juno::universal_deployer::UniversalDeployer::ContractDeployed>"
       ],
       [
         140,
-        "struct_deconstruct<universal_deployer::UniversalDeployer::ContractDeployed>"
+        "struct_deconstruct<juno::universal_deployer::UniversalDeployer::ContractDeployed>"
       ],
       [
         141,
@@ -1432,7 +1432,7 @@
       ],
       [
         153,
-        "drop<universal_deployer::UniversalDeployer::ContractDeployed>"
+        "drop<juno::universal_deployer::UniversalDeployer::ContractDeployed>"
       ],
       [
         154,
@@ -1458,7 +1458,7 @@
     "user_func_names": [
       [
         0,
-        "universal_deployer::UniversalDeployer::__wrapper__UniversalDeployerImpl__deploy_contract"
+        "juno::universal_deployer::UniversalDeployer::__wrapper__UniversalDeployerImpl__deploy_contract"
       ],
       [
         1,
@@ -1466,11 +1466,11 @@
       ],
       [
         2,
-        "universal_deployer::UniversalDeployer::UniversalDeployerImpl::deploy_contract"
+        "juno::universal_deployer::UniversalDeployer::UniversalDeployerImpl::deploy_contract"
       ],
       [
         3,
-        "universal_deployer::UniversalDeployer::ContractDeployedIsEvent::append_keys_and_data"
+        "juno::universal_deployer::UniversalDeployer::ContractDeployedIsEvent::append_keys_and_data"
       ],
       [
         4,
@@ -1489,5 +1489,5 @@
     "L1_HANDLER": [],
     "CONSTRUCTOR": []
   },
-  "abi": "[{\"type\":\"impl\",\"name\":\"UniversalDeployerImpl\",\"interface_name\":\"openzeppelin_utils::deployments::interface::IUniversalDeployer\"},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::felt252>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::felt252>\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_utils::deployments::interface::IUniversalDeployer\",\"items\":[{\"type\":\"function\",\"name\":\"deploy_contract\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"},{\"name\":\"salt\",\"type\":\"core::felt252\"},{\"name\":\"from_zero\",\"type\":\"core::bool\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"state_mutability\":\"external\"}]},{\"type\":\"event\",\"name\":\"universal_deployer::UniversalDeployer::ContractDeployed\",\"kind\":\"struct\",\"members\":[{\"name\":\"address\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"data\"},{\"name\":\"deployer\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"data\"},{\"name\":\"from_zero\",\"type\":\"core::bool\",\"kind\":\"data\"},{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\",\"kind\":\"data\"},{\"name\":\"salt\",\"type\":\"core::felt252\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"universal_deployer::UniversalDeployer::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"ContractDeployed\",\"type\":\"universal_deployer::UniversalDeployer::ContractDeployed\",\"kind\":\"nested\"}]}]"
+  "abi": "[{\"type\":\"impl\",\"name\":\"UniversalDeployerImpl\",\"interface_name\":\"openzeppelin_utils::deployments::interface::IUniversalDeployer\"},{\"type\":\"enum\",\"name\":\"core::bool\",\"variants\":[{\"name\":\"False\",\"type\":\"()\"},{\"name\":\"True\",\"type\":\"()\"}]},{\"type\":\"struct\",\"name\":\"core::array::Span::<core::felt252>\",\"members\":[{\"name\":\"snapshot\",\"type\":\"@core::array::Array::<core::felt252>\"}]},{\"type\":\"interface\",\"name\":\"openzeppelin_utils::deployments::interface::IUniversalDeployer\",\"items\":[{\"type\":\"function\",\"name\":\"deploy_contract\",\"inputs\":[{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\"},{\"name\":\"salt\",\"type\":\"core::felt252\"},{\"name\":\"from_zero\",\"type\":\"core::bool\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\"}],\"outputs\":[{\"type\":\"core::starknet::contract_address::ContractAddress\"}],\"state_mutability\":\"external\"}]},{\"type\":\"event\",\"name\":\"juno::universal_deployer::UniversalDeployer::ContractDeployed\",\"kind\":\"struct\",\"members\":[{\"name\":\"address\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"data\"},{\"name\":\"deployer\",\"type\":\"core::starknet::contract_address::ContractAddress\",\"kind\":\"data\"},{\"name\":\"from_zero\",\"type\":\"core::bool\",\"kind\":\"data\"},{\"name\":\"class_hash\",\"type\":\"core::starknet::class_hash::ClassHash\",\"kind\":\"data\"},{\"name\":\"calldata\",\"type\":\"core::array::Span::<core::felt252>\",\"kind\":\"data\"},{\"name\":\"salt\",\"type\":\"core::felt252\",\"kind\":\"data\"}]},{\"type\":\"event\",\"name\":\"juno::universal_deployer::UniversalDeployer::Event\",\"kind\":\"enum\",\"variants\":[{\"name\":\"ContractDeployed\",\"type\":\"juno::universal_deployer::UniversalDeployer::ContractDeployed\",\"kind\":\"nested\"}]}]"
 }

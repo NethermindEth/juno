@@ -31,14 +31,12 @@ else
 	@echo "scrab is already installed."
 endif
 
-build: install_scrab ## Build the project
-	$(MAKE) -C bs/ build
-	$(MAKE) -C universal_deployer/ build
-	$(MAKE) -C account/ build
-	$(MAKE) -C erc20/ build
+build: ## `scarb build` generates json with `abi` field as array, we need to convert it to string
+	scarb build
+	for file in target/dev/*.contract_class.json; do \
+		jq '.abi = ( .abi | tostring )' $$file > tmp.json; \
+		mv tmp.json $$file; \
+	done
 
-clean: install_scrab ## Clean the project
-	$(MAKE) -C bs/ clean
-	$(MAKE) -C universal_deployer/ clean
-	$(MAKE) -C account/ clean
-	$(MAKE) -C erc20/ clean
+clean: ## Clean the project
+	scarb clean
