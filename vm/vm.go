@@ -29,6 +29,7 @@ type ExecutionResults struct {
 	GasConsumed      []core.GasConsumed
 	Traces           []TransactionTrace
 	NumSteps         uint64
+	Receipts         []TransactionReceipt
 }
 
 type CallResult struct {
@@ -57,6 +58,15 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	}
 }
 
+type StateReadWriter interface {
+	core.StateReader
+	SetStorage(contractAddress, storageKey, value *felt.Felt) error
+	IncrementNonce(contractAddress *felt.Felt) error
+	SetClassHash(contractAddress, classHash *felt.Felt) error
+	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
+	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
+}
+
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
@@ -74,6 +84,8 @@ type callContext struct {
 	daGas           []core.DataAvailability
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
+	receipts        []json.RawMessage
+	declaredClasses map[felt.Felt]core.Class
 	executionFailed bool
 }
 
@@ -92,6 +104,13 @@ func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char, exe
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
 	context.executionFailed = executionFailed == 1
+}
+
+//export JunoAppendReceipt
+func JunoAppendReceipt(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.receipts = append(context.receipts, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendTrace
@@ -212,6 +231,14 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack bool,
 ) (CallResult, error) {
@@ -220,6 +247,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		response: []*felt.Felt{},
 		log:      v.log,
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -227,6 +255,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if v.concurrencyMode {
 		concurrencyModeByte = 1
 	}
+
+	_, isMutableState := context.state.(StateReadWriter)
+	mutableStateByte := makeByteFromBool(isMutableState)
+
 	var structuredErrStackByte byte
 	if structuredErrStack {
 		structuredErrStackByte = 1
@@ -246,6 +278,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.uchar(concurrencyModeByte),
 		cSierraVersion,
 		C.uchar(structuredErrStackByte), //nolint:gocritic // don't know why the linter is annoyed
+		C.uchar(mutableStateByte),       //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -346,12 +379,19 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
+	receipts := make([]TransactionReceipt, len(context.receipts))
+	for index, traceJSON := range context.receipts {
+		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
+		}
+	}
 	return ExecutionResults{
 		OverallFees:      context.actualFees,
 		DataAvailability: context.daGas,
 		GasConsumed:      context.gasConsumed,
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
+		Receipts:         receipts,
 	}, nil
 }
 

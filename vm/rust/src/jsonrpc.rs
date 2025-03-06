@@ -1,3 +1,4 @@
+use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
@@ -9,14 +10,13 @@ use cairo_vm::types::builtin_name::BuiltinName;
 use serde::Serialize;
 use starknet_api::contract_class::EntryPointType;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
-use starknet_api::transaction::fields::Calldata;
+use starknet_api::execution_resources::GasVector;
+use starknet_api::transaction::fields::{Calldata, Fee};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
 
 type StarkFelt = Felt;
-
-use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
@@ -30,6 +30,13 @@ pub enum TransactionType {
     DeployAccount,
     #[serde(rename = "L1_HANDLER")]
     L1Handler,
+}
+
+#[derive(serde::Serialize, Default, Debug, PartialEq)]
+pub struct TransactionReceipt {
+    pub fee: Fee,
+    pub gas: GasVector,
+    pub da_gas: GasVector,
 }
 
 #[derive(Serialize, Default)]
