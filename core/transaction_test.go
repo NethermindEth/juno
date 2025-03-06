@@ -219,17 +219,16 @@ func TestVerifyTransactionHash(t *testing.T) {
 }
 
 func TestTransactionV3Hash(t *testing.T) {
-	network := utils.Integration
+	network := utils.Sepolia
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
 	ctx := context.Background()
 
-	// Test data was obtained by playing with Papyrus's implementation before v0.13 was released on integration.
 	tests := map[string]struct {
 		tx   func(hash *felt.Felt) core.Transaction
 		want *felt.Felt
 	}{
 		"invoke": {
-			// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
+			// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
 				require.NoError(t, err)
@@ -238,9 +237,9 @@ func TestTransactionV3Hash(t *testing.T) {
 				invoke.TransactionHash = nil
 				return invoke
 			},
-			want: utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			want: utils.HexToFelt(t, "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"),
 		},
-		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
+		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155
 		"declare": {
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
@@ -250,9 +249,9 @@ func TestTransactionV3Hash(t *testing.T) {
 				declare.TransactionHash = nil
 				return declare
 			},
-			want: utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
+			want: utils.HexToFelt(t, "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155"),
 		},
-		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
+		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975
 		"deployAccount": {
 			tx: func(hash *felt.Felt) core.Transaction {
 				tx, err := gw.Transaction(ctx, hash)
@@ -262,7 +261,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				deployAccount.TransactionHash = nil
 				return deployAccount
 			},
-			want: utils.HexToFelt(t, "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			want: utils.HexToFelt(t, "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975"),
 		},
 	}
 
