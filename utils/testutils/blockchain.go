@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -44,30 +43,29 @@ func TestBlockchain(t *testing.T, protocolVersion string) (*blockchain.Blockchai
 	require.NoError(t, chain.Store(genesis, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
 	accountAddr := utils.HexToFelt(t, "0xc01")
-	_, _, accountClass := ClassFromFile(t, "../../cairo/account/target/dev/account_AccountUpgradeable.contract_class.json")
+	_, _, accountClass := ClassFromFile(t, "../../cairo/target/dev/juno_AccountUpgradeable.contract_class.json")
 	accountClassHash, err := accountClass.Hash()
 	require.NoError(t, err)
 
 	deployerAddr := utils.HexToFelt(t, "0xc02")
 	_, _, delployerClass := ClassFromFile(
 		t,
-		"../../cairo/universal_deployer/target/dev/universal_deployer_UniversalDeployer.contract_class.json",
+		"../../cairo/target/dev/juno_UniversalDeployer.contract_class.json",
 	)
 	delployerClassHash, err := delployerClass.Hash()
 	require.NoError(t, err)
 
 	ethFeeTokenAddr := utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	strkFeeTokenAddr := utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-	_, _, erc20Class := ClassFromFile(t, "../../cairo/erc20/target/dev/erc20_ERC20Upgradeable.contract_class.json")
+	_, _, erc20Class := ClassFromFile(t, "../../cairo/target/dev/juno_ERC20Upgradeable.contract_class.json")
 	erc20ClassHash, err := erc20Class.Hash()
 	require.NoError(t, err)
 
 	accountBalanceKey := fromNameAndKey(t, "ERC20_balances", accountAddr)
-	fmt.Printf("accountBalanceKey: %s\n", accountBalanceKey.String())
 
 	stateUpdate := &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x5403e8bee8d88c4a36879d7236988aeb0b2eb62df16426150181df76b5872af"),
+		NewRoot: utils.HexToFelt(t, "0x7453641d480b482d1613edd0e760c265bd010594aa493b801850306f3e98773"),
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*accountAddr:      accountClassHash,
