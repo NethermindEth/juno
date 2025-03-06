@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
-	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -377,52 +376,6 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
-	if rb == nil {
-		return nil
-	}
-	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	for resource, bounds := range *rb {
-		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount,
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
-	}
-	return &feederResourceBounds
-}
-
-func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
-	if mode == nil {
-		return nil
-	}
-	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
-}
-
-func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
-	return &starknet.Transaction{
-		Hash:                  rpcTx.Hash,
-		Version:               rpcTx.Version,
-		ContractAddress:       rpcTx.ContractAddress,
-		ContractAddressSalt:   rpcTx.ContractAddressSalt,
-		ClassHash:             rpcTx.ClassHash,
-		ConstructorCallData:   rpcTx.ConstructorCallData,
-		Type:                  starknet.TransactionType(rpcTx.Type),
-		SenderAddress:         rpcTx.SenderAddress,
-		MaxFee:                rpcTx.MaxFee,
-		Signature:             rpcTx.Signature,
-		CallData:              rpcTx.CallData,
-		EntryPointSelector:    rpcTx.EntryPointSelector,
-		Nonce:                 rpcTx.Nonce,
-		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
-		Tip:                   rpcTx.Tip,
-		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
-		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
-		AccountDeploymentData: rpcTx.AccountDeploymentData,
-		PaymasterData:         rpcTx.PaymasterData,
-	}
-}
-
 /****************************************************
 		Transaction Handlers
 *****************************************************/
@@ -558,72 +511,6 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
-// AddTransaction relays a transaction to the gateway.
-func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
-	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
-		contractClass := make(map[string]any)
-		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
-		}
-		sierraProg, ok := contractClass["sierra_program"]
-		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
-		}
-
-		sierraProgBytes, errIn := json.Marshal(sierraProg)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
-		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
-		}
-
-		contractClass["sierra_program"] = gwSierraProg
-		newContractClass, err := json.Marshal(contractClass)
-		if err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
-		}
-		tx.ContractClass = newContractClass
-	}
-
-	txJSON, err := json.Marshal(&struct {
-		*starknet.Transaction
-		ContractClass json.RawMessage `json:"contract_class,omitempty"`
-	}{
-		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
-		ContractClass: tx.ContractClass,
-	})
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
-	}
-
-	if h.gatewayClient == nil {
-		return nil, rpccore.ErrInternal.CloneWithData("no gateway client configured")
-	}
-
-	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
-	if err != nil {
-		return nil, makeJSONErrorFromGatewayError(err)
-	}
-
-	var gatewayResponse struct {
-		TransactionHash *felt.Felt `json:"transaction_hash"`
-		ContractAddress *felt.Felt `json:"address"`
-		ClassHash       *felt.Felt `json:"class_hash"`
-	}
-	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
-	}
-
-	return &AddTxResponse{
-		TransactionHash: gatewayResponse.TransactionHash,
-		ContractAddress: gatewayResponse.ContractAddress,
-		ClassHash:       gatewayResponse.ClassHash,
-	}, nil
-}
-
 var errTransactionNotFound = errors.New("transaction not found")
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
@@ -673,44 +560,6 @@ func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*T
 		Finality:  res.Finality,
 		Execution: res.Execution,
 	}, nil
-}
-
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
-	gatewayErr, ok := err.(*gateway.Error)
-	if !ok {
-		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
-	}
-
-	switch gatewayErr.Code {
-	case gateway.InvalidContractClass:
-		return rpccore.ErrInvalidContractClass
-	case gateway.UndeclaredClass:
-		return rpccore.ErrClassHashNotFound
-	case gateway.ClassAlreadyDeclared:
-		return rpccore.ErrClassAlreadyDeclared
-	case gateway.InsufficientMaxFee:
-		return rpccore.ErrInsufficientMaxFee
-	case gateway.InsufficientAccountBalance:
-		return rpccore.ErrInsufficientAccountBalance
-	case gateway.ValidateFailure:
-		return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
-	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
-		return rpccore.ErrContractClassSizeTooLarge
-	case gateway.DuplicatedTransaction:
-		return rpccore.ErrDuplicateTx
-	case gateway.InvalidTransactionNonce:
-		return rpccore.ErrInvalidTransactionNonce
-	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
-	case gateway.InvalidCompiledClassHash:
-		return rpccore.ErrCompiledClassHashMismatch
-	case gateway.InvalidTransactionVersion:
-		return rpccore.ErrUnsupportedTxVersion
-	case gateway.InvalidContractClassVersion:
-		return rpccore.ErrUnsupportedContractClassVersion
-	default:
-		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
-	}
 }
 
 func AdaptTransaction(t core.Transaction) *Transaction {
