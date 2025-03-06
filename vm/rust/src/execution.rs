@@ -58,8 +58,6 @@ where
                 }
             }
 
-            println!("{:?}", tx_info.execute_call_info);
-
             Ok(tx_info)
         }
         Err(error) => Err(ExecutionError::new(error)),
