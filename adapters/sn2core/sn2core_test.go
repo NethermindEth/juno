@@ -420,6 +420,10 @@ func TestTransactionV3(t *testing.T) {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
 				},
+				core.ResourceL1DataGas: {
+					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
 					MaxPricePerUnit: new(felt.Felt),
@@ -463,6 +467,10 @@ func TestTransactionV3(t *testing.T) {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
 				},
+				core.ResourceL1DataGas: {
+					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+				},
 				core.ResourceL2Gas: {
 					MaxAmount:       0,
 					MaxPricePerUnit: new(felt.Felt),
@@ -492,6 +500,10 @@ func TestTransactionV3(t *testing.T) {
 			FeeDAMode:   core.DAModeL1,
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
 				core.ResourceL1Gas: {
+					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
+				core.ResourceL1DataGas: {
 					MaxAmount:       utils.HexToUint64(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
 				},
