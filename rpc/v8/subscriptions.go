@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -14,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/sourcegraph/conc"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -36,6 +36,14 @@ type SubscriptionResponse struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
 	Params  any    `json:"params"`
+}
+
+type errorTxnHashNotFound struct {
+	txHash felt.Felt
+}
+
+func (e errorTxnHashNotFound) Error() string {
+	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
 type BlockIdentifier interface {
@@ -93,7 +101,7 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type on[T any] func(ctx context.Context, id uint64, event T) error
+type on[T any] func(ctx context.Context, id uint64, sub *subscription, event T) error
 
 type subscriber struct {
 	onStart   on[any]
@@ -146,7 +154,7 @@ func (h *Handler) subscribe(
 		}()
 
 		if subscriber.onStart != nil {
-			if err := subscriber.onStart(subscriptionCtx, id, nil); err != nil {
+			if err := subscriber.onStart(subscriptionCtx, id, sub, nil); err != nil {
 				h.log.Warnw("Error starting subscription", "err", err)
 				return
 			}
@@ -157,22 +165,22 @@ func (h *Handler) subscribe(
 			case <-subscriptionCtx.Done():
 				return
 			case reorg := <-reorgRecv:
-				if err := subscriber.onReorg(subscriptionCtx, id, reorg); err != nil {
+				if err := subscriber.onReorg(subscriptionCtx, id, sub, reorg); err != nil {
 					h.log.Warnw("Error on reorg", "id", id, "err", err)
 					return
 				}
 			case l1Head := <-l1HeadRecv:
-				if err := subscriber.onL1Head(subscriptionCtx, id, l1Head); err != nil {
+				if err := subscriber.onL1Head(subscriptionCtx, id, sub, l1Head); err != nil {
 					h.log.Warnw("Error on l1 head", "id", id, "err", err)
 					return
 				}
 			case head := <-newHeadsRecv:
-				if err := subscriber.onNewHead(subscriptionCtx, id, head); err != nil {
+				if err := subscriber.onNewHead(subscriptionCtx, id, sub, head); err != nil {
 					h.log.Warnw("Error on new head", "id", id, "err", err)
 					return
 				}
 			case pending := <-pendingRecv:
-				if err := subscriber.onPending(subscriptionCtx, id, pending); err != nil {
+				if err := subscriber.onPending(subscriptionCtx, id, sub, pending); err != nil {
 					h.log.Warnw("Error on pending", "id", id, "err", err)
 					return
 				}
@@ -216,24 +224,24 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 	eventsPreviouslySent := make(map[SentEvent]struct{})
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ any) error {
+		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
 			return h.processEvents(ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
 		},
-		onReorg: func(ctx context.Context, id uint64, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			if err := sendReorg(w, reorg, id); err != nil {
 				return err
 			}
 			nextBlock = reorg.StartBlockNum
 			return nil
 		},
-		onNewHead: func(ctx context.Context, id uint64, head *core.Block) error {
+		onNewHead: func(ctx context.Context, id uint64, _ *subscription, head *core.Block) error {
 			if err := h.processEvents(ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent); err != nil {
 				return err
 			}
 			nextBlock = head.Number + 1
 			return nil
 		},
-		onPending: func(ctx context.Context, id uint64, pending *core.Block) error {
+		onPending: func(ctx context.Context, id uint64, _ *subscription, pending *core.Block) error {
 			return h.processEvents(ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent)
 		},
 	}
@@ -243,148 +251,106 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 // SubscribeTransactionStatus subscribes to status changes of a transaction. It checks for updates each time a new block is added.
 // Later updates are sent only when the transaction status changes.
 // The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
-//
-//nolint:gocyclo,funlen
-func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash felt.Felt) (SubscriptionID,
-	*jsonrpc.Error,
-) {
+func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
-	// If the error is transaction not found that means the transaction has not been submitted to the feeder gateway,
-	// therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
-	// If the transaction is found during the timout expiry, then we continue to keep track of its status otherwise the
-	// websocket connection is closed after the expiry.
-	curStatus, rpcErr := h.TransactionStatus(ctx, txHash)
+	var lastStatus TxnStatus
+	var err error
+
+	subscriber := subscriber{
+		onStart: func(ctx context.Context, id uint64, sub *subscription, _ any) error {
+			if lastStatus, err = h.getInitialTxStatus(ctx, sub, id, txHash); err != nil {
+				return err
+			}
+			return nil
+		},
+		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
+			return sendReorg(w, reorg, id)
+		},
+		onNewHead: func(ctx context.Context, id uint64, sub *subscription, head *core.Block) error {
+			if lastStatus < TxnStatusAcceptedOnL2 {
+				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		onPending: func(ctx context.Context, id uint64, sub *subscription, pending *core.Block) error {
+			if lastStatus < TxnStatusAcceptedOnL2 {
+				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		onL1Head: func(ctx context.Context, id uint64, sub *subscription, l1Head *core.L1Head) error {
+			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	return h.subscribe(ctx, w, subscriber)
+}
+
+// If the error is transaction not found that means the transaction has not been submitted to the feeder gateway,
+// therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
+// If the transaction is found during the timout expiry, then we continue to keep track of its status otherwise the
+// websocket connection is closed after the expiry.
+func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id uint64, txHash *felt.Felt) (TxnStatus, error) {
+	var lastStatus TxnStatus
+	var err error
+	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+		return lastStatus, err
+	}
+
+	ctx, cancelTimeout := context.WithTimeout(ctx, subscribeTxStatusTimeout)
+	defer cancelTimeout()
+	ticker := time.Tick(subscribeTxStatusTickerDuration)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return lastStatus, err
+		case <-ticker:
+			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+				return lastStatus, err
+			}
+		}
+	}
+}
+
+func (h *Handler) checkTxStatus(
+	ctx context.Context,
+	sub *subscription,
+	id uint64,
+	txHash *felt.Felt,
+	lastStatus TxnStatus,
+) (TxnStatus, error) {
+	status, rpcErr := h.TransactionStatus(ctx, *txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
-			return 0, rpcErr
+			return lastStatus, fmt.Errorf("error while checking status for transaction %v with rpc error message: %v", txHash, rpcErr.Message)
 		}
-
-		timeout := time.NewTimer(subscribeTxStatusTimeout)
-		ticker := time.NewTicker(subscribeTxStatusTickerDuration)
-
-	txNotFoundLoop:
-		for {
-			select {
-			case <-timeout.C:
-				ticker.Stop()
-				return 0, rpcErr
-			case <-ticker.C:
-				curStatus, rpcErr = h.TransactionStatus(ctx, txHash)
-				if rpcErr != nil {
-					if rpcErr != rpccore.ErrTxnHashNotFound {
-						return 0, rpcErr
-					}
-					continue
-				}
-				timeout.Stop()
-				break txNotFoundLoop
-			}
-		}
+		return lastStatus, errorTxnHashNotFound{*txHash}
 	}
 
-	id := h.idgen()
-	subscriptionCtx, subscriptionCtxCancel := context.WithCancel(ctx)
-	sub := &subscription{
-		cancel: subscriptionCtxCancel,
-		conn:   w,
+	if status.Finality <= lastStatus {
+		return lastStatus, nil
 	}
-	h.subscriptions.Store(id, sub)
 
-	pendingSub := h.pendingBlock.Subscribe()
-	l1HeadSub := h.l1Heads.Subscribe()
-	reorgSub := h.reorgs.Subscribe()
+	if err := sendTxnStatus(sub.conn, SubscriptionTransactionStatus{txHash, *status}, id); err != nil {
+		return lastStatus, err
+	}
 
-	sub.wg.Go(func() {
-		defer func() {
-			h.unsubscribe(sub, id)
-			pendingSub.Unsubscribe()
-			l1HeadSub.Unsubscribe()
-			reorgSub.Unsubscribe()
-		}()
+	if status.Finality == TxnStatusRejected || status.Finality == TxnStatusAcceptedOnL1 {
+		sub.cancel()
+	}
 
-		var wg conc.WaitGroup
-
-		err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
-		if err != nil {
-			h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
-			return
-		}
-
-		// Check if the requested transaction is already final.
-		// A transaction is considered to be final if it has been rejected or accepted on l1
-		if curStatus.Finality == TxnStatusRejected || curStatus.Finality == TxnStatusAcceptedOnL1 {
-			return
-		}
-
-		// At this point, the transaction has not reached finality.
-		wg.Go(func() {
-			for {
-				select {
-				case <-subscriptionCtx.Done():
-					return
-				case <-pendingSub.Recv():
-					// Pending block has been updated, hence, check if transaction has reached l2 finality, if not,
-					// check feeder.
-					// TransactionStatus calls TransactionReceiptByHash which checks the pending block if it contains
-					// a transaction and if it does, then the appropriate transaction status is returned.
-					// Therefore, we don't need to explicitly find the transaction in the pending block received from
-					// the pendingSub.
-					if curStatus.Finality < TxnStatusAcceptedOnL2 {
-						prevStatus := curStatus
-						curStatus, rpcErr = h.TransactionStatus(subscriptionCtx, txHash)
-
-						if rpcErr != nil {
-							h.log.Errorw("Error while getting Txn status", "txHash", txHash, "err", rpcErr)
-							return
-						}
-
-						if curStatus.Finality > prevStatus.Finality {
-							err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *curStatus}, id)
-							if err != nil {
-								h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
-								return
-							}
-							if curStatus.Finality == TxnStatusRejected || curStatus.Finality == TxnStatusAcceptedOnL1 {
-								return
-							}
-						}
-					}
-				case <-l1HeadSub.Recv():
-					receipt, rpcErr := h.TransactionReceiptByHash(txHash)
-					if rpcErr != nil {
-						h.log.Errorw("Error while getting Receipt", "txHash", txHash, "err", rpcErr)
-						return
-					}
-
-					if receipt.FinalityStatus == TxnAcceptedOnL1 {
-						s := &TransactionStatus{
-							Finality:      TxnStatus(receipt.FinalityStatus),
-							Execution:     receipt.ExecutionStatus,
-							FailureReason: receipt.RevertReason,
-						}
-
-						err := sendTxnStatus(w, SubscriptionTransactionStatus{&txHash, *s}, id)
-						if err != nil {
-							h.log.Errorw("Error while sending Txn status", "txHash", txHash, "err", err)
-						}
-						return
-					}
-				}
-			}
-		})
-
-		wg.Go(func() {
-			h.processReorgs(subscriptionCtx, reorgSub, w, id)
-		})
-
-		wg.Wait()
-	})
-
-	return SubscriptionID(id), nil
+	return status.Finality, nil
 }
 
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
@@ -489,13 +455,13 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 	}
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ any) error {
+		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
 			return h.sendHistoricalHeaders(ctx, startHeader, latestHeader, w, id)
 		},
-		onReorg: func(ctx context.Context, id uint64, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id uint64, head *core.Block) error {
+		onNewHead: func(ctx context.Context, id uint64, _ *subscription, head *core.Block) error {
 			return sendHeader(w, head.Header, id)
 		},
 	}
@@ -519,13 +485,13 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 	lastParentHash := felt.Zero
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ any) error {
+		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
 			if pending := h.syncReader.PendingBlock(); pending != nil {
 				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 			}
 			return nil
 		},
-		onPending: func(ctx context.Context, id uint64, pending *core.Block) error {
+		onPending: func(ctx context.Context, id uint64, _ *subscription, pending *core.Block) error {
 			return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 		},
 	}
@@ -673,20 +639,6 @@ func sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
 	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
 }
 
-func (h *Handler) processReorgs(ctx context.Context, reorgSub *feed.Subscription[*sync.ReorgBlockRange], w jsonrpc.Conn, id uint64) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case reorg := <-reorgSub.Recv():
-			if err := sendReorg(w, reorg, id); err != nil {
-				h.log.Warnw("Error sending reorg", "err", err)
-				return
-			}
-		}
-	}
-}
-
 type ReorgEvent struct {
 	StartBlockHash *felt.Felt `json:"starting_block_hash"`
 	StartBlockNum  uint64     `json:"starting_block_number"`
@@ -731,7 +683,7 @@ type SubscriptionTransactionStatus struct {
 
 // sendTxnStatus creates a response and sends it to the client
 func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id uint64) error {
-	return sendResponse("starknet_subscriptionTransactionsStatus", w, id, status)
+	return sendResponse("starknet_subscriptionTransactionStatus", w, id, status)
 }
 
 func sendResponse(method string, w jsonrpc.Conn, id uint64, result any) error {
