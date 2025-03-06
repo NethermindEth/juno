@@ -46,10 +46,10 @@ func TestUnmarshalFinalityStatus(t *testing.T) {
 
 func TestResourceMarshalText(t *testing.T) {
 	tests := []struct {
-		name     string
-		resource starknet.Resource
-		want     []byte
-		err      bool
+		name        string
+		resource    starknet.Resource
+		want        []byte
+		expectedErr string
 	}{
 		{
 			name:     "l1 gas",
@@ -67,31 +67,32 @@ func TestResourceMarshalText(t *testing.T) {
 			want:     []byte("L1_DATA_GAS"),
 		},
 		{
-			name:     "error",
-			resource: starknet.Resource(0),
-			err:      true,
+			name:        "error",
+			resource:    starknet.Resource(0),
+			expectedErr: "unknown resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.resource.MarshalText()
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Nil(t, got)
+				assert.Nil(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestResourceUnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name string
-		data []byte
-		want starknet.Resource
-		err  bool
+		name        string
+		data        []byte
+		want        starknet.Resource
+		expectedErr string
 	}{
 		{
 			name: "l1 gas",
@@ -109,22 +110,23 @@ func TestResourceUnmarshalJSON(t *testing.T) {
 			want: starknet.ResourceL1DataGas,
 		},
 		{
-			name: "error",
-			data: []byte("unknown"),
-			err:  true,
+			name:        "error",
+			data:        []byte("unknown"),
+			expectedErr: "unknown resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got starknet.Resource
 			err := got.UnmarshalJSON(tt.data)
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Zero(t, got)
+				assert.Zero(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

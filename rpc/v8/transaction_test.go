@@ -1351,10 +1351,10 @@ func TestTransactionStatus(t *testing.T) {
 
 func TestResourceMarshalText(t *testing.T) {
 	tests := []struct {
-		name     string
-		resource rpc.Resource
-		want     []byte
-		err      bool
+		name        string
+		resource    rpc.Resource
+		want        []byte
+		expectedErr string
 	}{
 		{
 			name:     "l1 gas",
@@ -1372,31 +1372,32 @@ func TestResourceMarshalText(t *testing.T) {
 			want:     []byte("l1_data_gas"),
 		},
 		{
-			name:     "error",
-			resource: rpc.Resource(0),
-			err:      true,
+			name:        "error",
+			resource:    rpc.Resource(0),
+			expectedErr: "unknown Resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.resource.MarshalText()
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Nil(t, got)
+				assert.Nil(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestResourceUnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name string
-		data []byte
-		want rpc.Resource
-		err  bool
+		name        string
+		data        []byte
+		want        rpc.Resource
+		expectedErr string
 	}{
 		{
 			name: "l1 gas",
@@ -1414,22 +1415,23 @@ func TestResourceUnmarshalJSON(t *testing.T) {
 			want: rpc.ResourceL1DataGas,
 		},
 		{
-			name: "error",
-			data: []byte("unknown"),
-			err:  true,
+			name:        "error",
+			data:        []byte("unknown"),
+			expectedErr: "unknown Resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got rpc.Resource
 			err := got.UnmarshalJSON(tt.data)
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Zero(t, got)
+				assert.Zero(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
