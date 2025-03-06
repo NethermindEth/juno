@@ -259,6 +259,10 @@ func TestTransactionByHash(t *testing.T) {
 				"max_amount": "0x186a0",
 				"max_price_per_unit": "0x2540be400"
 			},
+			"l1_data_gas": {
+				"max_amount": "0x186a0",
+				"max_price_per_unit": "0x2540be400"
+			},
 			"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
 		},
 		"tip": "0x0",
@@ -282,6 +286,10 @@ func TestTransactionByHash(t *testing.T) {
 				"nonce": "0xe97",
 				"resource_bounds": {
 					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l1_data_gas": {
 						"max_amount": "0x186a0",
 						"max_price_per_unit": "0x5af3107a4000"
 					},
@@ -325,6 +333,10 @@ func TestTransactionByHash(t *testing.T) {
 				"nonce": "0x0",
 				"resource_bounds": {
 					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l1_data_gas": {
 						"max_amount": "0x186a0",
 						"max_price_per_unit": "0x5af3107a4000"
 					},
