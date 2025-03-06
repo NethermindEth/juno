@@ -176,7 +176,7 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("error for pending block", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Pending: true}, nil, nil, nil)
-		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
+		assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("no error when block number matches head", func(t *testing.T) {

@@ -259,6 +259,10 @@ func TestTransactionByHash(t *testing.T) {
 				"max_amount": "0x186a0",
 				"max_price_per_unit": "0x2540be400"
 			},
+			"l1_data_gas": {
+				"max_amount": "0x186a0",
+				"max_price_per_unit": "0x2540be400"
+			},
 			"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
 		},
 		"tip": "0x0",
@@ -282,6 +286,10 @@ func TestTransactionByHash(t *testing.T) {
 				"nonce": "0xe97",
 				"resource_bounds": {
 					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l1_data_gas": {
 						"max_amount": "0x186a0",
 						"max_price_per_unit": "0x5af3107a4000"
 					},
@@ -325,6 +333,10 @@ func TestTransactionByHash(t *testing.T) {
 				"nonce": "0x0",
 				"resource_bounds": {
 					"l1_gas": {
+						"max_amount": "0x186a0",
+						"max_price_per_unit": "0x5af3107a4000"
+					},
+					"l1_data_gas": {
 						"max_amount": "0x186a0",
 						"max_price_per_unit": "0x5af3107a4000"
 					},
@@ -962,14 +974,18 @@ func TestAddTransaction(t *testing.T) {
 				"nonce_data_availability_mode": 0,
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
-				  "L1_GAS": {
+					"L1_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x5af3107a4000"
+				  },
+					"L1_DATA_GAS": {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
-				  }
+					}
 				},
 				"tip": "0x0",
 				"paymaster_data": [],
@@ -1067,6 +1083,10 @@ func TestAddTransaction(t *testing.T) {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x2540be400"
 				  },
+				  "L1_DATA_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x2540be400"
+				  },
 				  "L2_GAS": {
 					"max_amount": "0x0",
 					"max_price_per_unit": "0x0"
@@ -1117,6 +1137,10 @@ func TestAddTransaction(t *testing.T) {
 				"fee_data_availability_mode": 0,
 				"resource_bounds": {
 				  "L1_GAS": {
+					"max_amount": "0x186a0",
+					"max_price_per_unit": "0x5af3107a4000"
+				  },
+				  "L1_DATA_GAS": {
 					"max_amount": "0x186a0",
 					"max_price_per_unit": "0x5af3107a4000"
 				  },
@@ -1339,10 +1363,10 @@ func TestTransactionStatus(t *testing.T) {
 
 func TestResourceMarshalText(t *testing.T) {
 	tests := []struct {
-		name     string
-		resource rpc.Resource
-		want     []byte
-		err      bool
+		name        string
+		resource    rpc.Resource
+		want        []byte
+		expectedErr string
 	}{
 		{
 			name:     "l1 gas",
@@ -1360,31 +1384,32 @@ func TestResourceMarshalText(t *testing.T) {
 			want:     []byte("l1_data_gas"),
 		},
 		{
-			name:     "error",
-			resource: rpc.Resource(0),
-			err:      true,
+			name:        "error",
+			resource:    rpc.Resource(0),
+			expectedErr: "unknown Resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.resource.MarshalText()
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Nil(t, got)
+				assert.Nil(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestResourceUnmarshalJSON(t *testing.T) {
 	tests := []struct {
-		name string
-		data []byte
-		want rpc.Resource
-		err  bool
+		name        string
+		data        []byte
+		want        rpc.Resource
+		expectedErr string
 	}{
 		{
 			name: "l1 gas",
@@ -1402,22 +1427,23 @@ func TestResourceUnmarshalJSON(t *testing.T) {
 			want: rpc.ResourceL1DataGas,
 		},
 		{
-			name: "error",
-			data: []byte("unknown"),
-			err:  true,
+			name:        "error",
+			data:        []byte("unknown"),
+			expectedErr: "unknown Resource",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got rpc.Resource
 			err := got.UnmarshalJSON(tt.data)
-			if tt.err {
+			if tt.expectedErr != "" {
 				require.Error(t, err)
-				require.Zero(t, got)
+				assert.Zero(t, got)
+				assert.ErrorContains(t, err, tt.expectedErr)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -368,17 +368,17 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		{
 			Name:    "starknet_addInvokeTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
-			Handler: h.rpcv7Handler.AddTransaction,
+			Handler: h.rpcv6Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeployAccountTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
-			Handler: h.rpcv7Handler.AddTransaction,
+			Handler: h.rpcv6Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
-			Handler: h.rpcv7Handler.AddTransaction,
+			Handler: h.rpcv6Handler.AddTransaction,
 		},
 		{
 			Name:    "starknet_getEvents",

@@ -647,4 +647,44 @@ func TestCall(t *testing.T) {
 		require.Nil(t, res)
 		require.Equal(t, rpcErr, expectedErr)
 	})
+
+	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
+		handler = handler.WithCallMaxSteps(1337)
+
+		contractAddr := new(felt.Felt).SetUint64(1)
+		selector := new(felt.Felt).SetUint64(2)
+		classHash := new(felt.Felt).SetUint64(3)
+		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
+		expectedRes := vm.CallResult{
+			ExecutionFailed: true,
+		}
+		expectedErr := rpc.MakeContractError(json.RawMessage(""))
+
+		headsHeader := &core.Header{
+			Number:    9,
+			Timestamp: 101,
+		}
+
+		cairoClass := core.Cairo1Class{
+			Program: []*felt.Felt{
+				new(felt.Felt).SetUint64(3),
+				new(felt.Felt),
+				new(felt.Felt),
+			},
+		}
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
+		mockReader.EXPECT().Network().Return(n)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+
+		res, rpcErr := handler.Call(rpc.FunctionCall{
+			ContractAddress:    *contractAddr,
+			EntryPointSelector: *selector,
+			Calldata:           calldata,
+		}, rpc.BlockID{Latest: true})
+		require.Nil(t, res)
+		require.Equal(t, expectedErr, rpcErr)
+	})
 }

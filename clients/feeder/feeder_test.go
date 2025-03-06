@@ -61,6 +61,10 @@ func TestDeclareTransactionUnmarshal(t *testing.T) {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
 				},
+				starknet.ResourceL1DataGas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x2540be400"),
+				},
 				starknet.ResourceL2Gas: {
 					MaxAmount:       new(felt.Felt),
 					MaxPricePerUnit: new(felt.Felt),
@@ -116,6 +120,10 @@ func TestInvokeTransactionUnmarshal(t *testing.T) {
 			FeeDAMode:   utils.HeapPtr(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
+				starknet.ResourceL1DataGas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
 				},
@@ -220,6 +228,10 @@ func TestDeployAccountTransactionUnmarshal(t *testing.T) {
 			FeeDAMode:   utils.HeapPtr(starknet.DAModeL1),
 			ResourceBounds: &map[starknet.Resource]starknet.ResourceBounds{
 				starknet.ResourceL1Gas: {
+					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
+				},
+				starknet.ResourceL1DataGas: {
 					MaxAmount:       utils.HexToFelt(t, "0x186a0"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x5af3107a4000"),
 				},
