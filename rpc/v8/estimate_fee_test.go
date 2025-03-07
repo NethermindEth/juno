@@ -161,6 +161,19 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			broadcastedTransactions: []rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
 			expected:                []rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected},
 		},
+		{
+			name: "invalid entry point",
+			broadcastedTransactions: []rpc.BroadcastedTransaction{
+				declareTxn, deployTxn, createInvokeTransaction(t, accountAddr, "0x2", "invalid_entry_point"),
+			},
+			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
+				rpc.TransactionExecutionErrorData{
+					TransactionIndex: 2,
+					ExecutionError:   json.RawMessage(`{"class_hash":"0x51b1bf6a744cac1747d2cc4873a3379907755e639c7cb49a16f0b00bd9bca27","contract_address":"0xc01","error":{"class_hash":"0x51b1bf6a744cac1747d2cc4873a3379907755e639c7cb49a16f0b00bd9bca27","contract_address":"0xc01","error":{"class_hash":"0x5ac5830120de8f1e774df70e4722ee8d7715e2712315bfa6c21942a114b8b83","contract_address":"0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01","error":"0x454e545259504f494e545f4e4f545f464f554e44 ('ENTRYPOINT_NOT_FOUND')","selector":"0xb06a7b2e16e99e6499fce0d0b6570c52c8ae6e1ddcddb9ce80b270689dce3a"},"selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"},"selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"}`),
+				},
+			),
+			expected: []rpc.FeeEstimate{},
+		},
 	}
 
 	for _, test := range tests {
@@ -172,11 +185,10 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			)
 
 			if test.jsonErr != nil {
-				require.Equal(t, test.jsonErr, jsonErr)
+				require.Equal(t, test.jsonErr, jsonErr, handleJSONError(t, jsonErr))
 				return
 			}
 
-			handleJSONError(t, jsonErr)
 			require.Equal(t, test.expected, feeEstimate)
 		})
 	}
@@ -326,13 +338,11 @@ func createFeeEstimate(t *testing.T,
 	}
 }
 
-func handleJSONError(t *testing.T, jsonErr *jsonrpc.Error) {
-	if jsonErr != nil {
-		if jsonErr.Data != nil {
-			executionErr, ok := jsonErr.Data.(rpc.TransactionExecutionErrorData)
-			require.True(t, ok, jsonErr)
-			t.Fatal(string(executionErr.ExecutionError))
-		}
-		t.Fatal(jsonErr)
+func handleJSONError(t *testing.T, jsonErr *jsonrpc.Error) string {
+	if jsonErr != nil && jsonErr.Data != nil {
+		executionErr, ok := jsonErr.Data.(rpc.TransactionExecutionErrorData)
+		require.True(t, ok, jsonErr)
+		return string(executionErr.ExecutionError)
 	}
+	return ""
 }
