@@ -81,11 +81,7 @@ func (t *TransactionTrace) allInvocations() []*rpcv6.FunctionInvocation {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash)
-}
-
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(hash)
+	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
@@ -112,7 +108,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*Trans
 	}
 
 	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(hash)
+		return tx.Hash().Equal(&hash)
 	})
 	if txIndex == -1 {
 		return nil, httpHeader, rpccore.ErrTxnHashNotFound
