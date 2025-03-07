@@ -133,7 +133,11 @@ func TestEstimateFeeWithVM(t *testing.T) {
 	deployedContractAddr := "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"
 
 	// Call test_redeposits entry point
-	invokeTxn := createInvokeTransaction(t, accountAddr, crypto.StarknetKeccak([]byte("test_redeposits")), "0x2", deployedContractAddr)
+	validEntryPoint := crypto.StarknetKeccak([]byte("test_redeposits"))
+	invokeTxn := createInvokeTransaction(t,
+		accountAddr, validEntryPoint,
+		"0x2", deployedContractAddr, "0x7",
+	)
 
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
@@ -186,7 +190,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 				declareTxn, deployTxn,
 				createInvokeTransaction(t,
 					accountAddr, invalidEntryPoint,
-					"0x2", deployedContractAddr,
+					"0x2", deployedContractAddr, "0x7",
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -208,6 +212,24 @@ func TestEstimateFeeWithVM(t *testing.T) {
 						},
 						Selector: executeEntryPointSelector,
 					}),
+				},
+			),
+		},
+		{
+			name: "max gas exceeded",
+			broadcastedTransactions: []rpc.BroadcastedTransaction{
+				declareTxn, deployTxn,
+				createInvokeTransaction(t,
+					accountAddr, validEntryPoint,
+					"0x2", deployedContractAddr, "0x186A0", // 100000
+				),
+			},
+			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
+				rpc.TransactionExecutionErrorData{
+					TransactionIndex: 2,
+					ExecutionError: json.RawMessage(
+						`"Transaction ran out of gas during simulation"`,
+					),
 				},
 			),
 		},
@@ -311,7 +333,7 @@ func createDeployTransaction(t *testing.T,
 
 func createInvokeTransaction(t *testing.T,
 	accountAddr, entryPointSelector *felt.Felt,
-	nonce, deployedContractAddress string,
+	nonce, deployedContractAddress, depth string,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
@@ -328,7 +350,7 @@ func createInvokeTransaction(t *testing.T,
 				entryPointSelector,
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x7"),
+				utils.HexToFelt(t, depth),
 			},
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
 				"0x0", "0x2",
