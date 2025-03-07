@@ -233,6 +233,32 @@ func TestEstimateFeeWithVM(t *testing.T) {
 				},
 			),
 		},
+		{
+			name: "gas limit exceeded",
+			broadcastedTransactions: []rpc.BroadcastedTransaction{
+				declareTxn, deployTxn,
+				createInvokeTransaction(t,
+					accountAddr, validEntryPoint,
+					"0x2", deployedContractAddr, "0x64", // 100
+				),
+			},
+			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
+				rpc.TransactionExecutionErrorData{
+					TransactionIndex: 2,
+					ExecutionError: mustMarshal(t, executionError{
+						ClassHash:       accountClassHash.String(),
+						ContractAddress: accountAddr.String(),
+						Error: executionError{
+							ClassHash:       accountClassHash.String(),
+							ContractAddress: accountAddr.String(),
+							Error:           "0x4f7574206f6620676173 ('Out of gas')",
+							Selector:        executeEntryPointSelector,
+						},
+						Selector: executeEntryPointSelector,
+					}),
+				},
+			),
+		},
 	}
 
 	for _, test := range tests {
