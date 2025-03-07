@@ -110,6 +110,11 @@ func TestEstimateFee(t *testing.T) {
 	})
 }
 
+// Manually obtained from VM logs
+// Global variable because
+// unparam: `createInvokeTransaction` - `deployedContractAddress` always receives `deployedContractAddr`
+var deployedContractAddress = "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"
+
 func TestEstimateFeeWithVM(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
 	chain, accountAddr, accountClassHash, deployerAddr, _ := testutils.TestBlockchain(t, "0.13.4")
@@ -129,14 +134,11 @@ func TestEstimateFeeWithVM(t *testing.T) {
 	// Declare and deploy binary search contract
 	declareTxn := createDeclareTransaction(t, accountAddr, bsClassHash, compliedClassHash, contractClass)
 	deployTxn := createDeployTransaction(t, accountAddr, deployerAddr, bsClassHash, contractClass)
-	// Manually obtained from VM logs
-	deployedContractAddr := "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"
 
 	// Call test_redeposits entry point
 	validEntryPoint := crypto.StarknetKeccak([]byte("test_redeposits"))
 	invokeTxn := createInvokeTransaction(t,
-		accountAddr, validEntryPoint,
-		"0x2", deployedContractAddr, "0x7",
+		accountAddr, validEntryPoint, "0x7",
 	)
 
 	virtualMachine := vm.New(false, nil)
@@ -189,8 +191,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				declareTxn, deployTxn,
 				createInvokeTransaction(t,
-					accountAddr, invalidEntryPoint,
-					"0x2", deployedContractAddr, "0x7",
+					accountAddr, invalidEntryPoint, "0x7",
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -204,7 +205,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 							ContractAddress: accountAddr.String(),
 							Error: executionError{
 								ClassHash:       bsClassHash.String(),
-								ContractAddress: deployedContractAddr,
+								ContractAddress: deployedContractAddress,
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
 							},
@@ -220,8 +221,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				declareTxn, deployTxn,
 				createInvokeTransaction(t,
-					accountAddr, validEntryPoint,
-					"0x2", deployedContractAddr, "0x186A0", // 100000
+					accountAddr, validEntryPoint, "0x186A0", // 100000
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -238,8 +238,7 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				declareTxn, deployTxn,
 				createInvokeTransaction(t,
-					accountAddr, validEntryPoint,
-					"0x2", deployedContractAddr, "0x64", // 100
+					accountAddr, validEntryPoint, "0x64", // 100
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -358,14 +357,13 @@ func createDeployTransaction(t *testing.T,
 }
 
 func createInvokeTransaction(t *testing.T,
-	accountAddr, entryPointSelector *felt.Felt,
-	nonce, deployedContractAddress, depth string,
+	accountAddr, entryPointSelector *felt.Felt, depth string,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
-			Nonce:         utils.HexToFelt(t, nonce),
+			Nonce:         utils.HexToFelt(t, "0x2"),
 			SenderAddress: accountAddr,
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
