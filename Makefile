@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: vm juno
+.PHONY: vm juno cairo
 
 ifeq ($(VM_DEBUG),true)
     GO_TAGS = -tags vm_debug
@@ -179,3 +179,9 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
+
+cairo: ## Compile Cairo to Sierra
+	$(MAKE) -C cairo build
+
+cairo-clean: ## Clean Sierra files
+	$(MAKE) -C cairo clean
