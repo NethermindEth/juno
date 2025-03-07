@@ -53,7 +53,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	}
 
 	// Successful case
-	simTxs, err := createSimulatedTransactions(executionResults, txns, header)
+	simTxs, err := createSimulatedTransactions(&executionResults, txns, header)
 	require.NoError(t, err)
 	require.Len(t, simTxs, 2)
 	expected := []SimulatedTransaction{
@@ -104,13 +104,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 
 	// Edge case: Inconsistent lengths
 	executionResults.Traces = []vm.TransactionTrace{{}}
-	simTxs, err = createSimulatedTransactions(executionResults, txns, header)
+	simTxs, err = createSimulatedTransactions(&executionResults, txns, header)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "inconsistent lengths")
 	require.Empty(t, simTxs)
 
 	// Edge case: Empty input
-	simTxs, err = createSimulatedTransactions(vm.ExecutionResults{}, []core.Transaction{}, header)
+	simTxs, err = createSimulatedTransactions(&vm.ExecutionResults{}, []core.Transaction{}, header)
 	require.NoError(t, err)
 	require.Empty(t, simTxs)
 }
