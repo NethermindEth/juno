@@ -180,8 +180,8 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
 
-cairo: ## Compile Cairo
+cairo: ## Compile Cairo to Sierra
 	$(MAKE) -C cairo build
 
-cairo-clean: ## Clean Cairo
+cairo-clean: ## Clean Sierra files
 	$(MAKE) -C cairo clean

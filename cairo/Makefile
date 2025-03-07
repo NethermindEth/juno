@@ -2,10 +2,7 @@
 ASDF_BIN := $(shell command -v asdf 2>/dev/null)
 
 # Define a variable for the scrab executable
-SCRAB_BIN := $(shell command -v scrab 2>/dev/null)
-
-# Default target
-all: install_asdf
+SCARB_BIN := $(shell command -v scrab 2>/dev/null)
 
 # Target to install asdf using Go if it's not installed
 install_asdf:
@@ -18,8 +15,8 @@ else
 endif
 
 # Target to install scrab using asdf if it's not installed
-install_scrab: install_asdf
-ifndef SCRAB_BIN
+install_scarb: install_asdf
+ifndef SCARB_BIN
 	@asdf plugin add scarb || true
 	@if ! asdf list scarb | grep -q "2.10.1"; then \
 		asdf install scarb 2.10.1; \
@@ -31,8 +28,9 @@ else
 	@echo "scrab is already installed."
 endif
 
-build: ## `scarb build` generates json with `abi` field as array, we need to convert it to string
-	scarb build
+## `scarb build` generates json with `abi` field as array, we need to convert it to string
+build: install_scarb 
+	@scarb build
 	for file in target/dev/*.contract_class.json; do \
 		jq '.abi = ( .abi | tostring )' $$file > tmp.json; \
 		mv tmp.json $$file; \
