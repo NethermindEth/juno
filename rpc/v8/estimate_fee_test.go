@@ -126,17 +126,10 @@ func TestEstimateFeeWithVM(t *testing.T) {
 
 	declareTxn := createDeclareTransaction(t, accountAddr, bsClassHash, compliedClassHash, contractClass)
 	deployTxn := createDeployTransaction(t, accountAddr, deployerAddr, bsClassHash, contractClass)
-	invokeTxn := createInvokeTransaction(t, accountAddr)
+	invokeTxn := createInvokeTransaction(t, accountAddr, "0x2", "test_redeposits")
 
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
-
-	feeEstimate, _, jsonErr := handler.EstimateFee(
-		[]rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
-		[]rpc.SimulationFlag{rpc.SkipValidateFlag},
-		rpc.BlockID{Latest: true},
-	)
-	handleJSONError(t, jsonErr)
 
 	declareExpected := createFeeEstimate(t,
 		"0x0", "0x2",
@@ -157,13 +150,42 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		"0xace0a", rpc.FRI,
 	)
 
-	require.Equal(t,
-		[]rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected},
-		feeEstimate,
-	)
+	tests := []struct {
+		name                    string
+		broadcastedTransactions []rpc.BroadcastedTransaction
+		jsonErr                 *jsonrpc.Error
+		expected                []rpc.FeeEstimate
+	}{
+		{
+			name:                    "binary search ok",
+			broadcastedTransactions: []rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
+			expected:                []rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			feeEstimate, _, jsonErr := handler.EstimateFee(
+				test.broadcastedTransactions,
+				[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+				rpc.BlockID{Latest: true},
+			)
+
+			if test.jsonErr != nil {
+				require.Equal(t, test.jsonErr, jsonErr)
+				return
+			}
+
+			handleJSONError(t, jsonErr)
+			require.Equal(t, test.expected, feeEstimate)
+		})
+	}
 }
 
-func createDeclareTransaction(t *testing.T, accountAddr, bsClassHash, compliedClassHash *felt.Felt, contractClass []byte) rpc.BroadcastedTransaction {
+func createDeclareTransaction(t *testing.T,
+	accountAddr, bsClassHash, compliedClassHash *felt.Felt,
+	contractClass []byte,
+) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:              rpc.TxnDeclare,
@@ -231,12 +253,12 @@ func createDeployTransaction(t *testing.T,
 	}
 }
 
-func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt) rpc.BroadcastedTransaction {
+func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt, nonce, entryPoint string) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
-			Nonce:         utils.HexToFelt(t, "0x2"),
+			Nonce:         utils.HexToFelt(t, nonce),
 			SenderAddress: accountAddr,
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
@@ -244,7 +266,7 @@ func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt) rpc.Broadcast
 				// Address of the deployed test contract
 				utils.HexToFelt(t, "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"),
 				// Entry point selector for the called contract
-				crypto.StarknetKeccak([]byte("test_redeposits")),
+				crypto.StarknetKeccak([]byte(entryPoint)),
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x7"),
