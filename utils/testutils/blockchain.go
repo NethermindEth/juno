@@ -2,7 +2,6 @@ package testutils
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -51,7 +50,6 @@ func TestBlockchain(t *testing.T, protocolVersion string) (
 	_, _, accountClass := ClassFromFile(t, "../../cairo/target/dev/juno_AccountUpgradeable.contract_class.json")
 	accountClassHash, err := accountClass.Hash()
 	require.NoError(t, err)
-	fmt.Printf("accountClassHash: %v\n", accountClassHash)
 
 	deployerAddr := utils.HexToFelt(t, "0xc02")
 	_, _, delployerClass := ClassFromFile(
@@ -60,7 +58,6 @@ func TestBlockchain(t *testing.T, protocolVersion string) (
 	)
 	delployerClassHash, err := delployerClass.Hash()
 	require.NoError(t, err)
-	fmt.Printf("delployerClassHash: %v\n", delployerClassHash)
 
 	// https://docs.starknet.io/resources/chain-info/
 	ethFeeTokenAddr := utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
@@ -69,7 +66,6 @@ func TestBlockchain(t *testing.T, protocolVersion string) (
 	_, _, erc20Class := ClassFromFile(t, "../../cairo/target/dev/juno_ERC20Upgradeable.contract_class.json")
 	erc20ClassHash, err := erc20Class.Hash()
 	require.NoError(t, err)
-	fmt.Printf("erc20ClassHash: %v\n", erc20ClassHash)
 
 	accountBalanceKey := fromNameAndKey(t, "ERC20_balances", accountAddr)
 
