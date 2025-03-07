@@ -124,7 +124,47 @@ func TestEstimateFeeWithVM(t *testing.T) {
 	require.NoError(t, err)
 	compliedClassHash := coreCompiledClass.Hash()
 
-	declareTxn := rpc.BroadcastedTransaction{
+	declareTxn := createDeclareTransaction(t, accountAddr, bsClassHash, compliedClassHash, contractClass)
+	deployTxn := createDeployTransaction(t, accountAddr, deployerAddr, bsClassHash, contractClass)
+	invokeTxn := createInvokeTransaction(t, accountAddr)
+
+	virtualMachine := vm.New(false, nil)
+	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+
+	feeEstimate, _, jsonErr := handler.EstimateFee(
+		[]rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
+		[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		rpc.BlockID{Latest: true},
+	)
+	handleJSONError(t, jsonErr)
+
+	declareExpected := createFeeEstimate(t,
+		"0x0", "0x2",
+		"0x423cb80", "0x1",
+		"0xc0", "0x2",
+		"0x423cd00", rpc.FRI,
+	)
+	deployExpected := createFeeEstimate(t,
+		"0x0", "0x2",
+		"0xfdcc5", "0x1",
+		"0xe0", "0x2",
+		"0xe6d5c", rpc.FRI,
+	)
+	invokeExpected := createFeeEstimate(t,
+		"0x0", "0x2",
+		"0xbe18b", "0x1",
+		"0x80", "0x2",
+		"0xace0a", rpc.FRI,
+	)
+
+	require.Equal(t,
+		[]rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected},
+		feeEstimate,
+	)
+}
+
+func createDeclareTransaction(t *testing.T, accountAddr, bsClassHash, compliedClassHash *felt.Felt, contractClass []byte) rpc.BroadcastedTransaction {
+	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:              rpc.TxnDeclare,
 			Version:           utils.HexToFelt(t, "0x3"),
@@ -133,20 +173,11 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			SenderAddress:     accountAddr,
 			Signature:         &[]*felt.Felt{},
 			CompiledClassHash: compliedClassHash,
-			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
-				rpc.ResourceL1Gas: {
-					MaxAmount:       &felt.Zero,
-					MaxPricePerUnit: &felt.Zero,
-				},
-				rpc.ResourceL2Gas: {
-					MaxAmount:       &felt.Zero,
-					MaxPricePerUnit: &felt.Zero,
-				},
-				rpc.ResourceL1DataGas: {
-					MaxAmount:       &felt.Zero,
-					MaxPricePerUnit: &felt.Zero,
-				},
-			},
+			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
+				"0x0", "0x0",
+				"0x0", "0x0",
+				"0x0", "0x0",
+			)),
 			Tip:                   &felt.Zero,
 			PaymasterData:         &[]*felt.Felt{},
 			AccountDeploymentData: &[]*felt.Felt{},
@@ -155,8 +186,13 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		},
 		ContractClass: contractClass,
 	}
+}
 
-	deployTxn := rpc.BroadcastedTransaction{
+func createDeployTransaction(t *testing.T,
+	accountAddr, deployerAddr, bsClassHash *felt.Felt,
+	contractClass []byte,
+) rpc.BroadcastedTransaction {
+	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
@@ -179,20 +215,11 @@ func TestEstimateFeeWithVM(t *testing.T) {
 				// calldata_len
 				&felt.Zero,
 			},
-			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
-				rpc.ResourceL1Gas: {
-					MaxAmount:       &felt.Zero,
-					MaxPricePerUnit: &felt.Zero,
-				},
-				rpc.ResourceL2Gas: {
-					MaxAmount:       utils.HexToFelt(t, "0xfdcc5"),
-					MaxPricePerUnit: &felt.Zero,
-				},
-				rpc.ResourceL1DataGas: {
-					MaxAmount:       &felt.Zero,
-					MaxPricePerUnit: &felt.Zero,
-				},
-			},
+			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
+				"0x0", "0x2",
+				"0xfdcc5", "0x1",
+				"0xe0", "0x2",
+			)),
 			Tip:                   &felt.Zero,
 			PaymasterData:         &[]*felt.Felt{},
 			AccountDeploymentData: &[]*felt.Felt{},
@@ -202,8 +229,10 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		ContractClass: contractClass,
 		PaidFeeOnL1:   &felt.Felt{},
 	}
+}
 
-	invokeTxn := rpc.BroadcastedTransaction{
+func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt) rpc.BroadcastedTransaction {
+	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
@@ -220,38 +249,62 @@ func TestEstimateFeeWithVM(t *testing.T) {
 				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x7"),
 			},
-			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
-				rpc.ResourceL1Gas: {
-					MaxAmount:       new(felt.Felt).SetUint64(50),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
-				},
-				rpc.ResourceL2Gas: {
-					MaxAmount:       new(felt.Felt).SetUint64(800_000),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
-				},
-				rpc.ResourceL1DataGas: {
-					MaxAmount:       new(felt.Felt).SetUint64(100),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(1000),
-				},
-			},
+			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
+				"0x0", "0x2",
+				"0xbe18b", "0x1",
+				"0x80", "0x2",
+			)),
 			Tip:                   &felt.Zero,
 			PaymasterData:         &[]*felt.Felt{},
 			AccountDeploymentData: &[]*felt.Felt{},
 			NonceDAMode:           utils.HeapPtr(rpc.DAModeL2),
 			FeeDAMode:             utils.HeapPtr(rpc.DAModeL2),
 		},
-		ContractClass: contractClass,
-		PaidFeeOnL1:   &felt.Felt{},
+		PaidFeeOnL1: &felt.Felt{},
 	}
+}
 
-	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+func createResourceBounds(t *testing.T,
+	l1GasAmount, l1GasPrice,
+	l2GasAmount, l2GasPrice,
+	l1DataGasAmount, l1DataGasPrice string,
+) map[rpc.Resource]rpc.ResourceBounds {
+	t.Helper()
+	return map[rpc.Resource]rpc.ResourceBounds{
+		rpc.ResourceL1Gas: {
+			MaxAmount:       utils.HexToFelt(t, l1GasAmount),
+			MaxPricePerUnit: utils.HexToFelt(t, l1GasPrice),
+		},
+		rpc.ResourceL2Gas: {
+			MaxAmount:       utils.HexToFelt(t, l2GasAmount),
+			MaxPricePerUnit: utils.HexToFelt(t, l2GasPrice),
+		},
+		rpc.ResourceL1DataGas: {
+			MaxAmount:       utils.HexToFelt(t, l1DataGasAmount),
+			MaxPricePerUnit: utils.HexToFelt(t, l1DataGasPrice),
+		},
+	}
+}
 
-	feeEstimate, _, jsonErr := handler.EstimateFee(
-		[]rpc.BroadcastedTransaction{declareTxn, deployTxn, invokeTxn},
-		[]rpc.SimulationFlag{rpc.SkipValidateFlag},
-		rpc.BlockID{Latest: true},
-	)
+func createFeeEstimate(t *testing.T,
+	l1GasConsumed, l1GasPrice,
+	l2GasConsumed, l2GasPrice,
+	l1DataGasConsumed, l1DataGasPrice,
+	overallFee string, unit rpc.FeeUnit,
+) rpc.FeeEstimate {
+	return rpc.FeeEstimate{
+		L1GasConsumed:     utils.HexToFelt(t, l1GasConsumed),
+		L1GasPrice:        utils.HexToFelt(t, l1GasPrice),
+		L2GasConsumed:     utils.HexToFelt(t, l2GasConsumed),
+		L2GasPrice:        utils.HexToFelt(t, l2GasPrice),
+		L1DataGasConsumed: utils.HexToFelt(t, l1DataGasConsumed),
+		L1DataGasPrice:    utils.HexToFelt(t, l1DataGasPrice),
+		OverallFee:        utils.HexToFelt(t, overallFee),
+		Unit:              utils.HeapPtr(unit),
+	}
+}
+
+func handleJSONError(t *testing.T, jsonErr *jsonrpc.Error) {
 	if jsonErr != nil {
 		if jsonErr.Data != nil {
 			executionErr, ok := jsonErr.Data.(rpc.TransactionExecutionErrorData)
@@ -260,37 +313,4 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		}
 		t.Fatal(jsonErr)
 	}
-
-	declareExpected := rpc.FeeEstimate{
-		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
-		L1GasPrice:        utils.HexToFelt(t, "0x2"),
-		L2GasConsumed:     utils.HexToFelt(t, "0x423cb80"),
-		L2GasPrice:        utils.HexToFelt(t, "0x1"),
-		L1DataGasConsumed: utils.HexToFelt(t, "0xc0"),
-		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
-		OverallFee:        utils.HexToFelt(t, "0x423cd00"),
-		Unit:              utils.HeapPtr(rpc.FRI),
-	}
-	deployExpected := rpc.FeeEstimate{
-		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
-		L1GasPrice:        utils.HexToFelt(t, "0x2"),
-		L2GasConsumed:     utils.HexToFelt(t, "0xfdcc5"),
-		L2GasPrice:        utils.HexToFelt(t, "0x1"),
-		L1DataGasConsumed: utils.HexToFelt(t, "0xe0"),
-		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
-		OverallFee:        utils.HexToFelt(t, "0xe6d5c"),
-		Unit:              utils.HeapPtr(rpc.FRI),
-	}
-	invokeExpected := rpc.FeeEstimate{
-		L1GasConsumed:     utils.HexToFelt(t, "0x0"),
-		L1GasPrice:        utils.HexToFelt(t, "0x2"),
-		L2GasConsumed:     utils.HexToFelt(t, "0xbe18b"),
-		L2GasPrice:        utils.HexToFelt(t, "0x1"),
-		L1DataGasConsumed: utils.HexToFelt(t, "0x80"),
-		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
-		OverallFee:        utils.HexToFelt(t, "0xace0a"),
-		Unit:              utils.HeapPtr(rpc.FRI),
-	}
-
-	require.Equal(t, []rpc.FeeEstimate{declareExpected, deployExpected, invokeExpected}, feeEstimate)
 }
