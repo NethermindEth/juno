@@ -111,7 +111,7 @@ func TestEstimateFee(t *testing.T) {
 }
 
 func TestEstimateFeeWithVM(t *testing.T) {
-	chain, accountAddr, deployerAddr := testutils.TestBlockchain(t, "0.13.4")
+	chain, accountAddr, accountClassHash, deployerAddr, _ := testutils.TestBlockchain(t, "0.13.4")
 
 	snClass, compliedClass, bsClass := testutils.ClassFromFile(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
 	bsClassHash, err := bsClass.Hash()
@@ -126,7 +126,8 @@ func TestEstimateFeeWithVM(t *testing.T) {
 
 	declareTxn := createDeclareTransaction(t, accountAddr, bsClassHash, compliedClassHash, contractClass)
 	deployTxn := createDeployTransaction(t, accountAddr, deployerAddr, bsClassHash, contractClass)
-	invokeTxn := createInvokeTransaction(t, accountAddr, "0x2", "test_redeposits")
+	deployedContractAddr := "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"
+	invokeTxn := createInvokeTransaction(t, accountAddr, crypto.StarknetKeccak([]byte("test_redeposits")), "0x2", deployedContractAddr)
 
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
@@ -150,6 +151,16 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		"0xace0a", rpc.FRI,
 	)
 
+	type executionError struct {
+		ClassHash       string `json:"class_hash"`
+		ContractAddress string `json:"contract_address"`
+		Error           any    `json:"error"`
+		Selector        string `json:"selector"`
+	}
+
+	invalidEntryPoint := crypto.StarknetKeccak([]byte("invalid_entry_point"))
+	executeEntryPointSelector := "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
+
 	tests := []struct {
 		name                    string
 		broadcastedTransactions []rpc.BroadcastedTransaction
@@ -164,15 +175,33 @@ func TestEstimateFeeWithVM(t *testing.T) {
 		{
 			name: "invalid entry point",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
-				declareTxn, deployTxn, createInvokeTransaction(t, accountAddr, "0x2", "invalid_entry_point"),
+				declareTxn, deployTxn,
+				createInvokeTransaction(t,
+					accountAddr, invalidEntryPoint,
+					"0x2", deployedContractAddr,
+				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
 				rpc.TransactionExecutionErrorData{
 					TransactionIndex: 2,
-					ExecutionError:   json.RawMessage(`{"class_hash":"0x51b1bf6a744cac1747d2cc4873a3379907755e639c7cb49a16f0b00bd9bca27","contract_address":"0xc01","error":{"class_hash":"0x51b1bf6a744cac1747d2cc4873a3379907755e639c7cb49a16f0b00bd9bca27","contract_address":"0xc01","error":{"class_hash":"0x5ac5830120de8f1e774df70e4722ee8d7715e2712315bfa6c21942a114b8b83","contract_address":"0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01","error":"0x454e545259504f494e545f4e4f545f464f554e44 ('ENTRYPOINT_NOT_FOUND')","selector":"0xb06a7b2e16e99e6499fce0d0b6570c52c8ae6e1ddcddb9ce80b270689dce3a"},"selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"},"selector":"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"}`),
+					ExecutionError: mustMarshal(t, executionError{
+						ClassHash:       accountClassHash.String(),
+						ContractAddress: accountAddr.String(),
+						Error: executionError{
+							ClassHash:       accountClassHash.String(),
+							ContractAddress: accountAddr.String(),
+							Error: executionError{
+								ClassHash:       bsClassHash.String(),
+								ContractAddress: deployedContractAddr,
+								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
+								Selector:        invalidEntryPoint.String(),
+							},
+							Selector: executeEntryPointSelector,
+						},
+						Selector: executeEntryPointSelector,
+					}),
 				},
 			),
-			expected: []rpc.FeeEstimate{},
 		},
 	}
 
@@ -192,6 +221,13 @@ func TestEstimateFeeWithVM(t *testing.T) {
 			require.Equal(t, test.expected, feeEstimate)
 		})
 	}
+}
+
+func mustMarshal(t *testing.T, v any) json.RawMessage {
+	t.Helper()
+	data, err := json.Marshal(v)
+	require.NoError(t, err)
+	return data
 }
 
 func createDeclareTransaction(t *testing.T,
@@ -265,7 +301,10 @@ func createDeployTransaction(t *testing.T,
 	}
 }
 
-func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt, nonce, entryPoint string) rpc.BroadcastedTransaction {
+func createInvokeTransaction(t *testing.T,
+	accountAddr, entryPointSelector *felt.Felt,
+	nonce, deployedContractAddress string,
+) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
@@ -276,9 +315,9 @@ func createInvokeTransaction(t *testing.T, accountAddr *felt.Felt, nonce, entryP
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
 				// Address of the deployed test contract
-				utils.HexToFelt(t, "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"),
+				utils.HexToFelt(t, deployedContractAddress),
 				// Entry point selector for the called contract
-				crypto.StarknetKeccak([]byte(entryPoint)),
+				entryPointSelector,
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x7"),
