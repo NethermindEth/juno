@@ -111,8 +111,10 @@ func TestEstimateFee(t *testing.T) {
 }
 
 func TestEstimateFeeWithVM(t *testing.T) {
+	// Get blockchain with predeployed account and deployer contracts
 	chain, accountAddr, accountClassHash, deployerAddr, _ := testutils.TestBlockchain(t, "0.13.4")
 
+	// Get binary search contract
 	snClass, compliedClass, bsClass := testutils.ClassFromFile(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
 	bsClassHash, err := bsClass.Hash()
 	require.NoError(t, err)
@@ -124,9 +126,13 @@ func TestEstimateFeeWithVM(t *testing.T) {
 	require.NoError(t, err)
 	compliedClassHash := coreCompiledClass.Hash()
 
+	// Declare and deploy binary search contract
 	declareTxn := createDeclareTransaction(t, accountAddr, bsClassHash, compliedClassHash, contractClass)
 	deployTxn := createDeployTransaction(t, accountAddr, deployerAddr, bsClassHash, contractClass)
+	// Manually obtained from VM logs
 	deployedContractAddr := "0x16d24ca6289c75b6c7f4de3030f1f1641d73b555372421d47f2696916050b01"
+
+	// Call test_redeposits entry point
 	invokeTxn := createInvokeTransaction(t, accountAddr, crypto.StarknetKeccak([]byte("test_redeposits")), "0x2", deployedContractAddr)
 
 	virtualMachine := vm.New(false, nil)
@@ -159,6 +165,8 @@ func TestEstimateFeeWithVM(t *testing.T) {
 	}
 
 	invalidEntryPoint := crypto.StarknetKeccak([]byte("invalid_entry_point"))
+
+	// From versioned constants
 	executeEntryPointSelector := "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
 
 	tests := []struct {
