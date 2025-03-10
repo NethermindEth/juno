@@ -41,7 +41,7 @@ jobs:
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   promote_to_staging:
-    needs: [build, dev_deploy_test]
+    needs: [build]
     runs-on: ubuntu-latest
     environment:
       name: Staging
