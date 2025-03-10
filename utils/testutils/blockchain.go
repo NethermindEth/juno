@@ -18,13 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBlockchain(t *testing.T, protocolVersion string) (
-	*blockchain.Blockchain, *felt.Felt, *felt.Felt, *felt.Felt, *felt.Felt,
-) {
+type testBlockchain struct {
+	*blockchain.Blockchain
+}
+
+func NewTestBlockchain(t *testing.T, protocolVersion string) (*testBlockchain, *felt.Felt, *felt.Felt, *felt.Felt, *felt.Felt) {
 	t.Helper()
 
 	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Sepolia)
+	chain := testBlockchain{blockchain.New(testDB, &utils.Sepolia)}
 
 	genesisBlock := &core.Block{
 		Header: &core.Header{
@@ -113,7 +115,7 @@ func TestBlockchain(t *testing.T, protocolVersion string) (
 	}
 	require.NoError(t, chain.Store(block, &core.BlockCommitments{}, stateUpdate, newClasses))
 
-	return chain, accountAddr, accountClassHash, deployerAddr, delployerClassHash
+	return &chain, accountAddr, accountClassHash, deployerAddr, delployerClassHash
 }
 
 func ClassFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *starknet.CompiledClass, *core.Cairo1Class) {
