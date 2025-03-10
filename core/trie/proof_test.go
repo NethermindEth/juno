@@ -300,7 +300,7 @@ func TestOneElementRangeProof(t *testing.T) {
 
 		start := 100
 		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(records[start].key, records[start].key, proof)
+		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
 		require.NoError(t, err)
 
 		_, err = trie.VerifyRangeProof(root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
@@ -312,7 +312,7 @@ func TestOneElementRangeProof(t *testing.T) {
 
 		start := 100
 		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
+		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
 		require.NoError(t, err)
 
 		_, err = trie.VerifyRangeProof(root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
@@ -324,7 +324,7 @@ func TestOneElementRangeProof(t *testing.T) {
 
 		end := 100
 		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
+		err := tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
 		require.NoError(t, err)
 
 		_, err = trie.VerifyRangeProof(root, records[end].key, []*felt.Felt{records[end].key}, []*felt.Felt{records[end].value}, proof)
@@ -337,7 +337,7 @@ func TestOneElementRangeProof(t *testing.T) {
 		start := 100
 		first, last := decrementFelt(records[start].key), incrementFelt(records[start].key)
 		proof := trie.NewProofNodeSet()
-		err = tr.GetRangeProof(first, last, proof)
+		err := tr.GetRangeProof(first, last, proof)
 		require.NoError(t, err)
 
 		_, err = trie.VerifyRangeProof(root, first, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)

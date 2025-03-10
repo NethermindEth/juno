@@ -130,31 +130,6 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
-func (t *TransactionTrace) TotalComputationResources() ComputationResources {
-	total := ComputationResources{}
-	for _, invocation := range t.allInvocations() {
-		r := invocation.ExecutionResources
-		if r == nil {
-			continue
-		}
-		total.Pedersen += r.Pedersen
-		total.RangeCheck += r.RangeCheck
-		total.Bitwise += r.Bitwise
-		total.Ecdsa += r.Ecdsa
-		total.EcOp += r.EcOp
-		total.Keccak += r.Keccak
-		total.Poseidon += r.Poseidon
-		total.SegmentArena += r.SegmentArena
-		total.MemoryHoles += r.MemoryHoles
-		total.Steps += r.Steps
-	}
-	return total
-}
-
-func (t *TransactionTrace) IsReverted() bool {
-	return t.ExecuteInvocation != nil && t.ExecuteInvocation.FunctionInvocation == nil
-}
-
 func (t *TransactionTrace) RevertReason() string {
 	if t.ExecuteInvocation == nil {
 		return ""
@@ -216,6 +191,7 @@ type FunctionInvocation struct {
 	Events             []OrderedEvent         `json:"events"`
 	Messages           []OrderedL2toL1Message `json:"messages"`
 	ExecutionResources *ExecutionResources    `json:"execution_resources,omitempty"`
+	IsReverted         bool                   `json:"is_reverted,omitempty"`
 }
 
 func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
@@ -314,15 +290,4 @@ func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DA
 	}
 
 	return da
-}
-
-// TODO: add RPC 0.6, 0.7 and 0.8 support
-func (r *ExecutionResources) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		ComputationResources
-		DataAvailability *DataAvailability `json:"data_availability,omitempty"`
-	}{
-		ComputationResources: r.ComputationResources,
-		DataAvailability:     r.DataAvailability,
-	})
 }

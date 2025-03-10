@@ -29,6 +29,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 		Traces:   []vm.TransactionTrace{{}, {}},
 		NumSteps: 0,
 	}
+
 	txns := []core.Transaction{
 		&core.InvokeTransaction{
 			Version: new(core.TransactionVersion).SetUint64(1),
@@ -37,6 +38,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 			Version: new(core.TransactionVersion).SetUint64(3),
 		},
 	}
+
 	header := &core.Header{
 		L1GasPriceETH:  new(felt.Felt).SetUint64(1),
 		L1GasPriceSTRK: new(felt.Felt).SetUint64(2),
@@ -51,20 +53,18 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	}
 
 	// Successful case
-	simTxs, err := createSimulatedTransactions(executionResults, txns, header)
+	simTxs, err := createSimulatedTransactions(&executionResults, txns, header)
 	require.NoError(t, err)
 	require.Len(t, simTxs, 2)
 	expected := []SimulatedTransaction{
 		{
-			TransactionTrace: &vm.TransactionTrace{
-				ExecutionResources: &vm.ExecutionResources{
-					L1Gas:     100,
-					L1DataGas: 50,
-					L2Gas:     200,
-					DataAvailability: &vm.DataAvailability{
-						L1Gas:     5,
-						L1DataGas: 2,
+			TransactionTrace: &TransactionTrace{
+				ExecutionResources: &ExecutionResources{
+					InnerExecutionResources: InnerExecutionResources{
+						L1Gas: 100,
+						L2Gas: 200,
 					},
+					L1DataGas: 50,
 				},
 			},
 			FeeEstimation: FeeEstimate{
@@ -79,15 +79,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 			},
 		},
 		{
-			TransactionTrace: &vm.TransactionTrace{
-				ExecutionResources: &vm.ExecutionResources{
-					L1Gas:     150,
-					L1DataGas: 70,
-					L2Gas:     250,
-					DataAvailability: &vm.DataAvailability{
-						L1Gas:     6,
-						L1DataGas: 3,
+			TransactionTrace: &TransactionTrace{
+				ExecutionResources: &ExecutionResources{
+					InnerExecutionResources: InnerExecutionResources{
+						L1Gas: 150,
+						L2Gas: 250,
 					},
+					L1DataGas: 70,
 				},
 			},
 			FeeEstimation: FeeEstimate{
@@ -106,13 +104,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 
 	// Edge case: Inconsistent lengths
 	executionResults.Traces = []vm.TransactionTrace{{}}
-	simTxs, err = createSimulatedTransactions(executionResults, txns, header)
+	simTxs, err = createSimulatedTransactions(&executionResults, txns, header)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "inconsistent lengths")
 	require.Empty(t, simTxs)
 
 	// Edge case: Empty input
-	simTxs, err = createSimulatedTransactions(vm.ExecutionResults{}, []core.Transaction{}, header)
+	simTxs, err = createSimulatedTransactions(&vm.ExecutionResults{}, []core.Transaction{}, header)
 	require.NoError(t, err)
 	require.Empty(t, simTxs)
 }

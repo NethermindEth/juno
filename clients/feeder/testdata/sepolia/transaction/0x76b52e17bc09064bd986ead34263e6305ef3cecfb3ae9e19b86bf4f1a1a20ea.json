@@ -1,0 +1,44 @@
+{
+  "execution_status": "SUCCEEDED",
+  "finality_status": "ACCEPTED_ON_L1",
+  "status": "ACCEPTED_ON_L1",
+  "block_hash": "0x50f312f9b3d33ec6372e394a7829aa93cbaf122edb617fdb90dc04dec759014",
+  "block_number": 567941,
+  "transaction_index": 0,
+  "transaction": {
+    "transaction_hash": "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea",
+    "version": "0x3",
+    "signature": [
+      "0x17bacc700df6c82682139e8e550078a5daa75dfe356577f78f7e57fd7c56245",
+      "0x4eb8734727eb9412b79ba6d14ff1c9a6beb0dc0b811e3f97168c747f8d427b3"
+    ],
+    "nonce": "0x9803",
+    "nonce_data_availability_mode": 0,
+    "fee_data_availability_mode": 0,
+    "resource_bounds": {
+      "L1_DATA_GAS": {
+        "max_amount": "0x186a0",
+        "max_price_per_unit": "0x2d79883d20000"
+      },
+      "L1_GAS": {
+        "max_amount": "0x186a0",
+        "max_price_per_unit": "0x2d79883d20000"
+      },
+      "L2_GAS": {
+        "max_amount": "0x5f5e100",
+        "max_price_per_unit": "0xba43b7400"
+      }
+    },
+    "tip": "0x0",
+    "paymaster_data": [],
+    "sender_address": "0x745d525a3582e91299d8d7c71730ffc4b1f191f5b219d800334bc0edad0983b",
+    "calldata": [
+      "0x1",
+      "0x4138fd51f90d171df37e9d4419c8cdb67d525840c58f8a5c347be93a1c5277d",
+      "0x2468d193cd15b621b24c2a602b8dbcfa5eaa14f88416c40c09d7fd12592cb4b",
+      "0x0"
+    ],
+    "account_deployment_data": [],
+    "type": "INVOKE_FUNCTION"
+  }
+}

@@ -84,11 +84,7 @@ type OrderedL2toL1Message struct {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash)
-}
-
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(hash)
+	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
@@ -114,7 +110,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*Trans
 	}
 
 	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(hash)
+		return tx.Hash().Equal(&hash)
 	})
 	if txIndex == -1 {
 		return nil, rpccore.ErrTxnHashNotFound
@@ -302,7 +298,20 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, MakeContractError(json.RawMessage(err.Error()))
 	}
 	if res.ExecutionFailed {
-		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
+		// the blockifier 0.13.4 update requires us to check if the execution failed,
+		// and if so, return ErrEntrypointNotFound if res.Result[0]==EntrypointNotFoundFelt,
+		// otherwise we should wrap the result in ErrContractError
+		var strErr string
+		if len(res.Result) != 0 {
+			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
+				strErr = rpccore.ErrEntrypointNotFound.Message
+			} else {
+				strErr = utils.FeltArrToString(res.Result)
+			}
+			strErr = `"` + strErr + `"`
+		}
+		// Todo: There is currently no standardised way to format these error messages
+		return nil, MakeContractError(json.RawMessage(strErr))
 	}
 	return res.Result, nil
 }

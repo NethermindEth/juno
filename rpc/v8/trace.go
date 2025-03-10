@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/starknet"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -25,106 +25,44 @@ var traceFallbackVersion = semver.MustParse("0.13.1")
 
 const excludedVersion = "0.13.1.1"
 
-func adaptBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
-	if blockTrace == nil {
-		return nil, nil
-	}
-	if len(block.Transactions) != len(blockTrace.Traces) {
-		return nil, errors.New("mismatched number of txs and traces")
-	}
-	traces := make([]TracedBlockTransaction, 0, len(blockTrace.Traces))
-	for index := range blockTrace.Traces {
-		feederTrace := &blockTrace.Traces[index]
-		trace := vm.TransactionTrace{}
-		trace.Type = vm.TransactionType(block.Transactions[index].Type)
-
-		trace.FeeTransferInvocation = adaptFunctionInvocation(feederTrace.FeeTransferInvocation)
-		trace.ValidateInvocation = adaptFunctionInvocation(feederTrace.ValidateInvocation)
-
-		fnInvocation := adaptFunctionInvocation(feederTrace.FunctionInvocation)
-		switch block.Transactions[index].Type {
-		case TxnDeploy:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnDeployAccount:
-			trace.ConstructorInvocation = fnInvocation
-		case TxnInvoke:
-			trace.ExecuteInvocation = new(vm.ExecuteInvocation)
-			if feederTrace.RevertError != "" {
-				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
-			} else {
-				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
-			}
-		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
-		}
-
-		traces = append(traces, TracedBlockTransaction{
-			TransactionHash: &feederTrace.TransactionHash,
-			TraceRoot:       &trace,
-		})
-	}
-	return traces, nil
+type TransactionTrace struct {
+	Type                  TransactionType     `json:"type"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
-func adaptFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) *vm.FunctionInvocation {
-	if snFnInvocation == nil {
-		return nil
-	}
-
-	fnInvocation := vm.FunctionInvocation{
-		ContractAddress:    snFnInvocation.ContractAddress,
-		EntryPointSelector: snFnInvocation.Selector,
-		Calldata:           snFnInvocation.Calldata,
-		CallerAddress:      snFnInvocation.CallerAddress,
-		ClassHash:          snFnInvocation.ClassHash,
-		EntryPointType:     snFnInvocation.EntryPointType,
-		CallType:           snFnInvocation.CallType,
-		Result:             snFnInvocation.Result,
-		Calls:              make([]vm.FunctionInvocation, 0, len(snFnInvocation.InternalCalls)),
-		Events:             make([]vm.OrderedEvent, 0, len(snFnInvocation.Events)),
-		Messages:           make([]vm.OrderedL2toL1Message, 0, len(snFnInvocation.Messages)),
-		ExecutionResources: adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
-	}
-
-	for index := range snFnInvocation.InternalCalls {
-		fnInvocation.Calls = append(fnInvocation.Calls, *adaptFunctionInvocation(&snFnInvocation.InternalCalls[index]))
-	}
-	for index := range snFnInvocation.Events {
-		snEvent := &snFnInvocation.Events[index]
-		fnInvocation.Events = append(fnInvocation.Events, vm.OrderedEvent{
-			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
-		})
-	}
-	for index := range snFnInvocation.Messages {
-		snMessage := &snFnInvocation.Messages[index]
-		fnInvocation.Messages = append(fnInvocation.Messages, vm.OrderedL2toL1Message{
-			Order:   snMessage.Order,
-			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
-			To:      snMessage.ToAddr,
-		})
-	}
-
-	return &fnInvocation
+type ExecuteInvocation struct {
+	RevertReason        string `json:"revert_reason"`
+	*FunctionInvocation `json:",omitempty"`
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.ExecutionResources {
-	builtins := &resources.BuiltinInstanceCounter
-	return &vm.ExecutionResources{
-		ComputationResources: vm.ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     builtins.Pedersen,
-			RangeCheck:   builtins.RangeCheck,
-			Bitwise:      builtins.Bitwise,
-			Ecdsa:        builtins.Ecsda,
-			EcOp:         builtins.EcOp,
-			Keccak:       builtins.Keccak,
-			Poseidon:     builtins.Poseidon,
-			SegmentArena: builtins.SegmentArena,
-		},
+func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	if e.FunctionInvocation != nil {
+		return json.Marshal(e.FunctionInvocation)
 	}
+	type alias ExecuteInvocation
+	return json.Marshal(alias(e))
+}
+
+type FunctionInvocation struct {
+	ContractAddress    felt.Felt                    `json:"contract_address"`
+	EntryPointSelector *felt.Felt                   `json:"entry_point_selector"`
+	Calldata           []felt.Felt                  `json:"calldata"`
+	CallerAddress      felt.Felt                    `json:"caller_address"`
+	ClassHash          *felt.Felt                   `json:"class_hash"`
+	EntryPointType     string                       `json:"entry_point_type"` // shouldnt we put it as enum here ?
+	CallType           string                       `json:"call_type"`        // shouldnt we put it as enum here ?
+	Result             []felt.Felt                  `json:"result"`
+	Calls              []FunctionInvocation         `json:"calls"`
+	Events             []rpcv6.OrderedEvent         `json:"events"`
+	Messages           []rpcv6.OrderedL2toL1Message `json:"messages"`
+	ExecutionResources *InnerExecutionResources     `json:"execution_resources"`
+	IsReverted         bool                         `json:"is_reverted"`
 }
 
 /****************************************************
@@ -135,12 +73,8 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) *vm.E
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
-	return h.traceTransaction(ctx, &hash)
-}
-
-func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.TransactionTrace, http.Header, *jsonrpc.Error) {
-	_, blockHash, _, err := h.bcReader.Receipt(hash)
+func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
+	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
@@ -167,7 +101,7 @@ func (h *Handler) traceTransaction(ctx context.Context, hash *felt.Felt) (*vm.Tr
 	}
 
 	txIndex := slices.IndexFunc(block.Transactions, func(tx core.Transaction) bool {
-		return tx.Hash().Equal(hash)
+		return tx.Hash().Equal(&hash)
 	})
 	if txIndex == -1 {
 		return nil, httpHeader, rpccore.ErrTxnHashNotFound
@@ -208,19 +142,13 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 				return nil, httpHeader, err
 			}
 
-			txDataAvailability := make(map[felt.Felt]vm.DataAvailability, len(block.Receipts))
+			// fgw doesn't provide this data in traces endpoint. So, we get it from our block receipts
 			txTotalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(block.Receipts))
 			for _, receipt := range block.Receipts {
 				if receipt.ExecutionResources == nil {
 					continue
 				}
-				if receiptDA := receipt.ExecutionResources.DataAvailability; receiptDA != nil {
-					da := vm.DataAvailability{
-						L1Gas:     receiptDA.L1Gas,
-						L1DataGas: receiptDA.L1DataGas,
-					}
-					txDataAvailability[*receipt.TransactionHash] = da
-				}
+
 				if receiptTGS := receipt.ExecutionResources.TotalGasConsumed; receiptTGS != nil {
 					tgs := core.GasConsumed{
 						L1Gas:     receiptTGS.L1Gas,
@@ -231,18 +159,16 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 				}
 			}
 
-			// add execution resources on root level
+			// For every trace in block, add execution resources on root level
 			for index, trace := range result {
-				// fgw doesn't provide this data in traces endpoint
-				// some receipts don't have data availability data in this case we don't
-				da := txDataAvailability[*trace.TransactionHash]
 				tgs := txTotalGasConsumed[*trace.TransactionHash]
-				result[index].TraceRoot.ExecutionResources = &vm.ExecutionResources{
-					L1Gas:                tgs.L1Gas,
-					L1DataGas:            tgs.L1DataGas,
-					L2Gas:                tgs.L2Gas,
-					ComputationResources: trace.TraceRoot.TotalComputationResources(),
-					DataAvailability:     &da,
+
+				result[index].TraceRoot.ExecutionResources = &ExecutionResources{
+					InnerExecutionResources: InnerExecutionResources{
+						L1Gas: tgs.L1Gas,
+						L2Gas: tgs.L2Gas,
+					},
+					L1DataGas: tgs.L1DataGas,
 				}
 			}
 
@@ -318,22 +244,23 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	result := make([]TracedBlockTransaction, 0, len(executionResult.Traces))
-	for index, trace := range executionResult.Traces {
-		executionResult.Traces[index].ExecutionResources = &vm.ExecutionResources{
-			L1Gas:                executionResult.GasConsumed[index].L1Gas,
-			L1DataGas:            executionResult.GasConsumed[index].L1DataGas,
-			L2Gas:                executionResult.GasConsumed[index].L2Gas,
-			ComputationResources: trace.TotalComputationResources(),
-			DataAvailability: &vm.DataAvailability{
-				L1Gas:     executionResult.DataAvailability[index].L1Gas,
-				L1DataGas: executionResult.DataAvailability[index].L1DataGas,
+	result := make([]TracedBlockTransaction, len(executionResult.Traces))
+	// Adapt every vm transaction trace to rpc v8 trace and add root level execution resources
+	for index := range executionResult.Traces {
+		trace := utils.HeapPtr(AdaptVMTransactionTrace(&executionResult.Traces[index]))
+
+		trace.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
+				L1Gas: executionResult.GasConsumed[index].L1Gas,
+				L2Gas: executionResult.GasConsumed[index].L2Gas,
 			},
+			L1DataGas: executionResult.GasConsumed[index].L1DataGas,
 		}
-		result = append(result, TracedBlockTransaction{
-			TraceRoot:       &executionResult.Traces[index],
+
+		result[index] = TracedBlockTransaction{
+			TraceRoot:       trace,
 			TransactionHash: block.Transactions[index].Hash(),
-		})
+		}
 	}
 
 	if !isPending {
@@ -362,7 +289,7 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(fErr.Error())
 	}
 
-	traces, aErr := adaptBlockTrace(rpcBlock, blockTrace)
+	traces, aErr := AdaptFeederBlockTrace(rpcBlock, blockTrace)
 	if aErr != nil {
 		return nil, rpccore.ErrUnexpectedError.CloneWithData(aErr.Error())
 	}
@@ -419,11 +346,15 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		// the blockifier 0.13.4 update requires us to check if the execution failed,
 		// and if so, return ErrEntrypointNotFound if res.Result[0]==EntrypointNotFoundFelt,
 		// otherwise we should wrap the result in ErrContractError
-		if len(res.Result) != 0 && res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
-			return nil, rpccore.ErrEntrypointNotFound
+		var strErr string
+		if len(res.Result) != 0 {
+			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
+				return nil, rpccore.ErrEntrypointNotFound
+			}
+			strErr = `"` + utils.FeltArrToString(res.Result) + `"`
 		}
 		// Todo: There is currently no standardised way to format these error messages
-		return nil, MakeContractError(json.RawMessage(utils.FeltArrToString(res.Result)))
+		return nil, MakeContractError(json.RawMessage(strErr))
 	}
 	return res.Result, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
@@ -211,7 +212,7 @@ type Transaction struct {
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
 	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1"`
+	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
 	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
 	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
 	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
@@ -434,8 +435,28 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
 	if err != nil {
-		return nil, rpccore.ErrTxnHashNotFound
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, rpccore.ErrInternal.CloneWithData(err)
+		}
+
+		// check now if tx is in pending block
+		pendingB := h.syncReader.PendingBlock()
+		if pendingB == nil {
+			return nil, rpccore.ErrTxnHashNotFound
+		}
+
+		for _, t := range pendingB.Transactions {
+			if hash.Equal(t.Hash()) {
+				txn = t
+				break
+			}
+		}
+
+		if txn == nil {
+			return nil, rpccore.ErrTxnHashNotFound
+		}
 	}
+
 	return AdaptTransaction(txn), nil
 }
 
@@ -672,7 +693,7 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 	case *core.DeclareTransaction:
 		txn = adaptDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTrandaction(v)
+		txn = adaptDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
@@ -816,7 +837,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transaction {
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
 	tx := &Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,

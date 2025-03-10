@@ -1,9 +1,10 @@
-package rpcv6
+package rpcv8
 
 import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -16,12 +17,12 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *FunctionInvocation
 	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
 	var constructorInvocation *FunctionInvocation
@@ -31,21 +32,26 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
+			executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
+			functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
 		}
 	}
 
-	var stateDiff *StateDiff
+	var resources *ExecutionResources
+	if trace.ExecutionResources != nil {
+		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
+	}
+
+	var stateDiff *rpcv6.StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{
@@ -56,13 +62,14 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
 		StateDiff:             stateDiff,
+		ExecutionResources:    resources,
 	}
 }
 
-func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
+func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
 	}
 
 	return ExecuteInvocation{
@@ -71,19 +78,19 @@ func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvoc
 	}
 }
 
-func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
+func adaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
 	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
 	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
+		adaptedCalls[index] = adaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
 	}
 
 	// Adapt events
-	adaptedEvents := make([]OrderedEvent, len(vmFnInvocation.Events))
+	adaptedEvents := make([]rpcv6.OrderedEvent, len(vmFnInvocation.Events))
 	for index := range vmFnInvocation.Events {
 		vmEvent := &vmFnInvocation.Events[index]
 
-		adaptedEvents[index] = OrderedEvent{
+		adaptedEvents[index] = rpcv6.OrderedEvent{
 			Order: vmEvent.Order,
 			Keys:  vmEvent.Keys,
 			Data:  vmEvent.Data,
@@ -91,13 +98,13 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]OrderedL2toL1Message, len(vmFnInvocation.Messages))
+	adaptedMessages := make([]rpcv6.OrderedL2toL1Message, len(vmFnInvocation.Messages))
 	for index := range vmFnInvocation.Messages {
 		vmMessage := &vmFnInvocation.Messages[index]
 
 		toAddr, _ := new(felt.Felt).SetString(vmMessage.To)
 
-		adaptedMessages[index] = OrderedL2toL1Message{
+		adaptedMessages[index] = rpcv6.OrderedL2toL1Message{
 			Order:   vmMessage.Order,
 			From:    vmMessage.From,
 			To:      toAddr,
@@ -106,19 +113,11 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt execution resources
-	var adaptedResources *ComputationResources
+	var adaptedResources *InnerExecutionResources
 	if r := vmFnInvocation.ExecutionResources; r != nil {
-		adaptedResources = &ComputationResources{
-			Steps:        r.Steps,
-			MemoryHoles:  r.MemoryHoles,
-			Pedersen:     r.Pedersen,
-			RangeCheck:   r.RangeCheck,
-			Bitwise:      r.Bitwise,
-			Ecdsa:        r.Ecdsa,
-			EcOp:         r.EcOp,
-			Keccak:       r.Keccak,
-			Poseidon:     r.Poseidon,
-			SegmentArena: r.SegmentArena,
+		adaptedResources = &InnerExecutionResources{
+			L1Gas: r.L1Gas,
+			L2Gas: r.L2Gas,
 		}
 	}
 
@@ -135,83 +134,17 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
 		ExecutionResources: adaptedResources,
+		IsReverted:         vmFnInvocation.IsReverted,
 	}
 }
 
-func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
-	// Adapt storage diffs
-	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
-	for index := range vmStateDiff.StorageDiffs {
-		vmStorageDiff := &vmStateDiff.StorageDiffs[index]
-
-		// Adapt storage entries
-		adaptedEntries := make([]Entry, len(vmStorageDiff.StorageEntries))
-		for entryIndex := range vmStorageDiff.StorageEntries {
-			vmEntry := &vmStorageDiff.StorageEntries[entryIndex]
-
-			adaptedEntries[entryIndex] = Entry{
-				Key:   vmEntry.Key,
-				Value: vmEntry.Value,
-			}
-		}
-
-		adaptedStorageDiffs[index] = StorageDiff{
-			Address:        vmStorageDiff.Address,
-			StorageEntries: adaptedEntries,
-		}
-	}
-
-	// Adapt nonces
-	adaptedNonces := make([]Nonce, len(vmStateDiff.Nonces))
-	for index := range vmStateDiff.Nonces {
-		vmNonce := &vmStateDiff.Nonces[index]
-
-		adaptedNonces[index] = Nonce{
-			ContractAddress: vmNonce.ContractAddress,
-			Nonce:           vmNonce.Nonce,
-		}
-	}
-
-	// Adapt deployed contracts
-	adaptedDeployedContracts := make([]DeployedContract, len(vmStateDiff.DeployedContracts))
-	for index := range vmStateDiff.DeployedContracts {
-		vmDeployedContract := &vmStateDiff.DeployedContracts[index]
-
-		adaptedDeployedContracts[index] = DeployedContract{
-			Address:   vmDeployedContract.Address,
-			ClassHash: vmDeployedContract.ClassHash,
-		}
-	}
-
-	// Adapt declared classes
-	adaptedDeclaredClasses := make([]DeclaredClass, len(vmStateDiff.DeclaredClasses))
-	for index := range vmStateDiff.DeclaredClasses {
-		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
-
-		adaptedDeclaredClasses[index] = DeclaredClass{
-			ClassHash:         vmDeclaredClass.ClassHash,
-			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
-		}
-	}
-
-	// Adapt replaced classes
-	adaptedReplacedClasses := make([]ReplacedClass, len(vmStateDiff.ReplacedClasses))
-	for index := range vmStateDiff.ReplacedClasses {
-		vmReplacedClass := &vmStateDiff.ReplacedClasses[index]
-
-		adaptedReplacedClasses[index] = ReplacedClass{
-			ContractAddress: vmReplacedClass.ContractAddress,
-			ClassHash:       vmReplacedClass.ClassHash,
-		}
-	}
-
-	return StateDiff{
-		StorageDiffs:              adaptedStorageDiffs,
-		Nonces:                    adaptedNonces,
-		DeployedContracts:         adaptedDeployedContracts,
-		DeprecatedDeclaredClasses: vmStateDiff.DeprecatedDeclaredClasses,
-		DeclaredClasses:           adaptedDeclaredClasses,
-		ReplacedClasses:           adaptedReplacedClasses,
+func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
+	return ExecutionResources{
+		InnerExecutionResources: InnerExecutionResources{
+			L1Gas: r.L1Gas,
+			L2Gas: r.L2Gas,
+		},
+		L1DataGas: r.L1DataGas,
 	}
 }
 
@@ -228,7 +161,7 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	// Adapt every feeder block trace to rpc v6 trace
+	// Adapt every feeder block trace to rpc v8 trace
 	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
@@ -237,17 +170,17 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 			Type: block.Transactions[index].Type,
 		}
 
-		if fee := feederTrace.FeeTransferInvocation; fee != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fee))
+		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
+			trace.FeeTransferInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
 		}
 
-		if val := feederTrace.ValidateInvocation; val != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(val))
+		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
+			trace.ValidateInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
 		}
 
 		var fnInvocation *FunctionInvocation
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
+			fnInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(fct))
 		}
 
 		switch trace.Type {
@@ -273,19 +206,19 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	return adaptedTraces, nil
 }
 
-func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
-	// Adapt internal calls
+func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
+	// Adapt inner calls
 	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
 	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
+		adaptedCalls[index] = adaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
 	}
 
 	// Adapt events
-	adaptedEvents := make([]OrderedEvent, len(snFnInvocation.Events))
+	adaptedEvents := make([]rpcv6.OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		adaptedEvents[index] = OrderedEvent{
+		adaptedEvents[index] = rpcv6.OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
@@ -293,13 +226,13 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]OrderedL2toL1Message, len(snFnInvocation.Messages))
+	adaptedMessages := make([]rpcv6.OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
 		toAddr, _ := new(felt.Felt).SetString(snMessage.ToAddr)
 
-		adaptedMessages[index] = OrderedL2toL1Message{
+		adaptedMessages[index] = rpcv6.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,
@@ -320,22 +253,19 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
 		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
+		IsReverted:         snFnInvocation.Failed,
 	}
 }
 
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) ComputationResources {
-	builtins := &resources.BuiltinInstanceCounter
+func adaptFeederExecutionResources(resources *starknet.ExecutionResources) InnerExecutionResources {
+	var l1Gas, l2Gas uint64
+	if tgs := resources.TotalGasConsumed; tgs != nil {
+		l1Gas = tgs.L1Gas
+		l2Gas = tgs.L2Gas
+	}
 
-	return ComputationResources{
-		Steps:        resources.Steps,
-		MemoryHoles:  resources.MemoryHoles,
-		Pedersen:     builtins.Pedersen,
-		RangeCheck:   builtins.RangeCheck,
-		Bitwise:      builtins.Bitwise,
-		Ecdsa:        builtins.Ecsda,
-		EcOp:         builtins.EcOp,
-		Keccak:       builtins.Keccak,
-		Poseidon:     builtins.Poseidon,
-		SegmentArena: builtins.SegmentArena,
+	return InnerExecutionResources{
+		L1Gas: l1Gas,
+		L2Gas: l2Gas,
 	}
 }
