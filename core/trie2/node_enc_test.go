@@ -114,7 +114,7 @@ func TestNodeEncodingDecoding(t *testing.T) {
 
 			// Try to decode
 			hash := tt.node.Hash(crypto.Pedersen)
-			decoded, err := decodeNode(encoded, hash, tt.pathLen, tt.maxPath)
+			decoded, err := decodeNode(encoded, &hash, tt.pathLen, tt.maxPath)
 
 			if tt.wantErr {
 				require.Error(t, err)

@@ -32,12 +32,12 @@ func (h *hasher) hash(n Node) (Node, Node) {
 	switch n := n.(type) {
 	case *EdgeNode:
 		collapsed, cached := h.hashEdgeChild(n)
-		hn := &HashNode{Felt: *collapsed.Hash(h.hashFn)}
+		hn := &HashNode{Felt: collapsed.Hash(h.hashFn)}
 		cached.flags.hash = hn
 		return hn, cached
 	case *BinaryNode:
 		collapsed, cached := h.hashBinaryChildren(n)
-		hn := &HashNode{Felt: *collapsed.Hash(h.hashFn)}
+		hn := &HashNode{Felt: collapsed.Hash(h.hashFn)}
 		cached.flags.hash = hn
 		return hn, cached
 	case *ValueNode, *HashNode:
@@ -107,10 +107,10 @@ func (h *hasher) proofHash(original Node) (collapsed, hashed Node) {
 	switch n := original.(type) {
 	case *EdgeNode:
 		en, _ := h.hashEdgeChild(n)
-		return en, &HashNode{Felt: *en.Hash(h.hashFn)}
+		return en, &HashNode{Felt: en.Hash(h.hashFn)}
 	case *BinaryNode:
 		bn, _ := h.hashBinaryChildren(n)
-		return bn, &HashNode{Felt: *bn.Hash(h.hashFn)}
+		return bn, &HashNode{Felt: bn.Hash(h.hashFn)}
 	default:
 		return n, n
 	}
