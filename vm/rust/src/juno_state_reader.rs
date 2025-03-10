@@ -7,12 +7,7 @@ use std::{
 
 use blockifier::execution::contract_class::RunnableCompiledClass;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::UpdatableState;
-use blockifier::{
-    state::cached_state::{ContractClassMapping, StateMaps},
-    state::state_api::State,
-    state::state_api::{StateReader, StateResult},
-};
+use blockifier::state::state_api::{StateReader, StateResult};
 use cached::{Cached, SizedCache};
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use once_cell::sync::Lazy;
@@ -47,25 +42,6 @@ extern "C" {
     ) -> c_int;
     fn JunoStateGetCompiledClass(reader_handle: usize, class_hash: *const c_uchar)
         -> *const c_char;
-    fn JunoStateSetStorage(
-        reader_handle: usize,
-        address: *const c_uchar,
-        key: *const c_uchar,
-        value: *const c_uchar,
-    ) -> *const c_char;
-    fn JunoStateIncrementNonce(reader_handle: usize, address: *const c_uchar) -> *const c_char;
-    fn JunoStateSetClassHashAt(
-        reader_handle: usize,
-        address: *const c_uchar,
-        class_hash: *const c_uchar,
-    ) -> *const c_char;
-    fn JunoStateSetContractClass(reader_handle: usize, class_hash: *const c_uchar)
-        -> *const c_char;
-    fn JunoStateSetCompiledClassHash(
-        reader_handle: usize,
-        class_hash: *const c_uchar,
-        compiled_class_hash: *const c_uchar,
-    ) -> *const c_char;
 }
 
 struct CachedRunnableCompiledClass {
@@ -208,92 +184,6 @@ impl StateReader for JunoStateReader {
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         unimplemented!()
     }
-}
-
-impl UpdatableState for JunoStateReader {
-    fn apply_writes(&mut self, _writes: &StateMaps, _class_hash_to_class: &ContractClassMapping) {
-        unimplemented!()
-    }
-}
-
-impl State for JunoStateReader {
-    /// Sets the storage value under the given key in the given contract instance.
-    fn set_storage_at(
-        &mut self,
-        contract_address: ContractAddress,
-        key: StorageKey,
-        value: StarkFelt,
-    ) -> Result<(), blockifier::state::errors::StateError> {
-        let addr = felt_to_byte_array(contract_address.0.key());
-        let storage_key = felt_to_byte_array(key.0.key());
-        let storage_value = felt_to_byte_array(&value);
-        let result = state_read_err(unsafe {
-            JunoStateSetStorage(
-                self.handle,
-                addr.as_ptr(),
-                storage_key.as_ptr(),
-                storage_value.as_ptr(),
-            )
-        });
-        result
-    }
-
-    /// Increments the nonce of the given contract instance.
-    fn increment_nonce(&mut self, contract_address: ContractAddress) -> StateResult<()> {
-        let addr = felt_to_byte_array(contract_address.0.key());
-        state_read_err(unsafe { JunoStateIncrementNonce(self.handle, addr.as_ptr()) })
-    }
-
-    /// Allocates the given address to the given class hash.
-    /// Raises an exception if the address is already assigned;
-    /// meaning: this is a write once action.
-    fn set_class_hash_at(
-        &mut self,
-        contract_address: ContractAddress,
-        class_hash: ClassHash,
-    ) -> StateResult<()> {
-        let addr = felt_to_byte_array(contract_address.0.key());
-        let class_hash = felt_to_byte_array(&class_hash.0);
-        state_read_err(unsafe {
-            JunoStateSetClassHashAt(self.handle, addr.as_ptr(), class_hash.as_ptr())
-        })
-    }
-
-    /// Sets the given contract class under the given class hash.
-    fn set_contract_class(
-        &mut self,
-        class_hash: ClassHash,
-        _contract_class: RunnableCompiledClass,
-    ) -> StateResult<()> {
-        let class_hash = felt_to_byte_array(&class_hash.0);
-        state_read_err(unsafe { JunoStateSetContractClass(self.handle, class_hash.as_ptr()) })
-    }
-
-    /// Sets the given compiled class hash under the given class hash.
-    fn set_compiled_class_hash(
-        &mut self,
-        class_hash: ClassHash,
-        compiled_class_hash: CompiledClassHash,
-    ) -> StateResult<()> {
-        let class_hash_bytes = felt_to_byte_array(&class_hash.0);
-        let compiled_class_hash_bytes = felt_to_byte_array(&compiled_class_hash.0);
-        state_read_err(unsafe {
-            JunoStateSetCompiledClassHash(
-                self.handle,
-                class_hash_bytes.as_ptr(),
-                compiled_class_hash_bytes.as_ptr(),
-            )
-        })
-    }
-}
-
-fn state_read_err(err_ptr: *const c_char) -> StateResult<()> {
-    if err_ptr.is_null() {
-        return Ok(());
-    }
-    let err_string = unsafe { CStr::from_ptr(err_ptr) }.to_str().unwrap();
-    unsafe { JunoFree(err_ptr as *const c_void) };
-    Err(StateError::StateReadError(err_string.to_string()))
 }
 
 pub fn felt_to_byte_array(felt: &StarkFelt) -> [u8; 32] {

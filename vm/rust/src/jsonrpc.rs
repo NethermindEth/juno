@@ -2,11 +2,12 @@ use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
 use cairo_vm::types::builtin_name::BuiltinName;
+use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::contract_class::EntryPointType;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
@@ -15,7 +16,6 @@ use starknet_api::transaction::fields::{Calldata, Fee};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
-
 type StarkFelt = Felt;
 
 #[derive(Serialize, Default)]
@@ -56,13 +56,86 @@ pub struct TransactionTrace {
 }
 
 #[derive(Serialize, Default)]
-struct StateDiff {
+pub struct StateDiff {
     storage_diffs: Vec<StorageDiff>,
     nonces: Vec<Nonce>,
     deployed_contracts: Vec<DeployedContract>,
     deprecated_declared_classes: Vec<StarkFelt>,
     declared_classes: Vec<DeclaredClass>,
     replaced_classes: Vec<ReplacedClass>,
+}
+
+impl StateDiff {
+    pub fn from_state_maps(state_maps: &StateMaps) -> Self {
+        Self {
+            storage_diffs: state_maps
+                .storage
+                .iter()
+                .fold(
+                    IndexMap::<StarkFelt, Vec<Entry>>::new(),
+                    |mut acc, ((address, key), value)| {
+                        let starkfelt_address = Felt::from(address.clone()).into(); // Convert ContractAddress -> StarkFelt
+                        let entry = Entry {
+                            key: Felt::from(key.clone()).into(), // Convert StorageKey -> StarkFelt
+                            value: Felt::from(value.clone()).into(), // Convert Felt -> StarkFelt
+                        };
+
+                        acc.entry(starkfelt_address)
+                            .or_insert_with(Vec::new)
+                            .push(entry);
+
+                        acc
+                    },
+                )
+                .into_iter()
+                .map(|(address, storage_entries)| StorageDiff {
+                    address,
+                    storage_entries,
+                })
+                .collect(),
+
+            nonces: state_maps
+                .nonces
+                .iter()
+                .map(|(address, nonce)| Nonce {
+                    contract_address: Felt::from(address.clone()).into(),
+                    nonce: Felt::from(**nonce).into(),
+                })
+                .collect(),
+
+            deployed_contracts: state_maps
+                .class_hashes
+                .iter()
+                .map(|(address, class_hash)| DeployedContract {
+                    address: Felt::from(address.clone()).into(),
+                    class_hash: Felt::from(**class_hash).into(),
+                })
+                .collect(),
+
+            deprecated_declared_classes: state_maps
+                .declared_contracts
+                .iter()
+                .filter(|(_, &is_deprecated)| is_deprecated)
+                .map(|(class_hash, _)| Felt::from(**class_hash))
+                .collect(),
+
+            declared_classes: state_maps
+                .compiled_class_hashes
+                .iter()
+                .map(|(class_hash, compiled_class_hash)| DeclaredClass {
+                    class_hash: Felt::from(**class_hash),
+                    compiled_class_hash: Felt::from(compiled_class_hash.0.clone()),
+                })
+                .collect(),
+
+            // Currently this field is unneeded, since we don't declare and
+            // immediately replace a contracts class hash in a single block.
+            // If we decide to support this field, then we could handle it
+            // in the genesis pkg, since there is no corresponding field in StateMaps.
+            // Only the genesis pkg ever uses this logic.
+            replaced_classes: Default::default(),
+        }
+    }
 }
 
 #[derive(Serialize)]

@@ -34,13 +34,14 @@ type ExecutionResults struct {
 
 type CallResult struct {
 	Result          []*felt.Felt
+	StateDiff       StateDiff
 	ExecutionFailed bool
 }
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string, structuredErrStack bool) (CallResult, error)
+		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 	) (ExecutionResults, error)
@@ -58,15 +59,6 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 	}
 }
 
-type StateReadWriter interface {
-	core.StateReader
-	SetStorage(contractAddress, storageKey, value *felt.Felt) error
-	IncrementNonce(contractAddress *felt.Felt) error
-	SetClassHash(contractAddress, classHash *felt.Felt) error
-	SetContractClass(classHash *felt.Felt, contractClass core.Class) error
-	SetCompiledClassHash(classHash *felt.Felt, compiledClassHash *felt.Felt) error
-}
-
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
@@ -81,6 +73,7 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
+	stateDiff       []json.RawMessage
 	daGas           []core.DataAvailability
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
@@ -118,6 +111,13 @@ func JunoAppendTrace(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.siz
 	context := unwrapContext(readerHandle)
 	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
 	context.traces = append(context.traces, json.RawMessage(byteSlice))
+}
+
+//export JunoAppendStateDiff
+func JunoAppendStateDiff(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.stateDiff = append(context.stateDiff, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendResponse
@@ -240,7 +240,7 @@ func makeByteFromBool(b bool) byte {
 }
 
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack bool,
+	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -256,13 +256,15 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		concurrencyModeByte = 1
 	}
 
-	_, isMutableState := context.state.(StateReadWriter)
-	mutableStateByte := makeByteFromBool(isMutableState)
-
 	var structuredErrStackByte byte
 	if structuredErrStack {
 		structuredErrStackByte = 1
 	}
+	var returnStateDiffByte byte
+	if returnStateDiff {
+		returnStateDiffByte = 1
+	}
+
 	C.setVersionedConstants(C.CString("my_json"))
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
@@ -278,7 +280,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.uchar(concurrencyModeByte),
 		cSierraVersion,
 		C.uchar(structuredErrStackByte), //nolint:gocritic // don't know why the linter is annoyed
-		C.uchar(mutableStateByte),       //nolint:gocritic
+		C.uchar(returnStateDiffByte),    //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -288,7 +290,17 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)
 	}
-	return CallResult{Result: context.response, ExecutionFailed: context.executionFailed}, nil
+
+	stateDiff := StateDiff{}
+	if returnStateDiff {
+		for _, statediffJSON := range context.stateDiff {
+			err := json.Unmarshal(statediffJSON, &stateDiff)
+			if err != nil {
+				return CallResult{}, fmt.Errorf("unmarshal state diff: %v", err)
+			}
+		}
+	}
+	return CallResult{Result: context.response, StateDiff: stateDiff, ExecutionFailed: context.executionFailed}, nil
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction

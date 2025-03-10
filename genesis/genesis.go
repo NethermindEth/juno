@@ -147,9 +147,11 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 				Calldata:        contractData.ConstructorArgs,
 			}
 			// Call the constructors
-			if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, classhashToSierraVersion[classHash], true); err != nil {
+			result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, classhashToSierraVersion[classHash], true, true)
+			if err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
 			}
+			genesisState.StateDiff().MergeStateDiffs(vm2core.AdaptStateDiff(&result.StateDiff))
 		}
 	}
 	for _, fnCall := range config.FunctionCalls {
@@ -168,9 +170,11 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		blockInfo := vm.BlockInfo{
 			Header: &genesisHeader,
 		}
-		if _, err = v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, contractAddressToSierraVersion[contractAddress], true); err != nil {
+		result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, contractAddressToSierraVersion[contractAddress], true, true)
+		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
+		genesisState.StateDiff().MergeStateDiffs(vm2core.AdaptStateDiff(&result.StateDiff))
 	}
 
 	if len(config.Txns) != 0 {
