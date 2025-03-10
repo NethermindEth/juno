@@ -1,0 +1,132 @@
+{
+	"classes": [
+		"./genesis/classes/strk.json",
+		"./genesis/classes/account.json",
+		"./genesis/classes/universaldeployer.json",
+		"./genesis/classes/udacnt.json"
+	],
+	"contracts": {
+		"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7": {
+			"class_hash": "0x3182d1ef7f16f9f0e8481a10d0182eb6e4fb59d5ffd58ba8204d57322f4ab90",
+			"constructor_args": [
+				"0x537461726b6e657420546f6b656e",
+				"0x5354524b",
+				"0x12",
+				"0x283c",
+				"0x123456789123456789",
+				"0x123456",
+				"0x123456",
+				"0x1",
+				"0x0"
+			]
+		},
+		"0x101": {
+			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"constructor_args": [
+				"0x16d03d341717ab11083a481f53278d8e54f610af815cbdab4035b2df283fcc0",
+				"0x0"
+			]
+		},
+		"0x102": {
+			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"constructor_args": [
+				"0x3bc7ab4ca475e24a0053db47c3e5a2a53264a30639d8b2bd0a08407da3ca0c",
+				"0x0"
+			]
+		},
+		"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923": {
+			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"constructor_args": [
+				"0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f",
+				"0x0"
+			]
+		}
+	},
+	"function_calls": [
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x101",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x102",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+				"0x56bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		}
+	],
+	"bootstrap_accounts": [
+		{
+			"address": "0x101",
+			"publicKey": "0x16d03d341717ab11083a481f53278d8e54f610af815cbdab4035b2df283fcc0",
+			"privateKey": "0x2bff1b26236b72d8a930be1dfbee09f79a536a49482a4c8b8f1030e2ab3bf1b"
+		},
+		{
+			"address": "0x102",
+			"publicKey": "0x3bc7ab4ca475e24a0053db47c3e5a2a53264a30639d8b2bd0a08407da3ca0c",
+			"privateKey": "0x43d8de30e55ed83b4436aea47e7517d4a52d06912938e2887cb1d33518daef1"
+		},
+		{
+			"address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+			"publicKey": "0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f",
+			"privateKey": "0x3a4791edf67fa0b32b812e41bc8bc4e9b79915412b1331f7669cbe23e97e15a"
+		}
+	],
+	"transactions": [
+		{
+			"transaction_hash": "0x199f9d79d02cb7900556eb1a77f411abf807bbbe6ad2841bd72b72e3d290a8c",
+			"max_fee": "0x69c71f05154",
+			"version": "0x1",
+			"signature": [],
+			"nonce": "0x0",
+			"type": "DEPLOY_ACCOUNT",
+			"class_hash": "0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
+			"contract_address_salt": "0x0",
+			"constructor_calldata": []
+		},
+		{
+			"transaction_hash": "0xc7ce47912f2d0931fb693882d3f5dfca884e196d71b7771c53121c3f717f3",
+			"max_fee": "0x5af3107a4000",
+			"version": "0x1",
+			"signature": [
+				"0x3d961ed4d414e60aba73519bae95b45c50a24b07e17bf7d3b1a0f22a4cce42a",
+				"0x4ae418b5d51355c3b8bfc58b0ceab6421ca047884b4d9e1e5703e753a9d76ba"
+			],
+			"nonce": "0x1",
+			"type": "INVOKE",
+			"sender_address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+			"calldata": [
+				"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
+			]
+		}
+	]
+}

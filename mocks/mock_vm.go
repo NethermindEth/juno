@@ -44,18 +44,18 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string, errStack bool) (vm.CallResult, error) {
+func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (vm.CallResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, network, maxSteps, sierraVersion, errStack)
+	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, network, maxSteps, sierraVersion, structuredErrStack, returnStateDiff)
 	ret0, _ := ret[0].(vm.CallResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Call indicates an expected call of Call.
-func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps, sierraVersion, errStack any) *gomock.Call {
+func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps, sierraVersion, structuredErrStack, returnStateDiff any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), callInfo, blockInfo, state, network, maxSteps, sierraVersion, errStack)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockVM)(nil).Call), callInfo, blockInfo, state, network, maxSteps, sierraVersion, structuredErrStack, returnStateDiff)
 }
 
 // Execute mocks base method.
