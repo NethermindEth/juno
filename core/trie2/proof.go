@@ -69,7 +69,7 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		n, hn = hasher.proofHash(n)
 		if hash, ok := hn.(*HashNode); ok || i == 0 {
 			if !ok {
-				hash = &HashNode{Felt: *n.Hash(hasher.hashFn)}
+				hash = &HashNode{Felt: n.Hash(hasher.hashFn)}
 			}
 			proof.Put(hash.Felt, n)
 		}

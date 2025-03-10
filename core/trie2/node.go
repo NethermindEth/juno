@@ -17,7 +17,7 @@ var (
 )
 
 type Node interface {
-	Hash(crypto.HashFn) *felt.Felt
+	Hash(crypto.HashFn) felt.Felt
 	cache() (*HashNode, bool)
 	write(*bytes.Buffer) error
 	String() string
@@ -52,20 +52,29 @@ type nodeFlag struct {
 
 func newFlag() nodeFlag { return nodeFlag{dirty: true} }
 
-func (n *BinaryNode) Hash(hf crypto.HashFn) *felt.Felt {
-	return hf(n.Children[0].Hash(hf), n.Children[1].Hash(hf))
+func (n *BinaryNode) Hash(hf crypto.HashFn) felt.Felt {
+	leftHash := n.Children[0].Hash(hf)
+	rightHash := n.Children[1].Hash(hf)
+	res := hf(&leftHash, &rightHash)
+	return *res
 }
 
-func (n *EdgeNode) Hash(hf crypto.HashFn) *felt.Felt {
+func (n *EdgeNode) Hash(hf crypto.HashFn) felt.Felt {
 	var length [32]byte
 	length[31] = n.Path.Len()
 	pathFelt := n.Path.Felt()
 	lengthFelt := new(felt.Felt).SetBytes(length[:])
-	return new(felt.Felt).Add(hf(n.Child.Hash(hf), &pathFelt), lengthFelt)
+
+	childHash := n.Child.Hash(hf)
+	innerHash := hf(&childHash, &pathFelt)
+
+	var res felt.Felt
+	res.Add(innerHash, lengthFelt)
+	return res
 }
 
-func (n *HashNode) Hash(crypto.HashFn) *felt.Felt  { return &n.Felt }
-func (n *ValueNode) Hash(crypto.HashFn) *felt.Felt { return &n.Felt }
+func (n *HashNode) Hash(crypto.HashFn) felt.Felt  { return n.Felt }
+func (n *ValueNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
 
 func (n *BinaryNode) cache() (*HashNode, bool) { return n.flags.hash, n.flags.dirty }
 func (n *EdgeNode) cache() (*HashNode, bool)   { return n.flags.hash, n.flags.dirty }
