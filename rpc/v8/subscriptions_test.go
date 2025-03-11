@@ -152,14 +152,13 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, nil)
-		t.Cleanup(cleanup)
+		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
 
-		assertNextMessages(t, clientConn, id, b1Emitted)
+		assertNextEvents(t, clientConn, id, b1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		handler.newHeads.Send(b2)
-		assertNextMessages(t, clientConn, id, b2Emitted)
+		assertNextEvents(t, clientConn, id, b2Emitted)
 	})
 
 	t.Run("Events from old blocks", func(t *testing.T) {
@@ -179,10 +178,9 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, &b1.Number)
-		t.Cleanup(cleanup)
+		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
 
-		assertNextMessages(t, clientConn, id, b1Emitted)
+		assertNextEvents(t, clientConn, id, b1Emitted)
 	})
 
 	t.Run("Events when continuation token is not nil", func(t *testing.T) {
@@ -204,10 +202,9 @@ func TestSubscribeEvents(t *testing.T) {
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, &b1.Number)
-		t.Cleanup(cleanup)
+		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
 
-		assertNextMessages(t, clientConn, id, b1Emitted)
+		assertNextEvents(t, clientConn, id, b1Emitted)
 	})
 
 	t.Run("Events from pending block without duplicates", func(t *testing.T) {
@@ -227,35 +224,37 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 
-		id, clientConn, cleanup := createTestWebsocket(t, handler, fromAddr, keys, nil)
-		t.Cleanup(cleanup)
+		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
 
-		assertNextMessages(t, clientConn, id, b1Emitted)
+		assertNextEvents(t, clientConn, id, b1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
 		handler.pendingBlock.Send(pending1)
-		assertNextMessages(t, clientConn, id, pending1Emitted)
+		assertNextEvents(t, clientConn, id, pending1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
 		handler.pendingBlock.Send(pending2)
-		assertNextMessages(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
+		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		handler.newHeads.Send(b2)
-		assertNextMessages(t, clientConn, id, b2Emitted[len(pending2Emitted):])
+		assertNextEvents(t, clientConn, id, b2Emitted[len(pending2Emitted):])
 	})
 }
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	txHash := new(felt.Felt).SetUint64(1)
-
-	t.Run("Return error when transaction not found after timeout expiry", func(t *testing.T) {
+	t.Run("Don't return error even when transaction is not found", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		subscribeTxStatusTimeout = 50 * time.Millisecond
-		subscribeTxStatusTickerDuration = 10 * time.Millisecond
+		oldTimeout, oldTicker := subscribeTxStatusTimeout, subscribeTxStatusTickerDuration
+		subscribeTxStatusTimeout, subscribeTxStatusTickerDuration = 100*time.Millisecond, 10*time.Millisecond
+		t.Cleanup(func() {
+			subscribeTxStatusTimeout = oldTimeout
+			subscribeTxStatusTickerDuration = oldTicker
+		})
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
@@ -263,17 +262,14 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
+		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
-		serverConn, _ := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-		})
+		_, hasSubscription := handler.subscriptions.Load(uint64(id))
+		require.True(t, hasSubscription)
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
-		assert.Equal(t, SubscriptionID(0), id)
-		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+		time.Sleep(200 * time.Millisecond)
+		_, hasSubscription = handler.subscriptions.Load(uint64(id))
+		require.False(t, hasSubscription)
 	})
 
 	t.Run("Transaction status is final", func(t *testing.T) {
@@ -285,64 +281,34 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
 
-		t.Run("rejected", func(t *testing.T) { //nolint:dupl
-			serverConn, clientConn := net.Pipe()
-			t.Cleanup(func() {
-				require.NoError(t, serverConn.Close())
-				require.NoError(t, clientConn.Close())
-			})
+		t.Run("reverted", func(t *testing.T) {
+			txHash, err := new(felt.Felt).SetString("0x1011")
+			require.NoError(t, err)
 
-			respStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","failure_reason":"some error"}},"subscription_id":%v}}`
+			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockSyncer.EXPECT().PendingBlock().Return(nil)
+			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
+		})
+
+		t.Run("rejected", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1111")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
-			require.Nil(t, rpcErr)
-
-			b, err := TxnStatusRejected.MarshalText()
-			require.NoError(t, err)
-
-			resp := fmt.Sprintf(respStr, txHash, b, id)
-			got := make([]byte, len(resp))
-			_, err = clientConn.Read(got)
-			require.NoError(t, err)
-			assert.Equal(t, resp, string(got))
-			cancel()
+			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "")
 		})
 
-		t.Run("accepted on L1", func(t *testing.T) { //nolint:dupl
-			serverConn, clientConn := net.Pipe()
-			t.Cleanup(func() {
-				require.NoError(t, serverConn.Close())
-				require.NoError(t, clientConn.Close())
-			})
-
-			respStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","execution_status":"SUCCEEDED"}},"subscription_id":%v}}`
+		t.Run("accepted on L1", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
-
-			ctx, cancel := context.WithCancel(context.Background())
-			subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-			id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
-			require.Nil(t, rpcErr)
-
-			b, err := TxnStatusAcceptedOnL1.MarshalText()
-			require.NoError(t, err)
-
-			resp := fmt.Sprintf(respStr, txHash, b, id)
-			got := make([]byte, len(resp))
-			_, err = clientConn.Read(got)
-			require.NoError(t, err)
-			assert.Equal(t, resp, string(got))
-			cancel()
+			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 		})
 	})
 
@@ -356,73 +322,34 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
-		pendingFeed := feed.New[*core.Block]()
-		l1Feed := feed.New[*core.L1Head]()
-		handler.pendingBlock = pendingFeed
-		handler.l1Heads = l1Feed
 
 		block, err := gw.BlockByNumber(context.Background(), 38748)
 		require.NoError(t, err)
 
-		serverConn, clientConn := net.Pipe()
-		t.Cleanup(func() {
-			require.NoError(t, serverConn.Close())
-			require.NoError(t, clientConn.Close())
-		})
-
-		receivedRespStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s"}},"subscription_id":%v}}`
 		txHash, err := new(felt.Felt).SetString("0x1001")
 		require.NoError(t, err)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingBlock().Return(nil)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		id, rpcErr := handler.SubscribeTransactionStatus(subCtx, *txHash)
-		require.Nil(t, rpcErr)
-
-		b, err := TxnStatusReceived.MarshalText()
-		require.NoError(t, err)
-
-		resp := fmt.Sprintf(receivedRespStr, txHash, b, id)
-		got := make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, resp, string(got))
+		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-
-		pendingFeed.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
-
-		b, err = TxnStatusAcceptedOnL2.MarshalText()
-		require.NoError(t, err)
-
-		l1AndL2RespStr := `{"jsonrpc":"2.0","method":"starknet_subscriptionTransactionsStatus","params":{"result":{"transaction_hash":"%v","status":{"finality_status":"%s","execution_status":"SUCCEEDED"}},"subscription_id":%v}}`
-		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id)
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, resp, string(got))
+		for i := range 3 {
+			handler.pendingBlock.Send(&core.Block{Header: &core.Header{}})
+			handler.pendingBlock.Send(&core.Block{Header: &core.Header{}})
+			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
+		}
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
 		l1Head := &core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(l1Head, nil)
-
-		l1Feed.Send(l1Head)
-
-		b, err = TxnStatusAcceptedOnL1.MarshalText()
-		require.NoError(t, err)
-
-		resp = fmt.Sprintf(l1AndL2RespStr, txHash, b, id)
-		got = make([]byte, len(resp))
-		_, err = clientConn.Read(got)
-		require.NoError(t, err)
-		assert.Equal(t, resp, string(got))
-		cancel()
+		handler.l1Heads.Send(l1Head)
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
 }
 
@@ -1064,21 +991,21 @@ func sendWsMessage(t *testing.T, ctx context.Context, conn *websocket.Conn, mess
 	return string(response)
 }
 
-func marshalSubEventsResp(e *EmittedEvent, id SubscriptionID) ([]byte, error) {
+func marshalSubEventsResp(method string, result any, id SubscriptionID) ([]byte, error) {
 	return json.Marshal(SubscriptionResponse{
 		Version: "2.0",
-		Method:  "starknet_subscriptionEvents",
+		Method:  method,
 		Params: map[string]any{
 			"subscription_id": id,
-			"result":          e,
+			"result":          result,
 		},
 	})
 }
 
-func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, e *EmittedEvent) {
+func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, method string, result any) {
 	t.Helper()
 
-	resp, err := marshalSubEventsResp(e, id)
+	resp, err := marshalSubEventsResp(method, result, id)
 	require.NoError(t, err)
 
 	got := make([]byte, len(resp))
@@ -1087,11 +1014,24 @@ func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, e *Emitte
 	assert.Equal(t, string(resp), string(got))
 }
 
-func assertNextMessages(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash *felt.Felt, finality TxnStatus, execution TxnExecutionStatus, failureReason string) {
+	t.Helper()
+
+	assertNextMessage(t, conn, id, "starknet_subscriptionTransactionStatus", SubscriptionTransactionStatus{
+		TransactionHash: txHash,
+		Status: TransactionStatus{
+			Finality:      finality,
+			Execution:     execution,
+			FailureReason: failureReason,
+		},
+	})
+}
+
+func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
-		assertNextMessage(t, conn, id, emitted)
+		assertNextMessage(t, conn, id, "starknet_subscriptionEvents", emitted)
 	}
 }
 
@@ -1136,25 +1076,42 @@ func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent,
 	return filtered, emitted
 }
 
-func createTestWebsocket(t *testing.T, handler *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64) (SubscriptionID, net.Conn, func()) {
+func createTestEventsWebsocket(t *testing.T, h *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64) (SubscriptionID, net.Conn) {
+	t.Helper()
+
+	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
+		var blockID *SubscriptionBlockID
+		if startBlock != nil {
+			blockID = &SubscriptionBlockID{Number: *startBlock}
+		}
+		return h.SubscribeEvents(ctx, fromAddr, keys, blockID)
+	})
+}
+
+func createTestTxStatusWebsocket(t *testing.T, h *Handler, txHash *felt.Felt) (SubscriptionID, net.Conn) {
+	t.Helper()
+
+	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
+		return h.SubscribeTransactionStatus(ctx, txHash)
+	})
+}
+
+func createTestWebsocket(t *testing.T, subscribe func(context.Context) (SubscriptionID, *jsonrpc.Error)) (SubscriptionID, net.Conn) {
 	t.Helper()
 
 	serverConn, clientConn := net.Pipe()
 
-	var blockID *SubscriptionBlockID
-	if startBlock != nil {
-		blockID = &SubscriptionBlockID{Number: *startBlock}
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-	id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
+	id, rpcErr := subscribe(subCtx)
 	require.Nil(t, rpcErr)
 
-	return id, clientConn, func() {
+	t.Cleanup(func() {
 		require.NoError(t, serverConn.Close())
 		require.NoError(t, clientConn.Close())
 		cancel()
 		time.Sleep(100 * time.Millisecond)
-	}
+	})
+
+	return id, clientConn
 }
