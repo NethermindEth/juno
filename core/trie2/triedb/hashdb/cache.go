@@ -31,6 +31,9 @@ type Config struct {
 var DefaultConfig = &Config{
 	DirtyCacheSize: 1024 * 1024 * 64,
 	CleanCacheSize: 1024 * 1024 * 64,
+
+	DirtyCacheType: CacheTypeLRU,
+	CleanCacheType: CacheTypeFastCache,
 }
 
 func NewCache(cacheType CacheType, size int) Cache {

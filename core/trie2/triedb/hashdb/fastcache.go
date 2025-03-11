@@ -30,10 +30,12 @@ func (c *FastCache) Get(buf *bytes.Buffer, key []byte) bool {
 
 	value := c.cache.Get(nil, key)
 	if value == nil {
+		c.misses++
 		return false
 	}
 
 	buf.Write(value)
+	c.hits++
 	return true
 }
 

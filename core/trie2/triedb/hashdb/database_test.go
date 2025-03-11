@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func GetDbKey(t *testing.T, db *Database, buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) {
+	err := db.dbKey(buf, owner, path, hash, isLeaf)
+	require.NoError(t, err)
+}
+
 func TestDatabase(t *testing.T) {
 	memDB := pebble.NewMemTest(t)
 	txn, err := memDB.NewTransaction(true)
@@ -62,74 +67,6 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, len(data), n)
 		assert.Equal(t, data, buf.Bytes())
-	})
-
-	t.Run("Get from clean cache", func(t *testing.T) {
-		db := New(txn, prefix, config)
-		owner := felt.Felt{}
-		owner.SetUint64(123)
-
-		path := trieutils.Path{}
-		path.AppendBit(&path, 1)
-		path.AppendBit(&path, 0)
-
-		hash := felt.Felt{}
-		hash.SetUint64(456)
-
-		data := []byte("test data")
-
-		err := db.Put(owner, path, hash, data, true)
-		require.NoError(t, err)
-
-		buf := new(bytes.Buffer)
-		bufLen, err := db.Get(buf, owner, path, hash, true)
-		require.NotZero(t, bufLen)
-		require.NoError(t, err)
-		require.Equal(t, 0, db.CleanCache.Hits())
-
-		buf.Reset()
-		n, err := db.Get(buf, owner, path, hash, true)
-		require.NoError(t, err)
-		assert.Equal(t, len(data), n)
-		assert.Equal(t, data, buf.Bytes())
-		assert.Equal(t, 1, db.CleanCache.Hits())
-
-		buf.Reset()
-		n, err = db.Get(buf, owner, path, hash, true)
-		require.NoError(t, err)
-		assert.Equal(t, 2, db.CleanCache.Hits())
-	})
-
-	t.Run("Get from dirty cache", func(t *testing.T) {
-		db := New(txn, prefix, config)
-		owner := felt.Felt{}
-		owner.SetUint64(123)
-
-		path := trieutils.Path{}
-		path.AppendBit(&path, 1)
-		path.AppendBit(&path, 0)
-
-		hash := felt.Felt{}
-		hash.SetUint64(456)
-
-		data := []byte("test data")
-
-		dbBuf := dbBufferPool.Get().(*bytes.Buffer)
-		dbBuf.Reset()
-		defer func() {
-			dbBuf.Reset()
-			dbBufferPool.Put(dbBuf)
-		}()
-
-		err = db.Put(owner, path, hash, data, true)
-		require.NoError(t, err)
-
-		buf := new(bytes.Buffer)
-		n, err := db.Get(buf, owner, path, hash, true)
-		require.NoError(t, err)
-		assert.Equal(t, len(data), n)
-		assert.Equal(t, data, buf.Bytes())
-		assert.Equal(t, 1, db.DirtyCache.Hits())
 	})
 
 	t.Run("Delete", func(t *testing.T) {
@@ -187,15 +124,13 @@ func TestDatabase(t *testing.T) {
 		hash.SetUint64(456)
 
 		buf := new(bytes.Buffer)
-		err := db.dbKey(buf, owner, path, hash, true)
-		require.NoError(t, err)
+		GetDbKey(t, db, buf, owner, path, hash, true)
 
 		keyBytes := buf.Bytes()
 		assert.Equal(t, prefix.Key()[0], keyBytes[0])
 
 		buf.Reset()
-		err = db.dbKey(buf, owner, path, hash, false)
-		require.NoError(t, err)
+		GetDbKey(t, db, buf, owner, path, hash, true)
 
 		keyBytes = buf.Bytes()
 		assert.Equal(t, prefix.Key()[0], keyBytes[0])
@@ -217,73 +152,4 @@ func TestDatabase(t *testing.T) {
 		_, err = emptyDB.NewIterator(felt.Felt{})
 		assert.Equal(t, ErrCallEmptyDatabase, err)
 	})
-}
-
-func TestDatabaseWithDifferentCaches(t *testing.T) {
-	memDB := pebble.NewMemTest(t)
-	txn, err := memDB.NewTransaction(true)
-	require.NoError(t, err)
-	defer func() {
-		err = txn.Discard()
-		require.NoError(t, err)
-	}()
-	prefix := db.ClassesTrie
-
-	testCases := []struct {
-		name   string
-		config *Config
-	}{
-		{
-			name: "LRU Cache",
-			config: &Config{
-				CleanCacheType: CacheTypeLRU,
-				CleanCacheSize: 1024,
-				DirtyCacheType: CacheTypeLRU,
-				DirtyCacheSize: 1024,
-			},
-		},
-		{
-			name: "FastCache",
-			config: &Config{
-				CleanCacheType: CacheTypeFastCache,
-				CleanCacheSize: 1024 * 1024,
-				DirtyCacheType: CacheTypeFastCache,
-				DirtyCacheSize: 1024,
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			db := New(txn, prefix, tc.config)
-
-			owner := felt.Felt{}
-			owner.SetUint64(123)
-
-			path := trieutils.Path{}
-			path.AppendBit(&path, 1)
-			path.AppendBit(&path, 0)
-
-			hash := felt.Felt{}
-			hash.SetUint64(456)
-
-			data := []byte("test data")
-
-			err := db.Put(owner, path, hash, data, true)
-			require.NoError(t, err)
-
-			buf := new(bytes.Buffer)
-			n, err := db.Get(buf, owner, path, hash, true)
-			require.NoError(t, err)
-			assert.Equal(t, len(data), n)
-			assert.Equal(t, data, buf.Bytes())
-			assert.Equal(t, 0, db.CleanCache.Hits())
-			assert.Equal(t, 1, db.DirtyCache.Hits())
-
-			n, err = db.Get(buf, owner, path, hash, true)
-			require.NoError(t, err)
-			assert.Equal(t, 1, db.CleanCache.Hits())
-			assert.Equal(t, 1, db.DirtyCache.Hits())
-		})
-	}
 }

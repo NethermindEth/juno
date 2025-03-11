@@ -55,7 +55,7 @@ type TrieID interface {
 
 // Creates a new trie
 func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
-	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
+	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}, HashConfig: nil}) // TODO: handle both pathdb and hashdb, default hashdb config for now
 	tr := &Trie{
 		owner:      id.Owner(),
 		height:     height,
@@ -503,7 +503,13 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		bufferPool.Put(buf)
 	}()
 
-	_, err := t.db.Get(buf, t.owner, path, *hn.Hash(t.hashFn), path.Len() == t.height)
+	var hashNodeHash *felt.Felt
+	if hn != nil {
+		hashNodeHash = hn.Hash(t.hashFn)
+	} else {
+		hashNodeHash = new(felt.Felt).SetUint64(0)
+	}
+	_, err := t.db.Get(buf, t.owner, path, *hashNodeHash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
