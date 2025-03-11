@@ -1,6 +1,9 @@
 package memory
 
 import (
+	"maps"
+	"slices"
+
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -8,9 +11,13 @@ import (
 var _ db.Batch = (*batch)(nil)
 
 type batch struct {
-	db     *Database
-	writes []keyValue
-	size   int
+	db *Database
+	// Theoretically, we can only maintain the latest write for each key using the map.
+	// However, we want to ensure that the order of writes is maintained and mimics the
+	// behavior of the real key-value store. Hence, we store them and then flush them afterwards.
+	writes   []keyValue
+	writeMap map[string]keyValue
+	size     int
 }
 
 type keyValue struct {
@@ -19,14 +26,83 @@ type keyValue struct {
 	delete bool
 }
 
+func newBatch(db *Database) *batch {
+	return &batch{
+		db:       db,
+		writeMap: make(map[string]keyValue),
+	}
+}
+
+func (b *batch) Get2(key []byte) ([]byte, error) {
+	b.db.lock.RLock()
+	defer b.db.lock.RUnlock()
+
+	if val, ok := b.writeMap[string(key)]; ok {
+		if val.delete {
+			return nil, db.ErrKeyNotFound
+		}
+		return utils.CopySlice(val.value), nil
+	}
+
+	val, ok := b.db.db[string(key)]
+	if !ok {
+		return nil, db.ErrKeyNotFound
+	}
+
+	return utils.CopySlice(val), nil
+}
+
+func (b *batch) Has(key []byte) (bool, error) {
+	b.db.lock.RLock()
+	defer b.db.lock.RUnlock()
+
+	if val, ok := b.writeMap[string(key)]; ok {
+		if val.delete {
+			return false, nil
+		}
+		return true, nil
+	}
+
+	_, ok := b.db.db[string(key)]
+	if ok {
+		return true, nil
+	}
+
+	return ok, nil
+}
+
+func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	// create a temporary db
+	tempDB := b.db.copy()
+
+	// copy the writes on this batch to the temporary db
+	tempBatch := &batch{
+		db:       tempDB,
+		writes:   slices.Clone(b.writes),
+		writeMap: maps.Clone(b.writeMap),
+	}
+
+	// write the changes to the temporary db
+	if err := tempBatch.Write(); err != nil {
+		return nil, err
+	}
+
+	// create a new iterator on the temporary db
+	return tempDB.NewIterator(prefix, withUpperBound)
+}
+
 func (b *batch) Put(key, value []byte) error {
-	b.writes = append(b.writes, keyValue{key: string(key), value: utils.CopySlice(value)})
+	kv := keyValue{key: string(key), value: utils.CopySlice(value)}
+	b.writes = append(b.writes, kv)
+	b.writeMap[string(key)] = kv
 	b.size += len(key) + len(value)
 	return nil
 }
 
 func (b *batch) Delete(key []byte) error {
-	b.writes = append(b.writes, keyValue{key: string(key), delete: true})
+	kv := keyValue{key: string(key), delete: true}
+	b.writes = append(b.writes, kv)
+	b.writeMap[string(key)] = kv
 	b.size += len(key)
 	return nil
 }
@@ -58,4 +134,5 @@ func (b *batch) Write() error {
 func (b *batch) Reset() {
 	b.size = 0
 	b.writes = b.writes[:0] // reuse the memory
+	b.writeMap = make(map[string]keyValue)
 }

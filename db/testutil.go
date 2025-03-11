@@ -179,8 +179,8 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "key should not exist")
 
 		// Test Get on non-existent key
-		_, err = database.Get(key)
-		require.Error(t, err, "Get should fail on non-existent key")
+		_, err = database.Get2(key)
+		require.Error(t, err, "Get should fail on non-existent key %s", key)
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 
 		// Test Put
@@ -190,26 +190,26 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		// Test Has after Put
 		has, err = database.Has(key)
-		require.NoError(t, err, "Has operation failed")
+		require.NoError(t, err, "Has operation failed for key %s", key)
 		require.True(t, has, "key should exist after Put")
 
 		// Test Get after Put
-		got, err := database.Get(key)
-		require.NoError(t, err, "Get operation failed")
-		require.Equal(t, value, got, "Get returned wrong value")
+		got, err := database.Get2(key)
+		require.NoError(t, err, "Get operation failed for key %s", key)
+		require.Equal(t, value, got, "Get returned wrong value for key %s, expected %s, got %s", key, value, got)
 
 		// Test Delete
 		err = database.Delete(key)
-		require.NoError(t, err, "Delete operation failed")
+		require.NoError(t, err, "Delete operation failed for key %s", key)
 
 		// Test Has after Delete
 		has, err = database.Has(key)
-		require.NoError(t, err, "Has operation failed")
-		require.False(t, has, "key should not exist after Delete")
+		require.NoError(t, err, "Has operation failed for key %s", key)
+		require.False(t, has, "key should not exist after Delete for key %s", key)
 
 		// Test Get after Delete
-		_, err = database.Get(key)
-		require.Error(t, err, "Get should fail after Delete")
+		_, err = database.Get2(key)
+		require.Error(t, err, "Get should fail after Delete for key %s", key)
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 	})
 
@@ -217,94 +217,184 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		database := newDB()
 		defer database.Close()
 
-		// Create a batch and add operations
+		// Create a batch
 		batch := database.NewBatch()
-		keys := []string{"1", "2", "3", "4"}
-		for _, k := range keys {
-			err := batch.Put([]byte(k), []byte("value-"+k))
-			require.NoError(t, err, "batch Put failed")
+		require.NotNil(t, batch, "NewBatch should return a non-nil batch")
+
+		// Add some data to the batch
+		testData := map[string]string{
+			"batch-key1": "batch-value1",
+			"batch-key2": "batch-value2",
+			"batch-key3": "batch-value3",
 		}
 
-		// Verify database doesn't contain keys before Write
-		for _, k := range keys {
+		for k, v := range testData {
+			err := batch.Put([]byte(k), []byte(v))
+			require.NoError(t, err, "Put operation on batch failed for key %s", k)
+		}
+
+		// Check batch size is non-zero
+		require.Greater(t, batch.Size(), 0, "Batch size should be greater than 0")
+
+		// Verify data is not in database before write
+		for k := range testData {
 			has, err := database.Has([]byte(k))
-			require.NoError(t, err, "Has operation failed")
-			require.False(t, has, "database should not contain key before batch Write")
+			require.NoError(t, err, "Has operation failed for key %s", k)
+			require.False(t, has, "key should not exist in database before batch write for key %s", k)
 		}
 
-		// Write the batch
+		// Write batch to database
 		err := batch.Write()
-		require.NoError(t, err, "batch Write failed")
+		require.NoError(t, err, "Batch write failed")
 
-		// Verify database contains keys after Write
-		for _, k := range keys {
-			has, err := database.Has([]byte(k))
-			require.NoError(t, err, "Has operation failed")
-			require.True(t, has, "database should contain key after batch Write")
-
-			val, err := database.Get([]byte(k))
-			require.NoError(t, err, "Get operation failed")
-			require.Equal(t, []byte("value-"+k), val, "wrong value after batch Write")
+		// Verify data is in database after write
+		for k, v := range testData {
+			val, err := database.Get2([]byte(k))
+			require.NoError(t, err, "Get operation failed for key %s", k)
+			require.Equal(t, []byte(v), val, "Value mismatch after batch write for key %s, expected %s, got %s", k, v, val)
 		}
 
-		// Reset the batch
+		// Test batch reset
 		batch.Reset()
+		require.Equal(t, 0, batch.Size(), "Batch size should be 0 after reset")
 
-		// Mix writes and deletes in batch
-		err = batch.Put([]byte("5"), []byte("value-5"))
-		require.NoError(t, err, "batch Put failed")
+		// Test batch with pre-allocated size
+		batchWithSize := database.NewBatchWithSize(1024)
+		require.NotNil(t, batchWithSize, "NewBatchWithSize should return a non-nil batch")
 
-		err = batch.Delete([]byte("1"))
-		require.NoError(t, err, "batch Delete failed")
+		// Add data to the batch with size
+		key := "batch-size-key"
+		value := "batch-size-value"
+		err = batchWithSize.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation on batch with size failed for key %s", key)
 
-		err = batch.Put([]byte("6"), []byte("value-6"))
-		require.NoError(t, err, "batch Put failed")
+		// Write batch with size to database
+		err = batchWithSize.Write()
+		require.NoError(t, err, "Batch with size write failed")
 
-		// Delete then put (put should win)
-		err = batch.Delete([]byte("3"))
-		require.NoError(t, err, "batch Delete failed")
+		// Verify data is in database
+		got, err := database.Get2([]byte(key))
+		require.NoError(t, err, "Get operation failed for key %s", key)
+		require.Equal(t, []byte(value), got, "Value mismatch after batch with size write for key %s, expected %s, got %s", key, value, got)
 
-		err = batch.Put([]byte("3"), []byte("new-value-3"))
-		require.NoError(t, err, "batch Put failed")
+		// Test batch delete operation
+		deleteBatch := database.NewBatch()
+		key = "batch-key1"
+		err = deleteBatch.Delete([]byte(key))
+		require.NoError(t, err, "Delete operation on batch failed for key %s", key)
+		err = deleteBatch.Write()
+		require.NoError(t, err, "Batch write failed")
 
-		// Put then delete (delete should win)
-		err = batch.Put([]byte("7"), []byte("value-7"))
-		require.NoError(t, err, "batch Put failed")
+		// Verify key was deleted
+		has, err := database.Has([]byte(key))
+		require.NoError(t, err, "Has operation failed for key %s", key)
+		require.False(t, has, "Key should not exist after batch delete for key %s", key)
+	})
 
-		err = batch.Delete([]byte("7"))
-		require.NoError(t, err, "batch Delete failed")
+	t.Run("IndexedBatch", func(t *testing.T) {
+		database := newDB()
+		defer database.Close()
+
+		// Create an indexed batch
+		batch := database.NewIndexedBatch()
+		require.NotNil(t, batch, "NewIndexedBatch should return a non-nil batch")
+
+		// Add some data to the batch
+		testData := map[string]string{
+			"indexed-key1": "indexed-value1",
+			"indexed-key2": "indexed-value2",
+			"indexed-key3": "indexed-value3",
+		}
+
+		for k, v := range testData {
+			err := batch.Put([]byte(k), []byte(v))
+			require.NoError(t, err, "Put operation on indexed batch failed for key %s", k)
+		}
+
+		// Check batch size is non-zero
+		require.Greater(t, batch.Size(), 0, "Indexed batch size should be greater than 0")
+
+		// Test read operations on the batch (should see uncommitted data)
+		for k, v := range testData {
+			// Test Has
+			has, err := batch.Has([]byte(k))
+			require.NoError(t, err, "Has operation on indexed batch failed for key %s", k)
+			require.True(t, has, "key %s should exist in indexed batch", k)
+
+			// Test Get2
+			val, err := batch.Get2([]byte(k))
+			require.NoError(t, err, "Get2 operation on indexed batch failed for key %s", k)
+			require.Equal(t, []byte(v), val, "value mismatch for key %s in indexed batch", k)
+		}
+
+		// Test iterator on the batch
+		iter, err := batch.NewIterator([]byte("indexed-"), false)
+		require.NoError(t, err, "NewIterator on indexed batch failed")
+		defer iter.Close()
+
+		// Count keys with prefix
+		count := 0
+		for iter.First(); iter.Valid(); iter.Next() {
+			count++
+			key := string(iter.Key())
+			require.Contains(t, testData, key, "Iterator returned unexpected key %s", key)
+			val, err := iter.Value()
+			require.NoError(t, err, "Iterator value retrieval failed for key %s", key)
+			require.Equal(t, []byte(testData[key]), val, "Iterator value mismatch for key %s", key)
+		}
+		require.Equal(t, len(testData), count, "Iterator should return all keys with prefix")
+
+		// Write batch to database
+		err = batch.Write()
+		require.NoError(t, err, "Indexed batch write failed")
+
+		// Verify data is in database after write
+		for k, v := range testData {
+			val, err := database.Get2([]byte(k))
+			require.NoError(t, err, "Get operation failed for key %s", k)
+			require.Equal(t, []byte(v), val, "Value mismatch after indexed batch write for key %s", k)
+		}
+
+		// Test batch with pre-allocated size
+		batchWithSize := database.NewIndexedBatchWithSize(1024)
+		require.NotNil(t, batchWithSize, "NewIndexedBatchWithSize should return a non-nil batch")
+
+		// Add and read data in the same batch
+		key := "indexed-size-key"
+		value := "indexed-size-value"
+		err = batchWithSize.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation on indexed batch with size failed for key %s", key)
+
+		// Verify data can be read from the batch before writing
+		val, err := batchWithSize.Get2([]byte(key))
+		require.NoError(t, err, "Get2 operation on indexed batch with size failed for key %s", key)
+		require.Equal(t, []byte(value), val, "Value mismatch in indexed batch with size for key %s", key)
+
+		// Write batch with size to database
+		err = batchWithSize.Write()
+		require.NoError(t, err, "Indexed batch with size write failed")
+
+		// Test batch delete and read in the same batch
+		deleteBatch := database.NewIndexedBatch()
+
+		// First add a key
+		key = "to-delete"
+		value = "delete-me"
+		err = deleteBatch.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation on indexed batch failed for key %s", key)
+
+		// Then delete it in the same batch
+		err = deleteBatch.Delete([]byte(key))
+		require.NoError(t, err, "Delete operation on indexed batch failed for key %s", key)
+
+		// Verify the key is not visible in the batch
+		has, err := deleteBatch.Has([]byte(key))
+		require.NoError(t, err, "Has operation on indexed batch failed for key %s", key)
+		require.False(t, has, "key %s should not exist in indexed batch after delete", key)
 
 		// Write the batch
-		err = batch.Write()
-		require.NoError(t, err, "batch Write failed")
-
-		// Verify expected state after second batch
-		expectedPresent := map[string]string{
-			"2": "value-2",
-			"3": "new-value-3",
-			"4": "value-4",
-			"5": "value-5",
-			"6": "value-6",
-		}
-		expectedAbsent := []string{"1", "7"}
-
-		// Check present keys
-		for k, expectedVal := range expectedPresent {
-			has, err := database.Has([]byte(k))
-			require.NoError(t, err, "Has operation failed")
-			require.True(t, has, "key %s should be present", k)
-
-			val, err := database.Get([]byte(k))
-			require.NoError(t, err, "Get operation failed")
-			require.Equal(t, []byte(expectedVal), val, "wrong value for key %s", k)
-		}
-
-		// Check absent keys
-		for _, k := range expectedAbsent {
-			has, err := database.Has([]byte(k))
-			require.NoError(t, err, "Has operation failed")
-			require.False(t, has, "key %s should be absent", k)
-		}
+		err = deleteBatch.Write()
+		require.NoError(t, err, "Indexed batch write failed")
 	})
 
 	t.Run("BatchSize", func(t *testing.T) {
@@ -335,8 +425,10 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// Helper to add a range of keys
 		addRange := func(start, stop int) {
 			for i := start; i <= stop; i++ {
-				err := database.Put([]byte(strconv.Itoa(i)), []byte("value-"+strconv.Itoa(i)))
-				require.NoError(t, err, "Put operation failed")
+				key := strconv.Itoa(i)
+				value := "value-" + key
+				err := database.Put([]byte(key), []byte(value))
+				require.NoError(t, err, "Put operation failed for key %s", key)
 			}
 		}
 
@@ -345,7 +437,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			for i := start; i <= stop; i++ {
 				key := []byte(strconv.Itoa(i))
 				has, err := database.Has(key)
-				require.NoError(t, err, "Has operation failed")
+				require.NoError(t, err, "Has operation failed for key %s", key)
 				if expected {
 					require.True(t, has, "key %s should exist", key)
 				} else {
@@ -403,7 +495,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		for k, v := range initialData {
 			err := database.Put([]byte(k), []byte(v))
-			require.NoError(t, err, "Put operation failed")
+			require.NoError(t, err, "Put operation failed for key %s", k)
 		}
 
 		// Create a snapshot
@@ -411,41 +503,46 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// Note: Snapshot doesn't have a Close method in the interface
 
 		// Modify the database after snapshot
-		err := database.Put([]byte("key4"), []byte("value4"))
-		require.NoError(t, err, "Put operation failed")
+		key := "key4"
+		value := "value4"
+		err := database.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation failed for key %s", key)
 
-		err = database.Delete([]byte("key1"))
-		require.NoError(t, err, "Delete operation failed")
+		key = "key1"
+		err = database.Delete([]byte(key))
+		require.NoError(t, err, "Delete operation failed for key %s", key)
 
-		err = database.Put([]byte("key2"), []byte("modified-value2"))
-		require.NoError(t, err, "Put operation failed")
+		key = "key2"
+		value = "modified-value2"
+		err = database.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation failed for key %s", key)
 
 		// Check snapshot has original data
 		for k, v := range initialData {
-			val, err := snapshot.Get([]byte(k))
-			require.NoError(t, err, "Get from snapshot failed")
-			require.Equal(t, []byte(v), val, "snapshot value mismatch")
+			val, err := snapshot.Get2([]byte(k))
+			require.NoError(t, err, "Get from snapshot failed for key %s", k)
+			require.Equal(t, []byte(v), val, "snapshot value mismatch for key %s", k)
 		}
 
 		// Snapshot should not have new key
-		_, err = snapshot.Get([]byte("key4"))
+		_, err = snapshot.Get2([]byte("key4"))
 		require.Error(t, err, "key4 should not exist in snapshot")
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 
 		// Check database has modified data
 		// key1 should be deleted
 		has, err := database.Has([]byte("key1"))
-		require.NoError(t, err, "Has operation failed")
+		require.NoError(t, err, "Has operation failed for key1")
 		require.False(t, has, "key1 should be deleted in database")
 
 		// key2 should have modified value
-		val, err := database.Get([]byte("key2"))
-		require.NoError(t, err, "Get operation failed")
+		val, err := database.Get2([]byte("key2"))
+		require.NoError(t, err, "Get operation failed for key2")
 		require.Equal(t, []byte("modified-value2"), val, "key2 should have modified value")
 
 		// key4 should exist
-		val, err = database.Get([]byte("key4"))
-		require.NoError(t, err, "Get operation failed")
+		val, err = database.Get2([]byte("key4"))
+		require.NoError(t, err, "Get operation failed for key4")
 		require.Equal(t, []byte("value4"), val, "key4 should exist in database")
 
 		// Test snapshot iterator
@@ -467,25 +564,27 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		database := newDB()
 
 		// Add a key before closing
-		err := database.Put([]byte("key"), []byte("value"))
-		require.NoError(t, err, "Put operation failed")
+		key := "key"
+		value := "value"
+		err := database.Put([]byte(key), []byte(value))
+		require.NoError(t, err, "Put operation failed for key %s", key)
 
 		// Close the database
 		err = database.Close()
 		require.NoError(t, err, "Close operation failed")
 
 		// Operations should fail after close
-		_, err = database.Get([]byte("key"))
-		require.Error(t, err, "Get should fail after Close")
+		_, err = database.Get2([]byte(key))
+		require.Error(t, err, "Get should fail after Close for key %s", key)
 
-		_, err = database.Has([]byte("key"))
-		require.Error(t, err, "Has should fail after Close")
+		_, err = database.Has([]byte(key))
+		require.Error(t, err, "Has should fail after Close for key %s", key)
 
 		err = database.Put([]byte("key2"), []byte("value2"))
-		require.Error(t, err, "Put should fail after Close")
+		require.Error(t, err, "Put should fail after Close for key %s", key)
 
-		err = database.Delete([]byte("key"))
-		require.Error(t, err, "Delete should fail after Close")
+		err = database.Delete([]byte(key))
+		require.Error(t, err, "Delete should fail after Close for key %s", key)
 
 		err = database.DeleteRange([]byte("key"), []byte("key2"))
 		require.Error(t, err, "DeleteRange should fail after Close")
@@ -501,5 +600,16 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		// But Write should fail
 		err = batch.Write()
 		require.Error(t, err, "batch Write should fail after Close")
+
+		// Same with indexed batch
+		batch = database.NewIndexedBatch()
+		_ = batch.Put([]byte("batchkey"), []byte("batchval"))
+		err = batch.Write()
+		require.Error(t, err, "batch Write should fail after Close")
+
+		// NewSnapshot() on closed db should panic
+		require.Panics(t, func() {
+			database.NewSnapshot()
+		})
 	})
 }

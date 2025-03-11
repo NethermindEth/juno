@@ -42,7 +42,7 @@ func (d *Database) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
-func (d *Database) Get(key []byte) ([]byte, error) {
+func (d *Database) Get2(key []byte) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -108,13 +108,10 @@ func (d *Database) DeleteRange(start, end []byte) error {
 	return nil
 }
 
-func (d *Database) NewBatch() db.Batch {
-	return &batch{db: d}
-}
-
-func (d *Database) NewBatchWithSize(_ int) db.Batch {
-	return &batch{db: d}
-}
+func (d *Database) NewBatch() db.Batch                            { return newBatch(d) }
+func (d *Database) NewBatchWithSize(_ int) db.Batch               { return newBatch(d) }
+func (d *Database) NewIndexedBatch() db.IndexedBatch              { return newBatch(d) }
+func (d *Database) NewIndexedBatchWithSize(_ int) db.IndexedBatch { return newBatch(d) }
 
 func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	d.lock.RLock()
@@ -155,6 +152,9 @@ func (d *Database) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 }
 
 func (d *Database) NewSnapshot() db.Snapshot {
+	if d.db == nil {
+		panic(errDBClosed)
+	}
 	return d.copy()
 }
 

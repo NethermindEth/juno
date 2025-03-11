@@ -7,7 +7,7 @@ type KeyValueReader interface {
 	// Checks if a key exists in the data store
 	Has(key []byte) (bool, error)
 	// Retrieves a value for a given key if it exists
-	Get(key []byte) ([]byte, error)
+	Get2(key []byte) ([]byte, error) // TODO(weiihann): deal with this
 }
 
 // Represents a data store that can write to the database
@@ -38,6 +38,7 @@ type KeyValueStore interface {
 	KeyValueWriter
 	KeyValueRangeDeleter
 	Batcher
+	IndexedBatcher
 	Snapshotter
 	Iterable
 	Helper

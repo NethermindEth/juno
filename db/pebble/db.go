@@ -30,6 +30,7 @@ var (
 	_ db.KeyValueStore = (*DB)(nil)
 )
 
+// TODO(weiihann): check if lock is necessary
 type DB struct {
 	db       *pebble.DB
 	closed   bool
@@ -180,7 +181,7 @@ func (d *DB) Has(key []byte) (bool, error) {
 	return true, utils.RunAndWrapOnError(closer.Close, err)
 }
 
-func (d *DB) Get(key []byte) ([]byte, error) {
+func (d *DB) Get2(key []byte) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -238,6 +239,14 @@ func (d *DB) NewBatch() db.Batch {
 
 func (d *DB) NewBatchWithSize(size int) db.Batch {
 	return NewBatch(d.db.NewBatchWithSize(size), d, d.lock, d.listener)
+}
+
+func (d *DB) NewIndexedBatch() db.IndexedBatch {
+	return NewBatch(d.db.NewIndexedBatch(), d, d.lock, d.listener)
+}
+
+func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
+	return NewBatch(d.db.NewIndexedBatchWithSize(size), d, d.lock, d.listener)
 }
 
 func (d *DB) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {

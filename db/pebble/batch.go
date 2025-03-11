@@ -98,6 +98,41 @@ func (b *batch) Get(key []byte, cb func([]byte) error) error {
 	return get(b.batch, key, cb, b.listener)
 }
 
+func (b *batch) Get2(key []byte) ([]byte, error) {
+	if b.batch == nil {
+		return nil, ErrDiscardedTransaction
+	}
+
+	start := time.Now()
+	defer func() { b.listener.OnIO(false, time.Since(start)) }()
+
+	val, closer, err := b.batch.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return nil, db.ErrKeyNotFound
+		}
+		return nil, err
+	}
+
+	return utils.CopySlice(val), closer.Close()
+}
+
+func (b *batch) Has(key []byte) (bool, error) {
+	if b.batch == nil {
+		return false, ErrDiscardedTransaction
+	}
+
+	_, closer, err := b.batch.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, closer.Close()
+}
+
 // NewIterator : see db.Transaction.NewIterator
 func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
 	var iter *pebble.Iterator
