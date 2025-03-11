@@ -48,7 +48,7 @@ func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, 
 		dbBufferPool.Put(dbBuf)
 	}()
 
-	if err := d.DbKey(dbBuf, owner, path, hash, isLeaf); err != nil {
+	if err := d.dbKey(dbBuf, owner, path, hash, isLeaf); err != nil {
 		return 0, err
 	}
 
@@ -83,7 +83,7 @@ func (d *Database) Put(owner felt.Felt, path trieutils.Path, hash felt.Felt, blo
 		dbBufferPool.Put(buffer)
 	}()
 
-	if err := d.DbKey(buffer, owner, path, hash, isLeaf); err != nil {
+	if err := d.dbKey(buffer, owner, path, hash, isLeaf); err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (d *Database) Delete(owner felt.Felt, path trieutils.Path, hash felt.Felt, 
 		dbBufferPool.Put(buffer)
 	}()
 
-	if err := d.DbKey(buffer, owner, path, hash, isLeaf); err != nil {
+	if err := d.dbKey(buffer, owner, path, hash, isLeaf); err != nil {
 		return err
 	}
 
@@ -152,17 +152,18 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func (d *Database) DbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) error {
+func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) error {
 	_, err := buf.Write(d.prefix.Key())
 	if err != nil {
 		return err
 	}
 
 	var section byte
+	const shortPathLength = 5
 	if d.prefix.Key()[0] == 2 {
 		section = 2
 	} else {
-		if path.Len() <= 5 {
+		if path.Len() <= shortPathLength {
 			section = 0
 		} else {
 			section = 1
@@ -191,7 +192,8 @@ func (d *Database) DbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path
 		return err
 	}
 
-	pathBytes := make([]byte, 8)
+	const pathSignificantBytes = 8
+	pathBytes := make([]byte, pathSignificantBytes)
 	pathBuf := bytes.NewBuffer(nil)
 	if _, err := path.Write(pathBuf); err != nil {
 		return err

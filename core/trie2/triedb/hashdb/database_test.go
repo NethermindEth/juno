@@ -16,7 +16,10 @@ func TestDatabase(t *testing.T) {
 	memDB := pebble.NewMemTest(t)
 	txn, err := memDB.NewTransaction(true)
 	require.NoError(t, err)
-	defer txn.Discard()
+	defer func() {
+		err = txn.Discard()
+		require.NoError(t, err)
+	}()
 
 	prefix := db.ClassesTrie
 	config := DefaultConfig
@@ -184,14 +187,14 @@ func TestDatabase(t *testing.T) {
 		hash.SetUint64(456)
 
 		buf := new(bytes.Buffer)
-		err := db.DbKey(buf, owner, path, hash, true)
+		err := db.dbKey(buf, owner, path, hash, true)
 		require.NoError(t, err)
 
 		keyBytes := buf.Bytes()
 		assert.Equal(t, prefix.Key()[0], keyBytes[0])
 
 		buf.Reset()
-		err = db.DbKey(buf, owner, path, hash, false)
+		err = db.dbKey(buf, owner, path, hash, false)
 		require.NoError(t, err)
 
 		keyBytes = buf.Bytes()
@@ -220,8 +223,10 @@ func TestDatabaseWithDifferentCaches(t *testing.T) {
 	memDB := pebble.NewMemTest(t)
 	txn, err := memDB.NewTransaction(true)
 	require.NoError(t, err)
-	defer txn.Discard()
-
+	defer func() {
+		err = txn.Discard()
+		require.NoError(t, err)
+	}()
 	prefix := db.ClassesTrie
 
 	testCases := []struct {

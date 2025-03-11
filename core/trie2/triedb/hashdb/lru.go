@@ -30,7 +30,7 @@ func (c *LRUCache) Get(buf *bytes.Buffer, key []byte) bool {
 	return true
 }
 
-func (c *LRUCache) Set(key []byte, value []byte) {
+func (c *LRUCache) Set(key, value []byte) {
 	stringKey := string(key)
 	c.cache.Add(stringKey, value)
 }

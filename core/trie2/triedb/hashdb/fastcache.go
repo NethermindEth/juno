@@ -37,7 +37,7 @@ func (c *FastCache) Get(buf *bytes.Buffer, key []byte) bool {
 	return true
 }
 
-func (c *FastCache) Set(key []byte, value []byte) {
+func (c *FastCache) Set(key, value []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
