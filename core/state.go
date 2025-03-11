@@ -69,7 +69,7 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 	}
 
 	numBytes := MarshalBlockNumber(blockNumber)
-	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes); err != nil {
+	if err = s.txn.Set(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
 		return err
 	}
 
@@ -328,7 +328,7 @@ type DeclaredClass struct {
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
-	classKey := db.Class.Key(classHash.Marshal())
+	classKey := db.ClassKey(classHash)
 
 	err := s.txn.Get(classKey, func(val []byte) error {
 		return nil
@@ -350,7 +350,7 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 
 // Class returns the class object corresponding to the given classHash
 func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	classKey := db.Class.Key(classHash.Marshal())
+	classKey := db.ClassKey(classHash)
 
 	var class DeclaredClass
 	err := s.txn.Get(classKey, func(val []byte) error {
@@ -538,7 +538,7 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
-	if err := s.txn.Get(db.ContractDeploymentHeight.Key(addr.Marshal()), func(bytes []byte) error {
+	if err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(bytes []byte) error {
 		deployedAt = binary.BigEndian.Uint64(bytes)
 		return nil
 	}); err != nil {
@@ -645,7 +645,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 			continue
 		}
 
-		if err = s.txn.Delete(db.Class.Key(cHash.Marshal())); err != nil {
+		if err = s.txn.Delete(db.ClassKey(cHash)); err != nil {
 			return fmt.Errorf("delete class: %v", err)
 		}
 
@@ -670,7 +670,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if err = s.txn.Delete(db.ContractDeploymentHeight.Key(addr.Marshal())); err != nil {
+	if err = s.txn.Delete(db.ContractDeploymentHeightKey(addr)); err != nil {
 		return err
 	}
 

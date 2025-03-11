@@ -3,7 +3,6 @@ package mempool
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/NethermindEth/juno/core"
@@ -74,7 +73,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 type Pool struct {
 	log         utils.SimpleLogger
 	state       core.StateReader
-	db          db.DB // to store the persistent mempool
+	db          db.KeyValueStore // to store the persistent mempool
 	txPushed    chan struct{}
 	memTxnList  *memTxnList
 	maxNumTxns  int
@@ -84,7 +83,7 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
+func New(mainDB db.KeyValueStore, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
@@ -121,80 +120,86 @@ func (p *Pool) dbWriter() {
 
 // LoadFromDB restores the in-memory transaction pool from the database
 func (p *Pool) LoadFromDB() error {
-	return p.db.View(func(txn db.Transaction) error {
-		headVal := new(felt.Felt)
-		err := headValue(txn, headVal)
+	headVal, err := GetHeadValue(p.db)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	currentHash := &headVal
+	for currentHash != nil {
+		curTxn, err := GetTxn(p.db, currentHash)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) {
-				return nil
-			}
 			return err
 		}
-		// loop through the persistent pool and push nodes to the in-memory pool
-		currentHash := headVal
-		for currentHash != nil {
-			curTxn, err := readTxn(txn, currentHash)
+		newMemPoolTxn := &memPoolTxn{Txn: curTxn.Txn}
+		if curTxn.NextHash != nil {
+			nextDBTxn, err := GetTxn(p.db, curTxn.NextHash)
 			if err != nil {
 				return err
 			}
-			newMemPoolTxn := &memPoolTxn{
-				Txn: curTxn.Txn,
-			}
-			if curTxn.NextHash != nil {
-				nextDBTxn, err := readTxn(txn, curTxn.NextHash)
-				if err != nil {
-					return err
-				}
-				newMemPoolTxn.Next = &memPoolTxn{
-					Txn: nextDBTxn.Txn,
-				}
-			}
-			p.memTxnList.push(newMemPoolTxn)
-			currentHash = curTxn.NextHash
+			newMemPoolTxn = &memPoolTxn{Txn: nextDBTxn.Txn}
 		}
-		return nil
-	})
+		p.memTxnList.push(newMemPoolTxn)
+		currentHash = curTxn.NextHash
+	}
+
+	return nil
 }
 
 // writeToDB adds the transaction to the persistent pool db
 func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
-	return p.db.Update(func(dbTxn db.Transaction) error {
-		tailVal := new(felt.Felt)
-		if err := tailValue(dbTxn, tailVal); err != nil {
-			if !errors.Is(err, db.ErrKeyNotFound) {
-				return err
-			}
-			tailVal = nil
-		}
-		if err := setTxn(dbTxn, &dbPoolTxn{Txn: *userTxn}); err != nil {
+	batch := p.db.NewBatch()
+
+	var tailVal *felt.Felt
+	val, err := GetTailValue(p.db)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		}
-		if tailVal != nil {
-			// Update old tail to point to the new item
-			var oldTailElem dbPoolTxn
-			oldTailElem, err := readTxn(dbTxn, tailVal)
-			if err != nil {
-				return err
-			}
-			oldTailElem.NextHash = userTxn.Transaction.Hash()
-			if err = setTxn(dbTxn, &oldTailElem); err != nil {
-				return err
-			}
-		} else {
-			// Empty list, make new item both the head and the tail
-			if err := updateHead(dbTxn, userTxn.Transaction.Hash()); err != nil {
-				return err
-			}
-		}
-		if err := updateTail(dbTxn, userTxn.Transaction.Hash()); err != nil {
-			return err
-		}
-		pLen, err := lenDB(dbTxn)
+		tailVal = nil
+	} else {
+		tailVal = &val
+	}
+
+	if err := WriteTxn(batch, &dbPoolTxn{Txn: *userTxn}); err != nil {
+		return err
+	}
+
+	if tailVal != nil {
+		// Update old tail to point to the new item
+		var oldTailElem dbPoolTxn
+		oldTailElem, err = GetTxn(p.db, tailVal)
 		if err != nil {
 			return err
 		}
-		return dbTxn.Set(db.MempoolLength.Key(), new(big.Int).SetInt64(int64(pLen+1)).Bytes())
-	})
+		oldTailElem.NextHash = userTxn.Transaction.Hash()
+		if err := WriteTxn(batch, &oldTailElem); err != nil {
+			return err
+		}
+	} else {
+		// Empty list, make new item both the head and the tail
+		if err := WriteHeadValue(batch, userTxn.Transaction.Hash()); err != nil {
+			return err
+		}
+	}
+
+	if err := WriteTailValue(batch, userTxn.Transaction.Hash()); err != nil {
+		return err
+	}
+
+	pLen, err := GetLenDB(p.db)
+	if err != nil {
+		return err
+	}
+
+	if err := WriteLenDB(batch, pLen+1); err != nil {
+		return err
+	}
+
+	return batch.Write()
 }
 
 // Push queues a transaction to the pool
@@ -288,15 +293,6 @@ func (p *Pool) Wait() <-chan struct{} {
 	return p.txPushed
 }
 
-// Len returns the number of transactions in the persistent pool
 func (p *Pool) LenDB() (int, error) {
-	txn, err := p.db.NewTransaction(false)
-	if err != nil {
-		return 0, err
-	}
-	lenDB, err := lenDB(txn)
-	if err != nil {
-		return 0, err
-	}
-	return lenDB, txn.Discard()
+	return GetLenDB(p.db)
 }

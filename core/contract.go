@@ -116,7 +116,7 @@ func (c *ContractUpdater) Purge() error {
 // ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func ContractNonce(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
-	key := db.ContractNonce.Key(addr.Marshal())
+	key := db.ContractNonceKey(addr)
 	var nonce *felt.Felt
 	if err := txn.Get(key, func(val []byte) error {
 		nonce = new(felt.Felt)
@@ -130,7 +130,7 @@ func ContractNonce(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
 
 // UpdateNonce updates the nonce value in the database.
 func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
-	nonceKey := db.ContractNonce.Key(c.Address.Marshal())
+	nonceKey := db.ContractNonceKey(c.Address)
 	return c.txn.Set(nonceKey, nonce.Marshal())
 }
 
@@ -178,7 +178,7 @@ func ContractStorage(addr, key *felt.Felt, txn db.Transaction) (*felt.Felt, erro
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
 func ContractClassHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) {
-	key := db.ContractClassHash.Key(addr.Marshal())
+	key := db.ContractClassHashKey(addr)
 	var classHash *felt.Felt
 	if err := txn.Get(key, func(val []byte) error {
 		classHash = new(felt.Felt)
@@ -191,7 +191,7 @@ func ContractClassHash(addr *felt.Felt, txn db.Transaction) (*felt.Felt, error) 
 }
 
 func setClassHash(txn db.Transaction, addr, classHash *felt.Felt) error {
-	classHashKey := db.ContractClassHash.Key(addr.Marshal())
+	classHashKey := db.ContractClassHashKey(addr)
 	return txn.Set(classHashKey, classHash.Marshal())
 }
 
