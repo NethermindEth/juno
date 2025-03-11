@@ -21,6 +21,7 @@ type DB struct {
 	listener   db.EventListener
 }
 
+// TODO(weiihann): handle this remotedb with new interfaces
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {

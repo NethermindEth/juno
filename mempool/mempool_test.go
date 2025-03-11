@@ -20,7 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func setupDatabase(dbPath string, dltExisting bool) (db.DB, func(), error) {
+func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), error) {
 	if _, err := os.Stat(dbPath); err == nil {
 		if dltExisting {
 			if err := os.RemoveAll(dbPath); err != nil {
@@ -30,7 +30,7 @@ func setupDatabase(dbPath string, dltExisting bool) (db.DB, func(), error) {
 	} else if !os.IsNotExist(err) {
 		return nil, nil, err
 	}
-	persistentPool, err := pebble.New(dbPath)
+	persistentPool, err := pebble.New2(dbPath)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -64,7 +64,7 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 }
 
 func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {
-	return db.ContractStorageHistory.Key(contractAddress.Marshal(), storageLocation.Marshal())
+	return db.ContractStorageHistoryKey(contractAddress, storageLocation)
 }
 
 // LogContractStorage logs the old value of a storage location for the given contract which changed on height `height`
@@ -90,7 +90,7 @@ func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt,
 }
 
 func nonceLogKey(contractAddress *felt.Felt) []byte {
-	return db.ContractNonceHistory.Key(contractAddress.Marshal())
+	return db.ContractNonceHistoryKey(contractAddress)
 }
 
 func (h *history) LogContractNonce(contractAddress, oldValue *felt.Felt, height uint64) error {
@@ -112,7 +112,7 @@ func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*f
 }
 
 func classHashLogKey(contractAddress *felt.Felt) []byte {
-	return db.ContractClassHashHistory.Key(contractAddress.Marshal())
+	return db.ContractClassHashHistoryKey(contractAddress)
 }
 
 func (h *history) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
