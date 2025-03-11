@@ -51,11 +51,9 @@ func TestDatabase(t *testing.T) {
 
 		data := []byte("test data")
 
-		// Test Put
 		err := db.Put(owner, path, hash, data, true)
 		require.NoError(t, err)
 
-		// Test Get
 		buf := new(bytes.Buffer)
 		n, err := db.Get(buf, owner, path, hash, true)
 		require.NoError(t, err)
@@ -77,21 +75,26 @@ func TestDatabase(t *testing.T) {
 
 		data := []byte("test data")
 
-		// Put data
 		err := db.Put(owner, path, hash, data, true)
 		require.NoError(t, err)
 
-		// Get data to populate clean cache
 		buf := new(bytes.Buffer)
-		_, err = db.Get(buf, owner, path, hash, true)
+		bufLen, err := db.Get(buf, owner, path, hash, true)
+		require.NotZero(t, bufLen)
 		require.NoError(t, err)
+		require.Equal(t, 0, db.CleanCache.Hits())
 
-		// Get again, should hit clean cache
 		buf.Reset()
 		n, err := db.Get(buf, owner, path, hash, true)
 		require.NoError(t, err)
 		assert.Equal(t, len(data), n)
 		assert.Equal(t, data, buf.Bytes())
+		assert.Equal(t, 1, db.CleanCache.Hits())
+
+		buf.Reset()
+		n, err = db.Get(buf, owner, path, hash, true)
+		require.NoError(t, err)
+		assert.Equal(t, 2, db.CleanCache.Hits())
 	})
 
 	t.Run("Get from dirty cache", func(t *testing.T) {
@@ -108,7 +111,6 @@ func TestDatabase(t *testing.T) {
 
 		data := []byte("test data")
 
-		// Create a key in the buffer
 		dbBuf := dbBufferPool.Get().(*bytes.Buffer)
 		dbBuf.Reset()
 		defer func() {
@@ -116,18 +118,15 @@ func TestDatabase(t *testing.T) {
 			dbBufferPool.Put(dbBuf)
 		}()
 
-		err := db.DbKey(dbBuf, owner, path, hash, true)
+		err = db.Put(owner, path, hash, data, true)
 		require.NoError(t, err)
 
-		// Set directly in dirty cache
-		db.dirtyCache.Set(dbBuf.Bytes(), data)
-
-		// Get should hit dirty cache
 		buf := new(bytes.Buffer)
 		n, err := db.Get(buf, owner, path, hash, true)
 		require.NoError(t, err)
 		assert.Equal(t, len(data), n)
 		assert.Equal(t, data, buf.Bytes())
+		assert.Equal(t, 1, db.DirtyCache.Hits())
 	})
 
 	t.Run("Delete", func(t *testing.T) {
@@ -144,15 +143,12 @@ func TestDatabase(t *testing.T) {
 
 		data := []byte("test data")
 
-		// Put data
 		err := db.Put(owner, path, hash, data, true)
 		require.NoError(t, err)
 
-		// Delete data
 		err = db.Delete(owner, path, hash, true)
 		require.NoError(t, err)
 
-		// Try to get deleted data
 		buf := new(bytes.Buffer)
 		_, err = db.Get(buf, owner, path, hash, true)
 		assert.Error(t, err)
@@ -164,13 +160,11 @@ func TestDatabase(t *testing.T) {
 		owner := felt.Felt{}
 		owner.SetUint64(123)
 
-		// Test with owner
 		iter, err := db.NewIterator(owner)
 		require.NoError(t, err)
 		defer iter.Close()
 		assert.NotNil(t, iter)
 
-		// Test with empty owner
 		iter, err = db.NewIterator(felt.Felt{})
 		require.NoError(t, err)
 		defer iter.Close()
@@ -189,42 +183,34 @@ func TestDatabase(t *testing.T) {
 		hash := felt.Felt{}
 		hash.SetUint64(456)
 
-		// Test leaf node key
 		buf := new(bytes.Buffer)
 		err := db.DbKey(buf, owner, path, hash, true)
 		require.NoError(t, err)
 
-		// Verify key format
 		keyBytes := buf.Bytes()
-		assert.Equal(t, prefix.Key()[0], keyBytes[0]) // Prefix
+		assert.Equal(t, prefix.Key()[0], keyBytes[0])
 
-		// Test non-leaf node key
 		buf.Reset()
 		err = db.DbKey(buf, owner, path, hash, false)
 		require.NoError(t, err)
 
-		// Verify key format
 		keyBytes = buf.Bytes()
-		assert.Equal(t, prefix.Key()[0], keyBytes[0]) // Prefix
+		assert.Equal(t, prefix.Key()[0], keyBytes[0])
 	})
 
 	t.Run("EmptyDatabase", func(t *testing.T) {
 		emptyDB := EmptyDatabase{}
 
-		// Test Get
 		buf := new(bytes.Buffer)
 		_, err := emptyDB.Get(buf, felt.Felt{}, trieutils.Path{}, false)
 		assert.Equal(t, ErrCallEmptyDatabase, err)
 
-		// Test Put
 		err = emptyDB.Put(felt.Felt{}, trieutils.Path{}, []byte{}, false)
 		assert.Equal(t, ErrCallEmptyDatabase, err)
 
-		// Test Delete
 		err = emptyDB.Delete(felt.Felt{}, trieutils.Path{}, false)
 		assert.Equal(t, ErrCallEmptyDatabase, err)
 
-		// Test NewIterator
 		_, err = emptyDB.NewIterator(felt.Felt{})
 		assert.Equal(t, ErrCallEmptyDatabase, err)
 	})
@@ -255,7 +241,7 @@ func TestDatabaseWithDifferentCaches(t *testing.T) {
 			name: "FastCache",
 			config: &Config{
 				CleanCacheType: CacheTypeFastCache,
-				CleanCacheSize: 1024 * 1024, // 1MB
+				CleanCacheSize: 1024 * 1024,
 				DirtyCacheType: CacheTypeFastCache,
 				DirtyCacheSize: 1024,
 			},
@@ -278,16 +264,21 @@ func TestDatabaseWithDifferentCaches(t *testing.T) {
 
 			data := []byte("test data")
 
-			// Test Put
 			err := db.Put(owner, path, hash, data, true)
 			require.NoError(t, err)
 
-			// Test Get
 			buf := new(bytes.Buffer)
 			n, err := db.Get(buf, owner, path, hash, true)
 			require.NoError(t, err)
 			assert.Equal(t, len(data), n)
 			assert.Equal(t, data, buf.Bytes())
+			assert.Equal(t, 0, db.CleanCache.Hits())
+			assert.Equal(t, 1, db.DirtyCache.Hits())
+
+			n, err = db.Get(buf, owner, path, hash, true)
+			require.NoError(t, err)
+			assert.Equal(t, 1, db.CleanCache.Hits())
+			assert.Equal(t, 1, db.DirtyCache.Hits())
 		})
 	}
 }
