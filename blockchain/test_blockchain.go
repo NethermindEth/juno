@@ -75,13 +75,17 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
 		nil,
 	)
 
-	chain.PredeployContracts(t, []*TestClass{chain.account, chain.deployer, chain.erc20})
+	chain.Prepare(t, []*TestClass{chain.account, chain.deployer, chain.erc20})
 
 	return &chain
 }
 
 func (b *testBlockchain) AccountAddress() *felt.Felt {
 	return b.account.accounts[0].address
+}
+
+func (b *testBlockchain) DeployerAddress() *felt.Felt {
+	return b.deployer.accounts[0].address
 }
 
 func (b *testBlockchain) AccountClassHash() *felt.Felt {
@@ -120,20 +124,36 @@ type TestClass struct {
 	hash     *felt.Felt
 	class    *core.Cairo1Class
 	accounts []*testAccount
+	snClass  *starknet.SierraDefinition
+	complied *starknet.CompiledClass
 }
 
 func NewClass(t *testing.T, path string) *TestClass {
 	t.Helper()
 
-	_, _, class := classFromFile(t, path)
+	snClass, compliedClass, class := classFromFile(t, path)
 	classHash, err := class.Hash()
 	require.NoError(t, err)
 
 	return &TestClass{
-		t:     t,
-		class: class,
-		hash:  classHash,
+		t:        t,
+		class:    class,
+		hash:     classHash,
+		snClass:  snClass,
+		complied: compliedClass,
 	}
+}
+
+func (b *TestClass) Hash() *felt.Felt {
+	return b.hash
+}
+
+func (b *TestClass) SNClass() *starknet.SierraDefinition {
+	return b.snClass
+}
+
+func (b *TestClass) CompliedClass() *starknet.CompiledClass {
+	return b.complied
 }
 
 func (b *TestClass) AddAccount(address, balance *felt.Felt) {
@@ -144,7 +164,7 @@ func (b *TestClass) AddAccount(address, balance *felt.Felt) {
 	})
 }
 
-func (b *testBlockchain) PredeployContracts(t *testing.T, classes []*TestClass) {
+func (b *testBlockchain) Prepare(t *testing.T, classes []*TestClass) {
 	t.Helper()
 
 	newClasses := make(map[felt.Felt]core.Class, len(classes))
