@@ -10,8 +10,6 @@ import (
 
 // TestKeyValueStoreSuite runs a suite of tests against a KeyValueStore database
 // implementation.
-//
-//nolint:mnd,gocyclo,funlen
 func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 	t.Run("Iterator", func(t *testing.T) {
 		tests := []struct {
@@ -181,7 +179,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "key should not exist")
 
 		// Test Get on non-existent key
-		err = database.Get(key, func([]byte) error { return nil })
+		_, err = database.Get2(key)
 		require.Error(t, err, "Get should fail on non-existent key %s", key)
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 
@@ -196,11 +194,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.True(t, has, "key should exist after Put")
 
 		// Test Get after Put
-		var got []byte
-		err = database.Get(key, func(data []byte) error {
-			got = data
-			return nil
-		})
+		got, err := database.Get2(key)
 		require.NoError(t, err, "Get operation failed for key %s", key)
 		require.Equal(t, value, got, "Get returned wrong value for key %s, expected %s, got %s", key, value, got)
 
@@ -214,7 +208,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "key should not exist after Delete for key %s", key)
 
 		// Test Get after Delete
-		err = database.Get(key, func([]byte) error { return nil })
+		_, err = database.Get2(key)
 		require.Error(t, err, "Get should fail after Delete for key %s", key)
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 	})
@@ -255,11 +249,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		// Verify data is in database after write
 		for k, v := range testData {
-			var val []byte
-			err = database.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
+			val, err := database.Get2([]byte(k))
 			require.NoError(t, err, "Get operation failed for key %s", k)
 			require.Equal(t, []byte(v), val, "Value mismatch after batch write for key %s, expected %s, got %s", k, v, val)
 		}
@@ -283,11 +273,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.NoError(t, err, "Batch with size write failed")
 
 		// Verify data is in database
-		var got []byte
-		err = database.Get([]byte(key), func(data []byte) error {
-			got = data
-			return nil
-		})
+		got, err := database.Get2([]byte(key))
 		require.NoError(t, err, "Get operation failed for key %s", key)
 		require.Equal(t, []byte(value), got, "Value mismatch after batch with size write for key %s, expected %s, got %s", key, value, got)
 
@@ -335,13 +321,9 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			require.NoError(t, err, "Has operation on indexed batch failed for key %s", k)
 			require.True(t, has, "key %s should exist in indexed batch", k)
 
-			// Test Get
-			var val []byte
-			err = batch.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
-			require.NoError(t, err, "Get operation on indexed batch failed for key %s", k)
+			// Test Get2
+			val, err := batch.Get2([]byte(k))
+			require.NoError(t, err, "Get2 operation on indexed batch failed for key %s", k)
 			require.Equal(t, []byte(v), val, "value mismatch for key %s in indexed batch", k)
 		}
 
@@ -368,11 +350,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		// Verify data is in database after write
 		for k, v := range testData {
-			var val []byte
-			err = database.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
+			val, err := database.Get2([]byte(k))
 			require.NoError(t, err, "Get operation failed for key %s", k)
 			require.Equal(t, []byte(v), val, "Value mismatch after indexed batch write for key %s", k)
 		}
@@ -388,12 +366,8 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.NoError(t, err, "Put operation on indexed batch with size failed for key %s", key)
 
 		// Verify data can be read from the batch before writing
-		var val []byte
-		err = batchWithSize.Get([]byte(key), func(data []byte) error {
-			val = data
-			return nil
-		})
-		require.NoError(t, err, "Get operation on indexed batch with size failed for key %s", key)
+		val, err := batchWithSize.Get2([]byte(key))
+		require.NoError(t, err, "Get2 operation on indexed batch with size failed for key %s", key)
 		require.Equal(t, []byte(value), val, "Value mismatch in indexed batch with size for key %s", key)
 
 		// Write batch with size to database
@@ -545,17 +519,13 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 
 		// Check snapshot has original data
 		for k, v := range initialData {
-			var val []byte
-			err = snapshot.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
+			val, err := snapshot.Get2([]byte(k))
 			require.NoError(t, err, "Get from snapshot failed for key %s", k)
 			require.Equal(t, []byte(v), val, "snapshot value mismatch for key %s", k)
 		}
 
 		// Snapshot should not have new key
-		err = snapshot.Get([]byte("key4"), func([]byte) error { return nil })
+		_, err = snapshot.Get2([]byte("key4"))
 		require.Error(t, err, "key4 should not exist in snapshot")
 		require.Equal(t, ErrKeyNotFound, err, "expected ErrKeyNotFound")
 
@@ -566,19 +536,12 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "key1 should be deleted in database")
 
 		// key2 should have modified value
-		var val []byte
-		err = database.Get([]byte("key2"), func(data []byte) error {
-			val = data
-			return nil
-		})
+		val, err := database.Get2([]byte("key2"))
 		require.NoError(t, err, "Get operation failed for key2")
 		require.Equal(t, []byte("modified-value2"), val, "key2 should have modified value")
 
 		// key4 should exist
-		err = database.Get([]byte("key4"), func(data []byte) error {
-			val = data
-			return nil
-		})
+		val, err = database.Get2([]byte("key4"))
 		require.NoError(t, err, "Get operation failed for key4")
 		require.Equal(t, []byte("value4"), val, "key4 should exist in database")
 
@@ -611,7 +574,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.NoError(t, err, "Close operation failed")
 
 		// Operations should fail after close
-		err = database.Get([]byte(key), func([]byte) error { return nil })
+		_, err = database.Get2([]byte(key))
 		require.Error(t, err, "Get should fail after Close for key %s", key)
 
 		_, err = database.Has([]byte(key))

@@ -1,11 +1,11 @@
 package memory
 
 import (
-	"bytes"
 	"maps"
 	"slices"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var _ db.Batch = (*batch)(nil)
@@ -14,7 +14,7 @@ type batch struct {
 	db *Database
 	// Theoretically, we can only maintain the latest write for each key using the map.
 	// However, we want to ensure that the order of writes is maintained and mimics the
-	// behaviour of the real key-value store. Hence, we store them and then flush them afterwards.
+	// behavior of the real key-value store. Hence, we store them and then flush them afterwards.
 	writes   []keyValue
 	writeMap map[string]keyValue
 	size     int
@@ -33,23 +33,23 @@ func newBatch(db *Database) *batch {
 	}
 }
 
-func (b *batch) Get(key []byte, cb func(value []byte) error) error {
+func (b *batch) Get2(key []byte) ([]byte, error) {
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 
 	if val, ok := b.writeMap[string(key)]; ok {
 		if val.delete {
-			return db.ErrKeyNotFound
+			return nil, db.ErrKeyNotFound
 		}
-		return cb(val.value)
+		return utils.CopySlice(val.value), nil
 	}
 
 	val, ok := b.db.db[string(key)]
 	if !ok {
-		return db.ErrKeyNotFound
+		return nil, db.ErrKeyNotFound
 	}
 
-	return cb(val)
+	return utils.CopySlice(val), nil
 }
 
 func (b *batch) Has(key []byte) (bool, error) {
@@ -92,7 +92,7 @@ func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, er
 }
 
 func (b *batch) Put(key, value []byte) error {
-	kv := keyValue{key: string(key), value: slices.Clone(value)}
+	kv := keyValue{key: string(key), value: utils.CopySlice(value)}
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
 	b.size += len(key) + len(value)
@@ -104,25 +104,6 @@ func (b *batch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
 	b.size += len(key)
-	return nil
-}
-
-func (b *batch) DeleteRange(start, end []byte) error {
-	it, err := b.NewIterator(start, false)
-	if err != nil {
-		return err
-	}
-
-	for it.Next() {
-		if bytes.Compare(it.Key(), end) >= 0 {
-			break
-		}
-
-		if err := b.Delete(it.Key()); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

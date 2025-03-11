@@ -1,14 +1,8 @@
 package db
 
-import "github.com/NethermindEth/juno/utils"
-
-const DefaultBatchSize = 10 * utils.Megabyte
-
-// A write-only store that gathers changes in-memory and writes them to disk in a single atomic operation.
-// It is not thread-safe for a single batch, but different batches can be used in different threads.
+// A write-only store that gathers changes in-memory and writes them to disk in a single atomic operation
 type Batch interface {
 	KeyValueWriter
-	KeyValueRangeDeleter
 	// Retrieves the value size of the data stored in the batch for writing
 	Size() int
 	// Flushes the data stored to disk
@@ -25,11 +19,8 @@ type Batcher interface {
 	NewBatchWithSize(size int) Batch
 }
 
-// Same as Batch, but allows for reads from the batch and the disk.
-// Use this only if you need to read from both the in-memory and on-disk data.
-// Write operations will be slower compared to a regular Batch.
-// Ideally, IndexedBatch should not be used at all. Write operations should be done using a regular Batch,
-// and read operations should be done by accessing the database directly.
+// Same as Batch, but allows for reads. Use this if you need to read from both the in-memory and on-disk data.
+// Write operations will be slower.
 type IndexedBatch interface {
 	Batch
 	KeyValueReader

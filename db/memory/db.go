@@ -9,14 +9,16 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
+	"github.com/NethermindEth/juno/utils"
 )
 
-var errDBClosed = errors.New("memory database closed")
+var (
+	errDBClosed    = errors.New("memory database closed")
+	errKeyNotFound = errors.New("key not found")
+)
 
 var _ db.KeyValueStore = (*Database)(nil)
 
-// Represents an in-memory key-value store.
-// It is thread-safe.
 type Database struct {
 	db   map[string][]byte
 	lock sync.RWMutex
@@ -40,20 +42,20 @@ func (d *Database) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
-func (d *Database) Get(key []byte, cb func(value []byte) error) error {
+func (d *Database) Get2(key []byte) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
 	if d.db == nil {
-		return errDBClosed
+		return nil, errDBClosed
 	}
 
-	val, ok := d.db[string(key)]
+	value, ok := d.db[string(key)]
 	if !ok {
-		return db.ErrKeyNotFound
+		return nil, errKeyNotFound
 	}
 
-	return cb(val)
+	return utils.CopySlice(value), nil
 }
 
 func (d *Database) Put(key, value []byte) error {
@@ -64,7 +66,7 @@ func (d *Database) Put(key, value []byte) error {
 		return errDBClosed
 	}
 
-	d.db[string(key)] = slices.Clone(value)
+	d.db[string(key)] = utils.CopySlice(value)
 	return nil
 }
 
@@ -156,20 +158,22 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copy()
 }
 
-func (d *Database) Update(fn func(db.IndexedBatch) error) error {
+func (d *Database) Update2(fn func(db.KeyValueWriter) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
 
-	batch := d.NewIndexedBatch()
+	batch := d.NewBatch()
 	if err := fn(batch); err != nil {
 		return err
 	}
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	return batch.Write()
 }
 
-func (d *Database) View(fn func(db.Snapshot) error) error {
+func (d *Database) View2(fn func(db.Snapshot) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
@@ -178,7 +182,7 @@ func (d *Database) View(fn func(db.Snapshot) error) error {
 	return fn(snap)
 }
 
-func (d *Database) WithListener(listener db.EventListener) db.KeyValueStore {
+func (d *Database) WithListener2(listener db.EventListener) db.KeyValueStore {
 	return d // no-op
 }
 
@@ -196,8 +200,4 @@ func (d *Database) copy() *Database {
 	}
 
 	return cp
-}
-
-func (d *Database) Impl() any {
-	return d.db
 }
