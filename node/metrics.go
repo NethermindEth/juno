@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -321,6 +322,56 @@ func makePebbleMetrics(nodeDB db.DB) {
 		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
 	})
 	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
+}
+
+func makeHashDBMetrics(hashDBs map[string]*hashdb.Database) {
+	for name, db := range hashDBs {
+		cleanHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: "trie",
+			Subsystem: "clean_cache",
+			Name:      "hit_rate",
+			ConstLabels: prometheus.Labels{
+				"database": name,
+			},
+		}, func() float64 {
+			return db.CleanCache.HitRate()
+		})
+
+		dirtyHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: "trie",
+			Subsystem: "dirty_cache",
+			Name:      "hit_rate",
+			ConstLabels: prometheus.Labels{
+				"database": name,
+			},
+		}, func() float64 {
+			return db.DirtyCache.HitRate()
+		})
+
+		cleanHits := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: "trie",
+			Subsystem: "clean_cache",
+			Name:      "hits",
+			ConstLabels: prometheus.Labels{
+				"database": name,
+			},
+		}, func() float64 {
+			return float64(db.CleanCache.Hits())
+		})
+
+		dirtyHits := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: "trie",
+			Subsystem: "dirty_cache",
+			Name:      "hits",
+			ConstLabels: prometheus.Labels{
+				"database": name,
+			},
+		}, func() float64 {
+			return float64(db.DirtyCache.Hits())
+		})
+
+		prometheus.MustRegister(cleanHitRate, dirtyHitRate, cleanHits, dirtyHits)
+	}
 }
 
 func makeJeMallocMetrics() {

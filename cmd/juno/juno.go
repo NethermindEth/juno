@@ -377,6 +377,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
 	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
+	junoCmd.Flags().Bool("archive-mode", false, "Run in archive mode")
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

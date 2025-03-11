@@ -171,7 +171,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 		}
 		err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
-			return t.db.Delete(t.owner, key, node.IsLeaf())
+			return t.db.Delete(t.owner, key, node.Hash(), node.IsLeaf())
 		})
 		return felt.Zero, err
 	}
@@ -192,9 +192,9 @@ func (t *Trie) Commit() (felt.Felt, error) {
 
 	err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
 		if dn, ok := node.(*trienode.DeletedNode); ok {
-			return t.db.Delete(t.owner, key, dn.IsLeaf())
+			return t.db.Delete(t.owner, key, node.Hash(), dn.IsLeaf())
 		}
-		return t.db.Put(t.owner, key, node.Blob(), node.IsLeaf())
+		return t.db.Put(t.owner, key, node.Hash(), node.Blob(), node.IsLeaf())
 	})
 	if err != nil {
 		return felt.Felt{}, err
@@ -503,7 +503,7 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		bufferPool.Put(buf)
 	}()
 
-	_, err := t.db.Get(buf, t.owner, path, path.Len() == t.height)
+	_, err := t.db.Get(buf, t.owner, path, *hn.Hash(t.hashFn), path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
