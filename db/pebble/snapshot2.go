@@ -29,7 +29,7 @@ func (s *snapshot2) Has(key []byte) (bool, error) {
 	return true, closer.Close()
 }
 
-func (s *snapshot2) Get(key []byte) ([]byte, error) {
+func (s *snapshot2) Get2(key []byte) ([]byte, error) {
 	start := time.Now()
 
 	defer func() {
