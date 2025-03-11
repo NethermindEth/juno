@@ -35,32 +35,6 @@ type DB interface {
 	WithListener(listener EventListener) DB
 }
 
-// Iterator is an iterator over a DB's key/value pairs.
-type Iterator interface {
-	io.Closer
-
-	// Valid returns true if the iterator is positioned at a valid key/value pair.
-	Valid() bool
-
-	// First moves the iterator to the first key/value pair.
-	First() bool
-
-	// Next moves the iterator to the next key/value pair. It returns whether the
-	// iterator is valid after the call. Once invalid, the iterator remains
-	// invalid.
-	Next() bool
-
-	// Key returns the key at the current position.
-	Key() []byte
-
-	// Value returns the value at the current position.
-	Value() ([]byte, error)
-
-	// Seek would seek to the provided key if present. If absent, it would seek to the next
-	// key in lexicographical order
-	Seek(key []byte) bool
-}
-
 // Transaction provides an interface to access the database's state at the point the transaction was created
 // Updates done to the database with a transaction should be only visible to other newly created transaction after
 // the transaction is committed.

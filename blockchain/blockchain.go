@@ -407,14 +407,12 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 }
 
 func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
-	numBytes := core.MarshalBlockNumber(blockNumber)
-
 	commitmentBytes, err := encoder.Marshal(commitments)
 	if err != nil {
 		return err
 	}
 
-	return txn.Set(db.BlockCommitments.Key(numBytes), commitmentBytes)
+	return txn.Set(db.BlockCommitmentsKey(blockNumber), commitmentBytes)
 }
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
@@ -428,10 +426,8 @@ func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCo
 }
 
 func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.BlockCommitments, error) {
-	numBytes := core.MarshalBlockNumber(blockNumber)
-
 	var commitments *core.BlockCommitments
-	if err := txn.Get(db.BlockCommitments.Key(numBytes), func(val []byte) error {
+	if err := txn.Get(db.BlockCommitmentsKey(blockNumber), func(val []byte) error {
 		commitments = new(core.BlockCommitments)
 		return encoder.Unmarshal(val, commitments)
 	}); err != nil {
@@ -452,7 +448,7 @@ func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.Blo
 func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
 	numBytes := core.MarshalBlockNumber(header.Number)
 
-	if err := txn.Set(db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()), numBytes); err != nil {
+	if err := txn.Set(db.BlockHeaderNumbersByHashKey(header.Hash), numBytes); err != nil {
 		return err
 	}
 
@@ -461,15 +457,13 @@ func StoreBlockHeader(txn db.Transaction, header *core.Header) error {
 		return err
 	}
 
-	return txn.Set(db.BlockHeadersByNumber.Key(numBytes), headerBytes)
+	return txn.Set(db.BlockHeaderByNumberKey(header.Number), headerBytes)
 }
 
 // blockHeaderByNumber retrieves a block header from database by its number
 func blockHeaderByNumber(txn db.Transaction, number uint64) (*core.Header, error) {
-	numBytes := core.MarshalBlockNumber(number)
-
 	var header *core.Header
-	if err := txn.Get(db.BlockHeadersByNumber.Key(numBytes), func(val []byte) error {
+	if err := txn.Get(db.BlockHeaderByNumberKey(number), func(val []byte) error {
 		header = new(core.Header)
 		return encoder.Unmarshal(val, header)
 	}); err != nil {
@@ -480,7 +474,7 @@ func blockHeaderByNumber(txn db.Transaction, number uint64) (*core.Header, error
 
 func blockHeaderByHash(txn db.Transaction, hash *felt.Felt) (*core.Header, error) {
 	var header *core.Header
-	return header, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+	return header, txn.Get(db.BlockHeaderNumbersByHashKey(hash), func(val []byte) error {
 		var err error
 		header, err = blockHeaderByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
@@ -510,7 +504,7 @@ func BlockByNumber(txn db.Transaction, number uint64) (*core.Block, error) {
 
 func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transaction, error) {
 	numBytes := core.MarshalBlockNumber(number)
-	prefix := db.TransactionsByBlockNumberAndIndex.Key(numBytes)
+	prefix := db.TransactionByBlockNumAndIndexKey(numBytes)
 
 	iterator, err := txn.NewIterator(prefix, true)
 	if err != nil {
@@ -541,7 +535,7 @@ func TransactionsByBlockNumber(txn db.Transaction, number uint64) ([]core.Transa
 
 func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.TransactionReceipt, error) {
 	numBytes := core.MarshalBlockNumber(number)
-	prefix := db.ReceiptsByBlockNumberAndIndex.Key(numBytes)
+	prefix := db.ReceiptByBlockNumAndIndexKey(numBytes)
 
 	iterator, err := txn.NewIterator(prefix, true)
 	if err != nil {
@@ -578,7 +572,7 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 // blockByHash retrieves a block from database by its hash
 func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 	var block *core.Block
-	return block, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+	return block, txn.Get(db.BlockHeaderNumbersByHashKey(hash), func(val []byte) error {
 		var err error
 		block, err = BlockByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
@@ -588,7 +582,7 @@ func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
 func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
 	for _, txn := range blockTxns {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
-			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHash.Key(l1Handler.MessageHash()), txn.Hash().Marshal())
+			err := dbTxn.Set(db.L1HandlerTxnHashByMsgHashKey(l1Handler.MessageHash()), txn.Hash().Marshal())
 			if err != nil {
 				return err
 			}
@@ -598,21 +592,17 @@ func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction)
 }
 
 func storeStateUpdate(txn db.Transaction, blockNumber uint64, update *core.StateUpdate) error {
-	numBytes := core.MarshalBlockNumber(blockNumber)
-
 	updateBytes, err := encoder.Marshal(update)
 	if err != nil {
 		return err
 	}
 
-	return txn.Set(db.StateUpdatesByBlockNumber.Key(numBytes), updateBytes)
+	return txn.Set(db.StateUpdateByBlockNumKey(blockNumber), updateBytes)
 }
 
 func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpdate, error) {
-	numBytes := core.MarshalBlockNumber(blockNumber)
-
 	var update *core.StateUpdate
-	if err := txn.Get(db.StateUpdatesByBlockNumber.Key(numBytes), func(val []byte) error {
+	if err := txn.Get(db.StateUpdateByBlockNumKey(blockNumber), func(val []byte) error {
 		update = new(core.StateUpdate)
 		return encoder.Unmarshal(val, update)
 	}); err != nil {
@@ -623,7 +613,7 @@ func stateUpdateByNumber(txn db.Transaction, blockNumber uint64) (*core.StateUpd
 
 func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, error) {
 	var update *core.StateUpdate
-	return update, txn.Get(db.BlockHeaderNumbersByHash.Key(hash.Marshal()), func(val []byte) error {
+	return update, txn.Get(db.BlockHeaderNumbersByHashKey(hash), func(val []byte) error {
 		var err error
 		update, err = stateUpdateByNumber(txn, binary.BigEndian.Uint64(val))
 		return err
@@ -632,7 +622,7 @@ func stateUpdateByHash(txn db.Transaction, hash *felt.Felt) (*core.StateUpdate, 
 
 func l1HandlerTxnHashByMsgHash(txn db.Transaction, l1HandlerMsgHash *common.Hash) (*felt.Felt, error) {
 	l1HandlerTxnHash := new(felt.Felt)
-	return l1HandlerTxnHash, txn.Get(db.L1HandlerTxnHashByMsgHash.Key(l1HandlerMsgHash.Bytes()), func(val []byte) error {
+	return l1HandlerTxnHash, txn.Get(db.L1HandlerTxnHashByMsgHashKey(l1HandlerMsgHash.Bytes()), func(val []byte) error {
 		l1HandlerTxnHash.Unmarshal(val)
 		return nil
 	})
@@ -688,7 +678,7 @@ func (t *txAndReceiptDBKey) UnmarshalBinary(data []byte) error {
 func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Transaction, r *core.TransactionReceipt) error {
 	bnIndexBytes := (&txAndReceiptDBKey{number, i}).MarshalBinary()
 
-	if err := txn.Set(db.TransactionBlockNumbersAndIndicesByHash.Key((r.TransactionHash).Marshal()),
+	if err := txn.Set(db.TransactionBlockNumAndIndexByHashKey(r.TransactionHash),
 		bnIndexBytes); err != nil {
 		return err
 	}
@@ -697,7 +687,7 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	if err != nil {
 		return err
 	}
-	if err = txn.Set(db.TransactionsByBlockNumberAndIndex.Key(bnIndexBytes), txnBytes); err != nil {
+	if err = txn.Set(db.TransactionByBlockNumAndIndexKey(bnIndexBytes), txnBytes); err != nil {
 		return err
 	}
 
@@ -705,13 +695,13 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	if err != nil {
 		return err
 	}
-	return txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes)
+	return txn.Set(db.ReceiptByBlockNumAndIndexKey(bnIndexBytes), rBytes)
 }
 
 // transactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
 func transactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (*txAndReceiptDBKey, error) {
 	var bnIndex *txAndReceiptDBKey
-	if err := txn.Get(db.TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal()), func(val []byte) error {
+	if err := txn.Get(db.TransactionBlockNumAndIndexByHashKey(hash), func(val []byte) error {
 		bnIndex = new(txAndReceiptDBKey)
 		return bnIndex.UnmarshalBinary(val)
 	}); err != nil {
@@ -723,7 +713,7 @@ func transactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (
 // transactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func transactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (core.Transaction, error) {
 	var transaction core.Transaction
-	err := txn.Get(db.TransactionsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	err := txn.Get(db.TransactionByBlockNumAndIndexKey(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &transaction)
 	})
 	return transaction, err
@@ -761,7 +751,7 @@ func receiptByHash(txn db.Transaction, hash *felt.Felt) (*core.TransactionReceip
 // receiptByBlockNumberAndIndex gets the transaction receipt for a given block number and index.
 func receiptByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (*core.TransactionReceipt, error) {
 	var r *core.TransactionReceipt
-	err := txn.Get(db.ReceiptsByBlockNumberAndIndex.Key(bnIndex.MarshalBinary()), func(val []byte) error {
+	err := txn.Get(db.ReceiptByBlockNumAndIndexKey(bnIndex.MarshalBinary()), func(val []byte) error {
 		return encoder.Unmarshal(val, &r)
 	})
 	return r, err
@@ -866,7 +856,6 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	if err != nil {
 		return err
 	}
-	numBytes := core.MarshalBlockNumber(blockNumber)
 
 	stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
 	if err != nil {
@@ -888,9 +877,9 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 
 	// remove block header
 	for _, key := range [][]byte{
-		db.BlockHeadersByNumber.Key(numBytes),
-		db.BlockHeaderNumbersByHash.Key(header.Hash.Marshal()),
-		db.BlockCommitments.Key(numBytes),
+		db.BlockHeaderByNumberKey(header.Number),
+		db.BlockHeaderNumbersByHashKey(header.Hash),
+		db.BlockCommitmentsKey(header.Number),
 	} {
 		if err = txn.Delete(key); err != nil {
 			return err
@@ -902,7 +891,7 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	}
 
 	// remove state update
-	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
+	if err = txn.Delete(db.StateUpdateByBlockNumKey(blockNumber)); err != nil {
 		return err
 	}
 
@@ -928,17 +917,17 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 		}
 
 		keySuffix := blockIDAndIndex.MarshalBinary()
-		if err = txn.Delete(db.TransactionsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+		if err = txn.Delete(db.TransactionByBlockNumAndIndexKey(keySuffix)); err != nil {
 			return err
 		}
-		if err = txn.Delete(db.ReceiptsByBlockNumberAndIndex.Key(keySuffix)); err != nil {
+		if err = txn.Delete(db.ReceiptByBlockNumAndIndexKey(keySuffix)); err != nil {
 			return err
 		}
-		if err = txn.Delete(db.TransactionBlockNumbersAndIndicesByHash.Key(reorgedTxn.Hash().Marshal())); err != nil {
+		if err = txn.Delete(db.TransactionBlockNumAndIndexByHashKey(reorgedTxn.Hash())); err != nil {
 			return err
 		}
 		if l1handler, ok := reorgedTxn.(*core.L1HandlerTransaction); ok {
-			if err = txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(l1handler.MessageHash())); err != nil {
+			if err = txn.Delete(db.L1HandlerTxnHashByMsgHashKey(l1handler.MessageHash())); err != nil {
 				return err
 			}
 		}

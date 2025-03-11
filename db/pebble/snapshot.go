@@ -2,6 +2,7 @@ package pebble
 
 import (
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/cockroachdb/pebble"
 )
 
@@ -68,7 +69,7 @@ func (s *snapshot) NewIterator(lowerBound []byte, withUpperBound bool) (db.Itera
 
 	iterOpt := &pebble.IterOptions{LowerBound: lowerBound}
 	if withUpperBound {
-		iterOpt.UpperBound = upperBound(lowerBound)
+		iterOpt.UpperBound = dbutils.UpperBound(lowerBound)
 	}
 
 	iter, err = s.snapshot.NewIter(iterOpt)

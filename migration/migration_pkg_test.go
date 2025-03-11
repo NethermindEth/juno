@@ -77,6 +77,9 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		err := txn.Get(oldKey, func(val []byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}
+
+	// Commit the transaction to release resources
+	require.NoError(t, txn.Commit())
 }
 
 func TestRecalculateBloomFilters(t *testing.T) {

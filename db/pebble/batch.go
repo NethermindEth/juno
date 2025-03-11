@@ -6,21 +6,28 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 )
 
-var _ db.Transaction = (*batch)(nil)
+var (
+	_ db.Transaction = (*batch)(nil)
+	_ db.Batch       = (*batch)(nil)
+)
 
 type batch struct {
 	batch    *pebble.Batch
-	lock     *sync.Mutex
+	db       *DB
+	size     int
+	lock     *sync.RWMutex
 	listener db.EventListener
 }
 
-func NewBatch(dbBatch *pebble.Batch, lock *sync.Mutex, listener db.EventListener) *batch {
+func NewBatch(dbBatch *pebble.Batch, db *DB, lock *sync.RWMutex, listener db.EventListener) *batch {
 	return &batch{
 		batch:    dbBatch,
+		db:       db,
 		lock:     lock,
 		listener: listener,
 	}
@@ -76,7 +83,11 @@ func (b *batch) Delete(key []byte) error {
 	start := time.Now()
 	defer func() { b.listener.OnIO(true, time.Since(start)) }()
 
-	return b.batch.Delete(key, pebble.Sync)
+	if err := b.batch.Delete(key, pebble.Sync); err != nil {
+		return err
+	}
+	b.size += len(key)
+	return nil
 }
 
 // Get : see db.Transaction.Get
@@ -98,7 +109,7 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 
 	iterOpt := &pebble.IterOptions{LowerBound: lowerBound}
 	if withUpperBound {
-		iterOpt.UpperBound = upperBound(lowerBound)
+		iterOpt.UpperBound = dbutils.UpperBound(lowerBound)
 	}
 
 	iter, err = b.batch.NewIter(iterOpt)
@@ -107,4 +118,32 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 	}
 
 	return &iterator{iter: iter}, nil
+}
+
+func (b *batch) Put(key, value []byte) error {
+	if b.batch == nil {
+		return ErrDiscardedTransaction
+	}
+
+	if err := b.batch.Set(key, value, pebble.Sync); err != nil {
+		return err
+	}
+	b.size += len(key) + len(value)
+	return nil
+}
+
+func (b *batch) Size() int {
+	return b.size
+}
+
+func (b *batch) Write() error {
+	if b.db.closed {
+		return pebble.ErrClosed
+	}
+	return b.batch.Commit(pebble.Sync)
+}
+
+func (b *batch) Reset() {
+	b.batch.Reset()
+	b.size = 0
 }

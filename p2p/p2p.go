@@ -336,7 +336,7 @@ func (s *Service) persistPeers() error {
 			return fmt.Errorf("encode addresses for peer %s: %w", peerID, err)
 		}
 
-		if err := txn.Set(db.Peer.Key([]byte(peerID)), encodedAddrs); err != nil {
+		if err := txn.Set(db.PeerKey([]byte(peerID)), encodedAddrs); err != nil {
 			return fmt.Errorf("set data for peer %s: %w", peerID, err)
 		}
 	}

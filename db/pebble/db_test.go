@@ -1,4 +1,4 @@
-package pebble_test
+package pebble
 
 import (
 	"context"
@@ -9,11 +9,28 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPebbleDB(t *testing.T) {
+	t.Run("test suite", func(t *testing.T) {
+		db.TestKeyValueStoreSuite(t, func() db.KeyValueStore {
+			db, err := pebble.Open("", &pebble.Options{
+				FS: vfs.NewMem(),
+			})
+			require.NoError(t, err)
+			return &DB{
+				db:       db,
+				lock:     new(sync.RWMutex),
+				listener: &eventListener{},
+			}
+		})
+	})
+}
 
 var noop = func(val []byte) error {
 	return nil
@@ -37,7 +54,7 @@ func (l *eventListener) OnCommit(_ time.Duration) {}
 func TestTransaction(t *testing.T) {
 	listener := eventListener{}
 	t.Run("new transaction can retrieve existing value", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t).WithListener(&listener)
+		testDB := NewMemTest(t).WithListener(&listener)
 
 		txn, err := testDB.NewTransaction(true)
 		require.NoError(t, err)
@@ -60,7 +77,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("discarded transaction is not committed to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		txn, err := testDB.NewTransaction(true)
 		require.NoError(t, err)
@@ -75,7 +92,7 @@ func TestTransaction(t *testing.T) {
 
 	t.Run("value committed by a transactions are not accessible to other transactions created"+
 		" before Commit()", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		txn1, err := testDB.NewTransaction(true)
 		require.NoError(t, err)
@@ -99,7 +116,7 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("discarded transaction cannot commit", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		txn, err := testDB.NewTransaction(true)
 		require.NoError(t, err)
@@ -112,7 +129,7 @@ func TestTransaction(t *testing.T) {
 
 func TestViewUpdate(t *testing.T) {
 	t.Run("value after Update is committed to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		// Test View
 		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
@@ -135,7 +152,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("Update error does not commit value to DB", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		// Test Update
 		require.EqualError(t, testDB.Update(func(txn db.Transaction) error {
@@ -151,7 +168,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a zero-length value should be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		assert.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), []byte{}))
@@ -164,7 +181,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a nil value should be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		assert.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set([]byte("key"), nil))
@@ -177,7 +194,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a zero-length key should not be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		assert.Error(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set([]byte{}, []byte("value"))
@@ -185,7 +202,7 @@ func TestViewUpdate(t *testing.T) {
 	})
 
 	t.Run("setting a key with a nil key should not be allowed", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 
 		assert.Error(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set(nil, []byte("value"))
@@ -194,7 +211,7 @@ func TestViewUpdate(t *testing.T) {
 }
 
 func TestConcurrentUpdate(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 	wg := sync.WaitGroup{}
 
 	key := []byte{0}
@@ -249,7 +266,7 @@ func TestConcurrentUpdate(t *testing.T) {
 }
 
 func TestSeek(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -304,7 +321,7 @@ func TestPrefixSearch(t *testing.T) {
 		{[]byte{0}, 7, []byte("g")},
 	}
 
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 
 	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 		for _, d := range data {
@@ -351,7 +368,7 @@ func TestPrefixSearch(t *testing.T) {
 }
 
 func TestFirst(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -384,7 +401,7 @@ func TestFirst(t *testing.T) {
 }
 
 func TestNext(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
@@ -423,7 +440,7 @@ func TestNext(t *testing.T) {
 }
 
 func TestPanic(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := NewMemTest(t)
 
 	t.Run("view", func(t *testing.T) {
 		defer func() {
@@ -459,20 +476,20 @@ func TestPanic(t *testing.T) {
 
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t).(*pebble.DB)
+		testDB := NewMemTest(t).(*DB)
 
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB, []byte("0"), true)
+		s, err := CalculatePrefixSize(context.Background(), testDB, []byte("0"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set(append([]byte("0"), []byte("randomKey")...), []byte("someValue"))
 		}))
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), []byte("1"), true)
+		s, err := CalculatePrefixSize(context.Background(), testDB.(*DB), []byte("1"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
@@ -485,14 +502,14 @@ func TestCalculatePrefixSize(t *testing.T) {
 		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
-		testDB := pebble.NewMemTest(t)
+		testDB := NewMemTest(t)
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			require.NoError(t, txn.Set(k1, v1))
 			require.NoError(t, txn.Set(k2, v2))
 			return txn.Set(k3, v3)
 		}))
 
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), p, true)
+		s, err := CalculatePrefixSize(context.Background(), testDB.(*DB), p, true)
 		require.NoError(t, err)
 		assert.Equal(t, uint(3), s.Count)
 		assert.Equal(t, utils.DataSize(expectedSize), s.Size)
@@ -501,7 +518,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
-			s, err := pebble.CalculatePrefixSize(ctx, testDB.(*pebble.DB), p, true)
+			s, err := CalculatePrefixSize(ctx, testDB.(*DB), p, true)
 			assert.EqualError(t, err, context.Canceled.Error())
 			assert.Zero(t, s.Count)
 			assert.Zero(t, s.Size)
