@@ -62,7 +62,7 @@ func lenDB(txn db.Transaction) (int, error) {
 
 func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
 	var head felt.Felt
-	data, err := r.Get(db.MempoolHead.Key())
+	data, err := r.Get2(db.MempoolHead.Key())
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -72,7 +72,7 @@ func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
 
 func GetTailValue(r db.KeyValueReader) (felt.Felt, error) {
 	var tail felt.Felt
-	data, err := r.Get(db.MempoolTail.Key())
+	data, err := r.Get2(db.MempoolTail.Key())
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -90,7 +90,7 @@ func WriteTailValue(w db.KeyValueWriter, tail *felt.Felt) error {
 
 func GetTxn(r db.KeyValueReader, txnHash *felt.Felt) (dbPoolTxn, error) {
 	var item dbPoolTxn
-	data, err := r.Get(db.MempoolNodeKey(txnHash))
+	data, err := r.Get2(db.MempoolNodeKey(txnHash))
 	if err != nil {
 		return dbPoolTxn{}, err
 	}
@@ -111,7 +111,7 @@ func WriteTxn(w db.KeyValueWriter, item *dbPoolTxn) error {
 
 func GetLenDB(r db.KeyValueReader) (int, error) {
 	var l int
-	data, err := r.Get(db.MempoolLength.Key())
+	data, err := r.Get2(db.MempoolLength.Key())
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return 0, nil
