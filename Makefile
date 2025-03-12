@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: vm juno cairo
+.PHONY: vm juno
 
 ifeq ($(VM_DEBUG),true)
     GO_TAGS = -tags vm_debug
