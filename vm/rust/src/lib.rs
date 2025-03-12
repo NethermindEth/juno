@@ -718,12 +718,14 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
         }
     };
 
-    match serde_json::from_str(json_str) {
+    match serde_json::from_str::<VersionedConstants>(json_str) {
         Ok(parsed) => unsafe {
             CUSTOM_VERSIONED_CONSTANTS = Some(parsed);
             CString::new("").unwrap().into_raw() // No error, return an empty string
         },
-        Err(_) => CString::new("Failed to parse JSON").unwrap().into_raw(),
+        Err(e) => CString::new(format!("Failed to parse JSON: {}", e))
+            .unwrap()
+            .into_raw(),
     }
 }
 
