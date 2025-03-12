@@ -10,13 +10,26 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-type step uint
+type step uint8
 
 const (
 	propose step = iota
 	prevote
 	precommit
 )
+
+func (s step) String() string {
+	switch s {
+	case propose:
+		return "propose"
+	case prevote:
+		return "prevote"
+	case precommit:
+		return "precommit"
+	default:
+		return "unknown"
+	}
+}
 
 const (
 	maxFutureHeight = uint(5)
@@ -189,7 +202,6 @@ func (t *Tendermint[V, H, A]) Start() {
 
 		i := 0
 		for {
-			fmt.Println("iteration: ", i)
 			select {
 			case <-t.quit:
 				fmt.Println("quit", t.state.step)
