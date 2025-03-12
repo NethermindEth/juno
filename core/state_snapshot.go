@@ -15,6 +15,13 @@ type stateSnapshot struct {
 	state       StateHistoryReader
 }
 
+func GetBlockNumber(state StateReader) uint64 {
+	if snapshot, ok := state.(*stateSnapshot); ok {
+		return snapshot.blockNumber
+	}
+	return 0
+}
+
 func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader {
 	return &stateSnapshot{
 		blockNumber: blockNumber,

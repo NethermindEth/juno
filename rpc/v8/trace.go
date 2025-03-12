@@ -239,9 +239,49 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
+
+		res := make([]struct {
+			Traces []vm.TransactionTrace `json:"traces"`
+			Error  string                `json:"error"`
+		}, len(block.Transactions)-1)
+		for i := range len(block.Transactions) - 1 {
+			executionResult, err := h.vm.Execute(block.Transactions[0:i+1], classes, paidFeesOnL1,
+				&blockInfo, state, network, false, false, false, true)
+			res[i] = struct {
+				Traces []vm.TransactionTrace `json:"traces"`
+				Error  string                `json:"error"`
+			}{
+				Traces: executionResult.Traces,
+				Error:  err.Error(),
+			}
+		}
+
+		classHash, _ := new(felt.Felt).SetString("0x076791ef97c042f81fbf352ad95f39a22554ee8d7927b2ce3c681f3418b5206a")
+		headClass, _ := headState.Class(classHash)
+		blockClass, _ := state.Class(classHash)
+
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
-		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(struct {
+			Error       string `json:"error"`
+			StateBlock  uint64 `json:"state_block"`
+			ParentBlock string `json:"parent_block"`
+			Number      uint64 `json:"number"`
+			Res         []struct {
+				Traces []vm.TransactionTrace `json:"traces"`
+				Error  string                `json:"error"`
+			} `json:"res"`
+			HeadClass  bool `json:"head_class"`
+			BlockClass bool `json:"block_class"`
+		}{
+			Error:       err.Error(),
+			StateBlock:  core.GetBlockNumber(state),
+			ParentBlock: block.ParentHash.String(),
+			Number:      block.Number,
+			Res:         res,
+			HeadClass:   headClass != nil,
+			BlockClass:  blockClass != nil,
+		})
 	}
 
 	result := make([]TracedBlockTransaction, len(executionResult.Traces))

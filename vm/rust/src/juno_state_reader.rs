@@ -1,8 +1,5 @@
 use std::{
-    ffi::{c_char, c_int, c_uchar, c_void, CStr},
-    slice,
-    str::FromStr,
-    sync::Mutex,
+    ffi::{c_char, c_int, c_uchar, c_void, CStr}, slice, str::FromStr, sync::Mutex
 };
 
 use blockifier::execution::contract_class::RunnableCompiledClass;
@@ -132,6 +129,7 @@ impl StateReader for JunoStateReader {
 
     /// Returns the contract class of the given class hash.
     fn get_compiled_class(&self, class_hash: ClassHash) -> StateResult<RunnableCompiledClass> {
+        dbg!(class_hash);
         if let Some(cached_class) = CLASS_CACHE.lock().unwrap().cache_get(&class_hash) {
             // skip the cache if it comes from a height higher than ours. Class might be undefined on the height
             // that we are reading from right now.
@@ -145,7 +143,14 @@ impl StateReader for JunoStateReader {
             // with the same block number but with the state at the end of that block. That is why, we cannot use classes from cache
             // if they are cached on the same height that we are executing on. Because they might be cached using a state instance that
             // is in the future compared to the state that we are currently executing on, even tho they have the same height.
+            dbg!("cached", cached_class.cached_on_height, self.height);
             if cached_class.cached_on_height < self.height {
+                if class_hash.0 == StarkFelt::from_str("0x076791ef97c042f81fbf352ad95f39a22554ee8d7927b2ce3c681f3418b5206a").unwrap() {
+                    return Err(StateError::StateReadError(format!(
+                        "cached class {} is not valid for height {}, cached on height {}",
+                        class_hash.0, self.height, cached_class.cached_on_height
+                    )));
+                }
                 return Ok(cached_class.definition.clone());
             }
         }
@@ -164,6 +169,7 @@ impl StateReader for JunoStateReader {
                 Ok(class) => {
                     let runnable_compiled_class =
                         RunnableCompiledClass::try_from(class.contract_class).unwrap();
+                    dbg!("set", self.height);
                     CLASS_CACHE.lock().unwrap().cache_set(
                         class_hash,
                         CachedRunnableCompiledClass {
@@ -173,6 +179,12 @@ impl StateReader for JunoStateReader {
                             cached_on_height: self.height,
                         },
                     );
+                    if class_hash.0 == StarkFelt::from_str("0x076791ef97c042f81fbf352ad95f39a22554ee8d7927b2ce3c681f3418b5206a").unwrap() {
+                        return Err(StateError::StateReadError(format!(
+                            "newly fetched class {} is not valid for height {}",
+                            class_hash.0, self.height
+                        )));
+                    }
                     Ok(runnable_compiled_class)
                 }
                 Err(e) => Err(StateError::StateReadError(format!(
