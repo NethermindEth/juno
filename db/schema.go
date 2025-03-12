@@ -32,8 +32,7 @@ func BlockHeaderNumbersByHashKey(hash *felt.Felt) []byte {
 }
 
 func BlockHeaderByNumberKey(blockNum uint64) []byte {
-	b := uint64ToBytes(blockNum)
-	return BlockHeadersByNumber.Key(b[:])
+	return BlockHeadersByNumber.Key(encodeBlockNum(blockNum))
 }
 
 func TxBlockNumIndexByHashKey(hash *felt.Felt) []byte {
@@ -63,7 +62,7 @@ func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func TxByBlockNumIndexKey(num, index uint64) []byte {
+func TxByBlockNumIndexKey(num uint64, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
 	return TransactionsByBlockNumberAndIndex.Key(key.MarshalBinary())
 }
@@ -72,7 +71,7 @@ func TxByBlockNumIndexKeyBytes(key []byte) []byte {
 	return TransactionsByBlockNumberAndIndex.Key(key)
 }
 
-func ReceiptByBlockNumIndexKey(num, index uint64) []byte {
+func ReceiptByBlockNumIndexKey(num uint64, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
 	return ReceiptsByBlockNumberAndIndex.Key(key.MarshalBinary())
 }
@@ -82,8 +81,7 @@ func ReceiptByBlockNumIndexKeyBytes(key []byte) []byte {
 }
 
 func StateUpdateByBlockNumKey(num uint64) []byte {
-	b := uint64ToBytes(num)
-	return StateUpdatesByBlockNumber.Key(b[:])
+	return StateUpdatesByBlockNumber.Key(encodeBlockNum(num))
 }
 
 func ContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
@@ -103,8 +101,7 @@ func ContractDeploymentHeightKey(addr *felt.Felt) []byte {
 }
 
 func BlockCommitmentsKey(blockNum uint64) []byte {
-	b := uint64ToBytes(blockNum)
-	return BlockCommitments.Key(b[:])
+	return BlockCommitments.Key(encodeBlockNum(blockNum))
 }
 
 func L1HandlerTxnHashByMsgHashKey(msgHash []byte) []byte {
@@ -115,23 +112,9 @@ func MempoolNodeKey(txnHash *felt.Felt) []byte {
 	return MempoolNode.Key(txnHash.Marshal())
 }
 
-func ContractHistoryNonceKey(addr *felt.Felt, blockNum uint64) []byte {
-	b := uint64ToBytes(blockNum)
-	return ContractNonceHistory.Key(addr.Marshal(), b[:])
-}
-
-func ContractHistoryClassHashKey(addr *felt.Felt, blockNum uint64) []byte {
-	b := uint64ToBytes(blockNum)
-	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
-}
-
-func ContractHistoryStorageKey(addr, key *felt.Felt, blockNum uint64) []byte {
-	b := uint64ToBytes(blockNum)
-	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
-}
-
-func uint64ToBytes(num uint64) [8]byte {
-	var numBytes [8]byte
-	binary.BigEndian.PutUint64(numBytes[:], num)
+func encodeBlockNum(num uint64) []byte {
+	const blockNumSize = 8
+	numBytes := make([]byte, blockNumSize)
+	binary.BigEndian.PutUint64(numBytes, num)
 	return numBytes
 }
