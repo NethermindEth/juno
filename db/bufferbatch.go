@@ -1,9 +1,5 @@
 package db
 
-import (
-	"slices"
-)
-
 // TODO: DO NOT USE THIS! This is meant to be a temporary replacement for buffered transaction.
 // After state refactor, we can remove this.
 type BufferBatch struct {
@@ -19,7 +15,7 @@ func NewBufferBatch(txn IndexedBatch) *BufferBatch {
 }
 
 func (b *BufferBatch) Put(key, val []byte) error {
-	b.updates[string(key)] = slices.Clone(val)
+	b.updates[string(key)] = val
 	return nil
 }
 
@@ -41,14 +37,14 @@ func (b *BufferBatch) Reset() {
 	b.txn.Reset()
 }
 
-func (b *BufferBatch) Get(key []byte, cb func(value []byte) error) error {
+func (b *BufferBatch) Get2(key []byte) ([]byte, error) {
 	if val, ok := b.updates[string(key)]; ok {
 		if val == nil {
-			return ErrKeyNotFound
+			return nil, ErrKeyNotFound
 		}
-		return cb(val)
+		return val, nil
 	}
-	return b.txn.Get(key, cb)
+	return b.txn.Get2(key)
 }
 
 func (b *BufferBatch) Flush() error {
@@ -75,9 +71,5 @@ func (b *BufferBatch) NewIterator(prefix []byte, withUpperBound bool) (Iterator,
 }
 
 func (b *BufferBatch) Size() int {
-	panic("should not be called")
-}
-
-func (b *BufferBatch) DeleteRange(start, end []byte) error {
 	panic("should not be called")
 }
