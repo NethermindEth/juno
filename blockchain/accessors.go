@@ -149,7 +149,7 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*core.StateUpda
 	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(blockNum))
 }
 
-func GetBlockCommitment(r db.KeyValueReader, blockNum uint64) (*core.BlockCommitments, error) {
+func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.BlockCommitments, error) {
 	var commitment *core.BlockCommitments
 	data, err := r.Get2(db.BlockCommitmentsKey(blockNum))
 	if err != nil {
