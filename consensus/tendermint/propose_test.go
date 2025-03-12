@@ -15,55 +15,56 @@ func TestPropose(t *testing.T) {
 	val2, val3, val4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
 	tm := func(r uint) time.Duration { return time.Second }
 
-	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
-		listeners, broadcasters := testListenersAndBroadcasters()
-		app, chain, vals := newApp(), newChain(), newVals()
+	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'",
+		func(t *testing.T) {
+			listeners, broadcasters := testListenersAndBroadcasters()
+			app, chain, vals := newApp(), newChain(), newVals()
 
-		vals.addValidator(*val2)
-		vals.addValidator(*val3)
-		vals.addValidator(*val4)
-		vals.addValidator(*nodeAddr)
+			vals.addValidator(*val2)
+			vals.addValidator(*val3)
+			vals.addValidator(*val4)
+			vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+			algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight := uint(0)
-		rPrime, rPrimeVal := uint(4), value(10)
-		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
-			Height:     expectedHeight,
-			Round:      rPrime,
-			ValidRound: nil,
-			Value:      &rPrimeVal,
-			Sender:     *val2,
-		}
+			expectedHeight := uint(0)
+			rPrime, rPrimeVal := uint(4), value(10)
+			val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
+				Height:     expectedHeight,
+				Round:      rPrime,
+				ValidRound: nil,
+				Value:      &rPrimeVal,
+				Sender:     *val2,
+			}
 
-		val3Prevote := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				Height: expectedHeight,
-				Round:  rPrime,
-				ID:     utils.Ptr(rPrimeVal.Hash()),
-				Sender: *val3,
-			},
-		}
+			val3Prevote := Prevote[felt.Felt, felt.Felt]{
+				Vote: Vote[felt.Felt, felt.Felt]{
+					Height: expectedHeight,
+					Round:  rPrime,
+					ID:     utils.HeapPtr(rPrimeVal.Hash()),
+					Sender: *val3,
+				},
+			}
 
-		algo.futureMessages.addPrevote(val3Prevote)
-		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
-			value, felt.Felt, felt.Felt])
-		proposalListener.send(val2Proposal)
+			algo.futureMessages.addPrevote(val3Prevote)
+			proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
+				value, felt.Felt, felt.Felt])
+			proposalListener.send(val2Proposal)
 
-		algo.Start()
-		time.Sleep(500 * time.Millisecond)
-		algo.Stop()
+			algo.Start()
+			time.Sleep(500 * time.Millisecond)
+			algo.Stop()
 
-		// Ensure future message have been moved from futureMessages set to current messages set.
+			// Ensure future message have been moved from futureMessages set to current messages set.
 
-		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
+			assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
+			assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
+			assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, rPrime, algo.state.round)
-	})
+			assert.Equal(t, propose, algo.state.step)
+			assert.Equal(t, expectedHeight, algo.state.height)
+			assert.Equal(t, rPrime, algo.state.round)
+		})
 
 	t.Run("Line 55 (Prevote): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
@@ -90,7 +91,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: expectedHeight,
 				Round:  rPrime,
-				ID:     utils.Ptr(rPrimeVal.Hash()),
+				ID:     utils.HeapPtr(rPrimeVal.Hash()),
 				Sender: *val3,
 			},
 		}
@@ -131,7 +132,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: expectedHeight,
 				Round:  rPrime,
-				ID:     utils.Ptr(round4Value.Hash()),
+				ID:     utils.HeapPtr(round4Value.Hash()),
 				Sender: *val2,
 			},
 		}
@@ -140,7 +141,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: expectedHeight,
 				Round:  rPrime,
-				ID:     utils.Ptr(round4Value.Hash()),
+				ID:     utils.HeapPtr(round4Value.Hash()),
 				Sender: *val3,
 			},
 		}
@@ -179,7 +180,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: 0,
 				Round:  0,
-				ID:     utils.Ptr(value(10).Hash()),
+				ID:     utils.HeapPtr(value(10).Hash()),
 				Sender: *val2,
 			},
 		}
@@ -248,7 +249,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: 0,
 				Round:  0,
-				ID:     utils.Ptr(value(10).Hash()),
+				ID:     utils.HeapPtr(value(10).Hash()),
 				Sender: *val2,
 			},
 		}
@@ -311,7 +312,7 @@ func TestPropose(t *testing.T) {
 			Vote: Vote[felt.Felt, felt.Felt]{
 				Height: 0,
 				Round:  0,
-				ID:     utils.Ptr(value(10).Hash()),
+				ID:     utils.HeapPtr(value(10).Hash()),
 				Sender: *val2,
 			},
 		}
