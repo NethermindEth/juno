@@ -64,7 +64,11 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         uint64(123),
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+			rpc.BlockID{Latest: true},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
@@ -76,7 +80,11 @@ func TestEstimateFee(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag}, rpc.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+			rpc.BlockID{Latest: true},
+		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
@@ -150,10 +158,9 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0x4176980", "0x1",
-					"0xc0", "0x2",
-					"0x4176b00", rpc.FRI,
+					"0x4802740",
+					"0xc0",
+					"0x4176b00",
 				),
 			},
 		},
@@ -191,10 +198,9 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0xfdb0d", "0x1",
-					"0xe0", "0x2",
-					"0xe6bcc", rpc.FRI,
+					"0xfdb0d",
+					"0xe0",
+					"0xe6bcc",
 				),
 			},
 		},
@@ -267,10 +273,9 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0xbde1b", "0x1",
-					"0x80", "0x2",
-					"0xacaea", rpc.FRI,
+					"0xbde1b",
+					"0x80",
+					"0xacaea",
 				),
 			},
 		},
@@ -322,29 +327,20 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			),
 		},
 		{
-			name: "gas limit exceeded",
+			name: "gas limit exceeded, ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
 					accountAddr, validEntryPoint, &felt.Zero,
 					addr, utils.HexToFelt(t, "0x64"), // 100
 				),
 			},
-			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
-				rpc.TransactionExecutionErrorData{
-					TransactionIndex: 0,
-					ExecutionError: mustMarshal(t, executionError{
-						ClassHash:       accountClassHash.String(),
-						ContractAddress: accountAddr.String(),
-						Error: executionError{
-							ClassHash:       accountClassHash.String(),
-							ContractAddress: accountAddr.String(),
-							Error:           "0x4f7574206f6620676173 ('Out of gas')",
-							Selector:        executeEntryPointSelector,
-						},
-						Selector: executeEntryPointSelector,
-					}),
-				},
-			),
+			expected: []rpc.FeeEstimate{
+				createFeeEstimate(t,
+					"0x5f71ed",
+					"0x80",
+					"0x1372ee",
+				),
+			},
 		},
 	}
 
@@ -362,22 +358,25 @@ func runTests(t *testing.T, tests []test, handler *rpc.Handler) {
 
 			if test.jsonErr != nil {
 				require.Equal(t, test.jsonErr, jsonErr,
-					fmt.Sprintf("expected: %v\n, got: %v\n",
-						handleJSONError(t, test.jsonErr),
-						handleJSONError(t, jsonErr),
-					),
+					msg(t, test.expected, feeEstimate, test.jsonErr, jsonErr),
 				)
 				return
 			}
 
 			require.Equal(t, test.expected, feeEstimate,
-				fmt.Sprintf("expected: %s\n, got: %s\n",
-					mustMarshal(t, test.expected),
-					mustMarshal(t, feeEstimate),
-				),
+				msg(t, test.expected, feeEstimate, test.jsonErr, jsonErr),
 			)
 		})
 	}
+}
+
+func msg(t *testing.T, expectedResult, result []rpc.FeeEstimate, expectedError, err *jsonrpc.Error) string {
+	return fmt.Sprintf("expected: %s\n, got: %s\nexpected error: %s\n, got: %s\n",
+		mustMarshal(t, expectedResult),
+		mustMarshal(t, result),
+		handleJSONError(t, expectedError),
+		handleJSONError(t, err),
+	)
 }
 
 func mustMarshal(t *testing.T, v any) json.RawMessage {
@@ -524,20 +523,19 @@ func createResourceBounds(t *testing.T,
 }
 
 func createFeeEstimate(t *testing.T,
-	l1GasConsumed, l1GasPrice,
-	l2GasConsumed, l2GasPrice,
-	l1DataGasConsumed, l1DataGasPrice,
-	overallFee string, unit rpc.FeeUnit,
+	l2GasConsumed,
+	l1DataGasConsumed,
+	overallFee string,
 ) rpc.FeeEstimate {
 	return rpc.FeeEstimate{
-		L1GasConsumed:     utils.HexToFelt(t, l1GasConsumed),
-		L1GasPrice:        utils.HexToFelt(t, l1GasPrice),
+		L1GasConsumed:     &felt.Zero,
+		L1GasPrice:        utils.HexToFelt(t, "0x2"),
 		L2GasConsumed:     utils.HexToFelt(t, l2GasConsumed),
-		L2GasPrice:        utils.HexToFelt(t, l2GasPrice),
+		L2GasPrice:        utils.HexToFelt(t, "0x1"),
 		L1DataGasConsumed: utils.HexToFelt(t, l1DataGasConsumed),
-		L1DataGasPrice:    utils.HexToFelt(t, l1DataGasPrice),
+		L1DataGasPrice:    utils.HexToFelt(t, "0x2"),
 		OverallFee:        utils.HexToFelt(t, overallFee),
-		Unit:              utils.HeapPtr(unit),
+		Unit:              utils.HeapPtr(rpc.FRI),
 	}
 }
 
