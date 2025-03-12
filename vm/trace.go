@@ -1,11 +1,8 @@
 package vm
 
 import (
-	"encoding/json"
 	"errors"
-	"slices"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
@@ -58,27 +55,6 @@ const (
 	TxnL1Handler
 )
 
-func (t TransactionType) String() string {
-	switch t {
-	case TxnDeclare:
-		return "DECLARE"
-	case TxnDeploy:
-		return "DEPLOY"
-	case TxnDeployAccount:
-		return "DEPLOY_ACCOUNT"
-	case TxnInvoke:
-		return "INVOKE"
-	case TxnL1Handler:
-		return "L1_HANDLER"
-	default:
-		return "<unknown>"
-	}
-}
-
-func (t TransactionType) MarshalText() ([]byte, error) {
-	return []byte(t.String()), nil
-}
-
 func (t *TransactionType) UnmarshalJSON(data []byte) error {
 	switch string(data) {
 	case `"DECLARE"`:
@@ -108,43 +84,6 @@ type TransactionTrace struct {
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
-func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
-	var executeInvocation *FunctionInvocation
-	if t.ExecuteInvocation != nil {
-		executeInvocation = t.ExecuteInvocation.FunctionInvocation
-	}
-	return slices.DeleteFunc([]*FunctionInvocation{
-		t.ConstructorInvocation,
-		t.ValidateInvocation,
-		t.FeeTransferInvocation,
-		executeInvocation,
-		t.FunctionInvocation,
-	}, func(i *FunctionInvocation) bool { return i == nil })
-}
-
-func (t *TransactionTrace) RevertReason() string {
-	if t.ExecuteInvocation == nil {
-		return ""
-	}
-	return t.ExecuteInvocation.RevertReason
-}
-
-func (t *TransactionTrace) AllEvents() []OrderedEvent {
-	events := make([]OrderedEvent, 0)
-	for _, invocation := range t.allInvocations() {
-		events = append(events, invocation.allEvents()...)
-	}
-	return events
-}
-
-func (t *TransactionTrace) AllMessages() []OrderedL2toL1Message {
-	messages := make([]OrderedL2toL1Message, 0)
-	for _, invocation := range t.allInvocations() {
-		messages = append(messages, invocation.allMessages()...)
-	}
-	return messages
-}
-
 type FunctionInvocation struct {
 	ContractAddress    felt.Felt              `json:"contract_address"`
 	EntryPointSelector *felt.Felt             `json:"entry_point_selector,omitempty"`
@@ -161,33 +100,9 @@ type FunctionInvocation struct {
 	IsReverted         bool                   `json:"is_reverted,omitempty"`
 }
 
-func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
-	events := make([]OrderedEvent, 0)
-	for i := range invocation.Calls {
-		events = append(events, invocation.Calls[i].allEvents()...)
-	}
-	return append(events, invocation.Events...)
-}
-
-func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
-	messages := make([]OrderedL2toL1Message, 0)
-	for i := range invocation.Calls {
-		messages = append(messages, invocation.Calls[i].allMessages()...)
-	}
-	return append(messages, invocation.Messages...)
-}
-
 type ExecuteInvocation struct {
 	RevertReason        string `json:"revert_reason"`
 	*FunctionInvocation `json:",omitempty"`
-}
-
-func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
-	if e.FunctionInvocation != nil {
-		return json.Marshal(e.FunctionInvocation)
-	}
-	type alias ExecuteInvocation
-	return json.Marshal(alias(e))
 }
 
 type OrderedEvent struct {
@@ -233,17 +148,4 @@ type ExecutionResources struct {
 
 	ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
-}
-
-func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) DataAvailability {
-	da := DataAvailability{}
-
-	switch mode {
-	case core.Calldata:
-		da.L1Gas = gasConsumed.Uint64()
-	case core.Blob:
-		da.L1DataGas = dataGasConsumed.Uint64()
-	}
-
-	return da
 }
