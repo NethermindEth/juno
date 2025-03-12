@@ -138,18 +138,12 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	return db.Update(d, fn)
 }
 
-func (d *DB) Update2(needRead bool, fn func(w db.Batch) error) error {
+func (d *DB) Update2(fn func(w db.Batch) error) error {
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
-	var batch db.Batch
-	if needRead {
-		batch = d.NewIndexedBatch()
-	} else {
-		batch = d.NewBatch()
-	}
-
+	batch := d.NewBatch()
 	if err := fn(batch); err != nil {
 		return err
 	}
