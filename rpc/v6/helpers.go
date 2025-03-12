@@ -91,27 +91,19 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	return header, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
-	if resources == nil {
-		return &ExecutionResources{}
+func adaptExecutionResources(resources *core.ExecutionResources) ComputationResources {
+	return ComputationResources{
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
+		RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
+		Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
+		Ecdsa:        resources.BuiltinInstanceCounter.Ecsda,
+		EcOp:         resources.BuiltinInstanceCounter.EcOp,
+		Keccak:       resources.BuiltinInstanceCounter.Keccak,
+		Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
+		SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
 	}
-
-	res := &ExecutionResources{
-		ComputationResources: ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
-			RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
-			Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
-			Ecdsa:        resources.BuiltinInstanceCounter.Ecsda,
-			EcOp:         resources.BuiltinInstanceCounter.EcOp,
-			Keccak:       resources.BuiltinInstanceCounter.Keccak,
-			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
-			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
-		},
-	}
-
-	return res
 }
 
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
