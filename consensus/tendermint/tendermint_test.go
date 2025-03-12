@@ -145,7 +145,7 @@ func TestStartRound(t *testing.T) {
 			Height:     0,
 			Round:      0,
 			ValidRound: nil,
-			Value:      utils.Ptr(app.cur + 1),
+			Value:      utils.HeapPtr(app.cur + 1),
 			Sender:     *nodeAddr,
 		}
 
