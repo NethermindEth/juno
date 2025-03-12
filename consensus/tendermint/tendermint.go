@@ -196,12 +196,14 @@ func (t *Tendermint[V, H, A]) Start() {
 		defer t.wg.Done()
 
 		t.startRound(0)
+		fmt.Println("Returned after startRound(0)")
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
 
 		i := 0
 		for {
+			fmt.Println("i =", i)
 			select {
 			case <-t.quit:
 				fmt.Println("quit", t.state.step)
@@ -221,16 +223,22 @@ func (t *Tendermint[V, H, A]) Start() {
 				i := slices.Index(t.scheduledTms, tm)
 				t.scheduledTms = slices.Delete(t.scheduledTms, i, i+1)
 			case p := <-t.proposalsCh:
+				fmt.Println("Inside proposals case")
 				t.handleProposal(p)
 			case p := <-t.listeners.ProposalListener.Listen():
+				fmt.Println("Inside proposalsListner case")
 				t.handleProposal(p)
 			case p := <-t.prevotesCh:
+				fmt.Println("Inside prevotes case")
 				t.handlePrevote(p)
 			case p := <-t.listeners.PrevoteListener.Listen():
+				fmt.Println("Inside prevotesListner case")
 				t.handlePrevote(p)
 			case p := <-t.precommitsCh:
+				fmt.Println("Inside precommits case")
 				t.handlePrecommit(p)
 			case p := <-t.listeners.PrecommitListener.Listen():
+				fmt.Println("Inside precommitsListner case")
 				t.handlePrecommit(p)
 			}
 			i++
@@ -244,7 +252,7 @@ func (t *Tendermint[V, H, A]) Stop() {
 	for _, tm := range t.scheduledTms {
 		tm.Stop()
 	}
-	fmt.Println("Waiting fo the Tendermint loop to exit")
+	fmt.Println("Waiting for the Tendermint loop to exit")
 	t.wg.Wait()
 }
 
