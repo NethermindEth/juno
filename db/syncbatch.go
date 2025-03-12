@@ -1,8 +1,6 @@
 package db
 
-import (
-	"sync"
-)
+import "sync"
 
 // A wrapper around IndexedBatch that allows for thread-safe operations.
 // Ideally, you shouldn't have to use this at all. If you need to write to batches concurrently,
@@ -24,12 +22,6 @@ func (s *SyncBatch) Delete(key []byte) error {
 	return s.batch.Delete(key)
 }
 
-func (s *SyncBatch) DeleteRange(start, end []byte) error {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	return s.batch.DeleteRange(start, end)
-}
-
 func (s *SyncBatch) Put(key, val []byte) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -48,10 +40,10 @@ func (s *SyncBatch) Reset() {
 	s.batch.Reset()
 }
 
-func (s *SyncBatch) Get(key []byte, cb func(value []byte) error) error {
+func (s *SyncBatch) Get2(key []byte) ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.batch.Get(key, cb)
+	return s.batch.Get2(key)
 }
 
 func (s *SyncBatch) Has(key []byte) (bool, error) {
