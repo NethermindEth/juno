@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -34,15 +35,48 @@ func BlockHeaderByNumberKey(blockNum uint64) []byte {
 	return BlockHeadersByNumber.Key(encodeBlockNum(blockNum))
 }
 
-func TransactionBlockNumAndIndexByHashKey(hash *felt.Felt) []byte {
+func TxBlockNumIndexByHashKey(hash *felt.Felt) []byte {
 	return TransactionBlockNumbersAndIndicesByHash.Key(hash.Marshal())
 }
 
-func TransactionByBlockNumAndIndexKey(key []byte) []byte {
+const BlockNumIndexKeySize = 16
+
+type BlockNumIndexKey struct {
+	Number uint64
+	Index  uint64
+}
+
+func (b *BlockNumIndexKey) MarshalBinary() []byte {
+	data := make([]byte, BlockNumIndexKeySize)
+	binary.BigEndian.PutUint64(data[0:8], b.Number)
+	binary.BigEndian.PutUint64(data[8:16], b.Index)
+	return data
+}
+
+func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
+	if len(data) < BlockNumIndexKeySize {
+		return errors.New("data is too short to unmarshal block number and index")
+	}
+	b.Number = binary.BigEndian.Uint64(data[0:8])
+	b.Index = binary.BigEndian.Uint64(data[8:16])
+	return nil
+}
+
+func TxByBlockNumIndexKey(num uint64, index uint64) []byte {
+	key := &BlockNumIndexKey{Number: num, Index: index}
+	return TransactionsByBlockNumberAndIndex.Key(key.MarshalBinary())
+}
+
+func TxByBlockNumIndexKeyBytes(key []byte) []byte {
 	return TransactionsByBlockNumberAndIndex.Key(key)
 }
 
-func ReceiptByBlockNumAndIndexKey(key []byte) []byte {
+func ReceiptByBlockNumIndexKey(num uint64, index uint64) []byte {
+	key := &BlockNumIndexKey{Number: num, Index: index}
+	return ReceiptsByBlockNumberAndIndex.Key(key.MarshalBinary())
+}
+
+func ReceiptByBlockNumIndexKeyBytes(key []byte) []byte {
 	return ReceiptsByBlockNumberAndIndex.Key(key)
 }
 
