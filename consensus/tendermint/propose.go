@@ -55,6 +55,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	vr := p.ValidRound
 
 	if validProposal {
+		fmt.Println("proposal is valid. Adding to messages")
 		// Add the proposal to the message set even if the sender is not the proposer,
 		// this is because of slahsing purposes
 		t.messages.addProposal(p)
@@ -139,6 +140,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		}
 
 		t.messages.addPrevote(vote)
+		fmt.Println("About to broadcase prevote line 22")
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 		t.state.step = prevote
 	}
@@ -185,6 +187,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 			}
 
 			t.messages.addPrevote(vote)
+			fmt.Println("About to broadcase prevote line 28")
 			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 			t.state.step = prevote
 		}
@@ -235,6 +238,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 				}
 
 				t.messages.addPrecommit(vote)
+				fmt.Println("About to broadcase prevote line 36")
 				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
 				t.state.step = precommit
 			}

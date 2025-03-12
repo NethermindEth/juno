@@ -55,13 +55,17 @@ func TestPropose(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 			algo.Stop()
 
-			// Ensure future message have been moved from futureMessages set to current messages set.
+			// Ensure future message has been moved from futureMessages set to current messages set.
 
 			assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
+			assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2][0])
+
 			assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
 			assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
 
-			assert.Equal(t, propose, algo.state.step)
+			// The step is not propose because the proposal which is received in round r' leads to consensus
+			// engine broadcasting prevote to the proposal which changes the step from propose to prevote.
+			assert.Equal(t, prevote, algo.state.step)
 			assert.Equal(t, expectedHeight, algo.state.height)
 			assert.Equal(t, rPrime, algo.state.round)
 		})
