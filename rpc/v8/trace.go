@@ -239,9 +239,27 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
 		}
+
+		txs := make([]string, len(block.Transactions))
+		for i, tx := range block.Transactions {
+			txs[i] = tx.Hash().String()
+		}
+
 		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
 		// report them as unexpected errors
-		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(struct {
+			Error       string   `json:"error"`
+			StateBlock  uint64   `json:"state_block"`
+			ParentBlock string   `json:"parent_block"`
+			Number      uint64   `json:"number"`
+			Txs         []string `json:"txs"`
+		}{
+			Error:       err.Error(),
+			StateBlock:  core.GetBlockNumber(state),
+			ParentBlock: block.ParentHash.String(),
+			Number:      block.Number,
+			Txs:         txs,
+		})
 	}
 
 	result := make([]TracedBlockTransaction, len(executionResult.Traces))
