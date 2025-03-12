@@ -52,10 +52,8 @@ func TestPropose(t *testing.T) {
 			proposalListener.send(val2Proposal)
 
 			algo.Start()
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(time.Millisecond)
 			algo.Stop()
-
-			// Ensure future message has been moved from futureMessages set to current messages set.
 
 			assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
 			assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2][0])
@@ -79,16 +77,19 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
+		tm := func(r uint) time.Duration { return 2 * time.Second }
+
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := uint(0)
 		rPrime, rPrimeVal := uint(4), value(10)
-		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
-			Height:     expectedHeight,
-			Round:      rPrime,
-			ValidRound: nil,
-			Value:      &rPrimeVal,
-			Sender:     *val2,
+		val2Prevote := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: expectedHeight,
+				Round:  rPrime,
+				ID:     utils.HeapPtr(rPrimeVal.Hash()),
+				Sender: *val2,
+			},
 		}
 
 		val3Prevote := Prevote[felt.Felt, felt.Felt]{
@@ -100,19 +101,23 @@ func TestPropose(t *testing.T) {
 			},
 		}
 
-		algo.messages.addProposal(val2Proposal)
+		algo.futureMessages.addPrevote(val2Prevote)
 		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val3Prevote)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
+		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val2]))
+		assert.Equal(t, val2Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val2][0])
+
 		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
 		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
 
+		// The step here remains propose because a proposal is yet to be received to allow the node to send the
+		// prevote for it.
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
 		assert.Equal(t, rPrime, algo.state.round)
@@ -150,19 +155,23 @@ func TestPropose(t *testing.T) {
 			},
 		}
 
-		algo.messages.addPrevote(val3Prevote)
+		algo.futureMessages.addPrevote(val3Prevote)
 		prevoteListener := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val2Precommit)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 1, len(algo.messages.precommits[expectedHeight][rPrime][*val2]))
+		assert.Equal(t, val2Precommit, algo.messages.precommits[expectedHeight][rPrime][*val2][0])
+
 		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
 		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
 
+		// The step here remains propose because a proposal is yet to be received to allow the node to send the
+		// prevote for it.
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
 		assert.Equal(t, rPrime, algo.state.round)
@@ -213,7 +222,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -283,7 +292,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(nodePrecommit)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -345,7 +354,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -422,7 +431,7 @@ func TestPropose(t *testing.T) {
 		proposalListener.send(val2Proposal)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -507,7 +516,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
