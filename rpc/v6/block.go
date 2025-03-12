@@ -215,40 +215,6 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 	return header.TransactionCount, nil
 }
 
-func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	blockStatus, rpcErr := h.blockStatus(id, block)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == BlockAcceptedL1 {
-		finalityStatus = TxnAcceptedOnL1
-	}
-
-	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
-	for index, txn := range block.Transactions {
-		r := block.Receipts[index]
-
-		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: AdaptTransaction(txn),
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
-		}
-	}
-
-	return &BlockWithReceipts{
-		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txsWithReceipts,
-	}, nil
-}
-
 // BlockWithTxs returns the block information with full transactions given a block ID.
 //
 // It follows the specification defined here:

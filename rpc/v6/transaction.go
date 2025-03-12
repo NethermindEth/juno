@@ -524,7 +524,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, true), nil
+	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
 // AddTransaction relays a transaction to the gateway.
@@ -721,7 +721,6 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
 func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
-	v0_6Response bool,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
@@ -780,7 +779,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 		Events:             events,
 		ContractAddress:    contractAddress,
 		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources, v0_6Response),
+		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
 		MessageHash:        messageHash,
 	}
 }
