@@ -111,6 +111,13 @@ func TestEstimateFee(t *testing.T) {
 	})
 }
 
+type test struct {
+	name                    string
+	broadcastedTransactions []rpc.BroadcastedTransaction
+	jsonErr                 *jsonrpc.Error
+	expected                []rpc.FeeEstimate
+}
+
 type executionError struct {
 	ClassHash       string `json:"class_hash"`
 	ContractAddress string `json:"contract_address"`
@@ -119,7 +126,10 @@ type executionError struct {
 }
 
 // From versioned constants
-var executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
+var (
+	executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
+	binarySearchContractPath  = "../../cairo/compiler/target/juno_HelloStarknet.contract_class.json"
+)
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
@@ -127,17 +137,12 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	accountAddr := chain.AccountAddress()
 
 	// Get binary search contract
-	class := blockchain.NewClass(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
+	class := blockchain.NewClass(t, binarySearchContractPath)
 
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	tests := []struct {
-		name                    string
-		broadcastedTransactions []rpc.BroadcastedTransaction
-		jsonErr                 *jsonrpc.Error
-		expected                []rpc.FeeEstimate
-	}{
+	tests := []test{
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
@@ -146,36 +151,16 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
 					"0x0", "0x2",
-					"0x423cb80", "0x1",
+					"0x4176980", "0x1",
 					"0xc0", "0x2",
-					"0x423cd00", rpc.FRI,
+					"0x4176b00", rpc.FRI,
 				),
 			},
 		},
 		// TODO: add more tests
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			feeEstimate, _, jsonErr := handler.EstimateFee(
-				test.broadcastedTransactions,
-				[]rpc.SimulationFlag{rpc.SkipValidateFlag},
-				rpc.BlockID{Latest: true},
-			)
-
-			if test.jsonErr != nil {
-				require.Equal(t, test.jsonErr, jsonErr,
-					fmt.Sprintf("expected: %v\n, got: %v\n",
-						handleJSONError(t, test.jsonErr),
-						handleJSONError(t, jsonErr),
-					),
-				)
-				return
-			}
-
-			require.Equal(t, test.expected, feeEstimate)
-		})
-	}
+	runTests(t, tests, handler)
 }
 
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
@@ -186,7 +171,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	deployerAddr := chain.DeployerAddress()
 
 	// Get binary search contract
-	class := blockchain.NewClass(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
+	class := blockchain.NewClass(t, binarySearchContractPath)
 	chain.Prepare(t, []*blockchain.TestClass{class})
 
 	validEntryPoint := crypto.StarknetKeccak([]byte("deploy_contract"))
@@ -195,12 +180,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	tests := []struct {
-		name                    string
-		broadcastedTransactions []rpc.BroadcastedTransaction
-		jsonErr                 *jsonrpc.Error
-		expected                []rpc.FeeEstimate
-	}{
+	tests := []test{
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
@@ -212,9 +192,9 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
 					"0x0", "0x2",
-					"0xfdcc5", "0x1",
+					"0xfdb0d", "0x1",
 					"0xe0", "0x2",
-					"0xe6d5c", rpc.FRI,
+					"0xe6bcc", rpc.FRI,
 				),
 			},
 		},
@@ -251,27 +231,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 		// TODO: add more tests
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			feeEstimate, _, jsonErr := handler.EstimateFee(
-				test.broadcastedTransactions,
-				[]rpc.SimulationFlag{rpc.SkipValidateFlag},
-				rpc.BlockID{Latest: true},
-			)
-
-			if test.jsonErr != nil {
-				require.Equal(t, test.jsonErr, jsonErr,
-					fmt.Sprintf("expected: %v\n, got: %v\n",
-						handleJSONError(t, test.jsonErr),
-						handleJSONError(t, jsonErr),
-					),
-				)
-				return
-			}
-
-			require.Equal(t, test.expected, feeEstimate)
-		})
-	}
+	runTests(t, tests, handler)
 }
 
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
@@ -283,7 +243,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	// Predeploy binary search contract
 	addr := utils.HexToFelt(t, "0xd")
 
-	class := blockchain.NewClass(t, "../../cairo/target/dev/juno_HelloStarknet.contract_class.json")
+	class := blockchain.NewClass(t, binarySearchContractPath)
 	class.AddAccount(addr, nil)
 
 	chain.Prepare(t, []*blockchain.TestClass{class})
@@ -296,12 +256,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	tests := []struct {
-		name                    string
-		broadcastedTransactions []rpc.BroadcastedTransaction
-		jsonErr                 *jsonrpc.Error
-		expected                []rpc.FeeEstimate
-	}{
+	tests := []test{
 		{
 			name: "binary search ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
@@ -313,9 +268,9 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
 					"0x0", "0x2",
-					"0xbe18b", "0x1",
+					"0xbde1b", "0x1",
 					"0x80", "0x2",
-					"0xace0a", rpc.FRI,
+					"0xacaea", rpc.FRI,
 				),
 			},
 		},
@@ -393,6 +348,10 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 		},
 	}
 
+	runTests(t, tests, handler)
+}
+
+func runTests(t *testing.T, tests []test, handler *rpc.Handler) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			feeEstimate, _, jsonErr := handler.EstimateFee(
@@ -411,7 +370,12 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 				return
 			}
 
-			require.Equal(t, test.expected, feeEstimate)
+			require.Equal(t, test.expected, feeEstimate,
+				fmt.Sprintf("expected: %s\n, got: %s\n",
+					mustMarshal(t, test.expected),
+					mustMarshal(t, feeEstimate),
+				),
+			)
 		})
 	}
 }

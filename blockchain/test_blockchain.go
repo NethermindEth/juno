@@ -53,19 +53,20 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
 	}
 	require.NoError(t, chain.Store(genesisBlock, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
+	prefix := "../../cairo/scarb/target/dev/"
 	// Predeploy presets
 	// https://github.com/OpenZeppelin/cairo-contracts/tree/main/packages/presets
-	chain.account = NewClass(t, "../../cairo/target/dev/juno_AccountUpgradeable.contract_class.json")
+	chain.account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
 	chain.account.AddAccount(
 		utils.HexToFelt(t, "0xc01"),
 		utils.HexToFelt(t, "0x10000000000000000000000000000"),
 	)
-	chain.deployer = NewClass(t, "../../cairo/target/dev/juno_UniversalDeployer.contract_class.json")
+	chain.deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
 	chain.deployer.AddAccount(
 		utils.HexToFelt(t, "0xc02"),
 		nil,
 	)
-	chain.erc20 = NewClass(t, "../../cairo/target/dev/juno_ERC20Upgradeable.contract_class.json")
+	chain.erc20 = NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
 	chain.erc20.AddAccount(
 		utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 		nil,
@@ -227,8 +228,19 @@ func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *star
 	require.NoError(t, err)
 	defer file.Close()
 
+	intermediate := new(struct {
+		Abi         json.RawMessage            `json:"abi"`
+		EntryPoints starknet.SierraEntryPoints `json:"entry_points_by_type"`
+		Program     []*felt.Felt               `json:"sierra_program"`
+		Version     string                     `json:"contract_class_version"`
+	})
+	require.NoError(t, json.NewDecoder(file).Decode(intermediate))
+
 	snClass := new(starknet.SierraDefinition)
-	require.NoError(t, json.NewDecoder(file).Decode(snClass))
+	snClass.Abi = string(intermediate.Abi)
+	snClass.EntryPoints = intermediate.EntryPoints
+	snClass.Program = intermediate.Program
+	snClass.Version = intermediate.Version
 
 	compliedClass, err := compiler.Compile(snClass)
 	require.NoError(t, err)
