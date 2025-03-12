@@ -12,10 +12,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var (
-	errDBClosed    = errors.New("memory database closed")
-	errKeyNotFound = errors.New("key not found")
-)
+var errDBClosed = errors.New("memory database closed")
 
 var _ db.KeyValueStore = (*Database)(nil)
 
@@ -52,7 +49,7 @@ func (d *Database) Get2(key []byte) ([]byte, error) {
 
 	value, ok := d.db[string(key)]
 	if !ok {
-		return nil, errKeyNotFound
+		return nil, db.ErrKeyNotFound
 	}
 
 	return utils.CopySlice(value), nil
@@ -158,7 +155,7 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copy()
 }
 
-func (d *Database) Update2(_ bool, fn func(db.Batch) error) error {
+func (d *Database) Update2(fn func(db.Batch) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}

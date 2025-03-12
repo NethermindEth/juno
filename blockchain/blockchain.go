@@ -119,12 +119,8 @@ func (b *Blockchain) Network() *utils.Network {
 // If blockchain is empty zero felt is returned.
 func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 	b.listener.OnRead("StateCommitment")
-	var commitment *felt.Felt
-	return commitment, b.database.View(func(txn db.Transaction) error {
-		var err error
-		commitment, err = core.NewState(txn).Root()
-		return err
-	})
+	batch := b.database2.NewIndexedBatch() // this is a hack because we don't need to write to the db
+	return core.NewState2(batch).Root()
 }
 
 // Height returns the latest block height. If blockchain is empty nil is returned.
@@ -168,6 +164,15 @@ func headsHeader(txn db.Transaction) (*core.Header, error) {
 	}
 
 	return blockHeaderByNumber(txn, height)
+}
+
+func headsHeader2(txn db.KeyValueReader) (*core.Header, error) {
+	height, err := GetChainHeight(txn)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetBlockHeaderByNumber(txn, height)
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
@@ -314,9 +319,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
-	return b.database.View(func(txn db.Transaction) error {
-		return verifyBlock(txn, block)
-	})
+	return verifyBlock2(b.database2, block)
 }
 
 func verifyBlock(txn db.Transaction, block *core.Block) error {
@@ -345,6 +348,32 @@ func verifyBlock(txn db.Transaction, block *core.Block) error {
 	return nil
 }
 
+func verifyBlock2(txn db.KeyValueReader, block *core.Block) error {
+	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
+		return err
+	}
+
+	expectedBlockNumber := uint64(0)
+	expectedParentHash := &felt.Zero
+
+	h, err := headsHeader2(txn)
+	if err == nil {
+		expectedBlockNumber = h.Number + 1
+		expectedParentHash = h.Hash
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	}
+
+	if expectedBlockNumber != block.Number {
+		return fmt.Errorf("expected block #%d, got block #%d", expectedBlockNumber, block.Number)
+	}
+	if !block.ParentHash.Equal(expectedParentHash) {
+		return ErrParentDoesNotMatchHead
+	}
+
+	return nil
+}
+
 func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *core.BlockCommitments) error {
 	commitmentBytes, err := encoder.Marshal(commitments)
 	if err != nil {
@@ -356,23 +385,7 @@ func StoreBlockCommitments(txn db.Transaction, blockNumber uint64, commitments *
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	b.listener.OnRead("BlockCommitmentsByNumber")
-	var commitments *core.BlockCommitments
-	return commitments, b.database.View(func(txn db.Transaction) error {
-		var err error
-		commitments, err = blockCommitmentsByNumber(txn, blockNumber)
-		return err
-	})
-}
-
-func blockCommitmentsByNumber(txn db.Transaction, blockNumber uint64) (*core.BlockCommitments, error) {
-	var commitments *core.BlockCommitments
-	if err := txn.Get(db.BlockCommitmentsKey(blockNumber), func(val []byte) error {
-		commitments = new(core.BlockCommitments)
-		return encoder.Unmarshal(val, commitments)
-	}); err != nil {
-		return nil, err
-	}
-	return commitments, nil
+	return GetBlockCommitmentByBlockNum(b.database2, blockNumber)
 }
 
 // StoreBlockHeader stores the given block in the database.
@@ -508,16 +521,6 @@ func receiptsByBlockNumber(txn db.Transaction, number uint64) ([]*core.Transacti
 	return receipts, nil
 }
 
-// blockByHash retrieves a block from database by its hash
-func blockByHash(txn db.Transaction, hash *felt.Felt) (*core.Block, error) {
-	var block *core.Block
-	return block, txn.Get(db.BlockHeaderNumbersByHashKey(hash), func(val []byte) error {
-		var err error
-		block, err = BlockByNumber(txn, binary.BigEndian.Uint64(val))
-		return err
-	})
-}
-
 func StoreL1HandlerMsgHashes(dbTxn db.Transaction, blockTxns []core.Transaction) error {
 	for _, txn := range blockTxns {
 		if l1Handler, ok := (txn).(*core.L1HandlerTransaction); ok {
@@ -620,18 +623,6 @@ func storeTransactionAndReceipt(txn db.Transaction, number, i uint64, t core.Tra
 	return txn.Set(db.ReceiptsByBlockNumberAndIndex.Key(bnIndexBytes), rBytes)
 }
 
-// transactionBlockNumberAndIndexByHash gets the block number and index for a given transaction hash
-func transactionBlockNumberAndIndexByHash(txn db.Transaction, hash *felt.Felt) (*txAndReceiptDBKey, error) {
-	var bnIndex *txAndReceiptDBKey
-	if err := txn.Get(db.TxBlockNumIndexByHashKey(hash), func(val []byte) error {
-		bnIndex = new(txAndReceiptDBKey)
-		return bnIndex.UnmarshalBinary(val)
-	}); err != nil {
-		return nil, err
-	}
-	return bnIndex, nil
-}
-
 // transactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func transactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptDBKey) (core.Transaction, error) {
 	var transaction core.Transaction
@@ -644,6 +635,7 @@ func transactionByBlockNumberAndIndex(txn db.Transaction, bnIndex *txAndReceiptD
 type StateCloser = func() error
 
 // HeadState returns a StateReader that provides a stable view to the latest state
+// TODO(weiihann): handle the interface later....
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
 	txn, err := b.database.NewTransaction(false)
@@ -700,17 +692,12 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	txn, err := b.database.NewTransaction(false)
+	latest, err := GetChainHeight(b.database2)
 	if err != nil {
 		return nil, err
 	}
 
-	latest, err := ChainHeight(txn)
-	if err != nil {
-		return nil, err
-	}
-
-	return newEventFilter(txn, from, keys, 0, latest, b.pendingBlockFn), nil
+	return newEventFilter(b.database2, from, keys, 0, latest, b.pendingBlockFn), nil
 }
 
 // RevertHead reverts the head block
