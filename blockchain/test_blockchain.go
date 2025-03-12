@@ -236,11 +236,12 @@ func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *star
 	})
 	require.NoError(t, json.NewDecoder(file).Decode(intermediate))
 
-	snClass := new(starknet.SierraDefinition)
-	snClass.Abi = string(intermediate.Abi)
-	snClass.EntryPoints = intermediate.EntryPoints
-	snClass.Program = intermediate.Program
-	snClass.Version = intermediate.Version
+	snClass := &starknet.SierraDefinition{
+		Abi:         string(intermediate.Abi),
+		EntryPoints: intermediate.EntryPoints,
+		Program:     intermediate.Program,
+		Version:     intermediate.Version,
+	}
 
 	compliedClass, err := compiler.Compile(snClass)
 	require.NoError(t, err)
