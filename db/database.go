@@ -26,8 +26,9 @@ type KeyValueRangeDeleter interface {
 
 // Helper interface for atomic operations
 type Helper interface {
-	// This will create a write-only batch and apply the callback to it, and flush the batch to the disk
-	Update2(func(KeyValueWriter) error) error
+	// If needRead is true, it will create an indexed batch, apply the callback to it, then flush the batch to the disk
+	// Otherwise, a write-only batch is created.
+	Update2(needRead bool, fn func(Batch) error) error
 	// This will create a read-only snapshot and apply the callback to it
 	View2(func(Snapshot) error) error
 }

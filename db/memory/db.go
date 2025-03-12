@@ -158,7 +158,7 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copy()
 }
 
-func (d *Database) Update2(fn func(db.KeyValueWriter) error) error {
+func (d *Database) Update2(_ bool, fn func(db.Batch) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
