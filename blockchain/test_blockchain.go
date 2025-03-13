@@ -19,7 +19,7 @@ import (
 )
 
 type testBlockchain struct {
-	*Blockchain
+	Blockchain
 	t                        *testing.T
 	account, deployer, erc20 *TestClass
 	addr2classHash           map[felt.Felt]*felt.Felt
@@ -30,7 +30,7 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
 
 	testDB := pebble.NewMemTest(t)
 	chain := testBlockchain{
-		Blockchain:     New(testDB, &utils.Sepolia),
+		Blockchain:     *New(testDB, &utils.Sepolia),
 		t:              t,
 		addr2classHash: make(map[felt.Felt]*felt.Felt),
 	}
