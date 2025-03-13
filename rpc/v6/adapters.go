@@ -1,12 +1,18 @@
 package rpcv6
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
+	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/jinzhu/copier"
 )
 
 /****************************************************
@@ -337,5 +343,394 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Compu
 		Keccak:       builtins.Keccak,
 		Poseidon:     builtins.Poseidon,
 		SegmentArena: builtins.SegmentArena,
+	}
+}
+
+func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds {
+	if rb == nil {
+		return nil
+	}
+	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	for resource, bounds := range *rb {
+		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
+			MaxAmount:       bounds.MaxAmount,
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return &feederResourceBounds
+}
+
+func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+	if mode == nil {
+		return nil
+	}
+	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
+}
+
+func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
+	return &starknet.Transaction{
+		Hash:                  rpcTx.Hash,
+		Version:               rpcTx.Version,
+		ContractAddress:       rpcTx.ContractAddress,
+		ContractAddressSalt:   rpcTx.ContractAddressSalt,
+		ClassHash:             rpcTx.ClassHash,
+		ConstructorCallData:   rpcTx.ConstructorCallData,
+		Type:                  starknet.TransactionType(rpcTx.Type),
+		SenderAddress:         rpcTx.SenderAddress,
+		MaxFee:                rpcTx.MaxFee,
+		Signature:             rpcTx.Signature,
+		CallData:              rpcTx.CallData,
+		EntryPointSelector:    rpcTx.EntryPointSelector,
+		Nonce:                 rpcTx.Nonce,
+		CompiledClassHash:     rpcTx.CompiledClassHash,
+		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		Tip:                   rpcTx.Tip,
+		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
+		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		AccountDeploymentData: rpcTx.AccountDeploymentData,
+		PaymasterData:         rpcTx.PaymasterData,
+	}
+}
+
+/****************************************************
+		Core Adapters
+*****************************************************/
+
+func adaptBlockHeader(header *core.Header) BlockHeader {
+	var blockNumber *uint64
+	// if header.Hash == nil it's a pending block
+	if header.Hash != nil {
+		blockNumber = &header.Number
+	}
+
+	sequencerAddress := header.SequencerAddress
+	if sequencerAddress == nil {
+		sequencerAddress = &felt.Zero
+	}
+
+	return BlockHeader{
+		Hash:             header.Hash,
+		ParentHash:       header.ParentHash,
+		Number:           blockNumber,
+		NewRoot:          header.GlobalStateRoot,
+		Timestamp:        header.Timestamp,
+		SequencerAddress: sequencerAddress,
+		L1GasPrice: &ResourcePrice{
+			InWei: header.L1GasPriceETH,
+			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
+		},
+		StarknetVersion: header.ProtocolVersion,
+	}
+}
+
+func nilToZero(f *felt.Felt) *felt.Felt {
+	if f == nil {
+		return &felt.Zero
+	}
+	return f
+}
+
+func adaptExecutionResources(resources *core.ExecutionResources) ComputationResources {
+	return ComputationResources{
+		Steps:        resources.Steps,
+		MemoryHoles:  resources.MemoryHoles,
+		Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
+		RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
+		Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
+		Ecdsa:        resources.BuiltinInstanceCounter.Ecsda,
+		EcOp:         resources.BuiltinInstanceCounter.EcOp,
+		Keccak:       resources.BuiltinInstanceCounter.Keccak,
+		Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
+		SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
+	}
+}
+
+func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+	network *utils.Network,
+) (core.Transaction, core.Class, *felt.Felt, error) {
+	var feederTxn starknet.Transaction
+	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
+		return nil, nil, nil, err
+	}
+
+	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var declaredClass core.Class
+	if len(broadcastedTxn.ContractClass) != 0 {
+		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	} else if broadcastedTxn.Type == TxnDeclare {
+		return nil, nil, nil, errors.New("declare without a class definition")
+	}
+
+	if t, ok := txn.(*core.DeclareTransaction); ok {
+		t.ClassHash, err = declaredClass.Hash()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	txnHash, err := core.TransactionHash(txn, network)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	var paidFeeOnL1 *felt.Felt
+	switch t := txn.(type) {
+	case *core.DeclareTransaction:
+		t.TransactionHash = txnHash
+	case *core.InvokeTransaction:
+		t.TransactionHash = txnHash
+	case *core.DeployAccountTransaction:
+		t.TransactionHash = txnHash
+	case *core.L1HandlerTransaction:
+		t.TransactionHash = txnHash
+		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
+	default:
+		return nil, nil, nil, errors.New("unsupported transaction")
+	}
+
+	if txn.Hash() == nil {
+		return nil, nil, nil, errors.New("deprecated transaction type")
+	}
+	return txn, declaredClass, paidFeeOnL1, nil
+}
+
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
+	rpcResourceBounds := make(map[Resource]ResourceBounds)
+	for resource, bounds := range rb {
+		// ResourceL1DataGas is not supported in v6
+		if resource == core.ResourceL1DataGas {
+			continue
+		}
+
+		rpcResourceBounds[Resource(resource)] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	return rpcResourceBounds
+}
+
+func AdaptTransaction(t core.Transaction) *Transaction {
+	var txn *Transaction
+	switch v := t.(type) {
+	case *core.DeployTransaction:
+		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
+		txn = &Transaction{
+			Type:                TxnDeploy,
+			Hash:                v.Hash(),
+			ClassHash:           v.ClassHash,
+			Version:             v.Version.AsFelt(),
+			ContractAddressSalt: v.ContractAddressSalt,
+			ConstructorCallData: &v.ConstructorCallData,
+		}
+	case *core.InvokeTransaction:
+		txn = adaptInvokeTransaction(v)
+	case *core.DeclareTransaction:
+		txn = adaptDeclareTransaction(v)
+	case *core.DeployAccountTransaction:
+		txn = adaptDeployAccountTransaction(v)
+	case *core.L1HandlerTransaction:
+		nonce := v.Nonce
+		if nonce == nil {
+			nonce = &felt.Zero
+		}
+		txn = &Transaction{
+			Type:               TxnL1Handler,
+			Hash:               v.Hash(),
+			Version:            v.Version.AsFelt(),
+			Nonce:              nonce,
+			ContractAddress:    v.ContractAddress,
+			EntryPointSelector: v.EntryPointSelector,
+			CallData:           &v.CallData,
+		}
+	default:
+		panic("not a transaction")
+	}
+
+	if txn.Version.IsZero() && txn.Type != TxnL1Handler {
+		txn.Nonce = nil
+	}
+	return txn
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
+func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
+	tx := &Transaction{
+		Type:               TxnInvoke,
+		Hash:               t.Hash(),
+		MaxFee:             t.MaxFee,
+		Version:            t.Version.AsFelt(),
+		Signature:          utils.HeapPtr(t.Signature()),
+		Nonce:              t.Nonce,
+		CallData:           &t.CallData,
+		ContractAddress:    t.ContractAddress,
+		SenderAddress:      t.SenderAddress,
+		EntryPointSelector: t.EntryPointSelector,
+	}
+
+	if tx.Version.Uint64() == 3 {
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+		tx.PaymasterData = &t.PaymasterData
+		tx.AccountDeploymentData = &t.AccountDeploymentData
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+	}
+	return tx
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1340
+func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
+	tx := &Transaction{
+		Hash:              t.Hash(),
+		Type:              TxnDeclare,
+		MaxFee:            t.MaxFee,
+		Version:           t.Version.AsFelt(),
+		Signature:         utils.HeapPtr(t.Signature()),
+		Nonce:             t.Nonce,
+		ClassHash:         t.ClassHash,
+		SenderAddress:     t.SenderAddress,
+		CompiledClassHash: t.CompiledClassHash,
+	}
+
+	if tx.Version.Uint64() == 3 {
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+		tx.PaymasterData = &t.PaymasterData
+		tx.AccountDeploymentData = &t.AccountDeploymentData
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+	}
+
+	return tx
+}
+
+func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
+	tx := &Transaction{
+		Hash:                t.Hash(),
+		MaxFee:              t.MaxFee,
+		Version:             t.Version.AsFelt(),
+		Signature:           utils.HeapPtr(t.Signature()),
+		Nonce:               t.Nonce,
+		Type:                TxnDeployAccount,
+		ContractAddressSalt: t.ContractAddressSalt,
+		ConstructorCallData: &t.ConstructorCallData,
+		ClassHash:           t.ClassHash,
+	}
+
+	if tx.Version.Uint64() == 3 {
+		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
+		tx.PaymasterData = &t.PaymasterData
+		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
+		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
+	}
+
+	return tx
+}
+
+// todo(Kirill): try to replace core.Transaction with rpc.Transaction type
+func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
+) *TransactionReceipt {
+	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
+	for idx, msg := range receipt.L2ToL1Message {
+		messages[idx] = &MsgToL1{
+			To:      msg.To,
+			Payload: msg.Payload,
+			From:    msg.From,
+		}
+	}
+
+	events := make([]*Event, len(receipt.Events))
+	for idx, event := range receipt.Events {
+		events[idx] = &Event{
+			From: event.From,
+			Keys: event.Keys,
+			Data: event.Data,
+		}
+	}
+
+	var messageHash string
+	var contractAddress *felt.Felt
+	switch v := txn.(type) {
+	case *core.DeployTransaction:
+		contractAddress = v.ContractAddress
+	case *core.DeployAccountTransaction:
+		contractAddress = v.ContractAddress
+	case *core.L1HandlerTransaction:
+		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
+	}
+
+	var receiptBlockNumber *uint64
+	// case for pending blocks: they don't have blockHash and therefore no block number
+	if blockHash != nil {
+		receiptBlockNumber = &blockNumber
+	}
+
+	var es TxnExecutionStatus
+	if receipt.Reverted {
+		es = TxnFailure
+	} else {
+		es = TxnSuccess
+	}
+
+	var resources *ComputationResources
+	if receipt.ExecutionResources != nil {
+		resources = utils.HeapPtr(adaptExecutionResources(receipt.ExecutionResources))
+	}
+
+	return &TransactionReceipt{
+		FinalityStatus:  finalityStatus,
+		ExecutionStatus: es,
+		Type:            AdaptTransaction(txn).Type,
+		Hash:            txn.Hash(),
+		ActualFee: &FeePayment{
+			Amount: receipt.Fee,
+			Unit:   feeUnit(txn),
+		},
+		BlockHash:          blockHash,
+		BlockNumber:        receiptBlockNumber,
+		MessagesSent:       messages,
+		Events:             events,
+		ContractAddress:    contractAddress,
+		RevertReason:       receipt.RevertReason,
+		ExecutionResources: resources,
+		MessageHash:        messageHash,
+	}
+}
+
+func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+	var feederClass starknet.ClassDefinition
+	err := json.Unmarshal(declaredClass, &feederClass)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case feederClass.V1 != nil:
+		compiledClass, cErr := compiler.Compile(feederClass.V1)
+		if cErr != nil {
+			return nil, cErr
+		}
+		return sn2core.AdaptCairo1Class(feederClass.V1, compiledClass)
+	case feederClass.V0 != nil:
+		// strip the quotes
+		base64Program := string(feederClass.V0.Program[1 : len(feederClass.V0.Program)-1])
+		feederClass.V0.Program, err = utils.Gzip64Decode(base64Program)
+		if err != nil {
+			return nil, err
+		}
+
+		return sn2core.AdaptCairo0Class(feederClass.V0)
+	default:
+		return nil, errors.New("empty class")
 	}
 }

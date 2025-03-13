@@ -268,37 +268,3 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *json
 
 	return status, nil
 }
-
-func adaptBlockHeader(header *core.Header) BlockHeader {
-	var blockNumber *uint64
-	// if header.Hash == nil it's a pending block
-	if header.Hash != nil {
-		blockNumber = &header.Number
-	}
-
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = &felt.Zero
-	}
-
-	return BlockHeader{
-		Hash:             header.Hash,
-		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
-		NewRoot:          header.GlobalStateRoot,
-		Timestamp:        header.Timestamp,
-		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
-			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
-		},
-		StarknetVersion: header.ProtocolVersion,
-	}
-}
-
-func nilToZero(f *felt.Felt) *felt.Felt {
-	if f == nil {
-		return &felt.Zero
-	}
-	return f
-}
