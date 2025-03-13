@@ -109,7 +109,8 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 	blockInfo := vm.BlockInfo{
 		Header: &genesisHeader,
 	}
-	genesisState := sync.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
+	initialStateDiff := core.EmptyStateDiff()
+	genesisState := sync.NewPendingStateWriter(&initialStateDiff, make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
 
 	classhashToSierraVersion := make(map[felt.Felt]string, len(newClasses))
