@@ -81,25 +81,26 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) testBlockchain {
 	return chain
 }
 
-func (b testBlockchain) AccountAddress() felt.Felt {
+// Use pointers because of the "hugeParam" linter
+func (b *testBlockchain) AccountAddress() felt.Felt {
 	return b.account.accounts[0].address
 }
 
-func (b testBlockchain) DeployerAddress() felt.Felt {
+func (b *testBlockchain) DeployerAddress() felt.Felt {
 	return b.deployer.accounts[0].address
 }
 
-func (b testBlockchain) AccountClassHash() felt.Felt {
+func (b *testBlockchain) AccountClassHash() felt.Felt {
 	return b.account.hash
 }
 
-func (b testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
+func (b *testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
 	classHash, ok := b.addr2classHash[address]
 	require.True(b.t, ok)
 	return classHash
 }
 
-func (b testBlockchain) NewRoot(t *testing.T,
+func (b *testBlockchain) NewRoot(t *testing.T,
 	blockNumber uint64, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) *felt.Felt {
 	var root *felt.Felt
