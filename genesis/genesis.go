@@ -95,142 +95,245 @@ func (g *GenesisConfig) Validate() error {
 	return validator.Validator().Struct(g)
 }
 
-// GenesisState builds the genesis state given the genesis-config data.
-func GenesisStateDiff( //nolint:funlen,gocyclo
+// GenesisStateDiff builds the genesis state given the genesis-config data.
+func GenesisStateDiff(
 	config *GenesisConfig,
 	v vm.VM,
 	network *utils.Network,
 	maxSteps uint64,
 ) (*core.StateDiff, map[felt.Felt]core.Class, error) {
-	newClasses, err := loadClasses(config.Classes)
+	genesisState := initGenesisState()
+
+	classhashToSierraVersion, err := declareClasses(config, genesisState)
 	if err != nil {
 		return nil, nil, err
 	}
-	blockInfo := vm.BlockInfo{
-		Header: &genesisHeader,
+
+	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, genesisState, classhashToSierraVersion)
+	if err != nil {
+		return nil, nil, err
 	}
+
+	if err := executeFunctionCalls(config, v, network, maxSteps, genesisState, contractAddressToSierraVersion); err != nil {
+		return nil, nil, err
+	}
+
+	if err := executeTransactions(config, v, network, genesisState); err != nil {
+		return nil, nil, err
+	}
+
+	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
+	return genesisStateDiff, genesisClasses, nil
+}
+
+func initGenesisState() *sync.PendingStateWriter {
 	initialStateDiff := core.EmptyStateDiff()
-	genesisState := sync.NewPendingStateWriter(&initialStateDiff, make(map[felt.Felt]core.Class),
-		core.NewState(db.NewMemTransaction()))
+	return sync.NewPendingStateWriter(
+		&initialStateDiff,
+		make(map[felt.Felt]core.Class),
+		core.NewState(db.NewMemTransaction()),
+	)
+}
+
+func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) (map[felt.Felt]string, error) {
+	newClasses, err := loadClasses(config.Classes)
+	if err != nil {
+		return nil, err
+	}
 
 	classhashToSierraVersion := make(map[felt.Felt]string, len(newClasses))
-	contractAddressToSierraVersion := make(map[felt.Felt]string, len(config.Contracts))
 	for classHash, class := range newClasses {
-		// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
-		if err = genesisState.SetContractClass(&classHash, class); err != nil {
-			return nil, nil, fmt.Errorf("declare v0 class: %v", err)
-		}
-
-		if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
-			if err = genesisState.SetCompiledClassHash(&classHash, cairo1Class.Compiled.Hash()); err != nil {
-				return nil, nil, fmt.Errorf("set compiled class hash: %v", err)
-			}
+		if err := setClass(genesisState, &classHash, class); err != nil {
+			return nil, err
 		}
 		classhashToSierraVersion[classHash] = class.SierraVersion()
 	}
 
-	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
-	if err != nil {
-		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
+	return classhashToSierraVersion, nil
+}
+
+func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
+	if err := genesisState.SetContractClass(classHash, class); err != nil {
+		return fmt.Errorf("declare v0 class: %v", err)
 	}
 
-	for address, contractData := range config.Contracts {
-		classHash := contractData.ClassHash
-		contractAddressToSierraVersion[address] = classhashToSierraVersion[classHash]
-		if err = genesisState.SetClassHash(&address, &classHash); err != nil {
-			return nil, nil, fmt.Errorf("set class hash: %v", err)
-		}
-		if contractData.ConstructorArgs != nil {
-			callInfo := &vm.CallInfo{
-				ContractAddress: &address,
-				ClassHash:       &classHash,
-				Selector:        constructorSelector,
-				Calldata:        contractData.ConstructorArgs,
-			}
-			// Call the constructors
-			result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, classhashToSierraVersion[classHash], true, true)
-			if err != nil {
-				return nil, nil, fmt.Errorf("execute function call: %v", err)
-			}
-			var coreSD core.StateDiff
-			vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
-			genesisState.StateDiff().MergeStateDiffs(&coreSD)
+	if cairo1Class, isCairo1 := class.(*core.Cairo1Class); isCairo1 {
+		if err := genesisState.SetCompiledClassHash(classHash, cairo1Class.Compiled.Hash()); err != nil {
+			return fmt.Errorf("set compiled class hash: %v", err)
 		}
 	}
+	return nil
+}
+
+func deployContracts(
+	config *GenesisConfig,
+	v vm.VM,
+	network *utils.Network,
+	maxSteps uint64,
+	genesisState *sync.PendingStateWriter,
+	classhashToSierraVersion map[felt.Felt]string,
+) (map[felt.Felt]string, error) {
+	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
+	if err != nil {
+		return nil, fmt.Errorf("convert string to felt: %v", err)
+	}
+
+	contractAddressToSierraVersion := make(map[felt.Felt]string, len(config.Contracts))
+	blockInfo := vm.BlockInfo{Header: &genesisHeader}
+
+	for address, contractData := range config.Contracts {
+		if err := deployContract(v, network, maxSteps, genesisState, address, contractData,
+			constructorSelector, classhashToSierraVersion, contractAddressToSierraVersion, &blockInfo); err != nil {
+			return nil, err
+		}
+	}
+
+	return contractAddressToSierraVersion, nil
+}
+
+func deployContract(
+	v vm.VM,
+	network *utils.Network,
+	maxSteps uint64,
+	genesisState *sync.PendingStateWriter,
+	address felt.Felt,
+	contractData GenesisContractData,
+	constructorSelector *felt.Felt,
+	classhashToSierraVersion map[felt.Felt]string,
+	contractAddressToSierraVersion map[felt.Felt]string,
+	blockInfo *vm.BlockInfo,
+) error {
+	classHash := contractData.ClassHash
+	contractAddressToSierraVersion[address] = classhashToSierraVersion[classHash]
+
+	if err := genesisState.SetClassHash(&address, &classHash); err != nil {
+		return fmt.Errorf("set class hash: %v", err)
+	}
+
+	if contractData.ConstructorArgs == nil {
+		return nil
+	}
+
+	callInfo := &vm.CallInfo{
+		ContractAddress: &address,
+		ClassHash:       &classHash,
+		Selector:        constructorSelector,
+		Calldata:        contractData.ConstructorArgs,
+	}
+
+	result, err := v.Call(callInfo, blockInfo, genesisState, network, maxSteps,
+		classhashToSierraVersion[classHash], true, true)
+	if err != nil {
+		return fmt.Errorf("execute constructor call: %v", err)
+	}
+
+	var coreSD core.StateDiff
+	vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
+	genesisState.StateDiff().MergeStateDiffs(&coreSD)
+	return nil
+}
+
+func executeFunctionCalls(
+	config *GenesisConfig,
+	v vm.VM,
+	network *utils.Network,
+	maxSteps uint64,
+	genesisState *sync.PendingStateWriter,
+	contractAddressToSierraVersion map[felt.Felt]string,
+) error {
+	blockInfo := vm.BlockInfo{Header: &genesisHeader}
+
 	for _, fnCall := range config.FunctionCalls {
 		contractAddress := fnCall.ContractAddress
 		entryPointSelector := fnCall.EntryPointSelector
+
 		classHash, err := genesisState.ContractClassHash(&contractAddress)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get contract class hash: %v", err)
+			return fmt.Errorf("get contract class hash: %v", err)
 		}
+
 		callInfo := &vm.CallInfo{
 			ContractAddress: &contractAddress,
 			ClassHash:       classHash,
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
 		}
-		blockInfo := vm.BlockInfo{
-			Header: &genesisHeader,
-		}
-		result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps, contractAddressToSierraVersion[contractAddress], true, true)
+
+		result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps,
+			contractAddressToSierraVersion[contractAddress], true, true)
 		if err != nil {
-			return nil, nil, fmt.Errorf("execute function call: %v", err)
+			return fmt.Errorf("execute function call: %v", err)
 		}
+
 		var coreSD core.StateDiff
 		vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
 		genesisState.StateDiff().MergeStateDiffs(&coreSD)
 	}
 
-	if len(config.Txns) != 0 {
-		coreTxns := make([]core.Transaction, len(config.Txns))
-		for i, txn := range config.Txns {
-			switch txn.Type {
-			case rpc.TxnInvoke:
-				coreTxns[i] = &core.InvokeTransaction{
-					TransactionHash:      txn.Hash,
-					CallData:             *txn.CallData,
-					TransactionSignature: *txn.Signature,
-					MaxFee:               txn.MaxFee,
-					ContractAddress:      txn.ContractAddress,
-					Version:              (*core.TransactionVersion)(txn.Version),
-					EntryPointSelector:   txn.EntryPointSelector,
-					Nonce:                txn.Nonce,
-					SenderAddress:        txn.SenderAddress,
-				}
-			case rpc.TxnDeployAccount:
-				coreTxns[i] = &core.DeployAccountTransaction{
-					DeployTransaction: core.DeployTransaction{
-						TransactionHash:     txn.Hash,
-						ContractAddressSalt: txn.ContractAddressSalt,
-						ContractAddress:     txn.SenderAddress,
-						ClassHash:           txn.ClassHash,
-						ConstructorCallData: *txn.ConstructorCallData,
-						Version:             (*core.TransactionVersion)(txn.Version),
-					},
-					MaxFee:               txn.MaxFee,
-					TransactionSignature: *txn.Signature,
-					Nonce:                txn.Nonce,
-				}
-			default:
-				return nil, nil, fmt.Errorf("unsupported transaction type: %v", txn.Type)
+	return nil
+}
+
+func executeTransactions(
+	config *GenesisConfig,
+	v vm.VM,
+	network *utils.Network,
+	genesisState *sync.PendingStateWriter,
+) error {
+	if len(config.Txns) == 0 {
+		return nil
+	}
+
+	coreTxns := make([]core.Transaction, len(config.Txns))
+	for i := range config.Txns {
+		txn := &config.Txns[i]
+		switch txn.Type {
+		case rpc.TxnInvoke:
+			coreTxns[i] = &core.InvokeTransaction{
+				TransactionHash:      txn.Hash,
+				CallData:             *txn.CallData,
+				TransactionSignature: *txn.Signature,
+				MaxFee:               txn.MaxFee,
+				ContractAddress:      txn.ContractAddress,
+				Version:              (*core.TransactionVersion)(txn.Version),
+				EntryPointSelector:   txn.EntryPointSelector,
+				Nonce:                txn.Nonce,
+				SenderAddress:        txn.SenderAddress,
 			}
-		}
-		executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-			&blockInfo, genesisState, network, true, false, true, true)
-		if err != nil {
-			return nil, nil, fmt.Errorf("execute function call: %v", err)
-		}
-		for i := range config.Txns {
-			var traceSD core.StateDiff
-			vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff, &traceSD)
-			genesisSD, _ := genesisState.StateDiffAndClasses()
-			genesisSD.Merge(&traceSD)
-			genesisState.SetStateDiff(genesisSD)
+		case rpc.TxnDeployAccount:
+			coreTxns[i] = &core.DeployAccountTransaction{
+				DeployTransaction: core.DeployTransaction{
+					TransactionHash:     txn.Hash,
+					ContractAddressSalt: txn.ContractAddressSalt,
+					ContractAddress:     txn.SenderAddress,
+					ClassHash:           txn.ClassHash,
+					ConstructorCallData: *txn.ConstructorCallData,
+					Version:             (*core.TransactionVersion)(txn.Version),
+				},
+				MaxFee:               txn.MaxFee,
+				TransactionSignature: *txn.Signature,
+				Nonce:                txn.Nonce,
+			}
+		default:
+			return fmt.Errorf("unsupported transaction type: %v", txn.Type)
 		}
 	}
-	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
-	return genesisStateDiff, genesisClasses, nil
+
+	blockInfo := vm.BlockInfo{Header: &genesisHeader}
+	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
+		&blockInfo, genesisState, network, true, false, true, true)
+	if err != nil {
+		return fmt.Errorf("execute transactions: %v", err)
+	}
+
+	for i := range config.Txns {
+		var traceSD core.StateDiff
+		vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff, &traceSD)
+		genesisSD, _ := genesisState.StateDiffAndClasses()
+		genesisSD.Merge(&traceSD)
+		genesisState.SetStateDiff(genesisSD)
+	}
+
+	return nil
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {

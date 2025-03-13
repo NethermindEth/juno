@@ -81,5 +81,4 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff, toStateDiff *core.StateDiff) {
 		ch := rc.ClassHash
 		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
 	}
-	return
 }
