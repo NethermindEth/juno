@@ -93,8 +93,8 @@ type PendingStateWriter struct {
 	*PendingState
 }
 
-func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingStateWriter {
-	return &PendingStateWriter{
+func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) PendingStateWriter {
+	return PendingStateWriter{
 		PendingState: &PendingState{
 			stateDiff:  stateDiff,
 			newClasses: newClasses,
@@ -160,8 +160,8 @@ func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingStateWriter) StateDiffAndClasses() (*core.StateDiff, map[felt.Felt]core.Class) {
-	return p.stateDiff, p.newClasses
+func (p *PendingStateWriter) StateDiffAndClasses() (core.StateDiff, map[felt.Felt]core.Class) {
+	return *p.stateDiff, p.newClasses
 }
 
 func (p *PendingStateWriter) SetStateDiff(stateDiff *core.StateDiff) {

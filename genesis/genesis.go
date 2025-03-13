@@ -101,38 +101,34 @@ func GenesisStateDiff(
 	v vm.VM,
 	network *utils.Network,
 	maxSteps uint64,
-) (*core.StateDiff, map[felt.Felt]core.Class, error) {
-	genesisState := initGenesisState()
+) (core.StateDiff, map[felt.Felt]core.Class, error) {
+	initialStateDiff := core.EmptyStateDiff()
+	genesisState := sync.NewPendingStateWriter(
+		&initialStateDiff,
+		make(map[felt.Felt]core.Class, len(config.Classes)),
+		core.NewState(db.NewMemTransaction()),
+	)
 
-	classhashToSierraVersion, err := declareClasses(config, genesisState)
+	classhashToSierraVersion, err := declareClasses(config, &genesisState)
 	if err != nil {
-		return nil, nil, err
+		return core.StateDiff{}, nil, err
 	}
 
-	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, genesisState, classhashToSierraVersion)
+	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, &genesisState, classhashToSierraVersion)
 	if err != nil {
-		return nil, nil, err
+		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeFunctionCalls(config, v, network, maxSteps, genesisState, contractAddressToSierraVersion); err != nil {
-		return nil, nil, err
+	if err := executeFunctionCalls(config, v, network, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
+		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeTransactions(config, v, network, genesisState); err != nil {
-		return nil, nil, err
+	if err := executeTransactions(config, v, network, &genesisState); err != nil {
+		return core.StateDiff{}, nil, err
 	}
 
 	genesisStateDiff, genesisClasses := genesisState.StateDiffAndClasses()
 	return genesisStateDiff, genesisClasses, nil
-}
-
-func initGenesisState() *sync.PendingStateWriter {
-	initialStateDiff := core.EmptyStateDiff()
-	return sync.NewPendingStateWriter(
-		&initialStateDiff,
-		make(map[felt.Felt]core.Class),
-		core.NewState(db.NewMemTransaction()),
-	)
 }
 
 func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) (map[felt.Felt]string, error) {
@@ -330,7 +326,7 @@ func executeTransactions(
 		vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff, &traceSD)
 		genesisSD, _ := genesisState.StateDiffAndClasses()
 		genesisSD.Merge(&traceSD)
-		genesisState.SetStateDiff(genesisSD)
+		genesisState.SetStateDiff(&genesisSD)
 	}
 
 	return nil
