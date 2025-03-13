@@ -53,7 +53,7 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
 	}
 	require.NoError(t, chain.Store(genesisBlock, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
-	prefix := "../../cairo/scarb/target/dev/"
+	const prefix = "../../cairo/scarb/target/dev/"
 	// Predeploy presets
 	// https://github.com/OpenZeppelin/cairo-contracts/tree/main/packages/presets
 	chain.account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
