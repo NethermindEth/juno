@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -26,40 +26,38 @@ import (
 )
 
 func TestMigration0000(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	t.Run("empty DB", func(t *testing.T) {
-		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, &utils.Mainnet)
-		}))
+		txn := testDB.NewIndexedBatch()
+		require.NoError(t, migration00002(txn, &utils.Mainnet))
 	})
 
 	t.Run("non-empty DB", func(t *testing.T) {
-		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-			return txn.Set([]byte("asd"), []byte("123"))
-		}))
-		require.EqualError(t, testDB.View(func(txn db.Transaction) error {
-			return migration0000(txn, &utils.Mainnet)
-		}), "initial DB should be empty")
+		txn := testDB.NewIndexedBatch()
+		require.NoError(t, txn.Put([]byte("asd"), []byte("123")))
+		require.NoError(t, txn.Write())
+
+		txn = testDB.NewIndexedBatch()
+		require.EqualError(t, migration00002(txn, &utils.Mainnet), "initial DB should be empty")
 	})
 }
 
 func TestRelocateContractStorageRootKeys(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+	txn := testDB.NewIndexedBatch()
 	numberOfContracts := 5
 
 	// Populate the database with entries in the old location.
 	for i := range numberOfContracts {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 		// Use exampleBytes for the key suffix (the contract address) and the value.
-		err := txn.Set(db.Peer.Key(exampleBytes[:]), exampleBytes[:])
+		err := txn.Put(db.Peer.Key(exampleBytes[:]), exampleBytes[:])
 		require.NoError(t, err)
 	}
 
-	require.NoError(t, relocateContractStorageRootKeys(txn, &utils.Mainnet))
+	require.NoError(t, relocateContractStorageRootKeys2(txn, &utils.Mainnet))
 
 	// Each root-key entry should have been moved to its new location
 	// and the old entry should not exist.
@@ -67,39 +65,38 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		require.NoError(t, txn.Get(db.ContractStorage.Key(exampleBytes[:]), func(val []byte) error {
-			require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
-			return nil
-		}))
+		val, err := txn.Get2(db.ContractStorage.Key(exampleBytes[:]))
+		require.NoError(t, err)
+		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
-		err := txn.Get(oldKey, func(val []byte) error { return nil })
+		_, err = txn.Get2(oldKey)
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}
 
 	// Commit the transaction to release resources
-	require.NoError(t, txn.Commit())
+	require.NoError(t, txn.Write())
 }
 
 func TestRecalculateBloomFilters(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet)
+	testDB := memory.New()
+	chain := blockchain.New2(testDB, &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
+		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
+		su, err := gw.StateUpdate(context.Background(), i)
 		require.NoError(t, err)
 
 		b.EventsBloom = nil
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return recalculateBloomFilters(txn, &utils.Mainnet)
+	require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+		return recalculateBloomFilters2(txn, &utils.Mainnet)
 	}))
 
 	for i := range uint64(3) {
@@ -110,31 +107,29 @@ func TestRecalculateBloomFilters(t *testing.T) {
 }
 
 func TestRemovePending(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	pendingBlockBytes := []byte("some pending block bytes")
-	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-		if err := txn.Set(db.Unused.Key(), pendingBlockBytes); err != nil {
+	require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+		if err := txn.Put(db.Unused.Key(), pendingBlockBytes); err != nil {
 			return err
 		}
 
-		if err := txn.Get(db.Unused.Key(), func(_ []byte) error { return nil }); err != nil {
+		_, err := txn.Get2(db.Unused.Key())
+		require.NoError(t, err)
+
+		if err := removePendingBlock2(txn, nil); err != nil {
 			return err
 		}
 
-		if err := removePendingBlock(txn, nil); err != nil {
-			return err
-		}
-
-		assert.EqualError(t, db.ErrKeyNotFound, testDB.View(func(txn db.Transaction) error {
-			return txn.Get(db.Unused.Key(), nil)
-		}).Error())
+		_, err = txn.Get2(db.Unused.Key())
+		require.ErrorIs(t, db.ErrKeyNotFound, err)
 
 		return nil
 	}))
 }
 
 func TestChangeTrieNodeEncoding(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
+	testdb := memory.New()
 
 	buckets := []db.Bucket{db.ClassesTrie, db.StateTrie, db.ContractStorage}
 
@@ -143,12 +138,12 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		Left  *bitset.BitSet
 		Right *bitset.BitSet
 	}
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
 		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
 		// will fail with an error since they are not valid trie.Node encodings.
-		require.NoError(t, txn.Set(db.ClassesTrie.Key(), []byte{1, 2, 3}))
-		require.NoError(t, txn.Set(db.StateTrie.Key(), []byte{1, 2, 3}))
-		require.NoError(t, txn.Set(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
+		require.NoError(t, txn.Put(db.ClassesTrie.Key(), []byte{1, 2, 3}))
+		require.NoError(t, txn.Put(db.StateTrie.Key(), []byte{1, 2, 3}))
+		require.NoError(t, txn.Put(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
 
 		for _, bucket := range buckets {
 			for i := range 5 {
@@ -159,7 +154,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 					return err
 				}
 
-				if err = txn.Set(bucket.Key([]byte{byte(i)}), encodedNode); err != nil {
+				if err = txn.Put(bucket.Key([]byte{byte(i)}), encodedNode); err != nil {
 					return err
 				}
 			}
@@ -168,21 +163,22 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		return nil
 	}))
 
-	m := new(changeTrieNodeEncoding)
+	m := new(changeTrieNodeEncoding2)
 	require.NoError(t, m.Before(nil))
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		_, err := m.Migrate(t.Context(), txn, &utils.Mainnet, nil)
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+		_, err := m.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		return err
 	}))
 
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
 		for _, bucket := range buckets {
 			for i := range 5 {
 				var coreNode trie.Node
-				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
+				val, err := txn.Get2(bucket.Key([]byte{byte(i)}))
 				if err != nil {
 					return err
 				}
+				require.NoError(t, coreNode.UnmarshalBinary(val))
 			}
 		}
 
@@ -191,21 +187,21 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 }
 
 func TestCalculateBlockCommitments(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet)
+	testdb := memory.New()
+	chain := blockchain.New2(testdb, &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(t.Context(), i)
+		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
+		su, err := gw.StateUpdate(context.Background(), i)
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return calculateBlockCommitments(txn, &utils.Mainnet)
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+		return calculateBlockCommitments2(txn, &utils.Mainnet)
 	}))
 	for i := range uint64(3) {
 		b, err := chain.BlockCommitmentsByNumber(i)
@@ -215,15 +211,15 @@ func TestCalculateBlockCommitments(t *testing.T) {
 }
 
 func TestL1HandlerTxns(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Sepolia)
+	testdb := memory.New()
+	chain := blockchain.New2(testdb, &utils.Sepolia)
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(7) { // First l1 handler txn is in block 6
-		b, err := gw.BlockByNumber(t.Context(), i)
+		b, err := gw.BlockByNumber(context.Background(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(t.Context(), i)
+		su, err := gw.StateUpdate(context.Background(), i)
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
@@ -231,7 +227,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 
 	// Delete the L1 handler txn hash from the database
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
 		return txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(msgHash.Bytes()))
 	}))
 
@@ -240,8 +236,8 @@ func TestL1HandlerTxns(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	// Recalculate and store the L1 message hashes
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		return calculateL1MsgHashes(txn, &utils.Sepolia)
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+		return calculateL1MsgHashes2(txn, &utils.Sepolia)
 	}))
 
 	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
@@ -251,27 +247,28 @@ func TestL1HandlerTxns(t *testing.T) {
 }
 
 func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
-	memTxn := db.NewMemTransaction()
+	memTxn := memory.New()
 
 	bs := bitset.New(251)
 	bsBytes, err := bs.MarshalBinary()
 	require.NoError(t, err)
 
 	key := []byte{0}
-	err = memTxn.Set(key, bsBytes)
+	err = memTxn.Put(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
+	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys2(memTxn, key, bsBytes, &utils.Mainnet))
 
 	var trieKey trie.BitArray
-	err = memTxn.Get(key, trieKey.UnmarshalBinary)
+	val, err := memTxn.Get2(key)
 	require.NoError(t, err)
+	require.NoError(t, trieKey.UnmarshalBinary(val))
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
 	require.Equal(t, felt.Zero, trieKey.Felt())
 }
 
 func TestMigrateCairo1CompiledClass(t *testing.T) {
-	txn := db.NewMemTransaction()
+	txn := memory.New()
 
 	key := []byte("key")
 	class := oldCairo1Class{
@@ -329,16 +326,15 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		expectedDeclared.Class.Compiled = json.RawMessage(test.compiledJSON)
 		classBytes, err := encoder.Marshal(expectedDeclared)
 		require.NoError(t, err)
-		err = txn.Set(key, classBytes)
+		err = txn.Put(key, classBytes)
 		require.NoError(t, err)
 
-		require.NoError(t, migrateCairo1CompiledClass(txn, key, classBytes, &utils.Mainnet))
+		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
 		var actualDeclared core.DeclaredClass
-		err = txn.Get(key, func(bytes []byte) error {
-			return encoder.Unmarshal(bytes, &actualDeclared)
-		})
+		val, err := txn.Get2(key)
 		require.NoError(t, err)
+		require.NoError(t, encoder.Unmarshal(val, &actualDeclared))
 
 		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
@@ -409,22 +405,22 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 func TestSchemaMetadata(t *testing.T) {
 	t.Run("conversion", func(t *testing.T) {
 		t.Run("version not set", func(t *testing.T) {
-			testDB := pebble.NewMemTest(t)
-			metadata, err := SchemaMetadata(testDB)
+			testDB := memory.New()
+			metadata, err := SchemaMetadata2(testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
 		})
 
 		t.Run("version set", func(t *testing.T) {
-			testDB := pebble.NewMemTest(t)
+			testDB := memory.New()
 			var version [8]byte
 			binary.BigEndian.PutUint64(version[:], 1)
-			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-				return txn.Set(db.SchemaVersion.Key(), version[:])
+			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+				return txn.Put(db.SchemaVersion.Key(), version[:])
 			}))
 
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata2(testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -432,51 +428,51 @@ func TestSchemaMetadata(t *testing.T) {
 	})
 	t.Run("update", func(t *testing.T) {
 		t.Run("Intermediate nil", func(t *testing.T) {
-			testDB := pebble.NewMemTest(t)
+			testDB := memory.New()
 			version := uint64(5)
-			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-				return updateSchemaMetadata(txn, schemaMetadata{
+			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata2(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: nil,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata2(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
 		})
 
 		t.Run("Intermediate not nil", func(t *testing.T) {
-			testDB := pebble.NewMemTest(t)
+			testDB := memory.New()
 			var (
 				intermediateState = []byte{1, 2, 3, 4}
 				version           = uint64(5)
 			)
-			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-				return updateSchemaMetadata(txn, schemaMetadata{
+			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata2(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata2(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
 		})
 
 		t.Run("Intermediate empty", func(t *testing.T) {
-			testDB := pebble.NewMemTest(t)
+			testDB := memory.New()
 			var (
 				intermediateState = make([]byte, 0)
 				version           = uint64(5)
 			)
-			require.NoError(t, testDB.Update(func(txn db.Transaction) error {
-				return updateSchemaMetadata(txn, schemaMetadata{
+			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata2(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata(testDB)
+			metadata, err := SchemaMetadata2(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -485,22 +481,22 @@ func TestSchemaMetadata(t *testing.T) {
 }
 
 type testMigration struct {
-	exec   func(context.Context, db.Transaction, *utils.Network) ([]byte, error)
+	exec   func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error)
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (f testMigration) Migrate(ctx context.Context, txn db.IndexedBatch, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	return f.exec(ctx, txn, network)
 }
 
 func (f testMigration) Before(state []byte) error { return f.before(state) }
 
-func TestMigrateIfNeededInternal(t *testing.T) {
+func TestMigrateIfNeeded(t *testing.T) {
 	t.Run("failure at schema", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
-		migrations := []Migration{
+		testDB := memory.New()
+		migrations := []Migration2{
 			testMigration{
-				exec: func(context.Context, db.Transaction, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -508,15 +504,15 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
+		require.ErrorContains(t, migrateIfNeeded2(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
 	})
 
 	t.Run("call with new tx", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		var counter int
-		migrations := []Migration{
+		migrations := []Migration2{
 			testMigration{
-				exec: func(context.Context, db.Transaction, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
 					if counter == 0 {
 						counter++
 						return nil, ErrCallWithNewTransaction
@@ -528,14 +524,14 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded2(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
 	})
 
 	t.Run("error during migration", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
-		migrations := []Migration{
+		testDB := memory.New()
+		migrations := []Migration2{
 			testMigration{
-				exec: func(context.Context, db.Transaction, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -543,14 +539,14 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
+		require.ErrorContains(t, migrateIfNeeded2(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
 
 	t.Run("error if using new db on old version of juno", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
-		migrations := []Migration{
+		testDB := memory.New()
+		migrations := []Migration2{
 			testMigration{
-				exec: func(context.Context, db.Transaction, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
 					return nil, nil
 				},
 				before: func([]byte) error {
@@ -558,18 +554,18 @@ func TestMigrateIfNeededInternal(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded2(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
 		want := "db is from a newer, incompatible version of Juno"
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}), want)
+		require.ErrorContains(t, migrateIfNeeded2(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration2{}), want)
 	})
 }
 
 func TestChangeStateDiffStructEmptyDB(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+	testdb := memory.New()
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+		migrator := NewBucketMigrator2(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(t.Context(), txn, &utils.Mainnet, nil)
+		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 
@@ -586,7 +582,7 @@ func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 }
 
 func TestChangeStateDiffStruct(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
+	testdb := memory.New()
 
 	// Initialise DB with two state diffs.
 	zero := make([]byte, 8)
@@ -595,7 +591,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	one := make([]byte, 8)
 	binary.BigEndian.PutUint64(one, 1)
 	su1Key := db.StateUpdatesByBlockNumber.Key(one)
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
 		//nolint: dupl
 		su0 := oldStateUpdate{
 			BlockHash: utils.HexToFelt(t, "0x0"),
@@ -616,7 +612,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 		}
 		su0Bytes, err := encoder.Marshal(su0)
 		require.NoError(t, err)
-		require.NoError(t, txn.Set(su0Key, su0Bytes))
+		require.NoError(t, txn.Put(su0Key, su0Bytes))
 
 		//nolint: dupl
 		su1 := oldStateUpdate{
@@ -638,15 +634,15 @@ func TestChangeStateDiffStruct(t *testing.T) {
 		}
 		su1Bytes, err := encoder.Marshal(su1)
 		require.NoError(t, err)
-		require.NoError(t, txn.Set(su1Key, su1Bytes))
+		require.NoError(t, txn.Put(su1Key, su1Bytes))
 		return nil
 	}))
 
 	// Migrate.
-	require.NoError(t, testdb.Update(func(txn db.Transaction) error {
-		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct)
+	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+		migrator := NewBucketMigrator2(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(t.Context(), txn, &utils.Mainnet, nil)
+		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		require.NoError(t, err)
 		require.Nil(t, intermediateState)
 		return nil
@@ -655,7 +651,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// Assert:
 	// - Both state diffs have been updated.
 	// - There are no extraneous entries in the DB.
-	require.NoError(t, testdb.View(func(txn db.Transaction) error {
+	require.NoError(t, testdb.View2(func(txn db.Snapshot) error {
 		iter, err := txn.NewIterator(nil, false)
 		require.NoError(t, err)
 		defer func() {
