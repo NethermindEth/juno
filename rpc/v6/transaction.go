@@ -328,7 +328,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 		}
 	}
 
-	return AdaptTransaction(txn), nil
+	return utils.HeapPtr(AdaptCoreTransaction(txn)), nil
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
@@ -351,7 +351,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return utils.HeapPtr(AdaptCoreTransaction(pending.Block.Transactions[txIndex])), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -364,7 +364,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	return AdaptTransaction(txn), nil
+	return utils.HeapPtr(AdaptCoreTransaction(txn)), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -395,7 +395,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return utils.HeapPtr(adaptCoreReceipt(receipt, txn, status, blockHash, blockNumber)), nil
 }
 
 // AddTransaction relays a transaction to the gateway.
@@ -428,11 +428,12 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		tx.ContractClass = newContractClass
 	}
 
+	feederTx := adaptTxToFeeder(&tx.Transaction)
 	txJSON, err := json.Marshal(&struct {
 		*starknet.Transaction
 		ContractClass json.RawMessage `json:"contract_class,omitempty"`
 	}{
-		Transaction:   adaptRPCTxToFeederTx(&tx.Transaction),
+		Transaction:   &feederTx,
 		ContractClass: tx.ContractClass,
 	})
 	if err != nil {

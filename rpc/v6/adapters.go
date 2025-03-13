@@ -15,6 +15,12 @@ import (
 	"github.com/jinzhu/copier"
 )
 
+/**
+ * Naming system:
+ * - From another pkg to this pkg: adapt<FromPkg>TheType
+ * - From this pkg to another: adaptTheTypeTo<ToPkg>
+ */
+
 /****************************************************
 		VM Adapters
 *****************************************************/
@@ -346,29 +352,35 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Compu
 	}
 }
 
-func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds {
-	if rb == nil {
-		return nil
-	}
+func adaptResourceBoundsToFeeder(rb map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds {
 	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	for resource, bounds := range *rb {
+	for resource, bounds := range rb {
 		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount,
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
-	return &feederResourceBounds
+
+	return feederResourceBounds
 }
 
-func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
-	if mode == nil {
-		return nil
+func adaptTxToFeeder(rpcTx *Transaction) starknet.Transaction {
+	var resourceBounds *map[starknet.Resource]starknet.ResourceBounds
+	if rpcTx.ResourceBounds != nil {
+		resourceBounds = utils.HeapPtr(adaptResourceBoundsToFeeder(*rpcTx.ResourceBounds))
 	}
-	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
-}
 
-func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
-	return &starknet.Transaction{
+	var nonceDAMode *starknet.DataAvailabilityMode
+	if rpcTx.NonceDAMode != nil {
+		nonceDAMode = utils.HeapPtr(starknet.DataAvailabilityMode(*rpcTx.NonceDAMode))
+	}
+
+	var feeDAMode *starknet.DataAvailabilityMode
+	if rpcTx.FeeDAMode != nil {
+		feeDAMode = utils.HeapPtr(starknet.DataAvailabilityMode(*rpcTx.FeeDAMode))
+	}
+
+	return starknet.Transaction{
 		Hash:                  rpcTx.Hash,
 		Version:               rpcTx.Version,
 		ContractAddress:       rpcTx.ContractAddress,
@@ -383,10 +395,10 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 		EntryPointSelector:    rpcTx.EntryPointSelector,
 		Nonce:                 rpcTx.Nonce,
 		CompiledClassHash:     rpcTx.CompiledClassHash,
-		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		ResourceBounds:        resourceBounds,
 		Tip:                   rpcTx.Tip,
-		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
-		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		NonceDAMode:           nonceDAMode,
+		FeeDAMode:             feeDAMode,
 		AccountDeploymentData: rpcTx.AccountDeploymentData,
 		PaymasterData:         rpcTx.PaymasterData,
 	}
@@ -396,7 +408,7 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 		Core Adapters
 *****************************************************/
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func adaptCoreBlockHeader(header *core.Header) BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {
@@ -417,20 +429,20 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		SequencerAddress: sequencerAddress,
 		L1GasPrice: &ResourcePrice{
 			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
+			InFri: utils.HeapPtr(nilToZero(header.L1GasPriceSTRK)), // Old block headers will be nil.
 		},
 		StarknetVersion: header.ProtocolVersion,
 	}
 }
 
-func nilToZero(f *felt.Felt) *felt.Felt {
+func nilToZero(f *felt.Felt) felt.Felt {
 	if f == nil {
-		return &felt.Zero
+		return felt.Zero
 	}
-	return f
+	return *f
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources) ComputationResources {
+func adaptCoreExecutionResources(resources *core.ExecutionResources) ComputationResources {
 	return ComputationResources{
 		Steps:        resources.Steps,
 		MemoryHoles:  resources.MemoryHoles,
@@ -445,7 +457,7 @@ func adaptExecutionResources(resources *core.ExecutionResources) ComputationReso
 	}
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func adaptBroadcastedTransactionToCore(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
 	var feederTxn starknet.Transaction
@@ -460,7 +472,7 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 
 	var declaredClass core.Class
 	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
+		declaredClass, err = adaptDeclaredClassToCore(broadcastedTxn.ContractClass)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -501,8 +513,9 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
+func adaptCoreResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
+
 	for resource, bounds := range rb {
 		// ResourceL1DataGas is not supported in v6
 		if resource == core.ResourceL1DataGas {
@@ -514,15 +527,17 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
+
 	return rpcResourceBounds
 }
 
-func AdaptTransaction(t core.Transaction) *Transaction {
-	var txn *Transaction
+func AdaptCoreTransaction(t core.Transaction) Transaction {
+	var txn Transaction
+
 	switch v := t.(type) {
 	case *core.DeployTransaction:
 		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		txn = &Transaction{
+		txn = Transaction{
 			Type:                TxnDeploy,
 			Hash:                v.Hash(),
 			ClassHash:           v.ClassHash,
@@ -531,17 +546,17 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 			ConstructorCallData: &v.ConstructorCallData,
 		}
 	case *core.InvokeTransaction:
-		txn = adaptInvokeTransaction(v)
+		txn = adaptCoreInvokeTransaction(v)
 	case *core.DeclareTransaction:
-		txn = adaptDeclareTransaction(v)
+		txn = adaptCoreDeclareTransaction(v)
 	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTransaction(v)
+		txn = adaptCoreDeployAccountTransaction(v)
 	case *core.L1HandlerTransaction:
 		nonce := v.Nonce
 		if nonce == nil {
 			nonce = &felt.Zero
 		}
-		txn = &Transaction{
+		txn = Transaction{
 			Type:               TxnL1Handler,
 			Hash:               v.Hash(),
 			Version:            v.Version.AsFelt(),
@@ -561,8 +576,8 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
-func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
-	tx := &Transaction{
+func adaptCoreInvokeTransaction(t *core.InvokeTransaction) Transaction {
+	tx := Transaction{
 		Type:               TxnInvoke,
 		Hash:               t.Hash(),
 		MaxFee:             t.MaxFee,
@@ -576,7 +591,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -587,8 +602,8 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1340
-func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
-	tx := &Transaction{
+func adaptCoreDeclareTransaction(t *core.DeclareTransaction) Transaction {
+	tx := Transaction{
 		Hash:              t.Hash(),
 		Type:              TxnDeclare,
 		MaxFee:            t.MaxFee,
@@ -601,7 +616,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
@@ -612,8 +627,8 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 	return tx
 }
 
-func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
-	tx := &Transaction{
+func adaptCoreDeployAccountTransaction(t *core.DeployAccountTransaction) Transaction {
+	tx := Transaction{
 		Hash:                t.Hash(),
 		MaxFee:              t.MaxFee,
 		Version:             t.Version.AsFelt(),
@@ -626,7 +641,7 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
+		tx.ResourceBounds = utils.HeapPtr(adaptCoreResourceBounds(t.ResourceBounds))
 		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
@@ -637,9 +652,9 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
+func adaptCoreReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
-) *TransactionReceipt {
+) TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
 		messages[idx] = &MsgToL1{
@@ -684,13 +699,13 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 
 	var resources *ComputationResources
 	if receipt.ExecutionResources != nil {
-		resources = utils.HeapPtr(adaptExecutionResources(receipt.ExecutionResources))
+		resources = utils.HeapPtr(adaptCoreExecutionResources(receipt.ExecutionResources))
 	}
 
-	return &TransactionReceipt{
+	return TransactionReceipt{
 		FinalityStatus:  finalityStatus,
 		ExecutionStatus: es,
-		Type:            AdaptTransaction(txn).Type,
+		Type:            AdaptCoreTransaction(txn).Type,
 		Hash:            txn.Hash(),
 		ActualFee: &FeePayment{
 			Amount: receipt.Fee,
@@ -707,7 +722,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
 	}
 }
 
-func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
+func adaptDeclaredClassToCore(declaredClass json.RawMessage) (core.Class, error) {
 	var feederClass starknet.ClassDefinition
 	err := json.Unmarshal(declaredClass, &feederClass)
 	if err != nil {

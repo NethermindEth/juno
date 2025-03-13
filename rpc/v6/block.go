@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -186,7 +187,7 @@ func (h *Handler) blockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: adaptCoreBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -227,7 +228,7 @@ func (h *Handler) blockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = AdaptTransaction(txn)
+		txs[index] = utils.HeapPtr(AdaptCoreTransaction(txn))
 	}
 
 	status, rpcErr := h.blockStatus(id, block)
@@ -237,7 +238,7 @@ func (h *Handler) blockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptCoreBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
