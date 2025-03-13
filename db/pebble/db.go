@@ -117,9 +117,6 @@ func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
 
 // Close : see io.Closer.Close
 func (d *DB) Close() error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-
 	if d.closed {
 		return nil
 	}
