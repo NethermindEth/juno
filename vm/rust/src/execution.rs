@@ -2,6 +2,7 @@ use crate::error::ExecutionError;
 use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::state::state_api::{StateReader, StateResult, UpdatableState};
+use blockifier::transaction::account_transaction::ExecutionFlags;
 use blockifier::transaction::objects::HasRelatedFeeType;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
@@ -218,7 +219,7 @@ where
     // If the computed gas limit exceeds the initial limit, revert the transaction.
     // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
     // in the case where the user defined gas limit is less than the required gas limit
-    if l2_gas_limit > initial_gas_limit {
+    if get_execution_flags(transaction).charge_fee && l2_gas_limit > initial_gas_limit {
         tx_state.abort();
         set_l2_gas_limit(transaction, GasAmount::ZERO)?;
         return execute_transaction(&transaction, state, block_context, error_on_revert);
@@ -230,6 +231,13 @@ where
     exec_info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(exec_info)
+}
+
+fn get_execution_flags(tx: &Transaction) -> ExecutionFlags {
+    match tx {
+        Transaction::Account(account_transaction) => account_transaction.execution_flags.clone(),
+        Transaction::L1Handler(_) => Default::default(),
+    }
 }
 
 fn calculate_midpoint(a: GasAmount, b: GasAmount) -> GasAmount {
