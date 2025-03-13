@@ -15,58 +15,57 @@ func TestPropose(t *testing.T) {
 	val2, val3, val4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
 	tm := func(r uint) time.Duration { return time.Second }
 
-	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'",
-		func(t *testing.T) {
-			listeners, broadcasters := testListenersAndBroadcasters()
-			app, chain, vals := newApp(), newChain(), newVals()
+	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
+		listeners, broadcasters := testListenersAndBroadcasters()
+		app, chain, vals := newApp(), newChain(), newVals()
 
-			vals.addValidator(*val2)
-			vals.addValidator(*val3)
-			vals.addValidator(*val4)
-			vals.addValidator(*nodeAddr)
+		vals.addValidator(*val2)
+		vals.addValidator(*val3)
+		vals.addValidator(*val4)
+		vals.addValidator(*nodeAddr)
 
-			algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-			expectedHeight := uint(0)
-			rPrime, rPrimeVal := uint(4), value(10)
-			val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
-				Height:     expectedHeight,
-				Round:      rPrime,
-				ValidRound: nil,
-				Value:      &rPrimeVal,
-				Sender:     *val2,
-			}
+		expectedHeight := uint(0)
+		rPrime, rPrimeVal := uint(4), value(10)
+		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
+			Height:     expectedHeight,
+			Round:      rPrime,
+			ValidRound: nil,
+			Value:      &rPrimeVal,
+			Sender:     *val2,
+		}
 
-			val3Prevote := Prevote[felt.Felt, felt.Felt]{
-				Vote: Vote[felt.Felt, felt.Felt]{
-					Height: expectedHeight,
-					Round:  rPrime,
-					ID:     utils.HeapPtr(rPrimeVal.Hash()),
-					Sender: *val3,
-				},
-			}
+		val3Prevote := Prevote[felt.Felt, felt.Felt]{
+			Vote: Vote[felt.Felt, felt.Felt]{
+				Height: expectedHeight,
+				Round:  rPrime,
+				ID:     utils.HeapPtr(rPrimeVal.Hash()),
+				Sender: *val3,
+			},
+		}
 
-			algo.futureMessages.addPrevote(val3Prevote)
-			proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
-				value, felt.Felt, felt.Felt])
-			proposalListener.send(val2Proposal)
+		algo.futureMessages.addPrevote(val3Prevote)
+		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
+			value, felt.Felt, felt.Felt])
+		proposalListener.send(val2Proposal)
 
-			algo.Start()
-			time.Sleep(time.Millisecond)
-			algo.Stop()
+		algo.Start()
+		time.Sleep(time.Millisecond)
+		algo.Stop()
 
-			assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
-			assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2][0])
+		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
+		assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2][0])
 
-			assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
-			assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
+		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
+		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
 
-			// The step is not propose because the proposal which is received in round r' leads to consensus
-			// engine broadcasting prevote to the proposal which changes the step from propose to prevote.
-			assert.Equal(t, prevote, algo.state.step)
-			assert.Equal(t, expectedHeight, algo.state.height)
-			assert.Equal(t, rPrime, algo.state.round)
-		})
+		// The step is not propose because the proposal which is received in round r' leads to consensus
+		// engine broadcasting prevote to the proposal which changes the step from propose to prevote.
+		assert.Equal(t, prevote, algo.state.step)
+		assert.Equal(t, expectedHeight, algo.state.height)
+		assert.Equal(t, rPrime, algo.state.round)
+	})
 
 	t.Run("Line 55 (Prevote): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
@@ -295,6 +294,9 @@ func TestPropose(t *testing.T) {
 		time.Sleep(time.Millisecond)
 		algo.Stop()
 
+		// The reason there are 2 timeouts is because the first timeout is the proposeTimeout which is immediately
+		// scheduled when nodes move to the next round, and it is not the proposer.
+		// If the precommitTimeout was scheduled more than once, then the len of scheduledTms would be more than 2.
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		scheduledTm := algo.scheduledTms[1]
 
@@ -357,6 +359,9 @@ func TestPropose(t *testing.T) {
 		time.Sleep(time.Millisecond)
 		algo.Stop()
 
+		// The first timeout here is the nodes proposeTimeout from round 0, and since the precommit timout expired
+		// before the proposeTimeout it is still in the slice. It will only be deleted after its expiry.
+		// The second timeout here is the proposeTimeout for round 1, which is what we are interested in.
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		scheduledTm := algo.scheduledTms[1]
 
