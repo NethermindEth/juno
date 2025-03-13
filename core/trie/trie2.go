@@ -102,9 +102,9 @@ func (t *Trie2) FeltToKey(k *felt.Felt) BitArray {
 	return ba
 }
 
-// path returns the path as mentioned in the [specification] for commitment calculations.
-// path is suffix of key that diverges from parentKey. For example,
-// for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
+// // path returns the path as mentioned in the [specification] for commitment calculations.
+// // path is suffix of key that diverges from parentKey. For example,
+// // for a key 0b1011 and parentKey 0b10, this function would return the path object of 0b0.
 // func path(key, parentKey *BitArray) BitArray {
 // 	// drop parent key, and one more MSB since left/right relation already encodes that information
 // 	if parentKey == nil {
@@ -116,8 +116,8 @@ func (t *Trie2) FeltToKey(k *felt.Felt) BitArray {
 // 	return pathKey
 // }
 
-// storageNode is the on-disk representation of a [Node],
-// where key is the storage key and node is the value.
+// // storageNode is the on-disk representation of a [Node],
+// // where key is the storage key and node is the value.
 // type StorageNode struct {
 // 	key  *BitArray
 // 	node *Node
