@@ -1,6 +1,8 @@
 package db
 
-import "sync"
+import (
+	"sync"
+)
 
 // A wrapper around IndexedBatch that allows for thread-safe operations.
 // Ideally, you shouldn't have to use this at all. If you need to write to batches concurrently,
