@@ -137,10 +137,10 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 // Construct key bytes to insert a trie node. The format is as follows:
 //
 // ClassTrie :
-// [1 byte prefix][1 section][32 byte from address][1 byte node-type][8 byte from path][path length byte][32 byte hash]
+// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][path length byte][32 byte hash]
 //
 // ContractTrie :
-// [1 byte prefix][1 section][32 bytes owner][1 byte node-type][8 byte from path][path length byte][32 byte hash]
+// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][path length byte][32 byte hash]
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][1 section byte][32 bytes owner][1 byte node-type][8 byte from path][path length byte][32 byte hash]

@@ -31,7 +31,6 @@ func TestMarshalBinary(t *testing.T) {
 	assert.Equal(t, contract.ClassHash, unmarshalled.ClassHash)
 	assert.Equal(t, contract.Nonce, unmarshalled.Nonce)
 	assert.Equal(t, contract.DeployHeight, unmarshalled.DeployHeight)
-	assert.Nil(t, unmarshalled.StorageRoot)
 }
 
 func TestNewContract(t *testing.T) {

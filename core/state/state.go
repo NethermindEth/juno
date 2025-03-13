@@ -43,6 +43,37 @@ type State struct {
 }
 
 func New(txn db.Transaction) (*State, error) {
+	state := &State{
+		txn:            txn,
+		dirtyContracts: make(map[felt.Felt]*StateContract),
+	}
+
+	//TODO(MaksymMalicki): handle for both db schemes
+	if true {
+		lastStateHash, err := state.GetLastStateHash()
+		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, err
+		}
+		if lastStateHash != nil {
+			classRoot, contractRoot, err := state.GetStateHash(lastStateHash)
+			if err != nil {
+				return nil, err
+			}
+
+			state.classTrie, err = trie2.NewWithRootHash(trie2.NewClassTrieID(), ClassTrieHeight, crypto.Poseidon, txn, *classRoot)
+			if err != nil {
+				return nil, err
+			}
+
+			state.contractTrie, err = trie2.NewWithRootHash(trie2.NewContractTrieID(), ContractTrieHeight, crypto.Pedersen, txn, *contractRoot)
+			if err != nil {
+				return nil, err
+			}
+
+			return state, nil
+		}
+	}
+
 	contractTrie, err := trie2.New(trie2.NewContractTrieID(), ContractTrieHeight, crypto.Pedersen, txn)
 	if err != nil {
 		return nil, err
@@ -53,12 +84,10 @@ func New(txn db.Transaction) (*State, error) {
 		return nil, err
 	}
 
-	return &State{
-		txn:            txn,
-		contractTrie:   contractTrie,
-		classTrie:      classTrie,
-		dirtyContracts: make(map[felt.Felt]*StateContract),
-	}, nil
+	state.contractTrie = contractTrie
+	state.classTrie = classTrie
+
+	return state, nil
 }
 
 // Returns the class hash of a contract.
@@ -182,7 +211,7 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 		return fmt.Errorf("root mismatch: %s (expected) != %s (current)", update.NewRoot.String(), newRoot.String())
 	}
 
-	return nil
+	return s.StoreStateHash(newRoot)
 }
 
 // Reverts a state update to a given state at a given block number.
@@ -212,15 +241,30 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	for addr := range update.StateDiff.DeployedContracts {
 		s.dirtyContracts[addr] = nil // mark as deleted
 	}
-
 	revertRoot, err := s.Commit(false, blockNum)
 	if err != nil {
 		return fmt.Errorf("commit: %v", err)
 	}
-
 	// Ensure the reverted root is the same as the old root
 	if !revertRoot.Equal(update.OldRoot) {
 		return fmt.Errorf("root mismatch: %s (expected) != %s (current)", update.OldRoot.String(), revertRoot.String())
+	}
+
+	//TODO(MaksymMalicki): handle for both db scheme
+	if true {
+		if blockNum == 0 {
+			if err := s.txn.Delete(db.LastStateHash.Key()); err != nil {
+				return fmt.Errorf("remove last state hash for block 0: %v", err)
+			}
+		} else {
+			if err := s.StoreLastStateHash(update.OldRoot); err != nil {
+				return fmt.Errorf("store last state hash: %v", err)
+			}
+		}
+
+		if err := s.RemoveLastStateHash(update.NewRoot); err != nil {
+			return fmt.Errorf("remove last state hash: %v", err)
+		}
 	}
 
 	return nil
@@ -655,4 +699,58 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 	}
 
 	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
+}
+
+func (s *State) GetStateHash(stateHash *felt.Felt) (*felt.Felt, *felt.Felt, error) {
+	key := db.StateHashToClassAndContract.Key(stateHash.Marshal())
+	var classRoot, contractRoot felt.Felt
+	err := s.txn.Get(key, func(val []byte) error {
+		if len(val) != 2*felt.Bytes {
+			return fmt.Errorf("invalid state hash value length")
+		}
+		classRoot.SetBytes(val[:felt.Bytes])
+		contractRoot.SetBytes(val[felt.Bytes:])
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &classRoot, &contractRoot, nil
+}
+
+func (s *State) StoreStateHash(stateHash *felt.Felt) error {
+	contractRoot := s.contractTrie.Hash()
+	classRoot := s.classTrie.Hash()
+	key := db.StateHashToClassAndContract.Key(stateHash.Marshal())
+	value := append(classRoot.Marshal(), contractRoot.Marshal()...)
+	if err := s.txn.Set(key, value); err != nil {
+		return err
+	}
+	return s.StoreLastStateHash(stateHash)
+}
+
+func (s *State) StoreLastStateHash(stateHash *felt.Felt) error {
+	key := db.LastStateHash.Key()
+	return s.txn.Set(key, stateHash.Marshal())
+}
+
+func (s *State) RemoveLastStateHash(stateHash *felt.Felt) error {
+	key := db.StateHashToClassAndContract.Key(stateHash.Marshal())
+	if err := s.txn.Delete(key); err != nil {
+		return fmt.Errorf("delete state hash: %v", err)
+	}
+	return nil
+}
+
+func (s *State) GetLastStateHash() (*felt.Felt, error) {
+	key := db.LastStateHash.Key()
+	var stateHash felt.Felt
+	err := s.txn.Get(key, func(val []byte) error {
+		stateHash.SetBytes(val)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &stateHash, nil
 }

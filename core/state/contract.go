@@ -16,7 +16,7 @@ import (
 // contract storage has fixed height at 251
 const (
 	ContractStorageTrieHeight = 251
-	contractDataSize          = 2*felt.Bytes + 8
+	contractDataSize          = 3*felt.Bytes + 8
 )
 
 var (
@@ -115,7 +115,8 @@ func (s *StateContract) MarshalBinary() ([]byte, error) {
 
 	copy(buf[0:felt.Bytes], s.ClassHash.Marshal())
 	copy(buf[felt.Bytes:2*felt.Bytes], s.Nonce.Marshal())
-	binary.BigEndian.PutUint64(buf[2*felt.Bytes:contractDataSize], s.DeployHeight)
+	copy(buf[2*felt.Bytes:3*felt.Bytes], s.StorageRoot.Marshal())
+	binary.BigEndian.PutUint64(buf[3*felt.Bytes:contractDataSize], s.DeployHeight)
 
 	return buf, nil
 }
@@ -129,6 +130,8 @@ func (s *StateContract) UnmarshalBinary(data []byte) error {
 	s.ClassHash = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	s.Nonce = new(felt.Felt).SetBytes(data[:felt.Bytes])
+	data = data[felt.Bytes:]
+	s.StorageRoot = new(felt.Felt).SetBytes(data[:felt.Bytes])
 	data = data[felt.Bytes:]
 	s.DeployHeight = binary.BigEndian.Uint64(data[:8])
 
@@ -249,7 +252,18 @@ func (s *StateContract) getTrie(txn db.Transaction) (*trie2.Trie, error) {
 		return s.tr, nil
 	}
 
-	tr, err := trie2.New(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn)
+	var tr *trie2.Trie
+	var err error
+	//TODO(MaksymMalicki): handle for both db schemes
+	if true {
+		if s.StorageRoot != nil {
+			tr, err = trie2.NewWithRootHash(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn, *s.StorageRoot)
+		} else {
+			tr, err = trie2.New(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn)
+		}
+	} else {
+		tr, err = trie2.New(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn)
+	}
 	if err != nil {
 		return nil, err
 	}
