@@ -2,6 +2,7 @@ package migration_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -16,14 +17,14 @@ func TestBucketMover(t *testing.T) {
 	beforeCalled := false
 	sourceBucket := db.Bucket(0)
 	destBucket := db.Bucket(1)
-	mover := migration.NewBucketMover(sourceBucket, destBucket).WithBefore(func() {
+	mover := migration.NewBucketMover2(sourceBucket, destBucket).WithBefore(func() {
 		beforeCalled = true
 	}).WithBatchSize(2).WithKeyFilter(func(b []byte) (bool, error) {
 		return len(b) > 1, nil
 	})
 
 	testDB := memory.New()
-	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+	require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
 		for i := byte(0); i < 3; i++ {
 			if err := txn.Put(sourceBucket.Key([]byte{i}), []byte{i}); err != nil {
 				return err
@@ -38,18 +39,21 @@ func TestBucketMover(t *testing.T) {
 		intermediateState []byte
 		err               error
 	)
-	_, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
-	require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
-
-	intermediateState, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
+	err = testDB.Update2(func(txn db.IndexedBatch) error {
+		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
+		require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
+		return nil
+	})
+	require.NoError(t, err)
+	err = testDB.Update2(func(txn db.IndexedBatch) error {
+		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
+		require.NoError(t, err)
+		return nil
+	})
 	require.NoError(t, err)
 
-	err = testDB.View(func(txn db.Snapshot) error {
-		var val []byte
-		err := txn.Get(sourceBucket.Key(), func(data []byte) error {
-			val = data
-			return nil
-		})
+	err = testDB.View2(func(txn db.Snapshot) error {
+		val, err := txn.Get2(sourceBucket.Key())
 		if err != nil {
 			return err
 		}
@@ -57,12 +61,12 @@ func TestBucketMover(t *testing.T) {
 			return errors.New("shouldnt have changed")
 		}
 
+		if err != nil {
+			return err
+		}
+
 		for i := byte(0); i < 3; i++ {
-			var val []byte
-			err := txn.Get(destBucket.Key([]byte{i}), func(data []byte) error {
-				val = data
-				return nil
-			})
+			val, err := txn.Get2(destBucket.Key([]byte{i}))
 			if err != nil {
 				return err
 			}
@@ -70,7 +74,7 @@ func TestBucketMover(t *testing.T) {
 				return errors.New("shouldve moved")
 			}
 
-			err = txn.Get(sourceBucket.Key([]byte{i}), func([]byte) error { return nil })
+			_, err = txn.Get2(sourceBucket.Key([]byte{i}))
 			require.ErrorIs(t, db.ErrKeyNotFound, err)
 		}
 		return nil
