@@ -68,13 +68,13 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 	g.Classes = aux.Classes
 	g.FunctionCalls = aux.FunctionCalls
 	g.BootstrapAccounts = aux.BootstrapAccounts
-	g.Contracts = make(map[felt.Felt]GenesisContractData)
-	for k, v := range aux.Contracts {
-		key, err := new(felt.Felt).SetString(k)
+	g.Contracts = make(map[felt.Felt]GenesisContractData, len(aux.Contracts))
+	for classHash, constructorArgs := range aux.Contracts {
+		key, err := new(felt.Felt).SetString(classHash)
 		if err != nil {
 			return err
 		}
-		g.Contracts[*key] = v
+		g.Contracts[*key] = constructorArgs
 	}
 	g.Txns = aux.Txns
 	return nil
@@ -112,8 +112,8 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 	genesisState := sync.NewPendingStateWriter(core.EmptyStateDiff(), make(map[felt.Felt]core.Class),
 		core.NewState(db.NewMemTransaction()))
 
-	classhashToSierraVersion := map[felt.Felt]string{}
-	contractAddressToSierraVersion := map[felt.Felt]string{}
+	classhashToSierraVersion := make(map[felt.Felt]string, len(newClasses))
+	contractAddressToSierraVersion := make(map[felt.Felt]string, len(config.Contracts))
 	for classHash, class := range newClasses {
 		// Sets pending.newClasses, DeclaredV0Classes, (not DeclaredV1Classes)
 		if err = genesisState.SetContractClass(&classHash, class); err != nil {
@@ -133,15 +133,15 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		return nil, nil, fmt.Errorf("convert string to felt: %v", err)
 	}
 
-	for addressFelt, contractData := range config.Contracts {
+	for address, contractData := range config.Contracts {
 		classHash := contractData.ClassHash
-		contractAddressToSierraVersion[addressFelt] = classhashToSierraVersion[classHash]
-		if err = genesisState.SetClassHash(&addressFelt, &classHash); err != nil {
+		contractAddressToSierraVersion[address] = classhashToSierraVersion[classHash]
+		if err = genesisState.SetClassHash(&address, &classHash); err != nil {
 			return nil, nil, fmt.Errorf("set class hash: %v", err)
 		}
 		if contractData.ConstructorArgs != nil {
 			callInfo := &vm.CallInfo{
-				ContractAddress: &addressFelt,
+				ContractAddress: &address,
 				ClassHash:       &classHash,
 				Selector:        constructorSelector,
 				Calldata:        contractData.ConstructorArgs,
@@ -151,7 +151,9 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			if err != nil {
 				return nil, nil, fmt.Errorf("execute function call: %v", err)
 			}
-			genesisState.StateDiff().MergeStateDiffs(vm2core.AdaptStateDiff(&result.StateDiff))
+			var coreSD core.StateDiff
+			vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
+			genesisState.StateDiff().MergeStateDiffs(&coreSD)
 		}
 	}
 	for _, fnCall := range config.FunctionCalls {
@@ -174,7 +176,9 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 		if err != nil {
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
-		genesisState.StateDiff().MergeStateDiffs(vm2core.AdaptStateDiff(&result.StateDiff))
+		var coreSD core.StateDiff
+		vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
+		genesisState.StateDiff().MergeStateDiffs(&coreSD)
 	}
 
 	if len(config.Txns) != 0 {
@@ -217,9 +221,10 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 			return nil, nil, fmt.Errorf("execute function call: %v", err)
 		}
 		for i := range config.Txns {
-			traceSD := vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff)
+			var traceSD core.StateDiff
+			vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff, &traceSD)
 			genesisSD, _ := genesisState.StateDiffAndClasses()
-			genesisSD.Merge(traceSD)
+			genesisSD.Merge(&traceSD)
 			genesisState.SetStateDiff(genesisSD)
 		}
 	}
@@ -228,7 +233,7 @@ func GenesisStateDiff( //nolint:funlen,gocyclo
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {
-	classMap := make(map[felt.Felt]core.Class)
+	classMap := make(map[felt.Felt]core.Class, len(classes))
 	for _, classPath := range classes {
 		bytes, err := os.ReadFile(classPath)
 		if err != nil {

@@ -41,51 +41,45 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 	return utils.Map(events, AdaptOrderedEvent)
 }
 
-func AdaptStateDiff(stateDiff *vm.StateDiff) *core.StateDiff {
-	if stateDiff == nil {
-		return core.EmptyStateDiff()
+func AdaptStateDiff(fromStateDiff *vm.StateDiff, toStateDiff *core.StateDiff) {
+	if fromStateDiff == nil {
+		return
 	}
-	newStorageDiffs := make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(stateDiff.StorageDiffs))
-	for _, sd := range stateDiff.StorageDiffs {
-		entries := make(map[felt.Felt]*felt.Felt)
+
+	// Preallocate all maps with known sizes from fromStateDiff
+	toStateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs))
+	toStateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces))
+	toStateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts))
+	toStateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses))
+	toStateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses))
+
+	for _, sd := range fromStateDiff.StorageDiffs {
+		entries := make(map[felt.Felt]*felt.Felt, len(sd.StorageEntries))
 		for _, entry := range sd.StorageEntries {
 			val := entry.Value
 			entries[entry.Key] = &val
 		}
-		newStorageDiffs[sd.Address] = entries
+		toStateDiff.StorageDiffs[sd.Address] = entries
 	}
 
-	newNonces := make(map[felt.Felt]*felt.Felt, len(stateDiff.Nonces))
-	for _, nonce := range stateDiff.Nonces {
+	for _, nonce := range fromStateDiff.Nonces {
 		newNonce := nonce.Nonce
-		newNonces[nonce.ContractAddress] = &newNonce
+		toStateDiff.Nonces[nonce.ContractAddress] = &newNonce
 	}
 
-	newDeployedContracts := make(map[felt.Felt]*felt.Felt, len(stateDiff.DeployedContracts))
-	for _, dc := range stateDiff.DeployedContracts {
+	for _, dc := range fromStateDiff.DeployedContracts {
 		ch := dc.ClassHash
-		newDeployedContracts[dc.Address] = &ch
+		toStateDiff.DeployedContracts[dc.Address] = &ch
 	}
 
-	newDeclaredV1Classes := make(map[felt.Felt]*felt.Felt, len(stateDiff.DeclaredClasses))
-
-	for _, dc := range stateDiff.DeclaredClasses {
+	for _, dc := range fromStateDiff.DeclaredClasses {
 		cch := dc.CompiledClassHash
-		newDeclaredV1Classes[dc.ClassHash] = &cch
+		toStateDiff.DeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
-	newReplacedClasses := make(map[felt.Felt]*felt.Felt, len(stateDiff.ReplacedClasses))
-	for _, rc := range stateDiff.ReplacedClasses {
+	for _, rc := range fromStateDiff.ReplacedClasses {
 		ch := rc.ClassHash
-		newReplacedClasses[rc.ContractAddress] = &ch
+		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
 	}
-
-	return &core.StateDiff{
-		StorageDiffs:      newStorageDiffs,
-		Nonces:            newNonces,
-		DeployedContracts: newDeployedContracts,
-		DeclaredV0Classes: stateDiff.DeprecatedDeclaredClasses,
-		DeclaredV1Classes: newDeclaredV1Classes,
-		ReplacedClasses:   newReplacedClasses,
-	}
+	return
 }
