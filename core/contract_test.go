@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,82 +52,49 @@ func TestContractAddress(t *testing.T) {
 }
 
 func TestNewContract(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(234)
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
 	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err = core.NewContractUpdater(addr, txn)
+		_, err := core.NewContractUpdater2(addr, txn)
 		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
 	})
 
-	contract, err := core.DeployContract(addr, classHash, txn)
+	_, err := core.DeployContract2(addr, classHash, txn)
 	require.NoError(t, err)
 
 	t.Run("redeploy should fail", func(t *testing.T) {
-		_, err := core.DeployContract(addr, classHash, txn)
+		_, err := core.DeployContract2(addr, classHash, txn)
 		require.EqualError(t, err, core.ErrContractAlreadyDeployed.Error())
-	})
-
-	t.Run("a call to contract should fail with a committed txn", func(t *testing.T) {
-		assert.NoError(t, txn.Commit())
-		t.Run("ClassHash()", func(t *testing.T) {
-			_, err := core.ContractClassHash(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Root()", func(t *testing.T) {
-			_, err := core.ContractRoot(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Nonce()", func(t *testing.T) {
-			_, err := core.ContractNonce(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Storage()", func(t *testing.T) {
-			_, err := core.ContractStorage(addr, classHash, txn)
-			assert.Error(t, err)
-		})
-		t.Run("UpdateNonce()", func(t *testing.T) {
-			assert.Error(t, contract.UpdateNonce(&felt.Zero))
-		})
-		t.Run("UpdateStorage()", func(t *testing.T) {
-			assert.Error(t, contract.UpdateStorage(nil, NoopOnValueChanged))
-		})
 	})
 }
 
-func TestNonceAndClassHash(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+func TestNonceAndClassHash2(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract, err := core.DeployContract(addr, classHash, txn)
+	contract, err := core.DeployContract2(addr, classHash, txn)
 	require.NoError(t, err)
 
 	t.Run("initial nonce should be 0", func(t *testing.T) {
-		got, err := core.ContractNonce(addr, txn)
+		got, err := core.ContractNonce2(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, new(felt.Felt), got)
 	})
 	t.Run("UpdateNonce()", func(t *testing.T) {
 		require.NoError(t, contract.UpdateNonce(classHash))
 
-		got, err := core.ContractNonce(addr, txn)
+		got, err := core.ContractNonce2(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, got)
 	})
 
 	t.Run("ClassHash()", func(t *testing.T) {
-		got, err := core.ContractClassHash(addr, txn)
+		got, err := core.ContractClassHash2(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, got)
 	})
@@ -135,34 +102,32 @@ func TestNonceAndClassHash(t *testing.T) {
 	t.Run("Replace()", func(t *testing.T) {
 		replaceWith := utils.HexToFelt(t, "0xDEADBEEF")
 		require.NoError(t, contract.Replace(replaceWith))
-		got, err := core.ContractClassHash(addr, txn)
+		got, err := core.ContractClassHash2(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, replaceWith, got)
 	})
 }
 
-func TestUpdateStorageAndStorage(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+func TestUpdateStorageAndStorage2(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract, err := core.DeployContract(addr, classHash, txn)
+	contract, err := core.DeployContract2(addr, classHash, txn)
 	require.NoError(t, err)
 
 	t.Run("apply storage diff", func(t *testing.T) {
-		oldRoot, err := core.ContractRoot(addr, txn)
+		oldRoot, err := core.ContractRoot2(addr, txn)
 		require.NoError(t, err)
 
 		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: classHash}, NoopOnValueChanged))
 
-		gotValue, err := core.ContractStorage(addr, addr, txn)
+		gotValue, err := core.ContractStorage2(addr, addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, classHash, gotValue)
 
-		newRoot, err := core.ContractRoot(addr, txn)
+		newRoot, err := core.ContractRoot2(addr, txn)
 		require.NoError(t, err)
 		assert.NotEqual(t, oldRoot, newRoot)
 	})
@@ -170,28 +135,26 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 	t.Run("delete key from storage with storage diff", func(t *testing.T) {
 		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: new(felt.Felt)}, NoopOnValueChanged))
 
-		val, err := core.ContractStorage(addr, addr, txn)
+		val, err := core.ContractStorage2(addr, addr, txn)
 		require.NoError(t, err)
 		require.Equal(t, &felt.Zero, val)
 
-		sRoot, err := core.ContractRoot(addr, txn)
+		sRoot, err := core.ContractRoot2(addr, txn)
 		require.NoError(t, err)
 		assert.Equal(t, new(felt.Felt), sRoot)
 	})
 }
 
 func TestPurge(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract, err := core.DeployContract(addr, classHash, txn)
+	contract, err := core.DeployContract2(addr, classHash, txn)
 	require.NoError(t, err)
 
 	require.NoError(t, contract.Purge())
-	_, err = core.NewContractUpdater(addr, txn)
+	_, err = core.NewContractUpdater2(addr, txn)
 	assert.ErrorIs(t, err, core.ErrContractNotDeployed)
 }
