@@ -257,14 +257,14 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 
-// var (
-// 	systemContractsClassHash = new(felt.Felt).SetUint64(0)
+var (
+	systemContractsClassHash = new(felt.Felt).SetUint64(0)
 
-// 	systemContracts = map[felt.Felt]struct{}{
-// 		*new(felt.Felt).SetUint64(1): {},
-// 		*new(felt.Felt).SetUint64(2): {},
-// 	}
-// )
+	systemContracts = map[felt.Felt]struct{}{
+		*new(felt.Felt).SetUint64(1): {},
+		*new(felt.Felt).SetUint64(2): {},
+	}
+)
 
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
@@ -322,10 +322,10 @@ func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt
 	return oldClassHash, nil
 }
 
-// type DeclaredClass struct {
-// 	At    uint64
-// 	Class Class
-// }
+type DeclaredClass struct {
+	At    uint64
+	Class Class
+}
 
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
@@ -511,9 +511,9 @@ func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contrac
 	return err
 }
 
-// func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
-// 	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
-// }
+func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
+	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
+}
 
 func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]Class) error {
 	classesTrie, classesCloser, err := s.classesTrie()
