@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-// contract storage has fixed height at 251
+// // contract storage has fixed height at 251
 // const ContractStorageTrieHeight = 251
 
 // var (
@@ -17,7 +17,7 @@ import (
 // 	ErrContractAlreadyDeployed = errors.New("contract already deployed")
 // )
 
-// NewContractUpdater2 creates an updater for the contract instance at the given address.
+// NewContractUpdater creates an updater for the contract instance at the given address.
 // Deploy should be called for contracts that were just deployed to the network.
 func NewContractUpdater2(addr *felt.Felt, txn db.IndexedBatch) (*ContractUpdater2, error) {
 	contractDeployed, err := deployed2(addr, txn)
