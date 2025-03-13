@@ -25,8 +25,12 @@ func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNum
 	return bnIndex, nil
 }
 
-func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt, bnIndex *txAndReceiptDBKey) error {
-	return w.Put(db.TxBlockNumIndexByHashKey(hash), bnIndex.MarshalBinary())
+func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, num, index uint64, hash *felt.Felt) error {
+	val := db.BlockNumIndexKey{
+		Number: num,
+		Index:  index,
+	}
+	return w.Put(db.TxBlockNumIndexByHashKey(hash), val.MarshalBinary())
 }
 
 func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {
@@ -70,6 +74,22 @@ func WriteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64, tx core.Tran
 
 func DeleteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error {
 	return w.Delete(db.TxByBlockNumIndexKey(num, index))
+}
+
+func WriteTxAndReceipt(w db.KeyValueWriter, num, index uint64, tx core.Transaction, receipt *core.TransactionReceipt) error {
+	if err := WriteTxBlockNumIndexByHash(w, num, index, receipt.TransactionHash); err != nil {
+		return err
+	}
+
+	if err := WriteTxByBlockNumIndex(w, num, index, tx); err != nil {
+		return err
+	}
+
+	if err := WriteReceiptByBlockNumIndex(w, num, index, receipt); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (core.Transaction, error) {
@@ -192,6 +212,15 @@ func DeleteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte) error 
 	return w.Delete(db.L1HandlerTxnHashByMsgHashKey(msgHash))
 }
 
+func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []core.Transaction) error {
+	for _, txn := range txns {
+		if l1Handler, ok := txn.(*core.L1HandlerTransaction); ok {
+			return WriteL1HandlerTxnHashByMsgHash(w, l1Handler.MessageHash(), l1Handler.Hash())
+		}
+	}
+	return nil
+}
+
 func GetChainHeight(r db.KeyValueReader) (uint64, error) {
 	data, err := r.Get2(db.ChainHeight.Key())
 	if err != nil {
@@ -223,12 +252,34 @@ func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*core.Header, e
 	return GetBlockHeaderByNumber(r, binary.BigEndian.Uint64(blockNum))
 }
 
+func WriteBlockHeaderByNumber(r db.KeyValueWriter, header *core.Header) error {
+	enc, err := encoder.Marshal(header)
+	if err != nil {
+		return err
+	}
+
+	return r.Put(db.BlockHeaderByNumberKey(header.Number), enc)
+}
+
+func WriteBlockHeaderNumberByHash(r db.KeyValueWriter, hash *felt.Felt, num uint64) error {
+	numBytes := core.MarshalBlockNumber(num)
+	return r.Put(db.BlockHeaderNumbersByHashKey(hash), numBytes)
+}
+
 func GetBlockHeaderNumberByHash(r db.KeyValueReader, hash *felt.Felt) (uint64, error) {
 	blockNum, err := r.Get2(db.BlockHeaderNumbersByHashKey(hash))
 	if err != nil {
 		return 0, err
 	}
 	return binary.BigEndian.Uint64(blockNum), nil
+}
+
+func WriteBlockHeader(r db.KeyValueWriter, header *core.Header) error {
+	if err := WriteBlockHeaderNumberByHash(r, header.Hash, header.Number); err != nil {
+		return err
+	}
+
+	return WriteBlockHeaderByNumber(r, header)
 }
 
 // Return all transactions given a block number

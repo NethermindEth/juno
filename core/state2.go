@@ -27,26 +27,26 @@ import (
 
 // var _ StateHistoryReader = (*State2)(nil)
 
-// //go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
-// type StateHistoryReader interface {
-// 	StateReader
+//go:generate mockgen -destination=../mocks/mock_state.go -package=mocks github.com/NethermindEth/juno/core StateHistoryReader
+type StateHistoryReader2 interface {
+	StateReader2
 
-// 	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-// 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-// 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
-// 	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
-// }
+	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error)
+	ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+}
 
-// type StateReader interface {
-// 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
-// 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
-// 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
-// 	Class(classHash *felt.Felt) (*DeclaredClass, error)
+type StateReader2 interface {
+	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
+	Class(classHash *felt.Felt) (*DeclaredClass, error)
 
-// 	ClassTrie() (*trie.Trie, error)
-// 	ContractTrie() (*trie.Trie, error)
-// 	ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error)
-// }
+	ClassTrie() (*trie.Trie2, error)
+	ContractTrie() (*trie.Trie2, error)
+	ContractStorageTrie(addr *felt.Felt) (*trie.Trie2, error)
+}
 
 type State2 struct {
 	*history2

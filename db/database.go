@@ -26,7 +26,7 @@ type KeyValueRangeDeleter interface {
 
 // Helper interface for atomic operations
 type Helper interface {
-	Update2(func(Batch) error) error
+	Update2(func(IndexedBatch) error) error
 	// This will create a read-only snapshot and apply the callback to it
 	View2(func(Snapshot) error) error
 }
