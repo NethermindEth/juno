@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,11 +19,11 @@ import (
 
 var emptyCommitments = core.BlockCommitments{}
 
-func TestNew(t *testing.T) {
+func TestNew2(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		chain := blockchain.New2(memory.New(), &utils.Mainnet)
 		assert.Equal(t, &utils.Mainnet, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
@@ -36,22 +36,22 @@ func TestNew(t *testing.T) {
 		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 
-		testDB := pebble.NewMemTest(t)
-		chain := blockchain.New(testDB, &utils.Mainnet)
+		testDB := memory.New()
+		chain := blockchain.New2(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-		chain = blockchain.New(testDB, &utils.Mainnet)
+		chain = blockchain.New2(testDB, &utils.Mainnet)
 		b, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, block0, b)
 	})
 }
 
-func TestHeight(t *testing.T) {
+func TestHeight2(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+		chain := blockchain.New2(memory.New(), &utils.Sepolia)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -62,19 +62,19 @@ func TestHeight(t *testing.T) {
 		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 
-		testDB := pebble.NewMemTest(t)
-		chain := blockchain.New(testDB, &utils.Mainnet)
+		testDB := memory.New()
+		chain := blockchain.New2(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-		chain = blockchain.New(testDB, &utils.Mainnet)
+		chain = blockchain.New2(testDB, &utils.Mainnet)
 		height, err := chain.Height()
 		require.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
 	})
 }
 
-func TestBlockByNumberAndHash(t *testing.T) {
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+func TestBlockByNumberAndHash2(t *testing.T) {
+	chain := blockchain.New2(memory.New(), &utils.Sepolia)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
@@ -106,11 +106,11 @@ func TestBlockByNumberAndHash(t *testing.T) {
 	})
 }
 
-func TestVerifyBlock(t *testing.T) {
+func TestVerifyBlock2(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	chain := blockchain.New2(memory.New(), &utils.Mainnet)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{Number: 10}}
@@ -183,11 +183,11 @@ func TestVerifyBlock(t *testing.T) {
 	})
 }
 
-func TestSanityCheckNewHeight(t *testing.T) {
+func TestSanityCheckNewHeight2(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	chain := blockchain.New2(memory.New(), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 
@@ -221,7 +221,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 		})
 }
 
-func TestStore(t *testing.T) {
+func TestStore2(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -232,7 +232,7 @@ func TestStore(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		chain := blockchain.New2(memory.New(), &utils.Mainnet)
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
@@ -259,7 +259,7 @@ func TestStore(t *testing.T) {
 		stateUpdate1, err := gw.StateUpdate(t.Context(), 1)
 		require.NoError(t, err)
 
-		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+		chain := blockchain.New2(memory.New(), &utils.Mainnet)
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 		require.NoError(t, chain.Store(block1, &emptyCommitments, stateUpdate1, nil))
 
@@ -281,10 +281,10 @@ func TestStore(t *testing.T) {
 	})
 }
 
-func TestStoreL1HandlerTxnHash(t *testing.T) {
+func TestStoreL1HandlerTxnHash2(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+	chain := blockchain.New2(memory.New(), &utils.Sepolia)
 	var stateUpdate *core.StateUpdate
 	for i := range uint64(7) {
 		block, err := gw.BlockByNumber(t.Context(), i)
@@ -299,8 +299,8 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
 }
 
-func TestBlockCommitments(t *testing.T) {
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+func TestBlockCommitments2(t *testing.T) {
+	chain := blockchain.New2(memory.New(), &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -324,8 +324,8 @@ func TestBlockCommitments(t *testing.T) {
 	require.Equal(t, expectedCommitments, commitments)
 }
 
-func TestTransactionAndReceipt(t *testing.T) {
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+func TestTransactionAndReceipt2(t *testing.T) {
+	chain := blockchain.New2(memory.New(), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -411,9 +411,9 @@ func TestTransactionAndReceipt(t *testing.T) {
 	})
 }
 
-func TestState(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Mainnet)
+func TestState2(t *testing.T) {
+	testDB := memory.New()
+	chain := blockchain.New2(testDB, &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -474,14 +474,14 @@ func TestState(t *testing.T) {
 	})
 }
 
-func TestEvents(t *testing.T) {
+func TestEvents2(t *testing.T) {
 	var pendingB *core.Block
 	pendingBlockFn := func() *core.Block {
 		return pendingB
 	}
 
-	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Goerli2)
+	testDB := memory.New()
+	chain := blockchain.New2(testDB, &utils.Goerli2)
 	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
 	client := feeder.NewTestClient(t, &utils.Goerli2)
@@ -596,9 +596,9 @@ func TestEvents(t *testing.T) {
 	})
 }
 
-func TestRevert(t *testing.T) {
-	testdb := pebble.NewMemTest(t)
-	chain := blockchain.New(testdb, &utils.Mainnet)
+func TestRevert2(t *testing.T) {
+	testDB := memory.New()
+	chain := blockchain.New2(testDB, &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -653,14 +653,10 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
-		require.NoError(t, testdb.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator(nil, false)
-			if err != nil {
-				return err
-			}
-			assert.False(t, it.Next(), it.Key())
-			return it.Close()
-		}))
+		it, err := testDB.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.False(t, it.Next(), it.Key())
+		require.NoError(t, it.Close())
 	})
 
 	t.Run("cannot revert on empty chain", func(t *testing.T) {
@@ -668,7 +664,7 @@ func TestRevert(t *testing.T) {
 	})
 }
 
-func TestL1Update(t *testing.T) {
+func TestL1Update2(t *testing.T) {
 	heads := []*core.L1Head{
 		{
 			BlockNumber: 1,
@@ -682,7 +678,7 @@ func TestL1Update(t *testing.T) {
 
 	for _, head := range heads {
 		t.Run(fmt.Sprintf("update L1 head to block %d", head.BlockNumber), func(t *testing.T) {
-			chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+			chain := blockchain.New2(memory.New(), &utils.Mainnet)
 			require.NoError(t, chain.SetL1Head(head))
 			got, err := chain.L1Head()
 			require.NoError(t, err)
@@ -691,13 +687,13 @@ func TestL1Update(t *testing.T) {
 	}
 }
 
-func TestSubscribeL1Head(t *testing.T) {
+func TestSubscribeL1Head2(t *testing.T) {
 	l1Head := &core.L1Head{
 		BlockNumber: 1,
 		StateRoot:   new(felt.Felt).SetUint64(2),
 	}
 
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
+	chain := blockchain.New2(memory.New(), &utils.Mainnet)
 	sub := chain.SubscribeL1Head()
 	t.Cleanup(sub.Unsubscribe)
 
