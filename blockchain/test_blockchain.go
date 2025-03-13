@@ -126,13 +126,13 @@ type TestClass struct {
 	class    *core.Cairo1Class
 	accounts []*testAccount
 	snClass  *starknet.SierraDefinition
-	complied *starknet.CompiledClass
+	compiled *starknet.CompiledClass
 }
 
 func NewClass(t *testing.T, path string) TestClass {
 	t.Helper()
 
-	snClass, compliedClass, class := classFromFile(t, path)
+	snClass, compiledClass, class := classFromFile(t, path)
 	classHash, err := class.Hash()
 	require.NoError(t, err)
 
@@ -141,7 +141,7 @@ func NewClass(t *testing.T, path string) TestClass {
 		class:    class,
 		hash:     *classHash,
 		snClass:  snClass,
-		complied: compliedClass,
+		compiled: compiledClass,
 	}
 }
 
@@ -153,8 +153,8 @@ func (b *TestClass) SNClass() *starknet.SierraDefinition {
 	return b.snClass
 }
 
-func (b *TestClass) CompliedClass() *starknet.CompiledClass {
-	return b.complied
+func (b *TestClass) CompiledClass() *starknet.CompiledClass {
+	return b.compiled
 }
 
 func (b *TestClass) AddAccount(address, balance felt.Felt) {
@@ -243,13 +243,13 @@ func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *star
 		Version:     intermediate.Version,
 	}
 
-	compliedClass, err := compiler.Compile(snClass)
+	compiledClass, err := compiler.Compile(snClass)
 	require.NoError(t, err)
 
-	class, err := sn2core.AdaptCairo1Class(snClass, compliedClass)
+	class, err := sn2core.AdaptCairo1Class(snClass, compiledClass)
 	require.NoError(t, err)
 
-	return snClass, compliedClass, class
+	return snClass, compiledClass, class
 }
 
 // https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124

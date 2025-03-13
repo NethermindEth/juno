@@ -392,13 +392,13 @@ func createDeclareTransaction(
 	class *blockchain.TestClass, // use pointer because of huge parameter
 ) rpc.BroadcastedTransaction {
 	bsClassHash := class.Hash()
-	compliedClass := class.CompliedClass()
+	compiledClass := class.CompiledClass()
 	snClass := class.SNClass()
 
-	coreCompiledClass, err := sn2core.AdaptCompiledClass(compliedClass)
+	coreCompiledClass, err := sn2core.AdaptCompiledClass(compiledClass)
 	require.NoError(t, err)
 
-	compliedClassHash := coreCompiledClass.Hash()
+	compiledClassHash := coreCompiledClass.Hash()
 	contractClass, err := json.Marshal(snClass)
 	require.NoError(t, err)
 
@@ -410,7 +410,7 @@ func createDeclareTransaction(
 			ClassHash:         &bsClassHash,
 			SenderAddress:     &accountAddr,
 			Signature:         &[]*felt.Felt{},
-			CompiledClassHash: compliedClassHash,
+			CompiledClassHash: compiledClassHash,
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
 				"0x0", "0x0",
 				"0x0", "0x0",
