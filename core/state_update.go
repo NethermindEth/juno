@@ -243,8 +243,8 @@ func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest
 	}
 }
 
-func EmptyStateDiff() StateDiff {
-	return StateDiff{
+func EmptyStateDiff() *StateDiff {
+	return &StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
 		Nonces:            make(map[felt.Felt]*felt.Felt),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt),

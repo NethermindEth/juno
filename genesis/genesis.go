@@ -32,7 +32,7 @@ type GenesisConfig struct {
 	Contracts         map[felt.Felt]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
 	FunctionCalls     []FunctionCall                    `json:"function_calls"`     // list of functionCalls to Call()
 	BootstrapAccounts []Account                         `json:"bootstrap_accounts"` // accounts to prefund with strk token
-	Txns              []*rpc.Transaction                `json:"transactions"`       // Declare NOT supported
+	Txns              []rpc.Transaction                 `json:"transactions"`       // Declare NOT supported
 }
 
 type Account struct {
@@ -59,7 +59,7 @@ func (g *GenesisConfig) UnmarshalJSON(data []byte) error {
 		Contracts         map[string]GenesisContractData `json:"contracts"`          // address -> {classHash, constructorArgs}
 		FunctionCalls     []FunctionCall                 `json:"function_calls"`     // list of functionCalls to Call()
 		BootstrapAccounts []Account                      `json:"bootstrap_accounts"` // accounts to prefund with strk token
-		Txns              []*rpc.Transaction             `json:"transactions"`       // declare NOT supported
+		Txns              []rpc.Transaction              `json:"transactions"`       // declare NOT supported
 	}
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
