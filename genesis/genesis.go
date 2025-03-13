@@ -223,8 +223,7 @@ func deployContract(
 		return fmt.Errorf("execute constructor call: %v", err)
 	}
 
-	var coreSD core.StateDiff
-	vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
+	coreSD := vm2core.AdaptStateDiff(&result.StateDiff)
 	genesisState.StateDiff().MergeStateDiffs(&coreSD)
 	return nil
 }
@@ -261,8 +260,7 @@ func executeFunctionCalls(
 			return fmt.Errorf("execute function call: %v", err)
 		}
 
-		var coreSD core.StateDiff
-		vm2core.AdaptStateDiff(&result.StateDiff, &coreSD)
+		coreSD := vm2core.AdaptStateDiff(&result.StateDiff)
 		genesisState.StateDiff().MergeStateDiffs(&coreSD)
 	}
 
@@ -322,8 +320,7 @@ func executeTransactions(
 	}
 
 	for i := range config.Txns {
-		var traceSD core.StateDiff
-		vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff, &traceSD)
+		traceSD := vm2core.AdaptStateDiff(executionResults.Traces[i].StateDiff)
 		genesisSD, _ := genesisState.StateDiffAndClasses()
 		genesisSD.Merge(&traceSD)
 		genesisState.SetStateDiff(&genesisSD)

@@ -41,17 +41,20 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 	return utils.Map(events, AdaptOrderedEvent)
 }
 
-func AdaptStateDiff(fromStateDiff *vm.StateDiff, toStateDiff *core.StateDiff) {
+func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
+	result := core.StateDiff{}
 	if fromStateDiff == nil {
-		return
+		return result
 	}
 
 	// Preallocate all maps with known sizes from fromStateDiff
-	toStateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs))
-	toStateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces))
-	toStateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts))
-	toStateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses))
-	toStateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses))
+	result = core.StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs)),
+		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses)),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
+	}
 
 	for _, sd := range fromStateDiff.StorageDiffs {
 		entries := make(map[felt.Felt]*felt.Felt, len(sd.StorageEntries))
@@ -59,26 +62,27 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff, toStateDiff *core.StateDiff) {
 			val := entry.Value
 			entries[entry.Key] = &val
 		}
-		toStateDiff.StorageDiffs[sd.Address] = entries
+		result.StorageDiffs[sd.Address] = entries
 	}
 
 	for _, nonce := range fromStateDiff.Nonces {
 		newNonce := nonce.Nonce
-		toStateDiff.Nonces[nonce.ContractAddress] = &newNonce
+		result.Nonces[nonce.ContractAddress] = &newNonce
 	}
 
 	for _, dc := range fromStateDiff.DeployedContracts {
 		ch := dc.ClassHash
-		toStateDiff.DeployedContracts[dc.Address] = &ch
+		result.DeployedContracts[dc.Address] = &ch
 	}
 
 	for _, dc := range fromStateDiff.DeclaredClasses {
 		cch := dc.CompiledClassHash
-		toStateDiff.DeclaredV1Classes[dc.ClassHash] = &cch
+		result.DeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
 	for _, rc := range fromStateDiff.ReplacedClasses {
 		ch := rc.ClassHash
-		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
+		result.ReplacedClasses[rc.ContractAddress] = &ch
 	}
+	return result
 }
