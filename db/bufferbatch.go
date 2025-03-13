@@ -1,5 +1,9 @@
 package db
 
+import (
+	"github.com/NethermindEth/juno/utils"
+)
+
 // TODO: DO NOT USE THIS! This is meant to be a temporary replacement for buffered transaction.
 // After state refactor, we can remove this.
 type BufferBatch struct {
@@ -15,7 +19,7 @@ func NewBufferBatch(txn IndexedBatch) *BufferBatch {
 }
 
 func (b *BufferBatch) Put(key, val []byte) error {
-	b.updates[string(key)] = val
+	b.updates[string(key)] = utils.CopySlice(val)
 	return nil
 }
 
