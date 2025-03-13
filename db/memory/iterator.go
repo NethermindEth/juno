@@ -25,10 +25,6 @@ func (i *iterator) First() bool {
 }
 
 func (i *iterator) Next() bool {
-	if !i.Valid() {
-		return false
-	}
-
 	i.curInd++
 	return i.Valid()
 }
