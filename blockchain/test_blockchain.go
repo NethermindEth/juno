@@ -25,7 +25,7 @@ type testBlockchain struct {
 	addr2classHash           map[felt.Felt]felt.Felt
 }
 
-func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
+func NewTestBlockchain(t *testing.T, protocolVersion string) testBlockchain {
 	t.Helper()
 
 	testDB := pebble.NewMemTest(t)
@@ -78,28 +78,28 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) *testBlockchain {
 
 	chain.Prepare(t, []TestClass{chain.account, chain.deployer, chain.erc20})
 
-	return &chain
+	return chain
 }
 
-func (b *testBlockchain) AccountAddress() felt.Felt {
+func (b testBlockchain) AccountAddress() felt.Felt {
 	return b.account.accounts[0].address
 }
 
-func (b *testBlockchain) DeployerAddress() felt.Felt {
+func (b testBlockchain) DeployerAddress() felt.Felt {
 	return b.deployer.accounts[0].address
 }
 
-func (b *testBlockchain) AccountClassHash() felt.Felt {
+func (b testBlockchain) AccountClassHash() felt.Felt {
 	return b.account.hash
 }
 
-func (b *testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
+func (b testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
 	classHash, ok := b.addr2classHash[address]
 	require.True(b.t, ok)
 	return classHash
 }
 
-func (b *testBlockchain) NewRoot(t *testing.T,
+func (b testBlockchain) NewRoot(t *testing.T,
 	blockNumber uint64, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) *felt.Felt {
 	var root *felt.Felt

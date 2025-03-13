@@ -140,7 +140,7 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	class := blockchain.NewClass(t, binarySearchContractPath)
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
 	tests := []test{
 		{
@@ -178,7 +178,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	invalidEntryPoint := crypto.StarknetKeccak([]byte("invalid_entry_point"))
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
 	tests := []test{
 		{
@@ -254,7 +254,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	validDepth := *utils.HexToFelt(t, "0x7")
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
 	tests := []test{
 		{
