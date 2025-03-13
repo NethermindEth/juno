@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -131,12 +131,11 @@ func TestProveCustom(t *testing.T) {
 		},
 		{
 			name: "left-right edge",
-			buildFn: func(t *testing.T) (*trie.Trie, []*keyValue) {
-				memdb := pebble.NewMemTest(t)
-				txn, err := memdb.NewTransaction(true)
-				require.NoError(t, err)
+			buildFn: func(t *testing.T) (*trie.Trie2, []*keyValue) {
+				memdb := memory.New()
+				txn := memdb.NewIndexedBatch()
 
-				tr, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
+				tr, err := trie.NewTriePedersen2(trie.NewStorage2(txn, []byte{1}), 251)
 				require.NoError(t, err)
 
 				records := []*keyValue{
@@ -642,16 +641,15 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 	}
 }
 
-func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
+func buildTrie(t *testing.T, records []*keyValue) *trie.Trie2 {
 	if len(records) == 0 {
 		t.Fatal("records must have at least one element")
 	}
 
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen2(trie.NewStorage2(txn, []byte{0}), 251)
 	require.NoError(t, err)
 
 	for _, record := range records {
@@ -664,11 +662,11 @@ func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
 	return tempTrie
 }
 
-func build1KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func build1KeyTrie(t *testing.T) (*trie.Trie2, []*keyValue) {
 	return nonRandomTrie(t, 1)
 }
 
-func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleTrie(t *testing.T) (*trie.Trie2, []*keyValue) {
 	//   (250, 0, x1)		edge
 	//        |
 	//     (0,0,x1)			binary
@@ -682,7 +680,7 @@ func buildSimpleTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, records), records
 }
 
-func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie2, []*keyValue) {
 	// PF
 	//           (0, 0, x)
 	//    /                    \
@@ -702,7 +700,7 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 }
 
 //nolint:dupl
-func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie2, []*keyValue) {
 	//           (249,0,x3)         // Edge
 	//               |
 	//           (0, 0, x3)         // Binary
@@ -719,7 +717,7 @@ func buildSimpleDoubleBinaryTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 }
 
 //nolint:dupl
-func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
+func build3KeyTrie(t *testing.T) (*trie.Trie2, []*keyValue) {
 	// 			Starknet
 	//			--------
 	//
@@ -748,12 +746,11 @@ func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	return buildTrie(t, records), records
 }
 
-func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie2, []*keyValue) {
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen2(trie.NewStorage2(txn, []byte{0}), 251)
 	require.NoError(t, err)
 
 	records := make([]*keyValue, numKeys)
@@ -773,14 +770,13 @@ func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
 	return tempTrie, records
 }
 
-func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
+func randomTrie(t testing.TB, n int) (*trie.Trie2, []*keyValue) {
 	rrand := rand.New(rand.NewSource(3))
 
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
+	tempTrie, err := trie.NewTriePedersen2(trie.NewStorage2(txn, []byte{0}), 251)
 	require.NoError(t, err)
 
 	records := make([]*keyValue, n)
@@ -817,7 +813,7 @@ type testKey struct {
 
 type testTrie struct {
 	name     string
-	buildFn  func(*testing.T) (*trie.Trie, []*keyValue)
+	buildFn  func(*testing.T) (*trie.Trie2, []*keyValue)
 	testKeys []testKey
 }
 

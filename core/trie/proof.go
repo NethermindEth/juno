@@ -314,14 +314,14 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	return hasRightElement(rootKey, lastKey, nodes), nil
 }
 
-// isEdge checks if the storage node is an edge node.
-func isEdge(parentKey *BitArray, sNode StorageNode) bool {
-	sNodeLen := sNode.key.len
-	if parentKey == nil { // Root
-		return sNodeLen != 0
-	}
-	return sNodeLen-parentKey.len > 1
-}
+// // isEdge checks if the storage node is an edge node.
+// func isEdge(parentKey *BitArray, sNode StorageNode) bool {
+// 	sNodeLen := sNode.key.len
+// 	if parentKey == nil { // Root
+// 		return sNodeLen != 0
+// 	}
+// 	return sNodeLen-parentKey.len > 1
+// }
 
 // storageNodeToProofNode converts a StorageNode to the ProofNode(s).
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
@@ -373,190 +373,190 @@ func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (
 	return edge, binary, nil
 }
 
-// proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
-// as hashes. The given edge proof can be existent or non-existent.
-func proofToPath(root *felt.Felt, keyBits *BitArray, proof *ProofNodeSet, nodes *StorageNodeSet) (*BitArray, *felt.Felt, error) {
-	rootKey, val, err := buildPath(root, keyBits, 0, nil, proof, nodes)
-	if err != nil {
-		return nil, nil, err
-	}
+// // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
+// // as hashes. The given edge proof can be existent or non-existent.
+// func proofToPath(root *felt.Felt, keyBits *BitArray, proof *ProofNodeSet, nodes *StorageNodeSet) (*BitArray, *felt.Felt, error) {
+// 	rootKey, val, err := buildPath(root, keyBits, 0, nil, proof, nodes)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
 
-	// Special case: non-existent key at the root
-	// We must include the root node in the node set.
-	// We will only get the following two cases:
-	// 1. The root node is an edge node only where path.len == key.len (single key trie)
-	// 2. The root node is an edge node + binary node (double key trie)
-	if nodes.Size() == 0 {
-		proofNode, ok := proof.Get(*root)
-		if !ok {
-			return nil, nil, fmt.Errorf("root proof node not found: %s", root)
-		}
+// 	// Special case: non-existent key at the root
+// 	// We must include the root node in the node set.
+// 	// We will only get the following two cases:
+// 	// 1. The root node is an edge node only where path.len == key.len (single key trie)
+// 	// 2. The root node is an edge node + binary node (double key trie)
+// 	if nodes.Size() == 0 {
+// 		proofNode, ok := proof.Get(*root)
+// 		if !ok {
+// 			return nil, nil, fmt.Errorf("root proof node not found: %s", root)
+// 		}
 
-		edge, ok := proofNode.(*Edge)
-		if !ok {
-			return nil, nil, fmt.Errorf("expected edge node at root, got: %T", proofNode)
-		}
+// 		edge, ok := proofNode.(*Edge)
+// 		if !ok {
+// 			return nil, nil, fmt.Errorf("expected edge node at root, got: %T", proofNode)
+// 		}
 
-		sn := NewPartialStorageNode(edge.Path, edge.Child)
+// 		sn := NewPartialStorageNode(edge.Path, edge.Child)
 
-		// Handle leaf edge case (single key trie)
-		if edge.Path.Len() == keyBits.Len() {
-			if err := nodes.Put(*sn.key, sn); err != nil {
-				return nil, nil, fmt.Errorf("failed to store leaf edge: %w", err)
-			}
-			return sn.Key(), sn.Value(), nil
-		}
+// 		// Handle leaf edge case (single key trie)
+// 		if edge.Path.Len() == keyBits.Len() {
+// 			if err := nodes.Put(*sn.key, sn); err != nil {
+// 				return nil, nil, fmt.Errorf("failed to store leaf edge: %w", err)
+// 			}
+// 			return sn.Key(), sn.Value(), nil
+// 		}
 
-		// Handle edge + binary case (double key trie)
-		child, ok := proof.Get(*edge.Child)
-		if !ok {
-			return nil, nil, fmt.Errorf("edge child not found: %s", edge.Child)
-		}
+// 		// Handle edge + binary case (double key trie)
+// 		child, ok := proof.Get(*edge.Child)
+// 		if !ok {
+// 			return nil, nil, fmt.Errorf("edge child not found: %s", edge.Child)
+// 		}
 
-		binary, ok := child.(*Binary)
-		if !ok {
-			return nil, nil, fmt.Errorf("expected binary node as child, got: %T", child)
-		}
-		sn.node.LeftHash = binary.LeftHash
-		sn.node.RightHash = binary.RightHash
+// 		binary, ok := child.(*Binary)
+// 		if !ok {
+// 			return nil, nil, fmt.Errorf("expected binary node as child, got: %T", child)
+// 		}
+// 		sn.node.LeftHash = binary.LeftHash
+// 		sn.node.RightHash = binary.RightHash
 
-		if err := nodes.Put(*sn.key, sn); err != nil {
-			return nil, nil, fmt.Errorf("failed to store edge+binary: %w", err)
-		}
-		rootKey = sn.Key()
-	}
+// 		if err := nodes.Put(*sn.key, sn); err != nil {
+// 			return nil, nil, fmt.Errorf("failed to store edge+binary: %w", err)
+// 		}
+// 		rootKey = sn.Key()
+// 	}
 
-	return rootKey, val, nil
-}
+// 	return rootKey, val, nil
+// }
 
-// buildPath recursively builds the path for a given node hash, key, and current position.
-// It returns the current node's key and any leaf value found along this path.
-func buildPath(
-	nodeHash *felt.Felt,
-	key *BitArray,
-	curPos uint8,
-	curNode *StorageNode,
-	proof *ProofNodeSet,
-	nodes *StorageNodeSet,
-) (*BitArray, *felt.Felt, error) {
-	// We reached the leaf
-	if curPos == key.Len() {
-		leafKey := key.Copy()
-		leafNode := NewPartialStorageNode(&leafKey, nodeHash)
-		if err := nodes.Put(leafKey, leafNode); err != nil {
-			return nil, nil, err
-		}
-		return leafNode.Key(), leafNode.Value(), nil
-	}
+// // buildPath recursively builds the path for a given node hash, key, and current position.
+// // It returns the current node's key and any leaf value found along this path.
+// func buildPath(
+// 	nodeHash *felt.Felt,
+// 	key *BitArray,
+// 	curPos uint8,
+// 	curNode *StorageNode,
+// 	proof *ProofNodeSet,
+// 	nodes *StorageNodeSet,
+// ) (*BitArray, *felt.Felt, error) {
+// 	// We reached the leaf
+// 	if curPos == key.Len() {
+// 		leafKey := key.Copy()
+// 		leafNode := NewPartialStorageNode(&leafKey, nodeHash)
+// 		if err := nodes.Put(leafKey, leafNode); err != nil {
+// 			return nil, nil, err
+// 		}
+// 		return leafNode.Key(), leafNode.Value(), nil
+// 	}
 
-	proofNode, ok := proof.Get(*nodeHash)
-	if !ok { // non-existent proof node
-		return emptyBitArray, nil, nil
-	}
+// 	proofNode, ok := proof.Get(*nodeHash)
+// 	if !ok { // non-existent proof node
+// 		return emptyBitArray, nil, nil
+// 	}
 
-	switch pn := proofNode.(type) {
-	case *Binary:
-		return handleBinaryNode(pn, nodeHash, key, curPos, curNode, proof, nodes)
-	case *Edge:
-		return handleEdgeNode(pn, key, curPos, proof, nodes)
-	}
+// 	switch pn := proofNode.(type) {
+// 	case *Binary:
+// 		return handleBinaryNode(pn, nodeHash, key, curPos, curNode, proof, nodes)
+// 	case *Edge:
+// 		return handleEdgeNode(pn, key, curPos, proof, nodes)
+// 	}
 
-	return nil, nil, nil
-}
+// 	return nil, nil, nil
+// }
 
-// handleBinaryNode processes a binary node in the proof path by creating/updating a storage node,
-// setting its left/right hashes, and recursively building the path for the appropriate child direction.
-// It returns the current node's key and any leaf value found along this path.
-func handleBinaryNode(
-	binary *Binary,
-	nodeHash *felt.Felt,
-	key *BitArray,
-	curPos uint8,
-	curNode *StorageNode,
-	proof *ProofNodeSet,
-	nodes *StorageNodeSet,
-) (*BitArray, *felt.Felt, error) {
-	// If curNode is nil, it means that this current binary node is the root node.
-	// Or, it's an internal binary node and the parent is also a binary node.
-	// A standalone binary proof node always corresponds to a single storage node.
-	// If curNode is not nil, it means that the parent node is an edge node.
-	// In this case, the key of the storage node is based on the parent edge node.
-	if curNode == nil {
-		curNode = NewPartialStorageNode(new(BitArray).MSBs(key, curPos), nodeHash)
-	}
-	curNode.node.LeftHash = binary.LeftHash
-	curNode.node.RightHash = binary.RightHash
+// // handleBinaryNode processes a binary node in the proof path by creating/updating a storage node,
+// // setting its left/right hashes, and recursively building the path for the appropriate child direction.
+// // It returns the current node's key and any leaf value found along this path.
+// func handleBinaryNode(
+// 	binary *Binary,
+// 	nodeHash *felt.Felt,
+// 	key *BitArray,
+// 	curPos uint8,
+// 	curNode *StorageNode,
+// 	proof *ProofNodeSet,
+// 	nodes *StorageNodeSet,
+// ) (*BitArray, *felt.Felt, error) {
+// 	// If curNode is nil, it means that this current binary node is the root node.
+// 	// Or, it's an internal binary node and the parent is also a binary node.
+// 	// A standalone binary proof node always corresponds to a single storage node.
+// 	// If curNode is not nil, it means that the parent node is an edge node.
+// 	// In this case, the key of the storage node is based on the parent edge node.
+// 	if curNode == nil {
+// 		curNode = NewPartialStorageNode(new(BitArray).MSBs(key, curPos), nodeHash)
+// 	}
+// 	curNode.node.LeftHash = binary.LeftHash
+// 	curNode.node.RightHash = binary.RightHash
 
-	// Calculate next position and determine to take left or right path
-	nextPos := curPos + 1
-	isRightPath := key.IsBitSet(curPos)
-	nextHash := binary.LeftHash
-	if isRightPath {
-		nextHash = binary.RightHash
-	}
+// 	// Calculate next position and determine to take left or right path
+// 	nextPos := curPos + 1
+// 	isRightPath := key.IsBitSet(curPos)
+// 	nextHash := binary.LeftHash
+// 	if isRightPath {
+// 		nextHash = binary.RightHash
+// 	}
 
-	childKey, val, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
-	if err != nil {
-		return nil, nil, err
-	}
+// 	childKey, val, err := buildPath(nextHash, key, nextPos, nil, proof, nodes)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
 
-	// Set child reference
-	if isRightPath {
-		curNode.node.Right = childKey
-	} else {
-		curNode.node.Left = childKey
-	}
+// 	// Set child reference
+// 	if isRightPath {
+// 		curNode.node.Right = childKey
+// 	} else {
+// 		curNode.node.Left = childKey
+// 	}
 
-	if err := nodes.Put(*curNode.key, curNode); err != nil {
-		return nil, nil, fmt.Errorf("failed to store binary node: %w", err)
-	}
+// 	if err := nodes.Put(*curNode.key, curNode); err != nil {
+// 		return nil, nil, fmt.Errorf("failed to store binary node: %w", err)
+// 	}
 
-	return curNode.Key(), val, nil
-}
+// 	return curNode.Key(), val, nil
+// }
 
-// handleEdgeNode processes an edge node in the proof path by verifying the edge path matches
-// the key path and either creating a leaf node or continuing to traverse the trie. It returns
-// the current node's key and any leaf value found along this path.
-func handleEdgeNode(
-	edge *Edge,
-	key *BitArray,
-	curPos uint8,
-	proof *ProofNodeSet,
-	nodes *StorageNodeSet,
-) (*BitArray, *felt.Felt, error) {
-	// Verify the edge path matches the key path
-	if !verifyEdgePath(key, edge.Path, curPos) {
-		return emptyBitArray, nil, nil
-	}
+// // handleEdgeNode processes an edge node in the proof path by verifying the edge path matches
+// // the key path and either creating a leaf node or continuing to traverse the trie. It returns
+// // the current node's key and any leaf value found along this path.
+// func handleEdgeNode(
+// 	edge *Edge,
+// 	key *BitArray,
+// 	curPos uint8,
+// 	proof *ProofNodeSet,
+// 	nodes *StorageNodeSet,
+// ) (*BitArray, *felt.Felt, error) {
+// 	// Verify the edge path matches the key path
+// 	if !verifyEdgePath(key, edge.Path, curPos) {
+// 		return emptyBitArray, nil, nil
+// 	}
 
-	// The next node position is the end of the edge path
-	nextPos := curPos + edge.Path.Len()
-	curNode := NewPartialStorageNode(new(BitArray).MSBs(key, nextPos), edge.Child)
+// 	// The next node position is the end of the edge path
+// 	nextPos := curPos + edge.Path.Len()
+// 	curNode := NewPartialStorageNode(new(BitArray).MSBs(key, nextPos), edge.Child)
 
-	// This is an edge leaf, stop traversing the trie
-	if nextPos == key.Len() {
-		if err := nodes.Put(*curNode.key, curNode); err != nil {
-			return nil, nil, fmt.Errorf("failed to store edge leaf: %w", err)
-		}
-		return curNode.Key(), curNode.Value(), nil
-	}
+// 	// This is an edge leaf, stop traversing the trie
+// 	if nextPos == key.Len() {
+// 		if err := nodes.Put(*curNode.key, curNode); err != nil {
+// 			return nil, nil, fmt.Errorf("failed to store edge leaf: %w", err)
+// 		}
+// 		return curNode.Key(), curNode.Value(), nil
+// 	}
 
-	_, val, err := buildPath(edge.Child, key, nextPos, curNode, proof, nodes)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build child path: %w", err)
-	}
+// 	_, val, err := buildPath(edge.Child, key, nextPos, curNode, proof, nodes)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("failed to build child path: %w", err)
+// 	}
 
-	if err := nodes.Put(*curNode.key, curNode); err != nil {
-		return nil, nil, fmt.Errorf("failed to store internal edge: %w", err)
-	}
+// 	if err := nodes.Put(*curNode.key, curNode); err != nil {
+// 		return nil, nil, fmt.Errorf("failed to store internal edge: %w", err)
+// 	}
 
-	return curNode.Key(), val, nil
-}
+// 	return curNode.Key(), val, nil
+// }
 
-// verifyEdgePath checks if the edge path matches the key path at the current position.
-func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
-	return new(BitArray).LSBs(key, curPos).EqualMSBs(edgePath)
-}
+// // verifyEdgePath checks if the edge path matches the key path at the current position.
+// func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
+// 	return new(BitArray).LSBs(key, curPos).EqualMSBs(edgePath)
+// }
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
 func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
@@ -585,34 +585,34 @@ func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, valu
 	return tr, nil
 }
 
-// hasRightElement checks if there is a right sibling for the given key in the trie.
-// This function assumes that the entire path has been resolved.
-func hasRightElement(rootKey, key *BitArray, nodes *StorageNodeSet) bool {
-	cur := rootKey
-	for cur != nil && !cur.Equal(emptyBitArray) {
-		sn, ok := nodes.Get(*cur)
-		if !ok {
-			return false
-		}
+// // hasRightElement checks if there is a right sibling for the given key in the trie.
+// // This function assumes that the entire path has been resolved.
+// func hasRightElement(rootKey, key *BitArray, nodes *StorageNodeSet) bool {
+// 	cur := rootKey
+// 	for cur != nil && !cur.Equal(emptyBitArray) {
+// 		sn, ok := nodes.Get(*cur)
+// 		if !ok {
+// 			return false
+// 		}
 
-		// We resolved the entire path, no more elements
-		if key.Equal(cur) {
-			return false
-		}
+// 		// We resolved the entire path, no more elements
+// 		if key.Equal(cur) {
+// 			return false
+// 		}
 
-		// If we're taking a left path and there's a right sibling,
-		// then there are elements with larger values
-		isLeft := !key.IsBitSet(cur.Len())
-		if isLeft && sn.node.RightHash != nil {
-			return true
-		}
+// 		// If we're taking a left path and there's a right sibling,
+// 		// then there are elements with larger values
+// 		isLeft := !key.IsBitSet(cur.Len())
+// 		if isLeft && sn.node.RightHash != nil {
+// 			return true
+// 		}
 
-		// Move to next node based on the path
-		cur = sn.node.Right
-		if isLeft {
-			cur = sn.node.Left
-		}
-	}
+// 		// Move to next node based on the path
+// 		cur = sn.node.Right
+// 		if isLeft {
+// 			cur = sn.node.Left
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
