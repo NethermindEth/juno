@@ -135,12 +135,12 @@ func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	return db.Update(d, fn)
 }
 
-func (d *DB) Update2(fn func(w db.Batch) error) error {
+func (d *DB) Update2(fn func(w db.IndexedBatch) error) error {
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
-	batch := d.NewBatch()
+	batch := d.NewIndexedBatch()
 	if err := fn(batch); err != nil {
 		return err
 	}
