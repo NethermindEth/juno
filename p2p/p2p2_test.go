@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestInvalidKey(t *testing.T) {
-	_, err := p2p.New(
+	_, err := p2p.New2(
 		"/ip4/127.0.0.1/tcp/30301",
 		"",
 		"peerA",
@@ -30,10 +30,8 @@ func TestInvalidKey(t *testing.T) {
 }
 
 func TestLoadAndPersistPeers(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+	testDB := memory.New()
+	txn := testDB.NewBatch()
 
 	decodedID, err := peer.Decode("12D3KooWLdURCjbp1D7hkXWk6ZVfcMDPtsNnPHuxoTcWXFtvrxGG")
 	require.NoError(t, err)
@@ -44,13 +42,13 @@ func TestLoadAndPersistPeers(t *testing.T) {
 	encAddrs, err := p2p.EncodeAddrs(addrs)
 	require.NoError(t, err)
 
-	err = txn.Set(db.Peer.Key([]byte(decodedID)), encAddrs)
+	err = txn.Put(db.Peer.Key([]byte(decodedID)), encAddrs)
 	require.NoError(t, err)
 
-	err = txn.Commit()
+	err = txn.Write()
 	require.NoError(t, err)
 
-	_, err = p2p.New(
+	_, err = p2p.New2(
 		"/ip4/127.0.0.1/tcp/30301",
 		"",
 		"peerA",

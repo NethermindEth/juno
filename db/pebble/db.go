@@ -64,6 +64,22 @@ func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLog
 	})
 }
 
+func NewWithOptions2(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.KeyValueStore, error) {
+	// Ensure that the specified cache size meets a minimum threshold.
+	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
+	log := utils.NewLogLevel(utils.ERROR)
+	dbLog, err := utils.NewZapLogger(log, colouredLogger)
+	if err != nil {
+		return nil, fmt.Errorf("create DB logger: %w", err)
+	}
+
+	return newPebble(path, &pebble.Options{
+		Logger:       dbLog,
+		Cache:        pebble.NewCache(int64(cacheSizeMB * utils.Megabyte)),
+		MaxOpenFiles: maxOpenFiles,
+	})
+}
+
 // NewMem opens a new in-memory database
 func NewMem() (db.DB, error) {
 	return newPebble("", &pebble.Options{

@@ -86,7 +86,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil)
+	chain := blockchain.New2(database, nil)
 	var info DBInfo
 
 	// Get the latest block information
@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata(database)
+	schemaMeta, err := migration.SchemaMetadata2(database)
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
@@ -153,7 +153,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil)
+		chain := blockchain.New2(database, nil)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)
@@ -277,13 +277,13 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	return "unknown"
 }
 
-func openDB(path string) (db.DB, error) {
+func openDB(path string) (db.KeyValueStore, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebble.New(path)
+	database, err := pebble.New2(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
