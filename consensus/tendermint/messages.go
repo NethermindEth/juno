@@ -60,56 +60,34 @@ func newMessages[V Hashable[H], H Hash, A Addr]() messages[V, H, A] {
 	}
 }
 
+func addMessages[T any, A Addr](storage map[uint]map[uint]map[A][]T, msg T, s A, h, r uint) {
+	if _, ok := storage[h]; !ok {
+		storage[h] = make(map[uint]map[A][]T)
+	}
+
+	if _, ok := storage[h][r]; !ok {
+		storage[h][r] = make(map[A][]T)
+	}
+
+	sendersMessages, ok := storage[h][r][s]
+	if !ok {
+		sendersMessages = []T{}
+	}
+
+	storage[h][r][s] = append(sendersMessages, msg)
+}
+
 // Todo: ensure duplicated messages are ignored.
 func (m *messages[V, H, A]) addProposal(p Proposal[V, H, A]) {
-	if _, ok := m.proposals[p.Height]; !ok {
-		m.proposals[p.Height] = make(map[uint]map[A][]Proposal[V, H, A])
-	}
-
-	if _, ok := m.proposals[p.Height][p.Round]; !ok {
-		m.proposals[p.Height][p.Round] = make(map[A][]Proposal[V, H, A])
-	}
-
-	sendersProposals, ok := m.proposals[p.Height][p.Round][p.Sender]
-	if !ok {
-		sendersProposals = []Proposal[V, H, A]{}
-	}
-
-	m.proposals[p.Height][p.Round][p.Sender] = append(sendersProposals, p)
+	addMessages(m.proposals, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) addPrevote(p Prevote[H, A]) {
-	if _, ok := m.prevotes[p.Height]; !ok {
-		m.prevotes[p.Height] = make(map[uint]map[A][]Prevote[H, A])
-	}
-
-	if _, ok := m.prevotes[p.Height][p.Round]; !ok {
-		m.prevotes[p.Height][p.Round] = make(map[A][]Prevote[H, A])
-	}
-
-	sendersPrevotes, ok := m.prevotes[p.Height][p.Round][p.Sender]
-	if !ok {
-		sendersPrevotes = []Prevote[H, A]{}
-	}
-
-	m.prevotes[p.Height][p.Round][p.Sender] = append(sendersPrevotes, p)
+	addMessages(m.prevotes, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) addPrecommit(p Precommit[H, A]) {
-	if _, ok := m.precommits[p.Height]; !ok {
-		m.precommits[p.Height] = make(map[uint]map[A][]Precommit[H, A])
-	}
-
-	if _, ok := m.precommits[p.Height][p.Round]; !ok {
-		m.precommits[p.Height][p.Round] = make(map[A][]Precommit[H, A])
-	}
-
-	sendersPrecommits, ok := m.precommits[p.Height][p.Round][p.Sender]
-	if !ok {
-		sendersPrecommits = []Precommit[H, A]{}
-	}
-
-	m.precommits[p.Height][p.Round][p.Sender] = append(sendersPrecommits, p)
+	addMessages(m.precommits, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) allMessages(h, r uint) (map[A][]Proposal[V, H, A], map[A][]Prevote[H, A],
