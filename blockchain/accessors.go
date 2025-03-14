@@ -12,10 +12,7 @@ import (
 
 func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNumIndexKey, error) {
 	bnIndex := db.BlockNumIndexKey{}
-	err := r.Get(db.TxBlockNumIndexByHashKey(hash), func(data []byte) error {
-		return bnIndex.UnmarshalBinary(data)
-	})
-
+	err := r.Get(db.TxBlockNumIndexByHashKey(hash), bnIndex.UnmarshalBinary)
 	return bnIndex, err
 }
 
