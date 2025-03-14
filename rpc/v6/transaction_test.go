@@ -749,13 +749,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					utils.HexToFelt(t, "0x0"),
 				},
 			}},
-			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
-					Steps:      6172,
-					Pedersen:   16,
-					RangeCheck: 208,
-					Ecdsa:      1,
-				},
+			ExecutionResources: &rpc.ComputationResources{
+				Steps:      6172,
+				Pedersen:   16,
+				RangeCheck: 208,
+				Ecdsa:      1,
 			},
 		}
 
@@ -810,13 +808,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					utils.HexToFelt(t, "0x0"),
 				},
 			}},
-			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
-					Steps:      6172,
-					Pedersen:   16,
-					RangeCheck: 208,
-					Ecdsa:      1,
-				},
+			ExecutionResources: &rpc.ComputationResources{
+				Steps:      6172,
+				Pedersen:   16,
+				RangeCheck: 208,
+				Ecdsa:      1,
 			},
 		}
 

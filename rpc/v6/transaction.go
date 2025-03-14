@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
