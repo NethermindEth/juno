@@ -51,10 +51,10 @@ type StateReader interface {
 
 type State struct {
 	*history
-	txn db.Transaction
+	txn db.IndexedBatch
 }
 
-func NewState(txn db.Transaction) *State {
+func NewState(txn db.IndexedBatch) *State {
 	return &State{
 		history: &history{txn: txn},
 		txn:     txn,
@@ -74,7 +74,7 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 	}
 
 	numBytes := MarshalBlockNumber(blockNumber)
-	if err = s.txn.Set(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
+	if err = s.txn.Put(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
 		return err
 	}
 
@@ -163,15 +163,18 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	var rootKey *trie.BitArray // TODO: use value instead of pointer
-	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.BitArray)
-		return rootKey.UnmarshalBinary(val)
-	})
-
+	val, err := s.txn.Get2(rootKeyDBKey)
 	// if some error other than "not found"
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
+	}
+
+	rootKey := new(trie.BitArray)
+	if len(val) > 0 {
+		err = rootKey.UnmarshalBinary(val)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	gTrie, err := newTrie(tTxn, globalTrieHeight)
@@ -198,7 +201,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 				return marshalErr
 			}
 
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
+			return s.txn.Put(rootKeyDBKey, rootKeyBytes.Bytes())
 		}
 		return s.txn.Delete(rootKeyDBKey)
 	}
@@ -289,7 +292,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.history.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
+			if err = s.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -344,10 +347,7 @@ type DeclaredClass struct {
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
-	err := s.txn.Get(classKey, func(val []byte) error {
-		return nil
-	})
-
+	_, err := s.txn.Get2(classKey)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		classEncoded, encErr := encoder.Marshal(DeclaredClass{
 			At:    declaredAt,
@@ -357,7 +357,7 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 			return encErr
 		}
 
-		return s.txn.Set(classKey, classEncoded)
+		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
 }
@@ -367,20 +367,23 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	classKey := db.ClassKey(classHash)
 
 	var class DeclaredClass
-	err := s.txn.Get(classKey, func(val []byte) error {
-		return encoder.Unmarshal(val, &class)
-	})
+	val, err := s.txn.Get2(classKey)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := encoder.Unmarshal(val, &class); err != nil {
+		return nil, err
+	}
+
 	return &class, nil
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
-	*db.BufferedTransaction, error,
+	*db.BufferBatch, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
-	bufferedTxn := db.NewBufferedTransaction(s.txn)
+	bufferedTxn := db.NewBufferBatch(s.txn)
 	bufferedState := NewState(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
@@ -407,7 +410,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	blockNumber uint64, logChanges bool,
 ) error {
 	type bufferedTransactionWithAddress struct {
-		txn  *db.BufferedTransaction
+		txn  *db.BufferBatch
 		addr *felt.Felt
 	}
 
@@ -552,15 +555,16 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
-	if err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(bytes []byte) error {
-		deployedAt = binary.BigEndian.Uint64(bytes)
-		return nil
-	}); err != nil {
+
+	val, err := s.txn.Get2(db.ContractDeploymentHeightKey(addr))
+	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
+	deployedAt = binary.BigEndian.Uint64(val)
+
 	return deployedAt <= blockNumber, nil
 }
 

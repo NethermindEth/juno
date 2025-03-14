@@ -201,7 +201,7 @@ func (g *grpcService) Run(ctx context.Context) error {
 	}
 }
 
-func makeGRPC(host string, port uint16, database db.DB, version string) *grpcService {
+func makeGRPC(host string, port uint16, database db.KeyValueStore, version string) *grpcService {
 	srv := grpc.NewServer()
 	gen.RegisterKVServer(srv, junogrpc.New(database, version))
 	return &grpcService{
@@ -263,11 +263,11 @@ func (h *readinessHandlers) isSynced() bool {
 }
 
 type readinessHandlers2 struct {
-	bcReader   blockchain.Reader2
-	syncReader sync.Reader2
+	bcReader   blockchain.Reader
+	syncReader sync.Reader
 }
 
-func NewReadinessHandlers2(bcReader blockchain.Reader2, syncReader sync.Reader2) *readinessHandlers2 {
+func NewReadinessHandlers2(bcReader blockchain.Reader, syncReader sync.Reader) *readinessHandlers2 {
 	return &readinessHandlers2{
 		bcReader:   bcReader,
 		syncReader: syncReader,

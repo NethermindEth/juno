@@ -86,7 +86,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New2(database, nil)
+	chain := blockchain.New(database, nil)
 	var info DBInfo
 
 	// Get the latest block information
@@ -153,7 +153,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New2(database, nil)
+		chain := blockchain.New(database, nil)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)

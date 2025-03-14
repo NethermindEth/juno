@@ -20,7 +20,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/db/remote"
+	// "github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/mempool"
@@ -38,8 +38,8 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	// "google.golang.org/grpc"
+	// "google.golang.org/grpc/credentials/insecure"
 	"gopkg.in/yaml.v3"
 )
 
@@ -111,7 +111,7 @@ type Config struct {
 
 type Node struct {
 	cfg        *Config
-	db         db.DB
+	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
@@ -131,11 +131,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
-	var database db.DB
+	var database db.KeyValueStore
 	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		// database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+		database, err = pebble.NewWithOptions2(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
 
 	if err != nil {
@@ -303,7 +303,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		makePebbleMetrics(database)
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
-		database.WithListener(makeDBMetrics())
+		database.WithListener2(makeDBMetrics())
 		rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV08, pathV07, pathV06)
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
