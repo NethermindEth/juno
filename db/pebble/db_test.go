@@ -22,9 +22,9 @@ func TestPebbleDB(t *testing.T) {
 			})
 			require.NoError(t, err)
 			return &DB{
-				db:        db,
-				closeLock: new(sync.RWMutex),
-				listener:  &eventListener{},
+				db:       db,
+				lock:     new(sync.RWMutex),
+				listener: &eventListener{},
 			}
 		})
 	})
@@ -45,7 +45,7 @@ func (l *eventListener) OnIO(write bool, _ time.Duration) {
 
 func (l *eventListener) OnCommit(_ time.Duration) {}
 
-func newPebbleMem() (*DB, error) {
+func newMemTest() (*DB, error) {
 	db, err := pebble.Open("", &pebble.Options{
 		FS: vfs.NewMem(),
 	})
@@ -54,27 +54,27 @@ func newPebbleMem() (*DB, error) {
 	}
 
 	return &DB{
-		db:        db,
-		closeLock: new(sync.RWMutex),
+		db:   db,
+		lock: new(sync.RWMutex),
 	}, nil
 }
 
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
-		testDB, err := newPebbleMem()
+		testDB, err := newMemTest()
 		require.NoError(t, err)
 
-		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("0"), true)
+		s, err := CalculatePrefixSize(context.Background(), testDB, []byte("0"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
-		testDB, err := newPebbleMem()
+		testDB, err := newMemTest()
 		require.NoError(t, err)
 		require.NoError(t, testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")))
-		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("1"), true)
+		s, err := CalculatePrefixSize(context.Background(), testDB, []byte("1"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
@@ -87,19 +87,19 @@ func TestCalculatePrefixSize(t *testing.T) {
 		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
-		testDB, err := newPebbleMem()
+		testDB, err := newMemTest()
 		require.NoError(t, err)
 		require.NoError(t, testDB.Put(k1, v1))
 		require.NoError(t, testDB.Put(k2, v2))
 		require.NoError(t, testDB.Put(k3, v3))
 
-		s, err := CalculatePrefixSize(t.Context(), testDB, p, true)
+		s, err := CalculatePrefixSize(context.Background(), testDB, p, true)
 		require.NoError(t, err)
 		assert.Equal(t, uint(3), s.Count)
 		assert.Equal(t, utils.DataSize(expectedSize), s.Size)
 
 		t.Run("exit when context is cancelled", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(t.Context())
+			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 
 			s, err := CalculatePrefixSize(ctx, testDB, p, true)

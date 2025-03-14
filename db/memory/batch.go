@@ -33,7 +33,7 @@ func newBatch(db *Database) *batch {
 	}
 }
 
-func (b *batch) Get2(key []byte) ([]byte, error) {
+func (b *batch) Get(key []byte) ([]byte, error) {
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 

@@ -65,13 +65,13 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		val, err := txn.Get2(db.ContractStorage.Key(exampleBytes[:]))
+		val, err := txn.Get(db.ContractStorage.Key(exampleBytes[:]))
 		require.NoError(t, err)
 		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
-		_, err = txn.Get2(oldKey)
+		_, err = txn.Get(oldKey)
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}
 
@@ -95,7 +95,7 @@ func TestRecalculateBloomFilters(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
 		return recalculateBloomFilters(txn, &utils.Mainnet)
 	}))
 
@@ -109,19 +109,19 @@ func TestRecalculateBloomFilters(t *testing.T) {
 func TestRemovePending(t *testing.T) {
 	testDB := memory.New()
 	pendingBlockBytes := []byte("some pending block bytes")
-	require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
 		if err := txn.Put(db.Unused.Key(), pendingBlockBytes); err != nil {
 			return err
 		}
 
-		_, err := txn.Get2(db.Unused.Key())
+		_, err := txn.Get(db.Unused.Key())
 		require.NoError(t, err)
 
-		if err := removePendingBlock2(txn, nil); err != nil {
+		if err := removePendingBlock(txn, nil); err != nil {
 			return err
 		}
 
-		_, err = txn.Get2(db.Unused.Key())
+		_, err = txn.Get(db.Unused.Key())
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 
 		return nil
@@ -138,7 +138,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		Left  *bitset.BitSet
 		Right *bitset.BitSet
 	}
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		// contract root keys, if changeTrieNodeEncoding tries to migrate these it
 		// will fail with an error since they are not valid trie.Node encodings.
 		require.NoError(t, txn.Put(db.ClassesTrie.Key(), []byte{1, 2, 3}))
@@ -165,16 +165,16 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	m := new(changeTrieNodeEncoding)
 	require.NoError(t, m.Before(nil))
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		_, err := m.Migrate(context.Background(), txn, &utils.Mainnet, nil)
 		return err
 	}))
 
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		for _, bucket := range buckets {
 			for i := range 5 {
 				var coreNode trie.Node
-				val, err := txn.Get2(bucket.Key([]byte{byte(i)}))
+				val, err := txn.Get(bucket.Key([]byte{byte(i)}))
 				if err != nil {
 					return err
 				}
@@ -200,7 +200,7 @@ func TestCalculateBlockCommitments(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		return calculateBlockCommitments(txn, &utils.Mainnet)
 	}))
 	for i := range uint64(3) {
@@ -227,7 +227,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 
 	// Delete the L1 handler txn hash from the database
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		return txn.Delete(db.L1HandlerTxnHashByMsgHash.Key(msgHash.Bytes()))
 	}))
 
@@ -236,7 +236,7 @@ func TestL1HandlerTxns(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	// Recalculate and store the L1 message hashes
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		return calculateL1MsgHashes2(txn, &utils.Sepolia)
 	}))
 
@@ -260,7 +260,7 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
 
 	var trieKey trie.BitArray
-	val, err := memTxn.Get2(key)
+	val, err := memTxn.Get(key)
 	require.NoError(t, err)
 	require.NoError(t, trieKey.UnmarshalBinary(val))
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
@@ -332,7 +332,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
 		var actualDeclared core.DeclaredClass
-		val, err := txn.Get2(key)
+		val, err := txn.Get(key)
 		require.NoError(t, err)
 		require.NoError(t, encoder.Unmarshal(val, &actualDeclared))
 
@@ -381,7 +381,7 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 
 	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), &utils.Mainnet))
 
-	_, err = memTxn.Get2(db.ClassesTrie.Key(bsBytes))
+	_, err = memTxn.Get(db.ClassesTrie.Key(bsBytes))
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	var nodeKeyBuf bytes.Buffer
@@ -391,7 +391,7 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 	require.NoError(t, err)
 
 	var trieNode trie.Node
-	val, err := memTxn.Get2(db.Temporary.Key(nodeKeyBuf.Bytes()))
+	val, err := memTxn.Get(db.Temporary.Key(nodeKeyBuf.Bytes()))
 	require.NoError(t, err)
 	require.NoError(t, trieNode.UnmarshalBinary(val))
 
@@ -406,7 +406,7 @@ func TestSchemaMetadata(t *testing.T) {
 	t.Run("conversion", func(t *testing.T) {
 		t.Run("version not set", func(t *testing.T) {
 			testDB := memory.New()
-			metadata, err := SchemaMetadata2(testDB)
+			metadata, err := SchemaMetadata(testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(0), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -416,11 +416,11 @@ func TestSchemaMetadata(t *testing.T) {
 			testDB := memory.New()
 			var version [8]byte
 			binary.BigEndian.PutUint64(version[:], 1)
-			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
+			require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
 				return txn.Put(db.SchemaVersion.Key(), version[:])
 			}))
 
-			metadata, err := SchemaMetadata2(testDB)
+			metadata, err := SchemaMetadata(testDB)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -430,13 +430,13 @@ func TestSchemaMetadata(t *testing.T) {
 		t.Run("Intermediate nil", func(t *testing.T) {
 			testDB := memory.New()
 			version := uint64(5)
-			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
-				return updateSchemaMetadata2(txn, schemaMetadata{
+			require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: nil,
 				})
 			}))
-			metadata, err := SchemaMetadata2(testDB)
+			metadata, err := SchemaMetadata(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Nil(t, metadata.IntermediateState)
@@ -448,13 +448,13 @@ func TestSchemaMetadata(t *testing.T) {
 				intermediateState = []byte{1, 2, 3, 4}
 				version           = uint64(5)
 			)
-			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
-				return updateSchemaMetadata2(txn, schemaMetadata{
+			require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata2(testDB)
+			metadata, err := SchemaMetadata(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -466,13 +466,13 @@ func TestSchemaMetadata(t *testing.T) {
 				intermediateState = make([]byte, 0)
 				version           = uint64(5)
 			)
-			require.NoError(t, testDB.Update2(func(txn db.IndexedBatch) error {
-				return updateSchemaMetadata2(txn, schemaMetadata{
+			require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+				return updateSchemaMetadata(txn, schemaMetadata{
 					Version:           version,
 					IntermediateState: intermediateState,
 				})
 			}))
-			metadata, err := SchemaMetadata2(testDB)
+			metadata, err := SchemaMetadata(testDB)
 			require.NoError(t, err)
 			require.Equal(t, version, metadata.Version)
 			require.Equal(t, intermediateState, metadata.IntermediateState)
@@ -562,7 +562,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 
 func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 	testdb := memory.New()
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 		require.NoError(t, migrator.Before(nil))
 		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
@@ -591,7 +591,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	one := make([]byte, 8)
 	binary.BigEndian.PutUint64(one, 1)
 	su1Key := db.StateUpdatesByBlockNumber.Key(one)
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		//nolint: dupl
 		su0 := oldStateUpdate{
 			BlockHash: utils.HexToFelt(t, "0x0"),
@@ -639,7 +639,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	}))
 
 	// Migrate.
-	require.NoError(t, testdb.Update2(func(txn db.IndexedBatch) error {
+	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 		require.NoError(t, migrator.Before(nil))
 		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
@@ -651,7 +651,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// Assert:
 	// - Both state diffs have been updated.
 	// - There are no extraneous entries in the DB.
-	require.NoError(t, testdb.View2(func(txn db.Snapshot) error {
+	require.NoError(t, testdb.View(func(txn db.Snapshot) error {
 		iter, err := txn.NewIterator(nil, false)
 		require.NoError(t, err)
 		defer func() {
