@@ -29,17 +29,19 @@ type ExecutionResults struct {
 	GasConsumed      []core.GasConsumed
 	Traces           []TransactionTrace
 	NumSteps         uint64
+	Receipts         []TransactionReceipt
 }
 
 type CallResult struct {
 	Result          []*felt.Felt
+	StateDiff       StateDiff
 	ExecutionFailed bool
 }
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string, structuredErrStack bool) (CallResult, error)
+		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
 		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 	) (ExecutionResults, error)
@@ -71,9 +73,12 @@ type callContext struct {
 	// fee amount taken per transaction during VM execution
 	actualFees      []*felt.Felt
 	traces          []json.RawMessage
+	stateDiff       []json.RawMessage
 	daGas           []core.DataAvailability
 	gasConsumed     []core.GasConsumed
 	executionSteps  uint64
+	receipts        []json.RawMessage
+	declaredClasses map[felt.Felt]core.Class
 	executionFailed bool
 }
 
@@ -94,11 +99,25 @@ func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char, exe
 	context.executionFailed = executionFailed == 1
 }
 
+//export JunoAppendReceipt
+func JunoAppendReceipt(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.receipts = append(context.receipts, json.RawMessage(byteSlice))
+}
+
 //export JunoAppendTrace
 func JunoAppendTrace(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
 	context := unwrapContext(readerHandle)
 	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
 	context.traces = append(context.traces, json.RawMessage(byteSlice))
+}
+
+//export JunoAppendStateDiff
+func JunoAppendStateDiff(readerHandle C.uintptr_t, jsonBytes *C.void, bytesLen C.size_t) {
+	context := unwrapContext(readerHandle)
+	byteSlice := C.GoBytes(unsafe.Pointer(jsonBytes), C.int(bytesLen))
+	context.stateDiff = append(context.stateDiff, json.RawMessage(byteSlice))
 }
 
 //export JunoAppendResponse
@@ -213,14 +232,23 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
+func makeByteFromBool(b bool) byte {
+	var boolByte byte
+	if b {
+		boolByte = 1
+	}
+	return boolByte
+}
+
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack bool,
+	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
 		response: []*felt.Felt{},
 		log:      v.log,
 	}
+
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
@@ -237,6 +265,8 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		toUchar(v.concurrencyMode),
 		cSierraVersion,
 		toUchar(structuredErrStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(returnStateDiff),    //nolint:gocritic
+
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -246,7 +276,17 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)
 	}
-	return CallResult{Result: context.response, ExecutionFailed: context.executionFailed}, nil
+
+	stateDiff := StateDiff{}
+	if returnStateDiff {
+		for _, statediffJSON := range context.stateDiff {
+			err := json.Unmarshal(statediffJSON, &stateDiff)
+			if err != nil {
+				return CallResult{}, fmt.Errorf("unmarshal state diff: %v", err)
+			}
+		}
+	}
+	return CallResult{Result: context.response, StateDiff: stateDiff, ExecutionFailed: context.executionFailed}, nil
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
@@ -312,12 +352,19 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 			return ExecutionResults{}, fmt.Errorf("unmarshal trace: %v", err)
 		}
 	}
+	receipts := make([]TransactionReceipt, len(context.receipts))
+	for index, traceJSON := range context.receipts {
+		if err := json.Unmarshal(traceJSON, &receipts[index]); err != nil {
+			return ExecutionResults{}, fmt.Errorf("unmarshal receipt: %v", err)
+		}
+	}
 	return ExecutionResults{
 		OverallFees:      context.actualFees,
 		DataAvailability: context.daGas,
 		GasConsumed:      context.gasConsumed,
 		Traces:           traces,
 		NumSteps:         context.executionSteps,
+		Receipts:         receipts,
 	}, nil
 }
 

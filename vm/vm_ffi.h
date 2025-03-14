@@ -32,7 +32,7 @@ typedef struct BlockInfo {
 } BlockInfo;
 
 extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uintptr_t readerHandle, char* chain_id,
-	unsigned long long max_steps, unsigned char concurrency_mode, char* sierra_version, unsigned char err_stack);
+	unsigned long long max_steps, unsigned char concurrency_mode, char* sierra_version, unsigned char err_stack, unsigned char return_state_diff);
 
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,

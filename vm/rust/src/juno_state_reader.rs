@@ -7,11 +7,7 @@ use std::{
 
 use blockifier::execution::contract_class::RunnableCompiledClass;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::UpdatableState;
-use blockifier::{
-    state::cached_state::{ContractClassMapping, StateMaps},
-    state::state_api::{StateReader, StateResult},
-};
+use blockifier::state::state_api::{StateReader, StateResult};
 use cached::{Cached, SizedCache};
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use once_cell::sync::Lazy;
@@ -212,12 +208,6 @@ impl StateReader for JunoStateReader {
 
     /// Returns the compiled class hash of the given class hash.
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
-        unimplemented!()
-    }
-}
-
-impl UpdatableState for JunoStateReader {
-    fn apply_writes(&mut self, _writes: &StateMaps, _class_hash_to_class: &ContractClassMapping) {
         unimplemented!()
     }
 }
