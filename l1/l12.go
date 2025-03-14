@@ -3,7 +3,7 @@ package l1
 import (
 	"context"
 	"fmt"
-	// "math/big"
+	"math/big"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -12,24 +12,24 @@ import (
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	// "github.com/ethereum/go-ethereum/common"
-	// "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 )
 
-// //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
-// type Subscriber interface {
-// 	FinalisedHeight(ctx context.Context) (uint64, error)
-// 	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
-// 	ChainID(ctx context.Context) (*big.Int, error)
-// 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+//go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
+type Subscriber interface {
+	FinalisedHeight(ctx context.Context) (uint64, error)
+	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	ChainID(ctx context.Context) (*big.Int, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 
-// 	Close()
-// }
+	Close()
+}
 
-type Client2 struct {
+type Client struct {
 	l1                    Subscriber
-	l2Chain               *blockchain.Blockchain2
+	l2Chain               *blockchain.Blockchain
 	log                   utils.SimpleLogger
 	network               *utils.Network
 	resubscribeDelay      time.Duration
@@ -38,10 +38,10 @@ type Client2 struct {
 	listener              EventListener
 }
 
-var _ service.Service = (*Client2)(nil)
+var _ service.Service = (*Client)(nil)
 
-func NewClient2(l1 Subscriber, chain *blockchain.Blockchain2, log utils.SimpleLogger) *Client2 {
-	return &Client2{
+func NewClient(l1 Subscriber, chain *blockchain.Blockchain, log utils.SimpleLogger) *Client {
+	return &Client{
 		l1:                    l1,
 		l2Chain:               chain,
 		log:                   log,
@@ -53,23 +53,23 @@ func NewClient2(l1 Subscriber, chain *blockchain.Blockchain2, log utils.SimpleLo
 	}
 }
 
-func (c *Client2) WithEventListener(l EventListener) *Client2 {
+func (c *Client) WithEventListener(l EventListener) *Client {
 	c.listener = l
 	return c
 }
 
-func (c *Client2) WithResubscribeDelay(delay time.Duration) *Client2 {
+func (c *Client) WithResubscribeDelay(delay time.Duration) *Client {
 	c.resubscribeDelay = delay
 	return c
 }
 
 // WithPollFinalisedInterval sets the time to wait before checking for an update to the finalised L1 block.
-func (c *Client2) WithPollFinalisedInterval(delay time.Duration) *Client2 {
+func (c *Client) WithPollFinalisedInterval(delay time.Duration) *Client {
 	c.pollFinalisedInterval = delay
 	return c
 }
 
-func (c *Client2) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -85,7 +85,7 @@ func (c *Client2) subscribeToUpdates(ctx context.Context, updateChan chan *contr
 	}
 }
 
-func (c *Client2) checkChainID(ctx context.Context) error {
+func (c *Client) checkChainID(ctx context.Context) error {
 	gotChainID, err := c.l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
@@ -101,7 +101,7 @@ func (c *Client2) checkChainID(ctx context.Context) error {
 	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
 }
 
-func (c *Client2) Run(ctx context.Context) error {
+func (c *Client) Run(ctx context.Context) error {
 	defer c.l1.Close()
 	if err := c.checkChainID(ctx); err != nil {
 		return err
@@ -170,7 +170,7 @@ func (c *Client2) Run(ctx context.Context) error {
 	}
 }
 
-func (c *Client2) finalisedHeight(ctx context.Context) uint64 {
+func (c *Client) finalisedHeight(ctx context.Context) uint64 {
 	for {
 		select {
 		case <-ctx.Done():
@@ -186,7 +186,7 @@ func (c *Client2) finalisedHeight(ctx context.Context) uint64 {
 	}
 }
 
-func (c *Client2) setL1Head(ctx context.Context) error {
+func (c *Client) setL1Head(ctx context.Context) error {
 	finalisedHeight := c.finalisedHeight(ctx)
 
 	// Get max finalised Starknet head.
@@ -224,6 +224,6 @@ func (c *Client2) setL1Head(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client2) L1() Subscriber {
+func (c *Client) L1() Subscriber {
 	return c.l1
 }
