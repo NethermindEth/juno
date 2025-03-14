@@ -343,7 +343,7 @@ func GetReceiptsByBlockNum(r db.Iterable, blockNum uint64) ([]*core.TransactionR
 	return receipts, nil
 }
 
-func GetBlockByNumber(r db.KeyValueStore, blockNum uint64) (*core.Block, error) {
+func GetBlockByNumber(r db.IndexedBatch, blockNum uint64) (*core.Block, error) {
 	header, err := GetBlockHeaderByNumber(r, blockNum)
 	if err != nil {
 		return nil, err
