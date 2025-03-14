@@ -38,7 +38,6 @@ type StateHistoryReader interface {
 }
 
 type StateReader interface {
-	ChainHeight() (uint64, error)
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
@@ -59,10 +58,6 @@ func NewState(txn db.IndexedBatch) *State {
 		history: &history{txn: txn},
 		txn:     txn,
 	}
-}
-
-func (s *State) ChainHeight() (uint64, error) {
-	return GetChainHeight(s.txn)
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -163,15 +158,18 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	var rootKey *trie.BitArray // TODO: use value instead of pointer
-	err := s.txn.Get(rootKeyDBKey, func(val []byte) error {
-		rootKey = new(trie.BitArray)
-		return rootKey.UnmarshalBinary(val)
-	})
-
+	val, err := s.txn.Get2(rootKeyDBKey)
 	// if some error other than "not found"
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
+	}
+
+	rootKey := new(trie.BitArray)
+	if len(val) > 0 {
+		err = rootKey.UnmarshalBinary(val)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	gTrie, err := newTrie(tTxn, globalTrieHeight)
@@ -211,6 +209,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 	if err != nil {
 		return err
 	}
+
 	if !root.Equal(currentRoot) {
 		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
 	}
@@ -221,12 +220,7 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(
-	blockNumber uint64,
-	update *StateUpdate,
-	declaredClasses map[felt.Felt]Class,
-	skipVerifyNewRoot bool,
-) error {
+func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
 		return err
@@ -263,11 +257,6 @@ func (s *State) Update(
 		return err
 	}
 
-	// The following check isn't relevant for the centralised Juno sequencer
-	if skipVerifyNewRoot {
-		return nil
-	}
-
 	return s.verifyStateUpdateRoot(update.NewRoot)
 }
 
@@ -289,7 +278,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.history.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
+			if err = s.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
 				return err
 			}
 		}
@@ -344,7 +333,7 @@ type DeclaredClass struct {
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
-	err := s.txn.Get(classKey, func(data []byte) error { return nil })
+	_, err := s.txn.Get2(classKey)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		classEncoded, encErr := encoder.Marshal(DeclaredClass{
 			At:    declaredAt,
@@ -361,11 +350,19 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 
 // Class returns the class object corresponding to the given classHash
 func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	var class *DeclaredClass
-	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
-		return encoder.Unmarshal(data, &class)
-	})
-	return class, err
+	classKey := db.ClassKey(classHash)
+
+	var class DeclaredClass
+	val, err := s.txn.Get2(classKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := encoder.Unmarshal(val, &class); err != nil {
+		return nil, err
+	}
+
+	return &class, nil
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -545,16 +542,14 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 
-	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
-		deployedAt = binary.BigEndian.Uint64(data)
-		return nil
-	})
+	val, err := s.txn.Get2(db.ContractDeploymentHeightKey(addr))
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
+	deployedAt = binary.BigEndian.Uint64(val)
 
 	return deployedAt <= blockNumber, nil
 }

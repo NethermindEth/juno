@@ -44,16 +44,13 @@ func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRep
 func (h Handler) Tx(server gen.KV_TxServer) error {
 	dbTx := h.db.NewIndexedBatch()
 	tx := newTx(dbTx)
-
 	for {
-		var (
-			cursor *gen.Cursor
-			err    error
-		)
-		if cursor, err = server.Recv(); err == nil {
-			if err = h.handleTxCursor(cursor, tx, server); err == nil {
-				continue
-			}
+		cursor, err := server.Recv()
+		if err != nil {
+			return err
+		}
+		if err = h.handleTxCursor(cursor, tx, server); err == nil {
+			continue
 		}
 		return utils.RunAndWrapOnError(tx.cleanup, err)
 	}
@@ -76,11 +73,7 @@ func (h Handler) handleTxCursor(
 		responsePair.CursorId = cursorID
 		return server.Send(responsePair)
 	} else if cur.Op == gen.Op_GET {
-		var val []byte
-		err := tx.dbTx.Get(cur.K, func(data []byte) error {
-			val = data
-			return nil
-		})
+		val, err := tx.dbTx.Get2(cur.K)
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		}

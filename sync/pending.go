@@ -21,14 +21,14 @@ type Pending struct {
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class
-	head       core.StateReader
+	head2      core.StateReader
 }
 
 func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
 		newClasses: newClasses,
-		head:       head,
+		head2:      head,
 	}
 }
 
@@ -46,7 +46,7 @@ func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 	} else if classHash, ok = p.stateDiff.DeployedContracts[*addr]; ok {
 		return classHash, nil
 	}
-	return p.head.ContractClassHash(addr)
+	return p.head2.ContractClassHash(addr)
 }
 
 func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
@@ -55,7 +55,7 @@ func (p *PendingState) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	} else if _, found = p.stateDiff.DeployedContracts[*addr]; found {
 		return &felt.Felt{}, nil
 	}
-	return p.head.ContractNonce(addr)
+	return p.head2.ContractNonce(addr)
 }
 
 func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
@@ -67,7 +67,7 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
 	if _, found := p.stateDiff.DeployedContracts[*addr]; found {
 		return &felt.Felt{}, nil
 	}
-	return p.head.ContractStorage(addr, key)
+	return p.head2.ContractStorage(addr, key)
 }
 
 func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
@@ -78,7 +78,7 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 		}, nil
 	}
 
-	return p.head.Class(classHash)
+	return p.head2.Class(classHash)
 }
 
 func (p *PendingState) ClassTrie() (*trie.Trie, error) {

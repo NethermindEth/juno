@@ -116,11 +116,12 @@ func (c *ContractUpdater) Purge() error {
 // ContractNonce returns the amount transactions sent from this contract.
 // Only account contracts can have a non-zero nonce.
 func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	nonce, err := GetContractNonce(txn, addr)
+	key := db.ContractNonceKey(addr)
+	val, err := txn.Get2(key)
 	if err != nil {
 		return nil, err
 	}
-	return &nonce, nil // TODO: this should return a value
+	return new(felt.Felt).SetBytes(val), nil
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -173,11 +174,12 @@ func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (*felt.Felt, err
 
 // ContractClassHash returns hash of the class that the contract at the given address instantiates.
 func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	classHash, err := GetContractClassHash(txn, addr)
+	key := db.ContractClassHashKey(addr)
+	val, err := txn.Get2(key)
 	if err != nil {
 		return nil, err
 	}
-	return &classHash, nil // TODO: this should return a value
+	return new(felt.Felt).SetBytes(val), nil
 }
 
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {

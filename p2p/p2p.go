@@ -110,10 +110,10 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost2(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+func NewWithHost2(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
 	log utils.SimpleLogger, database db.KeyValueStore,
 ) (*Service, error) {
 	var (
@@ -121,13 +121,14 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		err            error
 	)
 
-	peersAddrInfoS, err = loadPeers(database)
+	peersAddrInfoS, err = loadPeers2(database)
 	if err != nil {
 		log.Warnw("Failed to load peers", "err", err)
 	}
 
 	if peers != "" {
-		for peerStr := range strings.SplitSeq(peers, ",") {
+		splitted := strings.Split(peers, ",")
+		for _, peerStr := range splitted {
 			var peerAddr *peer.AddrInfo
 			peerAddr, err = peer.AddrInfoFromString(peerStr)
 			if err != nil {
@@ -347,7 +348,7 @@ func (s *Service) persistPeers() error {
 }
 
 // loadPeers loads the previously stored peers from the database
-func loadPeers(database db.Iterable) ([]peer.AddrInfo, error) {
+func loadPeers2(database db.Iterable) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
 	it, err := database.NewIterator(db.Peer.Key(), true)
