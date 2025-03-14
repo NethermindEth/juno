@@ -196,3 +196,7 @@ func (d *Database) copy() *Database {
 
 	return cp
 }
+
+func (d *Database) Impl() any {
+	return d.db
+}
