@@ -42,7 +42,7 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 }
 
 func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
-	result := core.StateDiff{}
+	var result core.StateDiff
 	if fromStateDiff == nil {
 		return result
 	}
@@ -52,6 +52,7 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs)),
 		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
+		DeclaredV0Classes: make([]*felt.Felt, len(fromStateDiff.DeprecatedDeclaredClasses)),
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeclaredClasses)),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, len(fromStateDiff.ReplacedClasses)),
 	}
