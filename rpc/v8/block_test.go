@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
@@ -108,7 +108,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -235,7 +235,7 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)

@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -17,12 +17,8 @@ import (
 )
 
 func TestCallDeprecatedCairo(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -77,12 +73,8 @@ func TestCallDeprecatedCairo(t *testing.T) {
 }
 
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -116,12 +108,8 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 }
 
 func TestCallCairo(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Goerli)
 	gw := adaptfeeder.New(client)
 
@@ -185,12 +173,8 @@ func TestCallCairo(t *testing.T) {
 }
 
 func TestCallInfoErrorHandling(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
@@ -243,12 +227,8 @@ func TestCallInfoErrorHandling(t *testing.T) {
 func TestExecute(t *testing.T) {
 	network := utils.Goerli2
 
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(false)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
 

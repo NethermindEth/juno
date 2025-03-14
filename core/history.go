@@ -13,7 +13,7 @@ import (
 var ErrCheckHeadState = errors.New("check head state")
 
 type history struct {
-	txn db.Transaction
+	txn db.IndexedBatch
 }
 
 func logDBKey(key []byte, height uint64) []byte {
@@ -21,7 +21,7 @@ func logDBKey(key []byte, height uint64) []byte {
 }
 
 func (h *history) logOldValue(key, value []byte, height uint64) error {
-	return h.txn.Set(logDBKey(key, height), value)
+	return h.txn.Put(logDBKey(key, height), value)
 }
 
 func (h *history) deleteLog(key []byte, height uint64) error {
@@ -63,6 +63,7 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
+// TODO(weiihann): remove this function
 func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {
 	return db.ContractStorageHistoryKey(contractAddress, storageLocation)
 }
@@ -89,6 +90,7 @@ func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt,
 	return new(felt.Felt).SetBytes(value), nil
 }
 
+// TODO(weiihann): remove this function
 func nonceLogKey(contractAddress *felt.Felt) []byte {
 	return db.ContractNonceHistoryKey(contractAddress)
 }
@@ -111,6 +113,7 @@ func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*f
 	return new(felt.Felt).SetBytes(value), nil
 }
 
+// TODO(weiihann): remove this function
 func classHashLogKey(contractAddress *felt.Felt) []byte {
 	return db.ContractClassHashHistoryKey(contractAddress)
 }

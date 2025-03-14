@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,7 +89,7 @@ func createTxStream(t *testing.T, h Handler) *grpcStreamMock {
 }
 
 func TestHandlers_Tx(t *testing.T) {
-	memDB := pebble.NewMemTest(t)
+	memDB := memory.New()
 	h := Handler{db: memDB}
 	stream := createTxStream(t, h)
 

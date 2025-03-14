@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
@@ -477,7 +477,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
 	require.NoError(t, err)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	chain := blockchain.New(testDB, &utils.Mainnet)
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 

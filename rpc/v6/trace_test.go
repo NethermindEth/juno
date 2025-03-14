@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
@@ -505,7 +505,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)

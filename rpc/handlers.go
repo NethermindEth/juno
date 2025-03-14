@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// TODO(weiihann): handle RPC
 type Handler struct {
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler

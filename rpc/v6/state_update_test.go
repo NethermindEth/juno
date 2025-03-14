@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
@@ -34,7 +34,7 @@ func TestStateUpdate(t *testing.T) {
 	n := &utils.Mainnet
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)

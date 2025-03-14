@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/db/remote"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -20,10 +20,10 @@ import (
 )
 
 func TestRemote(t *testing.T) {
-	memDB := pebble.NewMemTest(t)
-	require.NoError(t, memDB.Update(func(txn db.Transaction) error {
+	memDB := memory.New()
+	require.NoError(t, memDB.Update2(func(txn db.IndexedBatch) error {
 		for i := byte(0); i < 3; i++ {
-			if err := txn.Set([]byte{i}, []byte{i}); err != nil {
+			if err := txn.Put([]byte{i}, []byte{i}); err != nil {
 				return err
 			}
 		}
