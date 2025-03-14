@@ -87,9 +87,9 @@ func (b *batch) Delete(key []byte) error {
 	return nil
 }
 
-func (b *batch) Get(key []byte) ([]byte, error) {
+func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 	if b.batch == nil {
-		return nil, ErrDiscardedTransaction
+		return ErrDiscardedTransaction
 	}
 
 	start := time.Now()
@@ -98,12 +98,16 @@ func (b *batch) Get(key []byte) ([]byte, error) {
 	val, closer, err := b.batch.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
-			return nil, db.ErrKeyNotFound
+			return db.ErrKeyNotFound
 		}
-		return nil, err
+		return err
 	}
 
-	return utils.CopySlice(val), closer.Close()
+	if err := cb(val); err != nil {
+		return err
+	}
+
+	return closer.Close()
 }
 
 func (b *batch) Has(key []byte) (bool, error) {

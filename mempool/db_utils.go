@@ -11,22 +11,20 @@ import (
 
 func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
 	var head felt.Felt
-	data, err := r.Get(db.MempoolHead.Key())
-	if err != nil {
-		return felt.Zero, err
-	}
-	head.Unmarshal(data)
-	return head, nil
+	err := r.Get(db.MempoolHead.Key(), func(data []byte) error {
+		head.Unmarshal(data)
+		return nil
+	})
+	return head, err
 }
 
 func GetTailValue(r db.KeyValueReader) (felt.Felt, error) {
 	var tail felt.Felt
-	data, err := r.Get(db.MempoolTail.Key())
-	if err != nil {
-		return felt.Zero, err
-	}
-	tail.Unmarshal(data)
-	return tail, nil
+	err := r.Get(db.MempoolTail.Key(), func(data []byte) error {
+		tail.Unmarshal(data)
+		return nil
+	})
+	return tail, err
 }
 
 func WriteHeadValue(w db.KeyValueWriter, head *felt.Felt) error {
@@ -39,15 +37,10 @@ func WriteTailValue(w db.KeyValueWriter, tail *felt.Felt) error {
 
 func GetTxn(r db.KeyValueReader, txnHash *felt.Felt) (dbPoolTxn, error) {
 	var item dbPoolTxn
-	data, err := r.Get(db.MempoolNodeKey(txnHash))
-	if err != nil {
-		return dbPoolTxn{}, err
-	}
-	err = encoder.Unmarshal(data, &item)
-	if err != nil {
-		return dbPoolTxn{}, err
-	}
-	return item, nil
+	err := r.Get(db.MempoolNodeKey(txnHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &item)
+	})
+	return item, err
 }
 
 func WriteTxn(w db.KeyValueWriter, item *dbPoolTxn) error {
@@ -60,14 +53,16 @@ func WriteTxn(w db.KeyValueWriter, item *dbPoolTxn) error {
 
 func GetLenDB(r db.KeyValueReader) (int, error) {
 	var l int
-	data, err := r.Get(db.MempoolLength.Key())
+	err := r.Get(db.MempoolLength.Key(), func(data []byte) error {
+		l = int(new(big.Int).SetBytes(data).Int64())
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return 0, nil
 		}
 		return 0, err
 	}
-	l = int(new(big.Int).SetBytes(data).Int64())
 	return l, nil
 }
 

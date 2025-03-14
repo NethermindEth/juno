@@ -125,23 +125,27 @@ func (d *DB) Has(key []byte) (bool, error) {
 	return true, utils.RunAndWrapOnError(closer.Close, err)
 }
 
-func (d *DB) Get(key []byte) ([]byte, error) {
+func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
 	if d.closed {
-		return nil, pebble.ErrClosed
+		return pebble.ErrClosed
 	}
 
 	val, closer, err := d.db.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
-			return nil, db.ErrKeyNotFound
+			return db.ErrKeyNotFound
 		}
-		return nil, err
+		return err
 	}
 
-	return utils.CopySlice(val), utils.RunAndWrapOnError(closer.Close, nil)
+	if err := cb(val); err != nil {
+		return err
+	}
+
+	return closer.Close()
 }
 
 func (d *DB) Put(key, val []byte) error {
