@@ -1,6 +1,5 @@
 package tendermint
 
-//nolint:funlen
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	if p.Height < t.state.height {
 		return
@@ -57,21 +56,38 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 
 	_, prevotesForHR, precommitsForHR := t.messages.allMessages(p.Height, p.Round)
 
-	/*
-		Check the upon condition on line 49:
+	if t.line49WhenProposalIsReceived(p, precommitsForHR, vID, validProposal, proposalFromProposer) {
+		return
+	}
 
-			49: upon {PROPOSAL, h_p, r, v, *} from proposer(h_p, r) AND 2f + 1 {PRECOMMIT, h_p, r, id(v)} while decision_p[h_p] = nil do
-			50: 	if valid(v) then
-			51: 		decisionp[hp] = v
-			52: 		h_p ← h_p + 1
-			53: 		reset lockedRound_p, lockedValue_p,	validRound_p and validValue_p to initial values and empty message log
-			54: 		StartRound(0)
+	if p.Round < t.state.round {
+		// Except line 49 all other upon condition which refer to the proposals expect to be acted upon
+		// when the current round is equal to the proposal's round.
+		return
+	}
 
-		 There is no need to check decision_p[h_p] = nil since it is implied that decision are made
-		 sequentially, i.e. x, x+1, x+2... . The validity of the proposal value can be checked in the same if
-		 statement since there is no else statement.
-	*/
+	t.line22(vr, proposalFromProposer, validProposal, vID)
+	t.line28WhenProposalIsReceived(p, vr, proposalFromProposer, vID, validProposal)
+	t.line36WhenProposalIsReceived(p, validProposal, proposalFromProposer, prevotesForHR, vID)
+}
 
+/*
+Check the upon condition on line 49:
+
+		49: upon {PROPOSAL, h_p, r, v, *} from proposer(h_p, r) AND 2f + 1 {PRECOMMIT, h_p, r, id(v)} while decision_p[h_p] = nil do
+		50: 	if valid(v) then
+		51: 		decisionp[hp] = v
+		52: 		h_p ← h_p + 1
+		53: 		reset lockedRound_p, lockedValue_p,	validRound_p and validValue_p to initial values and empty message log
+		54: 		StartRound(0)
+
+	 There is no need to check decision_p[h_p] = nil since it is implied that decision are made
+	 sequentially, i.e. x, x+1, x+2... . The validity of the proposal value can be checked in the same if
+	 statement since there is no else statement.
+*/
+func (t *Tendermint[V, H, A]) line49WhenProposalIsReceived(p Proposal[V, H, A], precommitsForHR map[A][]Precommit[H,
+	A], vID H, validProposal bool, proposalFromProposer bool,
+) bool {
 	var precommits []Precommit[H, A]
 	var vals []A
 
@@ -94,31 +110,26 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		t.state.height++
 		t.startRound(0)
 
-		return
+		return true
 	}
+	return false
+}
 
-	if p.Round < t.state.round {
-		// Except line 49 all other upon condition which refer to the proposals expect to be acted upon
-		// when the current round is equal to the proposal's round.
-		return
-	}
+/*
+Check the upon condition on line 22:
 
-	/*
-		Check the upon condition on line 22:
+	22: upon {PROPOSAL, h_p, round_p, v, nil} from proposer(h_p, round_p) while step_p = propose do
+	23: 	if valid(v) ∧ (lockedRound_p = −1 ∨ lockedValue_p = v) then
+	24: 		broadcast {PREVOTE, h_p, round_p, id(v)}
+	25: 	else
+	26: 		broadcast {PREVOTE, h_p, round_p, nil}
+	27:		step_p ← prevote
 
-			22: upon {PROPOSAL, h_p, round_p, v, nil} from proposer(h_p, round_p) while step_p = propose do
-			23: 	if valid(v) ∧ (lockedRound_p = −1 ∨ lockedValue_p = v) then
-			24: 		broadcast {PREVOTE, h_p, round_p, id(v)}
-			25: 	else
-			26: 		broadcast {PREVOTE, h_p, round_p, nil}
-			27:		step_p ← prevote
+The implementation uses nil as -1 to avoid using int type.
 
-		The implementation uses nil as -1 to avoid using int type.
-
-		Since the value's id is expected to be unique the id can be used to compare the values.
-
-	*/
-
+Since the value's id is expected to be unique the id can be used to compare the values.
+*/
+func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
 	if vr == -1 && proposalFromProposer && t.state.step == propose {
 		vote := Prevote[H, A]{
 			Vote: Vote[H, A]{
@@ -137,26 +148,29 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 		t.state.step = prevote
 	}
+}
 
-	/*
-		Check the upon condition on  line 28:
+/*
+Check the upon condition on line 28:
 
-			28: upon {PROPOSAL, h_p, round_p, v, vr} from proposer(h_p, round_p) AND 2f + 1 {PREVOTE,h_p, vr, id(v)} while
-				step_p = propose ∧ (vr ≥ 0 ∧ vr < round_p) do
-			29: if valid(v) ∧ (lockedRound_p ≤ vr ∨ lockedValue_p = v) then
-			30: 	broadcast {PREVOTE, hp, round_p, id(v)}
-			31: else
-			32:  	broadcast {PREVOTE, hp, round_p, nil}
-			33: step_p ← prevote
+	28: upon {PROPOSAL, h_p, round_p, v, vr} from proposer(h_p, round_p) AND 2f + 1 {PREVOTE,h_p, vr, id(v)} while
+		step_p = propose ∧ (vr ≥ 0 ∧ vr < round_p) do
+	29: if valid(v) ∧ (lockedRound_p ≤ vr ∨ lockedValue_p = v) then
+	30: 	broadcast {PREVOTE, hp, round_p, id(v)}
+	31: else
+	32:  	broadcast {PREVOTE, hp, round_p, nil}
+	33: step_p ← prevote
 
-		Ideally the condition on line 28 would be checked in a single if statement, however,
-		this cannot be done because valid round needs to be non-nil before the prevotes are fetched.
-	*/
-
+Ideally, the condition on line 28 would be checked in a single if statement, however,
+this cannot be done because valid round needs to be non-nil before the prevotes are fetched.
+*/
+func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], vr int, proposalFromProposer bool,
+	vID H, validProposal bool,
+) {
 	if vr != -1 && proposalFromProposer && t.state.step == propose && vr >= 0 && vr < int(t.state.round) {
 		_, prevotesForHVr, _ := t.messages.allMessages(p.Height, uint(vr))
 
-		vals = []A{}
+		var vals []A
 		for addr, valPrevotes := range prevotesForHVr {
 			for _, p := range valPrevotes {
 				if *p.ID == vID {
@@ -184,27 +198,30 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 			t.state.step = prevote
 		}
 	}
+}
 
-	/*
-		Check upon condition on line 36:
+/*
+Check upon condition on line 36:
 
-			36: upon {PROPOSAL, h_p, round_p, v, ∗} from proposer(h_p, round_p) AND 2f + 1 {PREVOTE, h_p, round_p, id(v)} while
-				valid(v) ∧ step_p ≥ prevote for the first time do
-			37: if step_p = prevote then
-			38: 	lockedValue_p ← v
-			39: 	lockedRound_p ← round_p
-			40: 	broadcast {PRECOMMIT, h_p, round_p, id(v))}
-			41: 	step_p ← precommit
-			42: validValue_p ← v
-			43: validRound_p ← round_p
+	36: upon {PROPOSAL, h_p, round_p, v, ∗} from proposer(h_p, round_p) AND 2f + 1 {PREVOTE, h_p, round_p, id(v)} while
+		valid(v) ∧ step_p ≥ prevote for the first time do
+	37: if step_p = prevote then
+	38: 	lockedValue_p ← v
+	39: 	lockedRound_p ← round_p
+	40: 	broadcast {PRECOMMIT, h_p, round_p, id(v))}
+	41: 	step_p ← precommit
+	42: validValue_p ← v
+	43: validRound_p ← round_p
 
-		The condition on line 36 can should be checked in a single if statement, however,
-		checking for quroum is more resource intensive than other conditions therefore they are checked
-		first.
-	*/
-
+The condition on line 36 can should be checked in a single if statement, however,
+checking for quroum is more resource intensive than other conditions, therefore, they are checked
+first.
+*/
+func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], validProposal,
+	proposalFromProposer bool, prevotesForHR map[A][]Prevote[H, A], vID H,
+) {
 	if validProposal && proposalFromProposer && !t.state.line36Executed && t.state.step >= prevote {
-		vals = []A{}
+		var vals []A
 		for addr, valPrevotes := range prevotesForHR {
 			for _, v := range valPrevotes {
 				if *v.ID == vID {
