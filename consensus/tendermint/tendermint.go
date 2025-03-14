@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 	"sync"
@@ -197,21 +196,17 @@ func (t *Tendermint[V, H, A]) Start() {
 		defer t.wg.Done()
 
 		t.startRound(0)
-		fmt.Println("Returned after startRound(0)")
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
 
 		i := 0
 		for {
-			fmt.Println("i =", i)
 			select {
 			case <-t.quit:
-				fmt.Println("quit", t.state.step)
 				return
 			case tm := <-t.timeoutsCh:
 				// Handling of timeouts is priorities over messages
-				fmt.Println("Inside timeout case", tm)
 				switch tm.s {
 				case propose:
 					t.OnTimeoutPropose(tm.h, tm.r)
@@ -224,22 +219,16 @@ func (t *Tendermint[V, H, A]) Start() {
 				i := slices.Index(t.scheduledTms, tm)
 				t.scheduledTms = slices.Delete(t.scheduledTms, i, i+1)
 			case p := <-t.proposalsCh:
-				fmt.Println("Inside proposals case")
 				t.handleProposal(p)
 			case p := <-t.listeners.ProposalListener.Listen():
-				fmt.Println("Inside proposalsListner case")
 				t.handleProposal(p)
 			case p := <-t.prevotesCh:
-				fmt.Println("Inside prevotes case")
 				t.handlePrevote(p)
 			case p := <-t.listeners.PrevoteListener.Listen():
-				fmt.Println("Inside prevotesListner case")
 				t.handlePrevote(p)
 			case p := <-t.precommitsCh:
-				fmt.Println("Inside precommits case")
 				t.handlePrecommit(p)
 			case p := <-t.listeners.PrecommitListener.Listen():
-				fmt.Println("Inside precommitsListner case")
 				t.handlePrecommit(p)
 			}
 			i++
@@ -248,17 +237,14 @@ func (t *Tendermint[V, H, A]) Start() {
 }
 
 func (t *Tendermint[V, H, A]) Stop() {
-	fmt.Println("Stopping Tendermint...")
 	close(t.quit)
 	for _, tm := range t.scheduledTms {
 		tm.Stop()
 	}
-	fmt.Println("Waiting for the Tendermint loop to exit")
 	t.wg.Wait()
 }
 
 func (t *Tendermint[V, H, A]) startRound(r uint) {
-	fmt.Println("Inside start round", r)
 	if r != 0 && r <= t.state.round {
 		return
 	}
@@ -287,7 +273,6 @@ func (t *Tendermint[V, H, A]) startRound(r uint) {
 		}
 
 		t.messages.addProposal(proposalMessage)
-		fmt.Println("Broadcasting the proposal")
 		t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
 	} else {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.height, t.state.round)
@@ -372,10 +357,8 @@ func (t *Tendermint[_, H, A]) OnTimeoutPropose(h, r uint) {
 			},
 		}
 		t.messages.addPrevote(vote)
-		fmt.Println("About to send prevot nil")
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 		t.state.step = prevote
-		fmt.Println("Set the step to prevote")
 	}
 }
 
@@ -390,10 +373,8 @@ func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h, r uint) {
 			},
 		}
 		t.messages.addPrecommit(vote)
-		fmt.Println("About to send precommit nil")
 		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
 		t.state.step = precommit
-		fmt.Println("Set the step to precommit")
 	}
 }
 

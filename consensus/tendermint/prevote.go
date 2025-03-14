@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 )
@@ -47,7 +46,6 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 		return
 	}
 
-	fmt.Println("got prevote")
 	t.messages.addPrevote(p)
 
 	proposalsForHR, prevotesForHR, _ := t.messages.allMessages(p.Height, p.Round)

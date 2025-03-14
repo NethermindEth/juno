@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -199,7 +198,6 @@ func TestStartRound(t *testing.T) {
 		// multiple times. This can happen if the timeouts are too small.
 		tm := func(r uint) time.Duration {
 			if r == 0 {
-				fmt.Println("R is ", r)
 				return time.Nanosecond
 			}
 			return time.Second
