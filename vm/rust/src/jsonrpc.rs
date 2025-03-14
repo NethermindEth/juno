@@ -67,77 +67,83 @@ pub struct StateDiff {
 
 impl From<StateMaps> for StateDiff {
     fn from(state_maps: StateMaps) -> Self {
+        let storage_diffs = state_maps
+            .storage
+            .into_iter()
+            .fold(
+                IndexMap::<StarkFelt, Vec<Entry>>::new(),
+                |mut acc, ((address, key), value)| {
+                    let starkfelt_address = address.into();
+                    let entry = Entry {
+                        key: key.into(),
+                        value: value.into(),
+                    };
+
+                    acc.entry(starkfelt_address)
+                        .or_insert_with(Vec::new)
+                        .push(entry);
+
+                    acc
+                },
+            )
+            .into_iter()
+            .map(|(address, storage_entries)| StorageDiff {
+                address,
+                storage_entries,
+            })
+            .collect();
+
+        let nonces = state_maps
+            .nonces
+            .into_iter()
+            .map(|(address, nonce)| Nonce {
+                contract_address: address.into(),
+                nonce: (*nonce).into(),
+            })
+            .collect();
+
+        let deployed_contracts = state_maps
+            .class_hashes
+            .into_iter()
+            .map(|(address, class_hash)| DeployedContract {
+                address: address.into(),
+                class_hash: (*class_hash).into(),
+            })
+            .collect();
+
+        let deprecated_declared_classes = state_maps
+            .declared_contracts
+            .into_iter()
+            .filter(|(_, is_deprecated)| *is_deprecated)
+            .map(|(class_hash, _)| (*class_hash).into())
+            .collect();
+
+        let declared_classes = state_maps
+            .compiled_class_hashes
+            .into_iter()
+            .map(|(class_hash, compiled_class_hash)| DeclaredClass {
+                class_hash: (*class_hash).into(),
+                compiled_class_hash: compiled_class_hash.0.into(),
+            })
+            .collect();
+
+        // Currently this field is unneeded, since we don't declare and
+        // immediately replace a contracts class hash in a single block.
+        // If we decide to support this field, then we could handle it
+        // in the genesis pkg, since there is no corresponding field in StateMaps.
+        // Only the genesis pkg ever uses this logic.
+        let replaced_classes = Default::default();
+
         Self {
-            storage_diffs: state_maps
-                .storage
-                .into_iter()
-                .fold(
-                    IndexMap::<StarkFelt, Vec<Entry>>::new(),
-                    |mut acc, ((address, key), value)| {
-                        let starkfelt_address = address.into();
-                        let entry = Entry {
-                            key: key.into(),
-                            value: value.into(),
-                        };
-
-                        acc.entry(starkfelt_address)
-                            .or_insert_with(Vec::new)
-                            .push(entry);
-
-                        acc
-                    },
-                )
-                .into_iter()
-                .map(|(address, storage_entries)| StorageDiff {
-                    address,
-                    storage_entries,
-                })
-                .collect(),
-
-            nonces: state_maps
-                .nonces
-                .into_iter()
-                .map(|(address, nonce)| Nonce {
-                    contract_address: address.into(),
-                    nonce: (*nonce).into(),
-                })
-                .collect(),
-
-            deployed_contracts: state_maps
-                .class_hashes
-                .into_iter()
-                .map(|(address, class_hash)| DeployedContract {
-                    address: address.into(),
-                    class_hash: (*class_hash).into(),
-                })
-                .collect(),
-
-            deprecated_declared_classes: state_maps
-                .declared_contracts
-                .into_iter()
-                .filter(|(_, is_deprecated)| *is_deprecated)
-                .map(|(class_hash, _)| (*class_hash).into())
-                .collect(),
-
-            declared_classes: state_maps
-                .compiled_class_hashes
-                .into_iter()
-                .map(|(class_hash, compiled_class_hash)| DeclaredClass {
-                    class_hash: (*class_hash).into(),
-                    compiled_class_hash: compiled_class_hash.0.into(),
-                })
-                .collect(),
-
-            // Currently this field is unneeded, since we don't declare and
-            // immediately replace a contracts class hash in a single block.
-            // If we decide to support this field, then we could handle it
-            // in the genesis pkg, since there is no corresponding field in StateMaps.
-            // Only the genesis pkg ever uses this logic.
-            replaced_classes: Default::default(),
+            storage_diffs,
+            nonces,
+            deployed_contracts,
+            deprecated_declared_classes,
+            declared_classes,
+            replaced_classes,
         }
     }
 }
-
 
 #[derive(Serialize)]
 struct Nonce {

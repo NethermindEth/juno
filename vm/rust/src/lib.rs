@@ -66,10 +66,10 @@ type StarkFelt = Felt;
 use once_cell::sync::Lazy;
 
 // Allow users to call CONSTRUCTOR entry point type which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
-    pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
-        StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
-            .expect("Invalid hex string")
-    });
+pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
+    StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+        .expect("Invalid hex string")
+});
 
 extern "C" {
     fn JunoReportError(
@@ -179,11 +179,9 @@ pub extern "C" fn cairoVMCall(
         ..Default::default()
     };
 
-    
-            if CONSTRUCTOR_ENTRY_POINT_FELT.eq(&entry_point_selector_felt) {
-                entry_point.entry_point_type = EntryPointType::Constructor
-            }
-        
+    if CONSTRUCTOR_ENTRY_POINT_FELT.eq(&entry_point_selector_felt) {
+        entry_point.entry_point_type = EntryPointType::Constructor
+    }
 
     let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let mut state = CachedState::new(juno_reader);
@@ -242,8 +240,7 @@ pub extern "C" fn cairoVMCall(
             if return_state_diff == 1 {
                 match state.to_state_diff() {
                     Ok(state_diff) => {
-                        let json_state_diff =
-                            jsonrpc::StateDiff::from(state_diff.state_maps);
+                        let json_state_diff = jsonrpc::StateDiff::from(state_diff.state_maps);
                         append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer);
                     }
                     Err(_) => {
