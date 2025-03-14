@@ -49,11 +49,11 @@ type Service struct {
 	gossipTracer *gossipTracer
 
 	feederNode bool
-	database   db.DB
+	database   db.KeyValueStore
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+	log utils.SimpleLogger, database db.KeyValueStore,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -110,18 +110,18 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost2(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.DB,
+func NewWithHost2(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
+	log utils.SimpleLogger, database db.KeyValueStore,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
 		err            error
 	)
 
-	peersAddrInfoS, err = loadPeers(database)
+	peersAddrInfoS, err = loadPeers2(database)
 	if err != nil {
 		log.Warnw("Failed to load peers", "err", err)
 	}
@@ -319,10 +319,7 @@ func (s *Service) WithGossipTracer() {
 
 // persistPeers stores the given peers in the peers database
 func (s *Service) persistPeers() error {
-	txn, err := s.database.NewTransaction(true)
-	if err != nil {
-		return fmt.Errorf("create transaction: %w", err)
-	}
+	txn := s.database.NewBatch()
 
 	store := s.host.Peerstore()
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
@@ -336,12 +333,12 @@ func (s *Service) persistPeers() error {
 			return fmt.Errorf("encode addresses for peer %s: %w", peerID, err)
 		}
 
-		if err := txn.Set(db.PeerKey([]byte(peerID)), encodedAddrs); err != nil {
+		if err := txn.Put(db.PeerKey([]byte(peerID)), encodedAddrs); err != nil {
 			return fmt.Errorf("set data for peer %s: %w", peerID, err)
 		}
 	}
 
-	if err := txn.Commit(); err != nil {
+	if err := txn.Write(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
@@ -351,40 +348,33 @@ func (s *Service) persistPeers() error {
 }
 
 // loadPeers loads the previously stored peers from the database
-func loadPeers(database db.DB) ([]peer.AddrInfo, error) {
+func loadPeers2(database db.Iterable) ([]peer.AddrInfo, error) {
 	var peers []peer.AddrInfo
 
-	err := database.View(func(txn db.Transaction) error {
-		it, err := txn.NewIterator(db.Peer.Key(), true)
-		if err != nil {
-			return fmt.Errorf("create iterator: %w", err)
-		}
-		defer it.Close()
-
-		for it.First(); it.Valid(); it.Next() {
-			peerIDBytes := it.Key()
-			peerID, err := peer.IDFromBytes(peerIDBytes)
-			if err != nil {
-				return fmt.Errorf("decode peer ID: %w", err)
-			}
-
-			val, err := it.Value()
-			if err != nil {
-				return fmt.Errorf("get value: %w", err)
-			}
-
-			addrs, err := decodeAddrs(val)
-			if err != nil {
-				return fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
-			}
-
-			peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
-		}
-
-		return nil
-	})
+	it, err := database.NewIterator(db.Peer.Key(), true)
 	if err != nil {
-		return nil, fmt.Errorf("load peers: %w", err)
+		return nil, fmt.Errorf("create iterator: %w", err)
+	}
+	defer it.Close()
+
+	for it.First(); it.Valid(); it.Next() {
+		peerIDBytes := it.Key()
+		peerID, err := peer.IDFromBytes(peerIDBytes)
+		if err != nil {
+			return nil, fmt.Errorf("decode peer ID: %w", err)
+		}
+
+		val, err := it.Value()
+		if err != nil {
+			return nil, fmt.Errorf("get value: %w", err)
+		}
+
+		addrs, err := decodeAddrs(val)
+		if err != nil {
+			return nil, fmt.Errorf("decode addresses for peer %s: %w", peerID, err)
+		}
+
+		peers = append(peers, peer.AddrInfo{ID: peerID, Addrs: addrs})
 	}
 
 	return peers, nil

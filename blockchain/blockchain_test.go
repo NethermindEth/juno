@@ -20,11 +20,11 @@ import (
 
 var emptyCommitments = core.BlockCommitments{}
 
-func TestNew2(t *testing.T) {
+func TestNew(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("empty blockchain's head is nil", func(t *testing.T) {
-		chain := blockchain.New2(memory.New(), &utils.Mainnet)
+		chain := blockchain.New(memory.New(), &utils.Mainnet)
 		assert.Equal(t, &utils.Mainnet, chain.Network())
 		b, err := chain.Head()
 		assert.Nil(t, b)
@@ -38,21 +38,21 @@ func TestNew2(t *testing.T) {
 		require.NoError(t, err)
 
 		testDB := memory.New()
-		chain := blockchain.New2(testDB, &utils.Mainnet)
+		chain := blockchain.New(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-		chain = blockchain.New2(testDB, &utils.Mainnet)
+		chain = blockchain.New(testDB, &utils.Mainnet)
 		b, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, block0, b)
 	})
 }
 
-func TestHeight2(t *testing.T) {
+func TestHeight(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 	t.Run("return nil if blockchain is empty", func(t *testing.T) {
-		chain := blockchain.New2(memory.New(), &utils.Sepolia)
+		chain := blockchain.New(memory.New(), &utils.Sepolia)
 		_, err := chain.Height()
 		assert.Error(t, err)
 	})
@@ -64,18 +64,18 @@ func TestHeight2(t *testing.T) {
 		require.NoError(t, err)
 
 		testDB := memory.New()
-		chain := blockchain.New2(testDB, &utils.Mainnet)
+		chain := blockchain.New(testDB, &utils.Mainnet)
 		assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-		chain = blockchain.New2(testDB, &utils.Mainnet)
+		chain = blockchain.New(testDB, &utils.Mainnet)
 		height, err := chain.Height()
 		require.NoError(t, err)
 		assert.Equal(t, block0.Number, height)
 	})
 }
 
-func TestBlockByNumberAndHash2(t *testing.T) {
-	chain := blockchain.New2(memory.New(), &utils.Sepolia)
+func TestBlockByNumberAndHash(t *testing.T) {
+	chain := blockchain.New(memory.New(), &utils.Sepolia)
 	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
@@ -107,11 +107,11 @@ func TestBlockByNumberAndHash2(t *testing.T) {
 	})
 }
 
-func TestVerifyBlock2(t *testing.T) {
+func TestVerifyBlock(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := blockchain.New2(memory.New(), &utils.Mainnet)
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{Number: 10}}
@@ -184,11 +184,11 @@ func TestVerifyBlock2(t *testing.T) {
 	})
 }
 
-func TestSanityCheckNewHeight2(t *testing.T) {
+func TestSanityCheckNewHeight(t *testing.T) {
 	h1, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	chain := blockchain.New2(memory.New(), &utils.Mainnet)
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 
@@ -222,7 +222,7 @@ func TestSanityCheckNewHeight2(t *testing.T) {
 		})
 }
 
-func TestStore2(t *testing.T) {
+func TestStore(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -233,7 +233,7 @@ func TestStore2(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
-		chain := blockchain.New2(memory.New(), &utils.Mainnet)
+		chain := blockchain.New(memory.New(), &utils.Mainnet)
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
 		headBlock, err := chain.Head()
@@ -260,7 +260,7 @@ func TestStore2(t *testing.T) {
 		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
 		require.NoError(t, err)
 
-		chain := blockchain.New2(memory.New(), &utils.Mainnet)
+		chain := blockchain.New(memory.New(), &utils.Mainnet)
 		require.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 		require.NoError(t, chain.Store(block1, &emptyCommitments, stateUpdate1, nil))
 
@@ -282,10 +282,10 @@ func TestStore2(t *testing.T) {
 	})
 }
 
-func TestStoreL1HandlerTxnHash2(t *testing.T) {
+func TestStoreL1HandlerTxnHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
-	chain := blockchain.New2(memory.New(), &utils.Sepolia)
+	chain := blockchain.New(memory.New(), &utils.Sepolia)
 	var stateUpdate *core.StateUpdate
 	for i := range uint64(7) {
 		block, err := gw.BlockByNumber(context.Background(), i)
@@ -301,7 +301,7 @@ func TestStoreL1HandlerTxnHash2(t *testing.T) {
 }
 
 func TestBlockCommitments2(t *testing.T) {
-	chain := blockchain.New2(memory.New(), &utils.Mainnet)
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -326,7 +326,7 @@ func TestBlockCommitments2(t *testing.T) {
 }
 
 func TestTransactionAndReceipt2(t *testing.T) {
-	chain := blockchain.New2(memory.New(), &utils.Mainnet)
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -412,9 +412,9 @@ func TestTransactionAndReceipt2(t *testing.T) {
 	})
 }
 
-func TestState2(t *testing.T) {
+func TestState(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New2(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -475,14 +475,14 @@ func TestState2(t *testing.T) {
 	})
 }
 
-func TestEvents2(t *testing.T) {
+func TestEvents(t *testing.T) {
 	var pendingB *core.Block
 	pendingBlockFn := func() *core.Block {
 		return pendingB
 	}
 
 	testDB := memory.New()
-	chain := blockchain.New2(testDB, &utils.Goerli2)
+	chain := blockchain.New(testDB, &utils.Goerli2)
 	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
 	client := feeder.NewTestClient(t, &utils.Goerli2)
@@ -597,9 +597,9 @@ func TestEvents2(t *testing.T) {
 	})
 }
 
-func TestRevert2(t *testing.T) {
+func TestRevert(t *testing.T) {
 	testDB := memory.New()
-	chain := blockchain.New2(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -665,7 +665,7 @@ func TestRevert2(t *testing.T) {
 	})
 }
 
-func TestL1Update2(t *testing.T) {
+func TestL1Update(t *testing.T) {
 	heads := []*core.L1Head{
 		{
 			BlockNumber: 1,
@@ -679,7 +679,7 @@ func TestL1Update2(t *testing.T) {
 
 	for _, head := range heads {
 		t.Run(fmt.Sprintf("update L1 head to block %d", head.BlockNumber), func(t *testing.T) {
-			chain := blockchain.New2(memory.New(), &utils.Mainnet)
+			chain := blockchain.New(memory.New(), &utils.Mainnet)
 			require.NoError(t, chain.SetL1Head(head))
 			got, err := chain.L1Head()
 			require.NoError(t, err)
@@ -688,13 +688,13 @@ func TestL1Update2(t *testing.T) {
 	}
 }
 
-func TestSubscribeL1Head2(t *testing.T) {
+func TestSubscribeL1Head(t *testing.T) {
 	l1Head := &core.L1Head{
 		BlockNumber: 1,
 		StateRoot:   new(felt.Felt).SetUint64(2),
 	}
 
-	chain := blockchain.New2(memory.New(), &utils.Mainnet)
+	chain := blockchain.New(memory.New(), &utils.Mainnet)
 	sub := chain.SubscribeL1Head()
 	t.Cleanup(sub.Unsubscribe)
 

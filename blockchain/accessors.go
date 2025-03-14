@@ -135,6 +135,33 @@ func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*core.TransactionRe
 	return GetReceiptByBlockNumIndexBytes(r, bnIndex)
 }
 
+func DeleteTxsAndReceipts(txn db.IndexedBatch, blockNum, numTxs uint64) error {
+	// remove txs and receipts
+	for i := range numTxs {
+		reorgedTxn, err := GetTxByBlockNumIndex(txn, blockNum, i)
+		if err != nil {
+			return err
+		}
+
+		if err := DeleteTxByBlockNumIndex(txn, blockNum, i); err != nil {
+			return err
+		}
+		if err := DeleteReceiptByBlockNumIndex(txn, blockNum, i); err != nil {
+			return err
+		}
+		if err := DeleteTxBlockNumIndexByHash(txn, reorgedTxn.Hash()); err != nil {
+			return err
+		}
+		if l1handler, ok := reorgedTxn.(*core.L1HandlerTransaction); ok {
+			if err := DeleteL1HandlerTxnHashByMsgHash(txn, l1handler.MessageHash()); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.StateUpdate, error) {
 	var stateUpdate *core.StateUpdate
 	data, err := r.Get2(db.StateUpdateByBlockNumKey(blockNum))
@@ -227,6 +254,14 @@ func GetChainHeight(r db.KeyValueReader) (uint64, error) {
 		return 0, err
 	}
 	return binary.BigEndian.Uint64(data), nil
+}
+
+func WriteChainHeight(w db.KeyValueWriter, height []byte) error {
+	return w.Put(db.ChainHeight.Key(), height)
+}
+
+func DeleteChainHeight(w db.KeyValueWriter) error {
+	return w.Delete(db.ChainHeight.Key())
 }
 
 func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*core.Header, error) {

@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
@@ -54,7 +54,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(memory.New(), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -85,7 +85,7 @@ func TestMismatchedChainID(t *testing.T) {
 	network := utils.Mainnet
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(memory.New(), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 
@@ -110,7 +110,7 @@ func TestEventListener(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(pebble.NewMemTest(t), &network)
+	chain := blockchain.New(memory.New(), &network)
 
 	subscriber := mocks.NewMockSubscriber(ctrl)
 	subscriber.
