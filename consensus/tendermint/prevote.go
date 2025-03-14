@@ -5,9 +5,6 @@ import (
 	"slices"
 )
 
-// I don't think there is much benefit in breaking this function since the function execution naturally flow
-//
-//nolint:gocyclo
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 	if p.Height < t.state.height {
 		return
