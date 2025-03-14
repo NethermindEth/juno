@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
@@ -104,7 +105,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*rpcv6.BlockWithTxHashes, *json
 
 	return &rpcv6.BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: adaptCoreBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -130,15 +131,15 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 		r := block.Receipts[index]
 
 		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: AdaptTransaction(txn),
+			Transaction: utils.HeapPtr(AdaptCoreTransaction(txn)),
 			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0),
+			Receipt: utils.HeapPtr(AdaptCoreReceipt(r, txn, finalityStatus, nil, 0)),
 		}
 	}
 
 	return &BlockWithReceipts{
 		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptCoreBlockHeader(block.Header),
 		Transactions: txsWithReceipts,
 	}, nil
 }
@@ -155,7 +156,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = AdaptTransaction(txn)
+		txs[index] = utils.HeapPtr(AdaptCoreTransaction(txn))
 	}
 
 	status, rpcErr := h.blockStatus(id, block)
@@ -165,7 +166,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptCoreBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -184,61 +185,4 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv6.BlockStatus,
 	}
 
 	return status, nil
-}
-
-func adaptBlockHeader(header *core.Header) rpcv6.BlockHeader {
-	var blockNumber *uint64
-	// if header.Hash == nil it's a pending block
-	if header.Hash != nil {
-		blockNumber = &header.Number
-	}
-
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = &felt.Zero
-	}
-
-	var l1DAMode rpcv6.L1DAMode
-	switch header.L1DAMode {
-	case core.Blob:
-		l1DAMode = rpcv6.Blob
-	case core.Calldata:
-		l1DAMode = rpcv6.Calldata
-	}
-
-	var l1DataGasPrice rpcv6.ResourcePrice
-	if header.L1DataGasPrice != nil {
-		l1DataGasPrice = rpcv6.ResourcePrice{
-			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
-			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
-		}
-	} else {
-		l1DataGasPrice = rpcv6.ResourcePrice{
-			InWei: &felt.Zero,
-			InFri: &felt.Zero,
-		}
-	}
-
-	return rpcv6.BlockHeader{
-		Hash:             header.Hash,
-		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
-		NewRoot:          header.GlobalStateRoot,
-		Timestamp:        header.Timestamp,
-		SequencerAddress: sequencerAddress,
-		L1GasPrice: &rpcv6.ResourcePrice{
-			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK),
-		},
-		L1DataGasPrice:  &l1DataGasPrice,
-		L1DAMode:        &l1DAMode,
-		StarknetVersion: header.ProtocolVersion,
-	}
-}
-
-func nilToZero(f *felt.Felt) *felt.Felt {
-	if f == nil {
-		return &felt.Zero
-	}
-	return f
 }

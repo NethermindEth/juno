@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/utils"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
@@ -186,7 +187,7 @@ func (h *Handler) blockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}
 	return &BlockWithTxHashes{
 		Status:      status,
-		BlockHeader: adaptBlockHeader(block.Header),
+		BlockHeader: adaptCoreBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
@@ -215,40 +216,6 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 	return header.TransactionCount, nil
 }
 
-func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	blockStatus, rpcErr := h.blockStatus(id, block)
-	if rpcErr != nil {
-		return nil, rpcErr
-	}
-
-	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == BlockAcceptedL1 {
-		finalityStatus = TxnAcceptedOnL1
-	}
-
-	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
-	for index, txn := range block.Transactions {
-		r := block.Receipts[index]
-
-		txsWithReceipts[index] = TransactionWithReceipt{
-			Transaction: AdaptTransaction(txn),
-			// block_hash, block_number are optional in BlockWithReceipts response
-			Receipt: AdaptReceipt(r, txn, finalityStatus, nil, 0, false),
-		}
-	}
-
-	return &BlockWithReceipts{
-		Status:       blockStatus,
-		BlockHeader:  adaptBlockHeader(block.Header),
-		Transactions: txsWithReceipts,
-	}, nil
-}
-
 // BlockWithTxs returns the block information with full transactions given a block ID.
 //
 // It follows the specification defined here:
@@ -261,7 +228,7 @@ func (h *Handler) blockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	txs := make([]*Transaction, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txs[index] = AdaptTransaction(txn)
+		txs[index] = utils.HeapPtr(AdaptCoreTransaction(txn))
 	}
 
 	status, rpcErr := h.blockStatus(id, block)
@@ -271,7 +238,7 @@ func (h *Handler) blockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 
 	return &BlockWithTxs{
 		Status:       status,
-		BlockHeader:  adaptBlockHeader(block.Header),
+		BlockHeader:  adaptCoreBlockHeader(block.Header),
 		Transactions: txs,
 	}, nil
 }
@@ -301,38 +268,4 @@ func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *json
 	}
 
 	return status, nil
-}
-
-func adaptBlockHeader(header *core.Header) BlockHeader {
-	var blockNumber *uint64
-	// if header.Hash == nil it's a pending block
-	if header.Hash != nil {
-		blockNumber = &header.Number
-	}
-
-	sequencerAddress := header.SequencerAddress
-	if sequencerAddress == nil {
-		sequencerAddress = &felt.Zero
-	}
-
-	return BlockHeader{
-		Hash:             header.Hash,
-		ParentHash:       header.ParentHash,
-		Number:           blockNumber,
-		NewRoot:          header.GlobalStateRoot,
-		Timestamp:        header.Timestamp,
-		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
-			InWei: header.L1GasPriceETH,
-			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
-		},
-		StarknetVersion: header.ProtocolVersion,
-	}
-}
-
-func nilToZero(f *felt.Felt) *felt.Felt {
-	if f == nil {
-		return &felt.Zero
-	}
-	return f
 }

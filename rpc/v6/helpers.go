@@ -1,7 +1,6 @@
 package rpcv6
 
 // Helpers contains the supporting functions used in more than one handler from a different groups, e.g. block, trace, etc.
-// I break this rule when function name strongly suggest the group, e.g. `AdaptTransaction` which is also used by block handlers.
 
 import (
 	"errors"
@@ -89,35 +88,6 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal.CloneWithData("nil header with no error")
 	}
 	return header, nil
-}
-
-func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bool) *ExecutionResources {
-	if resources == nil {
-		return &ExecutionResources{}
-	}
-
-	res := &ExecutionResources{
-		ComputationResources: ComputationResources{
-			Steps:        resources.Steps,
-			MemoryHoles:  resources.MemoryHoles,
-			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,
-			RangeCheck:   resources.BuiltinInstanceCounter.RangeCheck,
-			Bitwise:      resources.BuiltinInstanceCounter.Bitwise,
-			Ecdsa:        resources.BuiltinInstanceCounter.Ecsda,
-			EcOp:         resources.BuiltinInstanceCounter.EcOp,
-			Keccak:       resources.BuiltinInstanceCounter.Keccak,
-			Poseidon:     resources.BuiltinInstanceCounter.Poseidon,
-			SegmentArena: resources.BuiltinInstanceCounter.SegmentArena,
-		},
-	}
-	if !v0_6Response && resources.DataAvailability != nil {
-		res.DataAvailability = &DataAvailability{
-			L1Gas:     resources.DataAvailability.L1Gas,
-			L1DataGas: resources.DataAvailability.L1DataGas,
-		}
-	}
-
-	return res
 }
 
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {

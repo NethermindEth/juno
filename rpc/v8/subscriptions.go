@@ -535,7 +535,7 @@ func (h *Handler) onPendingBlock(
 }
 
 func toFullTx(txn core.Transaction) any {
-	return AdaptTransaction(txn)
+	return AdaptCoreTransaction(txn)
 }
 
 func toHash(txn core.Transaction) any {
@@ -636,7 +636,7 @@ func (h *Handler) sendHistoricalHeaders(
 
 // sendHeader creates a request and sends it to the client
 func sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
-	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
+	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptCoreBlockHeader(header))
 }
 
 type ReorgEvent struct {

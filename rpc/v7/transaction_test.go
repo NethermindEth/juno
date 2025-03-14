@@ -238,9 +238,6 @@ func adaptV6TxToV7(t *testing.T, tx *rpcv6.Transaction) *rpc.Transaction {
 	}
 }
 
-// TODO[Pawel]: The following 2 tests `Test[Legacy]TransactionReceiptByHash` are skipped
-// but we still keep them here. I have a doubt whether they test anything useful.
-//
 //nolint:dupl
 func TestTransactionReceiptByHash(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -301,7 +298,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					"messages_sent": [],
 					"events": [],
 					"contract_address": "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
-					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":29}
+					"execution_resources":{"steps": 29, "data_availability": null}
 				}`,
 		},
 		"without contract addr": {
@@ -325,7 +322,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
+					"execution_resources":{"steps": 31, "data_availability": null}
 				}`,
 		},
 	}
@@ -359,7 +356,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
+					"execution_resources":{"steps": 31, "data_availability": null}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -390,7 +387,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 						}
 					],
 					"events": [],
-					"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":31}
+					"execution_resources":{"steps": 31, "data_availability": null}
 				}`
 
 		txHash := block0.Transactions[i].Hash()
@@ -415,8 +412,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"block_number": 304740,
 			"messages_sent": [],
 			"events": [],
-			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n",
-			"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":0}
+			"revert_reason": "Error in the called contract (0x00b1461de04c6a1aa3375bdf9b7723a8779c082ffe21311d683a0b15c078b5dc):\nError at pc=0:25:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:731)\nUnknown location (pc=0:677)\nUnknown location (pc=0:291)\nUnknown location (pc=0:314)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:104:\nGot an exception while executing a hint.\nCairo traceback (most recent call last):\nUnknown location (pc=0:1678)\nUnknown location (pc=0:1664)\n\nError in the called contract (0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7):\nError at pc=0:6:\nGot an exception while executing a hint: Assertion failed, 0 % 0x800000000000011000000000000000000000000000000000000000000000001 is equal to 0\nCairo traceback (most recent call last):\nUnknown location (pc=0:1238)\nUnknown location (pc=0:1215)\nUnknown location (pc=0:836)\n"
 		}`
 
 		integClient := feeder.NewTestClient(t, &utils.Integration)
@@ -472,13 +468,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				}
 			],
 			"execution_resources": {
-				"data_availability": {
-					"l1_data_gas": 0,
-					"l1_gas": 0
-				},
 				"steps": 615,
 				"range_check_builtin_applications": 19,
-				"memory_holes": 4
+				"memory_holes": 4,
+				"data_availability": null
 			},
 			"actual_fee": {
 				"amount": "0x16d8b4ad4000",
@@ -505,6 +498,9 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	})
 }
 
+// TODO[Pawel]: The following 2 tests `Test[Legacy]TransactionReceiptByHash` are skipped
+// but we still keep them here. I have a doubt whether they test anything useful.
+//
 //nolint:dupl
 func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	t.Skip()
@@ -813,9 +809,9 @@ func TestAdaptTransaction(t *testing.T) {
 			},
 		}
 
-		tx := rpc.AdaptTransaction(&coreTx)
+		tx := rpc.AdaptCoreTransaction(&coreTx)
 
-		expectedTx := &rpc.Transaction{
+		expectedTx := rpc.Transaction{
 			Type:    rpc.TxnInvoke,
 			Version: new(felt.Felt).SetUint64(3),
 			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
