@@ -22,6 +22,9 @@ use starknet_api::contract_class::{
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
 use starknet_types_core::felt::Felt;
+
+use crate::BlockInfo;
+
 type StarkFelt = Felt;
 
 extern "C" {
@@ -55,13 +58,35 @@ struct CachedRunnableCompiledClass {
 static CLASS_CACHE: Lazy<Mutex<SizedCache<ClassHash, CachedRunnableCompiledClass>>> =
     Lazy::new(|| Mutex::new(SizedCache::with_size(128)));
 
+pub enum BlockHeight {
+    Height(u64),
+    Pending,
+}
+
+impl BlockHeight {
+    pub fn is_after(&self, target: u64) -> bool {
+        match self {
+            BlockHeight::Height(height) => *height > target,
+            BlockHeight::Pending => true,
+        }
+    }
+
+    pub fn from_block_info(block_info: &BlockInfo) -> Self {
+        if block_info.is_pending == 1 {
+            Self::Pending
+        } else {
+            Self::Height(block_info.block_number)
+        }
+    }
+}
+
 pub struct JunoStateReader {
     pub handle: usize, // uintptr_t equivalent
-    pub height: u64,
+    pub height: BlockHeight,
 }
 
 impl JunoStateReader {
-    pub fn new(handle: usize, height: u64) -> Self {
+    pub fn new(handle: usize, height: BlockHeight) -> Self {
         Self { handle, height }
     }
 }
@@ -145,7 +170,7 @@ impl StateReader for JunoStateReader {
             // with the same block number but with the state at the end of that block. That is why, we cannot use classes from cache
             // if they are cached on the same height that we are executing on. Because they might be cached using a state instance that
             // is in the future compared to the state that we are currently executing on, even tho they have the same height.
-            if cached_class.cached_on_height < self.height {
+            if self.height.is_after(cached_class.cached_on_height) {
                 return Ok(cached_class.definition.clone());
             }
         }
@@ -164,15 +189,17 @@ impl StateReader for JunoStateReader {
                 Ok(class) => {
                     let runnable_compiled_class =
                         RunnableCompiledClass::try_from(class.contract_class).unwrap();
-                    CLASS_CACHE.lock().unwrap().cache_set(
-                        class_hash,
-                        CachedRunnableCompiledClass {
-                            // This clone is cheap, it is just a reference copy in the underlying
-                            // RunnableCompiledClass implementation
-                            definition: runnable_compiled_class.clone(),
-                            cached_on_height: self.height,
-                        },
-                    );
+                    if let BlockHeight::Height(height) = self.height {
+                        CLASS_CACHE.lock().unwrap().cache_set(
+                            class_hash,
+                            CachedRunnableCompiledClass {
+                                // This clone is cheap, it is just a reference copy in the underlying
+                                // RunnableCompiledClass implementation
+                                definition: runnable_compiled_class.clone(),
+                                cached_on_height: height,
+                            },
+                        );
+                    }
                     Ok(runnable_compiled_class)
                 }
                 Err(e) => Err(StateError::StateReadError(format!(
