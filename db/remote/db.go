@@ -2,9 +2,7 @@ package remote
 
 import (
 	"context"
-	"fmt"
 	"math"
-	"os"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -13,7 +11,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var _ db.KeyValueStore = (*DB)(nil)
+var (
+	_ db.DB            = (*DB)(nil)
+	_ db.KeyValueStore = (*DB)(nil)
+)
 
 type DB struct {
 	ctx        context.Context
@@ -23,7 +24,6 @@ type DB struct {
 	listener   db.EventListener
 }
 
-// TODO(weiihann): handle this remotedb with new interfaces
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
@@ -44,7 +44,7 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 	}, nil
 }
 
-func (d *DB) NewTransaction(write bool) (*transaction, error) {
+func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
 	start := time.Now()
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
@@ -57,34 +57,23 @@ func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	return &transaction{client: txClient, log: d.log}, nil
 }
 
-func (d *DB) View(fn func(txn db.Snapshot) error) error {
-	txn, err := d.NewTransaction(false)
-	if err != nil {
-		return err
-	}
-
-	defer discardTxnOnPanic(txn)
-	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
+func (d *DB) View(fn func(txn db.Transaction) error) error {
+	return db.View(d, fn)
 }
 
-func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
+func (d *DB) Update(fn func(txn db.Transaction) error) error {
 	start := time.Now()
 
 	defer func() {
 		d.listener.OnCommit(time.Since(start))
 	}()
 
-	txn, err := d.NewTransaction(true)
-	if err != nil {
-		return err
-	}
+	return db.Update(d, fn)
+}
 
-	defer discardTxnOnPanic(txn)
-	if err := fn(txn); err != nil {
-		return utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
+func (d *DB) WithListener(listener db.EventListener) db.DB {
+	d.listener = listener
+	return d
 }
 
 func (d *DB) Close() error {
@@ -99,17 +88,22 @@ func (d *DB) Delete(key []byte) error {
 	return errNotSupported
 }
 
-func (d *DB) DeleteRange(start, end []byte) error {
+func (d *DB) DeleteRange(start []byte, end []byte) error {
 	return errNotSupported
 }
 
-func (d *DB) Get(key []byte, cb func(value []byte) error) error {
+func (d *DB) Get2(key []byte) ([]byte, error) {
 	txn, err := d.NewTransaction(false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return txn.Get(key, cb)
+	var val []byte
+	err = txn.Get(key, func(v []byte) error {
+		val = v
+		return nil
+	})
+	return val, err
 }
 
 func (d *DB) Has(key []byte) (bool, error) {
@@ -118,7 +112,10 @@ func (d *DB) Has(key []byte) (bool, error) {
 		return false, err
 	}
 
-	return txn.Has(key)
+	err = txn.Get(key, func(v []byte) error {
+		return nil
+	})
+	return err == nil, err
 }
 
 func (d *DB) Put(key, val []byte) error {
@@ -181,17 +178,15 @@ func (d *DB) NewSnapshot() db.Snapshot {
 	return &transaction{client: txClient, log: d.log}
 }
 
-func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
-	d.listener = listener
-	return d
+func (d *DB) Update2(fn func(txn db.IndexedBatch) error) error {
+	return errNotSupported
 }
 
-func discardTxnOnPanic(txn *transaction) {
-	p := recover()
-	if p != nil {
-		if err := txn.Discard(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
-		}
-		panic(p)
-	}
+func (d *DB) View2(fn func(txn db.Snapshot) error) error {
+	return errNotSupported
+}
+
+func (d *DB) WithListener2(listener db.EventListener) db.KeyValueStore {
+	d.listener = listener
+	return d
 }
