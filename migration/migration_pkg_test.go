@@ -65,13 +65,17 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 		exampleBytes := new(felt.Felt).SetUint64(uint64(i)).Bytes()
 
 		// New entry exists.
-		val, err := txn.Get(db.ContractStorage.Key(exampleBytes[:]))
+		var val []byte
+		err := txn.Get(db.ContractStorage.Key(exampleBytes[:]), func(data []byte) error {
+			val = data
+			return nil
+		})
 		require.NoError(t, err)
 		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
-		_, err = txn.Get(oldKey)
+		err = txn.Get(oldKey, func([]byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 	}
 
@@ -114,14 +118,14 @@ func TestRemovePending(t *testing.T) {
 			return err
 		}
 
-		_, err := txn.Get(db.Unused.Key())
+		err := txn.Get(db.Unused.Key(), func([]byte) error { return nil })
 		require.NoError(t, err)
 
 		if err := removePendingBlock(txn, nil); err != nil {
 			return err
 		}
 
-		_, err = txn.Get(db.Unused.Key())
+		err = txn.Get(db.Unused.Key(), func([]byte) error { return nil })
 		require.ErrorIs(t, db.ErrKeyNotFound, err)
 
 		return nil
@@ -174,11 +178,8 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		for _, bucket := range buckets {
 			for i := range 5 {
 				var coreNode trie.Node
-				val, err := txn.Get(bucket.Key([]byte{byte(i)}))
-				if err != nil {
-					return err
-				}
-				require.NoError(t, coreNode.UnmarshalBinary(val))
+				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
+				require.NoError(t, err)
 			}
 		}
 
@@ -260,9 +261,8 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
 
 	var trieKey trie.BitArray
-	val, err := memTxn.Get(key)
+	err = memTxn.Get(key, trieKey.UnmarshalBinary)
 	require.NoError(t, err)
-	require.NoError(t, trieKey.UnmarshalBinary(val))
 	require.Equal(t, bs.Len(), uint(trieKey.Len()))
 	require.Equal(t, felt.Zero, trieKey.Felt())
 }
@@ -332,9 +332,10 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 		require.NoError(t, migrateCairo1CompiledClass2(txn, key, classBytes, &utils.Mainnet))
 
 		var actualDeclared core.DeclaredClass
-		val, err := txn.Get(key)
+		err = txn.Get(key, func(data []byte) error {
+			return encoder.Unmarshal(data, &actualDeclared)
+		})
 		require.NoError(t, err)
-		require.NoError(t, encoder.Unmarshal(val, &actualDeclared))
 
 		assert.Equal(t, actualDeclared.At, expectedDeclared.At)
 
@@ -381,7 +382,7 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 
 	require.NoError(t, migrator(memTxn, nodeKey, nodeBytes.Bytes(), &utils.Mainnet))
 
-	_, err = memTxn.Get(db.ClassesTrie.Key(bsBytes))
+	err = memTxn.Get(db.ClassesTrie.Key(bsBytes), func([]byte) error { return nil })
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 
 	var nodeKeyBuf bytes.Buffer
@@ -391,9 +392,8 @@ func TestMigrateTrieNodesFromBitsetToBitArray(t *testing.T) {
 	require.NoError(t, err)
 
 	var trieNode trie.Node
-	val, err := memTxn.Get(db.Temporary.Key(nodeKeyBuf.Bytes()))
+	err = memTxn.Get(db.Temporary.Key(nodeKeyBuf.Bytes()), trieNode.UnmarshalBinary)
 	require.NoError(t, err)
-	require.NoError(t, trieNode.UnmarshalBinary(val))
 
 	require.Equal(t, n.Value, trieNode.Value)
 	require.Equal(t, n.Left.Len(), uint(trieNode.Left.Len()))

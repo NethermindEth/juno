@@ -163,7 +163,11 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	val, err := s.txn.Get(rootKeyDBKey)
+	var val []byte
+	err := s.txn.Get(rootKeyDBKey, func(data []byte) error {
+		val = data
+		return nil
+	})
 	// if some error other than "not found"
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
@@ -347,7 +351,7 @@ type DeclaredClass struct {
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
-	_, err := s.txn.Get(classKey)
+	err := s.txn.Get(classKey, func(data []byte) error { return nil })
 	if errors.Is(err, db.ErrKeyNotFound) {
 		classEncoded, encErr := encoder.Marshal(DeclaredClass{
 			At:    declaredAt,
@@ -364,19 +368,11 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 
 // Class returns the class object corresponding to the given classHash
 func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	classKey := db.ClassKey(classHash)
-
-	var class DeclaredClass
-	val, err := s.txn.Get(classKey)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := encoder.Unmarshal(val, &class); err != nil {
-		return nil, err
-	}
-
-	return &class, nil
+	var class *DeclaredClass
+	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
+	})
+	return class, err
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
@@ -556,14 +552,16 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 
-	val, err := s.txn.Get(db.ContractDeploymentHeightKey(addr))
+	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
+		deployedAt = binary.BigEndian.Uint64(data)
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
-	deployedAt = binary.BigEndian.Uint64(val)
 
 	return deployedAt <= blockNumber, nil
 }

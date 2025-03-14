@@ -33,23 +33,23 @@ func newBatch(db *Database) *batch {
 	}
 }
 
-func (b *batch) Get(key []byte) ([]byte, error) {
+func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 	b.db.lock.RLock()
 	defer b.db.lock.RUnlock()
 
 	if val, ok := b.writeMap[string(key)]; ok {
 		if val.delete {
-			return nil, db.ErrKeyNotFound
+			return db.ErrKeyNotFound
 		}
-		return utils.CopySlice(val.value), nil
+		return cb(val.value)
 	}
 
 	val, ok := b.db.db[string(key)]
 	if !ok {
-		return nil, db.ErrKeyNotFound
+		return db.ErrKeyNotFound
 	}
 
-	return utils.CopySlice(val), nil
+	return cb(val)
 }
 
 func (b *batch) Has(key []byte) (bool, error) {
