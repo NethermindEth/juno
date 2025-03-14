@@ -22,9 +22,9 @@ func TestPebbleDB(t *testing.T) {
 			})
 			require.NoError(t, err)
 			return &DB{
-				db:       db,
-				lock:     new(sync.RWMutex),
-				listener: &eventListener{},
+				db:        db,
+				closeLock: new(sync.RWMutex),
+				listener:  &eventListener{},
 			}
 		})
 	})
@@ -45,7 +45,7 @@ func (l *eventListener) OnIO(write bool, _ time.Duration) {
 
 func (l *eventListener) OnCommit(_ time.Duration) {}
 
-func newMemTest() (*DB, error) {
+func newPebbleMem() (*DB, error) {
 	db, err := pebble.Open("", &pebble.Options{
 		FS: vfs.NewMem(),
 	})
@@ -54,14 +54,14 @@ func newMemTest() (*DB, error) {
 	}
 
 	return &DB{
-		db:   db,
-		lock: new(sync.RWMutex),
+		db:        db,
+		closeLock: new(sync.RWMutex),
 	}, nil
 }
 
 func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
-		testDB, err := newMemTest()
+		testDB, err := newPebbleMem()
 		require.NoError(t, err)
 
 		s, err := CalculatePrefixSize(context.Background(), testDB, []byte("0"), true)
@@ -71,7 +71,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 	})
 
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
-		testDB, err := newMemTest()
+		testDB, err := newPebbleMem()
 		require.NoError(t, err)
 		require.NoError(t, testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")))
 		s, err := CalculatePrefixSize(context.Background(), testDB, []byte("1"), true)
@@ -87,7 +87,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 		k3, v3 := append(p, []byte("key3")...), []byte("value3") //nolint: gocritic
 		expectedSize := uint(len(k1) + len(v1) + len(k2) + len(v2) + len(k3) + len(v3))
 
-		testDB, err := newMemTest()
+		testDB, err := newPebbleMem()
 		require.NoError(t, err)
 		require.NoError(t, testDB.Put(k1, v1))
 		require.NoError(t, testDB.Put(k2, v2))

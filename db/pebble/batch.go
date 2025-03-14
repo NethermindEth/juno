@@ -2,12 +2,10 @@ package pebble
 
 import (
 	"errors"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
 )
 
@@ -17,58 +15,15 @@ type batch struct {
 	batch    *pebble.Batch
 	db       *DB
 	size     int
-	lock     *sync.RWMutex
 	listener db.EventListener
 }
 
-func NewBatch(dbBatch *pebble.Batch, db *DB, lock *sync.RWMutex, listener db.EventListener) *batch {
+func NewBatch(dbBatch *pebble.Batch, db *DB, listener db.EventListener) *batch {
 	return &batch{
 		batch:    dbBatch,
 		db:       db,
-		lock:     lock,
 		listener: listener,
 	}
-}
-
-// Discard : see db.Transaction.Discard
-func (b *batch) Discard() error {
-	if b.batch == nil {
-		return nil
-	}
-
-	err := b.batch.Close()
-	b.batch = nil
-	b.lock.Unlock()
-	b.lock = nil
-
-	return err
-}
-
-// Commit : see db.Transaction.Commit
-func (b *batch) Commit() error {
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
-
-	start := time.Now()
-	defer func() { b.listener.OnCommit(time.Since(start)) }()
-	return utils.RunAndWrapOnError(b.Discard, b.batch.Commit(pebble.Sync))
-}
-
-// Set : see db.Transaction.Set
-func (b *batch) Set(key, val []byte) error {
-	start := time.Now()
-	if len(key) == 0 {
-		return errors.New("empty key")
-	}
-
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
-
-	defer func() { b.listener.OnIO(true, time.Since(start)) }()
-
-	return b.batch.Set(key, val, pebble.Sync)
 }
 
 // Delete : see db.Transaction.Delete
@@ -126,7 +81,6 @@ func (b *batch) Has(key []byte) (bool, error) {
 	return true, closer.Close()
 }
 
-// NewIterator : see db.Transaction.NewIterator
 func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
 	var iter *pebble.Iterator
 	var err error
@@ -165,6 +119,9 @@ func (b *batch) Size() int {
 }
 
 func (b *batch) Write() error {
+	b.db.closeLock.RLock()
+	defer b.db.closeLock.RUnlock()
+
 	if b.db.closed {
 		return pebble.ErrClosed
 	}
