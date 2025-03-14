@@ -91,6 +91,13 @@ type BlockWithReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+type BlockWithTxHashesAndReceipts struct {
+	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	BlockHeader
+	TxnHashes    []*felt.Felt             `json:"transactionsHashes"`
+	Transactions []TransactionWithReceipt `json:"transactions"`
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
@@ -154,6 +161,47 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	return &BlockWithReceipts{
 		Status:       blockStatus,
 		BlockHeader:  adaptBlockHeader(block.Header),
+		Transactions: txsWithReceipts,
+	}, nil
+}
+
+func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (*BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(&id)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	blockStatus, rpcErr := h.blockStatus(id, block)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
+
+	finalityStatus := TxnAcceptedOnL2
+	if blockStatus == rpcv6.BlockAcceptedL1 {
+		finalityStatus = TxnAcceptedOnL1
+	}
+
+	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		r := block.Receipts[index]
+
+		t := AdaptTransaction(txn)
+		t.Hash = nil
+		txsWithReceipts[index] = TransactionWithReceipt{
+			Transaction: t,
+			Receipt:     AdaptReceipt(r, txn, finalityStatus, nil, 0),
+		}
+	}
+
+	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	for index, txn := range block.Transactions {
+		txnHashes[index] = txn.Hash()
+	}
+
+	return &BlockWithTxHashesAndReceipts{
+		Status:       blockStatus,
+		BlockHeader:  adaptBlockHeader(block.Header),
+		TxnHashes:    txnHashes,
 		Transactions: txsWithReceipts,
 	}, nil
 }
