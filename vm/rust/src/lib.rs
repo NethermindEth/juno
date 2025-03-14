@@ -243,7 +243,7 @@ pub extern "C" fn cairoVMCall(
                 match state.to_state_diff() {
                     Ok(state_diff) => {
                         let json_state_diff =
-                            jsonrpc::StateDiff::from_state_maps(&state_diff.state_maps);
+                            jsonrpc::StateDiff::from(state_diff.state_maps);
                         append_state_diff(reader_handle, &json_state_diff, &mut writer_buffer);
                     }
                     Err(_) => {

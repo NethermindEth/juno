@@ -65,19 +65,19 @@ pub struct StateDiff {
     replaced_classes: Vec<ReplacedClass>,
 }
 
-impl StateDiff {
-    pub fn from_state_maps(state_maps: &StateMaps) -> Self {
+impl From<StateMaps> for StateDiff {
+    fn from(state_maps: StateMaps) -> Self {
         Self {
             storage_diffs: state_maps
                 .storage
-                .iter()
+                .into_iter()
                 .fold(
                     IndexMap::<StarkFelt, Vec<Entry>>::new(),
                     |mut acc, ((address, key), value)| {
-                        let starkfelt_address = Felt::from(address.clone()).into(); // Convert ContractAddress -> StarkFelt
+                        let starkfelt_address = address.into();
                         let entry = Entry {
-                            key: Felt::from(key.clone()).into(), // Convert StorageKey -> StarkFelt
-                            value: Felt::from(value.clone()).into(), // Convert Felt -> StarkFelt
+                            key: key.into(),
+                            value: value.into(),
                         };
 
                         acc.entry(starkfelt_address)
@@ -96,35 +96,35 @@ impl StateDiff {
 
             nonces: state_maps
                 .nonces
-                .iter()
+                .into_iter()
                 .map(|(address, nonce)| Nonce {
-                    contract_address: Felt::from(address.clone()).into(),
-                    nonce: Felt::from(**nonce).into(),
+                    contract_address: address.into(),
+                    nonce: (*nonce).into(),
                 })
                 .collect(),
 
             deployed_contracts: state_maps
                 .class_hashes
-                .iter()
+                .into_iter()
                 .map(|(address, class_hash)| DeployedContract {
-                    address: Felt::from(address.clone()).into(),
-                    class_hash: Felt::from(**class_hash).into(),
+                    address: address.into(),
+                    class_hash: (*class_hash).into(),
                 })
                 .collect(),
 
             deprecated_declared_classes: state_maps
                 .declared_contracts
-                .iter()
-                .filter(|(_, &is_deprecated)| is_deprecated)
-                .map(|(class_hash, _)| Felt::from(**class_hash))
+                .into_iter()
+                .filter(|(_, is_deprecated)| *is_deprecated)
+                .map(|(class_hash, _)| (*class_hash).into())
                 .collect(),
 
             declared_classes: state_maps
                 .compiled_class_hashes
-                .iter()
+                .into_iter()
                 .map(|(class_hash, compiled_class_hash)| DeclaredClass {
-                    class_hash: Felt::from(**class_hash),
-                    compiled_class_hash: Felt::from(compiled_class_hash.0.clone()),
+                    class_hash: (*class_hash).into(),
+                    compiled_class_hash: compiled_class_hash.0.into(),
                 })
                 .collect(),
 
@@ -137,6 +137,7 @@ impl StateDiff {
         }
     }
 }
+
 
 #[derive(Serialize)]
 struct Nonce {
