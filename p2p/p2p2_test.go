@@ -13,7 +13,7 @@ import (
 )
 
 func TestInvalidKey(t *testing.T) {
-	_, err := p2p.New(
+	_, err := p2p.New2(
 		"/ip4/127.0.0.1/tcp/30301",
 		"",
 		"peerA",
@@ -48,7 +48,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 	err = txn.Write()
 	require.NoError(t, err)
 
-	_, err = p2p.New(
+	_, err = p2p.New2(
 		"/ip4/127.0.0.1/tcp/30301",
 		"",
 		"peerA",

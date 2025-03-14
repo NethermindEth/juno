@@ -21,51 +21,51 @@ import (
 )
 
 var (
-	_ service.Service = (*Synchronizer)(nil)
-	_ Reader          = (*Synchronizer)(nil)
+	_ service.Service = (*Synchronizer2)(nil)
+	_ Reader2         = (*Synchronizer2)(nil)
 
-	ErrPendingBlockNotFound = errors.New("pending block not found")
+	// ErrPendingBlockNotFound = errors.New("pending block not found")
 )
 
-const (
-	OpVerify = "verify"
-	OpStore  = "store"
-	OpFetch  = "fetch"
-)
+// const (
+// 	OpVerify = "verify"
+// 	OpStore  = "store"
+// 	OpFetch  = "fetch"
+// )
 
-// This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
-type NewHeadSubscription struct {
-	*feed.Subscription[*core.Block]
-}
+// // This is a work-around. mockgen chokes when the instantiated generic type is in the interface.
+// type NewHeadSubscription struct {
+// 	*feed.Subscription[*core.Block]
+// }
 
-type ReorgSubscription struct {
-	*feed.Subscription[*ReorgBlockRange]
-}
+// type ReorgSubscription struct {
+// 	*feed.Subscription[*ReorgBlockRange]
+// }
 
-type PendingTxSubscription struct {
-	*feed.Subscription[[]core.Transaction]
-}
+// type PendingTxSubscription struct {
+// 	*feed.Subscription[[]core.Transaction]
+// }
 
-type PendingSubscription struct {
-	*feed.Subscription[*core.Block]
-}
+// type PendingSubscription struct {
+// 	*feed.Subscription[*core.Block]
+// }
 
-// ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
-type ReorgBlockRange struct {
-	// StartBlockHash is the hash of the first known block of the orphaned chain
-	StartBlockHash *felt.Felt
-	// StartBlockNum is the number of the first known block of the orphaned chain
-	StartBlockNum uint64
-	// The last known block of the orphaned chain
-	EndBlockHash *felt.Felt
-	// Number of the last known block of the orphaned chain
-	EndBlockNum uint64
-}
+// // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
+// type ReorgBlockRange struct {
+// 	// StartBlockHash is the hash of the first known block of the orphaned chain
+// 	StartBlockHash *felt.Felt
+// 	// StartBlockNum is the number of the first known block of the orphaned chain
+// 	StartBlockNum uint64
+// 	// The last known block of the orphaned chain
+// 	EndBlockHash *felt.Felt
+// 	// Number of the last known block of the orphaned chain
+// 	EndBlockNum uint64
+// }
 
 // Todo: Since this is also going to be implemented by p2p package we should move this interface to node package
 //
 //go:generate mockgen -destination=../mocks/mock_synchronizer.go -package=mocks -mock_names Reader=MockSyncReader github.com/NethermindEth/juno/sync Reader
-type Reader interface {
+type Reader2 interface {
 	StartingBlockNumber() (uint64, error)
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
@@ -74,47 +74,47 @@ type Reader interface {
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	PendingState() (core.StateReader2, func() error, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
-type NoopSynchronizer struct{}
+type NoopSynchronizer2 struct{}
 
-func (n *NoopSynchronizer) StartingBlockNumber() (uint64, error) {
+func (n *NoopSynchronizer2) StartingBlockNumber() (uint64, error) {
 	return 0, errors.New("StartingBlockNumber() not implemented")
 }
 
-func (n *NoopSynchronizer) HighestBlockHeader() *core.Header {
+func (n *NoopSynchronizer2) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (n *NoopSynchronizer) SubscribeNewHeads() NewHeadSubscription {
+func (n *NoopSynchronizer2) SubscribeNewHeads() NewHeadSubscription {
 	return NewHeadSubscription{feed.New[*core.Block]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
+func (n *NoopSynchronizer2) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
+func (n *NoopSynchronizer2) SubscribePending() PendingSubscription {
 	return PendingSubscription{feed.New[*core.Block]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) PendingBlock() *core.Block {
+func (n *NoopSynchronizer2) PendingBlock() *core.Block {
 	return nil
 }
 
-func (n *NoopSynchronizer) Pending() (*Pending, error) {
+func (n *NoopSynchronizer2) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer2) PendingState() (core.StateReader2, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
-// Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
-type Synchronizer struct {
-	blockchain          *blockchain.Blockchain
+// Synchronizer2 manages a list of StarknetData to fetch the latest blockchain updates
+type Synchronizer2 struct {
+	blockchain          *blockchain.Blockchain2
 	db                  db.KeyValueStore
 	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
@@ -135,10 +135,10 @@ type Synchronizer struct {
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
+func New2(bc *blockchain.Blockchain2, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
 	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.KeyValueStore,
-) *Synchronizer {
-	s := &Synchronizer{
+) *Synchronizer2 {
+	s := &Synchronizer2{
 		blockchain:          bc,
 		db:                  database,
 		starknetData:        starkNetData,
@@ -154,24 +154,24 @@ func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log 
 }
 
 // WithPlugin registers an plugin
-func (s *Synchronizer) WithPlugin(plugin junoplugin.JunoPlugin) *Synchronizer {
+func (s *Synchronizer2) WithPlugin(plugin junoplugin.JunoPlugin) *Synchronizer2 {
 	s.plugin = plugin
 	return s
 }
 
 // WithListener registers an EventListener
-func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
+func (s *Synchronizer2) WithListener(listener EventListener) *Synchronizer2 {
 	s.listener = listener
 	return s
 }
 
-// Run starts the Synchronizer, returns an error if the loop is already running
-func (s *Synchronizer) Run(ctx context.Context) error {
+// Run starts the Synchronizer2, returns an error if the loop is already running
+func (s *Synchronizer2) Run(ctx context.Context) error {
 	s.syncBlocks(ctx)
 	return nil
 }
 
-func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
+func (s *Synchronizer2) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
 	resetStreams context.CancelFunc,
 ) stream.Callback {
 	for {
@@ -198,7 +198,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 	}
 }
 
-func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
+func (s *Synchronizer2) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
 	state, closer, err := s.blockchain.HeadState()
 	if err != nil {
 		// if err is db.ErrKeyNotFound we are on an empty DB
@@ -250,7 +250,7 @@ func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *cor
 	return newClasses, closer()
 }
 
-func (s *Synchronizer) handlePluginRevertBlock() {
+func (s *Synchronizer2) handlePluginRevertBlock() {
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
 		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
@@ -294,7 +294,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 }
 
 //nolint:gocyclo
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
+func (s *Synchronizer2) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
 	verifyTimer := time.Now()
@@ -380,7 +380,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 	}
 }
 
-func (s *Synchronizer) nextHeight() uint64 {
+func (s *Synchronizer2) nextHeight() uint64 {
 	nextHeight := uint64(0)
 	if h, err := s.blockchain.Height(); err == nil {
 		nextHeight = h + 1
@@ -388,7 +388,7 @@ func (s *Synchronizer) nextHeight() uint64 {
 	return nextHeight
 }
 
-func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
+func (s *Synchronizer2) syncBlocks(syncCtx context.Context) {
 	defer func() {
 		s.startingBlockNumber = nil
 		s.highestBlockHeader.Store(nil)
@@ -442,11 +442,11 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	}
 }
 
-// func maxWorkers() int {
-// 	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
-// }
+func maxWorkers() int {
+	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
+}
 
-func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
+func (s *Synchronizer2) setupWorkers() (*stream.Stream, *stream.Stream) {
 	numWorkers := 1
 	if s.catchUpMode {
 		numWorkers = maxWorkers()
@@ -454,7 +454,7 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
-func (s *Synchronizer) revertHead(forkBlock *core.Block) {
+func (s *Synchronizer2) revertHead(forkBlock *core.Block) {
 	var localHead *felt.Felt
 	head, err := s.blockchain.HeadsHeader()
 	if err == nil {
@@ -482,7 +482,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	s.listener.OnReorg(head.Number)
 }
 
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
+func (s *Synchronizer2) pollPending(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
@@ -511,7 +511,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 	}
 }
 
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
+func (s *Synchronizer2) pollLatest(ctx context.Context, sem chan struct{}) {
 	poll := func() {
 		select {
 		case sem <- struct{}{}:
@@ -544,7 +544,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 	}
 }
 
-func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
+func (s *Synchronizer2) fetchAndStorePending(ctx context.Context) error {
 	highestBlockHeader := s.highestBlockHeader.Load()
 	if highestBlockHeader == nil {
 		return nil
@@ -565,11 +565,11 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 
-	pendingBlock.Number = head.Number + 1
 	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
 		return err
 	}
+
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
 	return s.StorePending(&Pending{
 		Block:       pendingBlock,
@@ -578,31 +578,31 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	})
 }
 
-func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
+func (s *Synchronizer2) StartingBlockNumber() (uint64, error) {
 	if s.startingBlockNumber == nil {
 		return 0, errors.New("not running")
 	}
 	return *s.startingBlockNumber, nil
 }
 
-func (s *Synchronizer) HighestBlockHeader() *core.Header {
+func (s *Synchronizer2) HighestBlockHeader() *core.Header {
 	return s.highestBlockHeader.Load()
 }
 
-func (s *Synchronizer) SubscribeNewHeads() NewHeadSubscription {
+func (s *Synchronizer2) SubscribeNewHeads() NewHeadSubscription {
 	return NewHeadSubscription{s.newHeads.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
+func (s *Synchronizer2) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePending() PendingSubscription {
+func (s *Synchronizer2) SubscribePending() PendingSubscription {
 	return PendingSubscription{s.pendingFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *Pending) error {
+func (s *Synchronizer2) StorePending(p *Pending) error {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
 		return err
@@ -635,7 +635,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 	return nil
 }
 
-func (s *Synchronizer) Pending() (*Pending, error) {
+func (s *Synchronizer2) Pending() (*Pending, error) {
 	p := s.pending.Load()
 	if p == nil {
 		return nil, ErrPendingBlockNotFound
@@ -652,7 +652,7 @@ func (s *Synchronizer) Pending() (*Pending, error) {
 	return nil, ErrPendingBlockNotFound
 }
 
-func (s *Synchronizer) PendingBlock() *core.Block {
+func (s *Synchronizer2) PendingBlock() *core.Block {
 	pending, err := s.Pending()
 	if err != nil {
 		return nil
@@ -663,7 +663,7 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 var noop = func() error { return nil }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+func (s *Synchronizer2) PendingState() (core.StateReader2, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pending, err := s.Pending()
@@ -671,10 +671,10 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), noop, nil
+	return NewPendingState2(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState2(txn)), noop, nil
 }
 
-func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
+func (s *Synchronizer2) storeEmptyPending(latestHeader *core.Header) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -687,14 +687,12 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 			L1GasPriceETH:    latestHeader.L1GasPriceETH,
 			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
 			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,
 	}
 
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	stateDiff, err := makeStateDiffForEmptyBlock2(s.blockchain, latestHeader.Number+1)
 	if err != nil {
 		return err
 	}
@@ -712,7 +710,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 	return nil
 }
 
-func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
+func makeStateDiffForEmptyBlock2(bc blockchain.Reader2, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
 		Nonces:            make(map[felt.Felt]*felt.Felt),
