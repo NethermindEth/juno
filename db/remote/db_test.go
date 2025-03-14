@@ -45,7 +45,11 @@ func TestRemote(t *testing.T) {
 	t.Run("Get", func(t *testing.T) {
 		assert.NoError(t, remoteDB.View(func(txn db.Snapshot) error {
 			for i := byte(0); i < 3; i++ {
-				val, err := txn.Get([]byte{i})
+				var val []byte
+				err := txn.Get([]byte{i}, func(data []byte) error {
+					val = data
+					return nil
+				})
 				if err != nil {
 					return err
 				}
@@ -56,7 +60,11 @@ func TestRemote(t *testing.T) {
 			return nil
 		}))
 
-		val, err := remoteDB.Get([]byte{0xDE, 0xAD})
+		var val []byte
+		err = remoteDB.Get([]byte{0xDE, 0xAD}, func(data []byte) error {
+			val = data
+			return nil
+		})
 		assert.Equal(t, db.ErrKeyNotFound, err)
 		assert.Nil(t, val)
 	})

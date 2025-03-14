@@ -94,13 +94,13 @@ func (d *DB) DeleteRange(start, end []byte) error {
 	return errNotSupported
 }
 
-func (d *DB) Get(key []byte) ([]byte, error) {
+func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 	txn, err := d.NewTransaction(false)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return txn.Get(key)
+	return txn.Get(key, cb)
 }
 
 func (d *DB) Has(key []byte) (bool, error) {
@@ -109,8 +109,7 @@ func (d *DB) Has(key []byte) (bool, error) {
 		return false, err
 	}
 
-	_, err = txn.Get(key)
-	return err == nil, err
+	return txn.Has(key)
 }
 
 func (d *DB) Put(key, val []byte) error {

@@ -150,7 +150,11 @@ func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	sv, err := txn.Get(db.SchemaVersion.Key())
+	var sv []byte
+	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
+		sv = data
+		return nil
+	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
@@ -159,7 +163,11 @@ func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
 		metadata.Version = binary.BigEndian.Uint64(sv)
 	}
 
-	is, err := txn.Get(db.SchemaIntermediateState.Key())
+	var is []byte
+	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
+		is = data
+		return nil
+	})
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}

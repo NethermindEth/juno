@@ -60,28 +60,29 @@ func (t *transaction) Delete(key []byte) error {
 	return errReadOnly
 }
 
-func (t *transaction) Get(key []byte) ([]byte, error) {
+func (t *transaction) Get(key []byte, cb func(value []byte) error) error {
 	err := t.client.Send(&gen.Cursor{
 		Op: gen.Op_GET,
 		K:  key,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	pair, err := t.client.Recv()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !bytes.Equal(key, pair.K) {
-		return nil, db.ErrKeyNotFound
+		return db.ErrKeyNotFound
 	}
-	return pair.V, nil
+
+	return cb(pair.V)
 }
 
 func (t *transaction) Has(key []byte) (bool, error) {
-	_, err := t.Get(key)
+	err := t.Get(key, func(_ []byte) error { return nil })
 	return err == nil, err
 }
 

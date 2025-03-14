@@ -73,7 +73,11 @@ func (h Handler) handleTxCursor(
 		responsePair.CursorId = cursorID
 		return server.Send(responsePair)
 	} else if cur.Op == gen.Op_GET {
-		val, err := tx.dbTx.Get(cur.K)
+		var val []byte
+		err := tx.dbTx.Get(cur.K, func(data []byte) error {
+			val = data
+			return nil
+		})
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
 		}

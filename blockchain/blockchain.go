@@ -239,16 +239,11 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	var l1Head core.L1Head
-	data, err := b.database.Get(db.L1Height.Key())
-	if err != nil {
-		return nil, err
-	}
-	err = encoder.Unmarshal(data, &l1Head)
-	if err != nil {
-		return nil, err
-	}
-	return &l1Head, nil
+	var l1Head *core.L1Head
+	err := b.database.Get(db.L1Height.Key(), func(data []byte) error {
+		return encoder.Unmarshal(data, &l1Head)
+	})
+	return l1Head, err
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {

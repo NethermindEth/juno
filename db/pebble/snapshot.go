@@ -29,7 +29,7 @@ func (s *snapshot) Has(key []byte) (bool, error) {
 	return true, closer.Close()
 }
 
-func (s *snapshot) Get(key []byte) ([]byte, error) {
+func (s *snapshot) Get(key []byte, cb func(value []byte) error) error {
 	start := time.Now()
 
 	defer func() {
@@ -38,12 +38,16 @@ func (s *snapshot) Get(key []byte) ([]byte, error) {
 	data, closer, err := s.snapshot.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
-			return nil, db.ErrKeyNotFound
+			return db.ErrKeyNotFound
 		}
-		return nil, err
+		return err
 	}
 
-	return data, closer.Close()
+	if err := cb(data); err != nil {
+		return err
+	}
+
+	return closer.Close()
 }
 
 func (s *snapshot) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {

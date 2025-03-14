@@ -7,7 +7,7 @@ type KeyValueReader interface {
 	// Checks if a key exists in the data store
 	Has(key []byte) (bool, error)
 	// Retrieves a value for a given key if it exists
-	Get(key []byte) ([]byte, error)
+	Get(key []byte, cb func(value []byte) error) error
 }
 
 // Represents a data store that can write to the database

@@ -11,18 +11,12 @@ import (
 )
 
 func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNumIndexKey, error) {
-	var bnIndex db.BlockNumIndexKey
-	data, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
-	if err != nil {
-		return db.BlockNumIndexKey{}, err
-	}
+	bnIndex := db.BlockNumIndexKey{}
+	err := r.Get(db.TxBlockNumIndexByHashKey(hash), func(data []byte) error {
+		return bnIndex.UnmarshalBinary(data)
+	})
 
-	err = bnIndex.UnmarshalBinary(data)
-	if err != nil {
-		return db.BlockNumIndexKey{}, err
-	}
-
-	return bnIndex, nil
+	return bnIndex, err
 }
 
 func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, num, index uint64, hash *felt.Felt) error {
@@ -39,11 +33,9 @@ func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 
 func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (core.Transaction, error) {
 	var tx core.Transaction
-	data, err := r.Get(db.TxByBlockNumIndexKey(blockNum, index))
-	if err != nil {
-		return nil, err
-	}
-	err = encoder.Unmarshal(data, &tx)
+	err := r.Get(db.TxByBlockNumIndexKey(blockNum, index), func(data []byte) error {
+		return encoder.Unmarshal(data, &tx)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +44,9 @@ func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (core.Tra
 
 func GetTxByBlockNumIndexBytes(r db.KeyValueReader, val []byte) (core.Transaction, error) {
 	var tx core.Transaction
-
-	data, err := r.Get(db.TxByBlockNumIndexKeyBytes(val))
-	if err != nil {
-		return nil, err
-	}
-	err = encoder.Unmarshal(data, &tx)
+	err := r.Get(db.TxByBlockNumIndexKeyBytes(val), func(data []byte) error {
+		return encoder.Unmarshal(data, &tx)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -93,22 +82,31 @@ func WriteTxAndReceipt(w db.KeyValueWriter, num, index uint64, tx core.Transacti
 }
 
 func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (core.Transaction, error) {
-	data, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
+	var val []byte
+	err := r.Get(db.TxBlockNumIndexByHashKey(hash), func(data []byte) error {
+		val = data
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return GetTxByBlockNumIndexBytes(r, data)
+	return GetTxByBlockNumIndexBytes(r, val)
 }
 
 func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*core.TransactionReceipt, error) {
-	var receipt *core.TransactionReceipt
-	data, err := r.Get(db.ReceiptByBlockNumIndexKeyBytes(bnIndex))
+	var (
+		receipt *core.TransactionReceipt
+		val     []byte
+	)
+	err := r.Get(db.ReceiptByBlockNumIndexKeyBytes(bnIndex), func(data []byte) error {
+		val = data
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	err = encoder.Unmarshal(data, &receipt)
-	if err != nil {
+	if err = encoder.Unmarshal(val, &receipt); err != nil {
 		return nil, err
 	}
 	return receipt, nil
@@ -127,12 +125,16 @@ func DeleteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error 
 }
 
 func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*core.TransactionReceipt, error) {
-	bnIndex, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
+	var val []byte
+	err := r.Get(db.TxBlockNumIndexByHashKey(hash), func(data []byte) error {
+		val = data
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return GetReceiptByBlockNumIndexBytes(r, bnIndex)
+	return GetReceiptByBlockNumIndexBytes(r, val)
 }
 
 func DeleteTxsAndReceipts(txn db.IndexedBatch, blockNum, numTxs uint64) error {
@@ -164,11 +166,9 @@ func DeleteTxsAndReceipts(txn db.IndexedBatch, blockNum, numTxs uint64) error {
 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.StateUpdate, error) {
 	var stateUpdate *core.StateUpdate
-	data, err := r.Get(db.StateUpdateByBlockNumKey(blockNum))
-	if err != nil {
-		return nil, err
-	}
-	err = encoder.Unmarshal(data, &stateUpdate)
+	err := r.Get(db.StateUpdateByBlockNumKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &stateUpdate)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -188,25 +188,24 @@ func DeleteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64) error {
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*core.StateUpdate, error) {
-	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
+	var val []byte
+	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
+		val = data
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(blockNum))
+	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(val))
 }
 
 func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.BlockCommitments, error) {
 	var commitment *core.BlockCommitments
-	data, err := r.Get(db.BlockCommitmentsKey(blockNum))
-	if err != nil {
-		return nil, err
-	}
-	err = encoder.Unmarshal(data, &commitment)
-	if err != nil {
-		return nil, err
-	}
-	return commitment, nil
+	err := r.Get(db.BlockCommitmentsKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &commitment)
+	})
+	return commitment, err
 }
 
 func WriteBlockCommitment(w db.KeyValueWriter, blockNum uint64, commitment *core.BlockCommitments) error {
@@ -223,12 +222,11 @@ func DeleteBlockCommitment(w db.KeyValueWriter, blockNum uint64) error {
 
 func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Felt, error) {
 	var l1HandlerTxnHash felt.Felt
-	data, err := r.Get(db.L1HandlerTxnHashByMsgHashKey(msgHash))
-	if err != nil {
-		return felt.Zero, err
-	}
-	l1HandlerTxnHash.Unmarshal(data)
-	return l1HandlerTxnHash, nil
+	err := r.Get(db.L1HandlerTxnHashByMsgHashKey(msgHash), func(data []byte) error {
+		l1HandlerTxnHash.Unmarshal(data)
+		return nil
+	})
+	return l1HandlerTxnHash, err
 }
 
 func WriteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte, l1HandlerTxnHash *felt.Felt) error {
@@ -249,11 +247,12 @@ func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []core.Transaction) error
 }
 
 func GetChainHeight(r db.KeyValueReader) (uint64, error) {
-	data, err := r.Get(db.ChainHeight.Key())
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint64(data), nil
+	var height uint64
+	err := r.Get(db.ChainHeight.Key(), func(data []byte) error {
+		height = binary.BigEndian.Uint64(data)
+		return nil
+	})
+	return height, err
 }
 
 func WriteChainHeight(w db.KeyValueWriter, height []byte) error {
@@ -266,25 +265,23 @@ func DeleteChainHeight(w db.KeyValueWriter) error {
 
 func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*core.Header, error) {
 	var header *core.Header
-	data, err := r.Get(db.BlockHeaderByNumberKey(blockNum))
-	if err != nil {
-		return nil, err
-	}
-
-	err = encoder.Unmarshal(data, &header)
-	if err != nil {
-		return nil, err
-	}
-	return header, nil
+	err := r.Get(db.BlockHeaderByNumberKey(blockNum), func(data []byte) error {
+		return encoder.Unmarshal(data, &header)
+	})
+	return header, err
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*core.Header, error) {
-	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
+	var blockNum uint64
+	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
+		blockNum = binary.BigEndian.Uint64(data)
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return GetBlockHeaderByNumber(r, binary.BigEndian.Uint64(blockNum))
+	return GetBlockHeaderByNumber(r, blockNum)
 }
 
 func WriteBlockHeaderByNumber(r db.KeyValueWriter, header *core.Header) error {
@@ -302,11 +299,12 @@ func WriteBlockHeaderNumberByHash(r db.KeyValueWriter, hash *felt.Felt, num uint
 }
 
 func GetBlockHeaderNumberByHash(r db.KeyValueReader, hash *felt.Felt) (uint64, error) {
-	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
-	if err != nil {
-		return 0, err
-	}
-	return binary.BigEndian.Uint64(blockNum), nil
+	var blockNum uint64
+	err := r.Get(db.BlockHeaderNumbersByHashKey(hash), func(data []byte) error {
+		blockNum = binary.BigEndian.Uint64(data)
+		return nil
+	})
+	return blockNum, err
 }
 
 func WriteBlockHeader(r db.KeyValueWriter, header *core.Header) error {
