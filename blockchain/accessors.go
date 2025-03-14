@@ -312,7 +312,7 @@ func WriteBlockHeader(r db.KeyValueWriter, header *core.Header) error {
 	return WriteBlockHeaderByNumber(r, header)
 }
 
-// Return all transactions given a block number
+// Returns all transactions in a given block
 func GetTxsByBlockNum(r db.Iterable, blockNum uint64) ([]core.Transaction, error) {
 	prefix := db.TransactionsByBlockNumberAndIndex.Key(core.MarshalBlockNumber(blockNum))
 
@@ -343,6 +343,7 @@ func GetTxsByBlockNum(r db.Iterable, blockNum uint64) ([]core.Transaction, error
 	return txs, nil
 }
 
+// Returns all receipts in a given block
 func GetReceiptsByBlockNum(r db.Iterable, blockNum uint64) ([]*core.TransactionReceipt, error) {
 	prefix := db.ReceiptsByBlockNumberAndIndex.Key(core.MarshalBlockNumber(blockNum))
 
