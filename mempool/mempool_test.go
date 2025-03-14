@@ -27,7 +27,7 @@ func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), e
 	} else if !os.IsNotExist(err) {
 		return nil, nil, err
 	}
-	persistentPool, err := pebble.New2(dbPath)
+	persistentPool, err := pebble.New(dbPath)
 	if err != nil {
 		return nil, nil, err
 	}

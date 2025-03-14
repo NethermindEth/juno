@@ -58,16 +58,16 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
 	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
 	NewBucketMigrator(db.ClassesTrie, migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)).WithKeyFilter(nodesFilter(db.ClassesTrie)),
-	NewBucketMover2(db.Temporary, db.ClassesTrie),
+	NewBucketMover(db.Temporary, db.ClassesTrie),
 	NewBucketMigrator(db.StateTrie, migrateTrieNodesFromBitsetToTrieKey(db.StateTrie)).WithKeyFilter(nodesFilter(db.StateTrie)),
-	NewBucketMover2(db.Temporary, db.StateTrie),
+	NewBucketMover(db.Temporary, db.StateTrie),
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
-	NewBucketMover2(db.Temporary, db.ContractStorage),
+	NewBucketMover(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
-	MigrationFunc(removePendingBlock2),
+	MigrationFunc(removePendingBlock),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -76,7 +76,13 @@ func MigrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *ut
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
 
-func migrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *utils.Network, log utils.SimpleLogger, migrations []Migration) error {
+func migrateIfNeeded(
+	ctx context.Context,
+	targetDB db.KeyValueStore,
+	network *utils.Network,
+	log utils.SimpleLogger,
+	migrations []Migration,
+) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -93,7 +99,7 @@ func migrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *ut
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
-	metadata, err := SchemaMetadata2(targetDB)
+	metadata, err := SchemaMetadata(targetDB)
 	if err != nil {
 		return err
 	}
@@ -114,14 +120,14 @@ func migrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *ut
 		}
 		for {
 			callWithNewTransaction := false
-			if dbErr := targetDB.Update2(func(txn db.IndexedBatch) error {
+			if dbErr := targetDB.Update(func(txn db.IndexedBatch) error {
 				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network, log)
 				switch {
 				case err == nil || errors.Is(err, ctx.Err()):
 					if metadata.IntermediateState == nil {
 						metadata.Version++
 					}
-					return updateSchemaMetadata2(txn, metadata)
+					return updateSchemaMetadata(txn, metadata)
 				case errors.Is(err, ErrCallWithNewTransaction):
 					callWithNewTransaction = true
 					return nil
@@ -140,11 +146,11 @@ func migrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *ut
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata2(targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	sv, err := txn.Get2(db.SchemaVersion.Key())
+	sv, err := txn.Get(db.SchemaVersion.Key())
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
@@ -153,7 +159,7 @@ func SchemaMetadata2(targetDB db.KeyValueStore) (schemaMetadata, error) {
 		metadata.Version = binary.BigEndian.Uint64(sv)
 	}
 
-	is, err := txn.Get2(db.SchemaIntermediateState.Key())
+	is, err := txn.Get(db.SchemaIntermediateState.Key())
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
@@ -167,7 +173,7 @@ func SchemaMetadata2(targetDB db.KeyValueStore) (schemaMetadata, error) {
 }
 
 // updateSchemaMetadata updates the schema in given database.
-func updateSchemaMetadata2(txn db.KeyValueWriter, schema schemaMetadata) error {
+func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 	var (
 		version [8]byte
 		state   []byte
@@ -275,7 +281,7 @@ func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	}
 }
 
-func removePendingBlock2(txn db.IndexedBatch, _ *utils.Network) error {
+func removePendingBlock(txn db.IndexedBatch, _ *utils.Network) error {
 	return txn.Delete(db.Unused.Key())
 }
 

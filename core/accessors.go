@@ -10,7 +10,7 @@ import (
 
 func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
 	var classHash felt.Felt
-	data, err := r.Get2(db.ContractClassHashKey(addr))
+	data, err := r.Get(db.ContractClassHashKey(addr))
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -24,7 +24,7 @@ func WriteContractClassHash(txn db.KeyValueWriter, addr, classHash *felt.Felt) e
 
 func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
 	var nonce felt.Felt
-	data, err := r.Get2(db.ContractNonceKey(addr))
+	data, err := r.Get(db.ContractNonceKey(addr))
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -43,7 +43,7 @@ func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 func GetClass(r db.KeyValueReader, classHash *felt.Felt) (*DeclaredClass, error) {
 	var class *DeclaredClass
 
-	data, err := r.Get2(db.ClassKey(classHash))
+	data, err := r.Get(db.ClassKey(classHash))
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func WriteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt, number u
 }
 
 func GetBlockHeaderNumberByHash(r db.KeyValueReader, hash *felt.Felt) (uint64, error) {
-	data, err := r.Get2(db.BlockHeaderNumbersByHashKey(hash))
+	data, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
 	if err != nil {
 		return 0, err
 	}
@@ -87,7 +87,7 @@ func DeleteBlockHeaderNumberByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 
 func GetBlockHeaderByNumber(r db.KeyValueReader, number uint64) (*Header, error) {
 	var header *Header
-	data, err := r.Get2(db.BlockHeaderByNumberKey(number))
+	data, err := r.Get(db.BlockHeaderByNumberKey(number))
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func WriteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt, height 
 }
 
 func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Felt) (uint64, error) {
-	data, err := r.Get2(db.ContractDeploymentHeightKey(addr))
+	data, err := r.Get(db.ContractDeploymentHeightKey(addr))
 	if err != nil {
 		return 0, err
 	}

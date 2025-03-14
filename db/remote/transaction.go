@@ -15,7 +15,6 @@ var (
 )
 
 var (
-	_ db.Transaction  = (*transaction)(nil)
 	_ db.Batch        = (*transaction)(nil)
 	_ db.IndexedBatch = (*transaction)(nil)
 )
@@ -50,50 +49,39 @@ func (t *transaction) Discard() error {
 }
 
 func (t *transaction) Commit() error {
-	return errors.New("read only DB")
+	return errReadOnly
 }
 
 func (t *transaction) Set(key, val []byte) error {
-	return errors.New("read only DB")
+	return errReadOnly
 }
 
 func (t *transaction) Delete(key []byte) error {
-	return errors.New("read only DB")
+	return errReadOnly
 }
 
-func (t *transaction) Get(key []byte, cb func([]byte) error) error {
+func (t *transaction) Get(key []byte) ([]byte, error) {
 	err := t.client.Send(&gen.Cursor{
 		Op: gen.Op_GET,
 		K:  key,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	pair, err := t.client.Recv()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !bytes.Equal(key, pair.K) {
-		return db.ErrKeyNotFound
+		return nil, db.ErrKeyNotFound
 	}
-	return cb(pair.V)
-}
-
-func (t *transaction) Get2(key []byte) ([]byte, error) {
-	var val []byte
-	err := t.Get(key, func(v []byte) error {
-		val = v
-		return nil
-	})
-	return val, err
+	return pair.V, nil
 }
 
 func (t *transaction) Has(key []byte) (bool, error) {
-	err := t.Get(key, func(v []byte) error {
-		return nil
-	})
+	_, err := t.Get(key)
 	return err == nil, err
 }
 
@@ -102,7 +90,7 @@ func (t *transaction) Impl() any {
 }
 
 func (t *transaction) Put(key, val []byte) error {
-	return errors.New("read only DB")
+	return errReadOnly
 }
 
 func (t *transaction) Size() int    { return 0 }

@@ -11,10 +11,7 @@ import (
 	"github.com/cockroachdb/pebble"
 )
 
-var (
-	_ db.Transaction = (*batch)(nil)
-	_ db.Batch       = (*batch)(nil)
-)
+var _ db.Batch = (*batch)(nil)
 
 type batch struct {
 	batch    *pebble.Batch
@@ -90,15 +87,7 @@ func (b *batch) Delete(key []byte) error {
 	return nil
 }
 
-// Get : see db.Transaction.Get
-func (b *batch) Get(key []byte, cb func([]byte) error) error {
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
-	return get(b.batch, key, cb, b.listener)
-}
-
-func (b *batch) Get2(key []byte) ([]byte, error) {
+func (b *batch) Get(key []byte) ([]byte, error) {
 	if b.batch == nil {
 		return nil, ErrDiscardedTransaction
 	}

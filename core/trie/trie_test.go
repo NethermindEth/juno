@@ -300,7 +300,7 @@ func TestTrie(t *testing.T) {
 	}))
 }
 
-func TestOldData2(t *testing.T) {
+func TestOldData(t *testing.T) {
 	require.NoError(t, trie.RunOnTempTriePedersen(251, func(tempTrie *trie.Trie) error {
 		key := new(felt.Felt).SetUint64(12)
 		old := new(felt.Felt)
@@ -354,7 +354,7 @@ func TestOldData2(t *testing.T) {
 	}))
 }
 
-func TestMaxTrieHeight2(t *testing.T) {
+func TestMaxTrieHeight(t *testing.T) {
 	t.Run("create trie with invalid height", func(t *testing.T) {
 		assert.Error(t, trie.RunOnTempTriePedersen(felt.Bits+1, func(_ *trie.Trie) error {
 			return nil

@@ -3,7 +3,7 @@ package db
 import "time"
 
 type Listener interface {
-	WithListener2(listener EventListener) KeyValueStore
+	WithListener(listener EventListener) KeyValueStore
 }
 
 type EventListener interface {

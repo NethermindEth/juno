@@ -11,10 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	_ db.DB            = (*DB)(nil)
-	_ db.KeyValueStore = (*DB)(nil)
-)
+var _ db.KeyValueStore = (*DB)(nil)
 
 type DB struct {
 	ctx        context.Context
@@ -44,7 +41,7 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 	}, nil
 }
 
-func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
+func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	start := time.Now()
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
@@ -57,23 +54,28 @@ func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
 	return &transaction{client: txClient, log: d.log}, nil
 }
 
-func (d *DB) View(fn func(txn db.Transaction) error) error {
-	return db.View(d, fn)
+func (d *DB) View(fn func(txn db.Snapshot) error) error {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return err
+	}
+
+	return fn(txn)
 }
 
-func (d *DB) Update(fn func(txn db.Transaction) error) error {
+func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 	start := time.Now()
 
 	defer func() {
 		d.listener.OnCommit(time.Since(start))
 	}()
 
-	return db.Update(d, fn)
-}
+	txn, err := d.NewTransaction(true)
+	if err != nil {
+		return err
+	}
 
-func (d *DB) WithListener(listener db.EventListener) db.DB {
-	d.listener = listener
-	return d
+	return fn(txn)
 }
 
 func (d *DB) Close() error {
@@ -88,22 +90,17 @@ func (d *DB) Delete(key []byte) error {
 	return errNotSupported
 }
 
-func (d *DB) DeleteRange(start []byte, end []byte) error {
+func (d *DB) DeleteRange(start, end []byte) error {
 	return errNotSupported
 }
 
-func (d *DB) Get2(key []byte) ([]byte, error) {
+func (d *DB) Get(key []byte) ([]byte, error) {
 	txn, err := d.NewTransaction(false)
 	if err != nil {
 		return nil, err
 	}
 
-	var val []byte
-	err = txn.Get(key, func(v []byte) error {
-		val = v
-		return nil
-	})
-	return val, err
+	return txn.Get(key)
 }
 
 func (d *DB) Has(key []byte) (bool, error) {
@@ -112,9 +109,7 @@ func (d *DB) Has(key []byte) (bool, error) {
 		return false, err
 	}
 
-	err = txn.Get(key, func(v []byte) error {
-		return nil
-	})
+	_, err = txn.Get(key)
 	return err == nil, err
 }
 
@@ -178,15 +173,7 @@ func (d *DB) NewSnapshot() db.Snapshot {
 	return &transaction{client: txClient, log: d.log}
 }
 
-func (d *DB) Update2(fn func(txn db.IndexedBatch) error) error {
-	return errNotSupported
-}
-
-func (d *DB) View2(fn func(txn db.Snapshot) error) error {
-	return errNotSupported
-}
-
-func (d *DB) WithListener2(listener db.EventListener) db.KeyValueStore {
+func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	d.listener = listener
 	return d
 }

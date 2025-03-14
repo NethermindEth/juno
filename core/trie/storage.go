@@ -79,7 +79,7 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
-	val, err := t.txn.Get2(buffer.Bytes())
+	val, err := t.txn.Get(buffer.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (t *Storage) Delete(key *BitArray) error {
 
 func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
-	val, err := t.txn.Get2(t.prefix)
+	val, err := t.txn.Get(t.prefix)
 	if err != nil {
 		return nil, err
 	}

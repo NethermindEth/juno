@@ -44,7 +44,7 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 	}
 }
 
-func NewBucketMover2(source, destination db.Bucket) *BucketMigrator {
+func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
 	return NewBucketMigrator(source, func(txn db.KeyValueWriter, key, value []byte, n *utils.Network) error {
 		err := txn.Delete(key)
 		if err != nil {

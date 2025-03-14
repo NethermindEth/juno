@@ -148,7 +148,7 @@ func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	return GetBlockHeaderByNumber(b.database, height)
 }
 
-func headsHeader2(txn db.KeyValueReader) (*core.Header, error) {
+func headsHeader(txn db.KeyValueReader) (*core.Header, error) {
 	height, err := GetChainHeight(txn)
 	if err != nil {
 		return nil, err
@@ -240,7 +240,7 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
 	var l1Head core.L1Head
-	data, err := b.database.Get2(db.L1Height.Key())
+	data, err := b.database.Get(db.L1Height.Key())
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +265,8 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update2(func(txn db.IndexedBatch) error {
-		if err := verifyBlock2(txn, block); err != nil {
+	return b.database.Update(func(txn db.IndexedBatch) error {
+		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
 
@@ -305,10 +305,10 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 
 // VerifyBlock assumes the block has already been sanity-checked.
 func (b *Blockchain) VerifyBlock(block *core.Block) error {
-	return verifyBlock2(b.database, block)
+	return verifyBlock(b.database, block)
 }
 
-func verifyBlock2(txn db.KeyValueReader, block *core.Block) error {
+func verifyBlock(txn db.KeyValueReader, block *core.Block) error {
 	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func verifyBlock2(txn db.KeyValueReader, block *core.Block) error {
 	expectedBlockNumber := uint64(0)
 	expectedParentHash := &felt.Zero
 
-	h, err := headsHeader2(txn)
+	h, err := headsHeader(txn)
 	if err == nil {
 		expectedBlockNumber = h.Number + 1
 		expectedParentHash = h.Hash
@@ -419,7 +419,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update2(b.revertHead)
+	return b.database.Update(b.revertHead)
 }
 
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {

@@ -100,7 +100,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get the state update: %v", err)
 	}
 
-	schemaMeta, err := migration.SchemaMetadata2(database)
+	schemaMeta, err := migration.SchemaMetadata(database)
 	if err != nil {
 		return fmt.Errorf("failed to get schema metadata: %v", err)
 	}
@@ -283,7 +283,7 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebble.New2(path)
+	database, err := pebble.New(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}

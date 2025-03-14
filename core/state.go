@@ -158,7 +158,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
-	val, err := s.txn.Get2(rootKeyDBKey)
+	val, err := s.txn.Get(rootKeyDBKey)
 	// if some error other than "not found"
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, nil, err
@@ -333,7 +333,7 @@ type DeclaredClass struct {
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 
-	_, err := s.txn.Get2(classKey)
+	_, err := s.txn.Get(classKey)
 	if errors.Is(err, db.ErrKeyNotFound) {
 		classEncoded, encErr := encoder.Marshal(DeclaredClass{
 			At:    declaredAt,
@@ -353,7 +353,7 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	classKey := db.ClassKey(classHash)
 
 	var class DeclaredClass
-	val, err := s.txn.Get2(classKey)
+	val, err := s.txn.Get(classKey)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +542,7 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
 
-	val, err := s.txn.Get2(db.ContractDeploymentHeightKey(addr))
+	val, err := s.txn.Get(db.ContractDeploymentHeightKey(addr))
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
