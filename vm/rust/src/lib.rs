@@ -63,6 +63,13 @@ use starknet_api::{
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
+use once_cell::sync::Lazy;
+
+// Allow users to call CONSTRUCTOR entry point type which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
+    pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
+        StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")
+            .expect("Invalid hex string")
+    });
 
 extern "C" {
     fn JunoReportError(
@@ -172,22 +179,11 @@ pub extern "C" fn cairoVMCall(
         ..Default::default()
     };
 
-    // Allow users to call CONSTRUCTOR entry point type
-    // which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
-    let constuctor_entry_point_felt =
-        StarkFelt::from_hex("0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194");
-    match constuctor_entry_point_felt {
-        Ok(felt) => {
-            if felt.eq(&entry_point_selector_felt) {
+    
+            if CONSTRUCTOR_ENTRY_POINT_FELT.eq(&entry_point_selector_felt) {
                 entry_point.entry_point_type = EntryPointType::Constructor
             }
-        }
-        Err(err) => {
-            // This should not happen
-            report_error(reader_handle, err.to_string().as_str(), -1, 1);
-            return;
-        }
-    }
+        
 
     let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
     let mut state = CachedState::new(juno_reader);
