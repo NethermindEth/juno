@@ -18,6 +18,7 @@ typedef struct CallInfo {
 typedef struct BlockInfo {
 	unsigned long long block_number;
 	unsigned long long block_timestamp;
+	unsigned char is_pending;
 	unsigned char sequencer_address[FELT_SIZE];
 	unsigned char l1_gas_price_wei[FELT_SIZE];
 	unsigned char l1_gas_price_fri[FELT_SIZE];

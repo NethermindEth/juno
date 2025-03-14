@@ -214,6 +214,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 
 	cBlockInfo.block_number = C.ulonglong(blockInfo.Header.Number)
 	cBlockInfo.block_timestamp = C.ulonglong(blockInfo.Header.Timestamp)
+	cBlockInfo.is_pending = toUchar(blockInfo.Header.Hash == nil)
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
 	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.l1_gas_price_wei[0])
 	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.l1_gas_price_fri[0])
@@ -251,22 +252,6 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 	handle := cgo.NewHandle(context)
 	defer handle.Delete()
 
-	var concurrencyModeByte byte
-	if v.concurrencyMode {
-		concurrencyModeByte = 1
-	}
-
-	var structuredErrStackByte byte
-	if structuredErrStack {
-		structuredErrStackByte = 1
-	}
-	var returnStateDiffByte byte
-	if returnStateDiff {
-		returnStateDiffByte = 1
-	}
-
-	C.setVersionedConstants(C.CString("my_json"))
-
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
@@ -277,10 +262,11 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.uintptr_t(handle),
 		chainID,
 		C.ulonglong(maxSteps),
-		C.uchar(concurrencyModeByte),
+		toUchar(v.concurrencyMode),
 		cSierraVersion,
-		C.uchar(structuredErrStackByte), //nolint:gocritic // don't know why the linter is annoyed
-		C.uchar(returnStateDiffByte),    //nolint:gocritic
+		toUchar(structuredErrStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(returnStateDiff),    //nolint:gocritic
+
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -329,31 +315,6 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	txnsJSONCstr := cstring(txnsJSON)
 	classesJSONCStr := cstring(classesJSON)
 
-	var skipChargeFeeByte byte
-	if skipChargeFee {
-		skipChargeFeeByte = 1
-	}
-
-	var skipValidateByte byte
-	if skipValidate {
-		skipValidateByte = 1
-	}
-
-	var errOnRevertByte byte
-	if errOnRevert {
-		errOnRevertByte = 1
-	}
-
-	var errorStackByte byte
-	if errorStack {
-		errorStackByte = 1
-	}
-
-	var concurrencyModeByte byte
-	if v.concurrencyMode {
-		concurrencyModeByte = 1
-	}
-
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
 	C.cairoVMExecute(txnsJSONCstr,
@@ -362,11 +323,11 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		&cBlockInfo,
 		C.uintptr_t(handle),
 		chainID,
-		C.uchar(skipChargeFeeByte),
-		C.uchar(skipValidateByte),
-		C.uchar(errOnRevertByte),     //nolint:gocritic
-		C.uchar(concurrencyModeByte), //nolint:gocritic
-		C.uchar(errorStackByte),      //nolint:gocritic
+		toUchar(skipChargeFee),
+		toUchar(skipValidate),
+		toUchar(errOnRevert),
+		toUchar(v.concurrencyMode),
+		toUchar(errorStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -463,4 +424,11 @@ func SetVersionedConstants(filename string) error {
 	C.free(unsafe.Pointer(jsonStr))
 
 	return err
+}
+
+func toUchar(b bool) C.uchar {
+	if b {
+		return 1
+	}
+	return 0
 }

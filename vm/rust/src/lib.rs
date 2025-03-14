@@ -4,7 +4,7 @@ pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use crate::juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader};
 use error::{CallError, ExecutionError};
 use error_stack::{ErrorStack, Frame};
 use execution::process_transaction;
@@ -108,6 +108,7 @@ pub struct CallInfo {
 pub struct BlockInfo {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
+    pub is_pending: c_uchar,
     pub sequencer_address: [c_uchar; 32],
     pub l1_gas_price_wei: [c_uchar; 32],
     pub l1_gas_price_fri: [c_uchar; 32],
@@ -137,6 +138,7 @@ pub extern "C" fn cairoVMCall(
     let call_info = unsafe { *call_info_ptr };
     let mut writer_buffer = Vec::with_capacity(10_000);
 
+    let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -183,8 +185,7 @@ pub extern "C" fn cairoVMCall(
         entry_point.entry_point_type = EntryPointType::Constructor
     }
 
-    let juno_reader = JunoStateReader::new(reader_handle, block_info.block_number);
-    let mut state = CachedState::new(juno_reader);
+    let mut state = CachedState::new(reader);
     let concurrency_mode = concurrency_mode == 1;
     let structured_err_stack = err_stack == 1;
     let mut context = EntryPointExecutionContext::new_invoke(
@@ -274,8 +275,8 @@ pub extern "C" fn cairoVMExecute(
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
 ) {
-    let block_info: BlockInfo = unsafe { *block_info_ptr };
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let block_info = unsafe { *block_info_ptr };
+    let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -783,12 +784,14 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
         }
     };
 
-    match serde_json::from_str(json_str) {
+    match serde_json::from_str::<VersionedConstants>(json_str) {
         Ok(parsed) => unsafe {
             CUSTOM_VERSIONED_CONSTANTS = Some(parsed);
             CString::new("").unwrap().into_raw() // No error, return an empty string
         },
-        Err(_) => CString::new("Failed to parse JSON").unwrap().into_raw(),
+        Err(e) => CString::new(format!("Failed to parse JSON: {}", e))
+            .unwrap()
+            .into_raw(),
     }
 }
 
