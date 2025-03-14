@@ -136,7 +136,8 @@ func (b *Blockchain2) Head() (*core.Block, error) {
 		return nil, err
 	}
 
-	return GetBlockByNumber(b.database2, curHeight)
+	txn := b.database2.NewIndexedBatch()
+	return GetBlockByNumber(txn, curHeight)
 }
 
 func (b *Blockchain2) HeadsHeader() (*core.Header, error) {
@@ -160,7 +161,8 @@ func headsHeader2(txn db.KeyValueReader) (*core.Header, error) {
 
 func (b *Blockchain2) BlockByNumber(number uint64) (*core.Block, error) {
 	b.listener.OnRead("BlockByNumber")
-	return GetBlockByNumber(b.database2, number)
+	txn := b.database2.NewIndexedBatch()
+	return GetBlockByNumber(txn, number)
 }
 
 func (b *Blockchain2) BlockHeaderByNumber(number uint64) (*core.Header, error) {
@@ -175,7 +177,8 @@ func (b *Blockchain2) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 		return nil, err
 	}
 
-	return GetBlockByNumber(b.database2, blockNum)
+	txn := b.database2.NewIndexedBatch()
+	return GetBlockByNumber(txn, blockNum)
 }
 
 func (b *Blockchain2) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
