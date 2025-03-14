@@ -114,7 +114,7 @@ func (z *Felt) SetRandom() (*Felt, error) {
 }
 
 // String forwards the call to underlying field element implementation
-func (z *Felt) String() string {
+func (z Felt) String() string {
 	return "0x" + z.val.Text(Base16)
 }
 

@@ -2,6 +2,8 @@ use crate::error::ExecutionError;
 use crate::juno_state_reader::JunoStateReader;
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::state::state_api::{StateReader, StateResult, UpdatableState};
+use blockifier::transaction::account_transaction::ExecutionFlags;
+use blockifier::transaction::objects::HasRelatedFeeType;
 use blockifier::transaction::transaction_execution::Transaction;
 use blockifier::transaction::transactions::ExecutableTransaction;
 use blockifier::{
@@ -12,8 +14,13 @@ use blockifier::{
 use starknet_api::core::ClassHash;
 use starknet_api::executable_transaction::AccountTransaction;
 use starknet_api::execution_resources::GasAmount;
-use starknet_api::transaction::fields::{GasVectorComputationMode, ValidResourceBounds};
-use starknet_api::transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction};
+use starknet_api::transaction::fields::{
+    AllResourceBounds, GasVectorComputationMode, ValidResourceBounds,
+};
+use starknet_api::transaction::{
+    DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
+    InvokeTransaction, InvokeTransactionV3,
+};
 
 pub fn process_transaction(
     txn: &mut Transaction,
@@ -138,16 +145,12 @@ fn execute_transaction_with_binary_search<S>(
 where
     S: UpdatableState,
 {
-    let initial_gas_limit = extract_l2_gas_limit(transaction)?;
-    let mut original_transaction = transaction.clone();
+    let initial_resource_bounds = extract_resource_bounds(transaction)?;
+    let initial_gas_limit = initial_resource_bounds.l2_gas.max_amount;
+    let max_l2_gas_limit = calculate_max_l2_gas_covered(transaction, block_context, state)?;
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
-    set_l2_gas_limit(transaction, GasAmount::MAX)?;
-    // TODO: Consider getting the upper bound from the balance and not changing the execution flags
-    if let Transaction::Account(account_transaction) = transaction {
-        account_transaction.execution_flags.charge_fee = false;
-        account_transaction.execution_flags.validate = false;
-    }
+    set_l2_gas_limit(transaction, max_l2_gas_limit)?;
 
     let simulation_result = match simulate_execution(transaction, state, block_context) {
         Ok((tx_info, _)) => tx_info,
@@ -173,7 +176,7 @@ where
         }
         Err(SimulationError::OutOfGas) => {
             let mut lower_bound = GasAmount(gas_used);
-            let mut upper_bound = GasAmount::MAX;
+            let mut upper_bound = max_l2_gas_limit;
             let mut current_l2_gas_limit = calculate_midpoint(lower_bound, upper_bound);
 
             // Run a binary search to find the minimal gas limit that still allows the
@@ -212,24 +215,29 @@ where
         }
         Err(SimulationError::ExecutionError(error)) => return Err(error),
     };
-    tx_state.abort();
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
     // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
     // in the case where the user defined gas limit is less than the required gas limit
-    if l2_gas_limit > initial_gas_limit {
-        set_l2_gas_limit(&mut original_transaction, GasAmount(0))?;
-        return execute_transaction(&original_transaction, state, block_context, error_on_revert);
+    if get_execution_flags(transaction).charge_fee && l2_gas_limit > initial_gas_limit {
+        tx_state.abort();
+        set_l2_gas_limit(transaction, GasAmount::ZERO)?;
+        return execute_transaction(&transaction, state, block_context, error_on_revert);
     }
 
-    set_l2_gas_limit(&mut original_transaction, initial_gas_limit)?;
-    let mut exec_info =
-        execute_transaction(&original_transaction, state, block_context, error_on_revert)?;
+    let mut exec_info = execute_transaction(&transaction, state, block_context, error_on_revert)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     exec_info.receipt.gas.l2_gas = l2_gas_limit;
 
     Ok(exec_info)
+}
+
+fn get_execution_flags(tx: &Transaction) -> ExecutionFlags {
+    match tx {
+        Transaction::Account(account_transaction) => account_transaction.execution_flags.clone(),
+        Transaction::L1Handler(_) => Default::default(),
+    }
 }
 
 fn calculate_midpoint(a: GasAmount, b: GasAmount) -> GasAmount {
@@ -317,39 +325,92 @@ fn set_l2_gas_limit(
     Err(anyhow::anyhow!("Failed to set L2 gas limit"))
 }
 
-fn extract_l2_gas_limit(transaction: &Transaction) -> Result<GasAmount, anyhow::Error> {
-    if let Transaction::Account(account_transaction) = transaction {
-        match &account_transaction.tx {
-            AccountTransaction::Declare(tx) => {
-                if let DeclareTransaction::V3(tx) = &tx.tx {
-                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
-                        &tx.resource_bounds
-                    {
-                        return Ok(all_resource_bounds.l2_gas.max_amount);
-                    }
-                }
-            }
-            AccountTransaction::DeployAccount(tx) => {
-                if let DeployAccountTransaction::V3(tx) = &tx.tx {
-                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
-                        &tx.resource_bounds
-                    {
-                        return Ok(all_resource_bounds.l2_gas.max_amount);
-                    }
-                }
-            }
-            AccountTransaction::Invoke(tx) => {
-                if let InvokeTransaction::V3(tx) = &tx.tx {
-                    if let ValidResourceBounds::AllResources(all_resource_bounds) =
-                        &tx.resource_bounds
-                    {
-                        return Ok(all_resource_bounds.l2_gas.max_amount);
-                    }
-                }
+/// Retrieves the resource bounds for a given transaction.
+fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, anyhow::Error> {
+    match tx {
+        Transaction::Account(account_tx) => match &account_tx.tx {
+            AccountTransaction::Declare(declare_tx) => match &declare_tx.tx {
+                DeclareTransaction::V3(DeclareTransactionV3 {
+                    resource_bounds: ValidResourceBounds::AllResources(all_resources),
+                    ..
+                }) => Ok(*all_resources),
+                _ => Err(anyhow::anyhow!("Unsupported Declare transaction version")),
+            },
+            AccountTransaction::DeployAccount(deploy_tx) => match &deploy_tx.tx {
+                DeployAccountTransaction::V3(DeployAccountTransactionV3 {
+                    resource_bounds: ValidResourceBounds::AllResources(all_resources),
+                    ..
+                }) => Ok(*all_resources),
+                _ => Err(anyhow::anyhow!(
+                    "Unsupported DeployAccount transaction version"
+                )),
+            },
+            AccountTransaction::Invoke(invoke_tx) => match &invoke_tx.tx {
+                InvokeTransaction::V3(InvokeTransactionV3 {
+                    resource_bounds: ValidResourceBounds::AllResources(all_resources),
+                    ..
+                }) => Ok(*all_resources),
+                _ => Err(anyhow::anyhow!("Unsupported Invoke transaction version")),
+            },
+        },
+        _ => Err(anyhow::anyhow!("Unsupported transaction type")),
+    }
+}
+
+/// Calculates the maximum amount of L2 gas that can be covered by the balance.
+fn calculate_max_l2_gas_covered<S>(
+    tx: &Transaction,
+    block_context: &blockifier::context::BlockContext,
+    state: &mut S,
+) -> Result<GasAmount, anyhow::Error>
+where
+    S: UpdatableState,
+{
+    // Extract initial resource bounds from the transaction.
+    let initial_resource_bounds = extract_resource_bounds(tx)?;
+
+    // Create resource bounds without L2 gas.
+    let resource_bounds_without_l2_gas = AllResourceBounds {
+        l2_gas: Default::default(),
+        ..initial_resource_bounds
+    };
+
+    // Calculate the maximum possible fee without L2 gas.
+    let max_fee_without_l2_gas =
+        ValidResourceBounds::AllResources(resource_bounds_without_l2_gas).max_possible_fee();
+
+    match tx {
+        Transaction::Account(account_transaction) => {
+            // Retrieve the fee token address.
+            let fee_token_address = block_context
+                .chain_info()
+                .fee_token_address(&account_transaction.fee_type());
+
+            // Get the balance of the fee token.
+            let balance = state
+                .get_fee_token_balance(account_transaction.sender_address(), fee_token_address)?;
+            let balance = (balance.1.to_biguint() << 128) + balance.0.to_biguint();
+
+            if balance > max_fee_without_l2_gas.0.into() {
+                // Calculate the maximum amount of L2 gas that can be bought with the balance.
+                let max_l2_gas = (balance - max_fee_without_l2_gas.0)
+                    / initial_resource_bounds
+                        .l2_gas
+                        .max_price_per_unit
+                        .0
+                        .max(1u64.into());
+                Ok(u64::try_from(max_l2_gas).unwrap_or(u64::MAX).into())
+            } else {
+                // Balance is less than committed L1 gas and L1 data gas, transaction will fail.
+                // Let it pass through here so that execution returns a detailed error.
+                Ok(GasAmount::ZERO)
             }
         }
+        Transaction::L1Handler(_) => {
+            // L1 handler transactions don't have L2 gas.
+            Err(anyhow::anyhow!("L1 handler transactions don't have L2 gas"))
+        }
     }
-    Err(anyhow::anyhow!("Failed to extract L2 gas limit"))
 }
 
 fn is_out_of_gas(execution_info: &TransactionExecutionInfo) -> bool {
