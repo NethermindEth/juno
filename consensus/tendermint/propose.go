@@ -125,7 +125,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 
 	*/
 
-	if vr == nil && proposalFromProposer && t.state.step == propose {
+	if vr == -1 && proposalFromProposer && t.state.step == propose {
 		vote := Prevote[H, A]{
 			Vote: Vote[H, A]{
 				Height: t.state.height,
@@ -135,7 +135,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 			},
 		}
 
-		if validProposal && (t.state.lockedRound == nil || (*t.state.lockedValue).Hash() == vID) {
+		if validProposal && (t.state.lockedRound == -1 || (*t.state.lockedValue).Hash() == vID) {
 			vote.ID = &vID
 		}
 
@@ -160,8 +160,8 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		this cannot be done because valid round needs to be non-nil before the prevotes are fetched.
 	*/
 
-	if vr != nil && proposalFromProposer && t.state.step == propose && *vr >= uint(0) && *vr < t.state.round {
-		_, prevotesForHVr, _ := t.messages.allMessages(p.Height, *vr)
+	if vr != -1 && proposalFromProposer && t.state.step == propose && vr >= 0 && vr < int(t.state.round) {
+		_, prevotesForHVr, _ := t.messages.allMessages(p.Height, uint(vr))
 
 		vals = []A{}
 		for addr, valPrevotes := range prevotesForHVr {
@@ -182,7 +182,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 				},
 			}
 
-			if validProposal && (*t.state.lockedRound >= *vr || (*t.state.lockedValue).Hash() == vID) {
+			if validProposal && (t.state.lockedRound <= vr || (*t.state.lockedValue).Hash() == vID) {
 				vote.ID = &vID
 			}
 
@@ -226,7 +226,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 
 			if t.state.step == prevote {
 				t.state.lockedValue = p.Value
-				t.state.lockedRound = &cr
+				t.state.lockedRound = int(cr)
 
 				vote := Precommit[H, A]{
 					Vote: Vote[H, A]{
@@ -244,7 +244,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 			}
 
 			t.state.validValue = p.Value
-			t.state.validRound = &cr
+			t.state.validRound = int(cr)
 			t.state.line36Executed = true
 		}
 	}

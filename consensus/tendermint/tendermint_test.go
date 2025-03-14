@@ -144,7 +144,7 @@ func TestStartRound(t *testing.T) {
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     0,
 			Round:      0,
-			ValidRound: nil,
+			ValidRound: -1,
 			Value:      utils.HeapPtr(app.cur + 1),
 			Sender:     *nodeAddr,
 		}

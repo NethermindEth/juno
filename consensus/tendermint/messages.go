@@ -16,7 +16,7 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	Height     uint
 	Round      uint
-	ValidRound *uint
+	ValidRound int
 	Value      *V
 
 	Sender A

@@ -151,12 +151,9 @@ type state[V Hashable[H], H Hash] struct {
 	step   step
 
 	lockedValue *V
+	lockedRound int
 	validValue  *V
-
-	// The default value of lockedRound and validRound is -1. However, using int for one value is not good use of space,
-	// therefore, uint is used and nil would represent -1.
-	lockedRound *uint
-	validRound  *uint
+	validRound  int
 
 	// The following are round level variable therefore when a round changes they must be reset.
 	line34Executed bool
@@ -168,8 +165,12 @@ func New[V Hashable[H], H Hash, A Addr](addr A, app Application[V, H], chain Blo
 	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
-		nodeAddr:         addr,
-		state:            state[V, H]{height: chain.Height()},
+		nodeAddr: addr,
+		state: state[V, H]{
+			height:      chain.Height(),
+			lockedRound: -1,
+			validRound:  -1,
+		},
 		messages:         newMessages[V, H, A](),
 		futureMessages:   newMessages[V, H, A](),
 		futureMessagesMu: &sync.Mutex{},

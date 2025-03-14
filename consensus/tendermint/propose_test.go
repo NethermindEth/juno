@@ -31,7 +31,7 @@ func TestPropose(t *testing.T) {
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     expectedHeight,
 			Round:      rPrime,
-			ValidRound: nil,
+			ValidRound: -1,
 			Value:      &rPrimeVal,
 			Sender:     *val2,
 		}
@@ -426,7 +426,7 @@ func TestPropose(t *testing.T) {
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     h,
 			Round:      r,
-			ValidRound: nil,
+			ValidRound: -1,
 			Value:      &val,
 			Sender:     *val2,
 		}
@@ -489,7 +489,7 @@ func TestPropose(t *testing.T) {
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			Height:     h,
 			Round:      r,
-			ValidRound: nil,
+			ValidRound: -1,
 			Value:      &val,
 			Sender:     *val2,
 		}
