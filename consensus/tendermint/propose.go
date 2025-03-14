@@ -1,9 +1,5 @@
 package tendermint
 
-import (
-	"fmt"
-)
-
 //nolint:funlen
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	if p.Height < t.state.height {
@@ -49,13 +45,11 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	// The code below shouldn't panic because it is expected Proposal is well-formed. However, there need to be a way to
 	// distinguish between nil and zero value. This is expected to be handled by the p2p layer.
 	vID := (*p.Value).Hash()
-	fmt.Println("got proposal with valueID and validRound", vID, p.ValidRound)
 	validProposal := t.application.Valid(*p.Value)
 	proposalFromProposer := p.Sender == t.validators.Proposer(p.Height, p.Round)
 	vr := p.ValidRound
 
 	if validProposal {
-		fmt.Println("proposal is valid. Adding to messages")
 		// Add the proposal to the message set even if the sender is not the proposer,
 		// this is because of slahsing purposes
 		t.messages.addProposal(p)
@@ -140,7 +134,6 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		}
 
 		t.messages.addPrevote(vote)
-		fmt.Println("About to broadcase prevote line 22")
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 		t.state.step = prevote
 	}
@@ -187,7 +180,6 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 			}
 
 			t.messages.addPrevote(vote)
-			fmt.Println("About to broadcase prevote line 28")
 			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
 			t.state.step = prevote
 		}
@@ -238,7 +230,6 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 				}
 
 				t.messages.addPrecommit(vote)
-				fmt.Println("About to broadcase prevote line 36")
 				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
 				t.state.step = precommit
 			}
