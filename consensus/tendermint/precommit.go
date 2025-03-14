@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"maps"
 	"slices"
 )
@@ -47,7 +46,6 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 		return
 	}
 
-	fmt.Println("got precommmit")
 	t.messages.addPrecommit(p)
 
 	proposalsForHR, _, precommitsForHR := t.messages.allMessages(p.Height, p.Round)
