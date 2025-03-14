@@ -14,7 +14,7 @@ type batch struct {
 	db *Database
 	// Theoretically, we can only maintain the latest write for each key using the map.
 	// However, we want to ensure that the order of writes is maintained and mimics the
-	// behavior of the real key-value store. Hence, we store them and then flush them afterwards.
+	// behaviour of the real key-value store. Hence, we store them and then flush them afterwards.
 	writes   []keyValue
 	writeMap map[string]keyValue
 	size     int

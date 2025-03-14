@@ -63,48 +63,38 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 	return nil, utils.RunAndWrapOnError(it.Close, ErrCheckHeadState)
 }
 
-// TODO(weiihann): remove this function
-func storageLogKey(contractAddress, storageLocation *felt.Felt) []byte {
-	return db.ContractStorageHistoryKey(contractAddress, storageLocation)
-}
-
 // LogContractStorage logs the old value of a storage location for the given contract which changed on height `height`
 func (h *history) LogContractStorage(contractAddress, storageLocation, oldValue *felt.Felt, height uint64) error {
-	key := storageLogKey(contractAddress, storageLocation)
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	return h.logOldValue(key, oldValue.Marshal(), height)
 }
 
 // DeleteContractStorageLog deletes the log at the given height
 func (h *history) DeleteContractStorageLog(contractAddress, storageLocation *felt.Felt, height uint64) error {
-	return h.deleteLog(storageLogKey(contractAddress, storageLocation), height)
+	return h.deleteLog(db.ContractStorageHistoryKey(contractAddress, storageLocation), height)
 }
 
 // ContractStorageAt returns the value of a storage location of the given contract at the height `height`
 func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt, height uint64) (*felt.Felt, error) {
-	key := storageLogKey(contractAddress, storageLocation)
+	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	value, err := h.valueAt(key, height)
 	if err != nil {
 		return nil, err
 	}
 
 	return new(felt.Felt).SetBytes(value), nil
-}
-
-// TODO(weiihann): remove this function
-func nonceLogKey(contractAddress *felt.Felt) []byte {
-	return db.ContractNonceHistoryKey(contractAddress)
 }
 
 func (h *history) LogContractNonce(contractAddress, oldValue *felt.Felt, height uint64) error {
-	return h.logOldValue(nonceLogKey(contractAddress), oldValue.Marshal(), height)
+	return h.logOldValue(db.ContractNonceHistoryKey(contractAddress), oldValue.Marshal(), height)
 }
 
 func (h *history) DeleteContractNonceLog(contractAddress *felt.Felt, height uint64) error {
-	return h.deleteLog(nonceLogKey(contractAddress), height)
+	return h.deleteLog(db.ContractNonceHistoryKey(contractAddress), height)
 }
 
 func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
-	key := nonceLogKey(contractAddress)
+	key := db.ContractNonceHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {
 		return nil, err
@@ -113,21 +103,16 @@ func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*f
 	return new(felt.Felt).SetBytes(value), nil
 }
 
-// TODO(weiihann): remove this function
-func classHashLogKey(contractAddress *felt.Felt) []byte {
-	return db.ContractClassHashHistoryKey(contractAddress)
-}
-
 func (h *history) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
-	return h.logOldValue(classHashLogKey(contractAddress), oldValue.Marshal(), height)
+	return h.logOldValue(db.ContractClassHashHistoryKey(contractAddress), oldValue.Marshal(), height)
 }
 
 func (h *history) DeleteContractClassHashLog(contractAddress *felt.Felt, height uint64) error {
-	return h.deleteLog(classHashLogKey(contractAddress), height)
+	return h.deleteLog(db.ContractClassHashHistoryKey(contractAddress), height)
 }
 
 func (h *history) ContractClassHashAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
-	key := classHashLogKey(contractAddress)
+	key := db.ContractClassHashHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {
 		return nil, err
