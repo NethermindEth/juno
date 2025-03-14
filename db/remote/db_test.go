@@ -1,13 +1,15 @@
-package remote
+package remote_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net"
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/remote"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
 	"github.com/NethermindEth/juno/utils"
@@ -19,7 +21,7 @@ import (
 
 func TestRemote(t *testing.T) {
 	memDB := memory.New()
-	require.NoError(t, memDB.Update(func(txn db.IndexedBatch) error {
+	require.NoError(t, memDB.Update2(func(txn db.IndexedBatch) error {
 		for i := byte(0); i < 3; i++ {
 			if err := txn.Put([]byte{i}, []byte{i}); err != nil {
 				return err
@@ -38,32 +40,29 @@ func TestRemote(t *testing.T) {
 		require.NoError(t, grpcSrv.Serve(l))
 	}()
 
-	remoteDB, err := New(l.Addr().String(), t.Context(), utils.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	remoteDB, err := remote.New(l.Addr().String(), context.Background(), utils.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 
 	t.Run("Get", func(t *testing.T) {
-		assert.NoError(t, remoteDB.View(func(txn db.Snapshot) error {
+		assert.NoError(t, remoteDB.View(func(txn db.Transaction) error {
 			for i := byte(0); i < 3; i++ {
-				var val []byte
-				err := txn.Get([]byte{i}, func(data []byte) error {
-					val = data
+				if err := txn.Get([]byte{i}, func(b []byte) error {
+					if !bytes.Equal(b, []byte{i}) {
+						return errors.New("wrong value")
+					}
 					return nil
-				})
-				if err != nil {
+				}); err != nil {
 					return err
 				}
-				if !bytes.Equal(val, []byte{i}) {
-					return errors.New("wrong value")
-				}
-
-				assert.Equal(t, db.ErrKeyNotFound, txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }))
 			}
+
+			assert.Equal(t, db.ErrKeyNotFound, txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }))
 			return nil
 		}))
 	})
 
 	t.Run("iterate", func(t *testing.T) {
-		err := remoteDB.View(func(txn db.Snapshot) error {
+		err := remoteDB.View(func(txn db.Transaction) error {
 			it, err := txn.NewIterator(nil, false)
 			if err != nil {
 				return err
@@ -85,7 +84,7 @@ func TestRemote(t *testing.T) {
 	})
 
 	t.Run("seek", func(t *testing.T) {
-		err := remoteDB.View(func(txn db.Snapshot) error {
+		err := remoteDB.View(func(txn db.Transaction) error {
 			it, err := txn.NewIterator(nil, false)
 			if err != nil {
 				return err
@@ -104,9 +103,9 @@ func TestRemote(t *testing.T) {
 	})
 
 	t.Run("write", func(t *testing.T) {
-		err := remoteDB.Update(func(txn db.IndexedBatch) error {
+		err := remoteDB.Update(func(txn db.Transaction) error {
 			assert.EqualError(t, txn.Delete(nil), "read only DB")
-			assert.EqualError(t, txn.Put(nil, nil), "read only DB")
+			assert.EqualError(t, txn.Set(nil, nil), "read only DB")
 			return nil
 		})
 		assert.EqualError(t, err, "read only DB")

@@ -25,12 +25,12 @@ func TestStorage(t *testing.T) {
 	}
 
 	t.Run("put a node", func(t *testing.T) {
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		require.NoError(t, storage.Put(&key, node))
 	})
 
 	t.Run("get a node", func(t *testing.T) {
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		var got *trie.Node
 		got, err = storage.Get(&key)
 		require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestStorage(t *testing.T) {
 
 	t.Run("delete a node", func(t *testing.T) {
 		// Delete a node.
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		require.NoError(t, storage.Delete(&key))
 
 		// Node should no longer exist in the database.
@@ -50,19 +50,19 @@ func TestStorage(t *testing.T) {
 	rootKey := trie.NewBitArray(8, 2)
 
 	t.Run("put root key", func(t *testing.T) {
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		require.NoError(t, storage.PutRootKey(&rootKey))
 	})
 
 	t.Run("read root key", func(t *testing.T) {
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		gotRootKey, err := storage.RootKey()
 		require.NoError(t, err)
 		assert.Equal(t, &rootKey, gotRootKey)
 	})
 
 	t.Run("delete root key", func(t *testing.T) {
-		storage := trie.NewStorage2(txn, prefix)
+		storage := trie.NewStorage(txn, prefix)
 		require.NoError(t, storage.DeleteRootKey())
 		_, err := storage.RootKey()
 		require.ErrorIs(t, err, db.ErrKeyNotFound)

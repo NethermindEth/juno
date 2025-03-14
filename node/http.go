@@ -263,11 +263,11 @@ func (h *readinessHandlers) isSynced() bool {
 }
 
 type readinessHandlers2 struct {
-	bcReader   blockchain.Reader2
-	syncReader sync.Reader2
+	bcReader   blockchain.Reader
+	syncReader sync.Reader
 }
 
-func NewReadinessHandlers2(bcReader blockchain.Reader2, syncReader sync.Reader2) *readinessHandlers2 {
+func NewReadinessHandlers2(bcReader blockchain.Reader, syncReader sync.Reader) *readinessHandlers2 {
 	return &readinessHandlers2{
 		bcReader:   bcReader,
 		syncReader: syncReader,

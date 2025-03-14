@@ -442,9 +442,9 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	}
 }
 
-// func maxWorkers() int {
-// 	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
-// }
+func maxWorkers() int {
+	return min(16, runtime.GOMAXPROCS(0)) //nolint:mnd
+}
 
 func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	numWorkers := 1
@@ -694,7 +694,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		Receipts:     receipts,
 	}
 
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	stateDiff, err := makeStateDiffForEmptyBlock2(s.blockchain, latestHeader.Number+1)
 	if err != nil {
 		return err
 	}
@@ -712,7 +712,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 	return nil
 }
 
-func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
+func makeStateDiffForEmptyBlock2(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
 		Nonces:            make(map[felt.Felt]*felt.Felt),

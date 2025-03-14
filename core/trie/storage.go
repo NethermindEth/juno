@@ -79,12 +79,15 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
-	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		node = nodePool.Get().(*Node)
-		return node.UnmarshalBinary(val)
-	})
-
-	return node, err
+	val, err := t.txn.Get2(buffer.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	node = nodePool.Get().(*Node)
+	if err := node.UnmarshalBinary(val); err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 func (t *Storage) Delete(key *BitArray) error {
@@ -99,11 +102,15 @@ func (t *Storage) Delete(key *BitArray) error {
 
 func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
-	err := t.txn.Get(t.prefix, func(val []byte) error {
-		rootKey = new(BitArray)
-		return rootKey.UnmarshalBinary(val)
-	})
-	return rootKey, err
+	val, err := t.txn.Get2(t.prefix)
+	if err != nil {
+		return nil, err
+	}
+	rootKey = new(BitArray)
+	if err := rootKey.UnmarshalBinary(val); err != nil {
+		return nil, err
+	}
+	return rootKey, nil
 }
 
 func (t *Storage) PutRootKey(newRootKey *BitArray) error {

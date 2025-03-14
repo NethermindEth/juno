@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
@@ -32,18 +33,14 @@ type schemaMetadata struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.SimpleLogger) ([]byte, error)
+	Migrate(context.Context, db.IndexedBatch, *utils.Network, utils.SimpleLogger) ([]byte, error)
 }
 
 type MigrationFunc func(db.IndexedBatch, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
-	txn := database.NewIndexedBatch()
-	if err := f(txn, network); err != nil {
-		return nil, err
-	}
-	return nil, txn.Write()
+func (f MigrationFunc) Migrate(_ context.Context, txn db.IndexedBatch, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+	return nil, f(txn, network)
 }
 
 // Before is a no-op.
@@ -61,16 +58,16 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
 	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
 	NewBucketMigrator(db.ClassesTrie, migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)).WithKeyFilter(nodesFilter(db.ClassesTrie)),
-	NewBucketMover(db.Temporary, db.ClassesTrie),
+	NewBucketMover2(db.Temporary, db.ClassesTrie),
 	NewBucketMigrator(db.StateTrie, migrateTrieNodesFromBitsetToTrieKey(db.StateTrie)).WithKeyFilter(nodesFilter(db.StateTrie)),
-	NewBucketMover(db.Temporary, db.StateTrie),
+	NewBucketMover2(db.Temporary, db.StateTrie),
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
-	NewBucketMover(db.Temporary, db.ContractStorage),
+	NewBucketMover2(db.Temporary, db.ContractStorage),
 	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2).WithBatchSize(100), //nolint:mnd
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
-	MigrationFunc(removePendingBlock),
+	MigrationFunc(removePendingBlock2),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -79,13 +76,7 @@ func MigrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *ut
 	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
 }
 
-func migrateIfNeeded(
-	ctx context.Context,
-	targetDB db.KeyValueStore,
-	network *utils.Network,
-	log utils.SimpleLogger,
-	migrations []Migration,
-) error {
+func migrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *utils.Network, log utils.SimpleLogger, migrations []Migration) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
 		After a migration is successfully executed, which may update the database, the schema version is incremented
@@ -102,7 +93,7 @@ func migrateIfNeeded(
 		new ones. It will be able to do this since the schema version it reads from the database will be
 		non-zero and that is what we use to initialise the i loop variable.
 	*/
-	metadata, err := SchemaMetadata(targetDB)
+	metadata, err := SchemaMetadata2(targetDB)
 	if err != nil {
 		return err
 	}
@@ -123,29 +114,23 @@ func migrateIfNeeded(
 		}
 		for {
 			callWithNewTransaction := false
-			// Execute migration on the batch
-			metadata.IntermediateState, err = migration.Migrate(ctx, targetDB, network, log)
-			switch {
-			case err == nil || errors.Is(err, ctx.Err()):
-				if metadata.IntermediateState == nil {
-					metadata.Version++
-				}
-				// Update the schema metadata in the batch
-				txn := targetDB.NewBatch()
-				if err := updateSchemaMetadata(txn, metadata); err != nil {
+			if dbErr := targetDB.Update2(func(txn db.IndexedBatch) error {
+				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network, log)
+				switch {
+				case err == nil || errors.Is(err, ctx.Err()):
+					if metadata.IntermediateState == nil {
+						metadata.Version++
+					}
+					return updateSchemaMetadata2(txn, metadata)
+				case errors.Is(err, ErrCallWithNewTransaction):
+					callWithNewTransaction = true
+					return nil
+				default:
 					return err
 				}
-				// Commit the batch if no errors
-				if err := txn.Write(); err != nil {
-					return err
-				}
-			case errors.Is(err, ErrCallWithNewTransaction):
-				callWithNewTransaction = true
-			default:
-				return err
-			}
-
-			if !callWithNewTransaction {
+			}); dbErr != nil {
+				return dbErr
+			} else if !callWithNewTransaction {
 				break
 			}
 		}
@@ -155,15 +140,11 @@ func migrateIfNeeded(
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
-func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
+func SchemaMetadata2(targetDB db.KeyValueStore) (schemaMetadata, error) {
 	metadata := schemaMetadata{}
 	txn := targetDB
 
-	var sv []byte
-	err := txn.Get(db.SchemaVersion.Key(), func(data []byte) error {
-		sv = data
-		return nil
-	})
+	sv, err := txn.Get2(db.SchemaVersion.Key())
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
@@ -172,11 +153,7 @@ func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
 		metadata.Version = binary.BigEndian.Uint64(sv)
 	}
 
-	var is []byte
-	err = txn.Get(db.SchemaIntermediateState.Key(), func(data []byte) error {
-		is = data
-		return nil
-	})
+	is, err := txn.Get2(db.SchemaIntermediateState.Key())
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return metadata, err
 	}
@@ -190,7 +167,7 @@ func SchemaMetadata(targetDB db.KeyValueStore) (schemaMetadata, error) {
 }
 
 // updateSchemaMetadata updates the schema in given database.
-func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
+func updateSchemaMetadata2(txn db.KeyValueWriter, schema schemaMetadata) error {
 	var (
 		version [8]byte
 		state   []byte
@@ -284,7 +261,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
 func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := blockchain.GetBlockByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -292,13 +269,13 @@ func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 			return err
 		}
 		block.EventsBloom = core.EventsBloom(block.Receipts)
-		if err = core.WriteBlockHeader(txn, block.Header); err != nil {
+		if err = blockchain.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 	}
 }
 
-func removePendingBlock(txn db.IndexedBatch, _ *utils.Network) error {
+func removePendingBlock2(txn db.IndexedBatch, _ *utils.Network) error {
 	return txn.Delete(db.Unused.Key())
 }
 
@@ -400,16 +377,14 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(
-	_ context.Context, database db.KeyValueStore, _ *utils.Network, _ utils.SimpleLogger,
-) ([]byte, error) {
+func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.IndexedBatch, _ *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
-	// We instead define a custom struct to force the encoder to use the default encoding.
+	// We instead define a cutom struct to force the encoder to use the default encoding.
 	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
-	migrateF := func(it db.Iterator, w db.KeyValueWriter, bucket db.Bucket, seekTo []byte, skipLen int) error {
+	migrateF := func(it db.Iterator, bucket db.Bucket, seekTo []byte, skipLen int) error {
 		bucketPrefix := bucket.Key()
 		for it.Seek(seekTo); it.Valid(); it.Next() {
 			key := it.Key()
@@ -447,7 +422,7 @@ func (m *changeTrieNodeEncoding) Migrate(
 				return err
 			}
 
-			if err = w.Put(key, buf.Bytes()); err != nil {
+			if err = txn.Put(key, buf.Bytes()); err != nil {
 				return err
 			}
 			buf.Reset()
@@ -457,30 +432,24 @@ func (m *changeTrieNodeEncoding) Migrate(
 		return nil
 	}
 
-	iterator, err := database.NewIterator(nil, false)
+	iterator, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}
 
-	batch := database.NewBatch()
 	for bucket, info := range m.trieNodeBuckets {
-		if err := migrateF(iterator, batch, bucket, info.seekTo, info.skipLen); err != nil {
+		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
 			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		}
 	}
-
-	if err := batch.Write(); err != nil {
-		return nil, err
-	}
-
 	return nil, iterator.Close()
 }
 
-func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) error) error {
+func processBlocks2(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) error) error {
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	chainHeight, err := core.GetChainHeight(txn)
+	chainHeight, err := blockchain.GetChainHeight(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
@@ -512,7 +481,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := blockchain.GetBlockByNumber(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
@@ -525,24 +494,24 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 		}
 		txnLock.Lock()
 		defer txnLock.Unlock()
-		return core.WriteBlockCommitment(txn, block.Number, commitments)
+		return blockchain.WriteBlockCommitment(txn, block.Number, commitments)
 	}
-	return processBlocks(txn, processBlockFunc)
+	return processBlocks2(txn, processBlockFunc)
 }
 
 func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
-		txns, err := core.GetTxsByBlockNum(txn, blockNumber)
+		txns, err := blockchain.GetTxsByBlockNum(txn, blockNumber)
 		txnLock.Unlock()
 		if err != nil {
 			return err
 		}
 		txnLock.Lock()
 		defer txnLock.Unlock()
-		return core.WriteL1HandlerMsgHashes(txn, txns)
+		return blockchain.WriteL1HandlerMsgHashes(txn, txns)
 	}
-	return processBlocks(txn, processBlockFunc)
+	return processBlocks2(txn, processBlockFunc)
 }
 
 func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
