@@ -7,6 +7,7 @@ type Snapshot interface {
 	Iterable
 }
 
+// Produces a read-only snapshot of the database
 type Snapshotter interface {
 	NewSnapshot() Snapshot
 }

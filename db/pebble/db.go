@@ -25,13 +25,12 @@ var (
 
 var _ db.KeyValueStore = (*DB)(nil)
 
-// TODO(weiihann): check if lock is necessary
 type DB struct {
-	db       *pebble.DB
-	closed   bool
-	writeOpt *pebble.WriteOptions
-	listener db.EventListener
-	lock     *sync.RWMutex
+	db        *pebble.DB
+	closed    bool
+	writeOpt  *pebble.WriteOptions
+	listener  db.EventListener
+	closeLock *sync.RWMutex // Ensures that the database is closed correctly
 }
 
 // New opens a new database at the given path with default options
@@ -61,15 +60,17 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 		return nil, err
 	}
 	return &DB{
-		db:       pDB,
-		lock:     new(sync.RWMutex),
-		listener: &db.SelectiveListener{},
-		writeOpt: &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
+		db:        pDB,
+		closeLock: new(sync.RWMutex),
+		listener:  &db.SelectiveListener{},
+		writeOpt:  &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
 	}, nil
 }
 
-// Close : see io.Closer.Close
 func (d *DB) Close() error {
+	d.closeLock.Lock()
+	defer d.closeLock.Unlock()
+
 	if d.closed {
 		return nil
 	}
@@ -101,14 +102,13 @@ func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	return d
 }
 
-// Impl : see db.DB.Impl
 func (d *DB) Impl() any {
 	return d.db
 }
 
 func (d *DB) Has(key []byte) (bool, error) {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
 
 	if d.closed {
 		return false, pebble.ErrClosed
@@ -126,8 +126,8 @@ func (d *DB) Has(key []byte) (bool, error) {
 }
 
 func (d *DB) Get(key []byte, cb func(value []byte) error) error {
-	d.lock.RLock()
-	defer d.lock.RUnlock()
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
 
 	if d.closed {
 		return pebble.ErrClosed
@@ -149,8 +149,8 @@ func (d *DB) Get(key []byte, cb func(value []byte) error) error {
 }
 
 func (d *DB) Put(key, val []byte) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
 
 	if d.closed {
 		return pebble.ErrClosed
@@ -160,8 +160,8 @@ func (d *DB) Put(key, val []byte) error {
 }
 
 func (d *DB) Delete(key []byte) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
 
 	if d.closed {
 		return pebble.ErrClosed
@@ -171,8 +171,8 @@ func (d *DB) Delete(key []byte) error {
 }
 
 func (d *DB) DeleteRange(start, end []byte) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
 
 	if d.closed {
 		return pebble.ErrClosed
@@ -182,22 +182,25 @@ func (d *DB) DeleteRange(start, end []byte) error {
 }
 
 func (d *DB) NewBatch() db.Batch {
-	return NewBatch(d.db.NewBatch(), d, d.lock, d.listener)
+	return NewBatch(d.db.NewBatch(), d, d.listener)
 }
 
 func (d *DB) NewBatchWithSize(size int) db.Batch {
-	return NewBatch(d.db.NewBatchWithSize(size), d, d.lock, d.listener)
+	return NewBatch(d.db.NewBatchWithSize(size), d, d.listener)
 }
 
 func (d *DB) NewIndexedBatch() db.IndexedBatch {
-	return NewBatch(d.db.NewIndexedBatch(), d, d.lock, d.listener)
+	return NewBatch(d.db.NewIndexedBatch(), d, d.listener)
 }
 
 func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
-	return NewBatch(d.db.NewIndexedBatchWithSize(size), d, d.lock, d.listener)
+	return NewBatch(d.db.NewIndexedBatchWithSize(size), d, d.listener)
 }
 
 func (d *DB) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
 	if d.closed {
 		return nil, pebble.ErrClosed
 	}
@@ -219,7 +222,6 @@ func (d *DB) NewSnapshot() db.Snapshot {
 	return NewSnapshot(d.db, d.listener)
 }
 
-// TODO(weiihann): move this to somewhere else?
 type Item struct {
 	Count uint
 	Size  utils.DataSize
