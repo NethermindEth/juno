@@ -299,7 +299,7 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
 }
 
-func TestBlockCommitments2(t *testing.T) {
+func TestBlockCommitments(t *testing.T) {
 	chain := blockchain.New(memory.New(), &utils.Mainnet)
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -324,7 +324,7 @@ func TestBlockCommitments2(t *testing.T) {
 	require.Equal(t, expectedCommitments, commitments)
 }
 
-func TestTransactionAndReceipt2(t *testing.T) {
+func TestTransactionAndReceipt(t *testing.T) {
 	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)

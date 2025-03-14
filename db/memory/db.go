@@ -39,7 +39,7 @@ func (d *Database) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
-func (d *Database) Get2(key []byte) ([]byte, error) {
+func (d *Database) Get(key []byte) ([]byte, error) {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
@@ -155,7 +155,7 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copy()
 }
 
-func (d *Database) Update2(fn func(db.IndexedBatch) error) error {
+func (d *Database) Update(fn func(db.IndexedBatch) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
@@ -168,7 +168,7 @@ func (d *Database) Update2(fn func(db.IndexedBatch) error) error {
 	return batch.Write()
 }
 
-func (d *Database) View2(fn func(db.Snapshot) error) error {
+func (d *Database) View(fn func(db.Snapshot) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
@@ -177,7 +177,7 @@ func (d *Database) View2(fn func(db.Snapshot) error) error {
 	return fn(snap)
 }
 
-func (d *Database) WithListener2(listener db.EventListener) db.KeyValueStore {
+func (d *Database) WithListener(listener db.EventListener) db.KeyValueStore {
 	return d // no-op
 }
 

@@ -41,14 +41,14 @@ func (b *BufferBatch) Reset() {
 	b.txn.Reset()
 }
 
-func (b *BufferBatch) Get2(key []byte) ([]byte, error) {
+func (b *BufferBatch) Get(key []byte) ([]byte, error) {
 	if val, ok := b.updates[string(key)]; ok {
 		if val == nil {
 			return nil, ErrKeyNotFound
 		}
 		return val, nil
 	}
-	return b.txn.Get2(key)
+	return b.txn.Get(key)
 }
 
 func (b *BufferBatch) Flush() error {

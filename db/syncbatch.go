@@ -42,10 +42,10 @@ func (s *SyncBatch) Reset() {
 	s.batch.Reset()
 }
 
-func (s *SyncBatch) Get2(key []byte) ([]byte, error) {
+func (s *SyncBatch) Get(key []byte) ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.batch.Get2(key)
+	return s.batch.Get(key)
 }
 
 func (s *SyncBatch) Has(key []byte) (bool, error) {
