@@ -318,7 +318,6 @@ func (t *Tendermint[V, H, A]) processFutureMessages(h, r uint) {
 				case <-t.quit:
 					return
 				case t.precommitsCh <- vote:
-
 				}
 			}
 		}
@@ -385,6 +384,10 @@ func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h, r uint) {
 }
 
 // line55 assumes the caller has acquired a mutex for accessing future messages.
+/*
+	55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
+	56: 	StartRound(round)
+*/
 func (t *Tendermint[V, H, A]) line55(futureR uint) {
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.height, futureR)

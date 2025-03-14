@@ -548,8 +548,7 @@ func TestPropose(t *testing.T) {
 
 	t.Run("Line 22: receive a new proposal before timeout expiry", func(t *testing.T) {
 	})
-	//
-	//t.Run("Line 28: receive an old proposal before timeout expiry", func(t *testing.T) {
-	//
-	//})
+
+	t.Run("Line 28: receive an old proposal before timeout expiry", func(t *testing.T) {
+	})
 }
