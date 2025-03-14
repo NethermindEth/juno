@@ -81,7 +81,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 		var vals []A
 
 		for _, v := range proposalsForHCR[t.validators.Proposer(p.Height, p.Round)] {
-			if (*v.Value).Hash() == *p.ID && *v.ValidRound == vr {
+			if (*v.Value).Hash() == *p.ID && v.ValidRound == int(vr) {
 				proposal = &v
 			}
 		}
@@ -104,7 +104,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 				},
 			}
 
-			if *t.state.lockedRound >= vr || (*t.state.lockedValue).Hash() == *p.ID {
+			if t.state.lockedRound >= int(vr) || (*t.state.lockedValue).Hash() == *p.ID {
 				vote.ID = p.ID
 			}
 
@@ -212,7 +212,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 				if t.state.step == prevote {
 					t.state.lockedValue = proposal.Value
-					t.state.lockedRound = &cr
+					t.state.lockedRound = int(cr)
 
 					vote := Precommit[H, A]{
 						Vote: Vote[H, A]{
@@ -229,7 +229,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 				}
 
 				t.state.validValue = proposal.Value
-				t.state.validRound = &cr
+				t.state.validRound = int(cr)
 				t.state.line36Executed = true
 			}
 		}
