@@ -4,7 +4,7 @@ pub mod execution;
 pub mod jsonrpc;
 mod juno_state_reader;
 
-use crate::juno_state_reader::{ptr_to_felt, JunoStateReader};
+use crate::juno_state_reader::{ptr_to_felt, BlockHeight, JunoStateReader};
 use error::{CallError, ExecutionError};
 use error_stack::{ErrorStack, Frame};
 use execution::process_transaction;
@@ -99,6 +99,7 @@ pub struct CallInfo {
 pub struct BlockInfo {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
+    pub is_pending: c_uchar,
     pub sequencer_address: [c_uchar; 32],
     pub l1_gas_price_wei: [c_uchar; 32],
     pub l1_gas_price_fri: [c_uchar; 32],
@@ -126,7 +127,10 @@ pub extern "C" fn cairoVMCall(
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
 
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let reader = JunoStateReader::new(
+        reader_handle,
+        BlockHeight::from_block_info(&block_info),
+    );
     let contract_addr_felt = StarkFelt::from_bytes_be(&call_info.contract_address);
     let class_hash = if call_info.class_hash == [0; 32] {
         None
@@ -247,7 +251,10 @@ pub extern "C" fn cairoVMExecute(
     err_stack: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
-    let reader = JunoStateReader::new(reader_handle, block_info.block_number);
+    let reader = JunoStateReader::new(
+        reader_handle,
+        BlockHeight::from_block_info(&block_info),
+    );
     let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
