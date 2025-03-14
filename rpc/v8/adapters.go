@@ -320,7 +320,7 @@ func adaptTxToFeeder(rpcTx *Transaction) starknet.Transaction {
 	}
 }
 
-func adaptResourceBoundsToFeeder(rb map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptResourceBoundsToFeeder(rb map[Resource]ResourceBounds) map[starknet.Resource]starknet.ResourceBounds {
 	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
 	for resource, bounds := range rb {
 		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
