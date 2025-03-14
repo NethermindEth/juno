@@ -10,6 +10,8 @@ import (
 
 // TestKeyValueStoreSuite runs a suite of tests against a KeyValueStore database
 // implementation.
+//
+//nolint:mnd,gocyclo,funlen
 func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 	t.Run("Iterator", func(t *testing.T) {
 		tests := []struct {

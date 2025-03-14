@@ -62,7 +62,7 @@ func (b *BlockNumIndexKey) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-func TxByBlockNumIndexKey(num uint64, index uint64) []byte {
+func TxByBlockNumIndexKey(num, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
 	return TransactionsByBlockNumberAndIndex.Key(key.MarshalBinary())
 }
@@ -71,7 +71,7 @@ func TxByBlockNumIndexKeyBytes(key []byte) []byte {
 	return TransactionsByBlockNumberAndIndex.Key(key)
 }
 
-func ReceiptByBlockNumIndexKey(num uint64, index uint64) []byte {
+func ReceiptByBlockNumIndexKey(num, index uint64) []byte {
 	key := &BlockNumIndexKey{Number: num, Index: index}
 	return ReceiptsByBlockNumberAndIndex.Key(key.MarshalBinary())
 }
