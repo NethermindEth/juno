@@ -653,6 +653,8 @@ func TestRevert(t *testing.T) {
 	require.NoError(t, chain.RevertHead())
 	require.NoError(t, chain.RevertHead())
 
+	//TODO(MaksymMalicki): this fails for hashdb, update when condition for
+	// triedb scheme added
 	t.Run("empty blockchain should mean empty db", func(t *testing.T) {
 		require.NoError(t, testdb.View(func(txn db.Transaction) error {
 			it, err := txn.NewIterator(nil, false)

@@ -48,7 +48,8 @@ func New(txn db.Transaction) (*State, error) {
 		dirtyContracts: make(map[felt.Felt]*StateContract),
 	}
 
-	//TODO(MaksymMalicki): handle for both db schemes
+	//TODO(MaksymMalicki): handle for both db schemes, update when condition for
+	// triedb scheme added
 	if true {
 		lastStateHash, err := state.GetLastStateHash()
 		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {

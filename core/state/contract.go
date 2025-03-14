@@ -254,7 +254,8 @@ func (s *StateContract) getTrie(txn db.Transaction) (*trie2.Trie, error) {
 
 	var tr *trie2.Trie
 	var err error
-	//TODO(MaksymMalicki): handle for both db schemes
+	//TODO(MaksymMalicki): handle for both db schemes, update when condition for
+	// triedb scheme added
 	if true {
 		if s.StorageRoot != nil {
 			tr, err = trie2.NewWithRootHash(trie2.NewContractStorageTrieID(*s.Address), ContractStorageTrieHeight, crypto.Pedersen, txn, *s.StorageRoot)
