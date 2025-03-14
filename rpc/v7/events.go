@@ -46,7 +46,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context) (uint64, *jsonrpc.Error
 					Version: "2.0",
 					Method:  "juno_subscribeNewHeads",
 					Params: map[string]any{
-						"result":       adaptBlockHeader(header.Header),
+						"result":       adaptCoreBlockHeader(header.Header),
 						"subscription": id,
 					},
 				})

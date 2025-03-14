@@ -492,11 +492,12 @@ func TestBlockWithReceipts(t *testing.T) {
 		var txsWithReceipt []rpcv7.TransactionWithReceipt
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
-			adaptedTx := rpcv7.AdaptTransaction(tx)
+			adaptedTx := rpcv7.AdaptCoreTransaction(tx)
 
+			adaptedReceipt := rpcv7.AdaptCoreReceipt(receipt, tx, rpcv7.TxnAcceptedOnL2, nil, 0)
 			txsWithReceipt = append(txsWithReceipt, rpcv7.TransactionWithReceipt{
-				Transaction: adaptedTx,
-				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL2, nil, 0),
+				Transaction: &adaptedTx,
+				Receipt:     &adaptedReceipt,
 			})
 		}
 
@@ -536,11 +537,12 @@ func TestBlockWithReceipts(t *testing.T) {
 		var transactions []rpcv7.TransactionWithReceipt
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
-			adaptedTx := rpcv7.AdaptTransaction(tx)
+			adaptedTx := rpcv7.AdaptCoreTransaction(tx)
 
+			adaptedReceipt := rpcv7.AdaptCoreReceipt(receipt, tx, rpcv7.TxnAcceptedOnL1, nil, 0)
 			transactions = append(transactions, rpcv7.TransactionWithReceipt{
-				Transaction: adaptedTx,
-				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL1, nil, 0),
+				Transaction: &adaptedTx,
+				Receipt:     &adaptedReceipt,
 			})
 		}
 

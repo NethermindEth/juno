@@ -2,21 +2,17 @@ package rpcv7
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -304,78 +300,6 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
-	network *utils.Network,
-) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
-
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	var declaredClass core.Class
-	if len(broadcastedTxn.ContractClass) != 0 {
-		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	} else if broadcastedTxn.Type == TxnDeclare {
-		return nil, nil, nil, errors.New("declare without a class definition")
-	}
-
-	if t, ok := txn.(*core.DeclareTransaction); ok {
-		t.ClassHash, err = declaredClass.Hash()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-	}
-
-	txnHash, err := core.TransactionHash(txn, network)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	var paidFeeOnL1 *felt.Felt
-	switch t := txn.(type) {
-	case *core.DeclareTransaction:
-		t.TransactionHash = txnHash
-	case *core.InvokeTransaction:
-		t.TransactionHash = txnHash
-	case *core.DeployAccountTransaction:
-		t.TransactionHash = txnHash
-	case *core.L1HandlerTransaction:
-		t.TransactionHash = txnHash
-		paidFeeOnL1 = broadcastedTxn.PaidFeeOnL1
-	default:
-		return nil, nil, nil, errors.New("unsupported transaction")
-	}
-
-	if txn.Hash() == nil {
-		return nil, nil, nil, errors.New("deprecated transaction type")
-	}
-	return txn, declaredClass, paidFeeOnL1, nil
-}
-
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
-	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		// ResourceL1DataGas is not supported in v7
-		if resource == core.ResourceL1DataGas {
-			continue
-		}
-
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
-	}
-	return rpcResourceBounds
-}
-
 /****************************************************
 		Transaction Handlers
 *****************************************************/
@@ -400,7 +324,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return utils.HeapPtr(AdaptCoreTransaction(pending.Block.Transactions[txIndex])), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -413,7 +337,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	return AdaptTransaction(txn), nil
+	return utils.HeapPtr(AdaptCoreTransaction(txn)), nil
 }
 
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
@@ -478,7 +402,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		}
 	}
 
-	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
+	return utils.HeapPtr(AdaptCoreReceipt(receipt, txn, status, blockHash, blockNumber)), nil
 }
 
 var errTransactionNotFound = errors.New("transaction not found")
@@ -502,7 +426,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		status, err := adaptTransactionStatus(txStatus)
+		status, err := adaptFeederTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
 				h.log.Errorw("Failed to adapt transaction status", "err", err)
@@ -530,220 +454,4 @@ func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*T
 		Finality:  res.Finality,
 		Execution: res.Execution,
 	}, nil
-}
-
-func AdaptTransaction(t core.Transaction) *Transaction {
-	var txn *Transaction
-	switch v := t.(type) {
-	case *core.DeployTransaction:
-		// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1521
-		txn = &Transaction{
-			Type:                TxnDeploy,
-			Hash:                v.Hash(),
-			ClassHash:           v.ClassHash,
-			Version:             v.Version.AsFelt(),
-			ContractAddressSalt: v.ContractAddressSalt,
-			ConstructorCallData: &v.ConstructorCallData,
-		}
-	case *core.InvokeTransaction:
-		txn = adaptInvokeTransaction(v)
-	case *core.DeclareTransaction:
-		txn = adaptDeclareTransaction(v)
-	case *core.DeployAccountTransaction:
-		txn = adaptDeployAccountTransaction(v)
-	case *core.L1HandlerTransaction:
-		nonce := v.Nonce
-		if nonce == nil {
-			nonce = &felt.Zero
-		}
-		txn = &Transaction{
-			Type:               TxnL1Handler,
-			Hash:               v.Hash(),
-			Version:            v.Version.AsFelt(),
-			Nonce:              nonce,
-			ContractAddress:    v.ContractAddress,
-			EntryPointSelector: v.EntryPointSelector,
-			CallData:           &v.CallData,
-		}
-	default:
-		panic("not a transaction")
-	}
-
-	if txn.Version.IsZero() && txn.Type != TxnL1Handler {
-		txn.Nonce = nil
-	}
-	return txn
-}
-
-// todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction,
-	finalityStatus TxnFinalityStatus, blockHash *felt.Felt, blockNumber uint64,
-) *TransactionReceipt {
-	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
-	for idx, msg := range receipt.L2ToL1Message {
-		messages[idx] = &MsgToL1{
-			To:      msg.To,
-			Payload: msg.Payload,
-			From:    msg.From,
-		}
-	}
-
-	events := make([]*Event, len(receipt.Events))
-	for idx, event := range receipt.Events {
-		events[idx] = &Event{
-			From: event.From,
-			Keys: event.Keys,
-			Data: event.Data,
-		}
-	}
-
-	var messageHash string
-	var contractAddress *felt.Felt
-	switch v := txn.(type) {
-	case *core.DeployTransaction:
-		contractAddress = v.ContractAddress
-	case *core.DeployAccountTransaction:
-		contractAddress = v.ContractAddress
-	case *core.L1HandlerTransaction:
-		messageHash = "0x" + hex.EncodeToString(v.MessageHash())
-	}
-
-	var receiptBlockNumber *uint64
-	// case for pending blocks: they don't have blockHash and therefore no block number
-	if blockHash != nil {
-		receiptBlockNumber = &blockNumber
-	}
-
-	var es TxnExecutionStatus
-	if receipt.Reverted {
-		es = TxnFailure
-	} else {
-		es = TxnSuccess
-	}
-
-	return &TransactionReceipt{
-		FinalityStatus:  finalityStatus,
-		ExecutionStatus: es,
-		Type:            AdaptTransaction(txn).Type,
-		Hash:            txn.Hash(),
-		ActualFee: &FeePayment{
-			Amount: receipt.Fee,
-			Unit:   feeUnit(txn),
-		},
-		BlockHash:          blockHash,
-		BlockNumber:        receiptBlockNumber,
-		MessagesSent:       messages,
-		Events:             events,
-		ContractAddress:    contractAddress,
-		RevertReason:       receipt.RevertReason,
-		ExecutionResources: adaptExecutionResources(receipt.ExecutionResources),
-		MessageHash:        messageHash,
-	}
-}
-
-func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
-	var status TransactionStatus
-
-	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
-	case starknet.AcceptedOnL1:
-		status.Finality = TxnStatusAcceptedOnL1
-	case starknet.AcceptedOnL2:
-		status.Finality = TxnStatusAcceptedOnL2
-	case starknet.Received:
-		status.Finality = TxnStatusReceived
-	case starknet.NotReceived:
-		return nil, errTransactionNotFound
-	default:
-		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
-	}
-
-	switch txStatus.ExecutionStatus {
-	case starknet.Succeeded:
-		status.Execution = TxnSuccess
-	case starknet.Reverted:
-		status.Execution = TxnFailure
-		status.FailureReason = txStatus.RevertError
-	case starknet.Rejected:
-		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
-	default: // Omit the field on error. It's optional in the spec.
-	}
-
-	return &status, nil
-}
-
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
-func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
-	tx := &Transaction{
-		Type:               TxnInvoke,
-		Hash:               t.Hash(),
-		MaxFee:             t.MaxFee,
-		Version:            t.Version.AsFelt(),
-		Signature:          utils.HeapPtr(t.Signature()),
-		Nonce:              t.Nonce,
-		CallData:           &t.CallData,
-		ContractAddress:    t.ContractAddress,
-		SenderAddress:      t.SenderAddress,
-		EntryPointSelector: t.EntryPointSelector,
-	}
-
-	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-		tx.PaymasterData = &t.PaymasterData
-		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
-	}
-	return tx
-}
-
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1340
-func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
-	tx := &Transaction{
-		Hash:              t.Hash(),
-		Type:              TxnDeclare,
-		MaxFee:            t.MaxFee,
-		Version:           t.Version.AsFelt(),
-		Signature:         utils.HeapPtr(t.Signature()),
-		Nonce:             t.Nonce,
-		ClassHash:         t.ClassHash,
-		SenderAddress:     t.SenderAddress,
-		CompiledClassHash: t.CompiledClassHash,
-	}
-
-	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-		tx.PaymasterData = &t.PaymasterData
-		tx.AccountDeploymentData = &t.AccountDeploymentData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
-	}
-
-	return tx
-}
-
-func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transaction {
-	tx := &Transaction{
-		Hash:                t.Hash(),
-		MaxFee:              t.MaxFee,
-		Version:             t.Version.AsFelt(),
-		Signature:           utils.HeapPtr(t.Signature()),
-		Nonce:               t.Nonce,
-		Type:                TxnDeployAccount,
-		ContractAddressSalt: t.ContractAddressSalt,
-		ConstructorCallData: &t.ConstructorCallData,
-		ClassHash:           t.ClassHash,
-	}
-
-	if tx.Version.Uint64() == 3 {
-		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-		tx.PaymasterData = &t.PaymasterData
-		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
-		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
-	}
-
-	return tx
 }
