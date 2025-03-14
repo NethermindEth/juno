@@ -84,7 +84,7 @@ var _ Reader = (*Blockchain)(nil)
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
 	network        *utils.Network
-	database       db.KeyValueStore // TODO(weiihann): deal with this
+	database       db.KeyValueStore
 	listener       EventListener
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
@@ -362,7 +362,6 @@ type StateCloser = func() error
 var noopStateCloser = func() error { return nil }
 
 // HeadState returns a StateReader that provides a stable view to the latest state
-// TODO(weiihann): handle the interface later....
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
