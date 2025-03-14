@@ -654,6 +654,8 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(block0, su))
 	})
 
+	//TODO(MaksymMalicki): for path db only, update when condition for
+	// triedb scheme added
 	t.Run("db should be empty after block0 revert", func(t *testing.T) {
 		txn, commit := setupState(t, stateUpdates, 1)
 		defer commit()

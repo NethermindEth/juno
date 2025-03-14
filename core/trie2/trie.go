@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -55,7 +56,8 @@ type TrieID interface {
 
 // Creates a new trie
 func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
-	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
+	// TODO: handle both pathdb and hashdb, default hashdb config for now
+	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}, HashConfig: hashdb.DefaultConfig})
 	tr := &Trie{
 		owner:      id.Owner(),
 		height:     height,
@@ -65,6 +67,26 @@ func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Tr
 	}
 
 	root, err := tr.resolveNode(nil, Path{})
+	if err == nil {
+		tr.root = root
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	return tr, nil
+}
+
+func NewWithRootHash(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction, rootHash felt.Felt) (*Trie, error) {
+	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}, HashConfig: hashdb.DefaultConfig})
+	tr := &Trie{
+		owner:      id.Owner(),
+		height:     height,
+		hashFn:     hashFn,
+		db:         database,
+		nodeTracer: newTracer(),
+	}
+
+	root, err := tr.resolveRootFromHash(rootHash, Path{})
 	if err == nil {
 		tr.root = root
 	} else if !errors.Is(err, db.ErrKeyNotFound) {
@@ -171,7 +193,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 		}
 		err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
-			return t.db.Delete(t.owner, key, node.IsLeaf())
+			return t.db.Delete(t.owner, key, node.Hash(), node.IsLeaf())
 		})
 		return felt.Zero, err
 	}
@@ -192,9 +214,9 @@ func (t *Trie) Commit() (felt.Felt, error) {
 
 	err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
 		if dn, ok := node.(*trienode.DeletedNode); ok {
-			return t.db.Delete(t.owner, key, dn.IsLeaf())
+			return t.db.Delete(t.owner, key, node.Hash(), dn.IsLeaf())
 		}
-		return t.db.Put(t.owner, key, node.Blob(), node.IsLeaf())
+		return t.db.Put(t.owner, key, node.Hash(), node.Blob(), node.IsLeaf())
 	})
 	if err != nil {
 		return felt.Felt{}, err
@@ -503,7 +525,13 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		bufferPool.Put(buf)
 	}()
 
-	_, err := t.db.Get(buf, t.owner, path, path.Len() == t.height)
+	var hashNodeHash *felt.Felt
+	if hn != nil {
+		hashNodeHash = hn.Hash(t.hashFn)
+	} else {
+		hashNodeHash = new(felt.Felt).SetUint64(0)
+	}
+	_, err := t.db.Get(buf, t.owner, path, *hashNodeHash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
@@ -515,6 +543,25 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		hash = &hn.Felt
 	}
 	return decodeNode(blob, hash, path.Len(), t.height)
+}
+
+// Resolves the node from given root hash
+func (t *Trie) resolveRootFromHash(hash felt.Felt, path Path) (Node, error) {
+	buf := bufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer func() {
+		buf.Reset()
+		bufferPool.Put(buf)
+	}()
+
+	_, err := t.db.Get(buf, t.owner, path, hash, path.Len() == t.height)
+	if err != nil {
+		return nil, err
+	}
+
+	blob := buf.Bytes()
+
+	return decodeNode(blob, &hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node
