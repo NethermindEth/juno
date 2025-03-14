@@ -39,20 +39,20 @@ func (d *Database) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
-func (d *Database) Get(key []byte) ([]byte, error) {
+func (d *Database) Get(key []byte, cb func(value []byte) error) error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
 
 	if d.db == nil {
-		return nil, errDBClosed
+		return errDBClosed
 	}
 
-	value, ok := d.db[string(key)]
+	val, ok := d.db[string(key)]
 	if !ok {
-		return nil, db.ErrKeyNotFound
+		return db.ErrKeyNotFound
 	}
 
-	return utils.CopySlice(value), nil
+	return cb(val)
 }
 
 func (d *Database) Put(key, value []byte) error {
