@@ -1,7 +1,6 @@
 package rpcv8
 
 // Helpers contains the supporting functions used in more than one handler from a different groups, e.g. block, trace, etc.
-// I break this rule when function name strongly suggest the group, e.g. `AdaptTransaction` which is also used by block handlers.
 
 import (
 	"errors"
@@ -89,20 +88,6 @@ func (h *Handler) blockHeaderByID(id BlockIdentifier) (*core.Header, *jsonrpc.Er
 		return nil, rpccore.ErrInternal.CloneWithData("nil header with no error")
 	}
 	return header, nil
-}
-
-func adaptExecutionResources(resources *core.ExecutionResources) *ExecutionResources {
-	if resources == nil {
-		return &ExecutionResources{}
-	}
-
-	res := &ExecutionResources{}
-	if tgc := resources.TotalGasConsumed; tgc != nil {
-		res.L1Gas = tgc.L1Gas
-		res.L2Gas = tgc.L2Gas
-		res.L1DataGas = tgc.L1DataGas
-	}
-	return res
 }
 
 func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {

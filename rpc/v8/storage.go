@@ -195,7 +195,7 @@ func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 		}
 	}
 
-	return adaptProofNodes(classProof), nil
+	return adaptTrieProofNodes(classProof), nil
 }
 
 func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
@@ -232,7 +232,7 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 	}
 
 	return &ContractProof{
-		Nodes:      adaptProofNodes(contractProof),
+		Nodes:      adaptTrieProofNodes(contractProof),
 		LeavesData: contractLeavesData,
 	}, nil
 }
@@ -252,40 +252,10 @@ func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) 
 			}
 		}
 
-		contractStorageRes[i] = adaptProofNodes(contractStorageProof)
+		contractStorageRes[i] = adaptTrieProofNodes(contractStorageProof)
 	}
 
 	return contractStorageRes, nil
-}
-
-func adaptProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
-	nodes := make([]*HashToNode, proof.Size())
-	nodeList := proof.List()
-	for i, hash := range proof.Keys() {
-		var node Node
-
-		switch n := nodeList[i].(type) {
-		case *trie.Binary:
-			node = &BinaryNode{
-				Left:  n.LeftHash,
-				Right: n.RightHash,
-			}
-		case *trie.Edge:
-			path := n.Path.Felt()
-			node = &EdgeNode{
-				Path:   path.String(),
-				Length: int(n.Path.Len()),
-				Child:  n.Child,
-			}
-		}
-
-		nodes[i] = &HashToNode{
-			Hash: &hash,
-			Node: node,
-		}
-	}
-
-	return nodes
 }
 
 type StorageKeys struct {
