@@ -122,7 +122,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		database, err = pebble.NewWithOptions2(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
 
 	if err != nil {
@@ -255,7 +255,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		makePebbleMetrics(database)
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
-		database.WithListener2(makeDBMetrics())
+		database.WithListener(makeDBMetrics())
 		rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV08, pathV07, pathV06)
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)

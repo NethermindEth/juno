@@ -12,7 +12,7 @@ import (
 
 func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNumIndexKey, error) {
 	var bnIndex db.BlockNumIndexKey
-	data, err := r.Get2(db.TxBlockNumIndexByHashKey(hash))
+	data, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
 	if err != nil {
 		return db.BlockNumIndexKey{}, err
 	}
@@ -39,7 +39,7 @@ func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 
 func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (core.Transaction, error) {
 	var tx core.Transaction
-	data, err := r.Get2(db.TxByBlockNumIndexKey(blockNum, index))
+	data, err := r.Get(db.TxByBlockNumIndexKey(blockNum, index))
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (core.Tra
 func GetTxByBlockNumIndexBytes(r db.KeyValueReader, val []byte) (core.Transaction, error) {
 	var tx core.Transaction
 
-	data, err := r.Get2(db.TxByBlockNumIndexKeyBytes(val))
+	data, err := r.Get(db.TxByBlockNumIndexKeyBytes(val))
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func WriteTxAndReceipt(w db.KeyValueWriter, num, index uint64, tx core.Transacti
 }
 
 func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (core.Transaction, error) {
-	data, err := r.Get2(db.TxBlockNumIndexByHashKey(hash))
+	data, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (core.Transaction, error)
 
 func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*core.TransactionReceipt, error) {
 	var receipt *core.TransactionReceipt
-	data, err := r.Get2(db.ReceiptByBlockNumIndexKeyBytes(bnIndex))
+	data, err := r.Get(db.ReceiptByBlockNumIndexKeyBytes(bnIndex))
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func DeleteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error 
 }
 
 func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*core.TransactionReceipt, error) {
-	bnIndex, err := r.Get2(db.TxBlockNumIndexByHashKey(hash))
+	bnIndex, err := r.Get(db.TxBlockNumIndexByHashKey(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func DeleteTxsAndReceipts(txn db.IndexedBatch, blockNum, numTxs uint64) error {
 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.StateUpdate, error) {
 	var stateUpdate *core.StateUpdate
-	data, err := r.Get2(db.StateUpdateByBlockNumKey(blockNum))
+	data, err := r.Get(db.StateUpdateByBlockNumKey(blockNum))
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func DeleteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64) error {
 }
 
 func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*core.StateUpdate, error) {
-	blockNum, err := r.Get2(db.BlockHeaderNumbersByHashKey(hash))
+	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*core.StateUpda
 
 func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*core.BlockCommitments, error) {
 	var commitment *core.BlockCommitments
-	data, err := r.Get2(db.BlockCommitmentsKey(blockNum))
+	data, err := r.Get(db.BlockCommitmentsKey(blockNum))
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func DeleteBlockCommitment(w db.KeyValueWriter, blockNum uint64) error {
 
 func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Felt, error) {
 	var l1HandlerTxnHash felt.Felt
-	data, err := r.Get2(db.L1HandlerTxnHashByMsgHashKey(msgHash))
+	data, err := r.Get(db.L1HandlerTxnHashByMsgHashKey(msgHash))
 	if err != nil {
 		return felt.Zero, err
 	}
@@ -249,7 +249,7 @@ func WriteL1HandlerMsgHashes(w db.KeyValueWriter, txns []core.Transaction) error
 }
 
 func GetChainHeight(r db.KeyValueReader) (uint64, error) {
-	data, err := r.Get2(db.ChainHeight.Key())
+	data, err := r.Get(db.ChainHeight.Key())
 	if err != nil {
 		return 0, err
 	}
@@ -266,7 +266,7 @@ func DeleteChainHeight(w db.KeyValueWriter) error {
 
 func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*core.Header, error) {
 	var header *core.Header
-	data, err := r.Get2(db.BlockHeaderByNumberKey(blockNum))
+	data, err := r.Get(db.BlockHeaderByNumberKey(blockNum))
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func GetBlockHeaderByNumber(r db.KeyValueReader, blockNum uint64) (*core.Header,
 }
 
 func GetBlockHeaderByHash(r db.KeyValueReader, hash *felt.Felt) (*core.Header, error) {
-	blockNum, err := r.Get2(db.BlockHeaderNumbersByHashKey(hash))
+	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func WriteBlockHeaderNumberByHash(r db.KeyValueWriter, hash *felt.Felt, num uint
 }
 
 func GetBlockHeaderNumberByHash(r db.KeyValueReader, hash *felt.Felt) (uint64, error) {
-	blockNum, err := r.Get2(db.BlockHeaderNumbersByHashKey(hash))
+	blockNum, err := r.Get(db.BlockHeaderNumbersByHashKey(hash))
 	if err != nil {
 		return 0, err
 	}

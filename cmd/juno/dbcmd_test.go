@@ -50,7 +50,7 @@ func TestDBCmd(t *testing.T) {
 		// unfortunately we cannot use blockchain from prepareDB because
 		// inside revert cmd another pebble instance is used which will panic if there are other instances
 		// that use the same db path
-		db, err := pebble.New2(dbPath)
+		db, err := pebble.New(dbPath)
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			require.NoError(t, db.Close())
@@ -77,7 +77,7 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	gw := adaptfeeder.New(client)
 
 	dbPath := t.TempDir()
-	testDB, err := pebble.New2(dbPath)
+	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
 	chain := blockchain.New(testDB, network)

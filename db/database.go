@@ -7,7 +7,7 @@ type KeyValueReader interface {
 	// Checks if a key exists in the data store
 	Has(key []byte) (bool, error)
 	// Retrieves a value for a given key if it exists
-	Get2(key []byte) ([]byte, error) // TODO(weiihann): deal with this
+	Get(key []byte) ([]byte, error)
 }
 
 // Represents a data store that can write to the database
@@ -26,9 +26,9 @@ type KeyValueRangeDeleter interface {
 
 // Helper interface
 type Helper interface {
-	Update2(func(IndexedBatch) error) error
+	Update(func(IndexedBatch) error) error
 	// This will create a read-only snapshot and apply the callback to it
-	View2(func(Snapshot) error) error
+	View(func(Snapshot) error) error
 	// Returns the underlying database
 	Impl() any
 }
