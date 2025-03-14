@@ -11,7 +11,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var _ db.DB = (*DB)(nil)
+var (
+	_ db.DB            = (*DB)(nil)
+	_ db.KeyValueStore = (*DB)(nil)
+)
 
 type DB struct {
 	ctx        context.Context
@@ -21,7 +24,6 @@ type DB struct {
 	listener   db.EventListener
 }
 
-// TODO(weiihann): handle this remotedb with new interfaces
 func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
@@ -80,4 +82,111 @@ func (d *DB) Close() error {
 
 func (d *DB) Impl() any {
 	return d.kvClient
+}
+
+func (d *DB) Delete(key []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) DeleteRange(start []byte, end []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) Get2(key []byte) ([]byte, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, err
+	}
+
+	var val []byte
+	err = txn.Get(key, func(v []byte) error {
+		val = v
+		return nil
+	})
+	return val, err
+}
+
+func (d *DB) Has(key []byte) (bool, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return false, err
+	}
+
+	err = txn.Get(key, func(v []byte) error {
+		return nil
+	})
+	return err == nil, err
+}
+
+func (d *DB) Put(key, val []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) NewBatch() db.Batch {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(false, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) NewBatchWithSize(size int) db.Batch {
+	return d.NewBatch()
+}
+
+func (d *DB) NewIndexedBatch() db.IndexedBatch {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(true, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
+	return d.NewIndexedBatch()
+}
+
+func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, err
+	}
+
+	return txn.NewIterator(start, withUpperBound)
+}
+
+func (d *DB) NewSnapshot() db.Snapshot {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(false, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) Update2(fn func(txn db.IndexedBatch) error) error {
+	return errNotSupported
+}
+
+func (d *DB) View2(fn func(txn db.Snapshot) error) error {
+	return errNotSupported
+}
+
+func (d *DB) WithListener2(listener db.EventListener) db.KeyValueStore {
+	d.listener = listener
+	return d
 }

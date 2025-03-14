@@ -9,7 +9,16 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var _ db.Transaction = (*transaction)(nil)
+var (
+	errNotSupported = errors.New("not supported")
+	errReadOnly     = errors.New("read only DB")
+)
+
+var (
+	_ db.Transaction  = (*transaction)(nil)
+	_ db.Batch        = (*transaction)(nil)
+	_ db.IndexedBatch = (*transaction)(nil)
+)
 
 type transaction struct {
 	client gen.KV_TxClient
@@ -72,6 +81,30 @@ func (t *transaction) Get(key []byte, cb func([]byte) error) error {
 	return cb(pair.V)
 }
 
+func (t *transaction) Get2(key []byte) ([]byte, error) {
+	var val []byte
+	err := t.Get(key, func(v []byte) error {
+		val = v
+		return nil
+	})
+	return val, err
+}
+
+func (t *transaction) Has(key []byte) (bool, error) {
+	err := t.Get(key, func(v []byte) error {
+		return nil
+	})
+	return err == nil, err
+}
+
 func (t *transaction) Impl() any {
 	return t.client
 }
+
+func (t *transaction) Put(key, val []byte) error {
+	return errors.New("read only DB")
+}
+
+func (t *transaction) Size() int    { return 0 }
+func (t *transaction) Reset()       {}
+func (t *transaction) Write() error { return nil }
