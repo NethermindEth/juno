@@ -41,14 +41,6 @@ func (i *iterator) First() bool {
 	return i.iter.First()
 }
 
-func (i *iterator) Prev() bool {
-	if !i.positioned {
-		i.positioned = true
-		return i.iter.First()
-	}
-	return i.iter.Prev()
-}
-
 func (i *iterator) Next() bool {
 	if !i.positioned {
 		i.positioned = true
