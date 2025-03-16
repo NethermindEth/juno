@@ -169,10 +169,8 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	m := new(changeTrieNodeEncoding)
 	require.NoError(t, m.Before(nil))
-	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		_, err := m.Migrate(context.Background(), txn, &utils.Mainnet, nil)
-		return err
-	}))
+	_, err := m.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	require.NoError(t, err)
 
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		for _, bucket := range buckets {
@@ -481,12 +479,12 @@ func TestSchemaMetadata(t *testing.T) {
 }
 
 type testMigration struct {
-	exec   func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error)
+	exec   func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error)
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, txn db.IndexedBatch, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
-	return f.exec(ctx, txn, network)
+func (f testMigration) Migrate(ctx context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+	return f.exec(ctx, database, network)
 }
 
 func (f testMigration) Before(state []byte) error { return f.before(state) }
@@ -496,7 +494,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -512,7 +510,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		var counter int
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
 					if counter == 0 {
 						counter++
 						return nil, ErrCallWithNewTransaction
@@ -531,7 +529,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
 					return nil, errors.New("foo")
 				},
 				before: func([]byte) error {
@@ -546,7 +544,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 		testDB := memory.New()
 		migrations := []Migration{
 			testMigration{
-				exec: func(context.Context, db.IndexedBatch, *utils.Network) ([]byte, error) {
+				exec: func(context.Context, db.KeyValueStore, *utils.Network) ([]byte, error) {
 					return nil, nil
 				},
 				before: func([]byte) error {
@@ -562,23 +560,19 @@ func TestMigrateIfNeeded(t *testing.T) {
 
 func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 	testdb := memory.New()
-	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
-		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
-		require.NoError(t, err)
-		require.Nil(t, intermediateState)
+	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
+	require.NoError(t, migrator.Before(nil))
+	intermediateState, err := migrator.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	require.NoError(t, err)
+	require.Nil(t, intermediateState)
 
-		// DB is still empty.
-		iter, err := txn.NewIterator(nil, false)
-		defer func() {
-			require.NoError(t, iter.Close())
-		}()
-		require.NoError(t, err)
-		require.False(t, iter.Valid())
-
-		return nil
-	}))
+	// DB is still empty.
+	iter, err := testdb.NewIterator(nil, false)
+	defer func() {
+		require.NoError(t, iter.Close())
+	}()
+	require.NoError(t, err)
+	require.False(t, iter.Valid())
 }
 
 func TestChangeStateDiffStruct(t *testing.T) {
@@ -639,14 +633,11 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	}))
 
 	// Migrate.
-	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
-		migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
-		require.NoError(t, migrator.Before(nil))
-		intermediateState, err := migrator.Migrate(context.Background(), txn, &utils.Mainnet, nil)
-		require.NoError(t, err)
-		require.Nil(t, intermediateState)
-		return nil
-	}))
+	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
+	require.NoError(t, migrator.Before(nil))
+	intermediateState, err := migrator.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	require.NoError(t, err)
+	require.Nil(t, intermediateState)
 
 	// Assert:
 	// - Both state diffs have been updated.
