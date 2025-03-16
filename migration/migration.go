@@ -33,14 +33,18 @@ type schemaMetadata struct {
 type Migration interface {
 	Before(intermediateState []byte) error
 	// Migration should return intermediate state whenever it requests new txn or detects cancelled ctx.
-	Migrate(context.Context, db.IndexedBatch, *utils.Network, utils.SimpleLogger) ([]byte, error)
+	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.SimpleLogger) ([]byte, error)
 }
 
 type MigrationFunc func(db.IndexedBatch, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, txn db.IndexedBatch, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
-	return nil, f(txn, network)
+func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+	txn := database.NewIndexedBatch()
+	if err := f(txn, network); err != nil {
+		return nil, err
+	}
+	return nil, txn.Write()
 }
 
 // Before is a no-op.
@@ -120,23 +124,29 @@ func migrateIfNeeded(
 		}
 		for {
 			callWithNewTransaction := false
-			if dbErr := targetDB.Update(func(txn db.IndexedBatch) error {
-				metadata.IntermediateState, err = migration.Migrate(ctx, txn, network, log)
-				switch {
-				case err == nil || errors.Is(err, ctx.Err()):
-					if metadata.IntermediateState == nil {
-						metadata.Version++
-					}
-					return updateSchemaMetadata(txn, metadata)
-				case errors.Is(err, ErrCallWithNewTransaction):
-					callWithNewTransaction = true
-					return nil
-				default:
+			// Execute migration on the batch
+			metadata.IntermediateState, err = migration.Migrate(ctx, targetDB, network, log)
+			switch {
+			case err == nil || errors.Is(err, ctx.Err()):
+				if metadata.IntermediateState == nil {
+					metadata.Version++
+				}
+				// Update the schema metadata in the batch
+				txn := targetDB.NewBatch()
+				if err := updateSchemaMetadata(txn, metadata); err != nil {
 					return err
 				}
-			}); dbErr != nil {
-				return dbErr
-			} else if !callWithNewTransaction {
+				// Commit the batch if no errors
+				if err := txn.Write(); err != nil {
+					return err
+				}
+			case errors.Is(err, ErrCallWithNewTransaction):
+				callWithNewTransaction = true
+			default:
+				return err
+			}
+
+			if !callWithNewTransaction {
 				break
 			}
 		}
@@ -391,14 +401,16 @@ func (n *node) _UnmarshalBinary(data []byte) error {
 	return err
 }
 
-func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.IndexedBatch, _ *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (m *changeTrieNodeEncoding) Migrate(
+	_ context.Context, database db.KeyValueStore, _ *utils.Network, _ utils.SimpleLogger,
+) ([]byte, error) {
 	// If we made n a trie.Node, the encoder would fall back to the custom encoding methods.
-	// We instead define a cutom struct to force the encoder to use the default encoding.
+	// We instead define a custom struct to force the encoder to use the default encoding.
 	var n node
 	var buf bytes.Buffer
 	var updatedNodes uint64
 
-	migrateF := func(it db.Iterator, bucket db.Bucket, seekTo []byte, skipLen int) error {
+	migrateF := func(it db.Iterator, w db.KeyValueWriter, bucket db.Bucket, seekTo []byte, skipLen int) error {
 		bucketPrefix := bucket.Key()
 		for it.Seek(seekTo); it.Valid(); it.Next() {
 			key := it.Key()
@@ -436,7 +448,7 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.IndexedBatch,
 				return err
 			}
 
-			if err = txn.Put(key, buf.Bytes()); err != nil {
+			if err = w.Put(key, buf.Bytes()); err != nil {
 				return err
 			}
 			buf.Reset()
@@ -446,20 +458,26 @@ func (m *changeTrieNodeEncoding) Migrate(_ context.Context, txn db.IndexedBatch,
 		return nil
 	}
 
-	iterator, err := txn.NewIterator(nil, false)
+	iterator, err := database.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}
 
+	batch := database.NewBatch()
 	for bucket, info := range m.trieNodeBuckets {
-		if err := migrateF(iterator, bucket, info.seekTo, info.skipLen); err != nil {
+		if err := migrateF(iterator, batch, bucket, info.seekTo, info.skipLen); err != nil {
 			return nil, utils.RunAndWrapOnError(iterator.Close, err)
 		}
 	}
+
+	if err := batch.Write(); err != nil {
+		return nil, err
+	}
+
 	return nil, iterator.Close()
 }
 
-func processBlocks2(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) error) error {
+func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) error) error {
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
@@ -510,7 +528,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 		defer txnLock.Unlock()
 		return blockchain.WriteBlockCommitment(txn, block.Number, commitments)
 	}
-	return processBlocks2(txn, processBlockFunc)
+	return processBlocks(txn, processBlockFunc)
 }
 
 func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
@@ -525,7 +543,7 @@ func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 		defer txnLock.Unlock()
 		return blockchain.WriteL1HandlerMsgHashes(txn, txns)
 	}
-	return processBlocks2(txn, processBlockFunc)
+	return processBlocks(txn, processBlockFunc)
 }
 
 func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
