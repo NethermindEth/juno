@@ -84,8 +84,7 @@ func BenchmarkStateDiffHash(b *testing.B) {
 	su, err := gw.StateUpdate(b.Context(), 38748)
 	require.NoError(b, err)
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		su.StateDiff.Hash()
 	}
 }

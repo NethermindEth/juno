@@ -565,8 +565,7 @@ func BenchmarkHandle(b *testing.B) {
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	var header http.Header
 	var err error
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_, header, err = server.HandleReader(b.Context(), strings.NewReader(request))
 		require.NoError(b, err)
 		require.NotNil(b, header)
