@@ -94,8 +94,7 @@ func BenchmarkReceiptCommitment(b *testing.B) {
 	receipts := slices.Repeat(baseReceipts, 100)
 	var f *felt.Felt
 	var err error
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		f, err = receiptCommitment(receipts)
 		require.NoError(b, err)
 	}
