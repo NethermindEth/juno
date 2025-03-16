@@ -1,7 +1,6 @@
 package rpcv7_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -84,7 +83,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 	mockReader := mocks.NewMockReader(mockCtrl)
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		block, err = gateway.BlockByNumber(context.Background(), number)
+		block, err = gateway.BlockByNumber(t.Context(), number)
 
 		// Simulate L1 data availability to block receipts
 		for _, receipt := range block.Receipts {
@@ -106,7 +105,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 			handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 			handler = handler.WithFeeder(client)
-			traces, httpHeader, jErr := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Number: test.blockNumber})
+			traces, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Number: test.blockNumber})
 			if n == &utils.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpcv7.TracedBlockTransaction{traces[0], traces[7], traces[11]}
@@ -134,7 +133,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		blockNumber := uint64(40000)
 
 		mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-			return gateway.BlockByNumber(context.Background(), number)
+			return gateway.BlockByNumber(t.Context(), number)
 		}).Times(2)
 		mockReader.EXPECT().BlockByHash(gomock.Any()).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
 			return mockReader.BlockByNumber(blockNumber)
@@ -144,7 +143,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		// No feeder client is set
 		handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 
-		tracedBlocks, httpHeader, jErr := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Number: blockNumber})
+		tracedBlocks, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Number: blockNumber})
 
 		require.Nil(t, tracedBlocks)
 		require.Equal(t, rpccore.ErrInternal.Code, jErr.Code)
@@ -262,7 +261,7 @@ func TestTraceTransaction(t *testing.T) {
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
 
-			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
@@ -273,7 +272,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns some other error
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
 
-			trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
@@ -359,7 +358,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
@@ -457,7 +456,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 
@@ -491,7 +490,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
 		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return gateway.BlockByNumber(context.Background(), blockNumber)
+			return gateway.BlockByNumber(t.Context(), blockNumber)
 		}).Times(2)
 
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
@@ -598,7 +597,7 @@ func TestTraceTransaction(t *testing.T) {
 			},
 		}
 
-		trace, httpHeader, err := handler.TraceTransaction(context.Background(), *revertedTxHash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *revertedTxHash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
@@ -631,7 +630,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				handler = rpcv7.New(chain, mockSyncReader, nil, "", n, log)
 			}
 
-			update, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
+			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
 			assert.Nil(t, update)
 			assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -712,7 +711,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
@@ -811,7 +810,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(context.Background(), rpcv7.BlockID{Hash: blockHash})
+		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 
 		expectedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
 

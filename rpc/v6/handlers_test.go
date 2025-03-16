@@ -1,7 +1,6 @@
 package rpcv6_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
@@ -99,7 +98,7 @@ func TestThrottledVMError(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, rpcErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		_, rpcErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 }
