@@ -39,17 +39,10 @@ func TestBucketMover(t *testing.T) {
 		intermediateState []byte
 		err               error
 	)
-	err = testDB.Update(func(txn db.IndexedBatch) error {
-		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
-		require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
-		return nil
-	})
-	require.NoError(t, err)
-	err = testDB.Update(func(txn db.IndexedBatch) error {
-		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
-		require.NoError(t, err)
-		return nil
-	})
+	_, err = mover.Migrate(context.Background(), testDB, &utils.Mainnet, nil)
+	require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
+
+	intermediateState, err = mover.Migrate(context.Background(), testDB, &utils.Mainnet, nil)
 	require.NoError(t, err)
 
 	err = testDB.View(func(txn db.Snapshot) error {
