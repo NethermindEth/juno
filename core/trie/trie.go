@@ -254,6 +254,11 @@ func (t *Trie) nodesFromRoot(key *BitArray) ([]StorageNode, error) {
 	return nodes, nil
 }
 
+func (t *Trie) GetNodesFromRoot(key *felt.Felt) ([]StorageNode, error) {
+	keyBitArray := t.FeltToKey(key)
+	return t.nodesFromRoot(&keyBitArray)
+}
+
 // Get the corresponding `value` for a `key`
 func (t *Trie) Get(key *felt.Felt) (*felt.Felt, error) {
 	storageKey := t.FeltToKey(key)

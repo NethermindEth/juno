@@ -3,6 +3,7 @@ package rpcv8_test
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -680,6 +682,96 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		}
 
 		assert.Equal(t, expectedResult, *result)
+	})
+}
+
+func TestGetNodesFromRoot(t *testing.T) {
+	var (
+		key    = new(felt.Felt).SetUint64(1)
+		key2   = new(felt.Felt).SetUint64(2)
+		value  = new(felt.Felt).SetUint64(16)
+		value2 = new(felt.Felt).SetUint64(32)
+		node0  = new(felt.Felt).SetUint64(0)
+	)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	log := utils.NewNopZapLogger()
+	handler := rpc.New(mockReader, nil, nil, "", log)
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	t.Run("Test normal scenario", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+
+		tempTrie := emptyTrie(t)
+		tempTrie.Put(key, value)
+		tempTrie.Put(key2, value2)
+
+		key0 := tempTrie.RootKey()
+		value0, err := tempTrie.GetNodeFromKey(key0)
+		require.NoError(t, err)
+
+		nodes := []rpcv8.TrieNode{{Key: *node0, Value: *value0.Value}, {Key: *key, Value: *value}}
+
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+
+		result, rpcErr := handler.GetNodesFromRoot(key)
+
+		if rpcErr != nil {
+			t.Fatal("unexpected error:", rpcErr)
+		}
+
+		require.NotNil(t, result)
+		require.NotNil(t, result.Nodes)
+		require.Len(t, result.Nodes, 2)
+
+		require.Equal(t, result.Nodes, nodes)
+	})
+
+	t.Run("Empty trie", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+
+		tempTrie := emptyTrie(t)
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+		result, rpcErr := handler.GetNodesFromRoot(key)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, result)
+		require.Len(t, result.Nodes, 0)
+	})
+
+	t.Run("Error getting class trie", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+		mockState.EXPECT().ClassTrie().Return(nil, errors.New("error"))
+		result, rpcErr := handler.GetNodesFromRoot(key)
+		require.Nil(t, result)
+		require.NotNil(t, rpcErr)
+	})
+
+	t.Run("Big number of nodes", func(t *testing.T) {
+		mockReader.EXPECT().HeadState().Return(mockState, func() error {
+			return nil
+		}, nil)
+		const numNodes = 2048
+		tempTrie := emptyTrie(t)
+		for i := 0; i < numNodes; i++ {
+			tempTrie.Put(new(felt.Felt).SetUint64(uint64(i)), new(felt.Felt).SetUint64(uint64(i)))
+		}
+		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
+
+		result, rpcErr := handler.GetNodesFromRoot(key)
+		require.Nil(t, rpcErr)
+		require.NotNil(t, result)
+		// For a binary trie with N nodes, the path length is log2(N)
+		require.Len(t, result.Nodes, int(math.Log2(float64(numNodes))))
 	})
 }
 
