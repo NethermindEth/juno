@@ -11,7 +11,7 @@ on:
     branches: [wojciechos/clean-pipeline]
   push:
     branches: [wojciechos/clean-pipeline]
-
+#random
 permissions:
   contents: read
 
