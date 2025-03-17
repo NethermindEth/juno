@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -1158,7 +1159,13 @@ func TestCall(t *testing.T) {
 		}
 		expectedErr := rpccore.ErrContractError
 		expectedErr.Data = rpc.ContractErrorData{
-			RevertError: json.RawMessage(`"` + rpccore.ErrEntrypointNotFound.Message + `"`),
+			RevertError: json.RawMessage(`"` +
+				fmt.Sprintf(
+					"Entry point EntryPointSelector(%s) not found in contract.",
+					selector.String(),
+				) +
+				`"`,
+			),
 		}
 
 		headsHeader := &core.Header{
