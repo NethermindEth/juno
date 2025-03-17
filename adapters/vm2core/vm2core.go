@@ -42,13 +42,13 @@ func AdaptOrderedEvents(events []vm.OrderedEvent) []*core.Event {
 }
 
 func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
-	var result core.StateDiff
+	var toStateDiff core.StateDiff
 	if fromStateDiff == nil {
-		return result
+		return toStateDiff
 	}
 
 	// Preallocate all maps with known sizes from fromStateDiff
-	result = core.StateDiff{
+	toStateDiff = core.StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs)),
 		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
@@ -63,27 +63,27 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 			val := entry.Value
 			entries[entry.Key] = &val
 		}
-		result.StorageDiffs[sd.Address] = entries
+		toStateDiff.StorageDiffs[sd.Address] = entries
 	}
 
 	for _, nonce := range fromStateDiff.Nonces {
 		newNonce := nonce.Nonce
-		result.Nonces[nonce.ContractAddress] = &newNonce
+		toStateDiff.Nonces[nonce.ContractAddress] = &newNonce
 	}
 
 	for _, dc := range fromStateDiff.DeployedContracts {
 		ch := dc.ClassHash
-		result.DeployedContracts[dc.Address] = &ch
+		toStateDiff.DeployedContracts[dc.Address] = &ch
 	}
 
 	for _, dc := range fromStateDiff.DeclaredClasses {
 		cch := dc.CompiledClassHash
-		result.DeclaredV1Classes[dc.ClassHash] = &cch
+		toStateDiff.DeclaredV1Classes[dc.ClassHash] = &cch
 	}
 
 	for _, rc := range fromStateDiff.ReplacedClasses {
 		ch := rc.ClassHash
-		result.ReplacedClasses[rc.ContractAddress] = &ch
+		toStateDiff.ReplacedClasses[rc.ContractAddress] = &ch
 	}
-	return result
+	return toStateDiff
 }
