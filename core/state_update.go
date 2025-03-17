@@ -24,31 +24,6 @@ type StateDiff struct {
 	ReplacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
-func (d *StateDiff) MergeStateDiffs(incoming *StateDiff) {
-	mergeMaps := func(oldMap, newMap map[felt.Felt]*felt.Felt) {
-		for key, value := range newMap {
-			oldMap[key] = value
-		}
-	}
-
-	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
-		for addr, newAddrStorage := range newMap {
-			if oldAddrStorage, exists := oldMap[addr]; exists {
-				mergeMaps(oldAddrStorage, newAddrStorage)
-			} else {
-				oldMap[addr] = newAddrStorage
-			}
-		}
-	}
-
-	mergeStorageDiffs(d.StorageDiffs, incoming.StorageDiffs)
-	mergeMaps(d.Nonces, incoming.Nonces)
-	mergeMaps(d.DeployedContracts, incoming.DeployedContracts)
-	mergeMaps(d.DeclaredV1Classes, incoming.DeclaredV1Classes)
-	mergeMaps(d.ReplacedClasses, incoming.ReplacedClasses)
-	d.DeclaredV0Classes = append(d.DeclaredV0Classes, incoming.DeclaredV0Classes...)
-}
-
 func (d *StateDiff) Length() uint64 {
 	var length int
 

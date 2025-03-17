@@ -224,7 +224,7 @@ func deployContract(
 	}
 
 	coreSD := vm2core.AdaptStateDiff(&result.StateDiff)
-	genesisState.StateDiff().MergeStateDiffs(&coreSD)
+	genesisState.StateDiff().Merge(&coreSD)
 	return nil
 }
 
@@ -261,7 +261,7 @@ func executeFunctionCalls(
 		}
 
 		coreSD := vm2core.AdaptStateDiff(&result.StateDiff)
-		genesisState.StateDiff().MergeStateDiffs(&coreSD)
+		genesisState.StateDiff().Merge(&coreSD)
 	}
 
 	return nil
