@@ -1,4 +1,4 @@
-name: Pre-merge e2e checks
+name: Deploy and Test on Dev
 
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
@@ -8,6 +8,8 @@ on:
   merge_group:
     branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 permissions:
