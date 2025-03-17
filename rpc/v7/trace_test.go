@@ -1544,7 +1544,7 @@ func TestCall(t *testing.T) {
 		expectedErr.Data = rpcv7.ContractErrorData{
 			RevertError: json.RawMessage(`"` +
 				fmt.Sprintf(
-					"Entry point EntryPointSelector(%s) not found in contract.",
+					rpccore.ErrEPSNotFound,
 					selector.String(),
 				) +
 				`"`,

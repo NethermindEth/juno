@@ -306,7 +306,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		if len(res.Result) != 0 {
 			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
 				strErr = fmt.Sprintf(
-					"Entry point EntryPointSelector(%s) not found in contract.",
+					rpccore.ErrEPSNotFound,
 					funcCall.EntryPointSelector.String(),
 				)
 			} else {
