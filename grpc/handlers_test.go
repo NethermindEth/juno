@@ -14,9 +14,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-func makeGrpcStreamMock() *grpcStreamMock {
+func makeGrpcStreamMock(t *testing.T) *grpcStreamMock {
 	return &grpcStreamMock{
-		ctx:            context.Background(),
+		ctx:            t.Context(),
 		recvToServer:   make(chan *gen.Cursor, 10),
 		sentFromServer: make(chan *gen.Pair, 10),
 	}
@@ -70,13 +70,13 @@ func TestHandlers_Version(t *testing.T) {
 		Patch: 3,
 	}
 	h := Handler{version: "1.2.3-rc1"}
-	v, err := h.Version(context.Background(), &emptypb.Empty{})
+	v, err := h.Version(t.Context(), &emptypb.Empty{})
 	require.NoError(t, err)
 	assert.Equal(t, expectedVersion, v)
 }
 
 func createTxStream(t *testing.T, h Handler) *grpcStreamMock {
-	stream := makeGrpcStreamMock()
+	stream := makeGrpcStreamMock(t)
 	go func() {
 		err := h.Tx(stream)
 		if err != nil {

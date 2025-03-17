@@ -1,7 +1,6 @@
 package rpcv7_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"math/rand"
@@ -32,7 +31,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	latestBlockNumber := 19199
-	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -264,7 +263,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, h *felt.Felt, expected string) {
@@ -422,7 +421,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -490,7 +489,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -527,7 +526,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
@@ -686,7 +685,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -743,7 +742,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -860,7 +859,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -872,7 +871,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("tx found in db", func(t *testing.T) {
 				gw := adaptfeeder.New(client)
 
-				block, err := gw.BlockLatest(context.Background())
+				block, err := gw.BlockLatest(t.Context())
 				require.NoError(t, err)
 
 				tx := block.Transactions[0]

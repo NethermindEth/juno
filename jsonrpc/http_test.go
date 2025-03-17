@@ -27,7 +27,7 @@ func TestHTTP(t *testing.T) {
 	rpc := jsonrpc.NewServer(1, log).WithListener(&listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Server

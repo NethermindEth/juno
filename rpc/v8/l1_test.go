@@ -1,7 +1,6 @@
 package rpcv8_test
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
@@ -74,12 +73,12 @@ func TestGetMessageStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			client := feeder.NewTestClient(t, &test.network)
 			gw := adaptfeeder.New(client)
-			block, err := gw.BlockByNumber(context.Background(), uint64(test.blockNum))
+			block, err := gw.BlockByNumber(t.Context(), uint64(test.blockNum))
 			require.NoError(t, err)
 
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
-				txn, err := gw.Transaction(context.Background(), test.msgs[i].L1HandlerHash)
+				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)
 				require.NoError(t, err)
 				l1handlerTxns[i] = txn
 			}
@@ -92,7 +91,7 @@ func TestGetMessageStatus(t *testing.T) {
 				mockReader.EXPECT().Receipt(msg.L1HandlerHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 				mockReader.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: uint64(test.l1HeadBlockNum)}, nil)
 			}
-			msgStatuses, rpcErr := handler.GetMessageStatus(context.Background(), &test.l1TxnHash)
+			msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &test.l1TxnHash)
 			require.Nil(t, rpcErr)
 			require.Equal(t, test.msgs, msgStatuses)
 		})
@@ -100,7 +99,7 @@ func TestGetMessageStatus(t *testing.T) {
 
 	t.Run("l1 client not found", func(t *testing.T) {
 		handler := rpc.New(nil, nil, nil, "", nil).WithL1Client(nil)
-		msgStatuses, rpcErr := handler.GetMessageStatus(context.Background(), &common.Hash{})
+		msgStatuses, rpcErr := handler.GetMessageStatus(t.Context(), &common.Hash{})
 		require.Nil(t, msgStatuses)
 		require.NotNil(t, rpcErr)
 	})

@@ -461,7 +461,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("empty db", func(t *testing.T) {
 		testDB := pebble.NewMemTest(t).(*pebble.DB)
 
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB, []byte("0"), true)
+		s, err := pebble.CalculatePrefixSize(t.Context(), testDB, []byte("0"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
@@ -472,7 +472,7 @@ func TestCalculatePrefixSize(t *testing.T) {
 		require.NoError(t, testDB.Update(func(txn db.Transaction) error {
 			return txn.Set(append([]byte("0"), []byte("randomKey")...), []byte("someValue"))
 		}))
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), []byte("1"), true)
+		s, err := pebble.CalculatePrefixSize(t.Context(), testDB.(*pebble.DB), []byte("1"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)
 		assert.Zero(t, s.Size)
@@ -492,13 +492,13 @@ func TestCalculatePrefixSize(t *testing.T) {
 			return txn.Set(k3, v3)
 		}))
 
-		s, err := pebble.CalculatePrefixSize(context.Background(), testDB.(*pebble.DB), p, true)
+		s, err := pebble.CalculatePrefixSize(t.Context(), testDB.(*pebble.DB), p, true)
 		require.NoError(t, err)
 		assert.Equal(t, uint(3), s.Count)
 		assert.Equal(t, utils.DataSize(expectedSize), s.Size)
 
 		t.Run("exit when context is cancelled", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 
 			s, err := pebble.CalculatePrefixSize(ctx, testDB.(*pebble.DB), p, true)

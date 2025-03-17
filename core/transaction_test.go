@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -154,23 +153,23 @@ func TestVerifyTransactionHash(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	txnHash0 := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
-	txn0, err := gw.Transaction(context.Background(), txnHash0)
+	txn0, err := gw.Transaction(t.Context(), txnHash0)
 	require.NoError(t, err)
 
 	txnHash1 := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
-	txn1, err := gw.Transaction(context.Background(), txnHash1)
+	txn1, err := gw.Transaction(t.Context(), txnHash1)
 	require.NoError(t, err)
 
 	txnHash2 := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
-	txn2, err := gw.Transaction(context.Background(), txnHash2)
+	txn2, err := gw.Transaction(t.Context(), txnHash2)
 	require.NoError(t, err)
 
 	txnHash3 := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
-	txn3, err := gw.Transaction(context.Background(), txnHash3)
+	txn3, err := gw.Transaction(t.Context(), txnHash3)
 	require.NoError(t, err)
 
 	txnHash4 := utils.HexToFelt(t, "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497")
-	txn4, err := gw.Transaction(context.Background(), txnHash4)
+	txn4, err := gw.Transaction(t.Context(), txnHash4)
 	require.NoError(t, err)
 
 	t.Run("contains bad transaction", func(t *testing.T) {
@@ -221,7 +220,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 func TestTransactionV3Hash(t *testing.T) {
 	network := utils.Sepolia
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := map[string]struct {
 		tx   func(hash *felt.Felt) core.Transaction
@@ -331,7 +330,7 @@ func TestMessageHash(t *testing.T) {
 func TestDeclareV0TransactionHash(t *testing.T) {
 	network := utils.Goerli
 	gw := adaptfeeder.New(feeder.NewTestClient(t, &network))
-	ctx := context.Background()
+	ctx := t.Context()
 
 	b, err := gw.BlockByNumber(ctx, 231579)
 	require.NoError(t, err)

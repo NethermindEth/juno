@@ -370,7 +370,7 @@ func TestClient(t *testing.T) {
 
 				client.l1 = subscriber
 
-				ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+				ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 				require.NoError(t, client.Run(ctx))
 				cancel()
 
@@ -444,7 +444,7 @@ func TestUnreliableSubscription(t *testing.T) {
 		// Replace the subscriber.
 		client.l1 = subscriber
 
-		ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+		ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 		require.NoError(t, client.Run(ctx))
 		cancel()
 

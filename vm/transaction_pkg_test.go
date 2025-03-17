@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -321,7 +320,7 @@ func TestTransactionMarshal(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			txn, err := gw.Transaction(context.Background(), test.Hash)
+			txn, err := gw.Transaction(t.Context(), test.Hash)
 			require.NoError(t, err)
 
 			jsonB, err := marshalTxn(txn)

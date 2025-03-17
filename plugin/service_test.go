@@ -20,7 +20,7 @@ func TestService(t *testing.T) {
 		p.EXPECT().Shutdown().Return(nil)
 		service := plugin.NewService(p)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		// after ^ this ctx already cancelled
 
@@ -37,7 +37,7 @@ func TestService(t *testing.T) {
 		p.EXPECT().Shutdown().Return(shutdownErr)
 		service := plugin.NewService(p)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		// after ^ this ctx already cancelled
 

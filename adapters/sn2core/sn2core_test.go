@@ -1,7 +1,6 @@
 package sn2core_test
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -95,7 +94,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, test := range tests {
 		t.Run(test.network.String()+" block number "+strconv.FormatUint(test.number, 10), func(t *testing.T) {
@@ -161,7 +160,7 @@ func TestStateUpdate(t *testing.T) {
 	numbers := []uint64{0, 1, 2, 21656}
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		t.Run("number "+strconv.FormatUint(number, 10), func(t *testing.T) {
@@ -252,7 +251,7 @@ func TestClassV0(t *testing.T) {
 	}
 
 	client := feeder.NewTestClient(t, &utils.Sepolia)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
@@ -290,7 +289,7 @@ func TestClassV0(t *testing.T) {
 func TestTransaction(t *testing.T) {
 	clientGoerli := feeder.NewTestClient(t, &utils.Goerli)
 	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
@@ -401,7 +400,7 @@ func TestTransaction(t *testing.T) {
 
 func TestTransactionV3(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	tests := map[string]core.Transaction{
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
@@ -558,9 +557,9 @@ func TestClassV1(t *testing.T) {
 			client := feeder.NewTestClient(t, test.network)
 			classHash := utils.HexToFelt(t, test.classHash)
 
-			feederClass, err := client.ClassDefinition(context.Background(), classHash)
+			feederClass, err := client.ClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
-			compiled, err := client.CompiledClassDefinition(context.Background(), classHash)
+			compiled, err := client.CompiledClassDefinition(t.Context(), classHash)
 			require.NoError(t, err)
 
 			v1Class, err := sn2core.AdaptCairo1Class(feederClass.V1, compiled)

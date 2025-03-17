@@ -32,7 +32,7 @@ func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, li
 }
 
 func TestHandler(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	method := jsonrpc.Method{
@@ -46,11 +46,11 @@ func TestHandler(t *testing.T) {
 	conn := testConnection(t, ctx, method, &listener)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "test_echo", "params" : [ "abc123" ], "id" : 1}`
-	err := conn.Write(context.Background(), websocket.MessageText, []byte(msg))
+	err := conn.Write(t.Context(), websocket.MessageText, []byte(msg))
 	require.NoError(t, err)
 
 	want := `{"jsonrpc":"2.0","result":"abc123","id":1}`
-	_, got, err := conn.Read(context.Background())
+	_, got, err := conn.Read(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, want, string(got))
 	assert.Len(t, listener.OnNewRequestLogs, 1)
@@ -59,7 +59,7 @@ func TestHandler(t *testing.T) {
 }
 
 func TestSendFromHandler(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	wg := conc.NewWaitGroup()
@@ -80,7 +80,7 @@ func TestSendFromHandler(t *testing.T) {
 	conn := testConnection(t, ctx, method, &CountingEventListener{})
 
 	req := `{"jsonrpc" : "2.0", "method" : "test", "params":[], "id" : 1}`
-	err := conn.Write(context.Background(), websocket.MessageText, []byte(req))
+	err := conn.Write(t.Context(), websocket.MessageText, []byte(req))
 	require.NoError(t, err)
 
 	want := `{"jsonrpc":"2.0","result":0,"id":1}`
@@ -104,19 +104,19 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	defer httpSrv.Close()
 
 	// First connection should succeed
-	conn1, resp1, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	conn1, resp1, err := websocket.Dial(t.Context(), httpSrv.URL, nil) //nolint:bodyclose
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp1.StatusCode)
 	defer conn1.Close(websocket.StatusNormalClosure, "")
 
 	// Second connection should succeed
-	conn2, resp2, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	conn2, resp2, err := websocket.Dial(t.Context(), httpSrv.URL, nil) //nolint:bodyclose
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp2.StatusCode)
 	defer conn2.Close(websocket.StatusNormalClosure, "")
 
 	// Third connection should fail with 503 Service Unavailable
-	_, resp3, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	_, resp3, err := websocket.Dial(t.Context(), httpSrv.URL, nil) //nolint:bodyclose
 	require.Error(t, err)
 	require.Equal(t, http.StatusServiceUnavailable, resp3.StatusCode)
 
@@ -124,7 +124,7 @@ func TestWebsocketConnectionLimit(t *testing.T) {
 	require.NoError(t, conn1.Close(websocket.StatusNormalClosure, ""))
 	time.Sleep(10 * time.Millisecond) // Give the server time to clean up
 
-	conn4, resp4, err := websocket.Dial(context.Background(), httpSrv.URL, nil) //nolint:bodyclose
+	conn4, resp4, err := websocket.Dial(t.Context(), httpSrv.URL, nil) //nolint:bodyclose
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp4.StatusCode)
 	require.NoError(t, conn4.Close(websocket.StatusNormalClosure, ""))

@@ -2,7 +2,6 @@ package migration_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"testing"
 
@@ -40,13 +39,13 @@ func TestBucketMover(t *testing.T) {
 		err               error
 	)
 	err = testDB.Update(func(txn db.Transaction) error {
-		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
+		intermediateState, err = mover.Migrate(t.Context(), txn, &utils.Mainnet, nil)
 		require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
 		return nil
 	})
 	require.NoError(t, err)
 	err = testDB.Update(func(txn db.Transaction) error {
-		intermediateState, err = mover.Migrate(context.Background(), txn, &utils.Mainnet, nil)
+		intermediateState, err = mover.Migrate(t.Context(), txn, &utils.Mainnet, nil)
 		require.NoError(t, err)
 		return nil
 	})

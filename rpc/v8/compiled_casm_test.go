@@ -1,7 +1,6 @@
 package rpcv8_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -51,7 +50,7 @@ func TestCompiledCasm(t *testing.T) {
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)
 
-		class, err := fd.Class(context.Background(), classHash)
+		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
 		cairo0, ok := class.(*core.Cairo0Class)

@@ -1,7 +1,6 @@
 package rpcv6_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -31,7 +30,7 @@ func TestClass(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(context.Background(), classHash)
+		class, err := integGw.Class(t.Context(), classHash)
 		return &core.DeclaredClass{Class: class, At: 0}, err
 	}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
@@ -45,7 +44,7 @@ func TestClass(t *testing.T) {
 	t.Run("sierra class", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 
-		coreClass, err := integGw.Class(context.Background(), hash)
+		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.Class(latest, *hash)
@@ -57,7 +56,7 @@ func TestClass(t *testing.T) {
 	t.Run("casm class", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 
-		coreClass, err := integGw.Class(context.Background(), hash)
+		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.Class(latest, *hash)
@@ -114,7 +113,7 @@ func TestClassAt(t *testing.T) {
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(context.Background(), classHash)
+		class, err := integGw.Class(t.Context(), classHash)
 		return &core.DeclaredClass{Class: class, At: 0}, err
 	}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, func() error {
@@ -126,7 +125,7 @@ func TestClassAt(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		coreClass, err := integGw.Class(context.Background(), cairo1ClassHash)
+		coreClass, err := integGw.Class(t.Context(), cairo1ClassHash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.ClassAt(latest, *cairo1ContractAddress)
@@ -136,7 +135,7 @@ func TestClassAt(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		coreClass, err := integGw.Class(context.Background(), cairo0ClassHash)
+		coreClass, err := integGw.Class(t.Context(), cairo0ClassHash)
 		require.NoError(t, err)
 
 		class, rpcErr := handler.ClassAt(latest, *cairo0ContractAddress)

@@ -13,7 +13,7 @@ import (
 func TestMigrateIfNeeded(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	t.Run("Migration should not happen on cancelled ctx", func(t *testing.T) {
 		require.ErrorIs(t, migration.MigrateIfNeeded(ctx, testDB, &utils.Mainnet, utils.NewNopZapLogger()), ctx.Err())
@@ -25,7 +25,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 	require.Nil(t, meta.IntermediateState)
 
 	t.Run("Migration should happen on empty DB", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger()))
+		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger()))
 	})
 
 	meta, err = migration.SchemaMetadata(testDB)
@@ -34,7 +34,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 	require.Nil(t, meta.IntermediateState)
 
 	t.Run("subsequent calls to MigrateIfNeeded should not change the DB version", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger()))
+		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger()))
 		postVersion, postErr := migration.SchemaMetadata(testDB)
 		require.NoError(t, postErr)
 		require.Equal(t, meta, postVersion)

@@ -126,7 +126,7 @@ func TestUpgrader(t *testing.T) {
 			log := &upgradeLogger{}
 			ug := upgrader.NewUpgrader(&test.current, srv.URL, "example.com/releases", time.Millisecond, log)
 
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			t.Cleanup(cancel)
 
 			require.NoError(t, ug.Run(ctx))

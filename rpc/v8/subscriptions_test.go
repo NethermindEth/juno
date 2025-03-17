@@ -66,7 +66,7 @@ func TestSubscribeEvents(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		assert.Zero(t, id)
@@ -90,7 +90,7 @@ func TestSubscribeEvents(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		// Note the end of the window doesn't need to be tested because if requested block number is more than the
 		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
@@ -118,10 +118,10 @@ func TestSubscribeEvents(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(context.Background(), 56377)
+	b1, err := gw.BlockByNumber(t.Context(), 56377)
 	require.NoError(t, err)
 
-	b2, err := gw.BlockByNumber(context.Background(), 56378)
+	b2, err := gw.BlockByNumber(t.Context(), 56378)
 	require.NoError(t, err)
 
 	pending1 := createTestPendingBlock(t, b2, 3)
@@ -323,7 +323,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
 
-		block, err := gw.BlockByNumber(context.Background(), 38748)
+		block, err := gw.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
 		txHash, err := new(felt.Felt).SetString("0x1001")
@@ -409,7 +409,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
@@ -434,7 +434,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		t.Cleanup(cancel)
 
 		mockChain := mocks.NewMockReader(mockCtrl)
@@ -471,10 +471,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	testDB := pebble.NewMemTest(t)
@@ -484,7 +484,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	chain = blockchain.New(testDB, &utils.Mainnet)
 	syncer := newFakeSyncer()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	handler, server := setupRPC(t, ctx, chain, syncer)
@@ -518,7 +518,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
@@ -584,7 +584,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 }
 
 func TestSubscriptionReorg(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockCtrl := gomock.NewController(t)
@@ -657,7 +657,7 @@ func TestSubscriptionReorg(t *testing.T) {
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockCtrl := gomock.NewController(t)
@@ -812,7 +812,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
 		assert.Zero(t, id)
@@ -831,7 +831,7 @@ func TestUnsubscribe(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		success, rpcErr := handler.Unsubscribe(context.Background(), 1)
+		success, rpcErr := handler.Unsubscribe(t.Context(), 1)
 		assert.False(t, success)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.MethodNotFound, nil), rpcErr)
 	})
@@ -849,7 +849,7 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 		success, rpcErr := handler.Unsubscribe(ctx, 999)
 		assert.False(t, success)
 		assert.Equal(t, rpccore.ErrInvalidSubscriptionID, rpcErr)
@@ -869,7 +869,7 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn1.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
 		_, subscriptionCtxCancel := context.WithCancel(subCtx)
 		sub := &subscription{
 			cancel: subscriptionCtxCancel,
@@ -883,7 +883,7 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn2.Close())
 		})
 
-		unsubCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
+		unsubCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
 		success, rpcErr := handler.Unsubscribe(unsubCtx, 1)
 		assert.False(t, success)
 		assert.NotNil(t, rpcErr)
@@ -903,7 +903,7 @@ func TestUnsubscribe(t *testing.T) {
 		})
 
 		conn := &fakeConn{w: serverConn}
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, conn)
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
 		_, subscriptionCtxCancel := context.WithCancel(subCtx)
 		sub := &subscription{
 			cancel: subscriptionCtxCancel,
@@ -950,7 +950,7 @@ func testHeadBlock(t *testing.T) *core.Block {
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(context.Background(), 56377)
+	b1, err := gw.BlockByNumber(t.Context(), 56377)
 	require.NoError(t, err)
 
 	return b1
@@ -1101,7 +1101,7 @@ func createTestWebsocket(t *testing.T, subscribe func(context.Context) (Subscrip
 
 	serverConn, clientConn := net.Pipe()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 	id, rpcErr := subscribe(subCtx)
 	require.Nil(t, rpcErr)

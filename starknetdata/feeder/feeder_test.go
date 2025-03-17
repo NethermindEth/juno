@@ -1,7 +1,6 @@
 package feeder_test
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -21,7 +20,7 @@ func TestBlockByNumber(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -42,7 +41,7 @@ func TestBlockByNumber(t *testing.T) {
 func TestBlockLatest(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	response, err := client.Block(ctx, "latest")
 	require.NoError(t, err)
@@ -60,7 +59,7 @@ func TestStateUpdate(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -87,7 +86,7 @@ func TestClassV0(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
@@ -111,7 +110,7 @@ func TestTransaction(t *testing.T) {
 	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
@@ -217,12 +216,12 @@ func TestClassV1(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		class, err := adapter.Class(context.Background(), test.classHash)
+		class, err := adapter.Class(t.Context(), test.classHash)
 		require.NoError(t, err)
 
-		feederClass, err := client.ClassDefinition(context.Background(), test.classHash)
+		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
-		compiled, err := client.CompiledClassDefinition(context.Background(), test.classHash)
+		compiled, err := client.CompiledClassDefinition(t.Context(), test.classHash)
 		if test.hasCompiledClass {
 			require.NoError(t, err)
 		} else {
@@ -246,7 +245,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -270,7 +269,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 func TestStateUpdatePendingWithBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)

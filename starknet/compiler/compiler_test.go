@@ -1,7 +1,6 @@
 package compiler_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,9 +25,9 @@ func TestCompile(t *testing.T) {
 		cl := feeder.NewTestClient(t, &utils.Integration)
 		classHash := utils.HexToFelt(t, "0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b")
 
-		classDef, err := cl.ClassDefinition(context.Background(), classHash)
+		classDef, err := cl.ClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
-		compiledDef, err := cl.CompiledClassDefinition(context.Background(), classHash)
+		compiledDef, err := cl.CompiledClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)
 
 		expectedCompiled, err := sn2core.AdaptCompiledClass(compiledDef)

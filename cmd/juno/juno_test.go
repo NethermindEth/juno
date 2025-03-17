@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"context"
 	"math"
 	"math/big"
 	"os"
@@ -683,7 +682,7 @@ network: sepolia
 			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
 			cmd.SetArgs(tc.inputArgs)
 
-			err := cmd.ExecuteContext(context.Background())
+			err := cmd.ExecuteContext(t.Context())
 			if tc.expectErr {
 				require.Error(t, err)
 				return

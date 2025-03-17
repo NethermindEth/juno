@@ -1,7 +1,6 @@
 package rpcv6_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -31,9 +30,9 @@ func TestEvents(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range 7 {
-		b, err := gw.BlockByNumber(context.Background(), uint64(i))
+		b, err := gw.BlockByNumber(t.Context(), uint64(i))
 		require.NoError(t, err)
-		s, err := gw.StateUpdate(context.Background(), uint64(i))
+		s, err := gw.StateUpdate(t.Context(), uint64(i))
 		require.NoError(t, err)
 
 		if b.Number < 6 {
