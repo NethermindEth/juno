@@ -1542,7 +1542,13 @@ func TestCall(t *testing.T) {
 		}
 		expectedErr := rpccore.ErrContractError
 		expectedErr.Data = rpcv7.ContractErrorData{
-			RevertError: json.RawMessage(`"` + rpccore.ErrEntrypointNotFound.Message + `"`),
+			RevertError: json.RawMessage(`"` +
+				fmt.Sprintf(
+					rpccore.ErrEPSNotFound,
+					selector.String(),
+				) +
+				`"`,
+			),
 		}
 
 		headsHeader := &core.Header{
