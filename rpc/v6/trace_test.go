@@ -1135,7 +1135,7 @@ func TestCall(t *testing.T) {
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false, false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1185,7 +1185,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1226,7 +1226,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1266,7 +1266,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
