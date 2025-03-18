@@ -102,7 +102,7 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         uint64(0),
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv7.SimulationFlag{rpcv7.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
 		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
 			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 		)), err)
