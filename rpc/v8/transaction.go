@@ -683,7 +683,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InsufficientResourcesForValidate:
 		return rpccore.ErrInsufficientResourcesForValidate
 	case gateway.InsufficientAccountBalance:
-		return rpccore.ErrInsufficientAccountBalance
+		return rpccore.ErrInsufficientAccountBalanceV0_8
 	case gateway.ValidateFailure:
 		return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
