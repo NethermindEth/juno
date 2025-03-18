@@ -35,7 +35,7 @@ const (
 var Zero = Felt{}
 
 var bigIntPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(big.Int)
 	},
 }

@@ -169,12 +169,12 @@ func newTestL1Client(service service) *rpc.Server {
 }
 
 type service interface {
-	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error)
+	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error)
 }
 
 type testService struct{}
 
-func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	blockHeight := big.NewInt(100)
 	return types.Header{
 		ParentHash:  common.Hash{},
@@ -194,13 +194,13 @@ func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx b
 
 type testEmptyService struct{}
 
-func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	return nil, nil
 }
 
 type testFaultyService struct{}
 
-func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	return uint(0), nil
 }
 
