@@ -1,7 +1,6 @@
 package blockchain_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -31,10 +30,10 @@ func TestNew(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("non-empty blockchain gets head from db", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(context.Background(), 0)
+		block0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 
 		testDB := pebble.NewMemTest(t)
@@ -57,10 +56,10 @@ func TestHeight(t *testing.T) {
 		assert.Error(t, err)
 	})
 	t.Run("return height of the blockchain's head", func(t *testing.T) {
-		block0, err := gw.BlockByNumber(context.Background(), 0)
+		block0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 
 		testDB := pebble.NewMemTest(t)
@@ -80,9 +79,9 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
 
-		block, err := gw.BlockByNumber(context.Background(), 0)
+		block, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
-		update, err := gw.StateUpdate(context.Background(), 0)
+		update, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, update, nil))
@@ -126,10 +125,10 @@ func TestVerifyBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 
 	gw := adaptfeeder.New(client)
-	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
+	mainnetBlock0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	mainnetStateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	t.Run("error if version is invalid", func(t *testing.T) {
@@ -194,16 +193,16 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	gw := adaptfeeder.New(client)
 
-	mainnetBlock0, err := gw.BlockByNumber(context.Background(), 0)
+	mainnetBlock0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	mainnetStateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	mainnetStateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	require.NoError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
 
 	t.Run("error when block hash does not match state update's block hash", func(t *testing.T) {
-		mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := gw.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
 		stateUpdate := &core.StateUpdate{BlockHash: h1}
@@ -213,7 +212,7 @@ func TestSanityCheckNewHeight(t *testing.T) {
 
 	t.Run("error when block global state root does not match state update's new root",
 		func(t *testing.T) {
-			mainnetBlock1, err := gw.BlockByNumber(context.Background(), 1)
+			mainnetBlock1, err := gw.BlockByNumber(t.Context(), 1)
 			require.NoError(t, err)
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
@@ -226,10 +225,10 @@ func TestStore(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	t.Run("add block to empty blockchain", func(t *testing.T) {
@@ -254,10 +253,10 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("add block to non-empty blockchain", func(t *testing.T) {
-		block1, err := gw.BlockByNumber(context.Background(), 1)
+		block1, err := gw.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
-		stateUpdate1, err := gw.StateUpdate(context.Background(), 1)
+		stateUpdate1, err := gw.StateUpdate(t.Context(), 1)
 		require.NoError(t, err)
 
 		chain := blockchain.New(pebble.NewMemTest(t), &utils.Mainnet)
@@ -288,9 +287,9 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
 	var stateUpdate *core.StateUpdate
 	for i := range uint64(7) {
-		block, err := gw.BlockByNumber(context.Background(), i)
+		block, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		stateUpdate, err = gw.StateUpdate(context.Background(), i)
+		stateUpdate, err = gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
@@ -305,10 +304,10 @@ func TestBlockCommitments(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	b, err := gw.BlockByNumber(context.Background(), 0)
+	b, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	su, err := gw.StateUpdate(context.Background(), 0)
+	su, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	expectedCommitments := &core.BlockCommitments{
@@ -332,10 +331,10 @@ func TestTransactionAndReceipt(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(context.Background(), i)
+		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
 
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{
@@ -365,7 +364,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(context.Background(), i)
+				block, err := gw.BlockByNumber(t.Context(), i)
 				require.NoError(t, err)
 
 				for j, expectedTx := range block.Transactions {
@@ -384,7 +383,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
 		for i := range uint64(3) {
 			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(context.Background(), i)
+				block, err := gw.BlockByNumber(t.Context(), i)
 				require.NoError(t, err)
 
 				for _, expectedR := range block.Receipts {
@@ -426,9 +425,9 @@ func TestState(t *testing.T) {
 
 	var existingBlockHash *felt.Felt
 	for i := range uint64(2) {
-		block, err := gw.BlockByNumber(context.Background(), i)
+		block, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, su, nil))
@@ -489,9 +488,9 @@ func TestEvents(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range 7 {
-		b, err := gw.BlockByNumber(context.Background(), uint64(i))
+		b, err := gw.BlockByNumber(t.Context(), uint64(i))
 		require.NoError(t, err)
-		s, err := gw.StateUpdate(context.Background(), uint64(i))
+		s, err := gw.StateUpdate(t.Context(), uint64(i))
 		require.NoError(t, err)
 
 		if b.Number < 6 {
@@ -605,10 +604,10 @@ func TestRevert(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(context.Background(), i)
+		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
 
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(b, &emptyCommitments, su, nil))
