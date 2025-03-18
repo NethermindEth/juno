@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -174,13 +175,8 @@ func TestContractClassHash(t *testing.T) {
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
-	for addr, classHash := range su0.StateDiff.DeployedContracts {
-		allDeployedContracts[addr] = classHash
-	}
-
-	for addr, classHash := range su1.StateDiff.DeployedContracts {
-		allDeployedContracts[addr] = classHash
-	}
+	maps.Copy(allDeployedContracts, su0.StateDiff.DeployedContracts)
+	maps.Copy(allDeployedContracts, su1.StateDiff.DeployedContracts)
 
 	for addr, expectedClassHash := range allDeployedContracts {
 		gotClassHash, err := state.ContractClassHash(&addr)
