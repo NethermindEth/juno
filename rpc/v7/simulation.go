@@ -3,6 +3,7 @@ package rpcv7
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
