@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
@@ -1199,20 +1200,42 @@ func TestAddTransaction(t *testing.T) {
 		})
 	}
 
-	t.Run("gateway returns InsufficientResourcesForValidate error", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+	t.Run("gateway returns expected errors", func(t *testing.T) {
+		errorTests := []struct {
+			name          string
+			gatewayError  *gateway.Error
+			expectedError *jsonrpc.Error
+		}{
+			{
+				name:          "InsufficientResourcesForValidate error",
+				gatewayError:  &gateway.Error{Code: gateway.InsufficientResourcesForValidate},
+				expectedError: rpccore.ErrInsufficientResourcesForValidate,
+			},
+			{
+				name:          "InsufficientAccountBalance error",
+				gatewayError:  &gateway.Error{Code: gateway.InsufficientAccountBalance},
+				expectedError: rpccore.ErrInsufficientAccountBalanceV0_8,
+			},
+		}
 
-		mockGateway := mocks.NewMockGateway(mockCtrl)
-		mockGateway.
-			EXPECT().
-			AddTransaction(gomock.Any(), gomock.Any()).
-			Return(nil, &gateway.Error{Code: gateway.InsufficientResourcesForValidate})
+		for _, tc := range errorTests {
+			t.Run(tc.name, func(t *testing.T) {
+				mockCtrl := gomock.NewController(t)
+				t.Cleanup(mockCtrl.Finish)
 
-		handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger()).WithGateway(mockGateway)
-		addTxRes, rpcErr := handler.AddTransaction(t.Context(), tests["invoke v0"].txn)
-		require.Nil(t, addTxRes)
-		require.Equal(t, rpccore.ErrInsufficientResourcesForValidate, rpcErr)
+				mockGateway := mocks.NewMockGateway(mockCtrl)
+				mockGateway.
+					EXPECT().
+					AddTransaction(gomock.Any(), gomock.Any()).
+					Return(nil, tc.gatewayError)
+
+				handler := rpc.New(nil, nil, nil, "", utils.NewNopZapLogger()).WithGateway(mockGateway)
+				addTxRes, rpcErr := handler.AddTransaction(t.Context(), tests["invoke v0"].txn)
+
+				require.Nil(t, addTxRes)
+				require.Equal(t, tc.expectedError, rpcErr)
+			})
+		}
 	})
 }
 
