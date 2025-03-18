@@ -17,6 +17,7 @@ var ErrTxnPoolFull = errors.New("transaction pool is full")
 type BroadcastedTransaction struct {
 	Transaction   core.Transaction
 	DeclaredClass core.Class
+	PaidFeeOnL1   *felt.Felt
 }
 
 // runtime mempool txn
