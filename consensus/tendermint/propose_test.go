@@ -51,7 +51,7 @@ func TestPropose(t *testing.T) {
 		proposalListener.send(val2Proposal)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
@@ -106,7 +106,7 @@ func TestPropose(t *testing.T) {
 		prevoteListener.send(val3Prevote)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val2]))
@@ -160,7 +160,7 @@ func TestPropose(t *testing.T) {
 		prevoteListener.send(val2Precommit)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 1, len(algo.messages.precommits[expectedHeight][rPrime][*val2]))
@@ -221,7 +221,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -291,7 +291,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(nodePrecommit)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		// The reason there are 2 timeouts is because the first timeout is the proposeTimeout which is immediately
@@ -356,7 +356,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		// The first timeout here is the nodes proposeTimeout from round 0, and since the precommit timout expired
@@ -436,7 +436,7 @@ func TestPropose(t *testing.T) {
 		proposalListener.send(val2Proposal)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
@@ -521,7 +521,7 @@ func TestPropose(t *testing.T) {
 		precommitListner.send(val4Precommit)
 
 		algo.Start()
-		time.Sleep(time.Millisecond)
+		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
