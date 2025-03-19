@@ -6,16 +6,16 @@ import (
 )
 
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
-	if p.Height < t.state.height {
+	if p.H < t.state.h {
 		return
 	}
 
-	if p.Height > t.state.height {
-		if p.Height-t.state.height > maxFutureHeight {
+	if p.H > t.state.h {
+		if p.H-t.state.h > maxFutureHeight {
 			return
 		}
 
-		if p.Round > maxFutureRound {
+		if p.R > maxFutureRound {
 			return
 		}
 
@@ -25,8 +25,8 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 		return
 	}
 
-	if p.Round > t.state.round {
-		if p.Round-t.state.round > maxFutureRound {
+	if p.R > t.state.r {
+		if p.R-t.state.r > maxFutureRound {
 			return
 		}
 
@@ -35,17 +35,17 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 		t.futureMessages.addPrevote(p)
 
-		t.line55(p.Round)
+		t.line55(p.R)
 		return
 	}
 
 	t.messages.addPrevote(p)
 
-	proposalsForHR, prevotesForHR, _ := t.messages.allMessages(p.Height, p.Round)
+	proposalsForHR, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
 
 	t.line28WhenPrevoteIsReceived(p, prevotesForHR)
 
-	if p.Round == t.state.round {
+	if p.R == t.state.r {
 		t.line34(p, prevotesForHR)
 		t.line44(p, prevotesForHR)
 
@@ -73,15 +73,15 @@ therefore, it is checked in a subsequent if statement.
 */
 func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) {
 	// vr >= 0 doesn't need to be checked since vr is a uint
-	if vr := p.Round; p.ID != nil && t.state.step == propose && vr < t.state.round {
-		cr := t.state.round
+	if vr := p.R; p.ID != nil && t.state.s == propose && vr < t.state.r {
+		cr := t.state.r
 
-		proposalsForHCR, _, _ := t.messages.allMessages(p.Height, cr)
+		proposalsForHCR, _, _ := t.messages.allMessages(p.H, cr)
 
 		var proposal *Proposal[V, H, A]
 		var vals []A
 
-		for _, v := range proposalsForHCR[t.validators.Proposer(p.Height, p.Round)] {
+		for _, v := range proposalsForHCR[t.validators.Proposer(p.H, p.R)] {
 			if (*v.Value).Hash() == *p.ID && v.ValidRound == int(vr) {
 				proposal = &v
 			}
@@ -95,11 +95,11 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 			}
 		}
 
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
+		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{
 				Vote: Vote[H, A]{
-					Height: t.state.height,
-					Round:  t.state.round,
+					H:      t.state.h,
+					R:      t.state.r,
 					ID:     nil,
 					Sender: t.nodeAddr,
 				},
@@ -111,7 +111,7 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 
 			t.messages.addPrevote(vote)
 			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.step = prevote
+			t.state.s = prevote
 		}
 	}
 }
@@ -124,9 +124,9 @@ Check the upon condition on line 34:
 */
 func (t *Tendermint[V, H, A]) line34(p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) {
 	vals := slices.Collect(maps.Keys(prevotesForHR))
-	if !t.state.timeoutPrevoteScheduled && t.state.step == prevote &&
-		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
-		t.scheduleTimeout(t.timeoutPrevote(p.Round), prevote, p.Height, p.Round)
+	if !t.state.timeoutPrevoteScheduled && t.state.s == prevote &&
+		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+		t.scheduleTimeout(t.timeoutPrevote(p.R), prevote, p.H, p.R)
 		t.state.timeoutPrevoteScheduled = true
 	}
 }
@@ -150,11 +150,11 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 		}
 	}
 
-	if t.state.step == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
+	if t.state.s == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 		vote := Precommit[H, A]{
 			Vote: Vote[H, A]{
-				Height: t.state.height,
-				Round:  t.state.round,
+				H:      t.state.h,
+				R:      t.state.r,
 				ID:     nil,
 				Sender: t.nodeAddr,
 			},
@@ -162,7 +162,7 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 
 		t.messages.addPrecommit(vote)
 		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.step = precommit
+		t.state.s = precommit
 	}
 }
 
@@ -189,11 +189,11 @@ therefore, it is checked in a subsequent if statement.
 func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], proposalsForHR map[A][]Proposal[V, H, A],
 	prevotesForHR map[A][]Prevote[H, A],
 ) {
-	if !t.state.lockedValueAndOrValidValueSet && t.state.step >= prevote {
+	if !t.state.lockedValueAndOrValidValueSet && t.state.s >= prevote {
 		var proposal *Proposal[V, H, A]
 		var vals []A
 
-		for _, v := range proposalsForHR[t.validators.Proposer(p.Height, p.Round)] {
+		for _, v := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
 			if (*v.Value).Hash() == *p.ID {
 				vCopy := v
 				proposal = &vCopy
@@ -208,17 +208,17 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 			}
 		}
 
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
-			cr := t.state.round
+		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+			cr := t.state.r
 
-			if t.state.step == prevote {
+			if t.state.s == prevote {
 				t.state.lockedValue = proposal.Value
 				t.state.lockedRound = int(cr)
 
 				vote := Precommit[H, A]{
 					Vote: Vote[H, A]{
-						Height: t.state.height,
-						Round:  t.state.round,
+						H:      t.state.h,
+						R:      t.state.r,
 						ID:     p.ID,
 						Sender: t.nodeAddr,
 					},
@@ -226,7 +226,7 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 
 				t.messages.addPrecommit(vote)
 				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.step = precommit
+				t.state.s = precommit
 			}
 
 			t.state.validValue = proposal.Value

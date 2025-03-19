@@ -141,8 +141,8 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := uint(0), uint(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
-			Height:     0,
-			Round:      0,
+			H:          0,
+			R:          0,
 			ValidRound: -1,
 			Value:      utils.HeapPtr(app.cur + 1),
 			Sender:     *nodeAddr,
@@ -160,9 +160,9 @@ func TestStartRound(t *testing.T) {
 		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr]))
 		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr][0])
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, expectedRound, algo.state.round)
+		assert.Equal(t, propose, algo.state.s)
+		assert.Equal(t, expectedHeight, algo.state.h)
+		assert.Equal(t, expectedRound, algo.state.r)
 	})
 
 	t.Run("node is not the proposer: schedule timeoutPropose", func(t *testing.T) {
@@ -186,9 +186,9 @@ func TestStartRound(t *testing.T) {
 		assert.Equal(t, uint(0), scheduledTm.h)
 		assert.Equal(t, uint(0), scheduledTm.r)
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, uint(0), algo.state.height)
-		assert.Equal(t, uint(0), algo.state.round)
+		assert.Equal(t, propose, algo.state.s)
+		assert.Equal(t, uint(0), algo.state.h)
+		assert.Equal(t, uint(0), algo.state.r)
 	})
 
 	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
@@ -213,8 +213,8 @@ func TestStartRound(t *testing.T) {
 		expectedHeight, expectedRound := uint(0), uint(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
 			Vote: Vote[felt.Felt, felt.Felt]{
-				Height: 0,
-				Round:  0,
+				H:      0,
+				R:      0,
 				ID:     nil,
 				Sender: *nodeAddr,
 			},
@@ -233,9 +233,9 @@ func TestStartRound(t *testing.T) {
 		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr]))
 		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr][0])
 
-		assert.Equal(t, prevote, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, expectedRound, algo.state.round)
+		assert.Equal(t, prevote, algo.state.s)
+		assert.Equal(t, expectedHeight, algo.state.h)
+		assert.Equal(t, expectedRound, algo.state.r)
 	})
 }
 
