@@ -30,13 +30,6 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 
 		t.futureMessages.addProposal(p)
 
-		/*
-			Check upon condition line 55:
-
-				55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
-				56: 	StartRound(round)
-		*/
-
 		t.line55(p.R)
 		return
 	}
