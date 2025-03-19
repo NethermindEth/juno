@@ -291,7 +291,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpcv8.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 
-		checkLatestBlock(t, block)
+		checkLatestBlock(t, &block)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
@@ -301,7 +301,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpcv8.BlockID{Hash: latestBlockHash})
 		require.Nil(t, rpcErr)
 
-		checkLatestBlock(t, block)
+		checkLatestBlock(t, &block)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
@@ -311,7 +311,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpcv8.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		checkLatestBlock(t, block)
+		checkLatestBlock(t, &block)
 	})
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
@@ -326,7 +326,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
-		checkBlock(t, block)
+		checkBlock(t, &block)
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
@@ -339,7 +339,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 
 		block, rpcErr := handler.BlockWithTxHashesAndReceipts(rpcv8.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
-		checkLatestBlock(t, block)
+		checkLatestBlock(t, &block)
 	})
 
 	mainnetGw := adaptfeeder.New(client)

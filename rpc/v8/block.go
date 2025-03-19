@@ -98,6 +98,15 @@ type BlockWithTxHashesAndReceipts struct {
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
+func EmptyBlockWithTxHashesAndReceipts() BlockWithTxHashesAndReceipts {
+	return BlockWithTxHashesAndReceipts{
+		Status:       rpcv6.BlockPending,
+		BlockHeader:  BlockHeader{},
+		TxnHashes:    []*felt.Felt{},
+		Transactions: []TransactionWithReceipt{},
+	}
+}
+
 /****************************************************
 		Block Handlers
 *****************************************************/
@@ -165,15 +174,15 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	}, nil
 }
 
-func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (*BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (BlockWithTxHashesAndReceipts, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
-		return nil, rpcErr
+		return EmptyBlockWithTxHashesAndReceipts(), rpcErr
 	}
 
 	blockStatus, rpcErr := h.blockStatus(id, block)
 	if rpcErr != nil {
-		return nil, rpcErr
+		return EmptyBlockWithTxHashesAndReceipts(), rpcErr
 	}
 
 	finalityStatus := TxnAcceptedOnL2
@@ -198,7 +207,7 @@ func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (*BlockWithTxHashesAn
 		txnHashes[index] = txn.Hash()
 	}
 
-	return &BlockWithTxHashesAndReceipts{
+	return BlockWithTxHashesAndReceipts{
 		Status:       blockStatus,
 		BlockHeader:  adaptBlockHeader(block.Header),
 		TxnHashes:    txnHashes,
