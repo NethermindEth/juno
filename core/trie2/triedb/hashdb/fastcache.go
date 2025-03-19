@@ -50,7 +50,7 @@ func (c *FastCache) Set(key, value []byte) {
 	c.cache.Set(key, value)
 }
 
-func (c *FastCache) Delete(key []byte) {
+func (c *FastCache) Remove(key []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

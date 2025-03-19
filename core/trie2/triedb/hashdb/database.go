@@ -3,7 +3,9 @@ package hashdb
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -23,9 +25,19 @@ type Database struct {
 	prefix db.Bucket
 	config *Config
 
-	CleanCache Cache
-	DirtyCache Cache
+	CleanCache CleanCache
+	DirtyCache DirtyCache
+
+	dirtyCacheSize int
 }
+
+const (
+	maxCacheSize         = 100 * 1024 * 1024 // 100 MB
+	idealBatchSize       = 100 * 1024
+	flushInterval        = 5 * time.Minute
+	storageKeySize       = 75
+	contractClassKeySize = 44
+)
 
 func New(txn db.Transaction, prefix db.Bucket, config *Config) *Database {
 	if config == nil {
@@ -35,8 +47,8 @@ func New(txn db.Transaction, prefix db.Bucket, config *Config) *Database {
 		txn:        txn,
 		prefix:     prefix,
 		config:     config,
-		CleanCache: NewCache(config.CleanCacheType, config.CleanCacheSize),
-		DirtyCache: NewCache(config.DirtyCacheType, config.DirtyCacheSize),
+		CleanCache: NewCleanCache(config.CleanCacheType, config.CleanCacheSize),
+		DirtyCache: NewDirtyCache(config.DirtyCacheType, config.DirtyCacheSize),
 	}
 }
 
@@ -88,8 +100,8 @@ func (d *Database) Put(owner felt.Felt, path trieutils.Path, hash felt.Felt, blo
 	}
 
 	d.DirtyCache.Set(buffer.Bytes(), blob)
-
-	return d.txn.Set(buffer.Bytes(), blob)
+	d.dirtyCacheSize += len(blob) + d.hashLen()
+	return nil
 }
 
 func (d *Database) Delete(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) error {
@@ -104,10 +116,13 @@ func (d *Database) Delete(owner felt.Felt, path trieutils.Path, hash felt.Felt, 
 		return err
 	}
 
-	d.CleanCache.Delete(buffer.Bytes())
-	d.DirtyCache.Delete(buffer.Bytes())
+	if value, ok := d.DirtyCache.Peek(buffer.Bytes()); ok {
+		d.CleanCache.Remove(buffer.Bytes())
+		d.DirtyCache.Remove(buffer.Bytes())
+		d.dirtyCacheSize -= (len(value) + d.hashLen())
+	}
 
-	return d.txn.Delete(buffer.Bytes())
+	return nil
 }
 
 func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
@@ -134,16 +149,49 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 	return d.txn.NewIterator(buffer.Bytes(), true)
 }
 
+func (d *Database) Flush() error {
+	key, value, cacheNotEmpty := d.DirtyCache.GetOldest()
+
+	for cacheNotEmpty {
+		d.txn.Set(key, value)
+		d.dirtyCacheSize -= (len(value) + d.hashLen())
+		key, value, cacheNotEmpty = d.DirtyCache.GetOldest()
+		ok := d.DirtyCache.RemoveOldest()
+		if !ok {
+			return fmt.Errorf("oldest element in dirty cache not found")
+		}
+		d.CleanCache.Set(key, value)
+	}
+	return nil
+}
+
+func (d *Database) Cap(limit uint64) error {
+	key, value, cacheNotEmpty := d.DirtyCache.GetOldest()
+
+	for uint64(d.dirtyCacheSize) > limit && cacheNotEmpty {
+		d.txn.Set(key, value)
+		d.dirtyCacheSize -= (len(value) + d.hashLen())
+		key, value, cacheNotEmpty = d.DirtyCache.GetOldest()
+		ok := d.DirtyCache.RemoveOldest()
+		if !ok {
+			return fmt.Errorf("oldest element in dirty cache not found")
+		}
+	}
+
+	return nil
+}
+
+// References: https://github.com/NethermindEth/nethermind/pull/6331
 // Construct key bytes to insert a trie node. The format is as follows:
 //
 // ClassTrie :
-// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][path length byte][32 byte hash]
+// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
 //
 // ContractTrie :
-// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][path length byte][32 byte hash]
+// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
 //
 // StorageTrie of a Contract :
-// [1 byte prefix][1 section byte][32 bytes owner][1 byte node-type][8 byte from path][path length byte][32 byte hash]
+// [1 byte prefix][1 section byte][32 bytes owner][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
 //
 // Section:
 // 0 if state and path length is <= 5.
@@ -160,7 +208,7 @@ func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path
 
 	var section byte
 	const shortPathLength = 5
-	if d.prefix.Key()[0] == 2 {
+	if d.prefix == db.ContractTrieStorage {
 		section = 2
 	} else {
 		if path.Len() <= shortPathLength {
@@ -211,6 +259,17 @@ func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path
 	}
 
 	return nil
+}
+
+func (d *Database) hashLen() int {
+	switch d.prefix {
+	case db.ContractStorage:
+		return storageKeySize
+	case db.ContractTrieContract, db.ClassTrie:
+		return contractClassKeySize
+	default:
+		return 0
+	}
 }
 
 type EmptyDatabase struct{}
