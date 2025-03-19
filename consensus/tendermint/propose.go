@@ -168,7 +168,7 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 	vID H, validProposal bool,
 ) {
 	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < int(t.state.r) {
-		_, prevotesForHVr, _ := t.messages.allMessages(p.H, uint(vr))
+		_, prevotesForHVr, _ := t.messages.allMessages(p.H, round(vr))
 
 		var vals []A
 		for addr, valPrevotes := range prevotesForHVr {

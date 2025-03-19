@@ -9,11 +9,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-type step uint8
-
 type (
-	height = uint
-	round  = uint
+	step   uint8
+	height uint
+	round  uint
 )
 
 const (
@@ -36,11 +35,11 @@ func (s step) String() string {
 }
 
 const (
-	maxFutureHeight = uint(5)
-	maxFutureRound  = uint(5)
+	maxFutureHeight = height(5)
+	maxFutureRound  = round(5)
 )
 
-type timeoutFn func(round uint) time.Duration
+type timeoutFn func(r round) time.Duration
 
 type Addr interface {
 	// Ethereum Addresses are 20 bytes
@@ -247,7 +246,7 @@ func (t *Tendermint[V, H, A]) Stop() {
 	t.wg.Wait()
 }
 
-func (t *Tendermint[V, H, A]) startRound(r uint) {
+func (t *Tendermint[V, H, A]) startRound(r round) {
 	if r != 0 && r <= t.state.r {
 		return
 	}
@@ -285,7 +284,7 @@ func (t *Tendermint[V, H, A]) startRound(r uint) {
 }
 
 //nolint:gocyclo
-func (t *Tendermint[V, H, A]) processFutureMessages(h, r uint) {
+func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 	t.futureMessagesMu.Lock()
 	defer t.futureMessagesMu.Unlock()
 
@@ -337,7 +336,7 @@ type timeout struct {
 	r round
 }
 
-func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h, r uint) {
+func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h height, r round) {
 	tm := timeout{s: s, h: h, r: r}
 	tm.Timer = time.AfterFunc(duration, func() {
 		select {
@@ -348,7 +347,7 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h,
 	t.scheduledTms = append(t.scheduledTms, tm)
 }
 
-func (t *Tendermint[_, H, A]) OnTimeoutPropose(h, r uint) {
+func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == propose {
 		vote := Prevote[H, A]{
 			Vote: Vote[H, A]{
@@ -364,7 +363,7 @@ func (t *Tendermint[_, H, A]) OnTimeoutPropose(h, r uint) {
 	}
 }
 
-func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h, r uint) {
+func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == prevote {
 		vote := Precommit[H, A]{
 			Vote: Vote[H, A]{
@@ -380,7 +379,7 @@ func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h, r uint) {
 	}
 }
 
-func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h, r uint) {
+func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
 	if t.state.h == h && t.state.r == r {
 		t.startRound(r + 1)
 	}
@@ -391,7 +390,7 @@ func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h, r uint) {
 	55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
 	56: 	StartRound(round)
 */
-func (t *Tendermint[V, H, A]) line55(futureR uint) {
+func (t *Tendermint[V, H, A]) line55(futureR round) {
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
 
