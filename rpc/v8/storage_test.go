@@ -753,7 +753,7 @@ func TestGetNodesFromRoot(t *testing.T) {
 		}, nil)
 		mockState.EXPECT().ClassTrie().Return(nil, errors.New("error"))
 		result, rpcErr := handler.GetNodesFromRoot(key)
-		require.Nil(t, result)
+		require.Equal(t, result, rpc.EmptyGetNodesFromRootResult())
 		require.NotNil(t, rpcErr)
 	})
 

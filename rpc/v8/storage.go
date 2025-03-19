@@ -142,7 +142,13 @@ type GetNodesFromRootResult struct {
 	Nodes []TrieNode `json:"nodes"`
 }
 
-func adaptTrieNode(node trie.StorageNode) TrieNode {
+func EmptyGetNodesFromRootResult() GetNodesFromRootResult {
+	return GetNodesFromRootResult{
+		Nodes: []TrieNode{},
+	}
+}
+
+func adaptTrieNode(node *trie.StorageNode) TrieNode {
 	return TrieNode{
 		Key:   node.Key().Felt(),
 		Value: *node.Value(),
@@ -150,29 +156,29 @@ func adaptTrieNode(node trie.StorageNode) TrieNode {
 }
 
 // GetNodesFromRoot returns the set of nodes from the root to the key for the classes Trie.
-func (h *Handler) GetNodesFromRoot(key *felt.Felt) (*GetNodesFromRootResult, *jsonrpc.Error) {
+func (h *Handler) GetNodesFromRoot(key *felt.Felt) (GetNodesFromRootResult, *jsonrpc.Error) {
 	headState, closer, err := h.bcReader.HeadState()
 	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+		return EmptyGetNodesFromRootResult(), rpccore.ErrInternal.CloneWithData(err)
 	}
 	defer h.callAndLogErr(closer, "Error closing state reader in getNodesFromRoot")
 
 	classTrie, err := headState.ClassTrie()
 	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+		return EmptyGetNodesFromRootResult(), rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	nodes, err := classTrie.GetNodesFromRoot(key)
 	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+		return EmptyGetNodesFromRootResult(), rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	trieNodes := make([]TrieNode, len(nodes))
 	for i := range nodes {
-		trieNodes[i] = adaptTrieNode(nodes[i])
+		trieNodes[i] = adaptTrieNode(&nodes[i])
 	}
 
-	return &GetNodesFromRootResult{
+	return GetNodesFromRootResult{
 		Nodes: trieNodes,
 	}, nil
 }
