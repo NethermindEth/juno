@@ -124,10 +124,10 @@ Check the upon condition on line 34:
 */
 func (t *Tendermint[V, H, A]) line34(p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) {
 	vals := slices.Collect(maps.Keys(prevotesForHR))
-	if !t.state.line34Executed && t.state.step == prevote &&
+	if !t.state.timeoutPrevoteScheduled && t.state.step == prevote &&
 		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
 		t.scheduleTimeout(t.timeoutPrevote(p.Round), prevote, p.Height, p.Round)
-		t.state.line34Executed = true
+		t.state.timeoutPrevoteScheduled = true
 	}
 }
 
@@ -189,7 +189,7 @@ therefore, it is checked in a subsequent if statement.
 func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], proposalsForHR map[A][]Proposal[V, H, A],
 	prevotesForHR map[A][]Prevote[H, A],
 ) {
-	if !t.state.line36Executed && t.state.step >= prevote {
+	if !t.state.lockedValueAndOrValidValueSet && t.state.step >= prevote {
 		var proposal *Proposal[V, H, A]
 		var vals []A
 
@@ -231,7 +231,7 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 
 			t.state.validValue = proposal.Value
 			t.state.validRound = int(cr)
-			t.state.line36Executed = true
+			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}
 }

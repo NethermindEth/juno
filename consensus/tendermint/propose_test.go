@@ -231,7 +231,7 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, uint(0), scheduledTm.h)
 		assert.Equal(t, uint(0), scheduledTm.r)
 
-		assert.True(t, algo.state.line47Executed)
+		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, uint(0), algo.state.height)
 		assert.Equal(t, uint(0), algo.state.round)
@@ -304,7 +304,7 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, uint(0), scheduledTm.h)
 		assert.Equal(t, uint(0), scheduledTm.r)
 
-		assert.True(t, algo.state.line47Executed)
+		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, uint(0), algo.state.height)
 		assert.Equal(t, uint(0), algo.state.round)
@@ -365,7 +365,7 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		scheduledTm := algo.scheduledTms[1]
 
-		assert.False(t, algo.state.line47Executed)
+		assert.False(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, uint(0), algo.state.height)
 		assert.Equal(t, uint(1), algo.state.round)

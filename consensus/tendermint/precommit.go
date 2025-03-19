@@ -113,9 +113,9 @@ Check the upon condition on line 47:
 */
 func (t *Tendermint[V, H, A]) line47(p Precommit[H, A], precommitsForHR map[A][]Precommit[H, A]) {
 	vals := slices.Collect(maps.Keys(precommitsForHR))
-	if p.Round == t.state.round && !t.state.line47Executed &&
+	if p.Round == t.state.round && !t.state.timeoutPrecommitScheduled &&
 		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
 		t.scheduleTimeout(t.timeoutPrecommit(p.Round), precommit, p.Height, p.Round)
-		t.state.line47Executed = true
+		t.state.timeoutPrecommitScheduled = true
 	}
 }

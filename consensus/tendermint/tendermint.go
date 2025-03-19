@@ -155,9 +155,9 @@ type state[V Hashable[H], H Hash] struct {
 	validRound  int
 
 	// The following are round level variable therefore when a round changes they must be reset.
-	line34Executed bool
-	line36Executed bool
-	line47Executed bool
+	timeoutPrevoteScheduled       bool // line34 for the first time condition
+	timeoutPrecommitScheduled     bool // line47 for the first time condition
+	lockedValueAndOrValidValueSet bool // line36 for the first time condition
 }
 
 func New[V Hashable[H], H Hash, A Addr](addr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
@@ -252,9 +252,9 @@ func (t *Tendermint[V, H, A]) startRound(r uint) {
 	t.state.round = r
 	t.state.step = propose
 
-	t.state.line34Executed = false
-	t.state.line36Executed = false
-	t.state.line47Executed = false
+	t.state.timeoutPrevoteScheduled = false
+	t.state.lockedValueAndOrValidValueSet = false
+	t.state.timeoutPrecommitScheduled = false
 
 	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
 		var proposalValue *V
