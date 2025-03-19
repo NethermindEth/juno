@@ -37,12 +37,10 @@ func TestPropose(t *testing.T) {
 		}
 
 		val3Prevote := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      expectedHeight,
-				R:      rPrime,
-				ID:     utils.HeapPtr(rPrimeVal.Hash()),
-				Sender: *val3,
-			},
+			H:      expectedHeight,
+			R:      rPrime,
+			ID:     utils.HeapPtr(rPrimeVal.Hash()),
+			Sender: *val3,
 		}
 
 		algo.futureMessages.addPrevote(val3Prevote)
@@ -83,21 +81,17 @@ func TestPropose(t *testing.T) {
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
 		val2Prevote := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      expectedHeight,
-				R:      rPrime,
-				ID:     utils.HeapPtr(rPrimeVal.Hash()),
-				Sender: *val2,
-			},
+			H:      expectedHeight,
+			R:      rPrime,
+			ID:     utils.HeapPtr(rPrimeVal.Hash()),
+			Sender: *val2,
 		}
 
 		val3Prevote := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      expectedHeight,
-				R:      rPrime,
-				ID:     utils.HeapPtr(rPrimeVal.Hash()),
-				Sender: *val3,
-			},
+			H:      expectedHeight,
+			R:      rPrime,
+			ID:     utils.HeapPtr(rPrimeVal.Hash()),
+			Sender: *val3,
 		}
 
 		algo.futureMessages.addPrevote(val2Prevote)
@@ -137,21 +131,17 @@ func TestPropose(t *testing.T) {
 		rPrime := round(4)
 		round4Value := value(10)
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      expectedHeight,
-				R:      rPrime,
-				ID:     utils.HeapPtr(round4Value.Hash()),
-				Sender: *val2,
-			},
+			H:      expectedHeight,
+			R:      rPrime,
+			ID:     utils.HeapPtr(round4Value.Hash()),
+			Sender: *val2,
 		}
 
 		val3Prevote := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      expectedHeight,
-				R:      rPrime,
-				ID:     utils.HeapPtr(round4Value.Hash()),
-				Sender: *val3,
-			},
+			H:      expectedHeight,
+			R:      rPrime,
+			ID:     utils.HeapPtr(round4Value.Hash()),
+			Sender: *val3,
 		}
 
 		algo.futureMessages.addPrevote(val3Prevote)
@@ -189,28 +179,22 @@ func TestPropose(t *testing.T) {
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     utils.HeapPtr(value(10).Hash()),
-				Sender: *val2,
-			},
+			H:      0,
+			R:      0,
+			ID:     utils.HeapPtr(value(10).Hash()),
+			Sender: *val2,
 		}
 		val3Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val3,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val3,
 		}
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val4,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val4,
 		}
 
 		algo.messages.addPrecommit(val2Precommit)
@@ -250,36 +234,28 @@ func TestPropose(t *testing.T) {
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		nodePrecommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *nodeAddr,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *nodeAddr,
 		}
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     utils.HeapPtr(value(10).Hash()),
-				Sender: *val2,
-			},
+			H:      0,
+			R:      0,
+			ID:     utils.HeapPtr(value(10).Hash()),
+			Sender: *val2,
 		}
 		val3Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val3,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val3,
 		}
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val4,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val4,
 		}
 
 		algo.messages.addPrecommit(val2Precommit)
@@ -324,28 +300,22 @@ func TestPropose(t *testing.T) {
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     utils.HeapPtr(value(10).Hash()),
-				Sender: *val2,
-			},
+			H:      0,
+			R:      0,
+			ID:     utils.HeapPtr(value(10).Hash()),
+			Sender: *val2,
 		}
 		val3Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val3,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val3,
 		}
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *val4,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *val4,
 		}
 
 		algo.messages.addPrecommit(val2Precommit)
@@ -393,28 +363,22 @@ func TestPropose(t *testing.T) {
 		vID := val.Hash()
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val2,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val2,
 		}
 		val3Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val3,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val3,
 		}
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val4,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val4,
 		}
 
 		// The node has received all the precommits but has received the corresponding proposal
@@ -479,12 +443,10 @@ func TestPropose(t *testing.T) {
 		vID := val.Hash()
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val2,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val2,
 		}
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			H:          h,
@@ -494,12 +456,10 @@ func TestPropose(t *testing.T) {
 			Sender:     *val2,
 		}
 		val3Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val3,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val3,
 		}
 
 		// The node has received all the precommits but has received the corresponding proposal
@@ -508,12 +468,10 @@ func TestPropose(t *testing.T) {
 		algo.messages.addPrecommit(val3Precommit)
 
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      h,
-				R:      r,
-				ID:     &vID,
-				Sender: *val4,
-			},
+			H:      h,
+			R:      r,
+			ID:     &vID,
+			Sender: *val4,
 		}
 
 		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt],
