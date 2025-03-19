@@ -125,12 +125,10 @@ Since the value's id is expected to be unique the id can be used to compare the 
 func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
 	if vr == -1 && proposalFromProposer && t.state.s == propose {
 		vote := Prevote[H, A]{
-			Vote: Vote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			},
+			H:      t.state.h,
+			R:      t.state.r,
+			ID:     nil,
+			Sender: t.nodeAddr,
 		}
 
 		if validProposal && (t.state.lockedRound == -1 || (*t.state.lockedValue).Hash() == vID) {
@@ -174,12 +172,10 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 
 		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{
-				Vote: Vote[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     nil,
-					Sender: t.nodeAddr,
-				},
+				H:      t.state.h,
+				R:      t.state.r,
+				ID:     nil,
+				Sender: t.nodeAddr,
 			}
 
 			if validProposal && (t.state.lockedRound <= vr || (*t.state.lockedValue).Hash() == vID) {
@@ -231,12 +227,10 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 				t.state.lockedRound = int(cr)
 
 				vote := Precommit[H, A]{
-					Vote: Vote[H, A]{
-						H:      t.state.h,
-						R:      t.state.r,
-						ID:     &vID,
-						Sender: t.nodeAddr,
-					},
+					H:      t.state.h,
+					R:      t.state.r,
+					ID:     &vID,
+					Sender: t.nodeAddr,
 				}
 
 				t.messages.addPrecommit(vote)

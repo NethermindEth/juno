@@ -97,12 +97,10 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{
-				Vote: Vote[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     nil,
-					Sender: t.nodeAddr,
-				},
+				H:      t.state.h,
+				R:      t.state.r,
+				ID:     nil,
+				Sender: t.nodeAddr,
 			}
 
 			if t.state.lockedRound >= int(vr) || (*t.state.lockedValue).Hash() == *p.ID {
@@ -152,12 +150,10 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 
 	if t.state.s == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 		vote := Precommit[H, A]{
-			Vote: Vote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			},
+			H:      t.state.h,
+			R:      t.state.r,
+			ID:     nil,
+			Sender: t.nodeAddr,
 		}
 
 		t.messages.addPrecommit(vote)
@@ -216,12 +212,10 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 				t.state.lockedRound = int(cr)
 
 				vote := Precommit[H, A]{
-					Vote: Vote[H, A]{
-						H:      t.state.h,
-						R:      t.state.r,
-						ID:     p.ID,
-						Sender: t.nodeAddr,
-					},
+					H:      t.state.h,
+					R:      t.state.r,
+					ID:     p.ID,
+					Sender: t.nodeAddr,
 				}
 
 				t.messages.addPrecommit(vote)

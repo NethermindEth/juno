@@ -22,13 +22,10 @@ type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	Sender A
 }
 
-type Prevote[H Hash, A Addr] struct {
-	Vote[H, A]
-}
-
-type Precommit[H Hash, A Addr] struct {
-	Vote[H, A]
-}
+type (
+	Prevote[H Hash, A Addr]   Vote[H, A]
+	Precommit[H Hash, A Addr] Vote[H, A]
+)
 
 type Vote[H Hash, A Addr] struct {
 	H  height

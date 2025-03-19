@@ -212,12 +212,10 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
-			Vote: Vote[felt.Felt, felt.Felt]{
-				H:      0,
-				R:      0,
-				ID:     nil,
-				Sender: *nodeAddr,
-			},
+			H:      0,
+			R:      0,
+			ID:     nil,
+			Sender: *nodeAddr,
 		}
 
 		prevoteBroadcaster := broadcasters.PrevoteBroadcaster.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,

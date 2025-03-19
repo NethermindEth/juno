@@ -350,12 +350,10 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h 
 func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == propose {
 		vote := Prevote[H, A]{
-			Vote: Vote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			},
+			H:      t.state.h,
+			R:      t.state.r,
+			ID:     nil,
+			Sender: t.nodeAddr,
 		}
 		t.messages.addPrevote(vote)
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
@@ -366,12 +364,10 @@ func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
 func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == prevote {
 		vote := Precommit[H, A]{
-			Vote: Vote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			},
+			H:      t.state.h,
+			R:      t.state.r,
+			ID:     nil,
+			Sender: t.nodeAddr,
 		}
 		t.messages.addPrecommit(vote)
 		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
