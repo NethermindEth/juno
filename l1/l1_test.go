@@ -74,7 +74,7 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
 	cancel()
 }
@@ -98,7 +98,7 @@ func TestMismatchedChainID(t *testing.T) {
 
 	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
 	err := client.Run(ctx)
 	require.ErrorContains(t, err, "mismatched L1 and L2 networks")
@@ -150,7 +150,7 @@ func TestEventListener(t *testing.T) {
 			},
 		})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	require.NoError(t, client.Run(ctx))
 	cancel()
 
@@ -169,12 +169,12 @@ func newTestL1Client(service service) *rpc.Server {
 }
 
 type service interface {
-	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error)
+	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error)
 }
 
 type testService struct{}
 
-func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	blockHeight := big.NewInt(100)
 	return types.Header{
 		ParentHash:  common.Hash{},
@@ -194,13 +194,13 @@ func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx b
 
 type testEmptyService struct{}
 
-func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	return nil, nil
 }
 
 type testFaultyService struct{}
 
-func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (interface{}, error) {
+func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	return uint(0), nil
 }
 
@@ -241,7 +241,7 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 				return srv, l
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), 12*time.Second)
 			defer cancel()
 
 			server, listener := startServer("127.0.0.1:0", test.service)

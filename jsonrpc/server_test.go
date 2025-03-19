@@ -518,7 +518,7 @@ func TestHandle(t *testing.T) {
 			oldRequestFailedEventCount := len(listener.OnRequestFailedCalls)
 			oldRequestHandledCalls := len(listener.OnRequestHandledCalls)
 
-			res, httpHeader, err := server.HandleReader(context.Background(), strings.NewReader(test.req))
+			res, httpHeader, err := server.HandleReader(t.Context(), strings.NewReader(test.req))
 			require.NoError(t, err)
 			assert.NotNil(t, httpHeader)
 
@@ -567,7 +567,7 @@ func BenchmarkHandle(b *testing.B) {
 	var err error
 	b.ResetTimer()
 	for range b.N {
-		_, header, err = server.HandleReader(context.Background(), strings.NewReader(request))
+		_, header, err = server.HandleReader(b.Context(), strings.NewReader(request))
 		require.NoError(b, err)
 		require.NotNil(b, header)
 	}
@@ -585,7 +585,7 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, header, err := server.HandleReader(context.Background(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, header, err := server.HandleReader(t.Context(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
 	require.NotNil(t, header)
@@ -629,7 +629,7 @@ func TestWriteToConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(context.Background(), serverConn)
+		err := server.HandleReadWriter(t.Context(), serverConn)
 		require.NoError(t, err)
 	})
 
@@ -666,7 +666,7 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 	})
 
 	wg.Go(func() {
-		err := server.HandleReadWriter(context.Background(), serverConn)
+		err := server.HandleReadWriter(t.Context(), serverConn)
 		require.ErrorIs(t, err, io.ErrClosedPipe)
 	})
 
