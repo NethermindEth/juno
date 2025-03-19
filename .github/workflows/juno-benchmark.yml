@@ -19,7 +19,6 @@ jobs:
     env:
       EC2_HOST: "3.126.138.194"
       EC2_USER: "ubuntu"
-      EC2_KEY_PATH: "~/.ssh/ec2_key.pem"
       SNAPSHOT_URL: "${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/mainnet/latest' }}"
     
     steps:
@@ -27,12 +26,13 @@ jobs:
         uses: actions/checkout@v3
       
       - name: Set up SSH key for EC2
+        env:
+          EC2_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
         run: |
+          EC2_KEY_PATH="$HOME/.ssh/ec2_key.pem"
+          echo "EC2_KEY_PATH=$EC2_KEY_PATH" >> $GITHUB_ENV
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_PRIVATE_KEY }}" > "$EC2_KEY_PATH"
-          ls -la "~"
-          ls -la "."
-          ls -la "$EC2_KEY_PATH"
+          echo "$EC2_PRIVATE_KEY" > "$EC2_KEY_PATH"
           chmod 600 "$EC2_KEY_PATH"
       
       - name: Display configuration
@@ -51,5 +51,5 @@ jobs:
           sleep 10
           ssh -i "$EC2_KEY_PATH" -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "ps aux | grep juno | grep -v grep"
           echo "Latest Juno log entries:"
-          ssh -i "$EC2_KEY_PATH" -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "tail -n 30 ~/juno-benchmark/juno.log"
+          ssh -i "EC2_KEY_PATH" -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "tail -n 30 ~/juno-benchmark/juno.log"
 
