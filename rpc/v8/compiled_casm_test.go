@@ -87,7 +87,7 @@ func TestCompiledCasm(t *testing.T) {
 
 func adaptEntryPoint(point core.EntryPoint) rpc.CasmEntryPoint {
 	return rpc.CasmEntryPoint{
-		Offset:   point.Offset,
+		Offset:   point.Offset.Uint64(),
 		Selector: point.Selector,
 		Builtins: nil,
 	}
