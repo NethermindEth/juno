@@ -181,6 +181,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
+	classHash := chain.AddrToClassHash[*deployerAddr]
 	tests := []test{
 		{
 			name: "binary search contract ok",
@@ -217,7 +218,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 							ClassHash:       accountClassHash.String(),
 							ContractAddress: accountAddr.String(),
 							Error: executionError{
-								ClassHash:       chain.ClassHashByAddress(deployerAddr).String(),
+								ClassHash:       classHash.String(),
 								ContractAddress: deployerAddr.String(),
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
@@ -256,6 +257,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
+	classHash := chain.AddrToClassHash[addr]
 	tests := []test{
 		{
 			name: "binary search ok",
@@ -292,7 +294,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 							ClassHash:       accountClassHash.String(),
 							ContractAddress: accountAddr.String(),
 							Error: executionError{
-								ClassHash:       chain.ClassHashByAddress(&addr).String(),
+								ClassHash:       classHash.String(),
 								ContractAddress: addr.String(),
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
@@ -392,7 +394,6 @@ func createDeclareTransaction(
 	accountAddr *felt.Felt,
 	class *blockchain.TestClass,
 ) rpc.BroadcastedTransaction {
-
 	junoCasm, err := sn2core.AdaptCompiledClass(&class.SnCasm)
 	require.NoError(t, err)
 
