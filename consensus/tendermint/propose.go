@@ -1,16 +1,16 @@
 package tendermint
 
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
-	if p.Height < t.state.height {
+	if p.H < t.state.h {
 		return
 	}
 
-	if p.Height > t.state.height {
-		if p.Height-t.state.height > maxFutureHeight {
+	if p.H > t.state.h {
+		if p.H-t.state.h > maxFutureHeight {
 			return
 		}
 
-		if p.Round > maxFutureRound {
+		if p.R > maxFutureRound {
 			return
 		}
 
@@ -20,8 +20,8 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		return
 	}
 
-	if p.Round > t.state.round {
-		if p.Round-t.state.round > maxFutureRound {
+	if p.R > t.state.r {
+		if p.R-t.state.r > maxFutureRound {
 			return
 		}
 
@@ -37,7 +37,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 				56: 	StartRound(round)
 		*/
 
-		t.line55(p.Round)
+		t.line55(p.R)
 		return
 	}
 
@@ -45,7 +45,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	// distinguish between nil and zero value. This is expected to be handled by the p2p layer.
 	vID := (*p.Value).Hash()
 	validProposal := t.application.Valid(*p.Value)
-	proposalFromProposer := p.Sender == t.validators.Proposer(p.Height, p.Round)
+	proposalFromProposer := p.Sender == t.validators.Proposer(p.H, p.R)
 	vr := p.ValidRound
 
 	if validProposal {
@@ -54,13 +54,13 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		t.messages.addProposal(p)
 	}
 
-	_, prevotesForHR, precommitsForHR := t.messages.allMessages(p.Height, p.Round)
+	_, prevotesForHR, precommitsForHR := t.messages.allMessages(p.H, p.R)
 
 	if t.line49WhenProposalIsReceived(p, precommitsForHR, vID, validProposal, proposalFromProposer) {
 		return
 	}
 
-	if p.Round < t.state.round {
+	if p.R < t.state.r {
 		// Except line 49 all other upon condition which refer to the proposals expect to be acted upon
 		// when the current round is equal to the proposal's round.
 		return
@@ -101,13 +101,13 @@ func (t *Tendermint[V, H, A]) line49WhenProposalIsReceived(p Proposal[V, H, A], 
 	}
 
 	if validProposal && proposalFromProposer &&
-		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
+		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 		// After committing the block, how the new height and round is started needs to be coordinated
 		// with the synchronisation process.
-		t.blockchain.Commit(t.state.height, *p.Value, precommits)
+		t.blockchain.Commit(t.state.h, *p.Value, precommits)
 
-		t.messages.deleteHeightMessages(t.state.height)
-		t.state.height++
+		t.messages.deleteHeightMessages(t.state.h)
+		t.state.h++
 		t.startRound(0)
 
 		return true
@@ -130,11 +130,11 @@ The implementation uses nil as -1 to avoid using int type.
 Since the value's id is expected to be unique the id can be used to compare the values.
 */
 func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
-	if vr == -1 && proposalFromProposer && t.state.step == propose {
+	if vr == -1 && proposalFromProposer && t.state.s == propose {
 		vote := Prevote[H, A]{
 			Vote: Vote[H, A]{
-				Height: t.state.height,
-				Round:  t.state.round,
+				H:      t.state.h,
+				R:      t.state.r,
 				ID:     nil,
 				Sender: t.nodeAddr,
 			},
@@ -146,7 +146,7 @@ func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal
 
 		t.messages.addPrevote(vote)
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.step = prevote
+		t.state.s = prevote
 	}
 }
 
@@ -167,8 +167,8 @@ this cannot be done because valid round needs to be non-nil before the prevotes 
 func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], vr int, proposalFromProposer bool,
 	vID H, validProposal bool,
 ) {
-	if vr != -1 && proposalFromProposer && t.state.step == propose && vr >= 0 && vr < int(t.state.round) {
-		_, prevotesForHVr, _ := t.messages.allMessages(p.Height, uint(vr))
+	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < int(t.state.r) {
+		_, prevotesForHVr, _ := t.messages.allMessages(p.H, uint(vr))
 
 		var vals []A
 		for addr, valPrevotes := range prevotesForHVr {
@@ -179,11 +179,11 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 			}
 		}
 
-		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
+		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{
 				Vote: Vote[H, A]{
-					Height: t.state.height,
-					Round:  t.state.round,
+					H:      t.state.h,
+					R:      t.state.r,
 					ID:     nil,
 					Sender: t.nodeAddr,
 				},
@@ -195,7 +195,7 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 
 			t.messages.addPrevote(vote)
 			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.step = prevote
+			t.state.s = prevote
 		}
 	}
 }
@@ -220,7 +220,7 @@ first.
 func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], validProposal,
 	proposalFromProposer bool, prevotesForHR map[A][]Prevote[H, A], vID H,
 ) {
-	if validProposal && proposalFromProposer && !t.state.lockedValueAndOrValidValueSet && t.state.step >= prevote {
+	if validProposal && proposalFromProposer && !t.state.lockedValueAndOrValidValueSet && t.state.s >= prevote {
 		var vals []A
 		for addr, valPrevotes := range prevotesForHR {
 			for _, v := range valPrevotes {
@@ -230,17 +230,17 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 			}
 		}
 
-		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
-			cr := t.state.round
+		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+			cr := t.state.r
 
-			if t.state.step == prevote {
+			if t.state.s == prevote {
 				t.state.lockedValue = p.Value
 				t.state.lockedRound = int(cr)
 
 				vote := Precommit[H, A]{
 					Vote: Vote[H, A]{
-						Height: t.state.height,
-						Round:  t.state.round,
+						H:      t.state.h,
+						R:      t.state.r,
 						ID:     &vID,
 						Sender: t.nodeAddr,
 					},
@@ -248,7 +248,7 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 
 				t.messages.addPrecommit(vote)
 				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.step = precommit
+				t.state.s = precommit
 			}
 
 			t.state.validValue = p.Value

@@ -11,6 +11,11 @@ import (
 
 type step uint8
 
+type (
+	height = uint
+	round  = uint
+)
+
 const (
 	propose step = iota
 	prevote
@@ -61,22 +66,22 @@ type Application[V Hashable[H], H Hash] interface {
 
 type Blockchain[V Hashable[H], H Hash, A Addr] interface {
 	// Height return the current blockchain height
-	Height() uint
+	Height() height
 
 	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(uint, V, []Precommit[H, A])
+	Commit(height, V, []Precommit[H, A])
 }
 
 type Validators[A Addr] interface {
 	// TotalVotingPower represents N which is required to calculate the thresholds.
-	TotalVotingPower(height uint) uint
+	TotalVotingPower(height) uint
 
 	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
 	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(validatorAddr A) uint
+	ValidatorVotingPower(A) uint
 
 	// Proposer returns the proposer of the current round and height.
-	Proposer(height, round uint) A
+	Proposer(height, round) A
 }
 
 type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
@@ -92,11 +97,11 @@ type Listener[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
 
 type Broadcaster[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
 	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
-	Broadcast(msg M)
+	Broadcast(M)
 
 	// SendMsg would send a message to a specific validator. This would be required for helping send resquest and
 	// response message to help a specifc validator to catch up.
-	SendMsg(validatorAddr A, msg M)
+	SendMsg(A, M)
 }
 
 type Listeners[V Hashable[H], H Hash, A Addr] struct {
@@ -145,9 +150,9 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type state[V Hashable[H], H Hash] struct {
-	height uint
-	round  uint
-	step   step
+	h height
+	r round
+	s step
 
 	lockedValue *V
 	lockedRound int
@@ -166,7 +171,7 @@ func New[V Hashable[H], H Hash, A Addr](addr A, app Application[V, H], chain Blo
 	return &Tendermint[V, H, A]{
 		nodeAddr: addr,
 		state: state[V, H]{
-			height:      chain.Height(),
+			h:           chain.Height(),
 			lockedRound: -1,
 			validRound:  -1,
 		},
@@ -243,18 +248,18 @@ func (t *Tendermint[V, H, A]) Stop() {
 }
 
 func (t *Tendermint[V, H, A]) startRound(r uint) {
-	if r != 0 && r <= t.state.round {
+	if r != 0 && r <= t.state.r {
 		return
 	}
 
-	t.state.round = r
-	t.state.step = propose
+	t.state.r = r
+	t.state.s = propose
 
 	t.state.timeoutPrevoteScheduled = false
 	t.state.lockedValueAndOrValidValueSet = false
 	t.state.timeoutPrecommitScheduled = false
 
-	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
+	if p := t.validators.Proposer(t.state.h, r); p == t.nodeAddr {
 		var proposalValue *V
 		if t.state.validValue != nil {
 			proposalValue = t.state.validValue
@@ -263,8 +268,8 @@ func (t *Tendermint[V, H, A]) startRound(r uint) {
 			proposalValue = &v
 		}
 		proposalMessage := Proposal[V, H, A]{
-			Height:     t.state.height,
-			Round:      r,
+			H:          t.state.h,
+			R:          r,
 			ValidRound: t.state.validRound,
 			Value:      proposalValue,
 			Sender:     t.nodeAddr,
@@ -273,10 +278,10 @@ func (t *Tendermint[V, H, A]) startRound(r uint) {
 		t.messages.addProposal(proposalMessage)
 		t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
 	} else {
-		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.height, t.state.round)
+		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.h, t.state.r)
 	}
 
-	go t.processFutureMessages(t.state.height, t.state.round)
+	go t.processFutureMessages(t.state.h, t.state.r)
 }
 
 //nolint:gocyclo
@@ -328,8 +333,8 @@ type timeout struct {
 	*time.Timer
 
 	s step
-	h uint
-	r uint
+	h height
+	r round
 }
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h, r uint) {
@@ -344,39 +349,39 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h,
 }
 
 func (t *Tendermint[_, H, A]) OnTimeoutPropose(h, r uint) {
-	if t.state.height == h && t.state.round == r && t.state.step == propose {
+	if t.state.h == h && t.state.r == r && t.state.s == propose {
 		vote := Prevote[H, A]{
 			Vote: Vote[H, A]{
-				Height: t.state.height,
-				Round:  t.state.round,
+				H:      t.state.h,
+				R:      t.state.r,
 				ID:     nil,
 				Sender: t.nodeAddr,
 			},
 		}
 		t.messages.addPrevote(vote)
 		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.step = prevote
+		t.state.s = prevote
 	}
 }
 
 func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h, r uint) {
-	if t.state.height == h && t.state.round == r && t.state.step == prevote {
+	if t.state.h == h && t.state.r == r && t.state.s == prevote {
 		vote := Precommit[H, A]{
 			Vote: Vote[H, A]{
-				Height: t.state.height,
-				Round:  t.state.round,
+				H:      t.state.h,
+				R:      t.state.r,
 				ID:     nil,
 				Sender: t.nodeAddr,
 			},
 		}
 		t.messages.addPrecommit(vote)
 		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.step = precommit
+		t.state.s = precommit
 	}
 }
 
 func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h, r uint) {
-	if t.state.height == h && t.state.round == r {
+	if t.state.h == h && t.state.r == r {
 		t.startRound(r + 1)
 	}
 }
@@ -388,7 +393,7 @@ func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h, r uint) {
 */
 func (t *Tendermint[V, H, A]) line55(futureR uint) {
 	vals := make(map[A]struct{})
-	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.height, futureR)
+	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
 
 	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
 	for addr := range proposals {
@@ -403,7 +408,7 @@ func (t *Tendermint[V, H, A]) line55(futureR uint) {
 		vals[addr] = struct{}{}
 	}
 
-	if t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.height)) {
+	if t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h)) {
 		t.startRound(futureR)
 	}
 }

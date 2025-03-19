@@ -6,16 +6,16 @@ import (
 )
 
 func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
-	if p.Height < t.state.height {
+	if p.H < t.state.h {
 		return
 	}
 
-	if p.Height > t.state.height {
-		if p.Height-t.state.height > maxFutureHeight {
+	if p.H > t.state.h {
+		if p.H-t.state.h > maxFutureHeight {
 			return
 		}
 
-		if p.Round > maxFutureRound {
+		if p.R > maxFutureRound {
 			return
 		}
 
@@ -25,8 +25,8 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 		return
 	}
 
-	if p.Round > t.state.round {
-		if p.Round-t.state.round > maxFutureRound {
+	if p.R > t.state.r {
+		if p.R-t.state.r > maxFutureRound {
 			return
 		}
 
@@ -35,13 +35,13 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 
 		t.futureMessages.addPrecommit(p)
 
-		t.line55(p.Round)
+		t.line55(p.R)
 		return
 	}
 
 	t.messages.addPrecommit(p)
 
-	proposalsForHR, _, precommitsForHR := t.messages.allMessages(p.Height, p.Round)
+	proposalsForHR, _, precommitsForHR := t.messages.allMessages(p.H, p.R)
 
 	if t.line49WhenPrecommitIsReceived(p, proposalsForHR, precommitsForHR) {
 		return
@@ -77,7 +77,7 @@ func (t *Tendermint[V, H, A]) line49WhenPrecommitIsReceived(p Precommit[H, A], p
 			vals       []A
 		)
 
-		for _, prop := range proposalsForHR[t.validators.Proposer(p.Height, p.Round)] {
+		for _, prop := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
 			if (*prop.Value).Hash() == *p.ID {
 				propCopy := prop
 				proposal = &propCopy
@@ -92,11 +92,11 @@ func (t *Tendermint[V, H, A]) line49WhenPrecommitIsReceived(p Precommit[H, A], p
 				}
 			}
 		}
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
-			t.blockchain.Commit(t.state.height, *proposal.Value, precommits)
+		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+			t.blockchain.Commit(t.state.h, *proposal.Value, precommits)
 
-			t.messages.deleteHeightMessages(t.state.height)
-			t.state.height++
+			t.messages.deleteHeightMessages(t.state.h)
+			t.state.h++
 			t.startRound(0)
 
 			return true
@@ -113,9 +113,9 @@ Check the upon condition on line 47:
 */
 func (t *Tendermint[V, H, A]) line47(p Precommit[H, A], precommitsForHR map[A][]Precommit[H, A]) {
 	vals := slices.Collect(maps.Keys(precommitsForHR))
-	if p.Round == t.state.round && !t.state.timeoutPrecommitScheduled &&
-		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height)) {
-		t.scheduleTimeout(t.timeoutPrecommit(p.Round), precommit, p.Height, p.Round)
+	if p.R == t.state.r && !t.state.timeoutPrecommitScheduled &&
+		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+		t.scheduleTimeout(t.timeoutPrecommit(p.R), precommit, p.H, p.R)
 		t.state.timeoutPrecommitScheduled = true
 	}
 }
