@@ -220,7 +220,7 @@ first.
 func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], validProposal,
 	proposalFromProposer bool, prevotesForHR map[A][]Prevote[H, A], vID H,
 ) {
-	if validProposal && proposalFromProposer && !t.state.line36Executed && t.state.step >= prevote {
+	if validProposal && proposalFromProposer && !t.state.lockedValueAndOrValidValueSet && t.state.step >= prevote {
 		var vals []A
 		for addr, valPrevotes := range prevotesForHR {
 			for _, v := range valPrevotes {
@@ -253,7 +253,7 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 
 			t.state.validValue = p.Value
 			t.state.validRound = int(cr)
-			t.state.line36Executed = true
+			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}
 }
