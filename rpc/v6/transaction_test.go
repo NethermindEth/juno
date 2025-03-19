@@ -749,13 +749,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					utils.HexToFelt(t, "0x0"),
 				},
 			}},
-			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
-					Steps:      6172,
-					Pedersen:   16,
-					RangeCheck: 208,
-					Ecdsa:      1,
-				},
+			ExecutionResources: &rpc.ComputationResources{
+				Steps:      6172,
+				Pedersen:   16,
+				RangeCheck: 208,
+				Ecdsa:      1,
 			},
 		}
 
@@ -810,13 +808,11 @@ func TestTransactionReceiptByHash(t *testing.T) {
 					utils.HexToFelt(t, "0x0"),
 				},
 			}},
-			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
-					Steps:      6172,
-					Pedersen:   16,
-					RangeCheck: 208,
-					Ecdsa:      1,
-				},
+			ExecutionResources: &rpc.ComputationResources{
+				Steps:      6172,
+				Pedersen:   16,
+				RangeCheck: 208,
+				Ecdsa:      1,
 			},
 		}
 
@@ -1133,9 +1129,9 @@ func TestAdaptTransaction(t *testing.T) {
 			},
 		}
 
-		tx := rpc.AdaptTransaction(&coreTx)
+		tx := rpc.AdaptCoreTransaction(&coreTx)
 
-		expectedTx := &rpc.Transaction{
+		expectedTx := rpc.Transaction{
 			Type:    rpc.TxnInvoke,
 			Version: new(felt.Felt).SetUint64(3),
 			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
@@ -1163,7 +1159,7 @@ func TestAddTransaction(t *testing.T) {
 		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
-			Transaction: *rpc.AdaptTransaction(tx),
+			Transaction: rpc.AdaptCoreTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
