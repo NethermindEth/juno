@@ -189,10 +189,10 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
 	})
-	t.Run("error when contract storage keys are provided but empty", func(t *testing.T) {
+	t.Run("no error when contract storage keys are provided but empty", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{})
-		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingContractAddress), rpcErr)
-		require.Nil(t, proof)
+		assert.Nil(t, rpcErr)
+		require.NotNil(t, proof)
 	})
 	t.Run("error when address in contract storage keys is nil", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}})
