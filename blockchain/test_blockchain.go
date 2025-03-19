@@ -20,12 +20,14 @@ import (
 
 type testBlockchain struct {
 	Blockchain
-	t                        *testing.T
-	account, deployer, erc20 TestClass
-	addr2classHash           map[felt.Felt]felt.Felt
+	t              *testing.T
+	Account        TestClass
+	Deployer       TestClass
+	erc20          TestClass
+	addr2classHash map[felt.Felt]felt.Felt
 }
 
-func NewTestBlockchain(t *testing.T, protocolVersion string) testBlockchain {
+func NewTestBlockchain(t *testing.T) testBlockchain {
 	t.Helper()
 
 	testDB := pebble.NewMemTest(t)
@@ -39,7 +41,7 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) testBlockchain {
 		Header: &core.Header{
 			Number:          0,
 			Timestamp:       0,
-			ProtocolVersion: protocolVersion,
+			ProtocolVersion: "0.13.5", // I really don't like this
 			Hash:            utils.HexToFelt(t, "0xb00"),
 			ParentHash:      &felt.Zero,
 			GlobalStateRoot: &felt.Zero,
@@ -56,46 +58,45 @@ func NewTestBlockchain(t *testing.T, protocolVersion string) testBlockchain {
 	const prefix = "../../cairo/scarb/target/dev/"
 	// Predeploy presets
 	// https://github.com/OpenZeppelin/cairo-contracts/tree/main/packages/presets
-	chain.account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
-	chain.account.AddAccount(
-		*utils.HexToFelt(t, "0xc01"),
-		*utils.HexToFelt(t, "0x10000000000000000000000000000"),
+	chain.Account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
+	chain.Account.AddAccount(
+		utils.HexToFelt(t, "0xc01"),
+		utils.HexToFelt(t, "0x10000000000000000000000000000"),
 	)
-	chain.deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
-	chain.deployer.AddAccount(
-		*utils.HexToFelt(t, "0xc02"),
-		felt.Felt{},
+	chain.Deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
+	chain.Deployer.AddAccount(
+		utils.HexToFelt(t, "0xc02"),
+		&felt.Zero,
 	)
 	chain.erc20 = NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
 	chain.erc20.AddAccount(
-		*utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-		felt.Felt{},
+		utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+		&felt.Zero,
 	)
 	chain.erc20.AddAccount(
-		*utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
-		felt.Felt{},
+		utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+		&felt.Zero,
 	)
 
-	chain.Prepare(t, []TestClass{chain.account, chain.deployer, chain.erc20})
+	chain.Prepare(t, []TestClass{chain.Account, chain.Deployer, chain.erc20})
 
 	return chain
 }
 
-// Use pointers because of the "hugeParam" linter
-func (b *testBlockchain) AccountAddress() felt.Felt {
-	return b.account.accounts[0].address
+func (b *testBlockchain) AccountAddress() *felt.Felt {
+	return &b.Account.Accounts[0].address
 }
 
-func (b *testBlockchain) DeployerAddress() felt.Felt {
-	return b.deployer.accounts[0].address
+func (b *testBlockchain) DeployerAddress() *felt.Felt {
+	return &b.Deployer.Accounts[0].address
 }
 
-func (b *testBlockchain) AccountClassHash() felt.Felt {
-	return b.account.hash
+func (b *testBlockchain) AccountClassHash() *felt.Felt {
+	return &b.Account.Hash
 }
 
-func (b *testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
-	classHash, ok := b.addr2classHash[address]
+func (b *testBlockchain) ClassHashByAddress(address *felt.Felt) felt.Felt {
+	classHash, ok := b.addr2classHash[*address]
 	require.True(b.t, ok)
 	return classHash
 }
@@ -118,16 +119,16 @@ type testAccount struct {
 }
 
 func (a *testAccount) BalanceKey() felt.Felt {
-	return fromNameAndKey(a.t, "ERC20_balances", a.address)
+	return feltFromNameAndKey(a.t, "ERC20_balances", a.address)
 }
 
 type TestClass struct {
-	t        *testing.T
-	hash     felt.Felt
-	class    *core.Cairo1Class
-	accounts []*testAccount
-	snClass  *starknet.SierraDefinition
-	compiled *starknet.CompiledClass
+	t         *testing.T
+	Hash      felt.Felt
+	Accounts  []testAccount
+	JunoClass core.Cairo1Class
+	SnSierra  starknet.SierraDefinition
+	SnCasm    starknet.CompiledClass
 }
 
 func NewClass(t *testing.T, path string) TestClass {
@@ -138,31 +139,19 @@ func NewClass(t *testing.T, path string) TestClass {
 	require.NoError(t, err)
 
 	return TestClass{
-		t:        t,
-		class:    class,
-		hash:     *classHash,
-		snClass:  snClass,
-		compiled: compiledClass,
+		t:         t,
+		JunoClass: class,
+		Hash:      *classHash,
+		SnSierra:  snClass,
+		SnCasm:    compiledClass,
 	}
 }
 
-func (b *TestClass) Hash() felt.Felt {
-	return b.hash
-}
-
-func (b *TestClass) SNClass() *starknet.SierraDefinition {
-	return b.snClass
-}
-
-func (b *TestClass) CompiledClass() *starknet.CompiledClass {
-	return b.compiled
-}
-
-func (b *TestClass) AddAccount(address, balance felt.Felt) {
-	b.accounts = append(b.accounts, &testAccount{
-		t:       b.t,
-		address: address,
-		balance: balance,
+func (t *TestClass) AddAccount(address, balance *felt.Felt) {
+	t.Accounts = append(t.Accounts, testAccount{
+		t:       t.t,
+		address: *address,
+		balance: *balance,
 	})
 }
 
@@ -174,10 +163,10 @@ func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
 	balances := make(map[felt.Felt]*felt.Felt)          // use pointer because of StorageDiff field
 
 	for _, class := range classes {
-		newClasses[class.hash] = class.class
-		for _, account := range class.accounts {
-			deployedContracts[account.address] = &class.hash
-			b.addr2classHash[account.address] = class.hash
+		newClasses[class.Hash] = &class.JunoClass
+		for _, account := range class.Accounts {
+			deployedContracts[account.address] = &class.Hash
+			b.addr2classHash[account.address] = class.Hash
 			if balance := account.balance; (balance != felt.Felt{}) {
 				balances[account.BalanceKey()] = &balance
 			}
@@ -194,8 +183,8 @@ func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
 		StateDiff: &core.StateDiff{
 			DeployedContracts: deployedContracts,
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				b.erc20.accounts[0].address: balances,
-				b.erc20.accounts[1].address: balances,
+				b.erc20.Accounts[0].address: balances,
+				b.erc20.Accounts[1].address: balances,
 			},
 		},
 	}
@@ -222,7 +211,9 @@ func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
 	require.NoError(t, b.Store(block, &core.BlockCommitments{}, stateUpdate, newClasses))
 }
 
-func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *starknet.CompiledClass, *core.Cairo1Class) {
+func classFromFile(t *testing.T, path string) (
+	starknet.SierraDefinition, starknet.CompiledClass, core.Cairo1Class,
+) {
 	t.Helper()
 
 	file, err := os.Open(path)
@@ -237,24 +228,29 @@ func classFromFile(t *testing.T, path string) (*starknet.SierraDefinition, *star
 	})
 	require.NoError(t, json.NewDecoder(file).Decode(intermediate))
 
-	snClass := &starknet.SierraDefinition{
+	snSierra := starknet.SierraDefinition{
 		Abi:         string(intermediate.Abi),
 		EntryPoints: intermediate.EntryPoints,
 		Program:     intermediate.Program,
 		Version:     intermediate.Version,
 	}
 
-	compiledClass, err := compiler.Compile(snClass)
+	snCasm, err := compiler.Compile(&snSierra)
 	require.NoError(t, err)
 
-	class, err := sn2core.AdaptCairo1Class(snClass, compiledClass)
+	junoClass, err := sn2core.AdaptCairo1Class(&snSierra, snCasm)
 	require.NoError(t, err)
 
-	return snClass, compiledClass, class
+	// TODO: I don't like this too much (the deference using *), but every method that's currently
+	//       returning a reference type will eventually return a value type. Since this is for
+	//       testing is not critical.
+	return snSierra, *snCasm, *junoClass
 }
 
 // https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124
-func fromNameAndKey(t *testing.T, name string, key felt.Felt) felt.Felt {
+func feltFromNameAndKey(t *testing.T, name string, key felt.Felt) felt.Felt {
+	// TODO: The use of Big ints is not necesary at all. I am leaving it here because it is not critical
+	//       but it should be change to using the felt implementation directly
 	t.Helper()
 
 	intermediate := crypto.StarknetKeccak([]byte(name))

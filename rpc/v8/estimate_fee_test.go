@@ -134,7 +134,7 @@ var (
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t, "0.13.4")
+	chain := blockchain.NewTestBlockchain(t)
 	accountAddr := chain.AccountAddress()
 
 	// Get binary search contract
@@ -166,7 +166,7 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t, "0.13.4")
+	chain := blockchain.NewTestBlockchain(t)
 	accountAddr := chain.AccountAddress()
 	accountClassHash := chain.AccountClassHash()
 	deployerAddr := chain.DeployerAddress()
@@ -186,8 +186,8 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(t,
-					accountAddr, *validEntryPoint,
-					felt.Zero, deployerAddr, class.Hash(),
+					accountAddr, validEntryPoint,
+					&felt.Zero, deployerAddr, &class.Hash,
 				),
 			},
 			expected: []rpc.FeeEstimate{
@@ -203,8 +203,8 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			name: "invalid entry point",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(t,
-					accountAddr, *invalidEntryPoint,
-					felt.Zero, deployerAddr, class.Hash(),
+					accountAddr, invalidEntryPoint,
+					&felt.Zero, deployerAddr, &class.Hash,
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -237,15 +237,14 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t, "0.13.4")
+	chain := blockchain.NewTestBlockchain(t)
 	accountAddr := chain.AccountAddress()
 	accountClassHash := chain.AccountClassHash()
 
 	// Predeploy binary search contract
 	addr := *utils.HexToFelt(t, "0xd")
-
 	class := blockchain.NewClass(t, binarySearchContractPath)
-	class.AddAccount(addr, felt.Felt{})
+	class.AddAccount(&addr, &felt.Zero)
 
 	chain.Prepare(t, []blockchain.TestClass{class})
 
@@ -262,8 +261,8 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "binary search ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, validEntryPoint,
-					felt.Zero, addr, validDepth,
+					accountAddr, &validEntryPoint,
+					&felt.Zero, &addr, &validDepth,
 				),
 			},
 			expected: []rpc.FeeEstimate{
@@ -279,8 +278,8 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "invalid entry point",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, invalidEntryPoint,
-					felt.Zero, addr, validDepth,
+					accountAddr, &invalidEntryPoint,
+					&felt.Zero, &addr, &validDepth,
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -293,7 +292,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 							ClassHash:       accountClassHash.String(),
 							ContractAddress: accountAddr.String(),
 							Error: executionError{
-								ClassHash:       chain.ClassHashByAddress(addr).String(),
+								ClassHash:       chain.ClassHashByAddress(&addr).String(),
 								ContractAddress: addr.String(),
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
@@ -309,8 +308,8 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "max gas exceeded",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, validEntryPoint, felt.Zero,
-					addr, *utils.HexToFelt(t, "0x186A0"), // 100000
+					accountAddr, &validEntryPoint, &felt.Zero,
+					&addr, utils.HexToFelt(t, "0x186A0"), // 100000
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -326,8 +325,8 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "gas limit exceeded",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, validEntryPoint, felt.Zero,
-					addr, *utils.HexToFelt(t, "0x64"), // 100
+					accountAddr, &validEntryPoint, &felt.Zero,
+					&addr, utils.HexToFelt(t, "0x64"), // 100
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -357,7 +356,7 @@ func runTests(t *testing.T, tests []test, handler *rpc.Handler) {
 		t.Run(test.name, func(t *testing.T) {
 			feeEstimate, _, jsonErr := handler.EstimateFee(
 				test.broadcastedTransactions,
-				[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+				[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 				rpc.BlockID{Latest: true},
 			)
 
@@ -389,18 +388,16 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 }
 
 func createDeclareTransaction(
-	t *testing.T, accountAddr felt.Felt,
-	class *blockchain.TestClass, // use pointer because of huge parameter
+	t *testing.T,
+	accountAddr *felt.Felt,
+	class *blockchain.TestClass,
 ) rpc.BroadcastedTransaction {
-	bsClassHash := class.Hash()
-	compiledClass := class.CompiledClass()
-	snClass := class.SNClass()
 
-	coreCompiledClass, err := sn2core.AdaptCompiledClass(compiledClass)
+	junoCasm, err := sn2core.AdaptCompiledClass(&class.SnCasm)
 	require.NoError(t, err)
 
-	compiledClassHash := coreCompiledClass.Hash()
-	contractClass, err := json.Marshal(snClass)
+	compiledClassHash := junoCasm.Hash()
+	contractClass, err := json.Marshal(class.SnSierra)
 	require.NoError(t, err)
 
 	return rpc.BroadcastedTransaction{
@@ -408,8 +405,8 @@ func createDeclareTransaction(
 			Type:              rpc.TxnDeclare,
 			Version:           utils.HexToFelt(t, "0x3"),
 			Nonce:             &felt.Zero,
-			ClassHash:         &bsClassHash,
-			SenderAddress:     &accountAddr,
+			ClassHash:         &class.Hash,
+			SenderAddress:     accountAddr,
 			Signature:         &[]*felt.Felt{},
 			CompiledClassHash: compiledClassHash,
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
@@ -429,24 +426,24 @@ func createDeclareTransaction(
 
 func createDeployTransaction(t *testing.T,
 	accountAddr, entryPointSelector,
-	nonce, deployerAddr, classHash felt.Felt,
+	nonce, deployerAddr, classHash *felt.Felt,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
-			Nonce:         &nonce,
-			SenderAddress: &accountAddr,
+			Nonce:         nonce,
+			SenderAddress: accountAddr,
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				&deployerAddr,
+				deployerAddr,
 				// Entry point selector for the called contract
-				&entryPointSelector,
+				entryPointSelector,
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x4"),
 				// classHash
-				&classHash,
+				classHash,
 				// salt
 				&felt.Zero,
 				// unique
@@ -471,24 +468,24 @@ func createDeployTransaction(t *testing.T,
 
 func createInvokeTransaction(t *testing.T,
 	accountAddr, entryPointSelector,
-	nonce, deployedContractAddress, depth felt.Felt,
+	nonce, deployedContractAddress, depth *felt.Felt,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
-			Nonce:         &nonce,
-			SenderAddress: &accountAddr,
+			Nonce:         nonce,
+			SenderAddress: accountAddr,
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
 				// Address of the deployed test contract
-				&deployedContractAddress,
+				deployedContractAddress,
 				// Entry point selector for the called contract
-				&entryPointSelector,
+				entryPointSelector,
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x1"),
-				&depth,
+				depth,
 			},
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
 				"0x0", "0x2",
