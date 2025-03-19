@@ -135,12 +135,8 @@ func (h *Handler) StorageProof(id BlockID,
 
 // Ensures each contract is unique and each storage key in each contract is unique
 func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Error) {
-	if storageKeys == nil {
-		return nil, nil
-	}
-
 	if len(storageKeys) == 0 {
-		return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+		return nil, nil
 	}
 
 	merged := make(map[felt.Felt][]felt.Felt, len(storageKeys))
