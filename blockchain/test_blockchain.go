@@ -20,11 +20,11 @@ import (
 
 type testBlockchain struct {
 	Blockchain
-	t              *testing.T
-	Account        TestClass
-	Deployer       TestClass
-	erc20          TestClass
-	addr2classHash map[felt.Felt]felt.Felt
+	t               *testing.T
+	Account         TestClass
+	Deployer        TestClass
+	erc20           TestClass
+	AddrToClassHash map[felt.Felt]felt.Felt
 }
 
 func NewTestBlockchain(t *testing.T) testBlockchain {
@@ -32,9 +32,9 @@ func NewTestBlockchain(t *testing.T) testBlockchain {
 
 	testDB := pebble.NewMemTest(t)
 	chain := testBlockchain{
-		Blockchain:     *New(testDB, &utils.Sepolia),
-		t:              t,
-		addr2classHash: make(map[felt.Felt]felt.Felt),
+		Blockchain:      *New(testDB, &utils.Sepolia),
+		t:               t,
+		AddrToClassHash: make(map[felt.Felt]felt.Felt),
 	}
 
 	genesisBlock := &core.Block{
@@ -95,12 +95,6 @@ func (b *testBlockchain) AccountClassHash() *felt.Felt {
 	return &b.Account.Hash
 }
 
-func (b *testBlockchain) ClassHashByAddress(address *felt.Felt) felt.Felt {
-	classHash, ok := b.addr2classHash[*address]
-	require.True(b.t, ok)
-	return classHash
-}
-
 func (b *testBlockchain) NewRoot(t *testing.T,
 	blockNumber uint64, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) *felt.Felt {
@@ -134,16 +128,16 @@ type TestClass struct {
 func NewClass(t *testing.T, path string) TestClass {
 	t.Helper()
 
-	snClass, compiledClass, class := classFromFile(t, path)
-	classHash, err := class.Hash()
+	sierra, casm, junoClass := classFromFile(t, path)
+	classHash, err := junoClass.Hash()
 	require.NoError(t, err)
 
 	return TestClass{
 		t:         t,
-		JunoClass: class,
+		JunoClass: junoClass,
 		Hash:      *classHash,
-		SnSierra:  snClass,
-		SnCasm:    compiledClass,
+		SnSierra:  sierra,
+		SnCasm:    casm,
 	}
 }
 
@@ -155,19 +149,20 @@ func (t *TestClass) AddAccount(address, balance *felt.Felt) {
 	})
 }
 
-func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
+func (b *testBlockchain) Prepare(t *testing.T, testClasses []TestClass) {
 	t.Helper()
 
-	newClasses := make(map[felt.Felt]core.Class, len(classes))
+	junoClasses := make(map[felt.Felt]core.Class, len(testClasses))
 	deployedContracts := make(map[felt.Felt]*felt.Felt) // use pointer because of DeployedContracts field
 	balances := make(map[felt.Felt]*felt.Felt)          // use pointer because of StorageDiff field
 
-	for _, class := range classes {
-		newClasses[class.Hash] = &class.JunoClass
+	for i := range testClasses {
+		class := &testClasses[i]
+		junoClasses[class.Hash] = &class.JunoClass
 		for _, account := range class.Accounts {
 			deployedContracts[account.address] = &class.Hash
-			b.addr2classHash[account.address] = class.Hash
-			if balance := account.balance; (balance != felt.Felt{}) {
+			b.AddrToClassHash[account.address] = class.Hash
+			if balance := account.balance; balance != felt.Zero {
 				balances[account.BalanceKey()] = &balance
 			}
 		}
@@ -189,7 +184,7 @@ func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
 		},
 	}
 
-	stateUpdate.NewRoot = b.NewRoot(t, parentBlock.Number+1, stateUpdate, newClasses)
+	stateUpdate.NewRoot = b.NewRoot(t, parentBlock.Number+1, stateUpdate, junoClasses)
 
 	block := &core.Block{
 		Header: &core.Header{
@@ -203,12 +198,18 @@ func (b *testBlockchain) Prepare(t *testing.T, classes []TestClass) {
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 			L1GasPriceSTRK:   utils.HexToFelt(t, "0x2"),
 			L1DAMode:         core.Blob,
-			L1DataGasPrice:   &core.GasPrice{PriceInWei: utils.HexToFelt(t, "0x2"), PriceInFri: utils.HexToFelt(t, "0x2")},
-			L2GasPrice:       &core.GasPrice{PriceInWei: utils.HexToFelt(t, "0x1"), PriceInFri: utils.HexToFelt(t, "0x1")},
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: utils.HexToFelt(t, "0x2"),
+				PriceInFri: utils.HexToFelt(t, "0x2"),
+			},
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: utils.HexToFelt(t, "0x1"),
+				PriceInFri: utils.HexToFelt(t, "0x1"),
+			},
 		},
 	}
 
-	require.NoError(t, b.Store(block, &core.BlockCommitments{}, stateUpdate, newClasses))
+	require.NoError(t, b.Store(block, &core.BlockCommitments{}, stateUpdate, junoClasses))
 }
 
 func classFromFile(t *testing.T, path string) (
@@ -249,7 +250,7 @@ func classFromFile(t *testing.T, path string) (
 
 // https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124
 func feltFromNameAndKey(t *testing.T, name string, key felt.Felt) felt.Felt {
-	// TODO: The use of Big ints is not necesary at all. I am leaving it here because it is not critical
+	// TODO: The use of Big ints is not necessary at all. I am leaving it here because it is not critical
 	//       but it should be change to using the felt implementation directly
 	t.Helper()
 
