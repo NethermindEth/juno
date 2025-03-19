@@ -67,7 +67,7 @@ setup_working_dir() {
 
 download_snapshot() {
     log "Downloading Starknet snapshot from $SNAPSHOT_URL..."
-    run_remote "cd ~/juno-benchmark && wget --progress=dot:giga $SNAPSHOT_URL -O snapshot.tar.gz"
+    run_remote "cd ~/juno-benchmark && wget $SNAPSHOT_URL -O snapshot.tar.gz"
     if ! run_remote "cd ~/juno-benchmark && [ -s snapshot.tar.gz ]"; then
         log "Error: Snapshot download failed or file is empty"
         exit 1
@@ -87,12 +87,16 @@ download_juno() {
         log "Latest version determined to be: $JUNO_VERSION"
     fi
     
-    run_remote "cd ~/juno-benchmark && wget --progress=dot:mega https://github.com/NethermindEth/juno/releases/download/$JUNO_VERSION/juno-$JUNO_VERSION-linux-amd64.zip -O juno.zip"
+    # On a fresh Ubuntu 24 AWS EC2 instance, unzip and the jemalloc library may not be installed.
+    run_remote "command -v unzip >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq unzip)"
+    run_remote "ldconfig -p | grep -q libjemalloc || (sudo apt-get update -qq && sudo apt-get install -y -qq libjemalloc1)"
+
+    run_remote "cd ~/juno-benchmark && wget https://github.com/NethermindEth/juno/releases/download/$JUNO_VERSION/juno-$JUNO_VERSION-linux-amd64.zip -O juno.zip"
     run_remote "cd ~/juno-benchmark && unzip -q juno.zip && rm juno.zip"
-    run_remote "cd ~/juno-benchmark && mv juno-* juno"
+    run_remote "cd ~/juno-benchmark && mv juno-*-linux-amd64 juno"
     run_remote "cd ~/juno-benchmark && chmod +x juno"
     log "Verifying Juno binary..."
-    run_remote "cd ~/juno-benchmark && ./juno version || ./juno --version"
+    run_remote "cd ~/juno-benchmark && ./juno --version"
     log "Juno binary $JUNO_VERSION downloaded and made executable"
 }
 
@@ -116,6 +120,7 @@ run_juno() {
   "log-level": "info",
   "sync-mode": "full",
   "disable-etc-sync": false,
+  "disable-l1-verification": true,
   "target-block": 10000
 }
 EOF
