@@ -1,9 +1,9 @@
 package rpcv8_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	clientFeeder "github.com/NethermindEth/juno/clients/feeder"
@@ -51,7 +51,7 @@ func TestCompiledCasm(t *testing.T) {
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)
 
-		class, err := fd.Class(context.Background(), classHash)
+		class, err := fd.Class(t.Context(), classHash)
 		require.NoError(t, err)
 
 		cairo0, ok := class.(*core.Cairo0Class)
@@ -84,11 +84,50 @@ func TestCompiledCasm(t *testing.T) {
 			Bytecode: cairo0Definition.Data,
 		}, resp)
 	})
+
+	t.Run("cairo1", func(t *testing.T) {
+		classHash := utils.HexToFelt(t, "0x222")
+
+		// Create a compiled class with test data
+		compiledClass := &core.CompiledClass{
+			CompilerVersion: "1.0.0",
+			Prime:           big.NewInt(123),
+			External: []core.CompiledEntryPoint{
+				{
+					Offset:   42, // Test the uint64 offset
+					Selector: utils.HexToFelt(t, "0xabc"),
+					Builtins: []string{"range_check"},
+				},
+			},
+			Constructor: []core.CompiledEntryPoint{},
+			L1Handler:   []core.CompiledEntryPoint{},
+			Bytecode:    []*felt.Felt{utils.HexToFelt(t, "0x123")},
+		}
+
+		cairo1Class := &core.Cairo1Class{
+			Compiled: compiledClass,
+		}
+
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: cairo1Class}, nil)
+		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+		resp, rpcErr := handler.CompiledCasm(classHash)
+		require.Nil(t, rpcErr)
+
+		// Verify that the offset is correctly passed as uint64
+		require.Len(t, resp.EntryPointsByType.External, 1)
+		assert.Equal(t, uint64(42), resp.EntryPointsByType.External[0].Offset)
+		assert.Equal(t, utils.HexToFelt(t, "0xabc"), resp.EntryPointsByType.External[0].Selector)
+		assert.Equal(t, []string{"range_check"}, resp.EntryPointsByType.External[0].Builtins)
+		assert.Equal(t, utils.ToHex(big.NewInt(123)), resp.Prime)
+		assert.Equal(t, "1.0.0", resp.CompilerVersion)
+	})
 }
 
 func adaptEntryPoint(point core.EntryPoint) rpc.CasmEntryPoint {
 	return rpc.CasmEntryPoint{
-		Offset:   point.Offset,
+		Offset:   point.Offset.Uint64(),
 		Selector: point.Selector,
 		Builtins: nil,
 	}

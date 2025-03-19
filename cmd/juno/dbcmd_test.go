@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -83,10 +82,10 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	chain := blockchain.New(testDB, network)
 
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
-		block, err := gw.BlockByNumber(context.Background(), blockNumber)
+		block, err := gw.BlockByNumber(t.Context(), blockNumber)
 		require.NoError(t, err)
 
-		stateUpdate, err := gw.StateUpdate(context.Background(), blockNumber)
+		stateUpdate, err := gw.StateUpdate(t.Context(), blockNumber)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))

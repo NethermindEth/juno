@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -41,7 +40,7 @@ func TestClassV0Hash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
-			class, err := gw.Class(context.Background(), hash)
+			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -71,7 +70,7 @@ func TestClassV1Hash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
-			class, err := gw.Class(context.Background(), hash)
+			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 
 			got, err := class.Hash()
@@ -108,7 +107,7 @@ func TestCompiledClassHash(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("ClassHash", func(t *testing.T) {
 			hash := utils.HexToFelt(t, tt.classHash)
-			class, err := gw.Class(context.Background(), hash)
+			class, err := gw.Class(t.Context(), hash)
 			require.NoError(t, err)
 			got := class.(*core.Cairo1Class).Compiled.Hash()
 			require.NoError(t, err)
@@ -197,7 +196,7 @@ func TestVerifyClassHash(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	cairo1Class, err := gw.Class(context.Background(), cairo1ClassHash)
+	cairo1Class, err := gw.Class(t.Context(), cairo1ClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with error", func(t *testing.T) {
@@ -228,7 +227,7 @@ func TestVerifyClassHash(t *testing.T) {
 	})
 
 	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	cairo0Class, err := gw.Class(context.Background(), cairo0ClassHash)
+	cairo0Class, err := gw.Class(t.Context(), cairo0ClassHash)
 	require.NoError(t, err)
 
 	t.Run("class(es) with no error", func(t *testing.T) {

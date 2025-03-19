@@ -1,13 +1,11 @@
-name: Pre-merge e2e checks
-
-env:
-  DOCKER_REGISTRY: nethermind.jfrog.io
-  REPO_DEV: nubia-oci-local-dev
+name: Deploy and Test on Dev
 
 on:
   merge_group:
     branches: [main]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 permissions:
@@ -22,12 +20,16 @@ jobs:
   
   dev_deploy_test:
     needs: [build]
-    uses: ./.github/workflows/dev-deploy-test.yaml
+    uses: ./.github/workflows/deploy-and-test.yaml
     with:
       docker_image_tag: ${{ needs.build.outputs.docker_image_tag }}
+      environment: Development
+      source_repo: nubia-oci-local-dev
+      target_repo: nubia-oci-local-dev
+      rpc_version: v0_7
     secrets:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
-      DEV_SEPOLIA_URL: ${{ secrets.DEV_SEPOLIA_URL }}
+      RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}

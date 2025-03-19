@@ -1,7 +1,6 @@
 package rpcv6_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -52,7 +51,7 @@ func TestStateUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	update21656, err := mainnetGw.StateUpdate(context.Background(), 21656)
+	update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 	require.NoError(t, err)
 
 	checkUpdate := func(t *testing.T, coreUpdate *core.StateUpdate, rpcUpdate *rpc.StateUpdate) {
@@ -130,7 +129,7 @@ func TestStateUpdate(t *testing.T) {
 			"replaced classes":        283428,
 		} {
 			t.Run(name, func(t *testing.T) {
-				gwUpdate, err := integGw.StateUpdate(context.Background(), height)
+				gwUpdate, err := integGw.StateUpdate(t.Context(), height)
 				require.NoError(t, err)
 
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
