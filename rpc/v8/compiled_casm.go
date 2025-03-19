@@ -15,7 +15,7 @@ import (
 )
 
 type CasmEntryPoint struct {
-	Offset   *felt.Felt `json:"offset"`
+	Offset   uint64     `json:"offset"`
 	Selector *felt.Felt `json:"selector"`
 	Builtins []string   `json:"builtins"`
 }
@@ -105,7 +105,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 
 	adaptEntryPoint := func(ep core.EntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
-			Offset:   ep.Offset,
+			Offset:   ep.Offset.Uint64(),
 			Selector: ep.Selector,
 			Builtins: nil,
 		}
@@ -129,7 +129,7 @@ func adaptCairo0Class(class *core.Cairo0Class) (*CasmCompiledContractClass, erro
 func adaptCompiledClass(class *core.CompiledClass) *CasmCompiledContractClass {
 	adaptEntryPoint := func(ep core.CompiledEntryPoint) CasmEntryPoint {
 		return CasmEntryPoint{
-			Offset:   new(felt.Felt).SetUint64(ep.Offset),
+			Offset:   ep.Offset,
 			Selector: ep.Selector,
 			Builtins: ep.Builtins,
 		}

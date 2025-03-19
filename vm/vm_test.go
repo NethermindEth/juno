@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -29,7 +28,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -51,7 +50,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -71,7 +70,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
@@ -89,7 +88,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -111,7 +110,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion(), false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion(), false, false)
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -128,7 +127,7 @@ func TestCallCairo(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
 	classHash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -157,7 +156,7 @@ func TestCallCairo(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -179,7 +178,7 @@ func TestCallCairo(t *testing.T) {
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
@@ -196,7 +195,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 
 	contractAddr := utils.HexToFelt(t, "0x123")
 	classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -226,14 +225,14 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	// Starknet version <0.13.4 should return an error
 	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.0",
-	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false)
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
 	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.4",
-	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false)
+	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
 	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)

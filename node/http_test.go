@@ -1,7 +1,6 @@
 package node_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,7 +20,7 @@ func TestHandleReadySync(t *testing.T) {
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
