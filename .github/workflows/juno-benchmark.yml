@@ -1,0 +1,54 @@
+name: Juno Benchmarking
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Juno version to benchmark'
+        required: true
+        default: 'latest'
+      snapshot_url:
+        description: 'Custom snapshot URL (optional)'
+        required: false
+
+jobs:
+  juno-benchmark:
+    name: EC2 Setup and Juno Launch
+    runs-on: ubuntu-latest
+    
+    env:
+      EC2_HOST: "3.126.138.194"
+      EC2_USER: "ubuntu"
+      EC2_KEY_PATH: "~/.ssh/ec2_key.pem"
+      SNAPSHOT_URL: "${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/mainnet/latest' }}"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up SSH key for EC2
+        env:
+          EC2_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_PRIVATE_KEY" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+      
+      - name: Display configuration
+        run: |
+          echo "EC2 Host: $EC2_HOST"
+          echo "EC2 User: $EC2_USER"
+          echo "Juno Version: ${{ github.event.inputs.version }}"
+      
+      - name: Run EC2 setup script
+        run: |
+          chmod +x ./scripts/juno-benchmark.sh
+          ./scripts/juno-benchmark.sh ${{ github.event.inputs.version }}
+      
+      - name: Verify Juno is running
+        run: |
+          sleep 10
+          ssh -i ~/.ssh/ec2_key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "ps aux | grep juno | grep -v grep"
+          echo "Latest Juno log entries:"
+          ssh -i ~/.ssh/ec2_key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "tail -n 30 ~/juno-benchmark/juno.log"
+
