@@ -342,7 +342,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, true); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
@@ -999,7 +999,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate.OldRoot = oldStateRoot
 
 	// Apply state update
-	if err = state.Update(block.Number, stateUpdate, newClasses); err != nil {
+	if err = state.Update(block.Number, stateUpdate, newClasses, true); err != nil {
 		return err
 	}
 

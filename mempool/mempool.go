@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -74,7 +75,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 // in-memory and persistent database.
 type Pool struct {
 	log         utils.SimpleLogger
-	state       core.StateReader
+	bc          blockchain.Reader
 	db          db.DB // to store the persistent mempool
 	txPushed    chan struct{}
 	memTxnList  *memTxnList
@@ -85,10 +86,10 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.DB, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
-	pool := &Pool{
+func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) (Pool, func() error) {
+	pool := Pool{
 		log:         log,
-		state:       state,
+		bc:          bc,
 		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
 		memTxnList:  &memTxnList{},
@@ -235,6 +236,15 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		return ErrTxnPoolFull
 	}
 
+	state, closer, err := p.bc.HeadState()
+	if err != nil {
+		return err
+	}
+
+	defer func() error {
+		return closer()
+	}()
+
 	switch t := userTxn.Transaction.(type) {
 	case *core.DeployTransaction:
 		return fmt.Errorf("deploy transactions are not supported")
@@ -243,7 +253,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
 		}
 	case *core.DeclareTransaction:
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := state.ContractNonce(t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
@@ -254,7 +264,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
 			return fmt.Errorf("invoke v0 transactions not supported")
 		}
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := state.ContractNonce(t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}

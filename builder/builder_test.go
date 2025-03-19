@@ -49,13 +49,12 @@ func TestSign(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, closer := mempool.New(pebble.NewMemTest(t), state, 1000, utils.NewNopZapLogger())
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
+	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, &p, utils.NewNopZapLogger(), false, testDB, closer)
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -73,11 +72,10 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	p, closer := mempool.New(pebble.NewMemTest(t), state, 1000, utils.NewNopZapLogger())
+	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
 
 	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, &p, utils.NewNopZapLogger(), false, testDB, closer)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
@@ -155,9 +153,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	mockCtrl := gomock.NewController(t)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	p, closer := mempool.New(pebble.NewMemTest(t), state, 1000, utils.NewNopZapLogger())
+	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -168,8 +164,8 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB)
-	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, &p, log, false, testDB, closer)
+	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(&p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(context.Background(), txn)
 	}

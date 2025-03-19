@@ -50,12 +50,14 @@ type Builder struct {
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 
-	disableFees bool
-	plugin      plugin.JunoPlugin
+	disableFees   bool
+	plugin        plugin.JunoPlugin
+	mempoolCloser func() error
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
 	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.DB,
+	mempoolCloser func() error,
 ) Builder {
 	return Builder{
 		ownAddress: *ownAddr,
@@ -71,6 +73,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		vm:              vm,
 		subNewHeads:     feed.New[*core.Block](),
 		subPendingBlock: feed.New[*core.Block](),
+		mempoolCloser:   mempoolCloser,
 	}
 }
 
@@ -124,6 +127,8 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
+	defer b.mempoolCloser()
+
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := b.ClearPending(); pErr != nil {
