@@ -2,7 +2,9 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -60,7 +62,8 @@ func (d *DB) View(fn func(txn db.Snapshot) error) error {
 		return err
 	}
 
-	return fn(txn)
+	defer discardTxnOnPanic(txn)
+	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
 func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
@@ -75,7 +78,12 @@ func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 		return err
 	}
 
-	return fn(txn)
+	defer discardTxnOnPanic(txn)
+	if err := fn(txn); err != nil {
+		return utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
 }
 
 func (d *DB) Close() error {
@@ -175,4 +183,14 @@ func (d *DB) NewSnapshot() db.Snapshot {
 func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	d.listener = listener
 	return d
+}
+
+func discardTxnOnPanic(txn *transaction) {
+	p := recover()
+	if p != nil {
+		if err := txn.Discard(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
+		}
+		panic(p)
+	}
 }

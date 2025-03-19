@@ -55,17 +55,11 @@ func TestRemote(t *testing.T) {
 				if !bytes.Equal(val, []byte{i}) {
 					return errors.New("wrong value")
 				}
+
+				assert.Equal(t, db.ErrKeyNotFound, txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }))
 			}
 			return nil
 		}))
-
-		var val []byte
-		err = remoteDB.Get([]byte{0xDE, 0xAD}, func(data []byte) error {
-			val = data
-			return nil
-		})
-		assert.Equal(t, db.ErrKeyNotFound, err)
-		assert.Nil(t, val)
 	})
 
 	t.Run("iterate", func(t *testing.T) {
