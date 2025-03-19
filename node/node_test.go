@@ -44,7 +44,7 @@ func TestNewNode(t *testing.T) {
 	n, err := node.New(config, "v0.3", logLevel)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	n.Run(ctx)
 }
@@ -73,7 +73,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			require.NoError(t, err)
 			chain := blockchain.New(database, &network)
 			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)), log, 0, false, database)
-			ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+			ctx, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
 			require.NoError(t, syncer.Run(ctx))
 			cancel()
 			require.NoError(t, database.Close())

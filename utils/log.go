@@ -68,7 +68,7 @@ func (l LogLevel) Level() zapcore.Level {
 	return l.atomicLevel.Level()
 }
 
-func (l LogLevel) MarshalYAML() (interface{}, error) {
+func (l LogLevel) MarshalYAML() (any, error) {
 	return l.String(), nil
 }
 
@@ -123,7 +123,7 @@ func (l *ZapLogger) IsTraceEnabled() bool {
 	return l.Desugar().Core().Enabled(TRACE)
 }
 
-func (l *ZapLogger) Tracew(msg string, keysAndValues ...interface{}) {
+func (l *ZapLogger) Tracew(msg string, keysAndValues ...any) {
 	if l.IsTraceEnabled() {
 		// l.WithOptions() clones logger every time there is a Tracew() call
 		// which may be inefficient, one possible improvement is to create

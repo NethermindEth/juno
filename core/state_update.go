@@ -39,6 +39,24 @@ func (d *StateDiff) Length() uint64 {
 	return uint64(length)
 }
 
+func (d *StateDiff) Merge(incoming *StateDiff) {
+	mergeStorageDiffs := func(oldMap, newMap map[felt.Felt]map[felt.Felt]*felt.Felt) {
+		for addr, newAddrStorage := range newMap {
+			if oldAddrStorage, exists := oldMap[addr]; exists {
+				maps.Copy(oldAddrStorage, newAddrStorage)
+			} else {
+				oldMap[addr] = newAddrStorage
+			}
+		}
+	}
+	maps.Copy(d.Nonces, incoming.Nonces)
+	maps.Copy(d.DeployedContracts, incoming.DeployedContracts)
+	maps.Copy(d.DeclaredV1Classes, incoming.DeclaredV1Classes)
+	maps.Copy(d.ReplacedClasses, incoming.ReplacedClasses)
+	mergeStorageDiffs(d.StorageDiffs, incoming.StorageDiffs)
+	d.DeclaredV0Classes = append(d.DeclaredV0Classes, incoming.DeclaredV0Classes...)
+}
+
 var starknetStateDiff0 = new(felt.Felt).SetBytes([]byte("STARKNET_STATE_DIFF0"))
 
 func (d *StateDiff) Hash() *felt.Felt {
@@ -197,5 +215,16 @@ func noncesDigest(nonces map[felt.Felt]*felt.Felt, digest *crypto.PoseidonDigest
 	sortedNoncesAddrs := sortedFeltKeys(nonces)
 	for _, addr := range sortedNoncesAddrs {
 		digest.Update(&addr, nonces[addr])
+	}
+}
+
+func EmptyStateDiff() StateDiff {
+	return StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
 }

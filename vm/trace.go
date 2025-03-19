@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type StateDiff struct {
@@ -47,6 +48,7 @@ type DeclaredClass struct {
 	ClassHash         felt.Felt `json:"class_hash"`
 	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }
+
 type TransactionType uint8
 
 const (
@@ -108,6 +110,12 @@ type TransactionTrace struct {
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
+type TransactionReceipt struct {
+	Fee   *felt.Felt
+	Gas   GasConsumed
+	DAGas DataAvailability
+}
+
 func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	var executeInvocation *FunctionInvocation
 	if t.ExecuteInvocation != nil {
@@ -131,9 +139,34 @@ func (t *TransactionTrace) RevertReason() string {
 
 func (t *TransactionTrace) AllEvents() []OrderedEvent {
 	events := make([]OrderedEvent, 0)
-	for _, invocation := range t.allInvocations() {
-		events = append(events, invocation.allEvents()...)
+	globalOrder := 0
+
+	addEvents := func(invocation *FunctionInvocation) {
+		if invocation != nil {
+			allEvents := invocation.allEvents()
+			for _, event := range allEvents {
+				event.Order += uint64(globalOrder)
+				events = append(events, event)
+			}
+			globalOrder += len(allEvents)
+		}
 	}
+
+	if t.Type == TxnDeployAccount {
+		if t.ExecuteInvocation != nil {
+			addEvents(t.ExecuteInvocation.FunctionInvocation)
+		}
+		addEvents(t.ConstructorInvocation)
+		addEvents(t.ValidateInvocation)
+	} else {
+		addEvents(t.ValidateInvocation)
+		if t.ExecuteInvocation != nil {
+			addEvents(t.ExecuteInvocation.FunctionInvocation)
+		}
+		addEvents(t.ConstructorInvocation)
+	}
+	addEvents(t.FeeTransferInvocation)
+	addEvents(t.FunctionInvocation)
 	return events
 }
 
@@ -166,7 +199,10 @@ func (invocation *FunctionInvocation) allEvents() []OrderedEvent {
 	for i := range invocation.Calls {
 		events = append(events, invocation.Calls[i].allEvents()...)
 	}
-	return append(events, invocation.Events...)
+	return append(events, utils.Map(invocation.Events, func(e OrderedEvent) OrderedEvent {
+		e.From = &invocation.ContractAddress
+		return e
+	})...)
 }
 
 func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
@@ -174,7 +210,10 @@ func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	for i := range invocation.Calls {
 		messages = append(messages, invocation.Calls[i].allMessages()...)
 	}
-	return append(messages, invocation.Messages...)
+	return append(messages, utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
+		e.From = &invocation.ContractAddress
+		return e
+	})...)
 }
 
 type ExecuteInvocation struct {
@@ -222,6 +261,11 @@ type ComputationResources struct {
 }
 
 type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+}
+
+type GasConsumed struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
 }

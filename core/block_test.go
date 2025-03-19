@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -177,7 +176,7 @@ func TestBlockHash(t *testing.T) {
 			client := feeder.NewTestClient(t, &tc.chain)
 			gw := adaptfeeder.New(client)
 
-			block, err := gw.BlockByNumber(context.Background(), tc.number)
+			block, err := gw.BlockByNumber(t.Context(), tc.number)
 			require.NoError(t, err)
 
 			commitments, err := core.VerifyBlockHash(block, &tc.chain, nil)
@@ -192,7 +191,7 @@ func TestBlockHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	mainnetGW := adaptfeeder.New(client)
 	t.Run("error if block hash has not being calculated properly", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
 		mainnetBlock1.Hash = h1
@@ -206,7 +205,7 @@ func TestBlockHash(t *testing.T) {
 	t.Run("no error if block is unverifiable", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Goerli)
 		goerliGW := adaptfeeder.New(client)
-		block119802, err := goerliGW.BlockByNumber(context.Background(), 119802)
+		block119802, err := goerliGW.BlockByNumber(t.Context(), 119802)
 		require.NoError(t, err)
 
 		commitments, err := core.VerifyBlockHash(block119802, &utils.Goerli, nil)
@@ -215,7 +214,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("error if len of transactions do not match len of receipts", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
 		mainnetBlock1.Transactions = mainnetBlock1.Transactions[:len(mainnetBlock1.Transactions)-1]
@@ -229,7 +228,7 @@ func TestBlockHash(t *testing.T) {
 	})
 
 	t.Run("error if hash of transaction doesn't match corresponding receipt hash", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(context.Background(), 1)
+		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
 		mainnetBlock1.Receipts[1].TransactionHash = h1
@@ -256,10 +255,10 @@ func Test0132BlockHash(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
 			t.Parallel()
-			b, err := gw.BlockByNumber(context.Background(), test.blockNum)
+			b, err := gw.BlockByNumber(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
-			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
 			c, err := core.VerifyBlockHash(b, &utils.SepoliaIntegration, su.StateDiff)
@@ -281,10 +280,10 @@ func Test0134BlockHash(t *testing.T) {
 	} { //nolint:dupl
 		t.Run(fmt.Sprintf("blockNum=%v", test.blockNum), func(t *testing.T) {
 			t.Parallel()
-			b, err := gw.BlockByNumber(context.Background(), test.blockNum)
+			b, err := gw.BlockByNumber(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
-			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 
 			c, err := core.VerifyBlockHash(b, &utils.SepoliaIntegration, su.StateDiff)
