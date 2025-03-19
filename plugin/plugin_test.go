@@ -34,14 +34,14 @@ func TestPlugin(t *testing.T) {
 
 	// sync to integration for 2 blocks
 	for i := range 2 {
-		su, block, err := integGw.StateUpdateWithBlock(context.Background(), uint64(i))
+		su, block, err := integGw.StateUpdateWithBlock(t.Context(), uint64(i))
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
 	bc := blockchain.New(testDB, &utils.Integration)
 	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
@@ -54,20 +54,20 @@ func TestPlugin(t *testing.T) {
 		require.Equal(t, utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"), head.Hash)
 
 		// Reorg 2 blocks, then sync 3 blocks
-		su1, block1, err := integGw.StateUpdateWithBlock(context.Background(), uint64(1))
+		su1, block1, err := integGw.StateUpdateWithBlock(t.Context(), uint64(1))
 		require.NoError(t, err)
-		su0, block0, err := integGw.StateUpdateWithBlock(context.Background(), uint64(0))
+		su0, block0, err := integGw.StateUpdateWithBlock(t.Context(), uint64(0))
 		require.NoError(t, err)
 		plugin.EXPECT().RevertBlock(&junoplugin.BlockAndStateUpdate{block1, su1}, &junoplugin.BlockAndStateUpdate{block0, su0}, gomock.Any())
 		plugin.EXPECT().RevertBlock(&junoplugin.BlockAndStateUpdate{block0, su0}, nil, gomock.Any())
 		for i := range 3 {
-			su, block, err := mainGw.StateUpdateWithBlock(context.Background(), uint64(i))
+			su, block, err := mainGw.StateUpdateWithBlock(t.Context(), uint64(i))
 			require.NoError(t, err)
 			plugin.EXPECT().NewBlock(block, su, gomock.Any())
 		}
 
 		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
-		ctx, cancel = context.WithTimeout(context.Background(), timeout)
+		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
 

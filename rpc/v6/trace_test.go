@@ -1,9 +1,9 @@
 package rpcv6_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -82,7 +82,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 	mockReader := mocks.NewMockReader(mockCtrl)
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		return gateway.BlockByNumber(context.Background(), number)
+		return gateway.BlockByNumber(t.Context(), number)
 	}).AnyTimes()
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
@@ -94,7 +94,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 			handler := rpc.New(mockReader, nil, nil, "", n, nil)
 			handler = handler.WithFeeder(client)
-			traces, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: test.blockNumber})
+			traces, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: test.blockNumber})
 			if n == &utils.Sepolia && description == "newer block" {
 				// For Sepolia's newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpc.TracedBlockTransaction{traces[0], traces[7], traces[11]}
@@ -120,7 +120,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		blockNumber := uint64(40000)
 
 		mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-			return gateway.BlockByNumber(context.Background(), number)
+			return gateway.BlockByNumber(t.Context(), number)
 		}).Times(2)
 		mockReader.EXPECT().BlockByHash(gomock.Any()).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
 			return mockReader.BlockByNumber(blockNumber)
@@ -130,7 +130,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		// No feeder client is set
 		handler := rpc.New(mockReader, nil, nil, "", n, nil)
 
-		tracedBlocks, jErr := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Number: blockNumber})
+		tracedBlocks, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: blockNumber})
 
 		require.Nil(t, tracedBlocks)
 		require.Equal(t, rpccore.ErrInternal.Code, jErr.Code)
@@ -245,7 +245,7 @@ func TestTraceTransaction(t *testing.T) {
 		// Receipt() returns error related to db
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 
-		trace, err := handler.TraceTransaction(context.Background(), *hash)
+		trace, err := handler.TraceTransaction(t.Context(), *hash)
 		assert.Nil(t, trace)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 	})
@@ -303,7 +303,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:         0,
 			}, nil)
 
-		trace, err := handler.TraceTransaction(context.Background(), *hash)
+		trace, err := handler.TraceTransaction(t.Context(), *hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
@@ -365,7 +365,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps: 0,
 			}, nil)
 
-		trace, err := handler.TraceTransaction(context.Background(), *hash)
+		trace, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
@@ -387,7 +387,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
 		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return gateway.BlockByNumber(context.Background(), blockNumber)
+			return gateway.BlockByNumber(t.Context(), blockNumber)
 		}).Times(2)
 
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
@@ -484,7 +484,7 @@ func TestTraceTransaction(t *testing.T) {
 			},
 		}
 
-		trace, err := handler.TraceTransaction(context.Background(), *revertedTxHash)
+		trace, err := handler.TraceTransaction(t.Context(), *revertedTxHash)
 
 		require.Nil(t, err)
 		assert.Equal(t, expectedRevertedTrace, *trace)
@@ -508,7 +508,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, "", n, log)
 
-			update, rpcErr := handler.TraceBlockTransactions(context.Background(), id)
+			update, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
 			assert.Nil(t, update)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -583,7 +583,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         0,
 			}, nil)
 
-		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
 		require.Nil(t, err)
 		assert.Equal(t, &vm.TransactionTrace{
 			ValidateInvocation:    &vm.FunctionInvocation{},
@@ -663,7 +663,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			},
 		}
 
-		result, err := handler.TraceBlockTransactions(context.Background(), rpc.BlockID{Hash: blockHash})
+		result, err := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
 
 		require.Nil(t, err)
 		assert.Equal(t, expectedResult, result)
@@ -1134,7 +1134,7 @@ func TestCall(t *testing.T) {
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), false, false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1158,7 +1158,13 @@ func TestCall(t *testing.T) {
 		}
 		expectedErr := rpccore.ErrContractError
 		expectedErr.Data = rpc.ContractErrorData{
-			RevertError: json.RawMessage(`"` + rpccore.ErrEntrypointNotFound.Message + `"`),
+			RevertError: json.RawMessage(`"` +
+				fmt.Sprintf(
+					rpccore.ErrEPSNotFound,
+					selector.String(),
+				) +
+				`"`,
+			),
 		}
 
 		headsHeader := &core.Header{
@@ -1178,7 +1184,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), false).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1219,7 +1225,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1259,7 +1265,7 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,

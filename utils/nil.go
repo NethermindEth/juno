@@ -7,17 +7,17 @@ import "reflect"
 // In Golang, an interface is boxed by an underlying type and value; both of them need to be nil for the interface to be
 // nil. See the following examples:
 //
-//	var i interface{}
+//	var i any
 //	fmt.Println(i == nil) // true
 //
 //	var p *int
-//	var i interface{} = p
+//	var i any = p
 //	fmt.Println(i == nil) // false!
 //
 // A solution for this is to use i == nil || reflect.ValueOf(i).IsNil()), however, this can cause a panic as not all
 // reflect.Value has IsNil() defined. Therefore, default is to return false. For example, reflect.Array cannot be nil,
 // hence calling IsNil() will cause a panic.
-func IsNil(i interface{}) bool {
+func IsNil(i any) bool {
 	if i == nil {
 		return true
 	}

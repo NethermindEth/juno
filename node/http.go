@@ -26,6 +26,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	defaultReadTimeout       = 30 * time.Second
+	defaultReadHeaderTimeout = 30 * time.Second
+	defaultWriteTimeout      = 30 * time.Second
+	defaultIdleTimeout       = 2 * time.Minute
+)
+
 type httpService struct {
 	srv *http.Server
 }
@@ -62,7 +69,10 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 		srv: &http.Server{
 			Addr:              net.JoinHostPort(host, portStr),
 			Handler:           handler,
-			ReadHeaderTimeout: 30 * time.Second,
+			ReadHeaderTimeout: defaultReadHeaderTimeout,
+			ReadTimeout:       defaultReadTimeout,
+			WriteTimeout:      defaultWriteTimeout,
+			IdleTimeout:       defaultIdleTimeout,
 		},
 	}
 }

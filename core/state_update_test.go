@@ -1,7 +1,6 @@
 package core_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -38,7 +37,7 @@ func TestStateDiffCommitment(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 			commitment := su.StateDiff.Commitment()
 			assert.Equal(t, utils.HexToFelt(t, test.expected), commitment)
@@ -72,7 +71,7 @@ func TestStateDiffHash(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("blockNum_%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 			assert.Equal(t, utils.HexToFelt(t, test.expected), su.StateDiff.Hash())
 		})
@@ -82,7 +81,7 @@ func TestStateDiffHash(t *testing.T) {
 func BenchmarkStateDiffHash(b *testing.B) {
 	client := feeder.NewTestClient(b, &utils.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
-	su, err := gw.StateUpdate(context.Background(), 38748)
+	su, err := gw.StateUpdate(b.Context(), 38748)
 	require.NoError(b, err)
 
 	b.ResetTimer()
@@ -104,7 +103,7 @@ func TestStateDiffLength(t *testing.T) {
 		{blockNum: 2, expectedLength: 1},
 	} {
 		t.Run(fmt.Sprintf("blockNum=%d", test.blockNum), func(t *testing.T) {
-			su, err := gw.StateUpdate(context.Background(), test.blockNum)
+			su, err := gw.StateUpdate(t.Context(), test.blockNum)
 			require.NoError(t, err)
 			length := su.StateDiff.Length()
 			assert.Equal(t, test.expectedLength, length)

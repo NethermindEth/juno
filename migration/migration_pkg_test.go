@@ -90,9 +90,9 @@ func TestRecalculateBloomFilters(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(context.Background(), i)
+		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 
 		b.EventsBloom = nil
@@ -169,7 +169,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 
 	m := new(changeTrieNodeEncoding)
 	require.NoError(t, m.Before(nil))
-	_, err := m.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	_, err := m.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
 	require.NoError(t, err)
 
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
@@ -192,9 +192,9 @@ func TestCalculateBlockCommitments(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(3) {
-		b, err := gw.BlockByNumber(context.Background(), i)
+		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
@@ -216,9 +216,9 @@ func TestL1HandlerTxns(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	for i := range uint64(7) { // First l1 handler txn is in block 6
-		b, err := gw.BlockByNumber(context.Background(), i)
+		b, err := gw.BlockByNumber(t.Context(), i)
 		require.NoError(t, err)
-		su, err := gw.StateUpdate(context.Background(), i)
+		su, err := gw.StateUpdate(t.Context(), i)
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
@@ -502,7 +502,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
 	})
 
 	t.Run("call with new tx", func(t *testing.T) {
@@ -522,7 +522,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
 	})
 
 	t.Run("error during migration", func(t *testing.T) {
@@ -537,7 +537,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
 	})
 
 	t.Run("error if using new db on old version of juno", func(t *testing.T) {
@@ -552,9 +552,9 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
 		want := "db is from a newer, incompatible version of Juno"
-		require.ErrorContains(t, migrateIfNeeded(context.Background(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}), want)
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}), want)
 	})
 }
 
@@ -562,7 +562,7 @@ func TestChangeStateDiffStructEmptyDB(t *testing.T) {
 	testdb := memory.New()
 	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 	require.NoError(t, migrator.Before(nil))
-	intermediateState, err := migrator.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	intermediateState, err := migrator.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
 	require.NoError(t, err)
 	require.Nil(t, intermediateState)
 
@@ -635,7 +635,7 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	// Migrate.
 	migrator := NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2)
 	require.NoError(t, migrator.Before(nil))
-	intermediateState, err := migrator.Migrate(context.Background(), testdb, &utils.Mainnet, nil)
+	intermediateState, err := migrator.Migrate(t.Context(), testdb, &utils.Mainnet, nil)
 	require.NoError(t, err)
 	require.Nil(t, intermediateState)
 
