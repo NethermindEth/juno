@@ -6,7 +6,14 @@ import "io"
 type KeyValueReader interface {
 	// Checks if a key exists in the data store
 	Has(key []byte) (bool, error)
-	// Retrieves a value for a given key if it exists
+	// If a given key exists, the callback will be called with the value
+	// Example:
+	//
+	//	var value []byte
+	//	db.Get([]byte("key"), func(v []byte) error {
+	//		value = v
+	//		return nil
+	//	})
 	Get(key []byte, cb func(value []byte) error) error
 }
 

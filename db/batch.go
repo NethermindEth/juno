@@ -1,6 +1,7 @@
 package db
 
-// A write-only store that gathers changes in-memory and writes them to disk in a single atomic operation
+// A write-only store that gathers changes in-memory and writes them to disk in a single atomic operation.
+// It is not thread-safe for a single batch, but different batches can be used in different threads.
 type Batch interface {
 	KeyValueWriter
 	// Retrieves the value size of the data stored in the batch for writing
@@ -19,8 +20,11 @@ type Batcher interface {
 	NewBatchWithSize(size int) Batch
 }
 
-// Same as Batch, but allows for reads. Use this if you need to read from both the in-memory and on-disk data.
+// Same as Batch, but allows for reads from the batch and the disk.
+// Use this only if you need to read from both the in-memory and on-disk data.
 // Write operations will be slower.
+// Ideally, IndexedBatch should not be used at all, because it's better to write using regular batch
+// and read directly from the database.
 type IndexedBatch interface {
 	Batch
 	KeyValueReader
