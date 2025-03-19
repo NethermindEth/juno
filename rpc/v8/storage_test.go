@@ -19,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
-	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -709,14 +708,16 @@ func TestGetNodesFromRoot(t *testing.T) {
 		}, nil)
 
 		tempTrie := emptyTrie(t)
-		tempTrie.Put(key, value)
-		tempTrie.Put(key2, value2)
+		_, err := tempTrie.Put(key, value)
+		require.NoError(t, err)
+		_, err = tempTrie.Put(key2, value2)
+		require.NoError(t, err)
 
 		key0 := tempTrie.RootKey()
 		value0, err := tempTrie.GetNodeFromKey(key0)
 		require.NoError(t, err)
 
-		nodes := []rpcv8.TrieNode{{Key: *node0, Value: *value0.Value}, {Key: *key, Value: *value}}
+		nodes := []rpc.TrieNode{{Key: *node0, Value: *value0.Value}, {Key: *key, Value: *value}}
 
 		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
 
@@ -762,8 +763,9 @@ func TestGetNodesFromRoot(t *testing.T) {
 		}, nil)
 		const numNodes = 2048
 		tempTrie := emptyTrie(t)
-		for i := 0; i < numNodes; i++ {
-			tempTrie.Put(new(felt.Felt).SetUint64(uint64(i)), new(felt.Felt).SetUint64(uint64(i)))
+		for i := range numNodes {
+			_, err := tempTrie.Put(new(felt.Felt).SetUint64(uint64(i)), new(felt.Felt).SetUint64(uint64(i)))
+			require.NoError(t, err)
 		}
 		mockState.EXPECT().ClassTrie().Return(tempTrie, nil)
 
