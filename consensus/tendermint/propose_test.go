@@ -13,7 +13,7 @@ import (
 func TestPropose(t *testing.T) {
 	nodeAddr := new(felt.Felt).SetBytes([]byte("my node address"))
 	val2, val3, val4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
-	tm := func(r uint) time.Duration { return time.Second }
+	tm := func(r round) time.Duration { return time.Second }
 
 	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
@@ -26,8 +26,8 @@ func TestPropose(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight := uint(0)
-		rPrime, rPrimeVal := uint(4), value(10)
+		expectedHeight := height(0)
+		rPrime, rPrimeVal := round(4), value(10)
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
 			H:          expectedHeight,
 			R:          rPrime,
@@ -76,12 +76,12 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		tm := func(r uint) time.Duration { return 2 * time.Second }
+		tm := func(r round) time.Duration { return 2 * time.Second }
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight := uint(0)
-		rPrime, rPrimeVal := uint(4), value(10)
+		expectedHeight := height(0)
+		rPrime, rPrimeVal := round(4), value(10)
 		val2Prevote := Prevote[felt.Felt, felt.Felt]{
 			Vote: Vote[felt.Felt, felt.Felt]{
 				H:      expectedHeight,
@@ -133,8 +133,8 @@ func TestPropose(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight := uint(0)
-		rPrime := uint(4)
+		expectedHeight := height(0)
+		rPrime := round(4)
 		round4Value := value(10)
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			Vote: Vote[felt.Felt, felt.Felt]{
@@ -228,13 +228,13 @@ func TestPropose(t *testing.T) {
 		scheduledTm := algo.scheduledTms[1]
 
 		assert.Equal(t, precommit, scheduledTm.s)
-		assert.Equal(t, uint(0), scheduledTm.h)
-		assert.Equal(t, uint(0), scheduledTm.r)
+		assert.Equal(t, height(0), scheduledTm.h)
+		assert.Equal(t, round(0), scheduledTm.r)
 
 		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(0), algo.state.h)
-		assert.Equal(t, uint(0), algo.state.r)
+		assert.Equal(t, height(0), algo.state.h)
+		assert.Equal(t, round(0), algo.state.r)
 	})
 
 	t.Run("Line 47: don't schedule timeout precommit multiple times", func(t *testing.T) {
@@ -301,20 +301,20 @@ func TestPropose(t *testing.T) {
 		scheduledTm := algo.scheduledTms[1]
 
 		assert.Equal(t, precommit, scheduledTm.s)
-		assert.Equal(t, uint(0), scheduledTm.h)
-		assert.Equal(t, uint(0), scheduledTm.r)
+		assert.Equal(t, height(0), scheduledTm.h)
+		assert.Equal(t, round(0), scheduledTm.r)
 
 		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(0), algo.state.h)
-		assert.Equal(t, uint(0), algo.state.r)
+		assert.Equal(t, height(0), algo.state.h)
+		assert.Equal(t, round(0), algo.state.r)
 	})
 
 	t.Run("OnTimeoutPrecommit: move to next round", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
 		nodeAddr := new(felt.Felt).SetBytes([]byte("my node address"))
 		app, chain, vals := newApp(), newChain(), newVals()
-		tmPrecommit := func(r uint) time.Duration { return time.Nanosecond }
+		tmPrecommit := func(r round) time.Duration { return time.Nanosecond }
 
 		vals.addValidator(*val2)
 		vals.addValidator(*val3)
@@ -367,12 +367,12 @@ func TestPropose(t *testing.T) {
 
 		assert.False(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(0), algo.state.h)
-		assert.Equal(t, uint(1), algo.state.r)
+		assert.Equal(t, height(0), algo.state.h)
+		assert.Equal(t, round(1), algo.state.r)
 
 		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, uint(0), scheduledTm.h)
-		assert.Equal(t, uint(1), scheduledTm.r)
+		assert.Equal(t, height(0), scheduledTm.h)
+		assert.Equal(t, round(1), scheduledTm.r)
 	})
 
 	t.Run("Line 49 (Proposal): commit the value", func(t *testing.T) {
@@ -387,7 +387,7 @@ func TestPropose(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		h, r := uint(0), uint(0)
+		h, r := height(0), round(0)
 
 		val := app.Value()
 		vID := val.Hash()
@@ -443,12 +443,12 @@ func TestPropose(t *testing.T) {
 		scheduledTm := algo.scheduledTms[1]
 
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(1), algo.state.h)
-		assert.Equal(t, uint(0), algo.state.r)
+		assert.Equal(t, height(1), algo.state.h)
+		assert.Equal(t, round(0), algo.state.r)
 
 		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, uint(1), scheduledTm.h)
-		assert.Equal(t, uint(0), scheduledTm.r)
+		assert.Equal(t, height(1), scheduledTm.h)
+		assert.Equal(t, round(0), scheduledTm.r)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)
@@ -473,7 +473,7 @@ func TestPropose(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		h, r := uint(0), uint(0)
+		h, r := height(0), round(0)
 
 		val := app.Value()
 		vID := val.Hash()
@@ -528,12 +528,12 @@ func TestPropose(t *testing.T) {
 		scheduledTm := algo.scheduledTms[1]
 
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(1), algo.state.h)
-		assert.Equal(t, uint(0), algo.state.r)
+		assert.Equal(t, height(1), algo.state.h)
+		assert.Equal(t, round(0), algo.state.r)
 
 		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, uint(1), scheduledTm.h)
-		assert.Equal(t, uint(0), scheduledTm.r)
+		assert.Equal(t, height(1), scheduledTm.h)
+		assert.Equal(t, round(0), scheduledTm.r)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)

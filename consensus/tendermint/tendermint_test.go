@@ -34,23 +34,23 @@ func (a *app) Valid(v value) bool {
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
-	curHeight            uint
-	decision             map[uint]value
-	decisionCertificates map[uint][]Precommit[felt.Felt, felt.Felt]
+	curHeight            height
+	decision             map[height]value
+	decisionCertificates map[height][]Precommit[felt.Felt, felt.Felt]
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[uint]value),
-		decisionCertificates: make(map[uint][]Precommit[felt.Felt, felt.Felt]),
+		decision:             make(map[height]value),
+		decisionCertificates: make(map[height][]Precommit[felt.Felt, felt.Felt]),
 	}
 }
 
-func (c *chain) Height() uint {
+func (c *chain) Height() height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h uint, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
+func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
 	c.decision[c.curHeight] = v
 	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
@@ -64,7 +64,7 @@ type validators struct {
 
 func newVals() *validators { return &validators{} }
 
-func (v *validators) TotalVotingPower(h uint) uint {
+func (v *validators) TotalVotingPower(h height) uint {
 	return v.totalVotingPower
 }
 
@@ -73,8 +73,8 @@ func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) uint {
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h, r uint) felt.Felt {
-	i := (h + r) % v.totalVotingPower
+func (v *validators) Proposer(h height, r round) felt.Felt {
+	i := (uint(h) + uint(r)) % v.totalVotingPower
 	return v.vals[i]
 }
 
@@ -126,7 +126,7 @@ func TestStartRound(t *testing.T) {
 	nodeAddr := new(felt.Felt).SetBytes([]byte("my node address"))
 	val2, val3, val4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
 
-	tm := func(r uint) time.Duration { return time.Duration(r) * time.Nanosecond }
+	tm := func(r round) time.Duration { return time.Duration(r) * time.Nanosecond }
 
 	t.Run("node is the proposer", func(t *testing.T) {
 		listeners, broadcasters := testListenersAndBroadcasters()
@@ -139,7 +139,7 @@ func TestStartRound(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight, expectedRound := uint(0), uint(0)
+		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
 			H:          0,
 			R:          0,
@@ -183,12 +183,12 @@ func TestStartRound(t *testing.T) {
 		scheduledTm := algo.scheduledTms[0]
 
 		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, uint(0), scheduledTm.h)
-		assert.Equal(t, uint(0), scheduledTm.r)
+		assert.Equal(t, height(0), scheduledTm.h)
+		assert.Equal(t, round(0), scheduledTm.r)
 
 		assert.Equal(t, propose, algo.state.s)
-		assert.Equal(t, uint(0), algo.state.h)
-		assert.Equal(t, uint(0), algo.state.r)
+		assert.Equal(t, height(0), algo.state.h)
+		assert.Equal(t, round(0), algo.state.r)
 	})
 
 	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
@@ -196,7 +196,7 @@ func TestStartRound(t *testing.T) {
 		app, chain, vals := newApp(), newChain(), newVals()
 		// The algo needs to run for a minimum amount of time but it cannot be long enough the state to change
 		// multiple times. This can happen if the timeouts are too small.
-		tm := func(r uint) time.Duration {
+		tm := func(r round) time.Duration {
 			if r == 0 {
 				return time.Nanosecond
 			}
@@ -210,7 +210,7 @@ func TestStartRound(t *testing.T) {
 
 		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
-		expectedHeight, expectedRound := uint(0), uint(0)
+		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
 			Vote: Vote[felt.Felt, felt.Felt]{
 				H:      0,

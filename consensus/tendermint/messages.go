@@ -31,8 +31,8 @@ type Precommit[H Hash, A Addr] struct {
 }
 
 type Vote[H Hash, A Addr] struct {
-	H  uint
-	R  uint
+	H  height
+	R  round
 	ID *H
 
 	Sender A
@@ -103,7 +103,7 @@ func (m *messages[V, H, A]) deleteHeightMessages(h height) {
 	delete(m.precommits, h)
 }
 
-func (m *messages[V, H, A]) deleteRoundMessages(h, r round) {
+func (m *messages[V, H, A]) deleteRoundMessages(h height, r round) {
 	delete(m.proposals[h], r)
 	delete(m.prevotes[h], r)
 	delete(m.precommits[h], r)
