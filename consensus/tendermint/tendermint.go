@@ -200,7 +200,6 @@ func (t *Tendermint[V, H, A]) Start() {
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
 
-		i := 0
 		for {
 			select {
 			case <-t.quit:
@@ -231,7 +230,6 @@ func (t *Tendermint[V, H, A]) Start() {
 			case p := <-t.listeners.PrecommitListener.Listen():
 				t.handlePrecommit(p)
 			}
-			i++
 		}
 	}()
 }
