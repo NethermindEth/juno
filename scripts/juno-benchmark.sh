@@ -58,7 +58,7 @@ test_ssh_connection() {
 
 setup_working_dir() {
     log "Setting up clean working directory on EC2..."
-    run_remote "pkill -f juno || true"
+    run_remote "pkill -x juno || true"
     run_remote "rm -rf ~/juno-benchmark && mkdir -p ~/juno-benchmark"
     log "Checking available disk space on EC2:"
     run_remote "df -h | grep -E '/$|/home'"
