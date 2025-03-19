@@ -14,21 +14,21 @@ import (
 func TestPipeline(t *testing.T) {
 	t.Run("nil channel", func(t *testing.T) {
 		t.Run("Stage", func(t *testing.T) {
-			_, open := <-Stage(context.Background(), nil, strconv.Itoa)
+			_, open := <-Stage(t.Context(), nil, strconv.Itoa)
 			assert.False(t, open)
 		})
 		t.Run("FanIn", func(t *testing.T) {
-			_, open := <-FanIn[int](context.Background(), nil, nil, nil)
+			_, open := <-FanIn[int](t.Context(), nil, nil, nil)
 			assert.False(t, open)
 		})
 		t.Run("Bridge", func(t *testing.T) {
-			_, open := <-Bridge[int](context.Background(), nil)
+			_, open := <-Bridge[int](t.Context(), nil)
 			assert.False(t, open)
 		})
 	})
 
 	t.Run("ctx is cancelled", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 
 		t.Run("Stage", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestPipeline(t *testing.T) {
 			return ch
 		}
 
-		ctx := context.Background()
+		ctx := t.Context()
 		chOfInts := make(chan (<-chan int))
 		nextVal := -1
 

@@ -342,7 +342,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, true)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, true, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

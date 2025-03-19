@@ -1,7 +1,6 @@
 package rpcv8_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -130,7 +129,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(56377)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -257,7 +256,7 @@ func TestBlockWithTxs(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	latestBlockNumber := uint64(16697)
-	latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -375,7 +374,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	coreBlock, err := gw.BlockByNumber(context.Background(), blockNumber)
+	coreBlock, err := gw.BlockByNumber(t.Context(), blockNumber)
 	require.NoError(t, err)
 	tx, ok := coreBlock.Transactions[0].(*core.InvokeTransaction)
 	require.True(t, ok)
@@ -481,7 +480,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	t.Run("pending block", func(t *testing.T) {
-		block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
 		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: block0}, nil)
@@ -526,7 +525,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	})
 
 	t.Run("accepted L1 block", func(t *testing.T) {
-		block1, err := mainnetGw.BlockByNumber(context.Background(), 1)
+		block1, err := mainnetGw.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
 		blockID := rpcv8.BlockID{Number: block1.Number}
@@ -588,7 +587,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	latestBlockNumber := uint64(4850)
 
 	t.Run("default sequencer address", func(t *testing.T) {
-		latestBlock, err := gw.BlockByNumber(context.Background(), latestBlockNumber)
+		latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 		require.NoError(t, err)
 		latestBlock.Header.SequencerAddress = nil
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)

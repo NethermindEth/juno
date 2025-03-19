@@ -70,7 +70,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		mainnetGw := adaptfeeder.New(client)
 
-		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 		require.NoError(t, err)
 
 		txAtIdx1InBlock := utils.HexToFelt(t, "0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
@@ -119,7 +119,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		mainnetGw := adaptfeeder.New(client)
 
-		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 		require.NoError(t, err)
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -417,7 +417,7 @@ func TestTransactionByHash(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-				return gw.Transaction(context.Background(), hash)
+				return gw.Transaction(t.Context(), hash)
 			}).Times(1)
 			handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
@@ -452,7 +452,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	latestBlockNumber := 19199
-	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -637,7 +637,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
 		mockSyncReader.EXPECT().PendingBlock().DoAndReturn(func() *core.Block {
-			block, err := gateway.BlockByNumber(context.Background(), 4850)
+			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 
 			return block
@@ -661,7 +661,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
-		block, err := gateway.BlockByNumber(context.Background(), 4850)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
 		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
@@ -686,7 +686,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
-		block, err := gateway.BlockByNumber(context.Background(), 4850)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
 		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
@@ -715,7 +715,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
 		mockSyncReader.EXPECT().PendingBlock().DoAndReturn(func() *core.Block {
-			block, err := gateway.BlockByNumber(context.Background(), 4850)
+			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 
 			return block
@@ -772,7 +772,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
-		block, err := gateway.BlockByNumber(context.Background(), 4850)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
 		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
@@ -843,7 +843,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
@@ -1002,7 +1002,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -1059,7 +1059,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -1156,7 +1156,7 @@ func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
-		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
+		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
 			Transaction: rpc.AdaptCoreTransaction(tx),
@@ -1420,11 +1420,11 @@ func TestAddTransaction(t *testing.T) {
 				Times(1)
 
 			handler := rpc.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
-			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+			_, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
-			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+			got, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Nil(t, rpcErr)
 			require.Equal(t, &rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),
@@ -1459,7 +1459,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1471,7 +1471,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("tx found in db", func(t *testing.T) {
 				gw := adaptfeeder.New(client)
 
-				block, err := gw.BlockLatest(context.Background())
+				block, err := gw.BlockLatest(t.Context())
 				require.NoError(t, err)
 
 				tx := block.Transactions[0]

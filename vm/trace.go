@@ -44,6 +44,7 @@ type DeclaredClass struct {
 	ClassHash         felt.Felt `json:"class_hash"`
 	CompiledClassHash felt.Felt `json:"compiled_class_hash"`
 }
+
 type TransactionType uint8
 
 const (
@@ -82,6 +83,12 @@ type TransactionTrace struct {
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
+}
+
+type TransactionReceipt struct {
+	Fee   *felt.Felt
+	Gas   GasConsumed
+	DAGas DataAvailability
 }
 
 type FunctionInvocation struct {
@@ -137,6 +144,11 @@ type ComputationResources struct {
 }
 
 type DataAvailability struct {
+	L1Gas     uint64 `json:"l1_gas"`
+	L1DataGas uint64 `json:"l1_data_gas"`
+}
+
+type GasConsumed struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
 }
