@@ -94,7 +94,7 @@ type BlockWithReceipts struct {
 type BlockWithTxHashesAndReceipts struct {
 	Status rpcv6.BlockStatus `json:"status,omitempty"`
 	BlockHeader
-	TxnHashes    []*felt.Felt             `json:"transactionsHashes"`
+	TxnHashes    []felt.Felt              `json:"transactionsHashes"`
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
@@ -102,7 +102,7 @@ func EmptyBlockWithTxHashesAndReceipts() BlockWithTxHashesAndReceipts {
 	return BlockWithTxHashesAndReceipts{
 		Status:       rpcv6.BlockPending,
 		BlockHeader:  BlockHeader{},
-		TxnHashes:    []*felt.Felt{},
+		TxnHashes:    []felt.Felt{},
 		Transactions: []TransactionWithReceipt{},
 	}
 }
@@ -202,9 +202,9 @@ func (h *Handler) BlockWithTxHashesAndReceipts(id BlockID) (BlockWithTxHashesAnd
 		}
 	}
 
-	txnHashes := make([]*felt.Felt, len(block.Transactions))
+	txnHashes := make([]felt.Felt, len(block.Transactions))
 	for index, txn := range block.Transactions {
-		txnHashes[index] = txn.Hash()
+		txnHashes[index] = *txn.Hash()
 	}
 
 	return BlockWithTxHashesAndReceipts{

@@ -269,7 +269,7 @@ func TestBlockWithTxHashesAndReceipts(t *testing.T) {
 		assert.Equal(t, latestBlock.Timestamp, b.Timestamp)
 		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
 		for i := range len(latestBlock.Transactions) {
-			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
+			assert.Equal(t, *latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
 		}
 	}
 
