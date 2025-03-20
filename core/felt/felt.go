@@ -10,16 +10,6 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-type Felt struct {
-	val fp.Element
-}
-
-func New(element fp.Element) Felt {
-	return Felt{
-		val: element,
-	}
-}
-
 const (
 	Base16 = 16
 	Base10 = 10
@@ -31,13 +21,43 @@ const (
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
 )
 
-// Zero felt constant
 var Zero = Felt{}
+
+var One = Felt{val: fp.Element(
+	[4]uint64{
+		18446744073709551585,
+		18446744073709551615,
+		18446744073709551615,
+		576460752303422960,
+	},
+)}
 
 var bigIntPool = sync.Pool{
 	New: func() any {
 		return new(big.Int)
 	},
+}
+
+type Felt struct {
+	val fp.Element
+}
+
+func New(element fp.Element) Felt {
+	return Felt{
+		val: element,
+	}
+}
+
+func FromUint64(val uint64) Felt {
+	return Felt{
+		val: fp.NewElement(val),
+	}
+}
+
+func FromBytes(bytes []byte) Felt {
+	return Felt{
+		val: *new(fp.Element).SetBytes(bytes),
+	}
 }
 
 // Impl returns the underlying field element type
