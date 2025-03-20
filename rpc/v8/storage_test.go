@@ -145,10 +145,17 @@ func TestStorageProof(t *testing.T) {
 	require.NoError(t, err)
 	_ = tempTrie.Update(key, value)
 	_ = tempTrie.Update(key2, value2)
+
 	_, _ = tempTrie.Commit()
 	trieRoot := tempTrie.Hash()
 
-	tempTrie, err = trie2.New(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
+	//TODO(MaksymMalicki): handle for both db schemes, update when condition for
+	// triedb scheme added
+	if true {
+		tempTrie, err = trie2.NewWithRootHash(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn, trieRoot)
+	} else {
+		tempTrie, err = trie2.New(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
+	}
 	require.NoError(t, err)
 
 	mockReader := mocks.NewMockReader(mockCtrl)

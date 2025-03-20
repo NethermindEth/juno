@@ -183,7 +183,9 @@ func TestHash(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	verifyCommit := func(t *testing.T, records []*keyValue) {
+	//TODO(MaksymMalicki): this fails for hashdb, update when condition for
+	// triedb scheme added
+	verifyCommitPathDB := func(t *testing.T, records []*keyValue) {
 		t.Helper()
 		db := db.NewMemTransaction()
 		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
@@ -203,21 +205,48 @@ func TestCommit(t *testing.T) {
 		for _, record := range records {
 			got, err := tr2.Get(record.key)
 			require.NoError(t, err)
-			require.True(t, got.Equal(record.value), "expected %v, got %v", record.value, got)
+			require.True(t, got.Equal(record.value), "(PathDB): expected %v, got %v", record.value, got)
+		}
+	}
+
+	verifyCommitHashDB := func(t *testing.T, records []*keyValue) {
+		t.Helper()
+		db := db.NewMemTransaction()
+		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+		require.NoError(t, err)
+
+		for _, record := range records {
+			err := tr.Update(record.key, record.value)
+			require.NoError(t, err)
+		}
+
+		root, err := tr.Commit()
+		require.NoError(t, err)
+
+		tr2, err := NewWithRootHash(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db, root)
+		require.NoError(t, err)
+		for _, record := range records {
+			got, err := tr2.Get(record.key)
+			require.NoError(t, err)
+			require.True(t, got.Equal(record.value), "(HashDB): expected %v, got %v", record.value, got)
 		}
 	}
 
 	t.Run("sequential", func(t *testing.T) {
 		_, records := nonRandomTrie(t, 10000)
-		verifyCommit(t, records)
+		verifyCommitPathDB(t, records)
+		verifyCommitHashDB(t, records)
 	})
 
 	t.Run("random", func(t *testing.T) {
 		_, records := randomTrie(t, 10000)
-		verifyCommit(t, records)
+		verifyCommitPathDB(t, records)
+		verifyCommitHashDB(t, records)
 	})
 }
 
+// TODO(MaksymMalicki): this only works for path db, has to be run 2 times, specifically
+// for path db and hash db
 func TestRandom(t *testing.T) {
 	if err := quick.Check(runRandTestBool, nil); err != nil {
 		if cerr, ok := err.(*quick.CheckError); ok {
@@ -227,35 +256,35 @@ func TestRandom(t *testing.T) {
 	}
 }
 
-func TestSpecificRandomFailure(t *testing.T) {
+func TestSpecificRandomFailurePathDB(t *testing.T) {
 	// Create a key that matches the failing key from the error log
 	key1 := utils.HexToFelt(t, "0xbc41e72617a6765fcb5902")
 	key2 := utils.HexToFelt(t, "0x0") // The second key from the error log
 
 	steps := []randTestStep{
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opGet, key: key1},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opHash},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opHash},
-		{op: opCommit},
-		{op: opCommit},
+		{op: opCommitPathDB},
+		{op: opCommitPathDB},
 		{op: opHash},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(12)},
 		{op: opGet, key: key2},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opHash},
 		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(16)},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(18)},
 		{op: opDelete, key: key2},
 		{op: opDelete, key: key1},
 		{op: opHash},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opGet, key: key1}, // This is where the original failure occurred
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opGet, key: key2},
 		{op: opProve, key: key2},
 		{op: opHash},
@@ -264,7 +293,7 @@ func TestSpecificRandomFailure(t *testing.T) {
 		{op: opHash},
 		{op: opGet, key: key1},
 		{op: opDelete, key: key1},
-		{op: opCommit},
+		{op: opCommitPathDB},
 		{op: opDelete, key: key1},
 		{op: opHash},
 		{op: opDelete, key: key2},
@@ -272,10 +301,73 @@ func TestSpecificRandomFailure(t *testing.T) {
 		{op: opHash},
 		{op: opHash},
 		{op: opGet, key: key2},
-		{op: opCommit},
+		{op: opCommitPathDB},
 	}
 	// Add debug logging
-	t.Log("Starting test sequence")
+	t.Log("Starting test sequence (PathDB)")
+	err := runRandTest(steps)
+	if err != nil {
+		t.Logf("Test failed at step: %v", err)
+		// Print the state of the trie at failure
+		for i, step := range steps {
+			if step.err != nil {
+				t.Logf("Failed at step %d: %v", i, step)
+				break
+			}
+		}
+	}
+	require.NoError(t, err, "specific random test sequence should not fail")
+}
+
+func TestSpecificRandomFailureHashDB(t *testing.T) {
+	// Create a key that matches the failing key from the error log
+	key1 := utils.HexToFelt(t, "0xbc41e72617a6765fcb5902")
+	key2 := utils.HexToFelt(t, "0x0") // The second key from the error log
+
+	steps := []randTestStep{
+		{op: opCommitHashDB},
+		{op: opGet, key: key1},
+		{op: opCommitHashDB},
+		{op: opHash},
+		{op: opCommitHashDB},
+		{op: opHash},
+		{op: opCommitHashDB},
+		{op: opCommitHashDB},
+		{op: opHash},
+		{op: opCommitHashDB},
+		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(12)},
+		{op: opGet, key: key2},
+		{op: opCommitHashDB},
+		{op: opHash},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(16)},
+		{op: opCommitHashDB},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(18)},
+		{op: opDelete, key: key2},
+		{op: opDelete, key: key1},
+		{op: opHash},
+		{op: opCommitHashDB},
+		{op: opGet, key: key1}, // This is where the original failure occurred
+		{op: opCommitHashDB},
+		{op: opGet, key: key2},
+		{op: opProve, key: key2},
+		{op: opHash},
+		{op: opGet, key: key1},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(32)},
+		{op: opHash},
+		{op: opGet, key: key1},
+		{op: opDelete, key: key1},
+		{op: opCommitHashDB},
+		{op: opDelete, key: key1},
+		{op: opHash},
+		{op: opDelete, key: key2},
+		{op: opGet, key: key1},
+		{op: opHash},
+		{op: opHash},
+		{op: opGet, key: key2},
+		{op: opCommitHashDB},
+	}
+	// Add debug logging
+	t.Log("Starting test sequence (HashDB)")
 	err := runRandTest(steps)
 	if err != nil {
 		t.Logf("Test failed at step: %v", err)
@@ -295,7 +387,8 @@ const (
 	opDelete
 	opGet
 	opHash
-	opCommit
+	opCommitPathDB
+	opCommitHashDB
 	opProve
 	opMax // max number of operations, not an actual operation
 )
@@ -404,12 +497,25 @@ func runRandTest(rt randTest) error {
 			}
 		case opHash:
 			tr.Hash()
-		case opCommit:
+		case opCommitPathDB:
+			//TODO(MaksymMalicki): skip in hashDB scheme
 			_, err := tr.Commit()
 			if err != nil {
 				rt[i].err = fmt.Errorf("commit failed: %w", err)
 			}
 			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
+			if err != nil {
+				rt[i].err = fmt.Errorf("new trie failed: %w", err)
+			}
+			tr = newtr
+			continue
+		case opCommitHashDB:
+			//TODO(MaksymMalicki): skip in pathDB scheme
+			root, err := tr.Commit()
+			if err != nil {
+				rt[i].err = fmt.Errorf("commit failed: %w", err)
+			}
+			newtr, err := NewWithRootHash(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn, root)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}
