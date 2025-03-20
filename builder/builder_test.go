@@ -153,7 +153,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	p, closer := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
