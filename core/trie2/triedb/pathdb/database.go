@@ -21,13 +21,13 @@ var dbBufferPool = sync.Pool{
 type Config struct{} // TODO(weiihann): handle this
 
 type Database struct {
-	txn    db.Transaction
-	prefix db.Bucket
-	config *Config
+	database db.KeyValueStore
+	prefix   db.Bucket
+	config   *Config
 }
 
-func New(txn db.Transaction, prefix db.Bucket, config *Config) *Database {
-	return &Database{txn: txn, prefix: prefix, config: config}
+func New(database db.KeyValueStore, prefix db.Bucket, config *Config) *Database {
+	return &Database{database: database, prefix: prefix, config: config}
 }
 
 func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
@@ -42,7 +42,7 @@ func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, 
 		return 0, err
 	}
 
-	err := d.txn.Get(dbBuf.Bytes(), func(blob []byte) error {
+	err := d.database.Get(dbBuf.Bytes(), func(blob []byte) error {
 		buf.Write(blob)
 		return nil
 	})
@@ -65,7 +65,7 @@ func (d *Database) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf
 		return err
 	}
 
-	return d.txn.Set(buffer.Bytes(), blob)
+	return d.database.Put(buffer.Bytes(), blob)
 }
 
 func (d *Database) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
@@ -80,7 +80,7 @@ func (d *Database) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) err
 		return err
 	}
 
-	return d.txn.Delete(buffer.Bytes())
+	return d.database.Delete(buffer.Bytes())
 }
 
 func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
@@ -104,7 +104,7 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 		}
 	}
 
-	return d.txn.NewIterator(buffer.Bytes(), true)
+	return d.database.NewIterator(buffer.Bytes(), true)
 }
 
 // Construct key bytes to insert a trie node. The format is as follows:
