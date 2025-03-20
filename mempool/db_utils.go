@@ -9,55 +9,63 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 )
 
-func headValue(txn db.Transaction, head *felt.Felt) error {
-	return txn.Get(db.MempoolHead.Key(), func(b []byte) error {
-		head.SetBytes(b)
+func GetHeadValue(r db.KeyValueReader) (felt.Felt, error) {
+	var head felt.Felt
+	err := r.Get(db.MempoolHead.Key(), func(data []byte) error {
+		head.Unmarshal(data)
 		return nil
 	})
+	return head, err
 }
 
-func tailValue(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Get(db.MempoolTail.Key(), func(b []byte) error {
-		tail.SetBytes(b)
+func GetTailValue(r db.KeyValueReader) (felt.Felt, error) {
+	var tail felt.Felt
+	err := r.Get(db.MempoolTail.Key(), func(data []byte) error {
+		tail.Unmarshal(data)
 		return nil
 	})
+	return tail, err
 }
 
-func updateHead(txn db.Transaction, head *felt.Felt) error {
-	return txn.Set(db.MempoolHead.Key(), head.Marshal())
+func WriteHeadValue(w db.KeyValueWriter, head *felt.Felt) error {
+	return w.Put(db.MempoolHead.Key(), head.Marshal())
 }
 
-func updateTail(txn db.Transaction, tail *felt.Felt) error {
-	return txn.Set(db.MempoolTail.Key(), tail.Marshal())
+func WriteTailValue(w db.KeyValueWriter, tail *felt.Felt) error {
+	return w.Put(db.MempoolTail.Key(), tail.Marshal())
 }
 
-func readTxn(txn db.Transaction, itemKey *felt.Felt) (dbPoolTxn, error) {
+func GetTxn(r db.KeyValueReader, txnHash *felt.Felt) (dbPoolTxn, error) {
 	var item dbPoolTxn
-	keyBytes := itemKey.Bytes()
-	err := txn.Get(db.MempoolNode.Key(keyBytes[:]), func(b []byte) error {
-		return encoder.Unmarshal(b, &item)
+	err := r.Get(db.MempoolNodeKey(txnHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &item)
 	})
 	return item, err
 }
 
-func setTxn(txn db.Transaction, item *dbPoolTxn) error {
+func WriteTxn(w db.KeyValueWriter, item *dbPoolTxn) error {
 	itemBytes, err := encoder.Marshal(item)
 	if err != nil {
 		return err
 	}
-	keyBytes := item.Txn.Transaction.Hash().Bytes()
-	return txn.Set(db.MempoolNode.Key(keyBytes[:]), itemBytes)
+	return w.Put(db.MempoolNodeKey(item.Txn.Transaction.Hash()), itemBytes)
 }
 
-func lenDB(txn db.Transaction) (int, error) {
+func GetLenDB(r db.KeyValueReader) (int, error) {
 	var l int
-	err := txn.Get(db.MempoolLength.Key(), func(b []byte) error {
-		l = int(new(big.Int).SetBytes(b).Int64())
+	err := r.Get(db.MempoolLength.Key(), func(data []byte) error {
+		l = int(new(big.Int).SetBytes(data).Int64())
 		return nil
 	})
-
-	if err != nil && errors.Is(err, db.ErrKeyNotFound) {
-		return 0, nil
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return 0, nil
+		}
+		return 0, err
 	}
-	return l, err
+	return l, nil
+}
+
+func WriteLenDB(w db.KeyValueWriter, l int) error {
+	return w.Put(db.MempoolLength.Key(), big.NewInt(int64(l)).Bytes())
 }

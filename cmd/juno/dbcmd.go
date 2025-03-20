@@ -277,7 +277,7 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 	return "unknown"
 }
 
-func openDB(path string) (db.DB, error) {
+func openDB(path string) (db.KeyValueStore, error) {
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil, errors.New("database path does not exist")

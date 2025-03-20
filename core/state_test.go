@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -27,13 +27,8 @@ func TestUpdate(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
-
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
@@ -154,12 +149,8 @@ func TestContractClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
 
@@ -206,13 +197,8 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
-
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
 	addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
@@ -255,13 +241,8 @@ func TestNonce(t *testing.T) {
 }
 
 func TestStateHistory(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
-
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -307,12 +288,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
 
@@ -356,13 +333,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
-
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
@@ -392,12 +364,8 @@ func TestClass(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
@@ -526,25 +494,17 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("empty state should mean empty db", func(t *testing.T) {
-		require.NoError(t, testDB.View(func(txn db.Transaction) error {
-			it, err := txn.NewIterator(nil, false)
-			if err != nil {
-				return err
-			}
-			assert.False(t, it.Next())
-			return it.Close()
-		}))
+		it, err := txn.NewIterator(nil, false)
+		require.NoError(t, err)
+		assert.False(t, it.Next())
+		require.NoError(t, it.Close())
 	})
 }
 
 // TestRevertGenesisStateDiff ensures the reverse diff for the genesis block sets all storage values to zero.
 func TestRevertGenesisStateDiff(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
 	addr := new(felt.Felt).SetUint64(1)
@@ -570,12 +530,8 @@ func TestRevertSystemContracts(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
 
@@ -609,12 +565,8 @@ func TestRevertSystemContracts(t *testing.T) {
 }
 
 func TestRevertDeclaredClasses(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	state := core.NewState(txn)
 
 	classHash := utils.HexToFelt(t, "0xDEADBEEF")
