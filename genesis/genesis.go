@@ -102,8 +102,7 @@ func GenesisStateDiff(
 	network *utils.Network,
 	maxSteps uint64,
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
-	defaultClassMapSize := 10
-	initialStateDiff := core.EmptyStateDiff(defaultClassMapSize)
+	initialStateDiff := core.EmptyStateDiff()
 	genesisState := sync.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),

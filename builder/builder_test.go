@@ -67,7 +67,7 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
-	emptyStateDiff := core.EmptyStateDiff(10)
+	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)

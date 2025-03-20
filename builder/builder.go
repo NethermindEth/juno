@@ -198,9 +198,11 @@ func (b *Builder) InitPendingBlock() error {
 				PriceInFri: new(felt.Felt).SetUint64(1),
 			},
 		},
+		Transactions: []core.Transaction{},
+		Receipts:     []*core.TransactionReceipt{},
 	}
-	newClasses := make(map[felt.Felt]core.Class, defaultClassMapSize)
-	emptyStateDiff := core.EmptyStateDiff(defaultClassMapSize)
+	newClasses := make(map[felt.Felt]core.Class)
+	emptyStateDiff := core.EmptyStateDiff()
 	su := core.StateUpdate{
 		StateDiff: &emptyStateDiff,
 	}

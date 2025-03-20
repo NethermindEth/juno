@@ -31,8 +31,7 @@ func buildGenesis(genesisPath string, bc *blockchain.Blockchain, v vm.VM, maxSte
 		}
 
 	default:
-		defaultClassMapSize := 0
-		diff = core.EmptyStateDiff(defaultClassMapSize)
+		diff = core.EmptyStateDiff()
 	}
 
 	return bc.StoreGenesis(&diff, classes)
