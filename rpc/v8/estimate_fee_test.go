@@ -129,7 +129,7 @@ type executionError struct {
 // From versioned constants
 var (
 	executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
-	binarySearchContractPath  = "../../cairo/compiler/target/juno_HelloStarknet.contract_class.json"
+	binarySearchContractPath  = "../../cairo/compiler/target/juno_hello_starknet.contract_class.json"
 )
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {

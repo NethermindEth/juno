@@ -1,0 +1,35 @@
+name: Verify Cairo Artifacts
+
+on:
+  pull_request:
+    paths:
+      - "cairo/**/*.cairo"
+      - "cairo/**/target/**/*.json"
+
+jobs:
+  verify_cairo_artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Scarb Package Manager
+        run: |
+          curl -L https://docs.swmansion.com/scarb/install.sh | sh -s -- --no-modify-path
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Setup Go Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Cairo v2.11.2
+        run: |
+          wget -q https://github.com/starkware-libs/cairo/releases/download/v2.11.2/release-x86_64-unknown-linux-musl.tar.gz -O cairo.tar.gz
+          mkdir cairo_install && tar -xzf cairo.tar.gz -C cairo_install
+          [ -f cairo_install/cairo-compiler.tar ] && tar -xf cairo_install/cairo-compiler.tar -C cairo_install
+          echo "$PWD/cairo_install/cairo/bin" >> "$GITHUB_PATH"
+          echo "CAIRO_PATH=$PWD/cairo_install/cairo/corelib" >> "$GITHUB_ENV"
+
+      - name: Run Artifact Verification Tests
+        run: go test -v -tags=ci ./cairo/tests/artifact_verify_test.go
