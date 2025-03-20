@@ -32,9 +32,9 @@ type Database struct {
 	config  *Config
 }
 
-func New(txn db.Transaction, prefix db.Bucket, config *Config) *Database {
+func New(database db.KeyValueStore, prefix db.Bucket, config *Config) *Database {
 	return &Database{ // TODO: handle both pathdb and hashdb
-		backend: pathdb.New(txn, prefix, config.PathConfig),
+		backend: pathdb.New(database, prefix, config.PathConfig),
 		config:  config,
 	}
 }
