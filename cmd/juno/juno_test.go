@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -663,6 +664,7 @@ network: sepolia
 		},
 	}
 
+	unsetJunoPrefixedEnv(t)
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
@@ -715,4 +717,18 @@ func tempCfgFile(t *testing.T, cfg string) string {
 	require.NoError(t, f.Sync())
 
 	return f.Name()
+}
+
+func unsetJunoPrefixedEnv(t *testing.T) {
+	t.Helper()
+
+	const prefix = "JUNO_"
+	for _, e := range os.Environ() {
+		pair := strings.Split(e, "=")
+		k := pair[0]
+
+		if strings.HasPrefix(k, prefix) {
+			t.Setenv(k, "")
+		}
+	}
 }
