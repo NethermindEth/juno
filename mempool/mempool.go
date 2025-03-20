@@ -13,7 +13,10 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-var ErrTxnPoolFull = errors.New("transaction pool is full")
+var (
+	ErrTxnPoolFull  = errors.New("transaction pool is full")
+	ErrTxnPoolEmpty = errors.New("transaction pool is empty")
+)
 
 type BroadcastedTransaction struct {
 	Transaction   core.Transaction
@@ -59,7 +62,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 	defer t.mu.Unlock()
 
 	if t.head == nil {
-		return BroadcastedTransaction{}, errors.New("transaction pool is empty")
+		return BroadcastedTransaction{}, ErrTxnPoolEmpty
 	}
 
 	headNode := t.head

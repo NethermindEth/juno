@@ -200,7 +200,7 @@ sequencer-with-accounts:
     --http \
     --http-port=6060 \
     --http-host=0.0.0.0 \
-    --db-path=../seq-db-tmp \
+    --db-path=../seq-db-tmp-w-accounts \
     --log-level=debug \
     --seq-enable \
     --seq-block-time=1 \

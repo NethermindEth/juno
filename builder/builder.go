@@ -25,12 +25,9 @@ import (
 
 var (
 	_                    service.Service = (*Builder)(nil)
-	_                    sync.Reader     = (*Builder)(nil) // Todo: implement new interface
-	defaultClassMapSize                  = 10              // default size of new class maps (map[felt]newClass)
+	_                    sync.Reader     = (*Builder)(nil)
 	ErrPendingParentHash                 = errors.New("pending block parent hash does not match chain head")
 )
-
-// TODO: update cmd and node.go
 
 type Builder struct {
 	ownAddress felt.Felt
@@ -110,7 +107,7 @@ func (b *Builder) Pending() (*sync.Pending, error) {
 func (b *Builder) PendingBlock() *core.Block {
 	pending, err := b.Pending()
 	if err != nil {
-		return nil // Todo: why was this done again?
+		return nil
 	}
 	return pending.Block
 }
@@ -146,7 +143,9 @@ func (b *Builder) Run(ctx context.Context) error {
 	doneListen := make(chan struct{})
 	go func() {
 		if pErr := b.listenPool(ctx); pErr != nil {
-			b.log.Errorw("listening pool", "err", pErr)
+			if pErr != mempool.ErrTxnPoolEmpty {
+				b.log.Warnw("listening pool", "err", pErr)
+			}
 		}
 		close(doneListen)
 	}()
