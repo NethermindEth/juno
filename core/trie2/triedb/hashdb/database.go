@@ -161,6 +161,8 @@ func (d *Database) Flush() error {
 			return fmt.Errorf("oldest element in dirty cache not found")
 		}
 		d.CleanCache.Set(key, value)
+
+		//TODO(MaksymMalicki): add flushing the batch to the disk db, once the idealBatchSize limit is hit
 	}
 	return nil
 }
@@ -176,6 +178,8 @@ func (d *Database) Cap(limit uint64) error {
 		if !ok {
 			return fmt.Errorf("oldest element in dirty cache not found")
 		}
+		//TODO(MaksymMalicki): add flushing the batch to the disk db, once the idealBatchSize limit is hit
+
 	}
 
 	return nil
