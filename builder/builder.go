@@ -41,10 +41,12 @@ type Builder struct {
 	vm              vm.VM
 	subNewHeads     *feed.Feed[*core.Block]
 	subPendingBlock *feed.Feed[*core.Block]
-	log             utils.Logger
-	blockTime       time.Duration
-	mempool         *mempool.Pool
-	listener        EventListener
+	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
+
+	log       utils.Logger
+	blockTime time.Duration
+	mempool   *mempool.Pool
+	listener  EventListener
 
 	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
@@ -73,6 +75,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		vm:              vm,
 		subNewHeads:     feed.New[*core.Block](),
 		subPendingBlock: feed.New[*core.Block](),
+		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
 		mempoolCloser:   mempoolCloser,
 	}
 }
@@ -442,7 +445,7 @@ func (b *Builder) StorePending(newPending *sync.Pending) error {
 
 // The builder has no reorg logic (centralised sequencer that can't reorg)
 func (b *Builder) SubscribeReorg() sync.ReorgSubscription {
-	return sync.ReorgSubscription{}
+	return sync.ReorgSubscription{Subscription: b.subReorgFeed.Subscribe()}
 }
 
 func (b *Builder) SubscribeNewHeads() sync.NewHeadSubscription {
