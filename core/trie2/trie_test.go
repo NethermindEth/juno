@@ -11,7 +11,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
@@ -185,7 +185,7 @@ func TestHash(t *testing.T) {
 func TestCommit(t *testing.T) {
 	verifyCommit := func(t *testing.T, records []*keyValue) {
 		t.Helper()
-		db := db.NewMemTransaction()
+		db := memory.New()
 		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 		require.NoError(t, err)
 
@@ -357,8 +357,8 @@ func runRandTestBool(rt randTest) bool {
 
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
-	txn := db.NewMemTransaction()
-	tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
+	db := memory.New()
+	tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func runRandTest(rt randTest) error {
 			if err != nil {
 				rt[i].err = fmt.Errorf("commit failed: %w", err)
 			}
-			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, txn)
+			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}

@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 )
 
 const contractClassTrieHeight = 251
@@ -54,13 +55,13 @@ type TrieID interface {
 }
 
 // Creates a new trie
-func New(id TrieID, height uint8, hashFn crypto.HashFn, txn db.Transaction) (*Trie, error) {
-	database := triedb.New(txn, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
+func New(id TrieID, height uint8, hashFn crypto.HashFn, database db.KeyValueStore) (*Trie, error) {
+	trieDb := triedb.New(database, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
 	tr := &Trie{
 		owner:      id.Owner(),
 		height:     height,
 		hashFn:     hashFn,
-		db:         database,
+		db:         trieDb,
 		nodeTracer: newTracer(),
 	}
 
@@ -544,15 +545,15 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db.NewMemTransaction())
+	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, memory.New())
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Poseidon, db.NewMemTransaction())
+	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Poseidon, memory.New())
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(NewEmptyTrieID(), height, crypto.Pedersen, db.NewMemTransaction())
+	trie, err := New(NewEmptyTrieID(), height, crypto.Pedersen, memory.New())
 	if err != nil {
 		return err
 	}
@@ -560,7 +561,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(NewEmptyTrieID(), height, crypto.Poseidon, db.NewMemTransaction())
+	trie, err := New(NewEmptyTrieID(), height, crypto.Poseidon, memory.New())
 	if err != nil {
 		return err
 	}
