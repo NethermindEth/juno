@@ -127,7 +127,11 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
-	defer b.mempoolCloser()
+	defer func() {
+		if err := b.mempoolCloser(); err != nil {
+			b.log.Errorw("closing mempool", "err", err)
+		}
+	}()
 
 	// Clear pending state on shutdown
 	defer func() {

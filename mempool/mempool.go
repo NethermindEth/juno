@@ -89,7 +89,7 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) (Pool, func() error) {
+func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
 	pool := Pool{
 		log:         log,
 		bc:          bc,
@@ -108,7 +108,7 @@ func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLog
 		return nil
 	}
 	pool.dbWriter()
-	return pool, closer
+	return &pool, closer
 }
 
 func (p *Pool) dbWriter() {
@@ -244,8 +244,10 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		return err
 	}
 
-	defer func() error {
-		return closer()
+	defer func() {
+		if err := closer(); err != nil {
+			p.log.Errorw("closing state in mempool validate", "err", err)
+		}
 	}()
 
 	switch t := userTxn.Transaction.(type) {

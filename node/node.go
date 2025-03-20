@@ -11,8 +11,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -37,6 +35,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -202,10 +201,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		mempool, mempoolCloser := mempool.New(poolDB, chain, mempoolLimit, log)
 
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
-			time.Second*time.Duration(cfg.SeqBlockTime), &mempool, log, cfg.SeqDisableFees, database, mempoolCloser)
+			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database, mempoolCloser)
 		sequencer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(sequencer.PendingBlock)
-		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network).WithMempool(&mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network)
+		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, &sequencer)
 	} else {
 		client = feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
@@ -312,7 +312,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 		}
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
-
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
