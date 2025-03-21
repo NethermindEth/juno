@@ -164,11 +164,11 @@ type state[V Hashable[H], H Hash] struct {
 	lockedValueAndOrValidValueSet bool // line36 for the first time condition
 }
 
-func New[V Hashable[H], H Hash, A Addr](addr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
+func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
 	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
-		nodeAddr: addr,
+		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			h:           chain.Height(),
 			lockedRound: -1,
