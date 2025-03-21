@@ -14,12 +14,10 @@ type iterator struct {
 	positioned bool
 }
 
-// Valid : see db.Transaction.Iterator.Valid
 func (i *iterator) Valid() bool {
 	return i.iter.Valid()
 }
 
-// Key : see db.Transaction.Iterator.Key
 func (i *iterator) Key() []byte {
 	key := i.iter.Key()
 	if key == nil {
@@ -29,7 +27,6 @@ func (i *iterator) Key() []byte {
 	return buf
 }
 
-// Value : see db.Transaction.Iterator.Value
 func (i *iterator) Value() ([]byte, error) {
 	val, err := i.iter.ValueAndErr()
 	if err != nil || val == nil {
@@ -44,7 +41,6 @@ func (i *iterator) First() bool {
 	return i.iter.First()
 }
 
-// Next : see db.Transaction.Iterator.Next
 func (i *iterator) Next() bool {
 	if !i.positioned {
 		i.positioned = true
@@ -53,13 +49,11 @@ func (i *iterator) Next() bool {
 	return i.iter.Next()
 }
 
-// Seek : see db.Transaction.Iterator.Seek
 func (i *iterator) Seek(key []byte) bool {
 	i.positioned = true
 	return i.iter.SeekGE(key)
 }
 
-// Close : see db.Transaction.Iterator.Close
 func (i *iterator) Close() error {
 	return i.iter.Close()
 }
