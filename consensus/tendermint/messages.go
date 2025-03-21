@@ -57,7 +57,7 @@ func newMessages[V Hashable[H], H Hash, A Addr]() messages[V, H, A] {
 	}
 }
 
-func addMessages[T any, A Addr](storage map[height]map[round]map[A][]T, msg T, s A, h height, r round) {
+func addMessages[T any, A Addr](storage map[height]map[round]map[A][]T, msg T, a A, h height, r round) {
 	if _, ok := storage[h]; !ok {
 		storage[h] = make(map[round]map[A][]T)
 	}
@@ -66,12 +66,12 @@ func addMessages[T any, A Addr](storage map[height]map[round]map[A][]T, msg T, s
 		storage[h][r] = make(map[A][]T)
 	}
 
-	sendersMessages, ok := storage[h][r][s]
+	sendersMessages, ok := storage[h][r][a]
 	if !ok {
 		sendersMessages = []T{}
 	}
 
-	storage[h][r][s] = append(sendersMessages, msg)
+	storage[h][r][a] = append(sendersMessages, msg)
 }
 
 // Todo: ensure duplicated messages are ignored.

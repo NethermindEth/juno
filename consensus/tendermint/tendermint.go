@@ -90,7 +90,7 @@ type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Listener[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
-	// Listen would return consensus messages to Tendermint which are set // by the validator set.
+	// Listen would return consensus messages to Tendermint which are set by the validator set.
 	Listen() <-chan M
 }
 
