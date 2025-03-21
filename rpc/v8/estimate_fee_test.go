@@ -8,8 +8,10 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -135,7 +137,7 @@ var (
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
 	chain := blockchain.NewTestBlockchain(t)
-	accountAddr := chain.AccountAddress()
+	account := chain.MainAccount()
 
 	// Get binary search contract
 	class := blockchain.NewClass(t, binarySearchContractPath)
@@ -147,7 +149,7 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
-				createDeclareTransaction(t, accountAddr, &class),
+				createDeclareTransaction(t, &account.Address, &class),
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
@@ -167,9 +169,9 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
 	chain := blockchain.NewTestBlockchain(t)
-	accountAddr := chain.AccountAddress()
-	accountClassHash := chain.AccountClassHash()
-	deployerAddr := chain.DeployerAddress()
+	// While not get the account type directly?
+	account := chain.MainAccount()
+	deployer := chain.DeployerAddress()
 
 	// Get binary search contract
 	class := blockchain.NewClass(t, binarySearchContractPath)
@@ -181,14 +183,14 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	classHash := chain.AddrToClassHash[*deployerAddr]
+	classHash := chain.ClassHashes[*deployer]
 	tests := []test{
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(t,
-					accountAddr, validEntryPoint,
-					&felt.Zero, deployerAddr, &class.Hash,
+					&account.Address, validEntryPoint,
+					&felt.Zero, deployer, &class.Hash,
 				),
 			},
 			expected: []rpc.FeeEstimate{
@@ -205,7 +207,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(t,
 					accountAddr, invalidEntryPoint,
-					&felt.Zero, deployerAddr, &class.Hash,
+					&felt.Zero, deployer, &class.Hash,
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -219,7 +221,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 							ContractAddress: accountAddr.String(),
 							Error: executionError{
 								ClassHash:       classHash.String(),
-								ContractAddress: deployerAddr.String(),
+								ContractAddress: deployer.String(),
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
 							},
@@ -239,11 +241,10 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
 	chain := blockchain.NewTestBlockchain(t)
-	accountAddr := chain.AccountAddress()
-	accountClassHash := chain.AccountClassHash()
+	account := chain.MainAccount()
 
 	// Predeploy binary search contract
-	addr := *utils.HexToFelt(t, "0xd")
+	addr := *utils.HexTo[address.ContractAddress](t, "0xd")
 	class := blockchain.NewClass(t, binarySearchContractPath)
 	class.AddAccount(&addr, &felt.Zero)
 
@@ -257,7 +258,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	virtualMachine := vm.New(false, nil)
 	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	classHash := chain.AddrToClassHash[addr]
+	classHash := chain.ClassHashes[addr]
 	tests := []test{
 		{
 			name: "binary search ok",
@@ -391,7 +392,7 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 
 func createDeclareTransaction(
 	t *testing.T,
-	accountAddr *felt.Felt,
+	account *address.ContractAddress,
 	class *blockchain.TestClass,
 ) rpc.BroadcastedTransaction {
 	junoCasm, err := sn2core.AdaptCompiledClass(&class.SnCasm)
@@ -406,8 +407,8 @@ func createDeclareTransaction(
 			Type:              rpc.TxnDeclare,
 			Version:           utils.HexToFelt(t, "0x3"),
 			Nonce:             &felt.Zero,
-			ClassHash:         &class.Hash,
-			SenderAddress:     accountAddr,
+			ClassHash:         class.Hash.AsFelt(),
+			SenderAddress:     account.AsFelt(),
 			Signature:         &[]*felt.Felt{},
 			CompiledClassHash: compiledClassHash,
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
@@ -426,25 +427,28 @@ func createDeclareTransaction(
 }
 
 func createDeployTransaction(t *testing.T,
-	accountAddr, entryPointSelector,
-	nonce, deployerAddr, classHash *felt.Felt,
+	account *address.ContractAddress,
+	entryPointSelector *felt.Felt,
+	nonce *felt.Felt,
+	deployerAddr *address.ContractAddress,
+	classHash *hash.ClassHash,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
 			Nonce:         nonce,
-			SenderAddress: accountAddr,
+			SenderAddress: account.AsFelt(),
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				deployerAddr,
+				deployerAddr.AsFelt(),
 				// Entry point selector for the called contract
 				entryPointSelector,
 				// Length of the call data for the called contract
 				utils.HexToFelt(t, "0x4"),
 				// classHash
-				classHash,
+				classHash.AsFelt(),
 				// salt
 				&felt.Zero,
 				// unique
@@ -468,20 +472,23 @@ func createDeployTransaction(t *testing.T,
 }
 
 func createInvokeTransaction(t *testing.T,
-	accountAddr, entryPointSelector,
-	nonce, deployedContractAddress, depth *felt.Felt,
+	account *address.ContractAddress,
+	entryPointSelector *felt.Felt,
+	nonce *felt.Felt,
+	deployedContract *address.ContractAddress,
+	depth *felt.Felt,
 ) rpc.BroadcastedTransaction {
 	return rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
 			Version:       utils.HexToFelt(t, "0x3"),
 			Nonce:         nonce,
-			SenderAddress: accountAddr,
+			SenderAddress: account.AsFelt(),
 			Signature:     &[]*felt.Felt{},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
 				// Address of the deployed test contract
-				deployedContractAddress,
+				deployedContract.AsFelt(),
 				// Entry point selector for the called contract
 				entryPointSelector,
 				// Length of the call data for the called contract

@@ -8,8 +8,10 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/starknet"
@@ -20,11 +22,11 @@ import (
 
 type testBlockchain struct {
 	Blockchain
-	t               *testing.T
-	Account         TestClass
-	Deployer        TestClass
-	erc20           TestClass
-	AddrToClassHash map[felt.Felt]felt.Felt
+	t           *testing.T
+	Account     TestClass
+	Deployer    TestClass
+	erc20       TestClass
+	ClassHashes map[address.ContractAddress]hash.ClassHash
 }
 
 func NewTestBlockchain(t *testing.T) testBlockchain {
@@ -32,9 +34,9 @@ func NewTestBlockchain(t *testing.T) testBlockchain {
 
 	testDB := pebble.NewMemTest(t)
 	chain := testBlockchain{
-		Blockchain:      *New(testDB, &utils.Sepolia),
-		t:               t,
-		AddrToClassHash: make(map[felt.Felt]felt.Felt),
+		Blockchain:  *New(testDB, &utils.Sepolia),
+		t:           t,
+		ClassHashes: make(map[address.ContractAddress]hash.ClassHash),
 	}
 
 	genesisBlock := &core.Block{
@@ -60,21 +62,21 @@ func NewTestBlockchain(t *testing.T) testBlockchain {
 	// https://github.com/OpenZeppelin/cairo-contracts/tree/main/packages/presets
 	chain.Account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
 	chain.Account.AddAccount(
-		utils.HexToFelt(t, "0xc01"),
+		utils.HexTo[address.ContractAddress](t, "0xc01"),
 		utils.HexToFelt(t, "0x10000000000000000000000000000"),
 	)
 	chain.Deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
 	chain.Deployer.AddAccount(
-		utils.HexToFelt(t, "0xc02"),
+		utils.HexTo[address.ContractAddress](t, "0xc02"),
 		&felt.Zero,
 	)
 	chain.erc20 = NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
 	chain.erc20.AddAccount(
-		utils.HexToFelt(t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+		utils.HexTo[address.ContractAddress](t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 		&felt.Zero,
 	)
 	chain.erc20.AddAccount(
-		utils.HexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+		utils.HexTo[address.ContractAddress](t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
 		&felt.Zero,
 	)
 
@@ -83,15 +85,15 @@ func NewTestBlockchain(t *testing.T) testBlockchain {
 	return chain
 }
 
-func (b *testBlockchain) AccountAddress() *felt.Felt {
-	return &b.Account.Accounts[0].address
+func (b *testBlockchain) MainAccount() *testAccount {
+	return &b.Account.Accounts[0]
 }
 
-func (b *testBlockchain) DeployerAddress() *felt.Felt {
-	return &b.Deployer.Accounts[0].address
+func (b *testBlockchain) DeployerAddress() *address.ContractAddress {
+	return &b.Deployer.Accounts[0].Address
 }
 
-func (b *testBlockchain) AccountClassHash() *felt.Felt {
+func (b *testBlockchain) AccountClassHash() *hash.ClassHash {
 	return &b.Account.Hash
 }
 
@@ -108,17 +110,17 @@ func (b *testBlockchain) NewRoot(t *testing.T,
 
 type testAccount struct {
 	t       *testing.T
-	address felt.Felt
-	balance felt.Felt
+	Address address.ContractAddress
+	Balance felt.Felt
 }
 
 func (a *testAccount) BalanceKey() felt.Felt {
-	return feltFromNameAndKey(a.t, "ERC20_balances", a.address)
+	return feltFromNameAndKey(a.t, "ERC20_balances", a.Address.AsFelt())
 }
 
 type TestClass struct {
 	t         *testing.T
-	Hash      felt.Felt
+	Hash      hash.ClassHash
 	Accounts  []testAccount
 	JunoClass core.Cairo1Class
 	SnSierra  starknet.SierraDefinition
@@ -135,34 +137,39 @@ func NewClass(t *testing.T, path string) TestClass {
 	return TestClass{
 		t:         t,
 		JunoClass: junoClass,
-		Hash:      *classHash,
+		Hash:      hash.ClassHash(*classHash),
 		SnSierra:  sierra,
 		SnCasm:    casm,
 	}
 }
 
-func (t *TestClass) AddAccount(address, balance *felt.Felt) {
+func (t *TestClass) AddAccount(address *address.ContractAddress, balance *felt.Felt) {
 	t.Accounts = append(t.Accounts, testAccount{
 		t:       t.t,
-		address: *address,
-		balance: *balance,
+		Address: *address,
+		Balance: *balance,
 	})
 }
 
 func (b *testBlockchain) Prepare(t *testing.T, testClasses []TestClass) {
 	t.Helper()
 
+	// This have to remain the same due to compatibility with old code
+	// due to compatibility with old code
+	// This should be class hash to class
 	junoClasses := make(map[felt.Felt]core.Class, len(testClasses))
+	// This should be: contract address to class hash
 	deployedContracts := make(map[felt.Felt]*felt.Felt) // use pointer because of DeployedContracts field
-	balances := make(map[felt.Felt]*felt.Felt)          // use pointer because of StorageDiff field
+	// This should be storage key to balance
+	balances := make(map[felt.Felt]*felt.Felt) // use pointer because of StorageDiff field
 
 	for i := range testClasses {
 		class := &testClasses[i]
-		junoClasses[class.Hash] = &class.JunoClass
+		junoClasses[*class.Hash.AsFelt()] = &class.JunoClass
 		for _, account := range class.Accounts {
-			deployedContracts[account.address] = &class.Hash
-			b.AddrToClassHash[account.address] = class.Hash
-			if balance := account.balance; balance != felt.Zero {
+			deployedContracts[*account.Address.AsFelt()] = class.Hash.AsFelt()
+			b.ClassHashes[account.Address] = class.Hash
+			if balance := account.Balance; balance != felt.Zero {
 				balances[account.BalanceKey()] = &balance
 			}
 		}
@@ -178,8 +185,8 @@ func (b *testBlockchain) Prepare(t *testing.T, testClasses []TestClass) {
 		StateDiff: &core.StateDiff{
 			DeployedContracts: deployedContracts,
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-				b.erc20.Accounts[0].address: balances,
-				b.erc20.Accounts[1].address: balances,
+				*b.erc20.Accounts[0].Address.AsFelt(): balances,
+				*b.erc20.Accounts[1].Address.AsFelt(): balances,
 			},
 		},
 	}
@@ -188,7 +195,7 @@ func (b *testBlockchain) Prepare(t *testing.T, testClasses []TestClass) {
 
 	block := &core.Block{
 		Header: &core.Header{
-			Hash:             utils.HexToFelt(t, "0xb01"),
+			Hash:             utils.HexTo[felt.Felt](t, "0xb01"),
 			ParentHash:       parentBlock.Hash,
 			Number:           parentBlock.Number + 1,
 			GlobalStateRoot:  stateUpdate.NewRoot,
@@ -249,13 +256,13 @@ func classFromFile(t *testing.T, path string) (
 }
 
 // https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124
-func feltFromNameAndKey(t *testing.T, name string, key felt.Felt) felt.Felt {
+func feltFromNameAndKey(t *testing.T, name string, key *felt.Felt) felt.Felt {
 	// TODO: The use of Big ints is not necessary at all. I am leaving it here because it is not critical
 	//       but it should be change to using the felt implementation directly
 	t.Helper()
 
 	intermediate := crypto.StarknetKeccak([]byte(name))
-	byteArr := crypto.Pedersen(intermediate, &key).Bytes()
+	byteArr := crypto.Pedersen(intermediate, key).Bytes()
 	value := new(big.Int).SetBytes(byteArr[:])
 
 	maxAddr, ok := new(big.Int).SetString("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00", 0)
