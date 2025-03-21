@@ -276,8 +276,12 @@ func TestExecute(t *testing.T) {
 }
 
 func TestSetVersionedConstants(t *testing.T) {
-	t.Run("valid json", func(t *testing.T) {
-		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/0_13_2.json"))
+	t.Run("valid custom versioned constants file (1 overwrite)", func(t *testing.T) {
+		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/custom_versioned_constants.json"))
+	})
+
+	t.Run("valid custom versioned constants file (multiple overwrites)", func(t *testing.T) {
+		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/custom_versioned_constants_multiple.json"))
 	})
 
 	t.Run("not valid json", func(t *testing.T) {
