@@ -19,7 +19,7 @@ jobs:
     env:
       EC2_HOST: "3.126.138.194"
       EC2_USER: "ubuntu"
-      SNAPSHOT_URL: "${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/mainnet/latest' }}"
+      SNAPSHOT_URL: "${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}"
     
     steps:
       - name: Checkout code
