@@ -1,0 +1,52 @@
+name: Verify Cairo Artifacts
+
+on:
+  pull_request:
+    paths:
+      - "cairo/compiler/src/**/*.cairo"
+      - "cairo/scarb/src/**/*.cairo"
+      - "cairo/compiler/target/**/*.json"
+      - "cairo/scarb/target/dev/**/*.json"
+
+jobs:
+  verify_cairo_artifacts:
+    name: Verify Cairo Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Scarb
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- --no-modify-path
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Cairo compiler
+        run: |
+          wget -q https://github.com/starkware-libs/cairo/releases/download/v2.11.2/release-x86_64-unknown-linux-musl.tar.gz -O cairo.tar.gz
+          mkdir -p cairo_install
+          tar -xzf cairo.tar.gz -C cairo_install
+          
+          if [ -f cairo_install/cairo-compiler.tar ]; then
+            tar -xf cairo_install/cairo-compiler.tar -C cairo_install
+          fi
+          
+          echo "$PWD/cairo_install/cairo/bin" >> "$GITHUB_PATH"
+          echo "CAIRO_PATH=$PWD/cairo_install/cairo/corelib" >> "$GITHUB_ENV"
+
+      - name: Verify Cairo Artifacts
+        run: go test -v -tags=ci ./cairo/tests/artifact_verify_test.go
+        env:
+          TEMP_OUTPUT_DIR: ${{ runner.temp }}/juno-cairo-artifacts
+          COMPILER_SRC_DIR: ./cairo/compiler/src
+          COMPILER_TARGET_DIR: ./cairo/compiler/target
+          SCARB_SRC_DIR: ./cairo/scarb/src
+          SCARB_TARGET_DIR: ./cairo/scarb/target/dev
+          CAIRO_PATH: ${{ env.CAIRO_PATH }}
