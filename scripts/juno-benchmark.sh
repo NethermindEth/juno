@@ -67,7 +67,7 @@ setup_working_dir() {
 
 download_snapshot() {
     log "Downloading Starknet snapshot from $SNAPSHOT_URL..."
-    run_remote "cd ~/juno-benchmark && wget --progress=bar:force $SNAPSHOT_URL -O snapshot.tar"
+    run_remote "cd ~/juno-benchmark && wget -q -c --tries=5 --retry-connrefused --waitretry=10 --timeout=60 $SNAPSHOT_URL -O snapshot.tar"
     if ! run_remote "cd ~/juno-benchmark && [ -s snapshot.tar ]"; then
         log "Error: Snapshot download failed or file is empty"
         exit 1
