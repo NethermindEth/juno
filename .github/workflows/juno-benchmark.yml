@@ -10,46 +10,60 @@ on:
       snapshot_url:
         description: 'Custom snapshot URL (optional)'
         required: false
+  release:
+    types: [prereleased]
 
 jobs:
   juno-benchmark:
-    name: EC2 Setup and Juno Launch
+    name: EC2 Snapshot Download and Juno Launch
     runs-on: ubuntu-latest
-    
-    env:
-      EC2_HOST: "3.126.138.194"
-      EC2_USER: "ubuntu"
-      SNAPSHOT_URL: "${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}"
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
-      - name: Set up SSH key for EC2
-        env:
-          EC2_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
-        run: |
-          EC2_KEY_PATH="$HOME/.ssh/ec2_key.pem"
-          echo "EC2_KEY_PATH=$EC2_KEY_PATH" >> $GITHUB_ENV
-          mkdir -p ~/.ssh
-          echo "$EC2_PRIVATE_KEY" > "$EC2_KEY_PATH"
-          chmod 600 "$EC2_KEY_PATH"
-      
-      - name: Display configuration
-        run: |
-          echo "EC2 Host: $EC2_HOST"
-          echo "EC2 User: $EC2_USER"
-          echo "Juno Version: ${{ github.event.inputs.version }}"
-      
-      - name: Run EC2 setup script
-        run: |
-          chmod +x ./scripts/juno-benchmark.sh
-          ./scripts/juno-benchmark.sh ${{ github.event.inputs.version }}
-      
-      - name: Verify Juno is running
-        run: |
-          sleep 10
-          ssh -i "$EC2_KEY_PATH" -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "ps aux | grep juno | grep -v grep"
-          echo "Latest Juno log entries:"
-          ssh -i "EC2_KEY_PATH" -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "tail -n 30 ~/juno-benchmark/juno.log"
 
+      - name: Clean environment and create benchmark directory on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            pkill -x juno || true
+            rm -rf ~/juno-benchmark
+            mkdir -p ~/juno-benchmark/scripts
+
+      - name: Copy benchmark script to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: scripts/juno-benchmark.sh
+          target: ~/juno-benchmark/scripts/
+          strip_components: 1
+
+      - name: Execute remote benchmark script via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          envs: JUNO_VERSION,SNAPSHOT_URL
+          script: |
+            export JUNO_VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
+            export SNAPSHOT_URL=${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
+            chmod +x ~/juno-benchmark/scripts/juno-benchmark.sh
+            bash ~/juno-benchmark/scripts/juno-benchmark.sh "$JUNO_VERSION"
+
+      - name: Verify Juno is running
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            sleep 10
+            ps aux | grep juno | grep -v grep
+            echo "Latest Juno log entries:"
+            tail -n 30 ~/juno-benchmark/juno.log
