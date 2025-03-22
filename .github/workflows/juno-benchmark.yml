@@ -50,7 +50,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           envs: JUNO_VERSION,SNAPSHOT_URL
-          command_timeout: 3600  
+          command_timeout: 60m
           script: |
             export JUNO_VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
             export SNAPSHOT_URL=${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
