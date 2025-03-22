@@ -95,7 +95,7 @@ type PendingStateWriter struct {
 	*PendingState
 }
 
-func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) PendingStateWriter {
+func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head StateReader) PendingStateWriter {
 	return PendingStateWriter{
 		PendingState: &PendingState{
 			stateDiff:  stateDiff,

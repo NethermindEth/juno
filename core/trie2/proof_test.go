@@ -218,7 +218,7 @@ func TestRangeProofNonRandom(t *testing.T) {
 	err := tr.GetRangeProof(records[0].key, records[3].key, proof)
 	require.NoError(t, err)
 
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		t.Logf("key %s: value %s", records[i].key.String(), records[i].value.String())
 	}
 

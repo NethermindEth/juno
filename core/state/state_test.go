@@ -711,7 +711,7 @@ func TestContractHistory(t *testing.T) {
 	})
 
 	t.Run("retrieve block height is the same as update", func(t *testing.T) {
-		contract := NewStateContract(addr, classHash, nonce, block2)
+		contract := newStateObject(addr, classHash, nonce, block2)
 		contract.UpdateStorage(storageKey, storageValue)
 		require.NoError(t, contract.Commit(txn, true, block2))
 
@@ -732,7 +732,7 @@ func TestContractHistory(t *testing.T) {
 	})
 
 	t.Run("retrieve block height before update", func(t *testing.T) {
-		contract := NewStateContract(addr, classHash, nonce, block2)
+		contract := newStateObject(addr, classHash, nonce, block2)
 		require.NoError(t, contract.Commit(txn, true, block2))
 
 		state, err := New(txn)
@@ -752,7 +752,7 @@ func TestContractHistory(t *testing.T) {
 	})
 
 	t.Run("retrieve block height in between updates", func(t *testing.T) {
-		contract := NewStateContract(addr, classHash, nonce, block1)
+		contract := newStateObject(addr, classHash, nonce, block1)
 		contract.UpdateStorage(storageKey, storageValue)
 		require.NoError(t, contract.Commit(txn, true, block1))
 
@@ -760,7 +760,7 @@ func TestContractHistory(t *testing.T) {
 		nonce2 := new(felt.Felt).SetBytes([]byte("nonce2"))
 		storageValue2 := new(felt.Felt).SetBytes([]byte("storage_value2"))
 
-		contract2 := NewStateContract(addr, classHash2, nonce2, block1)
+		contract2 := newStateObject(addr, classHash2, nonce2, block1)
 		contract2.UpdateStorage(storageKey, storageValue2)
 		require.NoError(t, contract2.Commit(txn, true, block5))
 

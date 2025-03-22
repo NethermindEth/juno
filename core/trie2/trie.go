@@ -1,18 +1,16 @@
 package trie2
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
-	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/memory"
 )
 
 const contractClassTrieHeight = 251
@@ -32,8 +30,8 @@ type Trie struct {
 	// Hash function used to hash the trie nodes
 	hashFn crypto.HashFn
 
-	// The underlying database to store and retrieve trie nodes
-	db *triedb.Database
+	// The underlying reader to retrieve trie nodes
+	nodeReader *nodeReader
 
 	// Check if the trie has been committed. Trie is unusable once committed.
 	committed bool
@@ -48,20 +46,18 @@ type Trie struct {
 	pendingUpdates int
 }
 
-// A unique identifier for a trie
-type TrieID interface {
-	Bucket() db.Bucket
-	Owner() felt.Felt
-}
-
 // Creates a new trie
-func New(id TrieID, height uint8, hashFn crypto.HashFn, database db.KeyValueStore) (*Trie, error) {
-	trieDb := triedb.New(database, id.Bucket(), &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle both pathdb and hashdb
+func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase) (*Trie, error) {
+	nodeReader, err := newNodeReader(id, nodeDB)
+	if err != nil {
+		return nil, err
+	}
+
 	tr := &Trie{
 		owner:      id.Owner(),
 		height:     height,
 		hashFn:     hashFn,
-		db:         trieDb,
+		nodeReader: nodeReader,
 		nodeTracer: newTracer(),
 	}
 
@@ -82,7 +78,7 @@ func NewEmpty(height uint8, hashFn crypto.HashFn) *Trie {
 		hashFn:     hashFn,
 		root:       nil,
 		nodeTracer: newTracer(),
-		db:         triedb.NewEmptyPathDatabase(),
+		nodeReader: NewEmptyNodeReader(),
 	}
 }
 
@@ -153,7 +149,7 @@ func (t *Trie) Hash() felt.Felt {
 }
 
 // Collapses the trie into a single hash node and flush the node changes to the database.
-func (t *Trie) Commit() (felt.Felt, error) {
+func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 	defer func() {
 		t.committed = true
 	}()
@@ -171,12 +167,10 @@ func (t *Trie) Commit() (felt.Felt, error) {
 		for _, path := range paths {
 			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
-			return t.db.Delete(t.owner, key, node.IsLeaf())
-		})
-		return felt.Zero, err
+		return felt.Zero, nodes
 	}
 
+	// If the root node is not dirty, that means we don't actually need to commit
 	rootHash := t.Hash()
 	if hashedNode, dirty := t.root.cache(); !dirty {
 		t.root = hashedNode
@@ -190,22 +184,7 @@ func (t *Trie) Commit() (felt.Felt, error) {
 
 	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
-
-	err := nodes.ForEach(true, func(key trieutils.Path, node trienode.TrieNode) error {
-		if dn, ok := node.(*trienode.DeletedNode); ok {
-			return t.db.Delete(t.owner, key, dn.IsLeaf())
-		}
-		return t.db.Put(t.owner, key, node.Blob(), node.IsLeaf())
-	})
-	if err != nil {
-		return felt.Felt{}, err
-	}
-
-	return rootHash, nil
-}
-
-func (t *Trie) NodeIterator() (db.Iterator, error) {
-	return t.db.NewIterator(t.owner)
+	return rootHash, nodes
 }
 
 func (t *Trie) Copy() *Trie {
@@ -215,7 +194,7 @@ func (t *Trie) Copy() *Trie {
 		root:           t.root,
 		hashFn:         t.hashFn,
 		committed:      t.committed,
-		db:             t.db,
+		nodeReader:     t.nodeReader,
 		nodeTracer:     t.nodeTracer.copy(),
 		pendingHashes:  t.pendingHashes,
 		pendingUpdates: t.pendingUpdates,
@@ -497,24 +476,16 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 
 // Resolves the node at the given path from the database
 func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
-	buf := bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer func() {
-		buf.Reset()
-		bufferPool.Put(buf)
-	}()
-
-	_, err := t.db.Get(buf, t.owner, path, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, hn.Felt, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
-
-	blob := buf.Bytes()
 
 	var hash *felt.Felt
 	if hn != nil {
 		hash = &hn.Felt
 	}
+
 	return decodeNode(blob, hash, path.Len(), t.height)
 }
 
@@ -545,15 +516,15 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, memory.New())
+	return New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Poseidon, memory.New())
+	return New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(NewEmptyTrieID(), height, crypto.Pedersen, memory.New())
+	trie, err := New(trieutils.NewEmptyTrieID(), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
 	if err != nil {
 		return err
 	}
@@ -561,7 +532,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(NewEmptyTrieID(), height, crypto.Poseidon, memory.New())
+	trie, err := New(trieutils.NewEmptyTrieID(), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
 	if err != nil {
 		return err
 	}

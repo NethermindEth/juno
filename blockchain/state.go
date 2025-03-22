@@ -23,6 +23,7 @@ type StateReader interface {
 
 type StateCloser func() error
 
+// TODO(weiihann): all these should return value type instead of reference
 type ContractReader interface {
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)

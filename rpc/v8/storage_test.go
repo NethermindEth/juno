@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -141,14 +142,14 @@ func TestStorageProof(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	txn, err := testDB.NewTransaction(true)
 	require.NoError(t, err)
-	tempTrie, err := trie2.New(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
+	tempTrie, err := trie2.New(trieutils.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
 	require.NoError(t, err)
 	_ = tempTrie.Update(key, value)
 	_ = tempTrie.Update(key2, value2)
 	_, _ = tempTrie.Commit()
 	trieRoot := tempTrie.Hash()
 
-	tempTrie, err = trie2.New(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
+	tempTrie, err = trie2.New(trieutils.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
 	require.NoError(t, err)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -730,7 +731,7 @@ func emptyTrie(t *testing.T) *trie2.Trie {
 	memdb := memory.New()
 	txn := memdb.NewIndexedBatch()
 
-	tempTrie, err := trie2.New(trie2.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
+	tempTrie, err := trie2.New(trieutils.NewEmptyTrieID(), 251, crypto.Pedersen, txn)
 	require.NoError(t, err)
 	return tempTrie
 }

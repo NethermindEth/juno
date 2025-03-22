@@ -15,7 +15,7 @@ func TestMarshalBinary(t *testing.T) {
 	deployHeight := uint64(123)
 	storageRoot := new(felt.Felt).SetBytes([]byte("storage_root"))
 
-	contract := &StateContract{
+	contract := &stateObject{
 		ClassHash:    classHash,
 		Nonce:        nonce,
 		DeployHeight: deployHeight,
@@ -25,7 +25,7 @@ func TestMarshalBinary(t *testing.T) {
 	data, err := contract.MarshalBinary()
 	require.NoError(t, err)
 
-	var unmarshalled StateContract
+	var unmarshalled stateObject
 	require.NoError(t, unmarshalled.UnmarshalBinary(data))
 
 	assert.Equal(t, contract.ClassHash, unmarshalled.ClassHash)
@@ -52,7 +52,7 @@ func TestNewContract(t *testing.T) {
 	require.ErrorIs(t, err, ErrContractNotDeployed)
 
 	// Create and commit contract
-	contract := NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	contract := newStateObject(addr, classHash, &felt.Zero, blockNumber)
 	require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 	// Retrieve and verify committed contract
@@ -79,7 +79,7 @@ func TestContractUpdate(t *testing.T) {
 	classHash := new(felt.Felt).SetUint64(37)
 
 	// Initial contract setup
-	contract := NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	contract := newStateObject(addr, classHash, &felt.Zero, blockNumber)
 	require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 	// Verify initial state
@@ -120,7 +120,7 @@ func TestContractStorage(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract := NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	contract := newStateObject(addr, classHash, &felt.Zero, blockNumber)
 	require.NoError(t, contract.Commit(txn, true, blockNumber))
 
 	// Initial storage check
@@ -161,7 +161,7 @@ func TestContractDelete(t *testing.T) {
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
-	contract := NewStateContract(addr, classHash, &felt.Zero, blockNumber)
+	contract := newStateObject(addr, classHash, &felt.Zero, blockNumber)
 	require.NoError(t, contract.Commit(txn, false, blockNumber))
 
 	require.NoError(t, contract.delete(txn))

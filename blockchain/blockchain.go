@@ -355,54 +355,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
-type StateCloser = func() error
-
 var noopStateCloser = func() error { return nil }
-
-// HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("HeadState")
-	txn := b.database.NewIndexedBatch()
-
-	_, err := GetChainHeight(txn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return core.NewState(txn), noopStateCloser, nil
-}
-
-// StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("StateAtBlockNumber")
-	txn := b.database.NewIndexedBatch()
-
-	_, err := GetBlockHeaderByNumber(txn, blockNumber)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
-}
-
-// StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
-	b.listener.OnRead("StateAtBlockHash")
-	if blockHash.IsZero() {
-		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
-		emptyState := core.NewState(txn)
-		return emptyState, noopStateCloser, nil
-	}
-
-	txn := b.database.NewIndexedBatch()
-	header, err := GetBlockHeaderByHash(txn, blockHash)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), noopStateCloser, nil
-}
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error) {

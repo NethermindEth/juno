@@ -11,6 +11,9 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/davecgh/go-spew/spew"
@@ -185,19 +188,16 @@ func TestHash(t *testing.T) {
 func TestCommit(t *testing.T) {
 	verifyCommit := func(t *testing.T, records []*keyValue) {
 		t.Helper()
-		db := memory.New()
-		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+		tr, err := New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
 		require.NoError(t, err)
 
 		for _, record := range records {
 			err := tr.Update(record.key, record.value)
 			require.NoError(t, err)
 		}
+		tr.Commit()
 
-		_, err = tr.Commit()
-		require.NoError(t, err)
-
-		tr2, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+		tr2, err := New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
 		require.NoError(t, err)
 
 		for _, record := range records {
@@ -358,7 +358,8 @@ func runRandTestBool(rt randTest) bool {
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
 	db := memory.New()
-	tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+	trieDB := triedb.New(db, &triedb.Config{PathConfig: &pathdb.Config{}})
+	tr, err := New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, trieDB)
 	if err != nil {
 		return err
 	}
@@ -405,11 +406,9 @@ func runRandTest(rt randTest) error {
 		case opHash:
 			tr.Hash()
 		case opCommit:
-			_, err := tr.Commit()
-			if err != nil {
-				rt[i].err = fmt.Errorf("commit failed: %w", err)
-			}
-			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+			tr.Commit()
+
+			newtr, err := New(trieutils.NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, trieDB)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}

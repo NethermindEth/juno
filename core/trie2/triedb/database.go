@@ -1,26 +1,11 @@
 package triedb
 
 import (
-	"bytes"
-
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 )
-
-var (
-	_ TrieDB = (*pathdb.Database)(nil)
-	_ TrieDB = (*pathdb.EmptyDatabase)(nil)
-)
-
-// TODO: may not be the best way to use this interface to split pathdb and hashdb...
-type TrieDB interface {
-	Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error)
-	Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error
-	Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error
-	NewIterator(owner felt.Felt) (db.Iterator, error)
-}
 
 type Config struct {
 	PathConfig *pathdb.Config
@@ -28,33 +13,25 @@ type Config struct {
 }
 
 type Database struct {
-	backend TrieDB
-	config  *Config
+	triedb database.TrieDB
+	config *Config
 }
 
-func New(database db.KeyValueStore, prefix db.Bucket, config *Config) *Database {
+func New(disk db.KeyValueStore, config *Config) *Database {
 	return &Database{ // TODO: handle both pathdb and hashdb
-		backend: pathdb.New(database, prefix, config.PathConfig),
-		config:  config,
+		triedb: pathdb.New(disk, config.PathConfig),
+		config: config,
 	}
 }
 
-func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
-	return d.backend.Get(buf, owner, path, isLeaf)
+func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
+	return d.triedb.NodeReader(id)
 }
 
-func (d *Database) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error {
-	return d.backend.Put(owner, path, blob, isLeaf)
+func (d *Database) Close() error {
+	return d.triedb.Close()
 }
 
-func (d *Database) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
-	return d.backend.Delete(owner, path, isLeaf)
-}
-
-func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
-	return d.backend.NewIterator(owner)
-}
-
-func NewEmptyPathDatabase() *Database { // TODO: handle both pathdb and hashdb
-	return &Database{backend: pathdb.EmptyDatabase{}, config: &Config{}}
+func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
+	return d.triedb.NewIterator(id)
 }
