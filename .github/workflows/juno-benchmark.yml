@@ -32,6 +32,7 @@ jobs:
             pkill -x juno || true
             rm -rf ~/juno-benchmark
             mkdir -p ~/juno-benchmark/scripts
+            mkdir -p ~/juno-benchmark/db
 
       - name: Copy benchmark script to EC2
         uses: appleboy/scp-action@master
@@ -50,7 +51,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           envs: JUNO_VERSION,SNAPSHOT_URL
-          command_timeout: 60m
+          command_timeout: 180m
           script: |
             export JUNO_VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
             export SNAPSHOT_URL=${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}

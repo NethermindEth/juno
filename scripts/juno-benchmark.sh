@@ -38,10 +38,7 @@ chmod +x juno
 log "Starting Juno..."
 nohup "$WORK_DIR/juno" \
     --db-path="$WORK_DIR/db" \
-    --snapshot-path="$SNAPSHOT_DIR" \
-    --sync-mode=full \
     --disable-l1-verification=true \
-    --target-block=10000 \
     > "$JUNO_LOG" 2>&1 &
 
 sleep 5
