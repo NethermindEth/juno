@@ -24,6 +24,12 @@ func (s *SyncBatch) Delete(key []byte) error {
 	return s.batch.Delete(key)
 }
 
+func (s *SyncBatch) DeleteRange(start, end []byte) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.batch.DeleteRange(start, end)
+}
+
 func (s *SyncBatch) Put(key, val []byte) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()

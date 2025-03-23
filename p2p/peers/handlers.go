@@ -357,21 +357,16 @@ func (h *Handler) onClassesRequest(req *gen.ClassesRequest) (iter.Seq[proto.Mess
 			return nil, err
 		}
 
-		stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
+		stateReader, err := h.bcReader.StateAtBlockNumber(blockNumber)
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			if closeErr := closer(); closeErr != nil {
-				h.log.Errorw("Failed to close state reader", "err", closeErr)
-			}
-		}()
 
 		stateDiff := stateUpdate.StateDiff
 
 		var responses []proto.Message
 		for _, hash := range stateDiff.DeclaredV0Classes {
-			cls, err := stateReader.Class(hash)
+			cls, err := stateReader.Class(*hash)
 			if err != nil {
 				return nil, err
 			}
@@ -383,7 +378,7 @@ func (h *Handler) onClassesRequest(req *gen.ClassesRequest) (iter.Seq[proto.Mess
 			})
 		}
 		for classHash := range stateDiff.DeclaredV1Classes {
-			cls, err := stateReader.Class(&classHash)
+			cls, err := stateReader.Class(classHash)
 			if err != nil {
 				return nil, err
 			}

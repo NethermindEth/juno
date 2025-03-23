@@ -134,25 +134,25 @@ func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*core.TransactionRe
 	return GetReceiptByBlockNumIndexBytes(r, val)
 }
 
-func DeleteTxsAndReceipts(txn db.IndexedBatch, blockNum, numTxs uint64) error {
+func DeleteTxsAndReceipts(r db.KeyValueReader, w db.KeyValueWriter, blockNum, numTxs uint64) error {
 	// remove txs and receipts
 	for i := range numTxs {
-		reorgedTxn, err := GetTxByBlockNumIndex(txn, blockNum, i)
+		reorgedTxn, err := GetTxByBlockNumIndex(r, blockNum, i)
 		if err != nil {
 			return err
 		}
 
-		if err := DeleteTxByBlockNumIndex(txn, blockNum, i); err != nil {
+		if err := DeleteTxByBlockNumIndex(w, blockNum, i); err != nil {
 			return err
 		}
-		if err := DeleteReceiptByBlockNumIndex(txn, blockNum, i); err != nil {
+		if err := DeleteReceiptByBlockNumIndex(w, blockNum, i); err != nil {
 			return err
 		}
-		if err := DeleteTxBlockNumIndexByHash(txn, reorgedTxn.Hash()); err != nil {
+		if err := DeleteTxBlockNumIndexByHash(w, reorgedTxn.Hash()); err != nil {
 			return err
 		}
 		if l1handler, ok := reorgedTxn.(*core.L1HandlerTransaction); ok {
-			if err := DeleteL1HandlerTxnHashByMsgHash(txn, l1handler.MessageHash()); err != nil {
+			if err := DeleteL1HandlerTxnHashByMsgHash(w, l1handler.MessageHash()); err != nil {
 				return err
 			}
 		}
@@ -252,8 +252,10 @@ func GetChainHeight(r db.KeyValueReader) (uint64, error) {
 	return height, err
 }
 
-func WriteChainHeight(w db.KeyValueWriter, height []byte) error {
-	return w.Put(db.ChainHeight.Key(), height)
+func WriteChainHeight(w db.KeyValueWriter, height uint64) error {
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], height)
+	return w.Put(db.ChainHeight.Key(), b[:])
 }
 
 func DeleteChainHeight(w db.KeyValueWriter) error {

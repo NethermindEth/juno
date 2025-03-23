@@ -14,6 +14,9 @@ type Iterator interface {
 	// First moves the iterator to the first key/value pair.
 	First() bool
 
+	// Prev moves the iterator to the previous key/value pair
+	Prev() bool
+
 	// Next moves the iterator to the next key/value pair. It returns whether the
 	// iterator is valid after the call. Once invalid, the iterator remains
 	// invalid.

@@ -11,6 +11,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/davecgh/go-spew/spew"
@@ -182,42 +184,6 @@ func TestHash(t *testing.T) {
 	})
 }
 
-func TestCommit(t *testing.T) {
-	verifyCommit := func(t *testing.T, records []*keyValue) {
-		t.Helper()
-		db := memory.New()
-		tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
-		require.NoError(t, err)
-
-		for _, record := range records {
-			err := tr.Update(record.key, record.value)
-			require.NoError(t, err)
-		}
-
-		_, err = tr.Commit()
-		require.NoError(t, err)
-
-		tr2, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
-		require.NoError(t, err)
-
-		for _, record := range records {
-			got, err := tr2.Get(record.key)
-			require.NoError(t, err)
-			require.True(t, got.Equal(record.value), "expected %v, got %v", record.value, got)
-		}
-	}
-
-	t.Run("sequential", func(t *testing.T) {
-		_, records := nonRandomTrie(t, 10000)
-		verifyCommit(t, records)
-	})
-
-	t.Run("random", func(t *testing.T) {
-		_, records := randomTrie(t, 10000)
-		verifyCommit(t, records)
-	})
-}
-
 func TestRandom(t *testing.T) {
 	if err := quick.Check(runRandTestBool, nil); err != nil {
 		if cerr, ok := err.(*quick.CheckError); ok {
@@ -228,53 +194,15 @@ func TestRandom(t *testing.T) {
 }
 
 func TestSpecificRandomFailure(t *testing.T) {
-	// Create a key that matches the failing key from the error log
-	key1 := utils.HexToFelt(t, "0xbc41e72617a6765fcb5902")
-	key2 := utils.HexToFelt(t, "0x0") // The second key from the error log
+	// Create keys from the failing test case
+	key1 := utils.HexToFelt(t, "0x4b004d0b47e75a025540ea685e15b5")
 
 	steps := []randTestStep{
-		{op: opCommit},
-		{op: opGet, key: key1},
-		{op: opCommit},
-		{op: opHash},
-		{op: opCommit},
-		{op: opHash},
-		{op: opCommit},
-		{op: opCommit},
-		{op: opHash},
-		{op: opCommit},
-		{op: opUpdate, key: key2, value: new(felt.Felt).SetUint64(12)},
-		{op: opGet, key: key2},
-		{op: opCommit},
-		{op: opHash},
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(16)},
-		{op: opCommit},
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(18)},
-		{op: opDelete, key: key2},
-		{op: opDelete, key: key1},
-		{op: opHash},
+		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(6)},
 		{op: opCommit},
 		{op: opGet, key: key1}, // This is where the original failure occurred
-		{op: opCommit},
-		{op: opGet, key: key2},
-		{op: opProve, key: key2},
-		{op: opHash},
-		{op: opGet, key: key1},
-		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(32)},
-		{op: opHash},
-		{op: opGet, key: key1},
-		{op: opDelete, key: key1},
-		{op: opCommit},
-		{op: opDelete, key: key1},
-		{op: opHash},
-		{op: opDelete, key: key2},
-		{op: opGet, key: key1},
-		{op: opHash},
-		{op: opHash},
-		{op: opGet, key: key2},
-		{op: opCommit},
 	}
-	// Add debug logging
+
 	t.Log("Starting test sequence")
 	err := runRandTest(steps)
 	if err != nil {
@@ -358,7 +286,9 @@ func runRandTestBool(rt randTest) bool {
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
 	db := memory.New()
-	tr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+	curRoot := felt.Zero
+	trieDB := NewTestNodeDatabase(db, PathScheme) // TODO: handle hash scheme later
+	tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, trieDB)
 	if err != nil {
 		return err
 	}
@@ -405,15 +335,19 @@ func runRandTest(rt randTest) error {
 		case opHash:
 			tr.Hash()
 		case opCommit:
-			_, err := tr.Commit()
-			if err != nil {
-				rt[i].err = fmt.Errorf("commit failed: %w", err)
+			root, nodes := tr.Commit()
+			if nodes != nil {
+				if err := trieDB.Update(root, curRoot, trienode.NewMergeNodeSet(nodes)); err != nil {
+					rt[i].err = fmt.Errorf("update failed: %w", err)
+				}
 			}
-			newtr, err := New(NewEmptyTrieID(), contractClassTrieHeight, crypto.Pedersen, db)
+
+			newtr, err := New(trieutils.NewContractTrieID(root), contractClassTrieHeight, crypto.Pedersen, trieDB)
 			if err != nil {
 				rt[i].err = fmt.Errorf("new trie failed: %w", err)
 			}
 			tr = newtr
+			curRoot = root
 		}
 
 		if rt[i].err != nil {

@@ -7,8 +7,10 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
@@ -21,6 +23,7 @@ type L1HeadSubscription struct {
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
+	StateProvider
 	Height() (height uint64, err error)
 
 	Head() (head *core.Block, err error)
@@ -40,15 +43,17 @@ type Reader interface {
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
 
-	HeadState() (core.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error)
-
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error)
 
 	Network() *utils.Network
+}
+
+type StateProvider interface {
+	HeadState() (state.StateReader, error)
+	StateAtBlockHash(blockHash *felt.Felt) (state.StateReader, error)
+	StateAtBlockNumber(blockNumber uint64) (state.StateReader, error)
 }
 
 var (
@@ -85,14 +90,21 @@ var _ Reader = (*Blockchain)(nil)
 type Blockchain struct {
 	network        *utils.Network
 	database       db.KeyValueStore
+	trieDB         *triedb.Database
+	StateDB        *state.StateDB // TODO(weiihann): not sure if it's a good idea to expose this
 	listener       EventListener
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
+	trieDB := triedb.New(database, &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle hashdb
+	stateDB := state.NewStateDB(database, trieDB)
+
 	return &Blockchain{
 		database:   database,
+		trieDB:     trieDB,
+		StateDB:    stateDB,
 		network:    network,
 		listener:   &SelectiveListener{},
 		l1HeadFeed: feed.New[*core.L1Head](),
@@ -113,16 +125,9 @@ func (b *Blockchain) Network() *utils.Network {
 	return b.network
 }
 
-// StateCommitment returns the latest block state commitment.
-// If blockchain is empty zero felt is returned.
-func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
-	b.listener.OnRead("StateCommitment")
-	batch := b.database.NewIndexedBatch() // this is a hack because we don't need to write to the db
-	return core.NewState(batch).Root()
-}
-
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
+	// TODO: we should also cache the height in the blockchain struct
 	b.listener.OnRead("Height")
 	return GetChainHeight(b.database)
 }
@@ -260,42 +265,49 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.IndexedBatch) error {
-		if err := verifyBlock(txn, block); err != nil {
+	// TODO(weiihann): handle unexpected shutdown
+	if err := verifyBlock(b.database, block); err != nil {
+		return err
+	}
+
+	state, err := state.New(*stateUpdate.OldRoot, b.StateDB)
+	if err != nil {
+		return err
+	}
+
+	if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
+		return err
+	}
+
+	batch := b.database.NewBatch()
+	if err := WriteBlockHeader(batch, block.Header); err != nil {
+		return err
+	}
+
+	for i, tx := range block.Transactions {
+		if err := WriteTxAndReceipt(batch, block.Number, uint64(i), tx,
+			block.Receipts[i]); err != nil {
 			return err
 		}
+	}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
-			return err
-		}
-		if err := WriteBlockHeader(txn, block.Header); err != nil {
-			return err
-		}
+	if err := WriteStateUpdateByBlockNum(batch, block.Number, stateUpdate); err != nil {
+		return err
+	}
 
-		for i, tx := range block.Transactions {
-			if err := WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
-				block.Receipts[i]); err != nil {
-				return err
-			}
-		}
+	if err := WriteBlockCommitment(batch, block.Number, blockCommitments); err != nil {
+		return err
+	}
 
-		if err := WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
-			return err
-		}
+	if err := WriteL1HandlerMsgHashes(batch, block.Transactions); err != nil {
+		return err
+	}
 
-		if err := WriteBlockCommitment(txn, block.Number, blockCommitments); err != nil {
-			return err
-		}
+	if err := WriteChainHeight(batch, block.Number); err != nil {
+		return err
+	}
 
-		if err := WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
-			return err
-		}
-
-		// Head of the blockchain is maintained as follows:
-		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := core.MarshalBlockNumber(block.Number)
-		return txn.Put(db.ChainHeight.Key(), heightBin)
-	})
+	return batch.Write()
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -352,53 +364,51 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
-type StateCloser = func() error
-
-var noopStateCloser = func() error { return nil }
-
 // HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
+func (b *Blockchain) HeadState() (state.StateReader, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
 
-	_, err := GetChainHeight(txn)
+	height, err := GetChainHeight(txn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return core.NewState(txn), noopStateCloser, nil
+	header, err := GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return nil, err
+	}
+
+	return state.New(*header.GlobalStateRoot, b.StateDB)
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (state.StateReader, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
-	_, err := GetBlockHeaderByNumber(txn, blockNumber)
+	header, err := GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), blockNumber), noopStateCloser, nil
+	return state.NewStateHistory(blockNumber, *header.GlobalStateRoot, b.StateDB)
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (state.StateReader, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
-		memDB := memory.New()
-		txn := memDB.NewIndexedBatch()
-		emptyState := core.NewState(txn)
-		return emptyState, noopStateCloser, nil
+		return state.New(felt.Zero, b.StateDB)
 	}
 
 	txn := b.database.NewIndexedBatch()
 	header, err := GetBlockHeaderByHash(txn, blockHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return core.NewStateSnapshot(core.NewState(txn), header.Number), noopStateCloser, nil
+	return state.NewStateHistory(header.Number, *header.GlobalStateRoot, b.StateDB)
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -414,81 +424,90 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
-	return b.database.Update(b.revertHead)
-}
-
-func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
-	var reverseStateDiff *core.StateDiff
-
-	txn := b.database.NewIndexedBatch()
-	blockNum, err := GetChainHeight(txn)
-	if err != nil {
-		return nil, err
-	}
-
-	stateUpdate, err := GetStateUpdateByBlockNum(txn, blockNum)
-	if err != nil {
-		return nil, err
-	}
-
-	state := core.NewState(txn)
-	reverseStateDiff, err = state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
-	if err != nil {
-		return nil, err
-	}
-
-	return reverseStateDiff, nil
-}
-
-func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
-	blockNumber, err := GetChainHeight(txn)
+	blockNumber, err := GetChainHeight(b.database)
 	if err != nil {
 		return err
 	}
 
-	stateUpdate, err := GetStateUpdateByBlockNum(txn, blockNumber)
+	stateUpdate, err := GetStateUpdateByBlockNum(b.database, blockNumber)
 	if err != nil {
 		return err
 	}
 
-	state := core.NewState(txn)
+	state, err := state.New(*stateUpdate.NewRoot, b.StateDB)
+	if err != nil {
+		return err
+	}
+
 	// revert state
 	if err = state.Revert(blockNumber, stateUpdate); err != nil {
 		return err
 	}
 
-	header, err := GetBlockHeaderByNumber(txn, blockNumber)
+	header, err := GetBlockHeaderByNumber(b.database, blockNumber)
 	if err != nil {
 		return err
 	}
 
 	genesisBlock := blockNumber == 0
 
+	batch := b.database.NewBatch()
 	// remove block header
 	for _, key := range [][]byte{
 		db.BlockHeaderByNumberKey(header.Number),
 		db.BlockHeaderNumbersByHashKey(header.Hash),
 		db.BlockCommitmentsKey(header.Number),
 	} {
-		if err = txn.Delete(key); err != nil {
+		if err = batch.Delete(key); err != nil {
 			return err
 		}
 	}
 
-	if err = DeleteTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
+	if err = DeleteTxsAndReceipts(b.database, batch, blockNumber, header.TransactionCount); err != nil {
 		return err
 	}
 
 	// remove state update
-	if err = DeleteStateUpdateByBlockNum(txn, blockNumber); err != nil {
+	if err = DeleteStateUpdateByBlockNum(batch, blockNumber); err != nil {
 		return err
 	}
 
 	// Revert chain height.
 	if genesisBlock {
-		return DeleteChainHeight(txn)
+		if err := DeleteChainHeight(batch); err != nil {
+			return err
+		}
+	} else {
+		if err := WriteChainHeight(batch, blockNumber-1); err != nil {
+			return err
+		}
 	}
 
-	heightBin := core.MarshalBlockNumber(blockNumber - 1)
-	return WriteChainHeight(txn, heightBin)
+	return batch.Write()
+}
+
+func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
+	var ret core.StateDiff
+
+	blockNum, err := GetChainHeight(b.database)
+	if err != nil {
+		return ret, err
+	}
+
+	stateUpdate, err := GetStateUpdateByBlockNum(b.database, blockNum)
+	if err != nil {
+		return ret, err
+	}
+
+	state, err := state.New(*stateUpdate.NewRoot, b.StateDB)
+	if err != nil {
+		return ret, err
+	}
+
+	ret, err = state.GetReverseStateDiff(blockNum, stateUpdate.StateDiff)
+	if err != nil {
+		return ret, err
+	}
+
+	return ret, nil
 }

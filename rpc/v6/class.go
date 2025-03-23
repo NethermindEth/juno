@@ -79,13 +79,12 @@ func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L248
 func (h *Handler) Class(id BlockID, classHash felt.Felt) (*Class, *jsonrpc.Error) {
-	state, stateCloser, rpcErr := h.stateByBlockID(&id)
+	state, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClass")
 
-	declared, err := state.Class(&classHash)
+	declared, err := state.Class(classHash)
 	if err != nil {
 		return nil, rpccore.ErrClassHashNotFound
 	}
@@ -157,16 +156,15 @@ func (h *Handler) ClassAt(id BlockID, address felt.Felt) (*Class, *jsonrpc.Error
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L292
 func (h *Handler) ClassHashAt(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	stateReader, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getClassHashAt")
 
-	classHash, err := stateReader.ContractClassHash(&address)
+	classHash, err := stateReader.ContractClassHash(address)
 	if err != nil {
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	return classHash, nil
+	return &classHash, nil
 }

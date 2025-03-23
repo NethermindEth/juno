@@ -1,167 +1,94 @@
 package pathdb
 
 import (
-	"bytes"
-	"errors"
-	"sync"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb/database"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 )
 
-var ErrCallEmptyDatabase = errors.New("call to empty database")
-
-var dbBufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
+var _ database.TrieDB = (*Database)(nil)
 
 type Config struct{} // TODO(weiihann): handle this
 
 type Database struct {
-	database db.KeyValueStore
-	prefix   db.Bucket
-	config   *Config
+	disk db.KeyValueStore
+	// TODO(weiihann): add the cache stuff here
+	config *Config
 }
 
-func New(database db.KeyValueStore, prefix db.Bucket, config *Config) *Database {
-	return &Database{database: database, prefix: prefix, config: config}
+func New(disk db.KeyValueStore, config *Config) *Database {
+	return &Database{disk: disk, config: config}
 }
 
-func (d *Database) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
-	dbBuf := dbBufferPool.Get().(*bytes.Buffer)
-	dbBuf.Reset()
-	defer func() {
-		dbBuf.Reset()
-		dbBufferPool.Put(dbBuf)
-	}()
-
-	if err := d.dbKey(dbBuf, owner, path, isLeaf); err != nil {
-		return 0, err
-	}
-
-	err := d.database.Get(dbBuf.Bytes(), func(blob []byte) error {
-		buf.Write(blob)
-		return nil
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	return buf.Len(), nil
+func (d *Database) Close() error {
+	panic("TODO(weiihann): implement me")
 }
 
-func (d *Database) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error {
-	buffer := dbBufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer func() {
-		buffer.Reset()
-		dbBufferPool.Put(buffer)
-	}()
-
-	if err := d.dbKey(buffer, owner, path, isLeaf); err != nil {
-		return err
-	}
-
-	return d.database.Put(buffer.Bytes(), blob)
+func (d *Database) Commit(stateComm felt.Felt) error {
+	panic("TODO(weiihann): implement me")
 }
 
-func (d *Database) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
-	buffer := dbBufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer func() {
-		buffer.Reset()
-		dbBufferPool.Put(buffer)
-	}()
+// TODO(weiihann): how to deal with state comm and the layer tree?
+func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
+	var (
+		idBytes    = id.Bucket().Key()
+		ownerBytes []byte
+	)
 
-	if err := d.dbKey(buffer, owner, path, isLeaf); err != nil {
-		return err
+	owner := id.Owner()
+	if !owner.Equal(&felt.Zero) {
+		ob := owner.Bytes()
+		ownerBytes = ob[:]
 	}
 
-	return d.database.Delete(buffer.Bytes())
+	prefix := make([]byte, 0, len(idBytes)+len(ownerBytes))
+	prefix = append(prefix, idBytes...)
+	prefix = append(prefix, ownerBytes...)
+
+	return d.disk.NewIterator(prefix, true)
 }
 
-func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
-	buffer := dbBufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer func() {
-		buffer.Reset()
-		dbBufferPool.Put(buffer)
-	}()
+func (d *Database) Update(
+	root,
+	parent felt.Felt,
+	blockNum uint64,
+	classNodes map[trieutils.Path]trienode.TrieNode,
+	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+) error {
+	batch := d.disk.NewBatch()
 
-	_, err := buffer.Write(d.prefix.Key())
-	if err != nil {
-		return nil, err
-	}
-
-	if owner != (felt.Felt{}) {
-		oBytes := owner.Bytes()
-		_, err := buffer.Write(oBytes[:])
-		if err != nil {
-			return nil, err
+	for path, node := range classNodes {
+		if _, ok := node.(*trienode.DeletedNode); ok {
+			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf()); err != nil {
+				return err
+			}
+		} else {
+			if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf(), node.Blob()); err != nil {
+				return err
+			}
 		}
 	}
 
-	return d.database.NewIterator(buffer.Bytes(), true)
-}
+	for owner, nodes := range contractNodes {
+		bucket := db.ContractTrieStorage
+		if owner.Equal(&felt.Zero) {
+			bucket = db.ContractTrieContract
+		}
 
-// Construct key bytes to insert a trie node. The format is as follows:
-//
-// ClassTrie/ContractTrie:
-// [1 byte prefix][1 byte node-type][path]
-//
-// StorageTrie of a Contract :
-// [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func (d *Database) dbKey(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) error {
-	_, err := buf.Write(d.prefix.Key())
-	if err != nil {
-		return err
-	}
-
-	if owner != (felt.Felt{}) {
-		oBytes := owner.Bytes()
-		_, err = buf.Write(oBytes[:])
-		if err != nil {
-			return err
+		for path, node := range nodes {
+			if _, ok := node.(*trienode.DeletedNode); ok {
+				if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, node.IsLeaf()); err != nil {
+					return err
+				}
+			} else {
+				if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, node.IsLeaf(), node.Blob()); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
-	var nodeType []byte
-	if isLeaf {
-		nodeType = leaf.Bytes()
-	} else {
-		nodeType = nonLeaf.Bytes()
-	}
-
-	_, err = buf.Write(nodeType)
-	if err != nil {
-		return err
-	}
-
-	_, err = path.Write(buf)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type EmptyDatabase struct{}
-
-func (EmptyDatabase) Get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, isLeaf bool) (int, error) {
-	return 0, ErrCallEmptyDatabase
-}
-
-func (EmptyDatabase) Put(owner felt.Felt, path trieutils.Path, blob []byte, isLeaf bool) error {
-	return ErrCallEmptyDatabase
-}
-
-func (EmptyDatabase) Delete(owner felt.Felt, path trieutils.Path, isLeaf bool) error {
-	return ErrCallEmptyDatabase
-}
-
-func (EmptyDatabase) NewIterator(owner felt.Felt) (db.Iterator, error) {
-	return nil, ErrCallEmptyDatabase
+	return batch.Write()
 }

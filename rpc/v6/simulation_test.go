@@ -28,8 +28,8 @@ func TestSimulateTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockState := mocks.NewMockStateReader(mockCtrl)
+	mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 	}

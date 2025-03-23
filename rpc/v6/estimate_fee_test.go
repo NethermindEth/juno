@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -36,7 +37,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	}
 
 	t.Run("block not found", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
 		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrBlockNotFound, err)
 	})
@@ -46,9 +47,9 @@ func TestEstimateMessageFee(t *testing.T) {
 		Timestamp:     456,
 		L1GasPriceETH: new(felt.Felt).SetUint64(42),
 	}
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
-	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+	mockReader.EXPECT().HeadState().Return(mockState, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
@@ -56,7 +57,7 @@ func TestEstimateMessageFee(t *testing.T) {
 		Header: latestHeader,
 	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
-			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
+			state state.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))

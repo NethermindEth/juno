@@ -39,13 +39,12 @@ type CasmCompiledContractClass struct {
 }
 
 func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass, *jsonrpc.Error) {
-	state, stateCloser, err := h.bcReader.HeadState()
+	state, err := h.bcReader.HeadState()
 	if err != nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	defer h.callAndLogErr(stateCloser, "failed to close state reader")
 
-	declaredClass, err := state.Class(classHash)
+	declaredClass, err := state.Class(*classHash)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrClassHashNotFound

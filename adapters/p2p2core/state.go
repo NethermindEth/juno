@@ -6,12 +6,13 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, classes []*gen.Class) *core.StateDiff {
+func AdaptStateDiff(reader state.StateReader, contractDiffs []*gen.ContractDiff, classes []*gen.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
@@ -51,16 +52,16 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, 
 				classHash: diff.ClassHash,
 			}
 
-			var stateClassHash *felt.Felt
+			var stateClassHash felt.Felt
 			if reader == nil {
 				// zero block
-				stateClassHash = &felt.Zero
+				stateClassHash = felt.Zero
 			} else {
 				var err error
-				stateClassHash, err = reader.ContractClassHash(address)
+				stateClassHash, err = reader.ContractClassHash(*address)
 				if err != nil {
 					if errors.Is(err, db.ErrKeyNotFound) {
-						stateClassHash = &felt.Zero
+						stateClassHash = felt.Zero
 					} else {
 						panic(err)
 					}

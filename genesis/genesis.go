@@ -9,6 +9,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
@@ -104,10 +106,16 @@ func GenesisStateDiff(
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
+	stateDB := state.NewStateDB(memDB, triedb.New(memDB, nil))
+	state, err := state.New(felt.Zero, stateDB)
+	if err != nil {
+		return core.StateDiff{}, nil, err
+	}
+
 	genesisState := sync.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),
-		core.NewState(memDB.NewIndexedBatch()),
+		state,
 	)
 
 	classhashToSierraVersion, err := declareClasses(config, &genesisState)
@@ -243,14 +251,14 @@ func executeFunctionCalls(
 		contractAddress := fnCall.ContractAddress
 		entryPointSelector := fnCall.EntryPointSelector
 
-		classHash, err := genesisState.ContractClassHash(&contractAddress)
+		classHash, err := genesisState.ContractClassHash(contractAddress)
 		if err != nil {
 			return fmt.Errorf("get contract class hash: %v", err)
 		}
 
 		callInfo := &vm.CallInfo{
 			ContractAddress: &contractAddress,
-			ClassHash:       classHash,
+			ClassHash:       &classHash,
 			Selector:        &entryPointSelector,
 			Calldata:        fnCall.Calldata,
 		}

@@ -61,11 +61,10 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
 	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
-	state, closer, rpcErr := h.stateByBlockID(&id)
+	state, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(&id)
 	if rpcErr != nil {

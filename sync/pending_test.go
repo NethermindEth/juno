@@ -16,7 +16,7 @@ func TestPendingState(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	deployedAddr, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
@@ -62,16 +62,16 @@ func TestPendingState(t *testing.T) {
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			t.Run("deployed", func(t *testing.T) {
-				cH, cErr := state.ContractClassHash(deployedAddr)
+				cH, cErr := state.ContractClassHash(*deployedAddr)
 				require.NoError(t, cErr)
 				assert.Equal(t, deployedClassHash, cH)
 
-				cH, cErr = state.ContractClassHash(deployedAddr2)
+				cH, cErr = state.ContractClassHash(*deployedAddr2)
 				require.NoError(t, cErr)
 				assert.Equal(t, deployedClassHash, cH)
 			})
 			t.Run("replaced", func(t *testing.T) {
-				cH, cErr := state.ContractClassHash(replacedAddr)
+				cH, cErr := state.ContractClassHash(*replacedAddr)
 				require.NoError(t, cErr)
 				assert.Equal(t, replacedClassHash, cH)
 			})
@@ -80,18 +80,18 @@ func TestPendingState(t *testing.T) {
 			expectedClassHash := new(felt.Felt).SetUint64(37)
 			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
-			cH, cErr := state.ContractClassHash(&felt.Zero)
+			cH, cErr := state.ContractClassHash(felt.Zero)
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedClassHash, cH)
 		})
 	})
 	t.Run("ContractNonce", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
-			cN, cErr := state.ContractNonce(deployedAddr)
+			cN, cErr := state.ContractNonce(*deployedAddr)
 			require.NoError(t, cErr)
 			assert.Equal(t, new(felt.Felt).SetUint64(44), cN)
 
-			cN, cErr = state.ContractNonce(deployedAddr2)
+			cN, cErr = state.ContractNonce(*deployedAddr2)
 			require.NoError(t, cErr)
 			assert.Equal(t, &felt.Zero, cN)
 		})
@@ -99,7 +99,7 @@ func TestPendingState(t *testing.T) {
 			expectedNonce := new(felt.Felt).SetUint64(1337)
 			mockState.EXPECT().ContractNonce(gomock.Any()).Return(expectedNonce, nil)
 
-			cN, cErr := state.ContractNonce(&felt.Zero)
+			cN, cErr := state.ContractNonce(felt.Zero)
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedNonce, cN)
 		})
@@ -107,15 +107,15 @@ func TestPendingState(t *testing.T) {
 	t.Run("ContractStorage", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(37)
-			cV, cErr := state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(44))
+			cV, cErr := state.ContractStorage(*deployedAddr, *new(felt.Felt).SetUint64(44))
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, cV)
 
-			cV, cErr = state.ContractStorage(deployedAddr, new(felt.Felt).SetUint64(0xDEADBEEF))
+			cV, cErr = state.ContractStorage(*deployedAddr, *new(felt.Felt).SetUint64(0xDEADBEEF))
 			require.NoError(t, cErr)
 			assert.Equal(t, &felt.Zero, cV)
 
-			cV, cErr = state.ContractStorage(deployedAddr2, new(felt.Felt).SetUint64(0xDEADBEEF))
+			cV, cErr = state.ContractStorage(*deployedAddr2, *new(felt.Felt).SetUint64(0xDEADBEEF))
 			require.NoError(t, cErr)
 			assert.Equal(t, &felt.Zero, cV)
 		})
@@ -123,14 +123,14 @@ func TestPendingState(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)
 			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedValue, nil)
 
-			cV, cErr := state.ContractStorage(&felt.Zero, &felt.Zero)
+			cV, cErr := state.ContractStorage(felt.Zero, felt.Zero)
 			require.NoError(t, cErr)
 			assert.Equal(t, expectedValue, cV)
 		})
 	})
 	t.Run("Class", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
-			pC, pErr := state.Class(deployedClassHash)
+			pC, pErr := state.Class(*deployedClassHash)
 			require.NoError(t, pErr)
 			_, ok := pC.Class.(*core.Cairo0Class)
 			assert.True(t, ok)
@@ -139,7 +139,7 @@ func TestPendingState(t *testing.T) {
 			mockState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{
 				Class: &core.Cairo1Class{},
 			}, nil)
-			pC, pErr := state.Class(&felt.Zero)
+			pC, pErr := state.Class(felt.Zero)
 			require.NoError(t, pErr)
 			_, ok := pC.Class.(*core.Cairo1Class)
 			assert.True(t, ok)

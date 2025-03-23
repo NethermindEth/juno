@@ -20,6 +20,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -40,10 +41,10 @@ type CallResult struct {
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+	Call(callInfo *CallInfo, blockInfo *BlockInfo, state state.StateReader, network *utils.Network,
 		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
+		state state.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
 	) (ExecutionResults, error)
 }
 
@@ -62,7 +63,7 @@ func New(concurrencyMode bool, log utils.SimpleLogger) VM {
 // callContext manages the context that a Call instance executes on
 type callContext struct {
 	// state that the call is running on
-	state core.StateReader
+	state state.StateReader
 	log   utils.SimpleLogger
 	// err field to be possibly populated in case of an error in execution
 	err string
@@ -240,7 +241,7 @@ func makeByteFromBool(b bool) byte {
 	return boolByte
 }
 
-func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
+func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state state.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
@@ -291,7 +292,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+	blockInfo *BlockInfo, state state.StateReader, network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, errorStack bool,
 ) (ExecutionResults, error) {
 	context := &callContext{

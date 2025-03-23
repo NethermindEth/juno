@@ -1,4 +1,4 @@
-package trie
+package legacytrie
 
 import (
 	"bytes"
@@ -79,11 +79,12 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
-	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
+	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = nodePool.Get().(*Node)
 		return node.UnmarshalBinary(val)
-	})
-
+	}); err != nil {
+		return nil, err
+	}
 	return node, err
 }
 
@@ -99,11 +100,13 @@ func (t *Storage) Delete(key *BitArray) error {
 
 func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
-	err := t.txn.Get(t.prefix, func(val []byte) error {
+	if err := t.txn.Get(t.prefix, func(val []byte) error {
 		rootKey = new(BitArray)
 		return rootKey.UnmarshalBinary(val)
-	})
-	return rootKey, err
+	}); err != nil {
+		return nil, err
+	}
+	return rootKey, nil
 }
 
 func (t *Storage) PutRootKey(newRootKey *BitArray) error {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -72,7 +73,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 // in-memory and persistent database.
 type Pool struct {
 	log         utils.SimpleLogger
-	state       core.StateReader
+	state       state.StateReader
 	db          db.KeyValueStore // to store the persistent mempool
 	txPushed    chan struct{}
 	memTxnList  *memTxnList
@@ -83,7 +84,7 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.KeyValueStore, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
+func New(mainDB db.KeyValueStore, state state.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
 	pool := &Pool{
 		log:         log,
 		state:       state,
@@ -247,23 +248,23 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
 		}
 	case *core.DeclareTransaction:
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := p.state.ContractNonce(*t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+			return fmt.Errorf("validation failed, existing nonce %v, but received nonce %v", nonce, t.Nonce)
 		}
 	case *core.InvokeTransaction:
 		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
 			return fmt.Errorf("invoke v0 transactions not supported")
 		}
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := p.state.ContractNonce(*t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+			return fmt.Errorf("validation failed, existing nonce %v, but received nonce %v", nonce, t.Nonce)
 		}
 	case *core.L1HandlerTransaction:
 		// todo: verification of the L1 handler nonce requires checking the
