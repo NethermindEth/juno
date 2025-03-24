@@ -362,11 +362,15 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 		declaredClass = append(declaredClass, txn.DeclaredClass)
 	}
 
+	paidFeesOnL1 := []*felt.Felt{}
+	if txn.PaidFeeOnL1 != nil {
+		paidFeesOnL1 = append(paidFeesOnL1, txn.PaidFeeOnL1)
+	}
 	// Execute the transaction
 	vmResults, err := b.vm.Execute(
 		[]core.Transaction{txn.Transaction},
 		declaredClass,
-		[]*felt.Felt{txn.PaidFeeOnL1},
+		paidFeesOnL1,
 		&vm.BlockInfo{
 			Header:                pending.Block.Header,
 			BlockHashToBeRevealed: blockHashToBeRevealed,
@@ -393,6 +397,8 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 
 	// Update pending block with transaction results
 	b.updatePendingBlock(pending, receipt, txn.Transaction, seqTrace)
+
+	fmt.Println("pending.StateUpdate.StateDiff", pending.StateUpdate.StateDiff)
 
 	return b.StorePending(pending)
 }

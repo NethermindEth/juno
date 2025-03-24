@@ -58,7 +58,6 @@ func TestSign(t *testing.T) {
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
-	require.NoError(t, closer())
 	// We don't check the signature since the private key generation is not deterministic.
 }
 
@@ -94,7 +93,6 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 		require.Empty(t, block.Transactions)
 		require.Empty(t, block.Receipts)
 	}
-	require.NoError(t, closer())
 }
 
 func TestPrefundedAccounts(t *testing.T) {
@@ -153,7 +151,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, closer := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	p, mempoolCloser := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -164,7 +162,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB, closer)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(context.Background(), txn)
@@ -204,5 +202,5 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
 	require.True(t, foundExpectedBalance)
-	require.NoError(t, closer())
+	require.NoError(t, testDB.Close())
 }

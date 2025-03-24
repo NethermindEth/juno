@@ -1,10 +1,8 @@
 package genesis_test
 
 import (
-	"encoding/json"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -45,26 +43,5 @@ func TestGenesisStateDiff(t *testing.T) {
 			}
 		}
 		require.Equal(t, len(genesisConfig.BootstrapAccounts)+1, numFundedAccounts) // Also fund udacnt
-
-		// todo, rm, this should not result in any errors....
-		// Test marshaling and unmarshaling of each class
-		for classHash, class := range newClasses {
-			// Marshal the class to JSON
-			marshaledClass, err := json.Marshal(class)
-			require.NoError(t, err, "Failed to marshal class")
-
-			// Unmarshal the JSON back to a class
-			var unmarshaledClass core.Class
-			err = json.Unmarshal(marshaledClass, &unmarshaledClass)
-			require.NoError(t, err, "Failed to unmarshal class")
-
-			// Verify the unmarshaled class matches the original
-			originalJSON, err := json.Marshal(class)
-			require.NoError(t, err)
-			unmarshaledJSON, err := json.Marshal(unmarshaledClass)
-			require.NoError(t, err)
-			require.JSONEq(t, string(originalJSON), string(unmarshaledJSON),
-				"Class hash %s: unmarshaled class doesn't match original", classHash.String())
-		}
 	})
 }

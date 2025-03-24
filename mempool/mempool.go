@@ -102,9 +102,6 @@ func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLog
 	closer := func() error {
 		close(pool.dbWriteChan)
 		pool.wg.Wait()
-		if err := pool.db.Close(); err != nil {
-			return fmt.Errorf("failed to close mempool database: %v", err)
-		}
 		return nil
 	}
 	pool.dbWriter()

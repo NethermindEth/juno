@@ -36,7 +36,6 @@ func setupDatabase(dbPath string, dltExisting bool) (db.DB, func(), error) {
 		return nil, nil, err
 	}
 	closer := func() {
-		// The db should be closed by the mempool closer function
 		os.RemoveAll(dbPath)
 	}
 	return persistentPool, closer, nil
@@ -47,8 +46,9 @@ func TestMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+	chain := mocks.NewMockReader(mockCtrl)
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	chain := blockchain.New(pebble.NewMemTest(t), &utils.Sepolia)
+
 	require.NoError(t, err)
 	defer dbCloser()
 	pool, closer := mempool.New(testDB, chain, 4, log)
@@ -62,6 +62,7 @@ func TestMempool(t *testing.T) {
 	// push multiple to empty (1,2,3)
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -84,6 +85,7 @@ func TestMempool(t *testing.T) {
 	// push multiple to non empty (push 4,5. now have 3,4,5)
 	for i := uint64(4); i < 6; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -118,17 +120,14 @@ func TestMempool(t *testing.T) {
 
 func TestRestoreMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	testDB, dbCloser, err := setupDatabase("testrestoremempool", true)
+	chain := mocks.NewMockReader(mockCtrl)
+	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
-	defer dbCloser()
-
-	bc := blockchain.New(testDB, &utils.Mainnet)
-
-	pool, closer := mempool.New(testDB, bc, 1024, log)
+	defer dbDeleter()
+	pool, mempoolCloser := mempool.New(testDB, chain, 1024, log)
 	require.NoError(t, pool.LoadFromDB())
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
@@ -139,6 +138,7 @@ func TestRestoreMempool(t *testing.T) {
 	// push multiple transactions to empty mempool (1,2,3)
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -156,12 +156,12 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	// Close the mempool
-	require.NoError(t, closer())
-
+	require.NoError(t, mempoolCloser())
+	require.NoError(t, testDB.Close())
 	testDB, _, err = setupDatabase("testrestoremempool", false)
 	require.NoError(t, err)
 
-	poolRestored, closer2 := mempool.New(testDB, bc, 1024, log)
+	poolRestored, mempoolCloser2 := mempool.New(testDB, chain, 1024, log)
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
@@ -178,7 +178,7 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	require.Equal(t, 1, poolRestored.Len())
-	require.NoError(t, closer2())
+	require.NoError(t, mempoolCloser2())
 }
 
 func TestWait(t *testing.T) {
