@@ -77,3 +77,7 @@ func (b *BufferBatch) NewIterator(prefix []byte, withUpperBound bool) (Iterator,
 func (b *BufferBatch) Size() int {
 	panic("should not be called")
 }
+
+func (b *BufferBatch) DeleteRange(start, end []byte) error {
+	panic("should not be called")
+}

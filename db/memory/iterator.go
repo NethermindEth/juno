@@ -21,6 +21,19 @@ func (i *iterator) Valid() bool {
 
 func (i *iterator) First() bool {
 	i.curInd = 0
+	return i.Valid()
+}
+
+func (i *iterator) Prev() bool {
+	if i.curInd == 0 {
+		return false
+	}
+
+	if i.curInd == -1 {
+		return i.First()
+	}
+
+	i.curInd--
 	return true
 }
 

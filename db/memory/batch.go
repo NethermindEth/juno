@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"bytes"
 	"maps"
 	"slices"
 
@@ -104,6 +105,25 @@ func (b *batch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
 	b.size += len(key)
+	return nil
+}
+
+func (b *batch) DeleteRange(start, end []byte) error {
+	it, err := b.NewIterator(start, false)
+	if err != nil {
+		return err
+	}
+
+	for it.Next() {
+		if bytes.Compare(it.Key(), end) >= 0 {
+			break
+		}
+
+		if err := b.Delete(it.Key()); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
