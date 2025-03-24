@@ -254,8 +254,14 @@ func TestTraceTransaction(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
-		t.Run("key not found", func(t *testing.T) {
-			hash := utils.HexToFelt(t, "0xBBBB")
+		t.Run("tx not found in any block (including pending) nor received/rejected", func(t *testing.T) {
+			handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			handler.WithFeeder(client)
+
+			// This hash corresponds to a tx in sepolia-integration folder
+			hash := utils.HexToFelt(t, "0x1011")
+
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
@@ -275,6 +281,40 @@ func TestTraceTransaction(t *testing.T) {
 			assert.Nil(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+		})
+
+		t.Run("RECEIVED tx is not traceable", func(t *testing.T) {
+			handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			handler.WithFeeder(client)
+
+			// This hash corresponds to a tx in sepolia-integration folder
+			hash := utils.HexToFelt(t, "0x1001")
+
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+
+			assert.Nil(t, trace)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)"), err)
+		})
+
+		t.Run("REJECTED tx is not traceable", func(t *testing.T) {
+			handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			handler.WithFeeder(client)
+
+			// This hash corresponds to a tx in sepolia-integration folder
+			hash := utils.HexToFelt(t, "0x1111")
+
+			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+
+			assert.Nil(t, trace)
+			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)"), err)
 		})
 	})
 	t.Run("ok", func(t *testing.T) {
