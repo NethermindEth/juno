@@ -56,7 +56,7 @@ func NewTestchain(t *testing.T) Testchain {
 	require.NoError(t, chain.Store(genesisBlock, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
 	const prefix = "../../cairo/scarb/target/dev/"
-	chain.Account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
+	chain.Account = NewClass(t, GetCoreSierraContractPath("AccountUpgradeable"))
 	chain.Account.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0xc01"),
 		utils.HexToFelt(t, "0x10000000000000000000000000000"),

@@ -14,7 +14,7 @@ func GetCoreSierraContractPath(contractName string) string {
 		coreContractGeneralPath(),
 		"target",
 		"dev",
-		fmt.Sprintf("%s.sierra.json", contractName),
+		fmt.Sprintf("starknet_core_%s.contract_class.json", contractName),
 	)
 }
 

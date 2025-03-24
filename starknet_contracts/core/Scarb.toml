@@ -1,5 +1,5 @@
 [package]
-name = "juno"
+name = "starknet_core"
 version = "0.1.0"
 edition = "2024_07"
 
