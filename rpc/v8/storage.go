@@ -2,6 +2,7 @@ package rpcv8
 
 import (
 	"errors"
+	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -65,6 +66,8 @@ func (h *Handler) StorageProof(id BlockID,
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
+
+	time.Sleep(5 * time.Second)
 
 	// We do not support historical storage proofs for now
 	// Ensure that the block requested is the head block
