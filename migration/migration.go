@@ -445,7 +445,7 @@ func processBlocks(txn db.Transaction, processBlock func(uint64, *sync.Mutex) er
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
-	chainHeight, err := blockchain.ChainHeight(txn)
+	chainHeight, err := core.ChainHeight(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil

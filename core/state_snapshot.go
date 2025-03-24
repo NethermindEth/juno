@@ -22,6 +22,10 @@ func NewStateSnapshot(state StateHistoryReader, blockNumber uint64) StateReader 
 	}
 }
 
+func (s *stateSnapshot) ChainHeight() (uint64, error) {
+	return s.blockNumber, nil
+}
+
 func (s *stateSnapshot) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 	if err := s.checkDeployed(addr); err != nil {
 		return nil, err
