@@ -228,7 +228,7 @@ func (z *Felt) Sub(x, y *Felt) *Felt {
 
 // Exp forwards the call to underlying field element implementation
 func (z *Felt) Exp(x *Felt, y *big.Int) *Felt {
-	(*fp.Element)(z).Exp((fp.Element)(*x), y)
+	(*fp.Element)(z).Exp(fp.Element(*x), y)
 	return z
 }
 
@@ -246,7 +246,7 @@ func (z *Felt) Div(x, y *Felt) *Felt {
 
 // Cmp forwards the call to underlying field element implementation
 func (z *Felt) Cmp(x *Felt) int {
-	return (*fp.Element)(z).Cmp((*fp.Element)(z))
+	return (*fp.Element)(z).Cmp((*fp.Element)(x))
 }
 
 // SetBigInt forwards the call to underlying field element implementation
