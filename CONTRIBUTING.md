@@ -1,14 +1,51 @@
 # Contributing to Juno
 
+Thank you for considering contributing to Juno! We appreciate your help and effort in making Juno better.
+
+## How to Contribute
+
+1. **Fork the repository**: Click on the 'Fork' button at the top of this page to create your own copy of the Juno repository.
+
+2. **Clone the repository**: Use `git clone` to clone the repository to your local machine using the command:
+   ```
+   git clone https://github.com/your-username/juno.git
+   ```
+
+3. **Create a branch**: Create a new branch for your feature or bug fix using:
+   ```
+   git checkout -b my-feature
+   ```
+
+4. **Make changes**: Implement your changes to the codebase. Make sure to test your changes thoroughly.
+
+5. **Commit your changes**: Use `git commit` to commit your changes to your local repository. Be sure to provide a clear and concise commit message.
+
+6. **Push to GitHub**: Push your changes to your GitHub repository using:
+   ```
+   git push origin my-feature
+   ```
+
+7. **Submit a pull request**: Go to the original repository on GitHub and submit a pull request. Be sure to describe the changes you have made in detail.
+
+## Code of Conduct
+
+Please note that all contributors are expected to adhere to our code of conduct. We are committed to providing a welcoming and inclusive environment for everyone.
+
+## Reporting Issues
+
+If you encounter a bug or have a feature request, please create a new issue in the issue tracker. Be sure to include detailed information and steps to reproduce any bugs. This will help us address the issue more quickly.
+
+Thank you for contributing! Your help is what makes this project successful.
+
 The Nethermind team maintains guidelines for contributing to the Nethermind repos. Check out our [docs page](https://docs.nethermind.io/) for more info about us.
 
 ### Code of Conduct
 
-Have you read the [code of conduct](https://github.com/NethermindEth/juno/blob/main/CODE_OF_CONDUCT.md)?
+Have you read the [Code of Conduct](https://github.com/NethermindEth/juno/blob/main/CODE_OF_CONDUCT.md)?
 
-## Bugs and Feature Request
+## Bugs and Feature Requests
 
-Before you make your changes, check to see if an [issue](https://github.com/NethermindEth/juno/issues) exists already for the change you want to make.
+Before you make your changes, check to see if an [issue](https://github.com/NethermindEth/juno/issues) already exists for the change you want to make.
 
 ### Don't see your issue? Open one
 
@@ -16,31 +53,31 @@ If you spot something new, open an issue using a [template](https://github.com/N
 
 ### Open a Pull Request
 
-When you're done making changes and you'd like to propose them for review, use the pull request template to open your PR (pull request).
+When you're done making changes and you'd like to propose them for review, use the pull request template to open your PR (Pull Request).
 
-If your PR is not ready for review and merge because you are still working on it, please convert it to draft and add to it the label `wip` (work in progress). This label allows to filter correctly the rest of PR not `wip`. 
+If your PR is not ready for review and merge because you are still working on it, please convert it to a draft and add to it the label `wip` (work in progress). This label allows filtering correctly the rest of PRs not labeled `wip`.
 
-### Do you intend to add a new feature or change an existing one?
+### Do You Intend to Add a New Feature or Change an Existing One?
 
-Suggest your change by opening an issue and starting a discussion.
+Suggest your changes by opening an issue and starting a discussion.
 
-### Improving Issues and PR
+### Improving Issues and PRs
 
-Please add, if possible, a reviewer, assignees and labels to your issue and PR.
+Please add, if possible, a reviewer, assignees, and labels to your issue and PR.
 
 ## DOs and DON'Ts
 
 Please do:
 
-* **DO** give priority to the current style of the project or file you're changing even if it diverges from the general guidelines.
-* **DO** include tests when adding new features. When fixing bugs, start with adding a test that highlights how the current behavior is broken.
+* **DO** give priority to the current style of the project or file you're changing, even if it diverges from the general guidelines.
+* **DO** include tests when adding new features. When fixing bugs, start by adding a test that highlights how the current behavior is broken.
 * **DO** especially follow our rules in the [Contributing](https://github.com/NethermindEth/nethermind/blob/master/CODE_OF_CONDUCT.md#contributing) section of our code of conduct.
 
 Please do not:
 
-* **DON'T** fill the issues and PR descriptions vaguely. The elements in the templates are there for a good reason. Help the team. 
+* **DON'T** fill in the issues and PR descriptions vaguely. The elements in the templates are there for a good reason. Help the team.
 * **DON'T** surprise us with big pull requests. Instead, file an issue and start a discussion so we can agree on a direction before you invest a large amount of time.
 
 ## Branch Naming
 
-Branch names must follow `kebab-case` pattern. Follow the pattern `feature/<name>` or `fix/<name>` `(folder/<name>)` when it is possible and add issue reference if applicable.
+Branch names must follow the `kebab-case` pattern. Follow the pattern `feature/<name>` or `fix/<name>` (or `folder/<name>`) when possible, and add an issue reference if applicable.
