@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/address"
@@ -17,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -136,69 +136,87 @@ var (
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t)
-	account := chain.MainAccount()
+	testchain := blockchain.NewTestchain(t)
+	account := testchain.AccountInstance().Address()
 
 	// Get binary search contract
 	class := blockchain.NewClass(t, binarySearchContractPath)
-
-	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
 	tests := []test{
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
-				createDeclareTransaction(t, &account.Address, &class),
+				createDeclareTransaction(
+					t,
+					account,
+					&class.Hash,
+					class.Class.Compiled.Hash(),
+					&class.Sierra,
+				),
 			},
 			expected: []rpc.FeeEstimate{
-				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0x4176980", "0x1",
-					"0xc0", "0x2",
-					"0x4176b00", rpc.FRI,
+				createFeeEstimate(
+					t,
+					"0x0",
+					"0x2",
+					"0x4176980",
+					"0x1",
+					"0xc0",
+					"0x2",
+					"0x4176b00",
+					rpc.FRI,
 				),
 			},
 		},
 		// TODO: add more tests
 	}
 
+	virtualMachine := vm.New(false, nil)
+	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 	runTests(t, tests, handler)
 }
 
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t)
-	// While not get the account type directly?
-	account := chain.MainAccount()
-	deployer := chain.DeployerAddress()
+	testchain := blockchain.NewTestchain(t)
+	account := testchain.AccountInstance().Address()
+	accountClassHash := testchain.Account.Hash
+	deployer := testchain.DeployerInstance().Address()
+	deployerClassHash := testchain.Deployer.Hash
 
 	// Get binary search contract
-	class := blockchain.NewClass(t, binarySearchContractPath)
-	chain.Prepare(t, []blockchain.TestClass{class})
+	bsClass := blockchain.NewClass(t, binarySearchContractPath)
+	testchain.Declare(&bsClass)
 
 	validEntryPoint := crypto.StarknetKeccak([]byte("deploy_contract"))
 	invalidEntryPoint := crypto.StarknetKeccak([]byte("invalid_entry_point"))
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	classHash := chain.ClassHashes[*deployer]
 	tests := []test{
 		{
 			name: "binary search contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
-				createDeployTransaction(t,
-					&account.Address, validEntryPoint,
-					&felt.Zero, deployer, &class.Hash,
+				createDeployTransaction(
+					t,
+					account,
+					validEntryPoint,
+					&felt.Zero,
+					deployer,
+					&bsClass.Hash,
 				),
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0xfdb0d", "0x1",
-					"0xe0", "0x2",
-					"0xe6bcc", rpc.FRI,
+					"0x0",
+					"0x2",
+					"0xfdb0d",
+					"0x1",
+					"0xe0",
+					"0x2",
+					"0xe6bcc",
+					rpc.FRI,
 				),
 			},
 		},
@@ -206,8 +224,8 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 			name: "invalid entry point",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(t,
-					accountAddr, invalidEntryPoint,
-					&felt.Zero, deployer, &class.Hash,
+					account, invalidEntryPoint,
+					&felt.Zero, deployer, &bsClass.Hash,
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -215,12 +233,12 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 					TransactionIndex: 0,
 					ExecutionError: mustMarshal(t, executionError{
 						ClassHash:       accountClassHash.String(),
-						ContractAddress: accountAddr.String(),
+						ContractAddress: account.String(),
 						Error: executionError{
 							ClassHash:       accountClassHash.String(),
-							ContractAddress: accountAddr.String(),
+							ContractAddress: account.String(),
 							Error: executionError{
-								ClassHash:       classHash.String(),
+								ClassHash:       deployerClassHash.String(),
 								ContractAddress: deployer.String(),
 								Error:           rpccore.EntrypointNotFoundFelt + " ('ENTRYPOINT_NOT_FOUND')",
 								Selector:        invalidEntryPoint.String(),
@@ -240,15 +258,16 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	chain := blockchain.NewTestBlockchain(t)
-	account := chain.MainAccount()
+	testchain := blockchain.NewTestchain(t)
+	account := testchain.AccountInstance().Address()
+	accountClassHash := testchain.Account.Hash
 
 	// Predeploy binary search contract
 	addr := *utils.HexTo[address.ContractAddress](t, "0xd")
 	class := blockchain.NewClass(t, binarySearchContractPath)
-	class.AddAccount(&addr, &felt.Zero)
+	class.AddInstance(&addr, &felt.Zero)
 
-	chain.Prepare(t, []blockchain.TestClass{class})
+	testchain.Declare(&class)
 
 	validEntryPoint := *crypto.StarknetKeccak([]byte("test_redeposits"))
 	invalidEntryPoint := *crypto.StarknetKeccak([]byte("invalid_entry_point"))
@@ -256,24 +275,31 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	validDepth := *utils.HexToFelt(t, "0x7")
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	classHash := chain.ClassHashes[addr]
+	classHash := testchain.ClassHashes[addr]
 	tests := []test{
 		{
 			name: "binary search ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, &validEntryPoint,
-					&felt.Zero, &addr, &validDepth,
+					account,
+					&validEntryPoint,
+					&felt.Zero,
+					&addr,
+					&validDepth,
 				),
 			},
 			expected: []rpc.FeeEstimate{
 				createFeeEstimate(t,
-					"0x0", "0x2",
-					"0xbde1b", "0x1",
-					"0x80", "0x2",
-					"0xacaea", rpc.FRI,
+					"0x0",
+					"0x2",
+					"0xbde1b",
+					"0x1",
+					"0x80",
+					"0x2",
+					"0xacaea",
+					rpc.FRI,
 				),
 			},
 		},
@@ -281,8 +307,11 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "invalid entry point",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, &invalidEntryPoint,
-					&felt.Zero, &addr, &validDepth,
+					account,
+					&invalidEntryPoint,
+					&felt.Zero,
+					&addr,
+					&validDepth,
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -290,10 +319,10 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 					TransactionIndex: 0,
 					ExecutionError: mustMarshal(t, executionError{
 						ClassHash:       accountClassHash.String(),
-						ContractAddress: accountAddr.String(),
+						ContractAddress: account.String(),
 						Error: executionError{
 							ClassHash:       accountClassHash.String(),
-							ContractAddress: accountAddr.String(),
+							ContractAddress: account.String(),
 							Error: executionError{
 								ClassHash:       classHash.String(),
 								ContractAddress: addr.String(),
@@ -311,8 +340,11 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "max gas exceeded",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, &validEntryPoint, &felt.Zero,
-					&addr, utils.HexToFelt(t, "0x186A0"), // 100000
+					account,
+					&validEntryPoint,
+					&felt.Zero,
+					&addr,
+					utils.HexToFelt(t, "0x186A0"), // 100000
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -328,8 +360,11 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 			name: "gas limit exceeded",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createInvokeTransaction(t,
-					accountAddr, &validEntryPoint, &felt.Zero,
-					&addr, utils.HexToFelt(t, "0x64"), // 100
+					account,
+					&validEntryPoint,
+					&felt.Zero,
+					&addr,
+					utils.HexToFelt(t, "0x64"), // 100
 				),
 			},
 			jsonErr: rpccore.ErrTransactionExecutionError.CloneWithData(
@@ -337,10 +372,10 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 					TransactionIndex: 0,
 					ExecutionError: mustMarshal(t, executionError{
 						ClassHash:       accountClassHash.String(),
-						ContractAddress: accountAddr.String(),
+						ContractAddress: account.String(),
 						Error: executionError{
 							ClassHash:       accountClassHash.String(),
-							ContractAddress: accountAddr.String(),
+							ContractAddress: account.String(),
 							Error:           "0x4f7574206f6620676173 ('Out of gas')",
 							Selector:        executeEntryPointSelector,
 						},
@@ -393,13 +428,13 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 func createDeclareTransaction(
 	t *testing.T,
 	account *address.ContractAddress,
-	class *blockchain.TestClass,
+	classHash *hash.ClassHash,
+	casmClassHash *felt.Felt,
+	sierra *starknet.SierraDefinition,
 ) rpc.BroadcastedTransaction {
-	junoCasm, err := sn2core.AdaptCompiledClass(&class.SnCasm)
-	require.NoError(t, err)
+	t.Helper()
 
-	compiledClassHash := junoCasm.Hash()
-	contractClass, err := json.Marshal(class.SnSierra)
+	contractClass, err := json.Marshal(sierra)
 	require.NoError(t, err)
 
 	return rpc.BroadcastedTransaction{
@@ -407,10 +442,10 @@ func createDeclareTransaction(
 			Type:              rpc.TxnDeclare,
 			Version:           utils.HexToFelt(t, "0x3"),
 			Nonce:             &felt.Zero,
-			ClassHash:         class.Hash.AsFelt(),
+			ClassHash:         classHash.AsFelt(),
 			SenderAddress:     account.AsFelt(),
 			Signature:         &[]*felt.Felt{},
-			CompiledClassHash: compiledClassHash,
+			CompiledClassHash: casmClassHash,
 			ResourceBounds: utils.HeapPtr(createResourceBounds(t,
 				"0x0", "0x0",
 				"0x0", "0x0",
