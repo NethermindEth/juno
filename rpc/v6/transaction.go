@@ -640,35 +640,61 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			break
 		}
 
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
-		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		if status, err := h.fetchTxStatusFromFeeder(ctx, &hash); err != nil {
+			return nil, err
+		} else {
+			return status, nil
 		}
-
-		var status TransactionStatus
-		switch txStatus.FinalityStatus {
-		case starknet.AcceptedOnL1:
-			status.Finality = TxnStatusAcceptedOnL1
-		case starknet.AcceptedOnL2:
-			status.Finality = TxnStatusAcceptedOnL2
-		case starknet.Received:
-			status.Finality = TxnStatusReceived
-		default:
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-
-		switch txStatus.ExecutionStatus {
-		case starknet.Succeeded:
-			status.Execution = TxnSuccess
-		case starknet.Reverted:
-			status.Execution = TxnFailure
-		case starknet.Rejected:
-			status.Finality = TxnStatusRejected
-		default: // Omit the field on error. It's optional in the spec.
-		}
-		return &status, nil
 	}
+
 	return nil, txErr
+}
+
+var errTransactionNotFound = errors.New("transaction not found")
+
+func (h *Handler) fetchTxStatusFromFeeder(ctx context.Context, hash *felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+	txStatus, err := h.feederClient.Transaction(ctx, hash)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	status, err := adaptTransactionStatus(txStatus)
+	if err != nil {
+		if !errors.Is(err, errTransactionNotFound) {
+			h.log.Errorw("Failed to adapt transaction status", "err", err)
+		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	return status, nil
+}
+
+func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
+	var status TransactionStatus
+	switch txStatus.FinalityStatus {
+	case starknet.AcceptedOnL1:
+		status.Finality = TxnStatusAcceptedOnL1
+	case starknet.AcceptedOnL2:
+		status.Finality = TxnStatusAcceptedOnL2
+	case starknet.Received:
+		status.Finality = TxnStatusReceived
+	case starknet.NotReceived:
+		return nil, errTransactionNotFound
+	default:
+		return nil, fmt.Errorf("unknown finality status: %v", txStatus.FinalityStatus)
+	}
+
+	switch txStatus.ExecutionStatus {
+	case starknet.Succeeded:
+		status.Execution = TxnSuccess
+	case starknet.Reverted:
+		status.Execution = TxnFailure
+	case starknet.Rejected:
+		status.Finality = TxnStatusRejected
+	default: // Omit the field on error. It's optional in the spec.
+	}
+
+	return &status, nil
 }
 
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
