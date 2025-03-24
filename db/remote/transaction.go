@@ -60,6 +60,10 @@ func (t *transaction) Delete(key []byte) error {
 	return errReadOnly
 }
 
+func (t *transaction) DeleteRange(start, end []byte) error {
+	return errReadOnly
+}
+
 func (t *transaction) Get(key []byte, cb func(value []byte) error) error {
 	err := t.client.Send(&gen.Cursor{
 		Op: gen.Op_GET,

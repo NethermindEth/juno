@@ -32,7 +32,8 @@ func BlockHeaderNumbersByHashKey(hash *felt.Felt) []byte {
 }
 
 func BlockHeaderByNumberKey(blockNum uint64) []byte {
-	return BlockHeadersByNumber.Key(encodeBlockNum(blockNum))
+	b := uint64ToBytes(blockNum)
+	return BlockHeadersByNumber.Key(b[:])
 }
 
 func TxBlockNumIndexByHashKey(hash *felt.Felt) []byte {
@@ -81,7 +82,8 @@ func ReceiptByBlockNumIndexKeyBytes(key []byte) []byte {
 }
 
 func StateUpdateByBlockNumKey(num uint64) []byte {
-	return StateUpdatesByBlockNumber.Key(encodeBlockNum(num))
+	b := uint64ToBytes(num)
+	return StateUpdatesByBlockNumber.Key(b[:])
 }
 
 func ContractStorageHistoryKey(addr, loc *felt.Felt) []byte {
@@ -101,7 +103,8 @@ func ContractDeploymentHeightKey(addr *felt.Felt) []byte {
 }
 
 func BlockCommitmentsKey(blockNum uint64) []byte {
-	return BlockCommitments.Key(encodeBlockNum(blockNum))
+	b := uint64ToBytes(blockNum)
+	return BlockCommitments.Key(b[:])
 }
 
 func L1HandlerTxnHashByMsgHashKey(msgHash []byte) []byte {
@@ -112,9 +115,27 @@ func MempoolNodeKey(txnHash *felt.Felt) []byte {
 	return MempoolNode.Key(txnHash.Marshal())
 }
 
-func encodeBlockNum(num uint64) []byte {
-	const blockNumSize = 8
-	numBytes := make([]byte, blockNumSize)
-	binary.BigEndian.PutUint64(numBytes, num)
+func ContractKey(addr *felt.Felt) []byte {
+	return Contract.Key(addr.Marshal())
+}
+
+func ContractHistoryNonceKey(addr *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return ContractNonceHistory.Key(addr.Marshal(), b[:])
+}
+
+func ContractHistoryClassHashKey(addr *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return ContractClassHashHistory.Key(addr.Marshal(), b[:])
+}
+
+func ContractHistoryStorageKey(addr, key *felt.Felt, blockNum uint64) []byte {
+	b := uint64ToBytes(blockNum)
+	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
+}
+
+func uint64ToBytes(num uint64) [8]byte {
+	var numBytes [8]byte
+	binary.BigEndian.PutUint64(numBytes[:], num)
 	return numBytes
 }

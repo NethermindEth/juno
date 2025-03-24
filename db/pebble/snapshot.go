@@ -29,6 +29,7 @@ func (s *snapshot) Has(key []byte) (bool, error) {
 	return true, closer.Close()
 }
 
+//nolint:dupl
 func (s *snapshot) Get(key []byte, cb func(value []byte) error) error {
 	start := time.Now()
 
