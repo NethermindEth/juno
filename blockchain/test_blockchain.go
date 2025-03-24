@@ -60,22 +60,22 @@ func NewTestchain(t *testing.T) Testchain {
 	require.NoError(t, chain.Store(genesisBlock, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
 	const prefix = "../../cairo/scarb/target/dev/"
-	account := NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
-	account.AddInstance(
+	chain.Account = NewClass(t, prefix+"juno_AccountUpgradeable.contract_class.json")
+	chain.Account.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0xc01"),
 		utils.HexToFelt(t, "0x10000000000000000000000000000"),
 	)
-	deployer := NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
-	deployer.AddInstance(
+	chain.Deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
+	chain.Deployer.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0xc02"),
 		&felt.Zero,
 	)
-	erc20 := NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
-	erc20.AddInstance(
+	chain.erc20 = NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
+	chain.erc20.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 		&felt.Zero,
 	)
-	erc20.AddInstance(
+	chain.erc20.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
 		&felt.Zero,
 	)
@@ -170,6 +170,9 @@ func (b *Testchain) Declare(classes ...*classDefinition) {
 	}
 
 	require.NoError(b.t, b.Store(block, &core.BlockCommitments{}, stateUpdate, classDefinitions))
+}
+
+func (b *Testchain) setBaseContracts() {
 
 }
 
