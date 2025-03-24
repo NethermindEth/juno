@@ -35,6 +35,7 @@ type TraceCacheKey struct {
 }
 
 var (
+	ErrTraceUnavailable                 = &jsonrpc.Error{Code: 10, Message: "No trace available for transaction"}
 	ErrContractNotFound                 = &jsonrpc.Error{Code: 20, Message: "Contract not found"}
 	ErrEntrypointNotFound               = &jsonrpc.Error{Code: 21, Message: "Requested entrypoint does not exist in the contract"}
 	ErrBlockNotFound                    = &jsonrpc.Error{Code: 24, Message: "Block not found"}

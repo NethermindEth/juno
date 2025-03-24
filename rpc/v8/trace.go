@@ -107,6 +107,17 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 		return nil, httpHeader, rpccore.ErrTxnHashNotFound
 	}
 
+	// Check if trace available
+	status, statusErr := h.TransactionStatus(ctx, hash)
+	if statusErr != nil {
+		return nil, httpHeader, statusErr
+	}
+	if status.Finality == TxnStatusReceived {
+		return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)")
+	} else if status.Finality == TxnStatusRejected {
+		return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)")
+	}
+
 	traceResults, header, traceBlockErr := h.traceBlockTransactions(ctx, block)
 	if traceBlockErr != nil {
 		return nil, header, traceBlockErr
