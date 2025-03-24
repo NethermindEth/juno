@@ -32,7 +32,6 @@
   </a>
 </p>
 
-
 <p align="center">
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
@@ -50,7 +49,7 @@
 - [Rust](https://www.rust-lang.org/tools/install) 1.85.0 or higher.
 - A C compiler: `gcc`.
 - Install some dependencies on your system:
-  
+
   - macOS
 
     ```bash
@@ -190,7 +189,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 - Starknet [v0.13.4](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.4) support.
 - JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0-rc3) (Available under `/v0_8` and default`/` endpoints)
-  
+
   Chain/Network Information:
   - `starknet_chainId`
   - `starknet_specVersion`
@@ -333,11 +332,10 @@ The focus of Phase 2 will be to Verify the state from layer 1 and implement the 
 
 Juno can synchronize Starknet state from other full nodes with the aim of decentralizing Starknet by removing the dependency from the centralized sequencer.
 
-
 Snap sync is implemented, significantly reducing sync times.
 
 </details>
-  
+
 ### Phase 4: Juno becomes a Starknet Sequencer 🔜
 
 <details>
@@ -353,7 +351,6 @@ The decentralization of Starknet is complete! Juno becomes a sequencer and parti
 •   Sequencer: secure the network by taking part in the L2 consensus mechanism.
 
 </details>
-
 
 ## 👍 Contribute
 
