@@ -1,29 +1,24 @@
-package blockchain
+package testchain
 
 import (
-	"encoding/json"
-	"math/big"
-	"os"
 	"testing"
 
-	"github.com/NethermindEth/juno/adapters/sn2core"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/address"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/starknet"
-	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 // Test blockchain used
 type Testchain struct {
-	Blockchain
-	t           *testing.T
+	t *testing.T
+	blockchain.Blockchain
+	database    db.DB
 	Account     classDefinition
 	Deployer    classDefinition
 	erc20       classDefinition
@@ -34,10 +29,11 @@ type Testchain struct {
 func NewTestchain(t *testing.T) Testchain {
 	t.Helper()
 
-	testDB := pebble.NewMemTest(t)
+	memoryDB := pebble.NewMemTest(t)
 	chain := Testchain{
-		Blockchain:  *New(testDB, &utils.Sepolia),
 		t:           t,
+		Blockchain:  *blockchain.New(memoryDB, &utils.Sepolia),
+		database:    memoryDB,
 		ClassHashes: make(map[address.ContractAddress]hash.ClassHash),
 	}
 
@@ -170,114 +166,4 @@ func (b *Testchain) Declare(classes ...*classDefinition) {
 	}
 
 	require.NoError(b.t, b.Store(block, &core.BlockCommitments{}, stateUpdate, classDefinitions))
-}
-
-func (b *Testchain) setBaseContracts() {
-
-}
-
-type deployedContract struct {
-	t       *testing.T
-	address address.ContractAddress
-	balance felt.Felt
-}
-
-func (c *deployedContract) Address() *address.ContractAddress {
-	return &c.address
-}
-
-func (c *deployedContract) Balance() *felt.Felt {
-	return &c.balance
-}
-
-func (a *deployedContract) BalanceKey() felt.Felt {
-	return feltFromNameAndKey(a.t, "ERC20_balances", a.address.AsFelt())
-}
-
-type classDefinition struct {
-	t         *testing.T
-	Hash      hash.ClassHash
-	Instances []deployedContract
-	Class     core.Cairo1Class
-	Sierra    starknet.SierraDefinition
-}
-
-func NewClass(t *testing.T, path string) classDefinition {
-	t.Helper()
-
-	sierra, classDef := classFromFile(t, path)
-	classHash, err := classDef.Hash()
-	require.NoError(t, err)
-
-	return classDefinition{
-		t:      t,
-		Hash:   hash.ClassHash(*classHash),
-		Class:  classDef,
-		Sierra: sierra,
-	}
-}
-
-func (t *classDefinition) AddInstance(address *address.ContractAddress, balance *felt.Felt) {
-	t.Instances = append(t.Instances, deployedContract{
-		t:       t.t,
-		address: *address,
-		balance: *balance,
-	})
-}
-
-func classFromFile(t *testing.T, path string) (
-	starknet.SierraDefinition, core.Cairo1Class,
-) {
-	t.Helper()
-
-	file, err := os.Open(path)
-	require.NoError(t, err)
-	defer file.Close()
-
-	intermediate := new(struct {
-		Abi         json.RawMessage            `json:"abi"`
-		EntryPoints starknet.SierraEntryPoints `json:"entry_points_by_type"`
-		Program     []*felt.Felt               `json:"sierra_program"`
-		Version     string                     `json:"contract_class_version"`
-	})
-	require.NoError(t, json.NewDecoder(file).Decode(intermediate))
-
-	snSierra := starknet.SierraDefinition{
-		Abi:         string(intermediate.Abi),
-		EntryPoints: intermediate.EntryPoints,
-		Program:     intermediate.Program,
-		Version:     intermediate.Version,
-	}
-
-	snCasm, err := compiler.Compile(&snSierra)
-	require.NoError(t, err)
-
-	junoClass, err := sn2core.AdaptCairo1Class(&snSierra, snCasm)
-	require.NoError(t, err)
-
-	// TODO: I don't like this too much (the deference using *), but every method that's currently
-	//       returning a reference type will eventually return a value type. Since this is for
-	//       testing is not critical.
-	return snSierra, *junoClass
-}
-
-// https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124
-func feltFromNameAndKey(t *testing.T, name string, key *felt.Felt) felt.Felt {
-	// TODO: The use of Big ints is not necessary at all. I am leaving it here because it is not critical
-	//       but it should be change to using the felt implementation directly
-	t.Helper()
-
-	intermediate := crypto.StarknetKeccak([]byte(name))
-	byteArr := crypto.Pedersen(intermediate, key).Bytes()
-	value := new(big.Int).SetBytes(byteArr[:])
-
-	maxAddr, ok := new(big.Int).SetString("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00", 0)
-	require.True(t, ok)
-
-	value = value.Rem(value, maxAddr)
-
-	res := felt.Felt{}
-	res.SetBigInt(value)
-
-	return res
 }
