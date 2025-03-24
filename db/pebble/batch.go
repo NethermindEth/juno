@@ -14,7 +14,7 @@ var _ db.Batch = (*batch)(nil)
 type batch struct {
 	batch    *pebble.Batch
 	db       *DB
-	size     int
+	size     int // size of the batch in bytes
 	listener db.EventListener
 }
 
@@ -28,10 +28,6 @@ func NewBatch(dbBatch *pebble.Batch, db *DB, listener db.EventListener) *batch {
 
 // Delete : see db.Transaction.Delete
 func (b *batch) Delete(key []byte) error {
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
-
 	start := time.Now()
 	defer func() { b.listener.OnIO(true, time.Since(start)) }()
 
@@ -42,11 +38,12 @@ func (b *batch) Delete(key []byte) error {
 	return nil
 }
 
-func (b *batch) Get(key []byte, cb func(value []byte) error) error {
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
+func (b *batch) DeleteRange(start, end []byte) error {
+	return b.batch.DeleteRange(start, end, pebble.Sync)
+}
 
+//nolint:dupl
+func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 	start := time.Now()
 	defer func() { b.listener.OnIO(false, time.Since(start)) }()
 
@@ -66,10 +63,6 @@ func (b *batch) Get(key []byte, cb func(value []byte) error) error {
 }
 
 func (b *batch) Has(key []byte) (bool, error) {
-	if b.batch == nil {
-		return false, ErrDiscardedTransaction
-	}
-
 	_, closer, err := b.batch.Get(key)
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
@@ -85,10 +78,6 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 	var iter *pebble.Iterator
 	var err error
 
-	if b.batch == nil {
-		return nil, ErrDiscardedTransaction
-	}
-
 	iterOpt := &pebble.IterOptions{LowerBound: lowerBound}
 	if withUpperBound {
 		iterOpt.UpperBound = dbutils.UpperBound(lowerBound)
@@ -103,10 +92,6 @@ func (b *batch) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator
 }
 
 func (b *batch) Put(key, value []byte) error {
-	if b.batch == nil {
-		return ErrDiscardedTransaction
-	}
-
 	if err := b.batch.Set(key, value, pebble.Sync); err != nil {
 		return err
 	}
