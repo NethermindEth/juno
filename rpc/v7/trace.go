@@ -90,9 +90,20 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 		return nil, httpHeader, rpccore.ErrTxnHashNotFound
 	}
 
+	// Check if trace is available
+	// Tx might not be in any block (including pending) but in the mempool as received or else rejected
+	if err != nil && errors.Is(err, db.ErrKeyNotFound) {
+		if status, err := h.fetchTxStatusFromFeeder(ctx, &hash); err != nil {
+			return nil, httpHeader, err
+		} else if status.Finality == TxnStatusReceived {
+			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)")
+		} else if status.Finality == TxnStatusRejected {
+			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)")
+		}
+	}
+
 	var block *core.Block
-	isPendingBlock := blockHash == nil
-	if isPendingBlock {
+	if isPendingBlock := blockHash == nil; isPendingBlock {
 		var pending *sync.Pending
 		pending, err = h.syncReader.Pending()
 		if err != nil {
