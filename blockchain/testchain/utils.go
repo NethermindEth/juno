@@ -3,23 +3,32 @@ package testchain
 import (
 	"fmt"
 	"path"
+	"runtime"
 )
 
+func contractsFolder() string {
+	// Only dumb way (that I know of) for reliably getting the root of a go project :(
+	_, b, _, _ := runtime.Caller(0)
+	root := path.Join(path.Dir(b), "..", "..")
+
+	return path.Join(root, "starknet_contracts")
+}
+
 func coreContractGeneralPath() string {
-	return path.Join("starknet_contracts", "core")
+	return path.Join(contractsFolder(), "core")
 }
 
 func GetCoreSierraContractPath(contractName string) string {
 	return path.Join(
 		coreContractGeneralPath(),
 		"target",
-		"dev",
+		"release",
 		fmt.Sprintf("starknet_core_%s.contract_class.json", contractName),
 	)
 }
 
 func contractGeneralPath() string {
-	return path.Join("starknet_contracts", "general")
+	return path.Join(contractsFolder(), "general")
 }
 
 func GetSierraContractPath(contractName string) string {

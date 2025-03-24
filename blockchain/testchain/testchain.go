@@ -26,7 +26,7 @@ type Testchain struct {
 }
 
 // Creates a new test chain with a default account, erc20 contracts and universal deployer
-func NewTestchain(t *testing.T) Testchain {
+func New(t *testing.T) Testchain {
 	t.Helper()
 
 	memoryDB := pebble.NewMemTest(t)
@@ -55,24 +55,28 @@ func NewTestchain(t *testing.T) Testchain {
 	}
 	require.NoError(t, chain.Store(genesisBlock, &core.BlockCommitments{}, genesisStateUpdate, nil))
 
-	const prefix = "../../cairo/scarb/target/dev/"
 	chain.Account = NewClass(t, GetCoreSierraContractPath("AccountUpgradeable"))
 	chain.Account.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0xc01"),
 		utils.HexToFelt(t, "0x10000000000000000000000000000"),
 	)
-	chain.Deployer = NewClass(t, prefix+"juno_UniversalDeployer.contract_class.json")
+	chain.Deployer = NewClass(t, GetCoreSierraContractPath("UniversalDeployer"))
 	chain.Deployer.AddInstance(
 		utils.HexTo[address.ContractAddress](t, "0xc02"),
 		&felt.Zero,
 	)
-	chain.erc20 = NewClass(t, prefix+"juno_ERC20Upgradeable.contract_class.json")
+	chain.erc20 = NewClass(t, GetCoreSierraContractPath("ERC20Upgradeable"))
 	chain.erc20.AddInstance(
-		utils.HexTo[address.ContractAddress](t, "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+		utils.HexTo[address.ContractAddress](
+			t,
+			"0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+		),
 		&felt.Zero,
 	)
 	chain.erc20.AddInstance(
-		utils.HexTo[address.ContractAddress](t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+		utils.HexTo[address.ContractAddress](
+			t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+		),
 		&felt.Zero,
 	)
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/blockchain/testchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -128,19 +128,15 @@ type executionError struct {
 	Selector        string `json:"selector"`
 }
 
-// From versioned constants
-var (
-	executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
-	binarySearchContractPath  = "../../cairo/compiler/target/juno_HelloStarknet.contract_class.json"
-)
+const executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	testchain := blockchain.NewTestchain(t)
-	account := testchain.AccountInstance().Address()
+	chain := testchain.New(t)
+	account := chain.AccountInstance().Address()
 
 	// Get binary search contract
-	class := blockchain.NewClass(t, binarySearchContractPath)
+	class := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
 
 	tests := []test{
 		{
@@ -172,27 +168,27 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 	}
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 	runTests(t, tests, handler)
 }
 
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	testchain := blockchain.NewTestchain(t)
-	account := testchain.AccountInstance().Address()
-	accountClassHash := testchain.Account.Hash
-	deployer := testchain.DeployerInstance().Address()
-	deployerClassHash := testchain.Deployer.Hash
+	chain := testchain.New(t)
+	account := chain.AccountInstance().Address()
+	accountClassHash := chain.Account.Hash
+	deployer := chain.DeployerInstance().Address()
+	deployerClassHash := chain.Deployer.Hash
 
 	// Get binary search contract
-	bsClass := blockchain.NewClass(t, binarySearchContractPath)
-	testchain.Declare(&bsClass)
+	bsClass := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
+	chain.Declare(&bsClass)
 
 	validEntryPoint := crypto.StarknetKeccak([]byte("deploy_contract"))
 	invalidEntryPoint := crypto.StarknetKeccak([]byte("invalid_entry_point"))
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
 	tests := []test{
 		{
@@ -258,16 +254,16 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	// Get blockchain with predeployed account and deployer contracts
-	testchain := blockchain.NewTestchain(t)
-	account := testchain.AccountInstance().Address()
-	accountClassHash := testchain.Account.Hash
+	chain := testchain.New(t)
+	account := chain.AccountInstance().Address()
+	accountClassHash := chain.Account.Hash
 
 	// Predeploy binary search contract
 	addr := *utils.HexTo[address.ContractAddress](t, "0xd")
-	class := blockchain.NewClass(t, binarySearchContractPath)
+	class := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
 	class.AddInstance(&addr, &felt.Zero)
 
-	testchain.Declare(&class)
+	chain.Declare(&class)
 
 	validEntryPoint := *crypto.StarknetKeccak([]byte("test_redeposits"))
 	invalidEntryPoint := *crypto.StarknetKeccak([]byte("invalid_entry_point"))
@@ -275,9 +271,9 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 	validDepth := *utils.HexToFelt(t, "0x7")
 
 	virtualMachine := vm.New(false, nil)
-	handler := rpc.New(&testchain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
+	handler := rpc.New(&chain, &sync.NoopSynchronizer{}, virtualMachine, "", nil)
 
-	classHash := testchain.ClassHashes[addr]
+	classHash := chain.ClassHashes[addr]
 	tests := []test{
 		{
 			name: "binary search ok",
