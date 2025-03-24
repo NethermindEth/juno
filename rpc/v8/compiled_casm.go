@@ -57,7 +57,7 @@ func (h *Handler) CompiledCasm(classHash *felt.Felt) (*CasmCompiledContractClass
 	case *core.Cairo0Class:
 		resp, err := adaptCairo0Class(class)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+			return nil, rpccore.ErrCompilationError.CloneWithData(err.Error())
 		}
 		return resp, nil
 	case *core.Cairo1Class:

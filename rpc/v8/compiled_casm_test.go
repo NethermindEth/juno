@@ -45,6 +45,29 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrClassHashNotFound, err)
 	})
+
+	t.Run("compilation error", func(t *testing.T) {
+		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+
+		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
+		fd := feeder.New(cl)
+
+		class, err := fd.Class(t.Context(), classHash)
+		require.NoError(t, err)
+
+		cairo0, ok := class.(*core.Cairo0Class)
+		require.True(t, ok)
+		cairo0.Program = "random program string to cause error"
+
+		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
+		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+
+		resp, rpcErr := handler.CompiledCasm(classHash)
+		require.Nil(t, resp)
+		require.Equal(t, rpccore.ErrCompilationError.CloneWithData("illegal base64 data at input byte 6"), rpcErr)
+	})
+
 	t.Run("cairo0", func(t *testing.T) {
 		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
 
