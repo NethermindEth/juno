@@ -9,12 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
-type TrieNode interface {
-	Blob() []byte
-	Hash() felt.Felt
-	IsLeaf() bool
-}
-
 // Contains a set of nodes, which are indexed by their path in the trie.
 // It is not thread safe.
 type NodeSet struct {
@@ -100,4 +94,33 @@ func (ns *NodeSet) Merge(owner felt.Felt, other map[trieutils.Path]TrieNode) err
 	}
 
 	return nil
+}
+
+type MergeNodeSet struct {
+	Sets map[felt.Felt]*NodeSet // each node set is indexed by the owner
+}
+
+func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
+	ns := &MergeNodeSet{Sets: make(map[felt.Felt]*NodeSet)}
+	if nodes != nil {
+		ns.Sets[nodes.Owner] = nodes
+	}
+	return ns
+}
+
+func (m *MergeNodeSet) Merge(other *NodeSet) error {
+	subset, present := m.Sets[other.Owner]
+	if present {
+		return subset.Merge(other.Owner, other.Nodes)
+	}
+	m.Sets[other.Owner] = other
+	return nil
+}
+
+func (m *MergeNodeSet) Flatten() map[felt.Felt]map[trieutils.Path]TrieNode {
+	flattened := make(map[felt.Felt]map[trieutils.Path]TrieNode, len(m.Sets))
+	for owner, set := range m.Sets {
+		flattened[owner] = set.Nodes
+	}
+	return flattened
 }
