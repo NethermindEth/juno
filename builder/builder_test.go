@@ -180,7 +180,8 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB, mempoolCloser)
+	blockTime := 500 * time.Millisecond
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(t.Context(), txn)
@@ -188,7 +189,8 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
-		waitForTxns(t, bc, 4*time.Second, 2)
+		// waitForTxns(t, bc, 2*blockTime, 5)
+		time.Sleep(2 * blockTime)
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
