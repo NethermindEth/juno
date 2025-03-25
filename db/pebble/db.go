@@ -5,39 +5,40 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"testing"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/cockroachdb/pebble"
-	"github.com/cockroachdb/pebble/vfs"
 )
 
 const (
 	// minCache is the minimum amount of memory in megabytes to allocate to pebble read and write caching.
 	// This is also pebble's default value.
 	minCacheSizeMB = 8
-	maxByte        = ^byte(0)
 )
 
 var (
 	ErrDiscardedTransaction = errors.New("discarded transaction")
 	ErrReadOnlyTransaction  = errors.New("read-only transaction")
 )
-var _ db.DB = (*DB)(nil)
+
+var _ db.KeyValueStore = (*DB)(nil)
 
 type DB struct {
-	pebble   *pebble.DB
-	wMutex   *sync.Mutex
-	listener db.EventListener
+	db        *pebble.DB
+	closed    bool
+	writeOpt  *pebble.WriteOptions
+	listener  db.EventListener
+	closeLock *sync.RWMutex // Ensures that the database is closed correctly
 }
 
 // New opens a new database at the given path with default options
-func New(path string) (db.DB, error) {
+func New(path string) (db.KeyValueStore, error) {
 	return newPebble(path, nil)
 }
 
-func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.DB, error) {
+func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.KeyValueStore, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 	log := utils.NewLogLevel(utils.ERROR)
@@ -53,70 +54,172 @@ func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLog
 	})
 }
 
-// NewMem opens a new in-memory database
-func NewMem() (db.DB, error) {
-	return newPebble("", &pebble.Options{
-		FS: vfs.NewMem(),
-	})
-}
-
-// NewMemTest opens a new in-memory database, panics on error
-func NewMemTest(t testing.TB) db.DB {
-	memDB, err := NewMem()
-	if err != nil {
-		t.Fatalf("create in-memory db: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := memDB.Close(); err != nil {
-			t.Errorf("close in-memory db: %v", err)
-		}
-	})
-	return memDB
-}
-
 func newPebble(path string, options *pebble.Options) (*DB, error) {
 	pDB, err := pebble.Open(path, options)
 	if err != nil {
 		return nil, err
 	}
-	return &DB{pebble: pDB, wMutex: new(sync.Mutex), listener: &db.SelectiveListener{}}, nil
+	return &DB{
+		db:        pDB,
+		closeLock: new(sync.RWMutex),
+		listener:  &db.SelectiveListener{},
+		writeOpt:  &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
+	}, nil
 }
 
-// WithListener registers an EventListener
-func (d *DB) WithListener(listener db.EventListener) db.DB {
+func (d *DB) Close() error {
+	d.closeLock.Lock()
+	defer d.closeLock.Unlock()
+
+	if d.closed {
+		return nil
+	}
+	d.closed = true
+
+	return d.db.Close()
+}
+
+func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	batch := d.NewIndexedBatch()
+	if err := fn(batch); err != nil {
+		return err
+	}
+
+	return batch.Write()
+}
+
+func (d *DB) View(fn func(r db.Snapshot) error) error {
+	snap := d.NewSnapshot()
+	return fn(snap)
+}
+
+func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
 	d.listener = listener
 	return d
 }
 
-// NewTransaction : see db.DB.NewTransaction
-// Batch is used for read-write operations, while snapshot is used for read-only operations
-func (d *DB) NewTransaction(update bool) (db.Transaction, error) {
-	if update {
-		d.wMutex.Lock()
-		return NewBatch(d.pebble.NewIndexedBatch(), d.wMutex, d.listener), nil
+func (d *DB) Impl() any {
+	return d.db
+}
+
+func (d *DB) Has(key []byte) (bool, error) {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return false, pebble.ErrClosed
 	}
 
-	return NewSnapshot(d.pebble.NewSnapshot(), d.listener), nil
+	_, closer, err := d.db.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, utils.RunAndWrapOnError(closer.Close, err)
 }
 
-// Close : see io.Closer.Close
-func (d *DB) Close() error {
-	return d.pebble.Close()
+func (d *DB) Get(key []byte, cb func(value []byte) error) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	val, closer, err := d.db.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return db.ErrKeyNotFound
+		}
+		return err
+	}
+
+	if err := cb(val); err != nil {
+		return err
+	}
+
+	return closer.Close()
 }
 
-// View : see db.DB.View
-func (d *DB) View(fn func(txn db.Transaction) error) error {
-	return db.View(d, fn)
+func (d *DB) Put(key, val []byte) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	return d.db.Set(key, val, d.writeOpt)
 }
 
-// Update : see db.DB.Update
-func (d *DB) Update(fn func(txn db.Transaction) error) error {
-	return db.Update(d, fn)
+func (d *DB) Delete(key []byte) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	return d.db.Delete(key, d.writeOpt)
 }
 
-// Impl : see db.DB.Impl
-func (d *DB) Impl() any {
-	return d.pebble
+func (d *DB) DeleteRange(start, end []byte) error {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return pebble.ErrClosed
+	}
+
+	return d.db.DeleteRange(start, end, d.writeOpt)
+}
+
+func (d *DB) NewBatch() db.Batch {
+	return NewBatch(d.db.NewBatch(), d, d.listener)
+}
+
+func (d *DB) NewBatchWithSize(size int) db.Batch {
+	return NewBatch(d.db.NewBatchWithSize(size), d, d.listener)
+}
+
+func (d *DB) NewIndexedBatch() db.IndexedBatch {
+	return NewBatch(d.db.NewIndexedBatch(), d, d.listener)
+}
+
+func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
+	return NewBatch(d.db.NewIndexedBatchWithSize(size), d, d.listener)
+}
+
+func (d *DB) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	d.closeLock.RLock()
+	defer d.closeLock.RUnlock()
+
+	if d.closed {
+		return nil, pebble.ErrClosed
+	}
+
+	iterOpt := &pebble.IterOptions{LowerBound: prefix}
+	if withUpperBound {
+		iterOpt.UpperBound = dbutils.UpperBound(prefix)
+	}
+
+	it, err := d.db.NewIter(iterOpt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &iterator{iter: it}, nil
+}
+
+func (d *DB) NewSnapshot() db.Snapshot {
+	return NewSnapshot(d.db, d.listener)
 }
 
 type Item struct {
@@ -137,15 +240,8 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 		item = &Item{}
 	)
 
-	pebbleDB := pDB.Impl().(*pebble.DB)
-	iterOpt := &pebble.IterOptions{LowerBound: prefix}
-	if withUpperBound {
-		iterOpt.UpperBound = upperBound(prefix)
-	}
-
-	it, err := pebbleDB.NewIter(iterOpt)
+	it, err := pDB.NewIterator(prefix, withUpperBound)
 	if err != nil {
-		// No need to call utils.RunAndWrapOnError() since iterator couldn't be created
 		return nil, err
 	}
 
@@ -153,7 +249,7 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 		if ctx.Err() != nil {
 			return item, utils.RunAndWrapOnError(it.Close, ctx.Err())
 		}
-		v, err = it.ValueAndErr()
+		v, err = it.Value()
 		if err != nil {
 			return nil, utils.RunAndWrapOnError(it.Close, err)
 		}
@@ -162,28 +258,4 @@ func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperB
 	}
 
 	return item, utils.RunAndWrapOnError(it.Close, err)
-}
-
-// Calculates the next possible prefix after the given prefix bytes.
-// It's used to establish an upper boundary for prefix-based database scans.
-// Examples:
-//
-//	[1]     	  -> [2]
-//	[1, 255, 255] -> [2]
-//	[1, 2, 255]   -> [1, 3]
-//	[255, 255]    -> nil
-func upperBound(prefix []byte) []byte {
-	var ub []byte
-
-	for i := len(prefix) - 1; i >= 0; i-- {
-		if prefix[i] == maxByte {
-			continue
-		}
-		ub = make([]byte, i+1)
-		copy(ub, prefix)
-		ub[i]++
-		return ub
-	}
-
-	return nil
 }

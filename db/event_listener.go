@@ -2,6 +2,10 @@ package db
 
 import "time"
 
+type Listener interface {
+	WithListener(listener EventListener) KeyValueStore
+}
+
 type EventListener interface {
 	OnIO(write bool, duration time.Duration)
 	OnCommit(duration time.Duration)

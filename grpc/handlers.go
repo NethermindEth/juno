@@ -17,11 +17,11 @@ import (
 
 type Handler struct {
 	gen.UnimplementedKVServer
-	db      db.DB
+	db      db.KeyValueStore
 	version string
 }
 
-func New(database db.DB, version string) *Handler {
+func New(database db.KeyValueStore, version string) *Handler {
 	return &Handler{
 		db:      database,
 		version: version,
@@ -42,20 +42,20 @@ func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRep
 }
 
 func (h Handler) Tx(server gen.KV_TxServer) error {
-	dbTx, err := h.db.NewTransaction(false)
-	if err != nil {
-		return err
-	}
-
+	dbTx := h.db.NewIndexedBatch()
 	tx := newTx(dbTx)
+
 	for {
-		var cursor *gen.Cursor
+		var (
+			cursor *gen.Cursor
+			err    error
+		)
 		if cursor, err = server.Recv(); err == nil {
 			if err = h.handleTxCursor(cursor, tx, server); err == nil {
 				continue
 			}
 		}
-		return utils.RunAndWrapOnError(dbTx.Discard, utils.RunAndWrapOnError(tx.cleanup, err))
+		return utils.RunAndWrapOnError(tx.cleanup, err)
 	}
 }
 
@@ -76,12 +76,17 @@ func (h Handler) handleTxCursor(
 		responsePair.CursorId = cursorID
 		return server.Send(responsePair)
 	} else if cur.Op == gen.Op_GET {
-		if err := tx.dbTx.Get(cur.K, func(b []byte) error {
-			responsePair.V = append(responsePair.V, b...)
-			responsePair.K = cur.K
+		var val []byte
+		err := tx.dbTx.Get(cur.K, func(data []byte) error {
+			val = data
 			return nil
-		}); err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		})
+		if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 			return err
+		}
+		if val != nil {
+			responsePair.V = val
+			responsePair.K = cur.K
 		}
 		return server.Send(responsePair)
 	}
