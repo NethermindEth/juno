@@ -223,7 +223,7 @@ func EmptyStateDiff() StateDiff {
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
 		Nonces:            make(map[felt.Felt]*felt.Felt),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt),
-		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV0Classes: []*felt.Felt{},
 		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
