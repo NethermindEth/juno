@@ -398,8 +398,6 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	// Update pending block with transaction results
 	b.updatePendingBlock(pending, receipt, txn.Transaction, seqTrace)
 
-	fmt.Println("pending.StateUpdate.StateDiff", pending.StateUpdate.StateDiff)
-
 	return b.StorePending(pending)
 }
 
