@@ -106,25 +106,25 @@ docker logs -f juno
 
 ## 📸 Snapshots
 
-Use the provided snapshots to quickly sync your Juno node with the current state of the network. 
+Use the provided snapshots to quickly sync your Juno node with the current state of the network. Fresh snapshots are automatically uploaded once a week and are available under the links below.
 
 #### Mainnet
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
+| **>=v0.13.0**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
 
 #### Sepolia
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
+| **>=v0.13.0** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
 
 #### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| **>=v0.13.0** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ### Getting the size for each snapshot
 ```console
@@ -188,7 +188,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.4](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.4) support.
+- Starknet [v0.13.5](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.5) support.
 - JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0-rc3) (Available under `/v0_8` and default`/` endpoints)
   
   Chain/Network Information:
