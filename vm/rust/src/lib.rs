@@ -11,13 +11,13 @@ use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
 use std::{
-    collections::BTreeMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    slice,
+    sync::Arc,
+    collections::BTreeMap,
     fs::File,
     io::Read,
     path::Path,
-    slice,
-    sync::Arc,
 };
 
 use anyhow::Result;
@@ -67,8 +67,8 @@ use starknet_api::{
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
-use anyhow::Context;
 use once_cell::sync::Lazy;
+use anyhow::Context;
 
 // Allow users to call CONSTRUCTOR entry point type which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
 pub static CONSTRUCTOR_ENTRY_POINT_FELT: Lazy<StarkFelt> = Lazy::new(|| {
@@ -279,7 +279,6 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
-    allow_binary_search: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
@@ -329,7 +328,6 @@ pub extern "C" fn cairoVMExecute(
     let validate = skip_validate == 0;
     let err_stack = err_stack == 1;
     let err_on_revert = err_on_revert == 1;
-    let allow_binary_search = allow_binary_search == 1;
 
     let mut writer_buffer = Vec::with_capacity(10_000);
 
@@ -403,13 +401,7 @@ pub extern "C" fn cairoVMExecute(
             Transaction::L1Handler(t) => (None, t.fee_type()),
         };
 
-        match process_transaction(
-            &mut txn,
-            &mut txn_state,
-            &block_context,
-            err_on_revert,
-            allow_binary_search,
-        ) {
+        match process_transaction(&mut txn, &mut txn_state, &block_context, err_on_revert) {
             Err(e) => match e {
                 ExecutionError::ExecutionError { error, error_stack } => {
                     let err_string = if err_stack {
@@ -418,7 +410,6 @@ pub extern "C" fn cairoVMExecute(
                         json!(error).to_string()
                     };
                     report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
-                    return;
                 }
                 ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
@@ -427,7 +418,6 @@ pub extern "C" fn cairoVMExecute(
                         txn_index as i64,
                         0,
                     );
-                    return;
                 }
             },
             Ok(mut tx_execution_info) => {
@@ -769,14 +759,11 @@ fn build_block_context(
 
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    let starknet_version = unsafe { CStr::from_ptr(version) }
-        .to_str()
+    let starknet_version = unsafe { CStr::from_ptr(version) }.to_str()
         .ok()
         .and_then(|version_str| StarknetVersion::try_from(version_str).ok());
 
-    if let (Some(custom_constants), Some(version)) =
-        (unsafe { &CUSTOM_VERSIONED_CONSTANTS }, starknet_version)
-    {
+    if let (Some(custom_constants), Some(version)) = (unsafe { &CUSTOM_VERSIONED_CONSTANTS }, starknet_version) {
         if let Some(constants) = custom_constants.0.get(&version) {
             return constants.clone();
         }
@@ -796,18 +783,15 @@ impl VersionedConstantsMap {
         let mut result = BTreeMap::new();
 
         for (version, path) in version_with_path {
-            let mut file = File::open(Path::new(&path))
-                .with_context(|| format!("Failed to open file: {}", path))?;
+            let mut file = File::open(Path::new(&path)).with_context(|| format!("Failed to open file: {}", path))?;
 
             let mut contents = String::new();
-            file.read_to_string(&mut contents)
-                .with_context(|| format!("Failed to read contents of file: {}", path))?;
+            file.read_to_string(&mut contents).with_context(|| format!("Failed to read contents of file: {}", path))?;
 
-            let constants: VersionedConstants = serde_json::from_str(&contents)
-                .with_context(|| format!("Failed to parse JSON in file: {}", path))?;
+            let constants: VersionedConstants =
+                serde_json::from_str(&contents).with_context(|| format!("Failed to parse JSON in file: {}", path))?;
 
-            let parsed_version = StarknetVersion::try_from(version.as_str())
-                .with_context(|| format!("Failed to parse version string: {}", version))?;
+            let parsed_version = StarknetVersion::try_from(version.as_str()).with_context(|| format!("Failed to parse version string: {}", version))?;
 
             result.insert(parsed_version, constants);
         }
@@ -832,21 +816,19 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
         }
     };
 
-    let versioned_constants_files_paths: Result<BTreeMap<String, String>, _> =
-        serde_json::from_str(json_str);
+    let versioned_constants_files_paths: Result<BTreeMap<String, String>, _> = serde_json::from_str(json_str);
     if let Ok(paths) = versioned_constants_files_paths {
         match VersionedConstantsMap::from_file(paths) {
-            Ok(custom_constants) => unsafe {
-                CUSTOM_VERSIONED_CONSTANTS = Some(custom_constants);
-                return CString::new("").unwrap().into_raw();
+            Ok(custom_constants) => {
+                unsafe {
+                    CUSTOM_VERSIONED_CONSTANTS = Some(custom_constants);
+                    return CString::new("").unwrap().into_raw();
+                }
             },
             Err(e) => {
-                return CString::new(format!(
-                    "Failed to load versioned constants from paths: {}",
-                    e
-                ))
-                .unwrap()
-                .into_raw();
+                return CString::new(format!("Failed to load versioned constants from paths: {}", e))
+                    .unwrap()
+                    .into_raw();
             }
         }
     } else {
