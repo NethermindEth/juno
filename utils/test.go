@@ -18,6 +18,7 @@ func HexTo[T ~[4]uint64](t testing.TB, hex string) *T {
 }
 
 func HexToFelt(t testing.TB, hex string) *felt.Felt {
+	t.Helper()
 	return HexTo[felt.Felt](t, hex)
 }
 
