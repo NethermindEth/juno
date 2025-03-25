@@ -202,5 +202,4 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
 	require.True(t, foundExpectedBalance)
-	require.NoError(t, testDB.Close())
 }
