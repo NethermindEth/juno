@@ -108,7 +108,7 @@ func TestNonceAndClassHash(t *testing.T) {
 	})
 }
 
-func TestUpdateStorageAndstorage(t *testing.T) {
+func TestUpdateStorage(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
