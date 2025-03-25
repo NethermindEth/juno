@@ -201,8 +201,10 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 
 // Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
+	fmt.Println("---------Push")
 	err := p.validate(userTxn)
 	if err != nil {
+		fmt.Println("---------Push err", err)
 		return err
 	}
 
@@ -222,7 +224,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 
 	newNode := &memPoolTxn{Txn: *userTxn, Next: nil}
 	p.memTxnList.push(newNode)
-
+	fmt.Println("---------Push suc")
 	select {
 	case p.txPushed <- struct{}{}:
 	default:
