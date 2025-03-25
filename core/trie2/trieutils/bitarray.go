@@ -464,6 +464,14 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 	return n + 1, err
 }
 
+// Returns the encoded bytes of the bit array.
+func (b *BitArray) EncodedBytes() []byte {
+	var res []byte
+	res = append(res, b.activeBytes()...)
+	res = append(res, b.len)
+	return res
+}
+
 // Deserialises the BitArray from a bytes buffer in the following format:
 // - First byte: length of the bit array (0-255)
 // - Remaining bytes: the necessary bytes included in big endian order
@@ -673,10 +681,10 @@ func (b *BitArray) Copy() BitArray {
 
 // Returns the encoded string representation of the bit array.
 func (b *BitArray) EncodedString() string {
-	var res []byte
-	bt := b.Bytes()
-	res = append(res, b.len)
-	res = append(res, bt[:]...)
+	bt := b.activeBytes()
+	res := make([]byte, len(bt)+1)
+	copy(res[:len(res)-1], bt)
+	res[len(res)-1] = b.len
 	return string(res)
 }
 

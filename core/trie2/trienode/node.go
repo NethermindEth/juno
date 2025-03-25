@@ -4,6 +4,18 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	_ TrieNode = &NonLeafNode{}
+	_ TrieNode = &LeafNode{}
+	_ TrieNode = &DeletedNode{}
+)
+
+type TrieNode interface {
+	Blob() []byte
+	Hash() felt.Felt
+	IsLeaf() bool
+}
+
 // Represents a raw non-leaf trie node, which contains the encoded blob and the hash of the node.
 type NonLeafNode struct {
 	blob []byte
