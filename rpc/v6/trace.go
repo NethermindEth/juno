@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
@@ -86,24 +86,15 @@ type OrderedL2toL1Message struct {
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(&hash)
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
 	}
-
-	// Check if trace is available
-	// Tx might not be in any block (including pending) but in the mempool as received or else rejected
-	if err != nil && errors.Is(err, db.ErrKeyNotFound) {
-		if status, err := h.fetchTxStatusFromFeeder(ctx, &hash); err != nil {
-			return nil, err
-		} else if status.Finality == TxnStatusReceived {
-			return nil, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)")
-		} else if status.Finality == TxnStatusRejected {
-			return nil, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)")
-		}
-	}
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
 
 	var block *core.Block
-	if isPendingBlock := blockHash == nil; isPendingBlock {
+	isPendingBlock := blockHash == nil
+	if isPendingBlock {
 		var pending *sync.Pending
 		pending, err = h.syncReader.Pending()
 		if err != nil {
