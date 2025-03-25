@@ -93,7 +93,7 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 }
 
 func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
-	cToken *ContinuationToken, chunkSize uint64,
+	skippedEvents uint64, chunkSize uint64,
 ) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {
@@ -106,7 +106,7 @@ func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, he
 
 			// if last request was interrupted mid-block, and we are still processing that block, skip events
 			// that were already processed
-			if cToken != nil && header.Number == cToken.fromBlock && processedEvents < cToken.processedEvents {
+			if processedEvents < skippedEvents {
 				processedEvents++
 				continue
 			}

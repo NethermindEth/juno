@@ -99,7 +99,7 @@ type Config struct {
 
 type Node struct {
 	cfg        *Config
-	db         db.DB
+	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
@@ -118,7 +118,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
-	var database db.DB
+	var database db.KeyValueStore
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {

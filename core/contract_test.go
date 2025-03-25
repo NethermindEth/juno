@@ -5,7 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,61 +52,28 @@ func TestContractAddress(t *testing.T) {
 }
 
 func TestNewContract(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, txn.Discard())
-	})
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(234)
 	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
 
 	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err = core.NewContractUpdater(addr, txn)
+		_, err := core.NewContractUpdater(addr, txn)
 		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
 	})
 
-	contract, err := core.DeployContract(addr, classHash, txn)
+	_, err := core.DeployContract(addr, classHash, txn)
 	require.NoError(t, err)
 
 	t.Run("redeploy should fail", func(t *testing.T) {
 		_, err := core.DeployContract(addr, classHash, txn)
 		require.EqualError(t, err, core.ErrContractAlreadyDeployed.Error())
 	})
-
-	t.Run("a call to contract should fail with a committed txn", func(t *testing.T) {
-		assert.NoError(t, txn.Commit())
-		t.Run("ClassHash()", func(t *testing.T) {
-			_, err := core.ContractClassHash(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Root()", func(t *testing.T) {
-			_, err := core.ContractRoot(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Nonce()", func(t *testing.T) {
-			_, err := core.ContractNonce(addr, txn)
-			assert.Error(t, err)
-		})
-		t.Run("Storage()", func(t *testing.T) {
-			_, err := core.ContractStorage(addr, classHash, txn)
-			assert.Error(t, err)
-		})
-		t.Run("UpdateNonce()", func(t *testing.T) {
-			assert.Error(t, contract.UpdateNonce(&felt.Zero))
-		})
-		t.Run("UpdateStorage()", func(t *testing.T) {
-			assert.Error(t, contract.UpdateStorage(nil, NoopOnValueChanged))
-		})
-	})
 }
 
 func TestNonceAndClassHash(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -141,11 +108,9 @@ func TestNonceAndClassHash(t *testing.T) {
 	})
 }
 
-func TestUpdateStorageAndStorage(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+func TestUpdateStorage(t *testing.T) {
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 
@@ -181,10 +146,8 @@ func TestUpdateStorageAndStorage(t *testing.T) {
 }
 
 func TestPurge(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-
-	txn, err := testDB.NewTransaction(true)
-	require.NoError(t, err)
+	testDB := memory.New()
+	txn := testDB.NewIndexedBatch()
 	addr := new(felt.Felt).SetUint64(44)
 	classHash := new(felt.Felt).SetUint64(37)
 

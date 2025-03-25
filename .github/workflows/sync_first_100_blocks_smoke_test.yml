@@ -15,7 +15,7 @@ concurrency:
 jobs:
   run_smoke_tests:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
     steps:
       - name: Generate a token
         id: generate-token

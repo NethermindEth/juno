@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
@@ -220,7 +220,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 func TestFunctionInvocationMarshalling(t *testing.T) {
 	t.Run("All FunctionInvocation fields must get marshalled", func(t *testing.T) {
 		zeroValuedFnInvocation := rpc.FunctionInvocation{}
-		expected := `{"contract_address": {}, "entry_point_selector": null, "calldata": null, "caller_address": {}, "class_hash": null, "entry_point_type": "","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null}`
+		expected := `{"contract_address":[0,0,0,0],"entry_point_selector":null,"calldata":null,"caller_address":[0,0,0,0],"class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null}`
 
 		jsonStr, err := json.Marshal(zeroValuedFnInvocation)
 
@@ -505,7 +505,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, "", n, log)
 
 			update, rpcErr := handler.TraceBlockTransactions(t.Context(), id)

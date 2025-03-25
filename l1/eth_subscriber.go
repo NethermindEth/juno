@@ -2,12 +2,13 @@ package l1
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -15,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/rpc"
 )
+
+var finalizedBlockNumber = new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64())
 
 type EthSubscriber struct {
 	ethClient *ethclient.Client
@@ -62,23 +65,16 @@ func (s *EthSubscriber) ChainID(ctx context.Context) (*big.Int, error) {
 }
 
 func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
-	const method = "eth_getBlockByNumber"
 	reqTimer := time.Now()
-
-	var raw json.RawMessage
-	if err := s.client.CallContext(ctx, &raw, method, "finalized", false); err != nil { //nolint:misspell
+	head, err := s.ethClient.HeaderByNumber(ctx, finalizedBlockNumber)
+	if err != nil {
+		if errors.Is(err, ethereum.NotFound) {
+			s.listener.OnL1Call("eth_getBlockByNumber", time.Since(reqTimer))
+			return 0, errors.New("finalised block not found")
+		}
 		return 0, fmt.Errorf("get finalised Ethereum block: %w", err)
 	}
-	s.listener.OnL1Call(method, time.Since(reqTimer))
-
-	var head *types.Header
-	if err := json.Unmarshal(raw, &head); err != nil {
-		return 0, err
-	}
-
-	if head == nil {
-		return 0, fmt.Errorf("finalised block not found")
-	}
+	s.listener.OnL1Call("eth_getBlockByNumber", time.Since(reqTimer))
 
 	return head.Number.Uint64(), nil
 }
