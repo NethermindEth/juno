@@ -72,7 +72,7 @@ func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blo
 
 // SetRangeEndBlockByHash sets an end of the block range by block hash
 func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error {
-	header, err := GetBlockHeaderByHash(e.txn, blockHash)
+	header, err := core.GetBlockHeaderByHash(e.txn, blockHash)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := GetChainHeight(e.txn)
+	latest, err := core.GetChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -139,7 +139,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	for ; curBlock <= e.toBlock && remainingScannedBlocks > 0; curBlock, remainingScannedBlocks = curBlock+1, remainingScannedBlocks-1 {
 		var header *core.Header
 		if curBlock != latest+1 {
-			header, err = GetBlockHeaderByNumber(e.txn, curBlock)
+			header, err = core.GetBlockHeaderByNumber(e.txn, curBlock)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -154,7 +154,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 
 		var receipts []*core.TransactionReceipt
 		if curBlock != latest+1 {
-			receipts, err = GetReceiptsByBlockNum(e.txn, header.Number)
+			receipts, err = core.GetReceiptsByBlockNum(e.txn, header.Number)
 			if err != nil {
 				return nil, nil, err
 			}
