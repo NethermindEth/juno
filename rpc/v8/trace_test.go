@@ -283,7 +283,7 @@ func TestTraceTransaction(t *testing.T) {
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 		})
 
-		t.Run("RECEIVED tx is not traceable", func(t *testing.T) {
+		t.Run("RECEIVED tx is not traceable", func(t *testing.T) { //nolint:dupl
 			handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 			handler.WithFeeder(client)
@@ -302,7 +302,7 @@ func TestTraceTransaction(t *testing.T) {
 			}{Status: "RECEIVED"}), err)
 		})
 
-		t.Run("REJECTED tx is not traceable", func(t *testing.T) {
+		t.Run("REJECTED tx is not traceable", func(t *testing.T) { //nolint:dupl
 			handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
 			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 			handler.WithFeeder(client)
