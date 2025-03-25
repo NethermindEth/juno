@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -9,6 +10,35 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/utils"
 )
+
+type BlockNumIndexByHashStore = db.KeyValueStoreTyped[BlockNumIndexByHash, *felt.Felt, db.BlockNumIndexKey]
+
+type BlockNumIndexByHash struct{}
+
+func (BlockNumIndexByHash) EncodeKey(key *felt.Felt) ([]byte, error) {
+	return db.TransactionBlockNumbersAndIndicesByHash.Key(key.Marshal()), nil
+}
+
+func (BlockNumIndexByHash) EncodeValue(value db.BlockNumIndexKey) ([]byte, error) {
+	return value.MarshalBinary(), nil
+}
+
+func (BlockNumIndexByHash) DecodeValue(value []byte) (db.BlockNumIndexKey, error) {
+	bnIndex := db.BlockNumIndexKey{}
+	bnIndex.UnmarshalBinary(value)
+	return bnIndex, nil
+}
+
+func GetStoreExample(txn db.KeyValueStore) BlockNumIndexByHashStore {
+	return db.Typed[BlockNumIndexByHash](txn)
+}
+
+func Example(txn BlockNumIndexByHashStore, hash *felt.Felt) {
+	res, err := txn.Get(hash)
+	fmt.Printf("%v %v %v\n", res.Index, res.Number, err)
+	err = txn.Put(hash, db.BlockNumIndexKey{})
+	fmt.Printf("%v\n", err)
+}
 
 func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNumIndexKey, error) {
 	bnIndex := db.BlockNumIndexKey{}
