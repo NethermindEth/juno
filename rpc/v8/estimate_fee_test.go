@@ -149,7 +149,7 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				rpc.FeeEstimate{
+				{
 					L1GasConsumed:     &felt.Zero,
 					L1GasPrice:        utils.NumToFelt(t, 2),
 					L2GasConsumed:     utils.NumToFelt(t, 69192320),
@@ -199,7 +199,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				rpc.FeeEstimate{
+				{
 					L1GasConsumed:     &felt.Zero,
 					L1GasPrice:        utils.NumToFelt(t, 2),
 					L2GasConsumed:     utils.NumToFelt(t, 1039117),
@@ -281,7 +281,7 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				rpc.FeeEstimate{
+				{
 					L1GasConsumed:     &felt.Zero,
 					L1GasPrice:        utils.NumToFelt(t, 2),
 					L2GasConsumed:     utils.NumToFelt(t, 777755),

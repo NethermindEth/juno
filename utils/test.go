@@ -40,7 +40,7 @@ func HexToUint64(t testing.TB, hexStr string) uint64 {
 func NumToFelt[N constraints.Integer](t testing.TB, n N) *felt.Felt {
 	t.Helper()
 	if n < 0 {
-		t.Fatalf("NumToFelt recieved a negative number: %v", n)
+		t.Fatalf("NumToFelt received a negative number: %v", n)
 	}
 
 	v := uint64(n)
