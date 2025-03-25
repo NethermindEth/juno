@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,14 +13,17 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
@@ -31,6 +35,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -40,6 +45,7 @@ import (
 
 const (
 	upgraderDelay    = 5 * time.Minute
+	mempoolLimit     = 1024
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
 )
@@ -68,6 +74,11 @@ type Config struct {
 	PendingPollInterval    time.Duration `mapstructure:"pending-poll-interval"`
 	RemoteDB               string        `mapstructure:"remote-db"`
 	VersionedConstantsFile string        `mapstructure:"versioned-constants-file"`
+
+	Sequencer      bool   `mapstructure:"seq-enable"`
+	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
+	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
+	SeqDisableFees bool   `mapstructure:"seq-disable-fees"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -111,6 +122,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
+// Todo: (immediate follow-up PR) tidy this function up.
 func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
 	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
 	if err != nil {
@@ -159,54 +171,82 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
-	chain.WithPendingBlockFn(synchronizer.PendingBlock)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+	nodeVM := vm.New(false, log)
+	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
+	var synchronizer *sync.Synchronizer
+	var rpcHandler *rpc.Handler
+	var client *feeder.Client
+	var gatewayClient *gateway.Client
+	var p2pService *p2p.Service
+
+	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
-		p, err := plugin.Load(cfg.PluginPath)
+		junoPlugin, err = plugin.Load(cfg.PluginPath)
 		if err != nil {
 			return nil, err
 		}
-		synchronizer.WithPlugin(p)
-		services = append(services, plugin.NewService(p))
+		services = append(services, plugin.NewService(junoPlugin))
 	}
 
-	var p2pService *p2p.Service
-	if cfg.P2P {
-		if cfg.Network == utils.Mainnet {
-			return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
+	if cfg.Sequencer {
+		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
+		if kErr != nil {
+			return nil, kErr
 		}
-		log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
-
-		if !cfg.P2PFeederNode {
-			// Do not start the feeder synchronisation
-			synchronizer = nil
-		}
-		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+		poolDB, err := pebble.NewMem()
 		if err != nil {
-			return nil, fmt.Errorf("set up p2p service: %w", err)
+			return nil, err
+		}
+		mempool, mempoolCloser := mempool.New(poolDB, chain, mempoolLimit, log)
+
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
+			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database, mempoolCloser)
+		sequencer.WithPlugin(junoPlugin)
+		chain.WithPendingBlockFn(sequencer.PendingBlock)
+		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network)
+		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		services = append(services, &sequencer)
+	} else {
+		client = feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
+			WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
+		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+		synchronizer.WithPlugin(junoPlugin)
+		chain.WithPendingBlockFn(synchronizer.PendingBlock)
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+		if cfg.P2P {
+			if cfg.Network == utils.Mainnet {
+				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
+			}
+			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+
+			if !cfg.P2PFeederNode {
+				// Do not start the feeder synchronisation
+				synchronizer = nil
+			}
+			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+				chain, &cfg.Network, log, database)
+			if err != nil {
+				return nil, fmt.Errorf("set up p2p service: %w", err)
+			}
+
+			services = append(services, p2pService)
 		}
 
-		services = append(services, p2pService)
-	}
-	if synchronizer != nil {
-		services = append(services, synchronizer)
-	}
-
-	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
-	var syncReader sync.Reader = &sync.NoopSynchronizer{}
-	if synchronizer != nil {
-		syncReader = synchronizer
+		var syncReader sync.Reader = &sync.NoopSynchronizer{}
+		if synchronizer != nil {
+			syncReader = synchronizer
+		}
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
+		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		if synchronizer != nil {
+			services = append(services, synchronizer)
+		}
 	}
 
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
+
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
@@ -260,17 +300,18 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
 		jsonrpcServerV06.WithListener(rpcMetricsV06)
-		client.WithListener(makeFeederMetrics())
-		gatewayClient.WithListener(makeGatewayMetrics())
-		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
-
-		if synchronizer != nil {
-			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
-		} else if p2pService != nil {
-			// regular p2p node
-			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-			p2pService.WithGossipTracer()
+		if !cfg.Sequencer {
+			client.WithListener(makeFeederMetrics())
+			gatewayClient.WithListener(makeGatewayMetrics())
+			if synchronizer != nil {
+				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+			} else if p2pService != nil {
+				// regular p2p node
+				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+				p2pService.WithGossipTracer()
+			}
 		}
+		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
@@ -378,6 +419,14 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.cfg.Sequencer {
+		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
+			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+			n.log.Errorw("Error building genesis state", "err", err)
+			return
+		}
 	}
 
 	for _, s := range n.services {

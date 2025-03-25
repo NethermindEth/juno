@@ -20,6 +20,8 @@ type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
 }
 
+type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
+
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
 	Height() (height uint64, err error)
@@ -340,7 +342,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, true); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
@@ -945,4 +947,160 @@ func removeTxsAndReceipts(txn db.Transaction, blockNumber, numTxs uint64) error 
 	}
 
 	return nil
+}
+
+// Finalise will calculate the state commitment and block hash for the given pending block and append it to the
+// blockchain.
+func (b *Blockchain) Finalise(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign BlockSignFunc,
+) error {
+	return b.database.Update(func(txn db.Transaction) error {
+		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+			return err
+		}
+
+		commitments, err := b.calculateBlockHash(block, stateUpdate)
+		if err != nil {
+			return err
+		}
+
+		if err := b.signBlock(block, stateUpdate, sign); err != nil {
+			return err
+		}
+
+		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+			return err
+		}
+
+		// Update chain height
+		heightBin := core.MarshalBlockNumber(block.Number)
+		return txn.Set(db.ChainHeight.Key(), heightBin)
+	})
+}
+
+// updateStateRoots computes and updates state roots in the block and state update
+func (b *Blockchain) updateStateRoots(
+	txn db.Transaction,
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+) error {
+	state := core.NewState(txn)
+
+	// Get old state root
+	oldStateRoot, err := state.Root()
+	if err != nil {
+		return err
+	}
+	stateUpdate.OldRoot = oldStateRoot
+
+	// Apply state update
+	if err = state.Update(block.Number, stateUpdate, newClasses, true); err != nil {
+		return err
+	}
+
+	// Get new state root
+	newStateRoot, err := state.Root()
+	if err != nil {
+		return err
+	}
+
+	block.GlobalStateRoot = newStateRoot
+	stateUpdate.NewRoot = block.GlobalStateRoot
+
+	return nil
+}
+
+// calculateBlockHash computes and sets the block hash and commitments
+func (b *Blockchain) calculateBlockHash(block *core.Block, stateUpdate *core.StateUpdate) (*core.BlockCommitments, error) {
+	blockHash, commitments, err := core.BlockHash(
+		block,
+		stateUpdate.StateDiff,
+		b.network,
+		block.SequencerAddress)
+	if err != nil {
+		return nil, err
+	}
+	block.Hash = blockHash
+	stateUpdate.BlockHash = blockHash
+	return commitments, nil
+}
+
+// signBlock applies the signature to the block if a signing function is provided
+func (b *Blockchain) signBlock(block *core.Block, stateUpdate *core.StateUpdate, sign BlockSignFunc) error {
+	if sign == nil {
+		return nil
+	}
+
+	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+	if err != nil {
+		return err
+	}
+
+	block.Signatures = [][]*felt.Felt{sig}
+
+	return nil
+}
+
+// storeBlockData persists all block-related data to the database
+func (b *Blockchain) storeBlockData(txn db.Transaction, block *core.Block, stateUpdate *core.StateUpdate,
+	commitments *core.BlockCommitments,
+) error {
+	// Store block header
+	if err := StoreBlockHeader(txn, block.Header); err != nil {
+		return err
+	}
+
+	// Store transactions and receipts
+	for i, tx := range block.Transactions {
+		if err := storeTransactionAndReceipt(txn, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
+			return err
+		}
+	}
+
+	// Store state update
+	if err := storeStateUpdate(txn, block.Number, stateUpdate); err != nil {
+		return err
+	}
+
+	// Store block commitments
+	if err := StoreBlockCommitments(txn, block.Number, commitments); err != nil {
+		return err
+	}
+
+	// Store L1 handler message hashes
+	if err := StoreL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+
+	block := &core.Block{
+		Header: &core.Header{
+			ParentHash:       &felt.Zero,
+			Number:           0,
+			SequencerAddress: &felt.Zero,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    &felt.Zero,
+			L1GasPriceSTRK:   &felt.Zero,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+	stateUpdate := &core.StateUpdate{
+		OldRoot:   &felt.Zero,
+		StateDiff: diff,
+	}
+	newClasses := classes
+
+	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+		return nil, nil
+	})
 }

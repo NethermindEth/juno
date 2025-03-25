@@ -1,10 +1,13 @@
 package mempool_test
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -12,6 +15,7 @@ import (
 	_ "github.com/NethermindEth/juno/encoder/registry"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
+	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -32,7 +36,6 @@ func setupDatabase(dbPath string, dltExisting bool) (db.DB, func(), error) {
 		return nil, nil, err
 	}
 	closer := func() {
-		// The db should be closed by the mempool closer function
 		os.RemoveAll(dbPath)
 	}
 	return persistentPool, closer, nil
@@ -43,10 +46,12 @@ func TestMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
+	chain := mocks.NewMockReader(mockCtrl)
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
+
 	require.NoError(t, err)
 	defer dbCloser()
-	pool, closer := mempool.New(testDB, state, 4, log)
+	pool, closer := mempool.New(testDB, chain, 4, log)
 	require.NoError(t, pool.LoadFromDB())
 
 	require.Equal(t, 0, pool.Len())
@@ -57,6 +62,7 @@ func TestMempool(t *testing.T) {
 	// push multiple to empty (1,2,3)
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -79,6 +85,7 @@ func TestMempool(t *testing.T) {
 	// push multiple to non empty (push 4,5. now have 3,4,5)
 	for i := uint64(4); i < 6; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -113,15 +120,14 @@ func TestMempool(t *testing.T) {
 
 func TestRestoreMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
-
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	testDB, dbCloser, err := setupDatabase("testrestoremempool", true)
+	chain := mocks.NewMockReader(mockCtrl)
+	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
-	defer dbCloser()
-
-	pool, closer := mempool.New(testDB, state, 1024, log)
+	defer dbDeleter()
+	pool, mempoolCloser := mempool.New(testDB, chain, 1024, log)
 	require.NoError(t, pool.LoadFromDB())
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
@@ -132,6 +138,7 @@ func TestRestoreMempool(t *testing.T) {
 	// push multiple transactions to empty mempool (1,2,3)
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
+		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
@@ -149,12 +156,12 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	// Close the mempool
-	require.NoError(t, closer())
-
+	require.NoError(t, mempoolCloser())
+	require.NoError(t, testDB.Close())
 	testDB, _, err = setupDatabase("testrestoremempool", false)
 	require.NoError(t, err)
 
-	poolRestored, closer2 := mempool.New(testDB, state, 1024, log)
+	poolRestored, mempoolCloser2 := mempool.New(testDB, chain, 1024, log)
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
@@ -171,18 +178,29 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	require.Equal(t, 1, poolRestored.Len())
-	require.NoError(t, closer2())
+	require.NoError(t, mempoolCloser2())
 }
 
 func TestWait(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
 	log := utils.NewNopZapLogger()
 	testDB, dbCloser, err := setupDatabase("testwait", true)
 	require.NoError(t, err)
 	defer dbCloser()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
-	pool, _ := mempool.New(testDB, state, 1024, log)
+	bc := blockchain.New(testDB, &utils.Sepolia)
+	block0, err := gw.BlockByNumber(context.Background(), 0)
+	require.NoError(t, err)
+	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	require.NoError(t, err)
+
+	var address felt.Felt
+	for k := range stateUpdate0.StateDiff.Nonces {
+		address = k
+	}
+	pool, mempoolCloser := mempool.New(testDB, bc, 1024, log)
 	require.NoError(t, pool.LoadFromDB())
 
 	select {
@@ -192,35 +210,16 @@ func TestWait(t *testing.T) {
 	}
 
 	// One transaction.
-	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(1)).Return(new(felt.Felt).SetUint64(0), nil)
+	require.NoError(t, bc.Store(block0, &core.BlockCommitments{}, stateUpdate0, nil))
 	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 		Transaction: &core.InvokeTransaction{
 			TransactionHash: new(felt.Felt).SetUint64(1),
-			Nonce:           new(felt.Felt).SetUint64(1),
-			SenderAddress:   new(felt.Felt).SetUint64(1),
+			Nonce:           new(felt.Felt).SetUint64(5),
+			SenderAddress:   &address,
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		},
 	}))
 	<-pool.Wait()
 
-	// Two transactions.
-	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(2)).Return(new(felt.Felt).SetUint64(0), nil)
-	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
-		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt).SetUint64(2),
-			Nonce:           new(felt.Felt).SetUint64(1),
-			SenderAddress:   new(felt.Felt).SetUint64(2),
-			Version:         new(core.TransactionVersion).SetUint64(1),
-		},
-	}))
-	state.EXPECT().ContractNonce(new(felt.Felt).SetUint64(3)).Return(new(felt.Felt).SetUint64(0), nil)
-	require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
-		Transaction: &core.InvokeTransaction{
-			TransactionHash: new(felt.Felt).SetUint64(3),
-			Nonce:           new(felt.Felt).SetUint64(1),
-			SenderAddress:   new(felt.Felt).SetUint64(3),
-			Version:         new(core.TransactionVersion).SetUint64(1),
-		},
-	}))
-	<-pool.Wait()
+	require.NoError(t, mempoolCloser())
 }

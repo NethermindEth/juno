@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1/contract"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -30,6 +31,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
+	memPool       *mempool.Pool
 
 	version      string
 	newHeads     *feed.Feed[*core.Block]
@@ -83,6 +85,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		filterLimit:     math.MaxUint,
 		coreContractABI: contractABI,
 	}
+}
+
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+	h.memPool = memPool
+	return h
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
