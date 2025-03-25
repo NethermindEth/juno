@@ -390,7 +390,7 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
-	cfg := make(map[string]interface{})
+	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {
 		n.log.Errorw("Error while decoding config to mapstructure", "err", err)

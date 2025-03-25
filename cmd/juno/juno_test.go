@@ -1,12 +1,12 @@
 package main_test
 
 import (
-	"context"
 	"math"
 	"math/big"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -680,6 +680,7 @@ network: sepolia
 		},
 	}
 
+	unsetJunoPrefixedEnv(t)
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
@@ -699,7 +700,7 @@ network: sepolia
 			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
 			cmd.SetArgs(tc.inputArgs)
 
-			err := cmd.ExecuteContext(context.Background())
+			err := cmd.ExecuteContext(t.Context())
 			if tc.expectErr {
 				require.Error(t, err)
 				return
@@ -732,4 +733,18 @@ func tempCfgFile(t *testing.T, cfg string) string {
 	require.NoError(t, f.Sync())
 
 	return f.Name()
+}
+
+func unsetJunoPrefixedEnv(t *testing.T) {
+	t.Helper()
+
+	const prefix = "JUNO_"
+	for _, e := range os.Environ() {
+		pair := strings.Split(e, "=")
+		k := pair[0]
+
+		if strings.HasPrefix(k, prefix) {
+			t.Setenv(k, "")
+		}
+	}
 }

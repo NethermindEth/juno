@@ -164,14 +164,28 @@ func TestStorageProof(t *testing.T) {
 		require.Equal(t, root, proof.GlobalRoots.ClassesTreeRoot)
 		require.Equal(t, root, proof.GlobalRoots.ContractsTreeRoot)
 	})
-	t.Run("error whenever block number is not the latest", func(t *testing.T) {
+	t.Run("error whenever block number is older than the latest", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: 1}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
 		require.Nil(t, proof)
 	})
+	t.Run("error whenever block number is newer than the latest", func(t *testing.T) {
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Number: blockNumber + 10}, nil, nil, nil)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
+		require.Nil(t, proof)
+	})
 	t.Run("error whenever block hash is not the latest", func(t *testing.T) {
-		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: new(felt.Felt).SetUint64(1)}, nil, nil, nil)
+		blockHash := new(felt.Felt).SetUint64(1)
+		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(&core.Header{Number: blockNumber - 10}, nil)
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: blockHash}, nil, nil, nil)
 		assert.Equal(t, rpccore.ErrStorageProofNotSupported, rpcErr)
+		require.Nil(t, proof)
+	})
+	t.Run("error whenever block hash does not exist", func(t *testing.T) {
+		blockHash := new(felt.Felt).SetUint64(1)
+		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(nil, db.ErrKeyNotFound)
+		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: blockHash}, nil, nil, nil)
+		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("error for pending block", func(t *testing.T) {
@@ -185,14 +199,15 @@ func TestStorageProof(t *testing.T) {
 		require.NotNil(t, proof)
 	})
 	t.Run("no error when block hash matches head", func(t *testing.T) {
+		mockReader.EXPECT().BlockHeaderByHash(blkHash).Return(&core.Header{Number: blockNumber}, nil)
 		proof, rpcErr := handler.StorageProof(rpc.BlockID{Hash: blkHash}, nil, nil, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
 	})
-	t.Run("error when contract storage keys are provided but empty", func(t *testing.T) {
+	t.Run("no error when contract storage keys are provided but empty", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{})
-		assert.Equal(t, jsonrpc.Err(jsonrpc.InvalidParams, rpc.MissingContractAddress), rpcErr)
-		require.Nil(t, proof)
+		assert.Nil(t, rpcErr)
+		require.NotNil(t, proof)
 	})
 	t.Run("error when address in contract storage keys is nil", func(t *testing.T) {
 		proof, rpcErr := handler.StorageProof(blockLatest, nil, nil, []rpc.StorageKeys{{Contract: nil, Keys: []felt.Felt{*key}}})
@@ -552,7 +567,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	bc := blockchain.New(testDB, &utils.Mainnet)
 	synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()

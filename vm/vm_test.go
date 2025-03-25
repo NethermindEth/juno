@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -29,7 +28,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -89,7 +88,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://voyager.online/class/0x03297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e
 	classHash := utils.HexToFelt(t, "0x3297a93c52357144b7da71296d7e8231c3e0959f0a1d37222204f2f7712010e")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -128,7 +127,7 @@ func TestCallCairo(t *testing.T) {
 	contractAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	// https://goerli.voyager.online/class/0x01338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292
 	classHash := utils.HexToFelt(t, "0x1338d85d3e579f6944ba06c005238d145920afeb32f94e3a1e234d21e1e9292")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -196,7 +195,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 
 	contractAddr := utils.HexToFelt(t, "0x123")
 	classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
-	simpleClass, err := gw.Class(context.Background(), classHash)
+	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
 	testState := core.NewState(txn)
@@ -277,8 +276,12 @@ func TestExecute(t *testing.T) {
 }
 
 func TestSetVersionedConstants(t *testing.T) {
-	t.Run("valid json", func(t *testing.T) {
-		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/0_13_2.json"))
+	t.Run("valid custom versioned constants file (1 overwrite)", func(t *testing.T) {
+		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/custom_versioned_constants.json"))
+	})
+
+	t.Run("valid custom versioned constants file (multiple overwrites)", func(t *testing.T) {
+		require.NoError(t, SetVersionedConstants("testdata/versioned_constants/custom_versioned_constants_multiple.json"))
 	})
 
 	t.Run("not valid json", func(t *testing.T) {

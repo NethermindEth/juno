@@ -234,7 +234,7 @@ type TransactionStatus struct {
 type MsgFromL1 struct {
 	// The address of the L1 contract sending the message.
 	From common.Address `json:"from_address" validate:"required"`
-	// The address of the L1 contract sending the message.
+	// The address of the L2 contract receiving the message.
 	To felt.Felt `json:"to_address" validate:"required"`
 	// The payload of the message.
 	Payload  []felt.Felt `json:"payload" validate:"required"`

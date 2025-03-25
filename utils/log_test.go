@@ -3,7 +3,6 @@ package utils_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -117,7 +116,7 @@ func TestZapWithoutColour(t *testing.T) {
 
 func TestHTTPLogSettings(t *testing.T) {
 	logLevel := utils.NewLogLevel(utils.INFO)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("GET current log level", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/log/level", http.NoBody)
