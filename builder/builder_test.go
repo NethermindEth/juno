@@ -45,6 +45,22 @@ func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, tar
 	})
 }
 
+func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetTxnNumber uint64) {
+	waitFor(t, timeout, func() bool {
+		curBlockNumber, err := bc.Height()
+		require.NoError(t, err)
+		cumTxns := uint64(0)
+		for i := range curBlockNumber {
+			block, err := bc.BlockByNumber(i)
+			require.NoError(t, err)
+			cumTxns += block.TransactionCount
+			if cumTxns >= targetTxnNumber {
+				return true
+			}
+		}
+		return false
+	})
+}
 func TestSign(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
@@ -169,7 +185,10 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 1500*time.Millisecond)
-	defer cancel()
+	go func() {
+		waitForTxns(t, bc, 4*time.Second, 2)
+		cancel()
+	}()
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
