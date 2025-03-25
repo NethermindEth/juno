@@ -115,10 +115,6 @@ func MempoolNodeKey(txnHash *felt.Felt) []byte {
 	return MempoolNode.Key(txnHash.Marshal())
 }
 
-func ContractKey(addr *felt.Felt) []byte {
-	return Contract.Key(addr.Marshal())
-}
-
 func ContractHistoryNonceKey(addr *felt.Felt, blockNum uint64) []byte {
 	b := uint64ToBytes(blockNum)
 	return ContractNonceHistory.Key(addr.Marshal(), b[:])
