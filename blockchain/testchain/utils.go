@@ -8,7 +8,10 @@ import (
 
 func contractsFolder() string {
 	// Only dumb way (that I know of) for reliably getting the root of a go project :(
-	_, b, _, _ := runtime.Caller(0)
+	_, b, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("failed to get runtime caller at 0")
+	}
 	root := path.Join(path.Dir(b), "..", "..")
 
 	return path.Join(root, "starknet_contracts")

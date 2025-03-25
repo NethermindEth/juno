@@ -24,8 +24,8 @@ func (c *deployedContract) Balance() *felt.Felt {
 	return &c.balance
 }
 
-func (a *deployedContract) BalanceKey() felt.Felt {
-	return feltFromNameAndKey(a.t, "ERC20_balances", a.address.AsFelt())
+func (c *deployedContract) BalanceKey() felt.Felt {
+	return feltFromNameAndKey(c.t, "ERC20_balances", c.address.AsFelt())
 }
 
 // https://github.com/eqlabs/pathfinder/blob/7664cba5145d8100ba1b6b2e2980432bc08d72a2/crates/common/src/lib.rs#L124
