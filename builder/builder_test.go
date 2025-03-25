@@ -190,7 +190,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		// waitForTxns(t, bc, 2*blockTime, 5)
-		time.Sleep(10 * blockTime)
+		time.Sleep(20 * blockTime)
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
