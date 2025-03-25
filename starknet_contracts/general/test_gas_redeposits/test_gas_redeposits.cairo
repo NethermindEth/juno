@@ -1,6 +1,6 @@
-/// Simple contract for managing balance.
+/// This contract is used to test the worst case when calculating the estimate fee rpc call
 #[starknet::contract]
-mod HelloStarknet {
+mod TestRedeposits {
 
     use core::poseidon::{hades_permutation};
     #[storage]
@@ -22,6 +22,10 @@ mod HelloStarknet {
             let res = self.test_redeposits(depth-1);
             // should be redeposited for the large if since res is never != 0
             if(res != 0) {
+                // Using code duplication so that the compiler see this block section
+                // as very expensive regarding gas. If we were to use a loop (which is
+                // similar to implementing it recursively) this section wouldn't be 
+                // detected as expensive and this woudln't be the best test example
                 let mut tup = hades_permutation(1,2,3);
                 let (s1,s2,s3) = tup;
                 tup = hades_permutation(s1,s2,s3);

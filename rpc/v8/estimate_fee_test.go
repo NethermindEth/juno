@@ -131,16 +131,14 @@ type executionError struct {
 const executeEntryPointSelector = "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"
 
 func TestEstimateFeeWithVMDeclare(t *testing.T) {
-	// Get blockchain with predeployed account and deployer contracts
 	chain := testchain.New(t)
 	account := chain.AccountInstance().Address()
 
-	// Get binary search contract
-	class := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
+	class := testchain.NewClass(t, testchain.GetSierraContractPath("test_gas_redeposits"))
 
 	tests := []test{
 		{
-			name: "binary search contract ok",
+			name: "gas redeposits contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeclareTransaction(
 					t,
@@ -151,17 +149,16 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				createFeeEstimate(
-					t,
-					"0x0",
-					"0x2",
-					"0x4176980",
-					"0x1",
-					"0xc0",
-					"0x2",
-					"0x4176b00",
-					rpc.FRI,
-				),
+				rpc.FeeEstimate{
+					L1GasConsumed:     &felt.Zero,
+					L1GasPrice:        utils.NumToFelt(t, 2),
+					L2GasConsumed:     utils.NumToFelt(t, 69192320),
+					L2GasPrice:        utils.NumToFelt(t, 1),
+					L1DataGasConsumed: utils.NumToFelt(t, 192),
+					L1DataGasPrice:    utils.NumToFelt(t, 2),
+					OverallFee:        utils.NumToFelt(t, 69192704),
+					Unit:              utils.HeapPtr(rpc.FRI),
+				},
 			},
 		},
 		// TODO: add more tests
@@ -173,15 +170,13 @@ func TestEstimateFeeWithVMDeclare(t *testing.T) {
 }
 
 func TestEstimateFeeWithVMDeploy(t *testing.T) {
-	// Get blockchain with predeployed account and deployer contracts
 	chain := testchain.New(t)
 	account := chain.AccountInstance().Address()
 	accountClassHash := chain.Account.Hash
 	deployer := chain.DeployerInstance().Address()
 	deployerClassHash := chain.Deployer.Hash
 
-	// Get binary search contract
-	bsClass := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
+	bsClass := testchain.NewClass(t, testchain.GetSierraContractPath("test_gas_redeposits"))
 	chain.Declare(&bsClass)
 
 	validEntryPoint := crypto.StarknetKeccak([]byte("deploy_contract"))
@@ -192,7 +187,7 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 
 	tests := []test{
 		{
-			name: "binary search contract ok",
+			name: "test_gas_redeposits contract ok",
 			broadcastedTransactions: []rpc.BroadcastedTransaction{
 				createDeployTransaction(
 					t,
@@ -204,16 +199,16 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				createFeeEstimate(t,
-					"0x0",
-					"0x2",
-					"0xfdb0d",
-					"0x1",
-					"0xe0",
-					"0x2",
-					"0xe6bcc",
-					rpc.FRI,
-				),
+				rpc.FeeEstimate{
+					L1GasConsumed:     &felt.Zero,
+					L1GasPrice:        utils.NumToFelt(t, 2),
+					L2GasConsumed:     utils.NumToFelt(t, 1039117),
+					L2GasPrice:        utils.NumToFelt(t, 1),
+					L1DataGasConsumed: utils.NumToFelt(t, 224),
+					L1DataGasPrice:    utils.NumToFelt(t, 2),
+					OverallFee:        utils.NumToFelt(t, 945100),
+					Unit:              utils.HeapPtr(rpc.FRI),
+				},
 			},
 		},
 		{
@@ -253,14 +248,13 @@ func TestEstimateFeeWithVMDeploy(t *testing.T) {
 }
 
 func TestEstimateFeeWithVMInvoke(t *testing.T) {
-	// Get blockchain with predeployed account and deployer contracts
 	chain := testchain.New(t)
 	account := chain.AccountInstance().Address()
 	accountClassHash := chain.Account.Hash
 
-	// Predeploy binary search contract
+	// Predeploy test_gas_redeposits contract
 	addr := *utils.HexTo[address.ContractAddress](t, "0xd")
-	class := testchain.NewClass(t, testchain.GetSierraContractPath("binary_search"))
+	class := testchain.NewClass(t, testchain.GetSierraContractPath("test_gas_redeposits"))
 	class.AddInstance(&addr, &felt.Zero)
 
 	chain.Declare(&class)
@@ -287,16 +281,16 @@ func TestEstimateFeeWithVMInvoke(t *testing.T) {
 				),
 			},
 			expected: []rpc.FeeEstimate{
-				createFeeEstimate(t,
-					"0x0",
-					"0x2",
-					"0xbde1b",
-					"0x1",
-					"0x80",
-					"0x2",
-					"0xacaea",
-					rpc.FRI,
-				),
+				rpc.FeeEstimate{
+					L1GasConsumed:     &felt.Zero,
+					L1GasPrice:        utils.NumToFelt(t, 2),
+					L2GasConsumed:     utils.NumToFelt(t, 777755),
+					L2GasPrice:        utils.NumToFelt(t, 1),
+					L1DataGasConsumed: utils.NumToFelt(t, 128),
+					L1DataGasPrice:    utils.NumToFelt(t, 2),
+					OverallFee:        utils.NumToFelt(t, 707306),
+					Unit:              utils.HeapPtr(rpc.FRI),
+				},
 			},
 		},
 		{
@@ -560,24 +554,6 @@ func createResourceBounds(t *testing.T,
 			MaxAmount:       utils.HexToFelt(t, l1DataGasAmount),
 			MaxPricePerUnit: utils.HexToFelt(t, l1DataGasPrice),
 		},
-	}
-}
-
-func createFeeEstimate(t *testing.T,
-	l1GasConsumed, l1GasPrice,
-	l2GasConsumed, l2GasPrice,
-	l1DataGasConsumed, l1DataGasPrice,
-	overallFee string, unit rpc.FeeUnit,
-) rpc.FeeEstimate {
-	return rpc.FeeEstimate{
-		L1GasConsumed:     utils.HexToFelt(t, l1GasConsumed),
-		L1GasPrice:        utils.HexToFelt(t, l1GasPrice),
-		L2GasConsumed:     utils.HexToFelt(t, l2GasConsumed),
-		L2GasPrice:        utils.HexToFelt(t, l2GasPrice),
-		L1DataGasConsumed: utils.HexToFelt(t, l1DataGasConsumed),
-		L1DataGasPrice:    utils.HexToFelt(t, l1DataGasPrice),
-		OverallFee:        utils.HexToFelt(t, overallFee),
-		Unit:              utils.HeapPtr(unit),
 	}
 }
 
