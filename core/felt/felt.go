@@ -10,16 +10,6 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-type Felt struct {
-	val fp.Element
-}
-
-func New(element fp.Element) Felt {
-	return Felt{
-		val: element,
-	}
-}
-
 const (
 	Base16 = 16
 	Base10 = 10
@@ -31,8 +21,16 @@ const (
 	Bytes = fp.Bytes // number of bytes needed to represent a Element
 )
 
-// Zero felt constant
 var Zero = Felt{}
+
+var One = Felt(fp.Element(
+	[4]uint64{
+		18446744073709551585,
+		18446744073709551615,
+		18446744073709551615,
+		576460752303422960,
+	},
+))
 
 var bigIntPool = sync.Pool{
 	New: func() any {
@@ -40,9 +38,24 @@ var bigIntPool = sync.Pool{
 	},
 }
 
+type Felt fp.Element
+
+// TODO: element should be a ptr
+func New(element fp.Element) Felt {
+	return Felt(element)
+}
+
+func FromUint64(val uint64) Felt {
+	return Felt(fp.NewElement(val))
+}
+
+func FromBytes(bytes []byte) Felt {
+	return Felt(*new(fp.Element).SetBytes(bytes))
+}
+
 // Impl returns the underlying field element type
 func (z *Felt) Impl() *fp.Element {
-	return &z.val
+	return (*fp.Element)(z)
 }
 
 // UnmarshalJSON accepts numbers and strings as input.
@@ -75,7 +88,7 @@ func (z *Felt) MarshalJSON() ([]byte, error) {
 
 // SetBytes forwards the call to underlying field element implementation
 func (z *Felt) SetBytes(e []byte) *Felt {
-	z.val.SetBytes(e)
+	(*fp.Element)(z).SetBytes(e)
 	return z
 }
 
@@ -98,30 +111,30 @@ func (z *Felt) SetString(number string) (*Felt, error) {
 
 	var bytes [32]byte
 	vv.FillBytes(bytes[:])
-	return z, z.val.SetBytesCanonical(bytes[:])
+	return z, (*fp.Element)(z).SetBytesCanonical(bytes[:])
 }
 
 // SetUint64 forwards the call to underlying field element implementation
 func (z *Felt) SetUint64(v uint64) *Felt {
-	z.val.SetUint64(v)
+	(*fp.Element)(z).SetUint64(v)
 	return z
 }
 
 // SetRandom forwards the call to underlying field element implementation
 func (z *Felt) SetRandom() (*Felt, error) {
-	_, err := z.val.SetRandom()
+	_, err := (*fp.Element)(z).SetRandom()
 	return z, err
 }
 
 // String forwards the call to underlying field element implementation
 func (z *Felt) String() string {
-	return "0x" + z.val.Text(Base16)
+	return "0x" + (*fp.Element)(z).Text(Base16)
 }
 
 // ShortString prints the felt to a string in a shortened format
 func (z *Felt) ShortString() string {
 	shortFelt := 8
-	hex := z.val.Text(Base16)
+	hex := (*fp.Element)(z).Text(Base16)
 
 	if len(hex) <= shortFelt {
 		return fmt.Sprintf("0x%s", hex)
@@ -131,122 +144,124 @@ func (z *Felt) ShortString() string {
 
 // Text forwards the call to underlying field element implementation
 func (z *Felt) Text(base int) string {
-	return z.val.Text(base)
+	return (*fp.Element)(z).Text(base)
 }
 
 // Equal forwards the call to underlying field element implementation
 func (z *Felt) Equal(x *Felt) bool {
-	return z.val.Equal(&x.val)
+	return (*fp.Element)(z).Equal((*fp.Element)(x))
 }
 
 // Marshal forwards the call to underlying field element implementation
 func (z *Felt) Marshal() []byte {
-	return z.val.Marshal()
+	return (*fp.Element)(z).Marshal()
 }
 
 // Unmarshal forwards the call to underlying field element implementation
 func (z *Felt) Unmarshal(e []byte) {
-	z.val.Unmarshal(e)
+	(*fp.Element)(z).Unmarshal(e)
 }
 
 // Bytes forwards the call to underlying field element implementation
 func (z *Felt) Bytes() [32]byte {
-	return z.val.Bytes()
+	return (*fp.Element)(z).Bytes()
 }
 
 // IsOne forwards the call to underlying field element implementation
 func (z *Felt) IsOne() bool {
-	return z.val.IsOne()
+	return (*fp.Element)(z).IsOne()
 }
 
 // IsZero forwards the call to underlying field element implementation
 func (z *Felt) IsZero() bool {
-	return z.val.IsZero()
+	return (*fp.Element)(z).IsZero()
 }
 
 // Add forwards the call to underlying field element implementation
 func (z *Felt) Add(x, y *Felt) *Felt {
-	z.val.Add(&x.val, &y.val)
+	(*fp.Element)(z).Add((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Halve forwards the call to underlying field element implementation
 func (z *Felt) Halve() {
-	z.val.Halve()
+	(*fp.Element)(z).Halve()
 }
 
 // MarshalCBOR lets Felt be encoded in CBOR format with private `val`
 func (z *Felt) MarshalCBOR() ([]byte, error) {
-	return cbor.Marshal(z.val)
+	return cbor.Marshal((*fp.Element)(z))
 }
 
 // UnmarshalCBOR lets Felt be decoded from CBOR format with private `val`
 func (z *Felt) UnmarshalCBOR(data []byte) error {
-	return cbor.Unmarshal(data, &z.val)
+	return cbor.Unmarshal(data, (*fp.Element)(z))
 }
 
 // Bits forwards the call to underlying field element implementation
 func (z *Felt) Bits() [4]uint64 {
-	return z.val.Bits()
+	return (*fp.Element)(z).Bits()
 }
 
 // BigInt forwards the call to underlying field element implementation
 func (z *Felt) BigInt(res *big.Int) *big.Int {
-	return z.val.BigInt(res)
+	return (*fp.Element)(z).BigInt(res)
 }
 
 // Set forwards the call to underlying field element implementation
 func (z *Felt) Set(x *Felt) *Felt {
-	z.val.Set(&x.val)
+	(*fp.Element)(z).Set((*fp.Element)(x))
 	return z
 }
 
 // Double forwards the call to underlying field element implementation
 func (z *Felt) Double(x *Felt) *Felt {
-	z.val.Double(&x.val)
+	(*fp.Element)(z).Double((*fp.Element)(x))
 	return z
 }
 
 // Sub forwards the call to underlying field element implementation
 func (z *Felt) Sub(x, y *Felt) *Felt {
-	z.val.Sub(&x.val, &y.val)
+	(*fp.Element)(z).Sub((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Exp forwards the call to underlying field element implementation
 func (z *Felt) Exp(x *Felt, y *big.Int) *Felt {
-	z.val.Exp(x.val, y)
+	(*fp.Element)(z).Exp(fp.Element(*x), y)
 	return z
 }
 
 // Mul forwards the call to underlying field element implementation
 func (z *Felt) Mul(x, y *Felt) *Felt {
-	z.val.Mul(&x.val, &y.val)
+	(*fp.Element)(z).Mul((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Div forwards the call to underlying field element implementation
 func (z *Felt) Div(x, y *Felt) *Felt {
-	z.val.Div(&x.val, &y.val)
+	(*fp.Element)(z).Div((*fp.Element)(x), (*fp.Element)(y))
 	return z
 }
 
 // Cmp forwards the call to underlying field element implementation
 func (z *Felt) Cmp(x *Felt) int {
-	return z.val.Cmp(&x.val)
+	return (*fp.Element)(z).Cmp((*fp.Element)(x))
 }
 
 // SetBigInt forwards the call to underlying field element implementation
 func (z *Felt) SetBigInt(v *big.Int) *Felt {
-	z.val.SetBigInt(v)
+	(*fp.Element)(z).SetBigInt(v)
 	return z
 }
 
 // Uint64 forwards the call to underlying field element implementation
 func (z *Felt) Uint64() uint64 {
-	return z.val.Uint64()
+	return (*fp.Element)(z).Uint64()
 }
 
+// TODO: look where this is used, the clone shouldn't return a pointer
 func (z *Felt) Clone() *Felt {
-	return &Felt{val: z.val}
+	clone := *z
+	return &clone
 }
