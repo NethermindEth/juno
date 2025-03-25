@@ -123,7 +123,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			b.log.Errorw("closing mempool", "err", err)
 		}
 	}()
-
+	fmt.Println(" -- run")
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := b.ClearPending(); pErr != nil {
@@ -148,9 +148,11 @@ func (b *Builder) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			fmt.Println(" -- Done")
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
+			fmt.Println(" -- Finalising")
 			b.log.Infof("Finalising new block")
 			err := b.Finalise(b.Sign)
 			if err != nil {
@@ -216,6 +218,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("finalise", pending.Block.TransactionCount)
 	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign); err != nil {
 		return err
 	}
@@ -300,8 +303,10 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		fmt.Println("popped txn")
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
 		if err = b.runTxn(&userTxn, blockHashToBeRevealed); err != nil {
+			fmt.Println("popped txn err", err)
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
