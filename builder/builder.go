@@ -313,7 +313,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 				return err
 			}
 		}
-
+		fmt.Println("popped txn all good")
 		select {
 		case <-ctx.Done():
 			return nil
