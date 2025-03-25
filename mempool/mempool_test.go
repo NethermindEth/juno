@@ -1,7 +1,6 @@
 package mempool_test
 
 import (
-	"context"
 	"os"
 	"testing"
 	"time"
@@ -191,9 +190,9 @@ func TestWait(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	bc := blockchain.New(testDB, &utils.Sepolia)
-	block0, err := gw.BlockByNumber(context.Background(), 0)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	var address felt.Felt

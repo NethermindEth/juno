@@ -76,7 +76,7 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	minHeight := uint64(2)
 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, closer)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		waitForBlock(t, bc, time.Second, minHeight)
 		cancel()
@@ -165,10 +165,10 @@ func TestPrefundedAccounts(t *testing.T) {
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
-		rpcHandler.AddTransaction(context.Background(), txn)
+		rpcHandler.AddTransaction(t.Context(), txn)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 1200*time.Millisecond)
 	defer cancel()
 	require.NoError(t, testBuilder.Run(ctx))
 
