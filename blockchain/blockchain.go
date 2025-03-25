@@ -124,108 +124,108 @@ func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
-	return GetChainHeight(b.database)
+	return core.GetChainHeight(b.database)
 }
 
 func (b *Blockchain) Head() (*core.Block, error) {
 	b.listener.OnRead("Head")
-	curHeight, err := GetChainHeight(b.database)
+	curHeight, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
 
 	txn := b.database.NewIndexedBatch()
-	return GetBlockByNumber(txn, curHeight)
+	return core.GetBlockByNumber(txn, curHeight)
 }
 
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	b.listener.OnRead("HeadsHeader")
-	height, err := GetChainHeight(b.database)
+	height, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
 
-	return GetBlockHeaderByNumber(b.database, height)
+	return core.GetBlockHeaderByNumber(b.database, height)
 }
 
 func headsHeader(txn db.KeyValueReader) (*core.Header, error) {
-	height, err := GetChainHeight(txn)
+	height, err := core.GetChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
 
-	return GetBlockHeaderByNumber(txn, height)
+	return core.GetBlockHeaderByNumber(txn, height)
 }
 
 func (b *Blockchain) BlockByNumber(number uint64) (*core.Block, error) {
 	b.listener.OnRead("BlockByNumber")
 	txn := b.database.NewIndexedBatch()
-	return GetBlockByNumber(txn, number)
+	return core.GetBlockByNumber(txn, number)
 }
 
 func (b *Blockchain) BlockHeaderByNumber(number uint64) (*core.Header, error) {
 	b.listener.OnRead("BlockHeaderByNumber")
-	return GetBlockHeaderByNumber(b.database, number)
+	return core.GetBlockHeaderByNumber(b.database, number)
 }
 
 func (b *Blockchain) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 	b.listener.OnRead("BlockByHash")
-	blockNum, err := GetBlockHeaderNumberByHash(b.database, hash)
+	blockNum, err := core.GetBlockHeaderNumberByHash(b.database, hash)
 	if err != nil {
 		return nil, err
 	}
 
 	txn := b.database.NewIndexedBatch()
-	return GetBlockByNumber(txn, blockNum)
+	return core.GetBlockByNumber(txn, blockNum)
 }
 
 func (b *Blockchain) BlockHeaderByHash(hash *felt.Felt) (*core.Header, error) {
 	b.listener.OnRead("BlockHeaderByHash")
-	return GetBlockHeaderByHash(b.database, hash)
+	return core.GetBlockHeaderByHash(b.database, hash)
 }
 
 func (b *Blockchain) StateUpdateByNumber(number uint64) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByNumber")
-	return GetStateUpdateByBlockNum(b.database, number)
+	return core.GetStateUpdateByBlockNum(b.database, number)
 }
 
 func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, error) {
 	b.listener.OnRead("StateUpdateByHash")
-	return GetStateUpdateByHash(b.database, hash)
+	return core.GetStateUpdateByHash(b.database, hash)
 }
 
 func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
-	txnHash, err := GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
+	txnHash, err := core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
 	return &txnHash, err // TODO: return felt value
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
 func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
-	return GetTxByBlockNumIndex(b.database, blockNumber, index)
+	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
 }
 
 // TransactionByHash gets the transaction for a given hash.
 func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByHash")
-	return GetTxByHash(b.database, hash)
+	return core.GetTxByHash(b.database, hash)
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
 func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
-	bnIndex, err := GetTxBlockNumIndexByHash(b.database, hash)
+	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	receipt, err := GetReceiptByHash(b.database, hash)
+	receipt, err := core.GetReceiptByHash(b.database, hash)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	header, err := GetBlockHeaderByNumber(b.database, bnIndex.Number)
+	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -268,26 +268,26 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		if err := WriteBlockHeader(txn, block.Header); err != nil {
+		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
 
 		for i, tx := range block.Transactions {
-			if err := WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
+			if err := core.WriteTxAndReceipt(txn, block.Number, uint64(i), tx,
 				block.Receipts[i]); err != nil {
 				return err
 			}
 		}
 
-		if err := WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
+		if err := core.WriteStateUpdateByBlockNum(txn, block.Number, stateUpdate); err != nil {
 			return err
 		}
 
-		if err := WriteBlockCommitment(txn, block.Number, blockCommitments); err != nil {
+		if err := core.WriteBlockCommitment(txn, block.Number, blockCommitments); err != nil {
 			return err
 		}
 
-		if err := WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
+		if err := core.WriteL1HandlerMsgHashes(txn, block.Transactions); err != nil {
 			return err
 		}
 
@@ -331,7 +331,7 @@ func verifyBlock(txn db.KeyValueReader, block *core.Block) error {
 
 func (b *Blockchain) BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error) {
 	b.listener.OnRead("BlockCommitmentsByNumber")
-	return GetBlockCommitmentByBlockNum(b.database, blockNumber)
+	return core.GetBlockCommitmentByBlockNum(b.database, blockNumber)
 }
 
 // SanityCheckNewHeight checks integrity of a block and resulting state update
@@ -361,7 +361,7 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
 
-	_, err := GetChainHeight(txn)
+	_, err := core.GetChainHeight(txn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -374,7 +374,7 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (core.StateReader, S
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
-	_, err := GetBlockHeaderByNumber(txn, blockNumber)
+	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -393,7 +393,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 	}
 
 	txn := b.database.NewIndexedBatch()
-	header, err := GetBlockHeaderByHash(txn, blockHash)
+	header, err := core.GetBlockHeaderByHash(txn, blockHash)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -404,7 +404,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
 func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
-	latest, err := GetChainHeight(b.database)
+	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
@@ -421,12 +421,12 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 
 	txn := b.database.NewIndexedBatch()
-	blockNum, err := GetChainHeight(txn)
+	blockNum, err := core.GetChainHeight(txn)
 	if err != nil {
 		return nil, err
 	}
 
-	stateUpdate, err := GetStateUpdateByBlockNum(txn, blockNum)
+	stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNum)
 	if err != nil {
 		return nil, err
 	}
@@ -441,12 +441,12 @@ func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 }
 
 func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
-	blockNumber, err := GetChainHeight(txn)
+	blockNumber, err := core.GetChainHeight(txn)
 	if err != nil {
 		return err
 	}
 
-	stateUpdate, err := GetStateUpdateByBlockNum(txn, blockNumber)
+	stateUpdate, err := core.GetStateUpdateByBlockNum(txn, blockNumber)
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return err
 	}
 
-	header, err := GetBlockHeaderByNumber(txn, blockNumber)
+	header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
 		return err
 	}
@@ -475,20 +475,20 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		}
 	}
 
-	if err = DeleteTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
+	if err = core.DeleteTxsAndReceipts(txn, blockNumber, header.TransactionCount); err != nil {
 		return err
 	}
 
 	// remove state update
-	if err = DeleteStateUpdateByBlockNum(txn, blockNumber); err != nil {
+	if err = core.DeleteStateUpdateByBlockNum(txn, blockNumber); err != nil {
 		return err
 	}
 
 	// Revert chain height.
 	if genesisBlock {
-		return DeleteChainHeight(txn)
+		return core.DeleteChainHeight(txn)
 	}
 
 	heightBin := core.MarshalBlockNumber(blockNumber - 1)
-	return WriteChainHeight(txn, heightBin)
+	return core.WriteChainHeight(txn, heightBin)
 }
