@@ -30,28 +30,25 @@ var (
 )
 
 type Builder struct {
-	ownAddress felt.Felt
-	privKey    *ecdsa.PrivateKey
+	ownAddress  felt.Felt
+	privKey     *ecdsa.PrivateKey
+	blockTime   time.Duration
+	disableFees bool
 
 	bc              *blockchain.Blockchain
 	db              db.DB
 	vm              vm.VM
+	log             utils.Logger
 	subNewHeads     *feed.Feed[*core.Block]
 	subPendingBlock *feed.Feed[*core.Block]
 	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-
-	log       utils.Logger
-	blockTime time.Duration
-	mempool   *mempool.Pool
-	listener  EventListener
+	mempool         *mempool.Pool
+	mempoolCloser   func() error
+	plugin          plugin.JunoPlugin
 
 	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
-
-	disableFees   bool
-	plugin        plugin.JunoPlugin
-	mempoolCloser func() error
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
@@ -63,7 +60,6 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		privKey:    privKey,
 		blockTime:  blockTime,
 		log:        log,
-		listener:   &SelectiveListener{},
 
 		disableFees:     disableFees,
 		bc:              bc,
@@ -75,11 +71,6 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
 		mempoolCloser:   mempoolCloser,
 	}
-}
-
-func (b *Builder) WithEventListener(l EventListener) *Builder {
-	b.listener = l
-	return b
 }
 
 func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
@@ -230,7 +221,6 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	}
 	b.log.Infow("Finalised block", "number", pending.Block.Number, "hash",
 		pending.Block.Hash.ShortString(), "state", pending.Block.GlobalStateRoot.ShortString())
-	b.listener.OnBlockFinalised(pending.Block.Header)
 
 	if b.plugin != nil {
 		err := b.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
