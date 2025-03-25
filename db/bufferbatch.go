@@ -1,7 +1,7 @@
 package db
 
 import (
-	"github.com/NethermindEth/juno/utils"
+	"slices"
 )
 
 // TODO: DO NOT USE THIS! This is meant to be a temporary replacement for buffered transaction.
@@ -19,7 +19,7 @@ func NewBufferBatch(txn IndexedBatch) *BufferBatch {
 }
 
 func (b *BufferBatch) Put(key, val []byte) error {
-	b.updates[string(key)] = utils.CopySlice(val)
+	b.updates[string(key)] = slices.Clone(val)
 	return nil
 }
 

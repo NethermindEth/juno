@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var errDBClosed = errors.New("memory database closed")
@@ -63,7 +62,7 @@ func (d *Database) Put(key, value []byte) error {
 		return errDBClosed
 	}
 
-	d.db[string(key)] = utils.CopySlice(value)
+	d.db[string(key)] = slices.Clone(value)
 	return nil
 }
 

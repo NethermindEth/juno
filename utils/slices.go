@@ -85,12 +85,3 @@ func FeltArrToString(arr []*felt.Felt) string {
 	}
 	return strings.Join(res, ", ")
 }
-
-func CopySlice[T any](slice []T) []T {
-	if slice == nil {
-		return nil
-	}
-	cp := make([]T, len(slice))
-	copy(cp, slice)
-	return cp
-}

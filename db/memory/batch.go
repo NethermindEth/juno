@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 var _ db.Batch = (*batch)(nil)
@@ -93,7 +92,7 @@ func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, er
 }
 
 func (b *batch) Put(key, value []byte) error {
-	kv := keyValue{key: string(key), value: utils.CopySlice(value)}
+	kv := keyValue{key: string(key), value: slices.Clone(value)}
 	b.writes = append(b.writes, kv)
 	b.writeMap[string(key)] = kv
 	b.size += len(key) + len(value)
