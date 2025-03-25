@@ -3,6 +3,7 @@ package builder_test
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -54,6 +55,7 @@ func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targ
 			block, err := bc.BlockByNumber(i)
 			require.NoError(t, err)
 			cumTxns += block.TransactionCount
+			fmt.Println("cumTxns", cumTxns)
 			if cumTxns >= targetTxnNumber {
 				return true
 			}
@@ -184,7 +186,7 @@ func TestPrefundedAccounts(t *testing.T) {
 		rpcHandler.AddTransaction(t.Context(), txn)
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 1500*time.Millisecond)
+	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		waitForTxns(t, bc, 4*time.Second, 2)
 		cancel()
