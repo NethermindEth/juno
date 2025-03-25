@@ -297,7 +297,9 @@ func TestTraceTransaction(t *testing.T) {
 
 			assert.Nil(t, trace)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)"), err)
+			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData(struct {
+				Status string `json:"status"`
+			}{Status: "RECEIVED"}), err)
 		})
 
 		t.Run("REJECTED tx is not traceable", func(t *testing.T) {
@@ -314,7 +316,9 @@ func TestTraceTransaction(t *testing.T) {
 
 			assert.Nil(t, trace)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)"), err)
+			assert.Equal(t, rpccore.ErrTraceUnavailable.CloneWithData(struct {
+				Status string `json:"status"`
+			}{Status: "REJECTED"}), err)
 		})
 	})
 	t.Run("ok", func(t *testing.T) {

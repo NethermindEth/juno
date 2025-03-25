@@ -88,9 +88,13 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 		if status, err := h.fetchTxStatusFromFeeder(ctx, &hash); err != nil {
 			return nil, httpHeader, err
 		} else if status.Finality == TxnStatusReceived {
-			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction not executed yet (RECEIVED)")
+			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData(struct {
+				Status string `json:"status"`
+			}{Status: "RECEIVED"})
 		} else if status.Finality == TxnStatusRejected {
-			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData("Transaction failed (REJECTED)")
+			return nil, httpHeader, rpccore.ErrTraceUnavailable.CloneWithData(struct {
+				Status string `json:"status"`
+			}{Status: "REJECTED"})
 		}
 	}
 
