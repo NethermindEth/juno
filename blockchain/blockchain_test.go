@@ -76,7 +76,7 @@ func TestHeight(t *testing.T) {
 
 func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(memory.New(), &utils.Sepolia)
-	t.Run("same block is returned for both GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
+	t.Run("same block is returned for both core.GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
 		client := feeder.NewTestClient(t, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
 
@@ -95,7 +95,7 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, block, storedByHash)
 	})
-	t.Run("GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
+	t.Run("core.GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
 		_, err := chain.BlockByNumber(42)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
