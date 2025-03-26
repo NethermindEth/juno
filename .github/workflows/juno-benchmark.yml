@@ -33,6 +33,8 @@ jobs:
             rm -rf ~/juno-benchmark
             mkdir -p ~/juno-benchmark/scripts
             mkdir -p ~/juno-benchmark/db
+            command -v unzip >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq unzip)
+            ldconfig -p | grep -q libjemalloc || (sudo apt-get update -qq && sudo apt-get install -y -qq libjemalloc-dev)
 
       - name: Copy benchmark script to EC2
         uses: appleboy/scp-action@master
@@ -40,7 +42,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: scripts/juno-benchmark.sh
+          source: scripts/juno-setup.sh
           target: ~/juno-benchmark/scripts/
           strip_components: 1
 
@@ -55,8 +57,8 @@ jobs:
           script: |
             export JUNO_VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
             export SNAPSHOT_URL=${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
-            chmod +x ~/juno-benchmark/scripts/juno-benchmark.sh
-            bash ~/juno-benchmark/scripts/juno-benchmark.sh "$JUNO_VERSION"
+            chmod +x ~/juno-benchmark/scripts/juno-setup.sh
+            bash ~/juno-benchmark/scripts/juno-setup.sh "$JUNO_VERSION"
 
       - name: Verify Juno is running
         uses: appleboy/ssh-action@master

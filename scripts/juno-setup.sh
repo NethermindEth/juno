@@ -38,7 +38,10 @@ chmod +x juno
 log "Starting Juno..."
 nohup "$WORK_DIR/juno" \
     --db-path="$WORK_DIR/db" \
-    --disable-l1-verification=true \
+    --disable-l1-verification \
+    --http \
+    --http-host=127.0.0.1 \
+    --http-port=6060 \
     > "$JUNO_LOG" 2>&1 &
 
 sleep 5
