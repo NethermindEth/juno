@@ -201,8 +201,10 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 
 // Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
+	p.log.Debugw("mempool recieved transaction for pre-processing")
 	err := p.validate(userTxn)
 	if err != nil {
+		p.log.Debugw("mempool transaction failed validation")
 		return err
 	}
 
@@ -222,6 +224,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 
 	newNode := &memPoolTxn{Txn: *userTxn, Next: nil}
 	p.memTxnList.push(newNode)
+	p.log.Debugw("sucessfully pushed transaction to the mempool")
 
 	select {
 	case p.txPushed <- struct{}{}:

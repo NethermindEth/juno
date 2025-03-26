@@ -315,6 +315,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 				return err
 			}
 		}
+		b.log.Debugw("running txn success", "hash", userTxn.Transaction.Hash().String())
 		b.finaliseMutex.RUnlock()
 		select {
 		case <-ctx.Done():

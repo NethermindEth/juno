@@ -55,6 +55,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 			require.Equal(t, true, false, "reached ctx timeout in waitForTxns")
 			return
 		default:
+			t.Logf("check for transactions")
 			curBlockNumber, err := bc.Height()
 			require.NoError(t, err)
 
@@ -62,6 +63,9 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 				block, err := bc.BlockByNumber(i)
 				require.NoError(t, err)
 
+				if block.TransactionCount != 0 {
+					t.Logf("Found %d transactions", block.TransactionCount)
+				}
 				cumTxns += block.TransactionCount
 				lastChecked = i + 1
 
@@ -70,6 +74,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 					return
 				}
 			}
+			t.Logf("sleep before checking for transactions again")
 			time.Sleep(blockTime / 4)
 		}
 	}
