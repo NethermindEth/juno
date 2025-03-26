@@ -45,6 +45,22 @@ func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, tar
 	})
 }
 
+func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetTxnNumber uint64) {
+	waitFor(t, timeout, func() bool {
+		curBlockNumber, err := bc.Height()
+		require.NoError(t, err)
+		cumTxns := uint64(0)
+		for i := range curBlockNumber {
+			block, err := bc.BlockByNumber(i)
+			require.NoError(t, err)
+			cumTxns += block.TransactionCount
+			if cumTxns >= targetTxnNumber {
+				return true
+			}
+		}
+		return false
+	})
+}
 func TestSign(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
@@ -162,14 +178,17 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), 1000*time.Millisecond, p, log, false, testDB, mempoolCloser)
+	blockTime := 500 * time.Millisecond
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(t.Context(), txn)
 	}
-
-	ctx, cancel := context.WithTimeout(t.Context(), 1200*time.Millisecond)
-	defer cancel()
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		waitForTxns(t, bc, 2*blockTime, 2)
+		cancel()
+	}()
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
@@ -183,23 +202,22 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 
 	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x56bc75e2d63100000"), utils.HexToFelt(t, "0x12345678"))
-	foundExpectedBalance := false
 	numExpectedBalance := 0
+	foundExpectedNumAcntsWBalance := false
 	for i := range height {
 		su, err := bc.StateUpdateByNumber(i + 1)
 		require.NoError(t, err)
 		for _, store := range su.StateDiff.StorageDiffs {
 			for _, val := range store {
 				if val.Equal(expectedBalance) {
-					foundExpectedBalance = true
 					numExpectedBalance++
 				}
 			}
 		}
-		if foundExpectedBalance {
+		if numExpectedBalance == len(expectedExnsInBlock) {
+			foundExpectedNumAcntsWBalance = true
 			break
 		}
 	}
-	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
-	require.True(t, foundExpectedBalance)
+	require.True(t, foundExpectedNumAcntsWBalance)
 }

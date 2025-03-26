@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	musync "sync"
 	"sync/atomic"
 	"time"
 
@@ -49,6 +50,8 @@ type Builder struct {
 	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+
+	finaliseMutex musync.RWMutex
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
@@ -70,6 +73,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		subPendingBlock: feed.New[*core.Block](),
 		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
 		mempoolCloser:   mempoolCloser,
+		finaliseMutex:   musync.RWMutex{},
 	}
 }
 
@@ -114,7 +118,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), txn.Discard, nil
 }
 
 func (b *Builder) Run(ctx context.Context) error {
@@ -123,7 +127,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			b.log.Errorw("closing mempool", "err", err)
 		}
 	}()
-
+	fmt.Println(" -- run")
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := b.ClearPending(); pErr != nil {
@@ -148,14 +152,21 @@ func (b *Builder) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
+			fmt.Println(" -- Done")
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
+			fmt.Println(" -- Finalising b.finaliseMutex.Lock()")
+			b.finaliseMutex.Lock()
+			fmt.Println(" -- Finalising")
 			b.log.Infof("Finalising new block")
 			err := b.Finalise(b.Sign)
+			fmt.Println(" -- Finalising b.finaliseMutex.Unlock()")
+			b.finaliseMutex.Unlock()
 			if err != nil {
 				return err
 			}
+			fmt.Println("finalised, InitPendingBlock end")
 		}
 	}
 }
@@ -216,6 +227,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("finalise", pending.Block.TransactionCount)
 	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign); err != nil {
 		return err
 	}
@@ -230,10 +242,13 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	}
 	// push the new block head to the feed
 	b.subNewHeads.Send(b.PendingBlock())
-
+	fmt.Println("finalised, ClearPending start")
 	if err := b.ClearPending(); err != nil {
+		fmt.Println("finalised, ClearPending err", err)
 		return err
 	}
+	fmt.Println("finalised, ClearPending end")
+	fmt.Println("finalised, InitPendingBlock start")
 	return b.InitPendingBlock()
 }
 
@@ -296,19 +311,29 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		return err
 	}
 	for {
+		fmt.Println(" -- depletePool b.finaliseMutex.Lock()")
+		b.finaliseMutex.RLock()
 		userTxn, err := b.mempool.Pop()
 		if err != nil {
+			fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+			b.finaliseMutex.RUnlock()
 			return err
 		}
+		fmt.Println("popped txn")
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
 		if err = b.runTxn(&userTxn, blockHashToBeRevealed); err != nil {
+			fmt.Println("popped txn err", err)
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
+				fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+				b.finaliseMutex.RUnlock()
 				return err
 			}
 		}
-
+		fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+		b.finaliseMutex.RUnlock()
+		fmt.Println("popped txn all good")
 		select {
 		case <-ctx.Done():
 			return nil
