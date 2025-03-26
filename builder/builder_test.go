@@ -204,6 +204,7 @@ func TestPrefundedAccounts(t *testing.T) {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
 		require.Nil(t, rpcErr)
 	}
+	time.Sleep(blockTime) // Populate mempool before finalising blocks.
 	ctx, cancel := context.WithTimeout(t.Context(), 5*blockTime)
 	defer cancel()
 

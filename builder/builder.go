@@ -277,7 +277,8 @@ func (b *Builder) listenPool(ctx context.Context) error {
 	for {
 		fmt.Println(" -- depletePool")
 		if err := b.depletePool(ctx); err != nil {
-			if !errors.Is(err, db.ErrKeyNotFound) {
+			if !errors.Is(err, mempool.ErrTxnPoolEmpty) {
+				fmt.Println(" -- listen pool exit")
 				return err
 			}
 		}
