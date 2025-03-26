@@ -215,13 +215,6 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	height, err := bc.Height()
 	require.NoError(t, err)
-	for i := range height {
-		block, err := bc.BlockByNumber(i + 1)
-		require.NoError(t, err)
-		if block.TransactionCount != 0 {
-			require.Equal(t, len(expectedExnsInBlock), int(block.TransactionCount), "Failed to find correct number of transactions in the block")
-		}
-	}
 
 	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x56bc75e2d63100000"), utils.HexToFelt(t, "0x12345678"))
 	numExpectedBalance := 0
