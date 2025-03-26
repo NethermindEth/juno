@@ -204,11 +204,11 @@ func TestPrefundedAccounts(t *testing.T) {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
 		require.Nil(t, rpcErr)
 	}
-	time.Sleep(blockTime) // Populate mempool before finalising blocks.
+	time.Sleep(2 * blockTime) // Populate mempool before finalising blocks.
 	ctx, cancel := context.WithTimeout(t.Context(), 5*blockTime)
 	defer cancel()
 
-	waitForTxns(ctx, t, blockTime, bc, 2)
+	go waitForTxns(ctx, t, blockTime, bc, 2)
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()

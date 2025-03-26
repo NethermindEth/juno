@@ -277,6 +277,7 @@ func (b *Builder) listenPool(ctx context.Context) error {
 	for {
 		fmt.Println(" -- depletePool")
 		if err := b.depletePool(ctx); err != nil {
+			fmt.Println(" -- deplete pool err", err)
 			if !errors.Is(err, mempool.ErrTxnPoolEmpty) {
 				fmt.Println(" -- listen pool exit")
 				return err
@@ -292,7 +293,7 @@ func (b *Builder) listenPool(ctx context.Context) error {
 			return nil
 		// We wait for the mempool to get more txns before we continue
 		case <-b.mempool.Wait():
-			fmt.Println(" -- depletePool wmempool hit")
+			fmt.Println(" -- depletePool mempool hit")
 			continue
 		}
 	}

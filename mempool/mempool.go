@@ -306,7 +306,6 @@ func (p *Pool) Len() int {
 
 func (p *Pool) Wait() <-chan struct{} {
 	fmt.Println(" mempool waiting ------------------")
-	defer fmt.Println(" mempool waiting over ------------------")
 	return p.txPushed
 }
 
