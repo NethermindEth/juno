@@ -3,6 +3,7 @@ package builder_test
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"testing"
 	"time"
 
@@ -55,10 +56,10 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 			require.Equal(t, true, false, "reached ctx timeout in waitForTxns")
 			return
 		default:
-			t.Logf("check for transactions")
+
 			curBlockNumber, err := bc.Height()
 			require.NoError(t, err)
-
+			t.Logf("check for transactions curBlockNumber", "curBlockNumber", curBlockNumber)
 			for i := lastChecked; i < curBlockNumber; i++ {
 				block, err := bc.BlockByNumber(i)
 				require.NoError(t, err)
@@ -75,7 +76,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 				}
 			}
 			t.Logf("sleep before checking for transactions again")
-			time.Sleep(blockTime / 4)
+			time.Sleep(blockTime)
 		}
 	}
 }
@@ -197,18 +198,19 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	blockTime := 200 * time.Millisecond
+	blockTime := 100 * time.Millisecond
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
 		require.Nil(t, rpcErr)
+		fmt.Println(" --- added txn to mempool")
 	}
-	time.Sleep(2 * blockTime) // Populate mempool before finalising blocks.
-	ctx, cancel := context.WithTimeout(t.Context(), 5*blockTime)
-	defer cancel()
-
-	go waitForTxns(ctx, t, blockTime, bc, 2)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*blockTime) // should timeout before then
+	go func() {
+		waitForTxns(ctx, t, blockTime, bc, 2)
+		cancel()
+	}()
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
