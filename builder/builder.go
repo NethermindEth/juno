@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	musync "sync"
 	"sync/atomic"
 	"time"
 
@@ -49,6 +50,8 @@ type Builder struct {
 	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
+
+	finaliseMutex musync.RWMutex
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
@@ -70,6 +73,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		subPendingBlock: feed.New[*core.Block](),
 		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
 		mempoolCloser:   mempoolCloser,
+		finaliseMutex:   musync.RWMutex{},
 	}
 }
 
@@ -152,9 +156,13 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
+			fmt.Println(" -- Finalising b.finaliseMutex.Lock()")
+			b.finaliseMutex.Lock()
 			fmt.Println(" -- Finalising")
 			b.log.Infof("Finalising new block")
 			err := b.Finalise(b.Sign)
+			fmt.Println(" -- Finalising b.finaliseMutex.Unlock()")
+			b.finaliseMutex.Unlock()
 			if err != nil {
 				return err
 			}
@@ -303,8 +311,12 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		return err
 	}
 	for {
+		fmt.Println(" -- depletePool b.finaliseMutex.Lock()")
+		b.finaliseMutex.RLock()
 		userTxn, err := b.mempool.Pop()
 		if err != nil {
+			fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+			b.finaliseMutex.RUnlock()
 			return err
 		}
 		fmt.Println("popped txn")
@@ -314,9 +326,13 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
+				fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+				b.finaliseMutex.RUnlock()
 				return err
 			}
 		}
+		fmt.Println(" -- depletePool b.finaliseMutex.Unlock()")
+		b.finaliseMutex.RUnlock()
 		fmt.Println("popped txn all good")
 		select {
 		case <-ctx.Done():
