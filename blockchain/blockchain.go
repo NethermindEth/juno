@@ -102,8 +102,6 @@ func New(database db.DB, network *utils.Network) *Blockchain {
 		l1HeadFeed: feed.New[*core.L1Head](),
 	}
 
-	bc.curBlockHeader.Store(nil)
-
 	return bc
 }
 
@@ -344,7 +342,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.Transaction) error {
+	err := b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -375,9 +373,15 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		b.curBlockHeader.Store(block.Header)
 		return core.SetChainHeight(txn, block.Number)
 	})
+	if err != nil {
+		return err
+	}
+
+	b.curBlockHeader.Store(block.Header)
+
+	return nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
