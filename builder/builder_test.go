@@ -45,14 +45,14 @@ func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, tar
 	})
 }
 
-func waitForTxns(ctx context.Context, t *testing.T, bc blockchain.Reader, targetTxnNumber uint64) {
+func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc blockchain.Reader, targetTxnNumber uint64) {
 	var lastChecked uint64 = 0
 	var cumTxns uint64 = 0
 
 	for {
 		select {
 		case <-ctx.Done():
-			t.Logf("Context canceled or timeout reached")
+			require.Equal(t, true, false, "reached ctx timeout in waitForTxns")
 			return
 		default:
 			curBlockNumber, err := bc.Height()
@@ -70,7 +70,7 @@ func waitForTxns(ctx context.Context, t *testing.T, bc blockchain.Reader, target
 					return
 				}
 			}
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(blockTime / 4)
 		}
 	}
 }
@@ -192,16 +192,16 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	blockTime := 200 * time.Millisecond
+	blockTime := 100 * time.Millisecond
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(t.Context(), txn)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 4*blockTime)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*blockTime)
 	defer cancel()
 
-	waitForTxns(ctx, t, bc, 2)
+	waitForTxns(ctx, t, blockTime, bc, 2)
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
