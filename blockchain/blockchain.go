@@ -291,10 +291,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		// Head of the blockchain is maintained as follows:
-		// [db.ChainHeight]() -> (BlockNumber)
-		heightBin := core.MarshalBlockNumber(block.Number)
-		return txn.Put(db.ChainHeight.Key(), heightBin)
+		return core.WriteChainHeight(txn, block.Number)
 	})
 }
 
@@ -489,6 +486,5 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return core.DeleteChainHeight(txn)
 	}
 
-	heightBin := core.MarshalBlockNumber(blockNumber - 1)
-	return core.WriteChainHeight(txn, heightBin)
+	return core.WriteChainHeight(txn, blockNumber-1)
 }
