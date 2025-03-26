@@ -275,6 +275,7 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 // executes them one by one until the mempool is empty.
 func (b *Builder) listenPool(ctx context.Context) error {
 	for {
+		fmt.Println(" -- depletePool")
 		if err := b.depletePool(ctx); err != nil {
 			if !errors.Is(err, db.ErrKeyNotFound) {
 				return err
@@ -283,12 +284,14 @@ func (b *Builder) listenPool(ctx context.Context) error {
 
 		// push the pending block to the feed
 		b.subPendingBlock.Send(b.PendingBlock())
-
+		fmt.Println(" -- depletePool wait for ctx or mempool")
 		select {
 		case <-ctx.Done():
+			fmt.Println(" -- depletePool ctx hit")
 			return nil
 		// We wait for the mempool to get more txns before we continue
 		case <-b.mempool.Wait():
+			fmt.Println(" -- depletePool wmempool hit")
 			continue
 		}
 	}
@@ -304,10 +307,10 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 	for {
 		b.finaliseMutex.RLock()
-		fmt.Println("--pop")
+		fmt.Println("--pop & RLock()")
 		userTxn, err := b.mempool.Pop()
 		if err != nil {
-			fmt.Println("--pop err", err)
+			fmt.Println("--pop RUnlock() &  err", err)
 			b.finaliseMutex.RUnlock()
 			return err
 		}
