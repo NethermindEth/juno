@@ -45,33 +45,33 @@ func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, tar
 	})
 }
 
-func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetTxnNumber uint64) {
-	start := time.Now()
+func waitForTxns(ctx context.Context, t *testing.T, bc blockchain.Reader, targetTxnNumber uint64) {
 	var lastChecked uint64 = 0
 	var cumTxns uint64 = 0
 
 	for {
-		if time.Since(start) > timeout {
-			require.Equal(t, true, false, "reached timeout")
-		}
-
-		curBlockNumber, err := bc.Height()
-		require.NoError(t, err)
-
-		// Only check blocks we haven't seen yet
-		for i := lastChecked; i < curBlockNumber; i++ {
-			block, err := bc.BlockByNumber(i)
+		select {
+		case <-ctx.Done():
+			t.Logf("Context canceled or timeout reached")
+			return
+		default:
+			curBlockNumber, err := bc.Height()
 			require.NoError(t, err)
 
-			cumTxns += block.TransactionCount
-			lastChecked = i + 1
+			for i := lastChecked; i < curBlockNumber; i++ {
+				block, err := bc.BlockByNumber(i)
+				require.NoError(t, err)
 
-			if cumTxns >= targetTxnNumber {
-				return
+				cumTxns += block.TransactionCount
+				lastChecked = i + 1
+
+				if cumTxns >= targetTxnNumber {
+					t.Logf("Found at least %d transactions", targetTxnNumber)
+					return
+				}
 			}
+			time.Sleep(200 * time.Millisecond)
 		}
-
-		time.Sleep(timeout / 4)
 	}
 }
 
@@ -198,11 +198,10 @@ func TestPrefundedAccounts(t *testing.T) {
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(t.Context(), txn)
 	}
-	ctx, cancel := context.WithCancel(t.Context())
-	go func() {
-		waitForTxns(t, bc, 4*blockTime, 2)
-		cancel()
-	}()
+	ctx, cancel := context.WithTimeout(t.Context(), 4*blockTime)
+	defer cancel()
+
+	waitForTxns(ctx, t, bc, 2)
 	require.NoError(t, testBuilder.Run(ctx))
 
 	height, err := bc.Height()
