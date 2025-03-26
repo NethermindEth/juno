@@ -71,3 +71,27 @@ jobs:
             ps aux | grep juno | grep -v grep
             echo "Latest Juno log entries:"
             tail -n 30 ~/juno-benchmark/juno.log
+
+      - name: Run sync monitoring
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          command_timeout: 120m
+          script: |
+            export BLOCK_TARGET=${{ github.event.inputs.block_target || '10000' }}
+            chmod +x ~/juno-benchmark/scripts/juno-sync-monitor.sh
+            cd ~/juno-benchmark
+            echo "Starting sync monitoring to block $BLOCK_TARGET"
+            ./scripts/juno-sync-monitor.sh
+            
+      - name: Show sync results
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            echo "Sync benchmark results:"
+            cat ~/juno-benchmark/sync_report.txt

@@ -1,34 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-JUNO_LOG="$HOME/juno-benchmark/juno.log"
-BLOCK_TARGET=10000
+PROMETHEUS_ENDPOINT="http://localhost:9090/"
+BLOCK_TARGET=${BLOCK_TARGET:-10000}
 REPORT_FILE="$HOME/juno-benchmark/sync_report.txt"
-HTTP_ENDPOINT="http://localhost:6060/v0_8"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$REPORT_FILE"
 }
 
-get_current_block_from_log() {
-    grep 'Imported block' "$JUNO_LOG" | tail -1 | grep -oP 'number=\K[0-9]+' || echo "0"
-}
-
-get_current_block_from_api() {
+get_current_block_from_prometheus() {
     local result
-    result=$(curl -s "$HTTP_ENDPOINT" \
-        --header 'Content-Type: application/json' \
-        --data '{
-            "jsonrpc": "2.0",
-            "method": "starknet_getBlockWithTx",
-            "params": {
-                "block_id": "latest"
-            },
-            "id": 1
-        }' | grep -o '"block_number":[^,]*' | cut -d':' -f2)
+    result=$(curl -s "$PROMETHEUS_ENDPOINT" | grep "sync_blockchain_height" | grep -v "^#" | awk '{print $2}')
     
-    echo "${result:-0}"
+    if [[ -z "$result" ]] || ! [[ "$result" =~ ^[0-9]+$ ]]; then
+        echo "0"
+    else
+        echo "$result"
+    fi
 }
 
 echo "Juno Sync Report - $(date)" > "$REPORT_FILE"
@@ -38,17 +28,17 @@ START_TIME=$(date +%s)
 log "Sync started at $(date -u)"
 log "Target block: $BLOCK_TARGET"
 
-INITIAL_BLOCK=$(get_current_block_from_log)
+INITIAL_BLOCK=$(get_current_block_from_prometheus)
 log "Starting from block: $INITIAL_BLOCK"
 
 while true; do
-    CURRENT_BLOCK=$(get_current_block_from_api)
+    CURRENT_BLOCK=$(get_current_block_from_prometheus)
     
-    if [[ "$CURRENT_BLOCK" == "0" ]]; then
-        CURRENT_BLOCK=$(get_current_block_from_log)
-    fi
+    CURRENT_TIME=$(date +%s)
+    ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+    ELAPSED_MINUTES=$(echo "scale=2; $ELAPSED_TIME / 60" | bc)
     
-    echo "Current block: $CURRENT_BLOCK"
+    echo "Current block: $CURRENT_BLOCK / $BLOCK_TARGET (Elapsed: $ELAPSED_MINUTES minutes)"
     
     if [[ "$CURRENT_BLOCK" -ge "$BLOCK_TARGET" ]]; then
         END_TIME=$(date +%s)
