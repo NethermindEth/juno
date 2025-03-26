@@ -4,6 +4,7 @@ set -euo pipefail
 JUNO_VERSION="${1:-latest}"
 SNAPSHOT_URL="${SNAPSHOT_URL:-https://juno-snapshots.nethermind.io/files/sepolia/latest}"
 WORK_DIR="$HOME/juno-benchmark"
+DB_DIR="$WORK_DIR/db"
 JUNO_LOG="$WORK_DIR/juno.log"
 
 log() {
@@ -13,12 +14,12 @@ log() {
 cd "$WORK_DIR"
 
 log "Downloading snapshot from $SNAPSHOT_URL..."
-wget -q -c --tries=5 --retry-connrefused --waitretry=10 --timeout=60 "$SNAPSHOT_URL" -O snapshot.tar
+wget -q -c --tries=3 --retry-connrefused --waitretry=5 --timeout=10 "$SNAPSHOT_URL" -O snapshot.tar
 if [ ! -s snapshot.tar ]; then
     log "Snapshot download failed or file is empty"
     exit 1
 fi
-tar -xzf snapshot.tar && rm snapshot.tar
+tar -xzf snapshot.tar -C $DB_DIR && rm snapshot.tar
 SNAPSHOT_DIR=$(find "$WORK_DIR" -type d -mindepth 1 -maxdepth 1 | head -1)
 
 log "Downloading Juno version $JUNO_VERSION..."
@@ -37,7 +38,7 @@ chmod +x juno
 
 log "Starting Juno..."
 nohup "$WORK_DIR/juno" \
-    --db-path="$WORK_DIR/db" \
+    --db-path="$DB_DIR" \
     --disable-l1-verification \
     --http \
     --http-host=127.0.0.1 \

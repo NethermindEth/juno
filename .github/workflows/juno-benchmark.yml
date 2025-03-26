@@ -67,10 +67,10 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            sleep 10
+            sleep 5
             ps aux | grep juno | grep -v grep
             echo "Latest Juno log entries:"
-            tail -n 30 ~/juno-benchmark/juno.log
+            tail -n 15 ~/juno-benchmark/juno.log
 
       - name: Run sync monitoring
         uses: appleboy/ssh-action@master
