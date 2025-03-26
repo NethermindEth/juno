@@ -291,8 +291,8 @@ func GetChainHeight(r db.KeyValueReader) (uint64, error) {
 	return height, err
 }
 
-func WriteChainHeight(w db.KeyValueWriter, height []byte) error {
-	return w.Put(db.ChainHeight.Key(), height)
+func WriteChainHeight(w db.KeyValueWriter, height uint64) error {
+	return w.Put(db.ChainHeight.Key(), MarshalBlockNumber(height))
 }
 
 func DeleteChainHeight(w db.KeyValueWriter) error {
