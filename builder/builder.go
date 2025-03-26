@@ -158,7 +158,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println("finalised, cleared pening")
+			fmt.Println("finalised, InitPendingBlock end")
 		}
 	}
 }
@@ -234,11 +234,13 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	}
 	// push the new block head to the feed
 	b.subNewHeads.Send(b.PendingBlock())
-	fmt.Println("finalised, clearing pening")
+	fmt.Println("finalised, ClearPending start")
 	if err := b.ClearPending(); err != nil {
+		fmt.Println("finalised, ClearPending err", err)
 		return err
 	}
-	fmt.Println("finalised, cleared pening")
+	fmt.Println("finalised, ClearPending end")
+	fmt.Println("finalised, InitPendingBlock start")
 	return b.InitPendingBlock()
 }
 
