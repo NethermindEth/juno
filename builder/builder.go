@@ -154,10 +154,13 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
+			fmt.Println("b.finaliseMutex.Lock()")
 			b.finaliseMutex.Lock()
-			b.log.Infof("Finalising new block")
+			fmt.Println("Finalising new block")
 			err := b.Finalise(b.Sign)
+			b.log.Infof("Finalised new block")
 			b.finaliseMutex.Unlock()
+			fmt.Println("b.finaliseMutex.Unlock()")
 			if err != nil {
 				return err
 			}
@@ -301,13 +304,18 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 	for {
 		b.finaliseMutex.RLock()
+		fmt.Println("--pop")
 		userTxn, err := b.mempool.Pop()
 		if err != nil {
+			fmt.Println("--pop err", err)
 			b.finaliseMutex.RUnlock()
 			return err
 		}
+		fmt.Println("--pop suc")
+		fmt.Println("running txn", "hash", userTxn.Transaction.Hash().String())
 		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
 		if err = b.runTxn(&userTxn, blockHashToBeRevealed); err != nil {
+			fmt.Println("failed txn", "hash", userTxn.Transaction.Hash().String())
 			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
@@ -315,6 +323,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 				return err
 			}
 		}
+		fmt.Println("running txn success", "hash", userTxn.Transaction.Hash().String())
 		b.log.Debugw("running txn success", "hash", userTxn.Transaction.Hash().String())
 		b.finaliseMutex.RUnlock()
 		select {
