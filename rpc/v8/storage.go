@@ -61,21 +61,31 @@ type StorageProofResult struct {
 func (h *Handler) StorageProof(id BlockID,
 	classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
-	head, err := h.bcReader.Head()
+	state, closer, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	chainHeight, err := state.ChainHeight()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	// TODO(infrmtcs): This is still a half baked solution because we're using another transaction to get the block number.
+	// We don't use the head query directly to avoid race condition where there is a new incoming block.
+	// Currently it's still working because we don't have revert yet.
+	// We should figure out a way to merge the two transactions.
+	head, err := h.bcReader.BlockByNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	// We do not support historical storage proofs for now
 	// Ensure that the block requested is the head block
-	if rpcErr := h.isBlockSupported(id, head); rpcErr != nil {
+	if rpcErr := h.isBlockSupported(&id, chainHeight); rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	state, closer, err := h.bcReader.HeadState()
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
 	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
 
 	classTrie, err := state.ClassTrie()
@@ -163,7 +173,7 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 
 // isBlockSupported checks if the block ID requested is supported for storage proofs
 // Currently returns true only if the block ID requested matches the head block
-func (h *Handler) isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error {
+func (h *Handler) isBlockSupported(id *BlockID, chainHeight uint64) *jsonrpc.Error {
 	var blockNumber uint64
 	switch {
 	case id.IsLatest():
@@ -185,9 +195,9 @@ func (h *Handler) isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error 
 	}
 
 	switch {
-	case blockNumber < head.Number:
+	case blockNumber < chainHeight:
 		return rpccore.ErrStorageProofNotSupported
-	case blockNumber > head.Number:
+	case blockNumber > chainHeight:
 		return rpccore.ErrBlockNotFound
 	}
 	return nil

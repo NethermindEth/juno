@@ -22,6 +22,7 @@ import (
 type MockStateHistoryReader struct {
 	ctrl     *gomock.Controller
 	recorder *MockStateHistoryReaderMockRecorder
+	isgomock struct{}
 }
 
 // MockStateHistoryReaderMockRecorder is the mock recorder for MockStateHistoryReader.
@@ -41,19 +42,34 @@ func (m *MockStateHistoryReader) EXPECT() *MockStateHistoryReaderMockRecorder {
 	return m.recorder
 }
 
-// Class mocks base method.
-func (m *MockStateHistoryReader) Class(arg0 *felt.Felt) (*core.DeclaredClass, error) {
+// ChainHeight mocks base method.
+func (m *MockStateHistoryReader) ChainHeight() (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Class", arg0)
+	ret := m.ctrl.Call(m, "ChainHeight")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ChainHeight indicates an expected call of ChainHeight.
+func (mr *MockStateHistoryReaderMockRecorder) ChainHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainHeight", reflect.TypeOf((*MockStateHistoryReader)(nil).ChainHeight))
+}
+
+// Class mocks base method.
+func (m *MockStateHistoryReader) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Class", classHash)
 	ret0, _ := ret[0].(*core.DeclaredClass)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Class indicates an expected call of Class.
-func (mr *MockStateHistoryReaderMockRecorder) Class(arg0 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) Class(classHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStateHistoryReader)(nil).Class), classHash)
 }
 
 // ClassTrie mocks base method.
@@ -72,123 +88,123 @@ func (mr *MockStateHistoryReaderMockRecorder) ClassTrie() *gomock.Call {
 }
 
 // ContractClassHash mocks base method.
-func (m *MockStateHistoryReader) ContractClassHash(arg0 *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractClassHash", arg0)
+	ret := m.ctrl.Call(m, "ContractClassHash", addr)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractClassHash indicates an expected call of ContractClassHash.
-func (mr *MockStateHistoryReaderMockRecorder) ContractClassHash(arg0 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractClassHash(addr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHash", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHash), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHash", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHash), addr)
 }
 
 // ContractClassHashAt mocks base method.
-func (m *MockStateHistoryReader) ContractClassHashAt(arg0 *felt.Felt, arg1 uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractClassHashAt", arg0, arg1)
+	ret := m.ctrl.Call(m, "ContractClassHashAt", addr, blockNumber)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractClassHashAt indicates an expected call of ContractClassHashAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractClassHashAt(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractClassHashAt(addr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHashAt), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractClassHashAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractClassHashAt), addr, blockNumber)
 }
 
 // ContractIsAlreadyDeployedAt mocks base method.
-func (m *MockStateHistoryReader) ContractIsAlreadyDeployedAt(arg0 *felt.Felt, arg1 uint64) (bool, error) {
+func (m *MockStateHistoryReader) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractIsAlreadyDeployedAt", arg0, arg1)
+	ret := m.ctrl.Call(m, "ContractIsAlreadyDeployedAt", addr, blockNumber)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractIsAlreadyDeployedAt indicates an expected call of ContractIsAlreadyDeployedAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractIsAlreadyDeployedAt(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractIsAlreadyDeployedAt(addr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractIsAlreadyDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractIsAlreadyDeployedAt), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractIsAlreadyDeployedAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractIsAlreadyDeployedAt), addr, blockNumber)
 }
 
 // ContractNonce mocks base method.
-func (m *MockStateHistoryReader) ContractNonce(arg0 *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractNonce", arg0)
+	ret := m.ctrl.Call(m, "ContractNonce", addr)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractNonce indicates an expected call of ContractNonce.
-func (mr *MockStateHistoryReaderMockRecorder) ContractNonce(arg0 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractNonce(addr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonce", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractNonce), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonce", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractNonce), addr)
 }
 
 // ContractNonceAt mocks base method.
-func (m *MockStateHistoryReader) ContractNonceAt(arg0 *felt.Felt, arg1 uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractNonceAt", arg0, arg1)
+	ret := m.ctrl.Call(m, "ContractNonceAt", addr, blockNumber)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractNonceAt indicates an expected call of ContractNonceAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractNonceAt(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractNonceAt(addr, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonceAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractNonceAt), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractNonceAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractNonceAt), addr, blockNumber)
 }
 
 // ContractStorage mocks base method.
-func (m *MockStateHistoryReader) ContractStorage(arg0, arg1 *felt.Felt) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractStorage", arg0, arg1)
+	ret := m.ctrl.Call(m, "ContractStorage", addr, key)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractStorage indicates an expected call of ContractStorage.
-func (mr *MockStateHistoryReaderMockRecorder) ContractStorage(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractStorage(addr, key any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorage", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorage), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorage", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorage), addr, key)
 }
 
 // ContractStorageAt mocks base method.
-func (m *MockStateHistoryReader) ContractStorageAt(arg0, arg1 *felt.Felt, arg2 uint64) (*felt.Felt, error) {
+func (m *MockStateHistoryReader) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (*felt.Felt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractStorageAt", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ContractStorageAt", addr, key, blockNumber)
 	ret0, _ := ret[0].(*felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractStorageAt indicates an expected call of ContractStorageAt.
-func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractStorageAt(addr, key, blockNumber any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageAt), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageAt", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageAt), addr, key, blockNumber)
 }
 
 // ContractStorageTrie mocks base method.
-func (m *MockStateHistoryReader) ContractStorageTrie(arg0 *felt.Felt) (*trie.Trie, error) {
+func (m *MockStateHistoryReader) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContractStorageTrie", arg0)
+	ret := m.ctrl.Call(m, "ContractStorageTrie", addr)
 	ret0, _ := ret[0].(*trie.Trie)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContractStorageTrie indicates an expected call of ContractStorageTrie.
-func (mr *MockStateHistoryReaderMockRecorder) ContractStorageTrie(arg0 any) *gomock.Call {
+func (mr *MockStateHistoryReaderMockRecorder) ContractStorageTrie(addr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageTrie), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContractStorageTrie", reflect.TypeOf((*MockStateHistoryReader)(nil).ContractStorageTrie), addr)
 }
 
 // ContractTrie mocks base method.
