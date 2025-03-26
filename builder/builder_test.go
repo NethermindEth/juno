@@ -59,7 +59,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 
 			curBlockNumber, err := bc.Height()
 			require.NoError(t, err)
-			t.Logf("check for transactions curBlockNumber", "curBlockNumber", curBlockNumber)
+			fmt.Println("check for transactions curBlockNumber", "curBlockNumber", curBlockNumber)
 			for i := lastChecked; i < curBlockNumber; i++ {
 				block, err := bc.BlockByNumber(i)
 				require.NoError(t, err)
@@ -71,11 +71,11 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 				lastChecked = i + 1
 
 				if cumTxns >= targetTxnNumber {
-					t.Logf("Found at least %d transactions", targetTxnNumber)
+					fmt.Println("Found at least %d transactions", targetTxnNumber)
 					return
 				}
 			}
-			t.Logf("sleep before checking for transactions again")
+			fmt.Println("sleep before checking for transactions again")
 			time.Sleep(blockTime)
 		}
 	}
@@ -206,9 +206,9 @@ func TestPrefundedAccounts(t *testing.T) {
 		require.Nil(t, rpcErr)
 		fmt.Println(" --- added txn to mempool")
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 20*blockTime) // should timeout before then
+	ctx, cancel := context.WithTimeout(t.Context(), 20*blockTime) // upperbound on cancel
 	go func() {
-		waitForTxns(ctx, t, blockTime, bc, 2)
+		waitForTxns(ctx, t, blockTime, bc, 2) // attempt early cancel
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
