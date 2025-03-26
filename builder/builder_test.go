@@ -46,20 +46,33 @@ func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, tar
 }
 
 func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetTxnNumber uint64) {
-	waitFor(t, timeout, func() bool {
+	start := time.Now()
+	var lastChecked uint64 = 0
+	var cumTxns uint64 = 0
+
+	for {
+		if time.Since(start) > timeout {
+			require.Equal(t, true, false, "reached timeout")
+		}
+
 		curBlockNumber, err := bc.Height()
 		require.NoError(t, err)
-		cumTxns := uint64(0)
-		for i := range curBlockNumber {
+
+		// Only check blocks we haven't seen yet
+		for i := lastChecked; i < curBlockNumber; i++ {
 			block, err := bc.BlockByNumber(i)
 			require.NoError(t, err)
+
 			cumTxns += block.TransactionCount
+			lastChecked = i + 1
+
 			if cumTxns >= targetTxnNumber {
-				return true
+				return
 			}
 		}
-		return false
-	})
+
+		time.Sleep(timeout / 4)
+	}
 }
 
 func TestSign(t *testing.T) {
