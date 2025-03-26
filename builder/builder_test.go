@@ -71,7 +71,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 				lastChecked = i + 1
 
 				if cumTxns >= targetTxnNumber {
-					fmt.Println("Found at least %d transactions", targetTxnNumber)
+					fmt.Println("Found at least transactions", targetTxnNumber)
 					return
 				}
 			}
