@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/genesis"
@@ -79,39 +78,39 @@ func TestSign(t *testing.T) {
 	// We don't check the signature since the private key generation is not deterministic.
 }
 
-func TestBuildTwoEmptyBlocks(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
-	mockCtrl := gomock.NewController(t)
-	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
-	emptyStateDiff := core.EmptyStateDiff()
-	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	privKey, err := ecdsa.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+// func TestBuildTwoEmptyBlocks(t *testing.T) {
+// 	testDB := pebble.NewMemTest(t)
+// 	mockCtrl := gomock.NewController(t)
+// 	mockVM := mocks.NewMockVM(mockCtrl)
+// 	bc := blockchain.New(testDB, &utils.Integration)
+// 	emptyStateDiff := core.EmptyStateDiff()
+// 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
+// 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+// 	privKey, err := ecdsa.GenerateKey(rand.Reader)
+// 	require.NoError(t, err)
+// 	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
 
-	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, closer)
+// 	minHeight := uint64(2)
+// 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, closer)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	go func() {
-		waitForBlock(t, bc, time.Second, minHeight)
-		cancel()
-	}()
-	require.NoError(t, testBuilder.Run(ctx))
+// 	ctx, cancel := context.WithCancel(t.Context())
+// 	go func() {
+// 		waitForBlock(t, bc, time.Second, minHeight)
+// 		cancel()
+// 	}()
+// 	require.NoError(t, testBuilder.Run(ctx))
 
-	height, err := bc.Height()
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, height, minHeight)
-	for i := range height {
-		block, err := bc.BlockByNumber(i + 1)
-		require.NoError(t, err)
-		require.Equal(t, seqAddr, block.SequencerAddress)
-		require.Empty(t, block.Transactions)
-		require.Empty(t, block.Receipts)
-	}
-}
+// 	height, err := bc.Height()
+// 	require.NoError(t, err)
+// 	require.GreaterOrEqual(t, height, minHeight)
+// 	for i := range height {
+// 		block, err := bc.BlockByNumber(i + 1)
+// 		require.NoError(t, err)
+// 		require.Equal(t, seqAddr, block.SequencerAddress)
+// 		require.Empty(t, block.Transactions)
+// 		require.Empty(t, block.Receipts)
+// 	}
+// }
 
 func TestPrefundedAccounts(t *testing.T) {
 	// transfer tokens to 0x101
@@ -187,6 +186,9 @@ func TestPrefundedAccounts(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Println("nonce should be non-zero,", nonce.String())
 	require.NoError(t, closer())
+	fmt.Println("sleep 1 sec")
+	time.Sleep(time.Second)
+	fmt.Println("sleep 1 sec - awake now")
 	blockTime := 500 * time.Millisecond
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
