@@ -553,6 +553,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	fmt.Println(" AddTransaction", h.memPool != nil)
 	if h.memPool != nil {
 		return h.addToMempool(&tx)
 	} else {
@@ -563,16 +564,19 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := adaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
+		fmt.Println(" AddTransaction failed adapt")
 		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
+	fmt.Println(" AddTransaction push")
 	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
 	}); err != nil {
+		fmt.Println(" AddTransaction push failed err", err)
 		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-
+	fmt.Println(" AddTransaction resp")
 	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
 		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
@@ -582,6 +586,7 @@ func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jso
 			return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
 	}
+	fmt.Println(" AddTransaction resp suc")
 	return res, nil
 }
 

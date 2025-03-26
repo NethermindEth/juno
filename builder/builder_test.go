@@ -201,7 +201,8 @@ func TestPrefundedAccounts(t *testing.T) {
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
-		rpcHandler.AddTransaction(t.Context(), txn)
+		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
+		require.Nil(t, rpcErr)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*blockTime)
 	defer cancel()
