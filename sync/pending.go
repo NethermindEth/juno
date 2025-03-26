@@ -26,6 +26,14 @@ func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Cl
 	}
 }
 
+func (p *PendingState) ChainHeight() (uint64, error) {
+	return p.head.ChainHeight()
+}
+
+func (p *PendingState) StateDiff() *core.StateDiff {
+	return p.stateDiff
+}
+
 func (p *PendingState) ContractClassHash(addr *felt.Felt) (*felt.Felt, error) {
 	if classHash, ok := p.stateDiff.ReplacedClasses[*addr]; ok {
 		return classHash, nil

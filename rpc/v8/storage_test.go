@@ -144,10 +144,14 @@ func TestStorageProof(t *testing.T) {
 	_ = tempTrie.Commit()
 	trieRoot, _ := tempTrie.Root()
 
+	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
+
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
-	mockReader.EXPECT().Head().Return(&core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}, nil).AnyTimes()
+	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
+	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()
+	mockState.EXPECT().ChainHeight().Return(blockNumber, nil).AnyTimes()
 	mockState.EXPECT().ClassTrie().Return(tempTrie, nil).AnyTimes()
 	mockState.EXPECT().ContractTrie().Return(tempTrie, nil).AnyTimes()
 
