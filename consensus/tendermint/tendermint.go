@@ -432,3 +432,52 @@ func q(totalVotingPower uint) uint {
 	}
 	return q
 }
+
+func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
+	t *Tendermint[V, H, A],
+	m M,
+	r func(M) round,
+	addMessage func(M),
+) bool {
+	mR := r(m)
+	if mR > t.state.r {
+		if mR-t.state.r > maxFutureRound {
+			return false
+		}
+
+		t.futureMessagesMu.Lock()
+		addMessage(m)
+		t.futureMessagesMu.Unlock()
+
+		t.line55(mR)
+		return false
+	}
+	return true
+}
+
+func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
+	t *Tendermint[V, H, A],
+	m M,
+	h func(M) height,
+	r func(M) round,
+	addMessage func(M),
+) bool {
+	mH := h(m)
+	mR := r(m)
+
+	if mH > t.state.h {
+		if mH-t.state.h > maxFutureHeight {
+			return false
+		}
+
+		if mR > maxFutureRound {
+			return false
+		}
+
+		t.futureMessagesMu.Lock()
+		addMessage(m)
+		t.futureMessagesMu.Unlock()
+		return false
+	}
+	return true
+}

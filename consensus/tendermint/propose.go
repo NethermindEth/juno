@@ -5,32 +5,17 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		return
 	}
 
-	if p.H > t.state.h {
-		if p.H-t.state.h > maxFutureHeight {
-			return
-		}
-
-		if p.R > maxFutureRound {
-			return
-		}
-
-		t.futureMessagesMu.Lock()
-		defer t.futureMessagesMu.Unlock()
-		t.futureMessages.addProposal(p)
+	if !handleFutureHeightMessage(
+		t,
+		p,
+		func(p Proposal[V, H, A]) height { return p.H },
+		func(p Proposal[V, H, A]) round { return p.R },
+		t.futureMessages.addProposal,
+	) {
 		return
 	}
 
-	if p.R > t.state.r {
-		if p.R-t.state.r > maxFutureRound {
-			return
-		}
-
-		t.futureMessagesMu.Lock()
-		defer t.futureMessagesMu.Unlock()
-
-		t.futureMessages.addProposal(p)
-
-		t.line55(p.R)
+	if !handleFutureRoundMessage(t, p, func(p Proposal[V, H, A]) round { return p.R }, t.futureMessages.addProposal) {
 		return
 	}
 

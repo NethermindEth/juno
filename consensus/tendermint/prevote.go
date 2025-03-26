@@ -10,32 +10,17 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 		return
 	}
 
-	if p.H > t.state.h {
-		if p.H-t.state.h > maxFutureHeight {
-			return
-		}
-
-		if p.R > maxFutureRound {
-			return
-		}
-
-		t.futureMessagesMu.Lock()
-		defer t.futureMessagesMu.Unlock()
-		t.futureMessages.addPrevote(p)
+	if !handleFutureHeightMessage(
+		t,
+		p,
+		func(p Prevote[H, A]) height { return p.H },
+		func(p Prevote[H, A]) round { return p.R },
+		t.futureMessages.addPrevote,
+	) {
 		return
 	}
 
-	if p.R > t.state.r {
-		if p.R-t.state.r > maxFutureRound {
-			return
-		}
-
-		t.futureMessagesMu.Lock()
-		defer t.futureMessagesMu.Unlock()
-
-		t.futureMessages.addPrevote(p)
-
-		t.line55(p.R)
+	if !handleFutureRoundMessage(t, p, func(p Prevote[H, A]) round { return p.R }, t.futureMessages.addPrevote) {
 		return
 	}
 
