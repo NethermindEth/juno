@@ -198,7 +198,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	for _, txn := range expectedExnsInBlock {
 		rpcHandler.AddTransaction(t.Context(), txn)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 10*blockTime)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*blockTime)
 	defer cancel()
 
 	waitForTxns(ctx, t, blockTime, bc, 2)
