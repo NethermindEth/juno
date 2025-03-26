@@ -61,6 +61,7 @@ func waitForTxns(t *testing.T, bc blockchain.Reader, timeout time.Duration, targ
 		return false
 	})
 }
+
 func TestSign(t *testing.T) {
 	testDB := pebble.NewMemTest(t)
 	mockCtrl := gomock.NewController(t)
@@ -178,7 +179,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	blockTime := 500 * time.Millisecond
+	blockTime := 100 * time.Millisecond
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
@@ -186,7 +187,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
-		waitForTxns(t, bc, 2*blockTime, 2)
+		waitForTxns(t, bc, 4*blockTime, 2)
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
