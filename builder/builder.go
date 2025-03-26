@@ -114,7 +114,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
 	}
 
-	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), txn.Discard, nil
 }
 
 func (b *Builder) Run(ctx context.Context) error {

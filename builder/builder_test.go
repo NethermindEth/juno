@@ -180,6 +180,13 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
+
+	state, closer, err := bc.HeadState()
+	require.NoError(t, err)
+	nonce, err := state.ContractNonce(utils.HexToFelt(t, "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d"))
+	require.NoError(t, err)
+	fmt.Println("nonce should be non-zero,", nonce.String())
+	require.NoError(t, closer())
 	blockTime := 500 * time.Millisecond
 	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
@@ -225,4 +232,5 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
 	require.True(t, foundExpectedBalance)
+	panic(2)
 }
