@@ -198,8 +198,8 @@ func TestPrefundedAccounts(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
-		// waitForTxns(t, bc, 2*blockTime, 5)
-		time.Sleep(20 * blockTime)
+		waitForTxns(t, bc, 4*blockTime, 2)
+		// time.Sleep(20 * blockTime)
 		cancel()
 	}()
 	require.NoError(t, testBuilder.Run(ctx))
@@ -215,24 +215,24 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 
 	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x56bc75e2d63100000"), utils.HexToFelt(t, "0x12345678"))
-	foundExpectedBalance := false
 	numExpectedBalance := 0
+	foundExpectedNumAcntsWBalance := false
 	for i := range height {
 		su, err := bc.StateUpdateByNumber(i + 1)
 		require.NoError(t, err)
 		for _, store := range su.StateDiff.StorageDiffs {
 			for _, val := range store {
 				if val.Equal(expectedBalance) {
-					foundExpectedBalance = true
 					numExpectedBalance++
 				}
 			}
 		}
-		if foundExpectedBalance {
+		if numExpectedBalance == len(expectedExnsInBlock) {
+			foundExpectedNumAcntsWBalance = true
 			break
 		}
 	}
-	require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
-	require.True(t, foundExpectedBalance)
-	panic(2)
+	require.True(t, foundExpectedNumAcntsWBalance)
+	// require.Equal(t, len(expectedExnsInBlock), numExpectedBalance, "Accounts don't have the expected balance")
+	// panic(2)
 }
