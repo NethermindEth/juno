@@ -82,7 +82,6 @@ func (c *Client) WithTimeouts(timeouts TimeoutConfig) *Client {
 	if len(timeouts) == 0 {
 		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
 	} else {
-
 		if len(timeouts) > 0 {
 			sort.Slice(timeouts, func(i, j int) bool {
 				return timeouts[i] < timeouts[j]
