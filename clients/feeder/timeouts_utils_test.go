@@ -2,7 +2,6 @@ package feeder
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -121,11 +120,10 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update timeouts with invalid value", func(t *testing.T) {
-		invalidValue := "invalid"
-		rr, _ := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts="+invalidValue, client)
+		rr, _ := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=invalid", client)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, rr.Body.String(), fmt.Sprintf(`parsing timeouts: time: invalid duration "%q"`, invalidValue)+"\n")
+		assert.Equal(t, "parsing timeouts: time: invalid duration \"invalid\"\n", rr.Body.String())
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {
