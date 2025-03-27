@@ -1,5 +1,6 @@
 name: starknet-js tests
 
+# Test PR for CI fast mode
 on:
   workflow_call:
     inputs:
