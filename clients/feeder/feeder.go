@@ -85,8 +85,8 @@ func (c *Client) WithTimeouts(timeouts TimeoutConfig) *Client {
 	} else {
 		count := c.maxRetries + 1 - len(timeouts)
 		next := getNextTimeout(timeouts[len(timeouts)-1])
-		generated := generateTimeouts(next, count)
-		c.timeouts = append(timeouts, generated...)
+		timeouts := append(timeouts, generateTimeouts(next, count)...)
+		c.timeouts = timeouts
 	}
 	c.curTimeout = 0
 	return c
