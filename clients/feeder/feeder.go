@@ -24,6 +24,7 @@ import (
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Backoff func(wait time.Duration) time.Duration
+
 type TimeoutConfig []time.Duration
 
 type Client struct {
@@ -84,7 +85,7 @@ func (c *Client) WithTimeouts(timeouts TimeoutConfig) *Client {
 	} else {
 		count := c.maxRetries + 1 - len(timeouts)
 		next := getNextTimeout(timeouts[len(timeouts)-1])
-		c.timeouts = append(timeouts, generateTimeouts(next, count)...)
+		c.timeouts = append(c.timeouts, generateTimeouts(next, count)...)
 	}
 	c.curTimeout = 0
 	return c

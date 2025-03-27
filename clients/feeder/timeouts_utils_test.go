@@ -1,6 +1,7 @@
 package feeder
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -59,34 +60,37 @@ func TestParseTimeouts(t *testing.T) {
 	}
 }
 
+func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) (*httptest.ResponseRecorder, http.HandlerFunc) {
+	req, err := http.NewRequestWithContext(ctx, method, path, http.NoBody)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HTTPTimeoutsSettings(w, r, client)
+	})
+
+	handler.ServeHTTP(rr, req)
+	return rr, handler
+}
+
 func TestHTTPTimeoutsSettings(t *testing.T) {
 	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(TimeoutConfig{defaultTimeout})
 	ctx := t.Context()
+
 	t.Run("GET current timeouts", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/feeder/timeouts", http.NoBody)
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			HTTPTimeoutsSettings(w, r, client)
-		})
-
-		handler.ServeHTTP(rr, req)
-
+		rr, _ := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "5s,8s,12s,18s,27s\n", rr.Body.String())
 	})
 
+	t.Run("PUT update timeouts with missing parameter", func(t *testing.T) {
+		rr, _ := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts", client)
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "missing timeouts query parameter\n", rr.Body.String())
+	})
+
 	t.Run("PUT update timeouts list and single timeout", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/feeder/timeouts?timeouts=5s,7s,10s", http.NoBody)
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			HTTPTimeoutsSettings(w, r, client)
-		})
-
-		handler.ServeHTTP(rr, req)
+		rr, handler := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=5s,7s,10s", client)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
@@ -100,14 +104,15 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		rr = httptest.NewRecorder()
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodPut, "/feeder/timeouts?timeouts=2s", http.NoBody)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/feeder/timeouts?timeouts=2s", http.NoBody)
 		require.NoError(t, err)
 
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
-		assert.Equal(t, TimeoutConfig{2 * time.Second,
+		assert.Equal(t, TimeoutConfig{
+			2 * time.Second,
 			3 * time.Second,
 			5 * time.Second,
 			8 * time.Second,
@@ -115,47 +120,16 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 		}, client.timeouts)
 	})
 
-	t.Run("PUT update timeouts with missing parameter", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/feeder/timeouts", http.NoBody)
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			HTTPTimeoutsSettings(w, r, client)
-		})
-
-		handler.ServeHTTP(rr, req)
-
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "missing timeouts query parameter\n", rr.Body.String())
-	})
-
 	t.Run("PUT update timeouts with invalid value", func(t *testing.T) {
 		invalidValue := "invalid"
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/feeder/timeouts?timeouts="+invalidValue, http.NoBody)
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			HTTPTimeoutsSettings(w, r, client)
-		})
-
-		handler.ServeHTTP(rr, req)
+		rr, _ := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts="+invalidValue, client)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, rr.Body.String(), fmt.Sprintf(`parsing timeouts: time: invalid duration "%s"`, invalidValue)+"\n")
+		assert.Equal(t, rr.Body.String(), fmt.Sprintf(`parsing timeouts: time: invalid duration "%q"`, invalidValue)+"\n")
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/feeder/timeouts", http.NoBody)
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			HTTPTimeoutsSettings(w, r, client)
-		})
-
-		handler.ServeHTTP(rr, req)
+		rr, _ := setupTimeoutTest(t, ctx, http.MethodPost, "/feeder/timeouts", client)
 
 		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 		assert.Equal(t, "Method not allowed\n", rr.Body.String())

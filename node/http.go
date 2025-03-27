@@ -155,7 +155,7 @@ func makeMetrics(host string, port uint16) *httpService {
 }
 
 // Create a new service that updates the log level and timeouts settings.
-func makeHttpUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
+func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)

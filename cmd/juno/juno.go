@@ -126,7 +126,7 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
-	defaultHttpUpdatePort           = 0
+	defaultHTTPUpdatePort           = 0
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -377,7 +377,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaulHost, httpUpdateHostUsage)
-	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHttpUpdatePort, httpUpdatePortUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
