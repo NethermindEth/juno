@@ -288,7 +288,6 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			c.log.Debugw("Failed query to feeder, retrying...",
 				"req", req.URL.String(),
 				"retryAfter", wait.String(),
-				"withHttpTimeout", c.timeouts[c.curTimeout],
 				"err", err,
 			)
 		}
