@@ -1,9 +1,14 @@
 package feeder_test
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -577,12 +582,81 @@ func TestBackoffFailure(t *testing.T) {
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
 
-func TestBlockWithTimeout(t *testing.T) {
-	client := feeder.NewClient("https://alpha-mainnet.starknet.io/feeder_gateway/").WithTimeouts([]time.Duration{time.Second * 10})
+type mockTransport struct {
+	requestDuration time.Duration
+}
 
-	actualBlock, err := client.Block(t.Context(), strconv.Itoa(111817))
-	assert.Equal(t, nil, err, "Unexpected error")
-	assert.NotNil(t, actualBlock)
+func (t *mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	deadline, ok := req.Context().Deadline()
+	if !ok {
+		return nil, errors.New("no timeout set")
+	}
+
+	timeout := time.Until(deadline)
+	if timeout < t.requestDuration {
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: req.URL.String(),
+			Err: os.ErrDeadlineExceeded,
+		}
+	}
+
+	return &http.Response{
+		Status:     "200 OK",
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(strings.NewReader(`{
+            "block_hash": "0x123",
+            "block_number": 111817
+        }`)),
+	}, nil
+}
+
+func newTestFeederClient(transport http.RoundTripper, timeouts []time.Duration, maxRetries int) *feeder.Client {
+	return feeder.NewClient("").
+		WithTimeouts(timeouts).
+		WithMaxRetries(maxRetries).
+		WithBackoff(feeder.NopBackoff).
+		SetHTTPTransport(transport)
+}
+
+func TestBlockWithTimeout(t *testing.T) {
+	requestDuration := 5 * time.Second
+
+	t.Run("succeeds with increasing timeouts", func(t *testing.T) {
+		transport := &mockTransport{
+			requestDuration: requestDuration,
+		}
+
+		client := newTestFeederClient(transport, []time.Duration{
+			1 * time.Second, // Will timeout
+			3 * time.Second, // Will timeout
+			4 * time.Second, // Will timeout
+			6 * time.Second, // Will succeed (timeout > 5s)
+			8 * time.Second,
+		}, 4)
+
+		block, err := client.Block(t.Context(), strconv.Itoa(111817))
+		require.NoError(t, err)
+		require.NotNil(t, block)
+
+		require.Equal(t, 2, client.GetCurrentTimeout())
+	})
+
+	t.Run("fails when max retries is insufficient", func(t *testing.T) {
+		transport := &mockTransport{
+			requestDuration: requestDuration,
+		}
+
+		client := newTestFeederClient(transport, []time.Duration{
+			1 * time.Second, // Will timeout
+			3 * time.Second, // Will timeout
+			4 * time.Second, // Will timeout
+		}, 2)
+
+		_, err := client.Block(t.Context(), strconv.Itoa(111817))
+		require.Error(t, err)
+		require.Equal(t, 2, client.GetCurrentTimeout())
+	})
 }
 
 func TestCompiledClassDefinition(t *testing.T) {

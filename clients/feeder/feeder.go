@@ -258,6 +258,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	if c.timeouts == nil {
 		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
 	}
+
 	for range c.maxRetries + 1 {
 		select {
 		case <-ctx.Done():
@@ -507,4 +508,15 @@ func findTargetDirectory(targetRelPath string) (string, error) {
 		}
 		root = newRoot
 	}
+}
+
+// For testing purposes
+func (c *Client) GetCurrentTimeout() int {
+	return c.curTimeout
+}
+
+// For testing purposes
+func (c *Client) SetHTTPTransport(transport http.RoundTripper) *Client {
+	c.client.Transport = transport
+	return c
 }
