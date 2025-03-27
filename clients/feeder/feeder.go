@@ -293,8 +293,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				res.Body.Close()
 			}
 
-			if c.curTimeout < c.maxRetries {
-				c.curTimeout++
+			c.curTimeout++
+			if c.curTimeout >= len(c.timeouts) {
+				c.curTimeout = len(c.timeouts) - 1
 			}
 
 			if wait < c.minWait {
