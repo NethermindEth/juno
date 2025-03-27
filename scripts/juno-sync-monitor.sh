@@ -2,8 +2,8 @@
 set -euo pipefail
 
 PROMETHEUS_ENDPOINT="http://localhost:9090/"
-BLOCK_TARGET=${BLOCK_TARGET:-10000}
 REPORT_FILE="$HOME/juno-benchmark/sync_report.txt"
+BLOCKS_TO_MONITOR=${BLOCKS_TO_MONITOR:-10000}
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
@@ -26,10 +26,11 @@ echo "--------------------------------" >> "$REPORT_FILE"
 
 START_TIME=$(date +%s)
 log "Sync started at $(date -u)"
-log "Target block: $BLOCK_TARGET"
 
 INITIAL_BLOCK=$(get_current_block_from_prometheus)
+TARGET_BLOCK=$((INITIAL_BLOCK + BLOCKS_TO_MONITOR))
 log "Starting from block: $INITIAL_BLOCK"
+log "Target block: $TARGET_BLOCK"
 
 while true; do
     CURRENT_BLOCK=$(get_current_block_from_prometheus)
@@ -38,9 +39,9 @@ while true; do
     ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
     ELAPSED_MINUTES=$(echo "scale=2; $ELAPSED_TIME / 60" | bc)
     
-    echo "Current block: $CURRENT_BLOCK / $BLOCK_TARGET (Elapsed: $ELAPSED_MINUTES minutes)"
+    echo "Current block: $CURRENT_BLOCK / $TARGET_BLOCK (Elapsed: $ELAPSED_MINUTES minutes)"
     
-    if [[ "$CURRENT_BLOCK" -ge "$BLOCK_TARGET" ]]; then
+    if [[ "$CURRENT_BLOCK" -ge "$TARGET_BLOCK" ]]; then
         END_TIME=$(date +%s)
         SYNC_DURATION=$((END_TIME - START_TIME))
         SYNC_MINUTES=$(echo "scale=2; $SYNC_DURATION / 60" | bc)
