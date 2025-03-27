@@ -24,6 +24,7 @@ import (
 var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Backoff func(wait time.Duration) time.Duration
+type TimeoutConfig []time.Duration
 
 type Client struct {
 	url        string
@@ -36,6 +37,8 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
+	timeouts   TimeoutConfig
+	curTimeout int
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -73,8 +76,17 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-func (c *Client) WithTimeout(t time.Duration) *Client {
-	c.client.Timeout = t
+func (c *Client) WithTimeouts(timeouts TimeoutConfig) *Client {
+	if len(timeouts) == 0 {
+		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
+	} else if len(timeouts) > c.maxRetries+1 {
+		c.timeouts = timeouts[:c.maxRetries+1]
+	} else {
+		count := c.maxRetries + 1 - len(timeouts)
+		next := getNextTimeout(timeouts[len(timeouts)-1])
+		c.timeouts = append(timeouts, generateTimeouts(next, count)...)
+	}
+	c.curTimeout = 0
 	return c
 }
 
@@ -232,6 +244,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
+	if c.timeouts == nil {
+		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
+	}
 	for range c.maxRetries + 1 {
 		select {
 		case <-ctx.Done():
@@ -249,17 +264,25 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
+			c.client.Timeout = c.timeouts[c.curTimeout]
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			if err == nil {
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
+					if c.curTimeout > 0 {
+						c.curTimeout--
+					}
 					return res.Body, nil
 				} else {
 					err = errors.New(res.Status)
 				}
 
 				res.Body.Close()
+			}
+
+			if c.curTimeout < c.maxRetries {
+				c.curTimeout++
 			}
 
 			if wait < c.minWait {
@@ -269,7 +292,12 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
+			c.log.Debugw("Failed query to feeder, retrying...",
+				"req", req.URL.String(),
+				"retryAfter", wait.String(),
+				"withHttpTimeout", c.timeouts[c.curTimeout],
+				"err", err,
+			)
 		}
 	}
 	return nil, err

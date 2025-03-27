@@ -73,7 +73,7 @@ const (
 	dbCacheSizeF            = "db-cache-size"
 	dbMaxHandlesF           = "db-max-handles"
 	gwAPIKeyF               = "gw-api-key" //nolint: gosec
-	gwTimeoutF              = "gw-timeout" //nolint: gosec
+	gwTimeoutsF             = "gw-timeouts"
 	cnNameF                 = "cn-name"
 	cnFeederURLF            = "cn-feeder-url"
 	cnGatewayURLF           = "cn-gateway-url"
@@ -85,8 +85,8 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
-	logHostF                = "log-host"
-	logPortF                = "log-port"
+	httpUpdateHostF         = "http-update-host"
+	httpUpdatePortF         = "http-update-port"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -122,11 +122,11 @@ const (
 	defaultCNL2ChainID              = ""
 	defaultCNCoreContractAddressStr = ""
 	defaultCallMaxSteps             = 4_000_000
-	defaultGwTimeout                = 5 * time.Second
+	defaultGwTimeout                = "5s"
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
-	defaultLogPort                  = 0
+	defaultHttpUpdatePort           = 0
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -174,14 +174,15 @@ const (
 	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutUsage       = "Timeout for requests made to the gateway"          //nolint: gosec
-	callMaxStepsUsage    = "Maximum number of steps to be executed in starknet_call requests. " +
+	gwTimeoutsUsage      = "Timeouts for requests made to the gateway. Can be specified as a single value or comma-separated list" +
+		"or multiple flags. Values over 2m will be capped. Example: --gw-timeouts=5s,7s,10s"
+	callMaxStepsUsage = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
-	logHostUsage                = "The interface on which the log level HTTP server will listen for requests."
-	logPortUsage                = "The port on which the log level HTTP server will listen for requests."
+	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
+	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 )
 
 var Version string
@@ -370,13 +371,13 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
-	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
+	junoCmd.Flags().StringSliceVar(&config.GatewayTimeouts, gwTimeoutsF, []string{defaultGwTimeout}, gwTimeoutsUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
-	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
-	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
+	junoCmd.Flags().String(httpUpdateHostF, defaulHost, httpUpdateHostUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHttpUpdatePort, httpUpdatePortUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

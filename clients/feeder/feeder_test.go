@@ -577,6 +577,14 @@ func TestBackoffFailure(t *testing.T) {
 	assert.Equal(t, maxRetries, try-1) // we have retried `maxRetries` times
 }
 
+func TestBlockWithTimeout(t *testing.T) {
+	client := feeder.NewClient("https://alpha-mainnet.starknet.io/feeder_gateway/").WithTimeouts([]time.Duration{time.Second * 10})
+
+	actualBlock, err := client.Block(t.Context(), strconv.Itoa(111817))
+	assert.Equal(t, nil, err, "Unexpected error")
+	assert.NotNil(t, actualBlock)
+}
+
 func TestCompiledClassDefinition(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 
