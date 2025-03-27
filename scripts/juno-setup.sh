@@ -19,8 +19,7 @@ if [ ! -s snapshot.tar ]; then
     log "Snapshot download failed or file is empty"
     exit 1
 fi
-tar -xzf snapshot.tar -C $DB_DIR && rm snapshot.tar
-SNAPSHOT_DIR=$(find "$WORK_DIR" -type d -mindepth 1 -maxdepth 1 | head -1)
+tar -xf snapshot.tar -C $DB_DIR && rm snapshot.tar
 
 log "Downloading Juno version $JUNO_VERSION..."
 if [ "$JUNO_VERSION" = "latest" ]; then
