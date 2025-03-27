@@ -23,6 +23,11 @@ on:
         required: false
         type: string
         default: "v0_7"
+      test_mode:
+        required: false
+        type: string
+        default: "full"
+        description: "Test mode to run (fast or full)"
     secrets:
       ARTIFACTORY_NUBIA_USERNAME:
         required: true
@@ -97,6 +102,8 @@ jobs:
   starknet-js:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
+    with:
+      test_mode: ${{ inputs.test_mode }}
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}/${{ inputs.rpc_version }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
