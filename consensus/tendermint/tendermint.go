@@ -481,3 +481,70 @@ func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]
 	}
 	return true
 }
+
+func checkForQuorumPrecommit[H Hash, A Addr](precommitsForHR map[A][]Precommit[H, A], vID H) ([]Precommit[H, A], []A) {
+	var precommits []Precommit[H, A]
+	var vals []A
+
+	for addr, valPrecommits := range precommitsForHR {
+		for _, p := range valPrecommits {
+			if *p.ID == vID {
+				precommits = append(precommits, p)
+				vals = append(vals, addr)
+			}
+		}
+	}
+	return precommits, vals
+}
+
+func checkForQuorumPrevotesGivenPrevote[H Hash, A Addr](p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) []A {
+	var vals []A
+	for addr, valPrevotes := range prevotesForHR {
+		for _, v := range valPrevotes {
+			if *v.ID == *p.ID {
+				vals = append(vals, addr)
+			}
+		}
+	}
+	return vals
+}
+
+func checkQuorumPrevotesGivenProposalVID[H Hash, A Addr](prevotesForHVr map[A][]Prevote[H, A], vID H) []A {
+	var vals []A
+	for addr, valPrevotes := range prevotesForHVr {
+		for _, p := range valPrevotes {
+			if *p.ID == vID {
+				vals = append(vals, addr)
+			}
+		}
+	}
+	return vals
+}
+
+func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrecommit(p Precommit[H, A],
+	proposalsForHR map[A][]Proposal[V, H, A],
+) *Proposal[V, H, A] {
+	var proposal *Proposal[V, H, A]
+
+	for _, prop := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
+		if (*prop.Value).Hash() == *p.ID {
+			propCopy := prop
+			proposal = &propCopy
+		}
+	}
+	return proposal
+}
+
+func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrevote(p Prevote[H, A],
+	proposalsForHR map[A][]Proposal[V, H, A],
+) *Proposal[V, H, A] {
+	var proposal *Proposal[V, H, A]
+
+	for _, v := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
+		if (*v.Value).Hash() == *p.ID {
+			vCopy := v
+			proposal = &vCopy
+		}
+	}
+	return proposal
+}

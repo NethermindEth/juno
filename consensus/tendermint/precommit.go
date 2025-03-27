@@ -56,27 +56,10 @@ func (t *Tendermint[V, H, A]) line49WhenPrecommitIsReceived(p Precommit[H, A], p
 	A], precommitsForHR map[A][]Precommit[H, A],
 ) bool {
 	if p.ID != nil {
-		var (
-			proposal   *Proposal[V, H, A]
-			precommits []Precommit[H, A]
-			vals       []A
-		)
+		proposal := t.checkForMatchingProposalGivenPrecommit(p, proposalsForHR)
 
-		for _, prop := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-			if (*prop.Value).Hash() == *p.ID {
-				propCopy := prop
-				proposal = &propCopy
-			}
-		}
+		precommits, vals := checkForQuorumPrecommit[H, A](precommitsForHR, *p.ID)
 
-		for addr, valPrecommits := range precommitsForHR {
-			for _, v := range valPrecommits {
-				if *v.ID == *p.ID {
-					precommits = append(precommits, v)
-					vals = append(vals, addr)
-				}
-			}
-		}
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			t.blockchain.Commit(t.state.h, *proposal.Value, precommits)
 

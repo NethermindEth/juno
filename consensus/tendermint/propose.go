@@ -66,17 +66,7 @@ Check the upon condition on line 49:
 func (t *Tendermint[V, H, A]) line49WhenProposalIsReceived(p Proposal[V, H, A], precommitsForHR map[A][]Precommit[H,
 	A], vID H, validProposal bool, proposalFromProposer bool,
 ) bool {
-	var precommits []Precommit[H, A]
-	var vals []A
-
-	for addr, valPrecommits := range precommitsForHR {
-		for _, p := range valPrecommits {
-			if *p.ID == vID {
-				precommits = append(precommits, p)
-				vals = append(vals, addr)
-			}
-		}
-	}
+	precommits, vals := checkForQuorumPrecommit[H, A](precommitsForHR, vID)
 
 	if validProposal && proposalFromProposer &&
 		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
@@ -146,14 +136,7 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < int(t.state.r) {
 		_, prevotesForHVr, _ := t.messages.allMessages(p.H, round(vr))
 
-		var vals []A
-		for addr, valPrevotes := range prevotesForHVr {
-			for _, p := range valPrevotes {
-				if *p.ID == vID {
-					vals = append(vals, addr)
-				}
-			}
-		}
+		vals := checkQuorumPrevotesGivenProposalVID(prevotesForHVr, vID)
 
 		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{

@@ -63,22 +63,8 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 
 		proposalsForHCR, _, _ := t.messages.allMessages(p.H, cr)
 
-		var proposal *Proposal[V, H, A]
-		var vals []A
-
-		for _, v := range proposalsForHCR[t.validators.Proposer(p.H, p.R)] {
-			if (*v.Value).Hash() == *p.ID && v.ValidRound == int(vr) {
-				proposal = &v
-			}
-		}
-
-		for addr, valPrevotes := range prevotesForHR {
-			for _, v := range valPrevotes {
-				if *v.ID == *p.ID {
-					vals = append(vals, addr)
-				}
-			}
-		}
+		proposal := t.checkForMatchingProposalGivenPrevote(p, proposalsForHCR)
+		vals := checkForQuorumPrevotesGivenPrevote(p, prevotesForHR)
 
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			vote := Prevote[H, A]{
@@ -171,23 +157,8 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 	prevotesForHR map[A][]Prevote[H, A],
 ) {
 	if !t.state.lockedValueAndOrValidValueSet && t.state.s >= prevote {
-		var proposal *Proposal[V, H, A]
-		var vals []A
-
-		for _, v := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-			if (*v.Value).Hash() == *p.ID {
-				vCopy := v
-				proposal = &vCopy
-			}
-		}
-
-		for addr, valPrevotes := range prevotesForHR {
-			for _, v := range valPrevotes {
-				if *v.ID == *p.ID {
-					vals = append(vals, addr)
-				}
-			}
-		}
+		proposal := t.checkForMatchingProposalGivenPrevote(p, proposalsForHR)
+		vals := checkForQuorumPrevotesGivenPrevote(p, prevotesForHR)
 
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			cr := t.state.r
