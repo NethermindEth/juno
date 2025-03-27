@@ -59,6 +59,47 @@ func TestParseTimeouts(t *testing.T) {
 	}
 }
 
+func TestGetTimeouts(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      TimeoutsList
+		maxRetries int
+		want       TimeoutsList
+	}{
+		{
+			name:       "empty input",
+			input:      TimeoutsList{},
+			maxRetries: 4,
+			want:       TimeoutsList{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+		},
+		{
+			name:       "single value input",
+			input:      TimeoutsList{5 * time.Second},
+			maxRetries: 4,
+			want:       TimeoutsList{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+		},
+		{
+			name:       "multiple values input",
+			input:      TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second},
+			maxRetries: 4,
+			want:       TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+		},
+		{
+			name:       "random order input",
+			input:      TimeoutsList{10 * time.Second, 5 * time.Second, 7 * time.Second},
+			maxRetries: 4,
+			want:       TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getTimeouts(tt.input, tt.maxRetries)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {
 	req, err := http.NewRequestWithContext(ctx, method, path, http.NoBody)
 	require.NoError(t, err)

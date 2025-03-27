@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -77,24 +76,7 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts TimeoutsList) *Client {
-	if len(timeouts) == 0 {
-		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
-	} else {
-		if len(timeouts) > 0 {
-			sort.Slice(timeouts, func(i, j int) bool {
-				return timeouts[i] < timeouts[j]
-			})
-		}
-
-		if len(timeouts) > c.maxRetries+1 {
-			c.timeouts = timeouts[:c.maxRetries+1]
-		} else {
-			count := c.maxRetries + 1 - len(timeouts)
-			next := getNextTimeout(timeouts[len(timeouts)-1])
-			timeouts := append(timeouts, generateTimeouts(next, count)...)
-			c.timeouts = timeouts
-		}
-	}
+	c.timeouts = getTimeouts(timeouts, c.maxRetries)
 	c.curTimeout = 0
 	return c
 }
@@ -254,7 +236,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var err error
 	wait := time.Duration(0)
 	if c.timeouts == nil {
-		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
+		c.timeouts = generateTimeoutsListFromInitial(defaultTimeout, c.maxRetries+1)
 	}
 
 	for range c.maxRetries + 1 {

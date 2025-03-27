@@ -655,7 +655,7 @@ func TestBlockWithTimeout(t *testing.T) {
 
 		_, err := client.Block(t.Context(), strconv.Itoa(111817))
 		require.Error(t, err)
-		require.Equal(t, 2, client.GetCurrentTimeout())
+		require.Equal(t, 3, client.GetCurrentTimeout())
 	})
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -18,7 +19,7 @@ const (
 
 type TimeoutsList []time.Duration
 
-func generateTimeouts(initial time.Duration, count int) TimeoutsList {
+func generateTimeoutsListFromInitial(initial time.Duration, count int) TimeoutsList {
 	timeouts := make(TimeoutsList, count)
 	if count == 0 {
 		return timeouts
@@ -32,6 +33,27 @@ func generateTimeouts(initial time.Duration, count int) TimeoutsList {
 	}
 
 	return timeouts
+}
+
+func getTimeouts(timeouts TimeoutsList, maxRetries int) TimeoutsList {
+	if len(timeouts) == 0 {
+		return generateTimeoutsListFromInitial(defaultTimeout, maxRetries+1)
+	} else {
+		if len(timeouts) > 0 {
+			sort.Slice(timeouts, func(i, j int) bool {
+				return timeouts[i] < timeouts[j]
+			})
+		}
+
+		if len(timeouts) > maxRetries+1 {
+			return timeouts[:maxRetries+1]
+		} else {
+			count := maxRetries + 1 - len(timeouts)
+			next := getNextTimeout(timeouts[len(timeouts)-1])
+			timeouts := append(timeouts, generateTimeoutsListFromInitial(next, count)...)
+			return timeouts
+		}
+	}
 }
 
 func getNextTimeout(prev time.Duration) time.Duration {
