@@ -40,6 +40,7 @@ log "Starting Juno..."
 nohup "$WORK_DIR/juno" \
     --db-path="$DB_DIR" \
     --disable-l1-verification \
+    --network=sepolia \
     --http \
     --http-host=127.0.0.1 \
     --http-port=6060 \
