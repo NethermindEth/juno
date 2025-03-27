@@ -22,7 +22,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Clean environment and create benchmark directory on EC2
+      - name: Install dependencies and prepare environment on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -33,8 +33,61 @@ jobs:
             rm -rf ~/juno-benchmark
             mkdir -p ~/juno-benchmark/scripts
             mkdir -p ~/juno-benchmark/db
-            command -v unzip >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq unzip)
-            ldconfig -p | grep -q libjemalloc || (sudo apt-get update -qq && sudo apt-get install -y -qq libjemalloc-dev)
+            
+            sudo apt-get update -qq
+            
+            sudo apt-get install -y -qq unzip curl wget build-essential pkg-config
+            
+            ldconfig -p | grep -q libjemalloc || sudo apt-get install -y -qq libjemalloc-dev
+            
+            if ! command -v rustc &> /dev/null; then
+              echo "Installing Rust..."
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              source $HOME/.cargo/env
+            else
+              echo "Rust is already installed"
+              rustc --version
+            fi
+            
+            if ! command -v go &> /dev/null || [ "$(go version | awk '{print $3}' | cut -d. -f2)" -lt 23 ]; then
+              echo "Installing Go 1.23+"
+              cd /tmp
+              wget -q https://go.dev/dl/go1.23.1.linux-amd64.tar.gz
+              sudo rm -rf /usr/local/go
+              sudo tar -C /usr/local -xzf go1.23.1.linux-amd64.tar.gz
+              export PATH=$PATH:/usr/local/go/bin
+              echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+              rm go1.23.1.linux-amd64.tar.gz
+            else
+              echo "Go is already installed"
+              go version
+            fi
+            
+            if ! command -v gcc &> /dev/null && ! command -v clang &> /dev/null; then
+              echo "Installing GCC..."
+              sudo apt-get install -y -qq gcc
+            else
+              echo "C compiler is already installed"
+              gcc --version || clang --version
+            fi
+            
+            total_mem=$(free -m | awk '/^Mem:/{print $2}')
+            if [ $total_mem -lt 8192 ] && [ ! -f /swapfile ]; then
+              echo "Setting up 8GB swap file to prevent OOM issues..."
+              sudo fallocate -l 8G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+              echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+              echo "Swap created and enabled"
+              free -h
+            fi
+            
+            echo "Dependency versions:"
+            go version
+            rustc --version
+            gcc --version || clang --version
+            ldconfig -p | grep jemalloc
 
       - name: Copy benchmark script to EC2
         uses: appleboy/scp-action@master
