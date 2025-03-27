@@ -16,8 +16,10 @@ const (
 	fastGrowThreshold = 45 * time.Second
 )
 
-func generateTimeouts(initial time.Duration, count int) TimeoutConfig {
-	timeouts := make(TimeoutConfig, count)
+type TimeoutsList []time.Duration
+
+func generateTimeouts(initial time.Duration, count int) TimeoutsList {
+	timeouts := make(TimeoutsList, count)
 	if count == 0 {
 		return timeouts
 	}
@@ -47,12 +49,12 @@ func getNextTimeout(prev time.Duration) time.Duration {
 	return next
 }
 
-func ParseTimeouts(values []string) (TimeoutConfig, error) {
+func ParseTimeouts(values []string) (TimeoutsList, error) {
 	if len(values) == 0 {
-		return TimeoutConfig{defaultTimeout}, nil
+		return TimeoutsList{defaultTimeout}, nil
 	}
 
-	timeouts := make(TimeoutConfig, 0, len(values))
+	timeouts := make(TimeoutsList, 0, len(values))
 	for _, v := range values {
 		d, err := time.ParseDuration(v)
 		if err != nil {

@@ -26,8 +26,6 @@ var ErrDeprecatedCompiledClass = errors.New("deprecated compiled class")
 
 type Backoff func(wait time.Duration) time.Duration
 
-type TimeoutConfig []time.Duration
-
 type Client struct {
 	url        string
 	client     *http.Client
@@ -39,7 +37,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   TimeoutConfig
+	timeouts   TimeoutsList
 	curTimeout int
 }
 
@@ -78,7 +76,7 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-func (c *Client) WithTimeouts(timeouts TimeoutConfig) *Client {
+func (c *Client) WithTimeouts(timeouts TimeoutsList) *Client {
 	if len(timeouts) == 0 {
 		c.timeouts = generateTimeouts(defaultTimeout, c.maxRetries+1)
 	} else {

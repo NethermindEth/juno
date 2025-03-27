@@ -16,28 +16,28 @@ func TestParseTimeouts(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   []string
-		want    TimeoutConfig
+		want    TimeoutsList
 		wantErr bool
 	}{
 		{
 			name:  "empty input",
 			input: []string{},
-			want:  TimeoutConfig{defaultTimeout},
+			want:  TimeoutsList{defaultTimeout},
 		},
 		{
 			name:  "single value",
 			input: []string{"5s"},
-			want:  TimeoutConfig{5 * time.Second},
+			want:  TimeoutsList{5 * time.Second},
 		},
 		{
 			name:  "multiple values",
 			input: []string{"5s", "7s", "10s"},
-			want:  TimeoutConfig{5 * time.Second, 7 * time.Second, 10 * time.Second},
+			want:  TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second},
 		},
 		{
 			name:  "cap at max timeout",
 			input: []string{"3m"},
-			want:  TimeoutConfig{maxTimeout},
+			want:  TimeoutsList{maxTimeout},
 		},
 		{
 			name:    "invalid duration",
@@ -73,7 +73,7 @@ func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, cl
 }
 
 func TestHTTPTimeoutsSettings(t *testing.T) {
-	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(TimeoutConfig{defaultTimeout})
+	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(TimeoutsList{defaultTimeout})
 	ctx := t.Context()
 
 	t.Run("GET current timeouts", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
-		assert.Equal(t, TimeoutConfig{
+		assert.Equal(t, TimeoutsList{
 			2 * time.Second,
 			3 * time.Second,
 			5 * time.Second,
@@ -107,7 +107,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
-		assert.Equal(t, TimeoutConfig{
+		assert.Equal(t, TimeoutsList{
 			5 * time.Second,
 			7 * time.Second,
 			10 * time.Second,
