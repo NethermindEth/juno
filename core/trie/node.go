@@ -143,7 +143,14 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
+	return fmt.Sprintf(
+		"Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}",
+		n.Value,
+		n.Left,
+		n.Right,
+		n.LeftHash,
+		n.RightHash,
+	)
 }
 
 // Update the receiver with non-nil fields from the `other` Node.

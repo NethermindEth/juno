@@ -558,14 +558,22 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(data[0]), binary.BigEndian.Uint64(data[1:9])
 	case 10:
 		_ = data[9]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint16(data[0:2])), binary.BigEndian.Uint64(data[2:10])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(
+			binary.BigEndian.Uint16(data[0:2]),
+		), binary.BigEndian.Uint64(
+			data[2:10],
+		)
 	case 11:
 		_ = data[10]
 		b.words[3], b.words[2] = 0, 0
 		b.words[1], b.words[0] = uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16, binary.BigEndian.Uint64(data[3:11])
 	case 12:
 		_ = data[11]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint32(data[0:4])), binary.BigEndian.Uint64(data[4:12])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(
+			binary.BigEndian.Uint32(data[0:4]),
+		), binary.BigEndian.Uint64(
+			data[4:12],
+		)
 	case 13:
 		_ = data[12]
 		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint40(data[0:5]), binary.BigEndian.Uint64(data[5:13])

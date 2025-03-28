@@ -239,7 +239,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		httpHandlers := map[string]http.HandlerFunc{
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable),
+		)
 	}
 	if cfg.Websocket {
 		services = append(services,

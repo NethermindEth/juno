@@ -373,7 +373,11 @@ func TestClassV0Unmarshal(t *testing.T) {
 
 	assert.Equal(t, 1, len(class.V0.EntryPoints.Constructor))
 	assert.Equal(t, "0xa1", class.V0.EntryPoints.Constructor[0].Offset.String())
-	assert.Equal(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194", class.V0.EntryPoints.Constructor[0].Selector.String())
+	assert.Equal(
+		t,
+		"0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194",
+		class.V0.EntryPoints.Constructor[0].Selector.String(),
+	)
 	assert.Equal(t, 1, len(class.V0.EntryPoints.L1Handler))
 	assert.Equal(t, 1, len(class.V0.EntryPoints.External))
 	assert.NotEmpty(t, class.V0.Program)
@@ -432,8 +436,16 @@ func TestStateUpdate(t *testing.T) {
 		assert.Equal(t, 0, len(stateUpdate.StateDiff.Nonces))
 		assert.Equal(t, 0, len(stateUpdate.StateDiff.OldDeclaredContracts))
 		assert.Equal(t, 5, len(stateUpdate.StateDiff.DeployedContracts))
-		assert.Equal(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6", stateUpdate.StateDiff.DeployedContracts[0].Address.String())
-		assert.Equal(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8", stateUpdate.StateDiff.DeployedContracts[0].ClassHash.String())
+		assert.Equal(
+			t,
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+			stateUpdate.StateDiff.DeployedContracts[0].Address.String(),
+		)
+		assert.Equal(
+			t,
+			"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+			stateUpdate.StateDiff.DeployedContracts[0].ClassHash.String(),
+		)
 		assert.Equal(t, 5, len(stateUpdate.StateDiff.StorageDiffs))
 
 		diff, ok := stateUpdate.StateDiff.StorageDiffs["0x735596016a37ee972c42adef6a3cf628c19bb3794369c65d2c82ba034aecf2c"]
@@ -618,8 +630,16 @@ func TestSignature(t *testing.T) {
 		assert.Equal(t, 2, len(actualSignature.Signature))
 		assert.Equal(t, "0x351c1b3fdd944ec8a787085b386ae9adddc5e4e839525b0cdfa8fac7419fe16", actualSignature.Signature[0].String())
 		assert.Equal(t, "0x63507ca773169dd5cf5c27036c69b7676b9c1c60538d1d91811e7cd7a5c0b64", actualSignature.Signature[1].String())
-		assert.Equal(t, "0x5decb56a6651b829e01d8700235e7d99880bac258fd97fac4e30a3e5f1993f0", actualSignature.SignatureInput.BlockHash.String())
-		assert.Equal(t, "0x4253056094397f30399b01aa6a9eb44e59f8298545c26f5f746d86940b6cab8", actualSignature.SignatureInput.StateDiffCommitment.String())
+		assert.Equal(
+			t,
+			"0x5decb56a6651b829e01d8700235e7d99880bac258fd97fac4e30a3e5f1993f0",
+			actualSignature.SignatureInput.BlockHash.String(),
+		)
+		assert.Equal(
+			t,
+			"0x4253056094397f30399b01aa6a9eb44e59f8298545c26f5f746d86940b6cab8",
+			actualSignature.SignatureInput.StateDiffCommitment.String(),
+		)
 	})
 	t.Run("Test on unexisting block", func(t *testing.T) {
 		actualSignature, err := client.Signature(t.Context(), strconv.Itoa(10000000000))
@@ -642,7 +662,11 @@ func TestStateUpdateWithBlock(t *testing.T) {
 		assert.Equal(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279", actualStateUpdate.Block.Hash.String())
 		assert.Equal(t, "0x0", actualStateUpdate.Block.ParentHash.String())
 		assert.Equal(t, "0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833", actualStateUpdate.Block.StateRoot.String())
-		assert.Equal(t, "0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279", actualStateUpdate.StateUpdate.BlockHash.String())
+		assert.Equal(
+			t,
+			"0x3ae41b0f023e53151b0c8ab8b9caafb7005d5f41c9ab260276d5bdc49726279",
+			actualStateUpdate.StateUpdate.BlockHash.String(),
+		)
 		assert.Equal(t, "0x1f386a54db7796872829c9168cdc567980daad382daa4df3b71641a2551e833", actualStateUpdate.StateUpdate.NewRoot.String())
 		assert.Equal(t, "0x0", actualStateUpdate.StateUpdate.OldRoot.String())
 		assert.Empty(t, actualStateUpdate.StateUpdate.StateDiff.Nonces)

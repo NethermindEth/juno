@@ -58,7 +58,8 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		su0, block0, err := integGw.StateUpdateWithBlock(t.Context(), uint64(0))
 		require.NoError(t, err)
-		plugin.EXPECT().RevertBlock(&junoplugin.BlockAndStateUpdate{block1, su1}, &junoplugin.BlockAndStateUpdate{block0, su0}, gomock.Any())
+		plugin.EXPECT().
+			RevertBlock(&junoplugin.BlockAndStateUpdate{block1, su1}, &junoplugin.BlockAndStateUpdate{block0, su0}, gomock.Any())
 		plugin.EXPECT().RevertBlock(&junoplugin.BlockAndStateUpdate{block0, su0}, nil, gomock.Any())
 		for i := range 3 {
 			su, block, err := mainGw.StateUpdateWithBlock(t.Context(), uint64(i))

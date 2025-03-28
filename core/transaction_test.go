@@ -187,9 +187,13 @@ func TestVerifyTransactionHash(t *testing.T) {
 			txn     core.Transaction
 		}{
 			*badTxn0.Hash(): {
-				name:    "Declare - error if transaction hash calculation failed",
-				wantErr: fmt.Errorf("cannot calculate transaction hash of Transaction %v, reason: %w", badTxn0.Hash().String(), errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 0x12")),
-				txn:     badTxn0,
+				name: "Declare - error if transaction hash calculation failed",
+				wantErr: fmt.Errorf(
+					"cannot calculate transaction hash of Transaction %v, reason: %w",
+					badTxn0.Hash().String(),
+					errors.New("invalid Transaction (type: *core.DeclareTransaction) version: 0x12"),
+				),
+				txn: badTxn0,
 			},
 			*badTxn1.Hash(): {
 				name:    "Deploy - error if transaction hashes don't match",

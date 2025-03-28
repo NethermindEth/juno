@@ -49,7 +49,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -66,7 +70,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -81,7 +89,11 @@ func TestSimulateTransactions(t *testing.T) {
 					Cause: json.RawMessage("oops"),
 				})
 
-			_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+			_, httpHeader, err := handler.SimulateTransactions(
+				rpcv7.BlockID{Latest: true},
+				[]rpcv7.BroadcastedTransaction{},
+				[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			)
 			require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
@@ -102,7 +114,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         uint64(0),
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
 			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 		)), err)

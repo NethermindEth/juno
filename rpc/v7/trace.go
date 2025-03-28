@@ -29,10 +29,10 @@ const excludedVersion = "0.13.1.1"
 type TransactionTrace struct {
 	Type                  TransactionType           `json:"type"`
 	ValidateInvocation    *rpcv6.FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *rpcv6.ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	ExecuteInvocation     *rpcv6.ExecuteInvocation  `json:"execute_invocation,omitempty"      validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *rpcv6.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty"  validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty"     validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *rpcv6.StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources       `json:"execution_resources"`
 }

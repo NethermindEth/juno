@@ -68,7 +68,8 @@ func TestPedersenArray(t *testing.T) {
 				"0x0",
 				// salt.
 				"0x5bebda1b28ba6daa824126577b9fbc984033e8b18360f5e1ef694cb172c7aa5",
-				// contract_hash. See the following for reference https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x53e61cb9a53136ecb782e7396f7330e6bb3d069763d866612da3cf93cdf55b5.
+				// contract_hash. See the following for reference
+				// https://alpha4.starknet.io/feeder_gateway/get_block?blockHash=0x53e61cb9a53136ecb782e7396f7330e6bb3d069763d866612da3cf93cdf55b5.
 				"0x0439218681f9108b470d2379cf589ef47e60dc5888ee49ec70071671d74ca9c6",
 				// calldata_hash. (here h(0, 0) where h is the Pedersen hash
 				// function).

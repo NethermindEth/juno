@@ -149,10 +149,14 @@ formatters:
   enable:
     - gci
     - gofumpt
+    - golines
   settings:
     goimports:
       local-prefixes:
         - github.com/golangci/golangci-lint
+    golines:
+      max-len: 140
+      shorten-comments: true
   exclusions:
     generated: lax
     paths:

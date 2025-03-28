@@ -148,8 +148,16 @@ func TestEvents(t *testing.T) {
 				utils.HexToFelt(t, "0x0"),
 			}, events.Events[0].Data)
 			require.Equal(t, uint64(4), *events.Events[0].BlockNumber)
-			require.Equal(t, utils.HexToFelt(t, "0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c"), events.Events[0].BlockHash)
-			require.Equal(t, utils.HexToFelt(t, "0x3c9dfcd3fe66be18b661ee4ebb62520bb4f13d4182b040b3c2be9a12dbcc09b"), events.Events[0].TransactionHash)
+			require.Equal(
+				t,
+				utils.HexToFelt(t, "0x445152a69e628774b0f78a952e6f9ba0ffcda1374724b314140928fd2f31f4c"),
+				events.Events[0].BlockHash,
+			)
+			require.Equal(
+				t,
+				utils.HexToFelt(t, "0x3c9dfcd3fe66be18b661ee4ebb62520bb4f13d4182b040b3c2be9a12dbcc09b"),
+				events.Events[0].TransactionHash,
+			)
 		})
 	})
 
@@ -203,7 +211,11 @@ func TestEvents(t *testing.T) {
 
 		assert.Nil(t, events.Events[0].BlockHash)
 		assert.Nil(t, events.Events[0].BlockNumber)
-		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
+		assert.Equal(
+			t,
+			utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"),
+			events.Events[0].TransactionHash,
+		)
 	})
 
 	t.Run("get pending events with pagination", func(t *testing.T) {

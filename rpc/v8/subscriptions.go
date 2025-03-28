@@ -333,7 +333,11 @@ func (h *Handler) checkTxStatus(
 	status, rpcErr := h.TransactionStatus(ctx, *txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
-			return lastStatus, fmt.Errorf("error while checking status for transaction %v with rpc error message: %v", txHash, rpcErr.Message)
+			return lastStatus, fmt.Errorf(
+				"error while checking status for transaction %v with rpc error message: %v",
+				txHash,
+				rpcErr.Message,
+			)
 		}
 		return lastStatus, errorTxnHashNotFound{*txHash}
 	}

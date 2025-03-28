@@ -28,17 +28,17 @@ const excludedVersion = "0.13.1.1"
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"      validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"  validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"     validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
 type ExecuteInvocation struct {
 	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	*FunctionInvocation `       json:",omitempty"`
 }
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {

@@ -303,7 +303,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			records[start].key,
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -315,7 +321,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			decrementFelt(records[start].key),
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
