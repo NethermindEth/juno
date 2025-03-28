@@ -163,5 +163,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
-  run:
-    timeout: 5m
+run:
+  timeout: 5m
