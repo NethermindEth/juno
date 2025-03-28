@@ -375,7 +375,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		cnL2ChainIDF,
 		cnCoreContractAddressF,
 		cnUnverifiableRangeF,
-	) //nolint:lll
+	)
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
 	junoCmd.Flags().Duration(gwTimeoutF, defaultGwTimeout, gwTimeoutUsage)
