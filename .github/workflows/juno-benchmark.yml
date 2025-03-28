@@ -48,7 +48,12 @@ jobs:
               echo "Rust is already installed"
               rustc --version
             fi
-            
+
+            if ! grep -q "\.cargo/env" ~/.profile; then
+              echo 'source $HOME/.cargo/env' >> ~/.profile
+              echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.profile
+            fi
+
             if ! command -v go &> /dev/null || [ "$(go version | awk '{print $3}' | cut -d. -f2)" -lt 23 ]; then
               echo "Installing Go 1.23+"
               cd /tmp
