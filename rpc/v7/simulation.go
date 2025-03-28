@@ -52,6 +52,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
+
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -60,6 +61,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	network := h.bcReader.Network()
+
 	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
@@ -69,6 +71,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
+
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
@@ -171,7 +174,6 @@ func createSimulatedTransactions(
 			l1GasPrice = l1GasPriceStrk
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
-
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
