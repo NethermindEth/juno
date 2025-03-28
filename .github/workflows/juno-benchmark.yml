@@ -28,6 +28,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
+          command_timeout: 60m 
           script: |
             pkill -x juno || true
             rm -rf ~/juno-benchmark
@@ -94,18 +95,15 @@ jobs:
             gcc --version || clang --version
             ldconfig -p | grep jemalloc
 
-      - name: Clone Juno repository on remote host
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          command_timeout: 60m 
-          script: |
             cd ~/juno-benchmark/
             git clone https://github.com/NethermindEth/juno.git
             cd juno
-            git checkout ${{ github.event.inputs.version || 'main' }}
+
+            VERSION="${{ github.event.inputs.version || 'main' }}"
+            if [ "$VERSION" = "latest" ]; then
+              VERSION="main"
+            fi
+            git checkout $VERSION
             make juno
 
       - name: Copy benchmark scripts to EC2
