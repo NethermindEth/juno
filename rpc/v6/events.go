@@ -71,7 +71,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
+	filter, err := h.bcReader.EventFilter(args.Address, args.Keys)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -86,7 +86,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		}
 	}
 
-	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
+	if err = setEventFilterRange(filter, args.FromBlock, args.ToBlock, height); err != nil {
 		return nil, rpccore.ErrBlockNotFound
 	}
 

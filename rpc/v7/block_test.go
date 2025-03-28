@@ -578,16 +578,16 @@ func TestRpcBlockAdaptation(t *testing.T) {
 	t.Run("default sequencer address", func(t *testing.T) {
 		latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 		require.NoError(t, err)
-		latestBlock.Header.SequencerAddress = nil
+		latestBlock.SequencerAddress = nil
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		block, rpcErr := handler.BlockWithTxs(rpcv7.BlockID{Latest: true})
 		require.NoError(t, err, rpcErr)
-		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
+		require.Equal(t, &felt.Zero, block.SequencerAddress)
 
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv7.BlockID{Latest: true})
 		require.NoError(t, err, rpcErr)
-		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
+		require.Equal(t, &felt.Zero, blockWithTxHashes.SequencerAddress)
 	})
 }

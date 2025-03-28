@@ -68,14 +68,15 @@ func (h Handler) handleTxCursor(
 	responsePair := &gen.Pair{}
 
 	// open is special case: it's the only way to receive cursor id
-	if cur.Op == gen.Op_OPEN {
+	switch cur.Op {
+	case gen.Op_OPEN:
 		cursorID, err := tx.newCursor()
 		if err != nil {
 			return err
 		}
 		responsePair.CursorId = cursorID
 		return server.Send(responsePair)
-	} else if cur.Op == gen.Op_GET {
+	case gen.Op_GET:
 		if err := tx.dbTx.Get(cur.K, func(b []byte) error {
 			responsePair.V = append(responsePair.V, b...)
 			responsePair.K = cur.K

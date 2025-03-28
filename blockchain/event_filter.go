@@ -60,11 +60,12 @@ func (e *EventFilter) WithLimit(limit uint) *EventFilter {
 
 // SetRangeEndBlockByNumber sets an end of the block range by block number
 func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error {
-	if filterRange == EventFilterFrom {
+	switch filterRange {
+	case EventFilterFrom:
 		e.fromBlock = blockNumber
-	} else if filterRange == EventFilterTo {
+	case EventFilterTo:
 		e.toBlock = blockNumber
-	} else {
+	default:
 		return errors.New("undefined range end")
 	}
 	return nil

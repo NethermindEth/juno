@@ -163,7 +163,7 @@ func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 
 // pre07Hash computes the block hash for blocks generated before Cairo 0.7.0
 func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error) {
-	txCommitment, err := transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
+	txCommitment, err := transactionCommitmentPedersen(b.Transactions, b.ProtocolVersion)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -346,7 +346,7 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	var tErr, eErr, rErr error
 
 	wg.Go(func() {
-		txCommitment, tErr = transactionCommitmentPedersen(b.Transactions, b.Header.ProtocolVersion)
+		txCommitment, tErr = transactionCommitmentPedersen(b.Transactions, b.ProtocolVersion)
 	})
 	wg.Go(func() {
 		eCommitment, eErr = eventCommitmentPedersen(b.Receipts)
