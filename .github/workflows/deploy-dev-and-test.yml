@@ -31,6 +31,7 @@ jobs:
       source_repo: nubia-oci-local-dev
       target_repo: nubia-oci-local-dev
       rpc_version: v0_7
+      test_mode: ${{ github.event_name == 'pull_request' && 'fast' || 'full' }}
     secrets:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
