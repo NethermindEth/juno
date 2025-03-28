@@ -60,7 +60,9 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*contractAddr: {
-					*utils.HexToFelt(t, "0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091"): new(felt.Felt).SetUint64(1337),
+					*utils.HexToFelt(t, "0x206f38f7e4f15e87567361213c28f235cccdaa1d7fd34c9db1dfe9489c6a091"): new(
+						felt.Felt,
+					).SetUint64(1337),
 				},
 			},
 		},

@@ -24,7 +24,7 @@ type EventFilter struct {
 
 type ResultPageRequest struct {
 	ContinuationToken string `json:"continuation_token"`
-	ChunkSize         uint64 `json:"chunk_size" validate:"min=1"`
+	ChunkSize         uint64 `json:"chunk_size"         validate:"min=1"`
 }
 
 type Event struct {

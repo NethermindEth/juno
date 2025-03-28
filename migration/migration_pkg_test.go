@@ -607,8 +607,10 @@ func TestChangeStateDiffStruct(t *testing.T) {
 				},
 				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x8"), ClassHash: utils.HexToFelt(t, "0x9")}},
 				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x11"), CompiledClassHash: utils.HexToFelt(t, "0x12")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")}},
+				DeclaredV1Classes: []oldDeclaredV1Class{
+					{ClassHash: utils.HexToFelt(t, "0x11"), CompiledClassHash: utils.HexToFelt(t, "0x12")},
+				},
+				ReplacedClasses: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")}},
 			},
 		}
 		su0Bytes, err := encoder.Marshal(su0)
@@ -629,8 +631,10 @@ func TestChangeStateDiffStruct(t *testing.T) {
 				},
 				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x23"), ClassHash: utils.HexToFelt(t, "0x24")}},
 				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x26"), CompiledClassHash: utils.HexToFelt(t, "0x27")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")}},
+				DeclaredV1Classes: []oldDeclaredV1Class{
+					{ClassHash: utils.HexToFelt(t, "0x26"), CompiledClassHash: utils.HexToFelt(t, "0x27")},
+				},
+				ReplacedClasses: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")}},
 			},
 		}
 		su1Bytes, err := encoder.Marshal(su1)
