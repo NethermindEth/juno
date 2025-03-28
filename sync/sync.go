@@ -566,11 +566,6 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	}
 
 	pendingBlock.Number = head.Number + 1
-	pendingBlock.L1DAMode = head.L1DAMode
-	pendingBlock.L1GasPriceSTRK = head.L1GasPriceSTRK
-	pendingBlock.L1GasPriceETH = head.L1GasPriceETH
-	pendingBlock.L1DataGasPrice = head.L1DataGasPrice
-	pendingBlock.L2GasPrice = head.L2GasPrice
 	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
 		return err
