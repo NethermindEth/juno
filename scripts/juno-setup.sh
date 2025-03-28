@@ -21,22 +21,22 @@ if [ ! -s snapshot.tar ]; then
 fi
 tar -xf snapshot.tar -C $DB_DIR && rm snapshot.tar
 
-log "Downloading Juno version $JUNO_VERSION..."
-if [ "$JUNO_VERSION" = "latest" ]; then
-    JUNO_VERSION=$(curl -s https://api.github.com/repos/NethermindEth/juno/releases/latest | grep -o '"tag_name": ".*"' | cut -d'"' -f4)
-    log "Latest version resolved to $JUNO_VERSION."
-fi
+#log "Downloading Juno version $JUNO_VERSION..."
+#if [ "$JUNO_VERSION" = "latest" ]; then
+#    JUNO_VERSION=$(curl -s https://api.github.com/repos/NethermindEth/juno/releases/latest | grep -o '"tag_name": ".*"' | cut -d'"' -f4)
+#    log "Latest version resolved to $JUNO_VERSION."
+#fi
 
-JUNO_BINARY_URL="https://github.com/NethermindEth/juno/releases/download/$JUNO_VERSION/juno-$JUNO_VERSION-linux-amd64.zip"
+#JUNO_BINARY_URL="https://github.com/NethermindEth/juno/releases/download/$JUNO_VERSION/juno-$JUNO_VERSION-linux-amd64.zip"
 
-wget -q "$JUNO_BINARY_URL" -O juno.zip
-unzip -q juno.zip && rm juno.zip
-mv juno-*-linux-amd64 juno
-chmod +x juno
-./juno --version || (log "Juno binary verification failed" && exit 1)
+#wget -q "$JUNO_BINARY_URL" -O juno.zip
+#unzip -q juno.zip && rm juno.zip
+#mv juno-*-linux-amd64 juno
+#chmod +x juno
+#./juno --version || (log "Juno binary verification failed" && exit 1)
 
 log "Starting Juno..."
-nohup "$WORK_DIR/juno" \
+nohup "$WORK_DIR/juno/build/juno" \
     --db-path="$DB_DIR" \
     --disable-l1-verification \
     --network=sepolia \

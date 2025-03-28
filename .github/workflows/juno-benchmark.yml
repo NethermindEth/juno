@@ -33,10 +33,10 @@ jobs:
             rm -rf ~/juno-benchmark
             mkdir -p ~/juno-benchmark/scripts
             mkdir -p ~/juno-benchmark/db
-            
+
             sudo apt-get update -qq
             
-            sudo apt-get install -y -qq unzip curl wget build-essential pkg-config
+            sudo apt-get install -y -qq unzip curl wget build-essential pkg-config git
             
             ldconfig -p | grep -q libjemalloc || sudo apt-get install -y -qq libjemalloc-dev
             
@@ -89,7 +89,21 @@ jobs:
             gcc --version || clang --version
             ldconfig -p | grep jemalloc
 
-      - name: Copy benchmark script to EC2
+      - name: Clone Juno repository on remote host
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          command_timeout: 60m 
+          script: |
+            cd ~/juno-benchmark/
+            git clone https://github.com/NethermindEth/juno.git
+            cd juno
+            git checkout ${{ github.event.inputs.version || 'main' }}
+            make juno
+
+      - name: Copy benchmark scripts to EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -133,10 +147,10 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           command_timeout: 120m
           script: |
-            export BLOCK_TARGET=${{ github.event.inputs.block_target || '10000' }}
+            export BLOCKS_TO_MONITOR=${{ github.event.inputs.blocks_to_monitor || '10000' }}
             chmod +x ~/juno-benchmark/scripts/juno-sync-monitor.sh
             cd ~/juno-benchmark
-            echo "Starting sync monitoring to block $BLOCK_TARGET"
+            echo "Starting sync monitoring to block $TARGET_BLOCK"
             ./scripts/juno-sync-monitor.sh
             
       - name: Show sync results

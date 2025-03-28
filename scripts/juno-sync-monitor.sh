@@ -53,4 +53,5 @@ while true; do
         log "Sync report saved to: $REPORT_FILE"
         break
     fi
+    sleep 5
 done
