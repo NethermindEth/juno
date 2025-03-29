@@ -52,9 +52,9 @@ jobs:
 
       - name: Get latest tag
         run: |
-          TAG=$(git describe --tags --exact-match 2>/dev/null || echo ${GITHUB_REF_NAME})
+          TAG=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)
           echo "TAG=$TAG" >> $GITHUB_ENV
-      
+
       - name: Get artifact name
         run: |
           OS_NAME=$([ "${{ runner.os }}" == "macOS" ] && echo "darwin" || echo "linux")
