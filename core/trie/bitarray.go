@@ -150,10 +150,7 @@ func (b *BitArray) EqualMSBs(x *BitArray) bool {
 	}
 
 	// Compare only the first min(b.len, x.len) bits
-	minLen := b.len
-	if x.len < minLen {
-		minLen = x.len
-	}
+	minLen := min(b.len, x.len)
 
 	return new(BitArray).MSBs(b, minLen).Equal(new(BitArray).MSBs(x, minLen))
 }
