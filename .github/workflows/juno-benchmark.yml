@@ -59,7 +59,18 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           source: ./juno-artifact/juno-${{ env.SHORT_SHA }}-linux-amd64
-          target: ~/juno-benchmark/juno
+          target: ~/juno-benchmark
+          strip_components: 1
+
+      - name: Rename binary
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            mv ~/juno-benchmark/juno-${{ env.SHORT_SHA }}-linux-amd64 ~/juno-benchmark/juno
+            chmod +x ~/juno-benchmark/juno
 
       - name: Checkout scripts
         uses: actions/checkout@v4
@@ -84,7 +95,6 @@ jobs:
           envs: SNAPSHOT_URL
           script: |
             export SNAPSHOT_URL=${{ inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
-            chmod +x ~/juno-benchmark/juno
             chmod +x ~/juno-benchmark/scripts/juno-setup.sh
             ~/juno-benchmark/scripts/juno-setup.sh
 
