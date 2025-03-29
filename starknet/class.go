@@ -72,7 +72,7 @@ func (n *SegmentLengths) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return json.Unmarshal(data, &n.Children)
 	}
-	return err
+	return nil
 }
 
 func (n SegmentLengths) MarshalJSON() ([]byte, error) {

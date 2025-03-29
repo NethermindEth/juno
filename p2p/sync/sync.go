@@ -670,7 +670,7 @@ func (s *Service) randomPeerStream(ctx context.Context, pids ...protocol.ID) (ne
 		s.removePeer(randPeer)
 		return nil, err
 	}
-	return stream, err
+	return stream, nil
 }
 
 func (s *Service) removePeer(id peer.ID) {
