@@ -179,3 +179,30 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
+
+sequencer:
+	./build/juno \
+	--http \
+	--http-port=6060 \
+	--http-host=0.0.0.0 \
+	--db-path=../seq-db-tmp \
+	--log-level=debug \
+	--seq-enable \
+	--seq-block-time=1 \
+	--network sequencer \
+	--disable-l1-verification \
+	--rpc-call-max-steps=4123000
+
+sequencer-with-accounts:
+	./build/juno \
+    --http \
+    --http-port=6060 \
+    --http-host=0.0.0.0 \
+    --db-path=../seq-db-tmp-w-accounts \
+    --log-level=debug \
+    --seq-enable \
+    --seq-block-time=1 \
+	--network sequencer \
+	--disable-l1-verification \
+	--seq-genesis-file "./genesis/genesis_prefund_accounts.json" \
+    --rpc-call-max-steps=4123000

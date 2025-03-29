@@ -46,7 +46,7 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
-		require.NoError(t, state.Update(0, su0, nil))
+		require.NoError(t, state.Update(0, su0, nil, false))
 		gotNewRoot, rerr := state.Root()
 		require.NoError(t, rerr)
 		assert.Equal(t, su0.NewRoot, gotNewRoot)
@@ -58,7 +58,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot: oldRoot,
 		}
 		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, oldRoot)
-		require.EqualError(t, state.Update(1, su, nil), expectedErr)
+		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 	})
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
@@ -69,16 +69,16 @@ func TestUpdate(t *testing.T) {
 			StateDiff: new(core.StateDiff),
 		}
 		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
-		require.EqualError(t, state.Update(1, su, nil), expectedErr)
+		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 	})
 
 	t.Run("non-empty state updated multiple times", func(t *testing.T) {
-		require.NoError(t, state.Update(1, su1, nil))
+		require.NoError(t, state.Update(1, su1, nil, false))
 		gotNewRoot, rerr := state.Root()
 		require.NoError(t, rerr)
 		assert.Equal(t, su1.NewRoot, gotNewRoot)
 
-		require.NoError(t, state.Update(2, su2, nil))
+		require.NoError(t, state.Update(2, su2, nil, false))
 		gotNewRoot, err = state.Root()
 		require.NoError(t, err)
 		assert.Equal(t, su2.NewRoot, gotNewRoot)
@@ -96,11 +96,11 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("post v0.11.0 declared classes affect root", func(t *testing.T) {
 		t.Run("without class definition", func(t *testing.T) {
-			require.Error(t, state.Update(3, su3, nil))
+			require.Error(t, state.Update(3, su3, nil, false))
 		})
 		require.NoError(t, state.Update(3, su3, map[felt.Felt]core.Class{
 			*utils.HexToFelt(t, "0xDEADBEEF"): &core.Cairo1Class{},
-		}))
+		}, false))
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
 
@@ -119,7 +119,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	t.Run("update systemContracts storage", func(t *testing.T) {
-		require.NoError(t, state.Update(4, su4, nil))
+		require.NoError(t, state.Update(4, su4, nil, false))
 
 		gotValue, err := state.ContractStorage(scAddr, scKey)
 		require.NoError(t, err)
@@ -146,7 +146,7 @@ func TestUpdate(t *testing.T) {
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
 		}
-		assert.ErrorIs(t, state.Update(5, su5, nil), core.ErrContractNotDeployed)
+		assert.ErrorIs(t, state.Update(5, su5, nil, false), core.ErrContractNotDeployed)
 	})
 }
 
@@ -169,8 +169,8 @@ func TestContractClassHash(t *testing.T) {
 	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(0, su0, nil))
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(0, su0, nil, false))
+	require.NoError(t, state.Update(1, su1, nil, false))
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
@@ -196,7 +196,7 @@ func TestContractClassHash(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(2, replaceUpdate, nil))
+		require.NoError(t, state.Update(2, replaceUpdate, nil, false))
 
 		gotClassHash, err := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestNonce(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, state.Update(0, su, nil))
+	require.NoError(t, state.Update(0, su, nil, false))
 
 	t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 		nonce, err := state.ContractNonce(addr)
@@ -246,7 +246,7 @@ func TestNonce(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(1, su, nil))
+		require.NoError(t, state.Update(1, su, nil, false))
 
 		gotNonce, err := state.ContractNonce(addr)
 		require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestStateHistory(t *testing.T) {
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(0, su0, nil, false))
 
 	contractAddr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 	changedLoc := utils.HexToFelt(t, "0x5")
@@ -294,7 +294,7 @@ func TestStateHistory(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, state.Update(1, su, nil))
+	require.NoError(t, state.Update(1, su, nil, false))
 
 	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
 		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
@@ -322,8 +322,8 @@ func TestContractIsDeployedAt(t *testing.T) {
 	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(0, su0, nil))
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(0, su0, nil, false))
+	require.NoError(t, state.Update(1, su1, nil, false))
 
 	t.Run("deployed on genesis", func(t *testing.T) {
 		deployedOn0 := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
@@ -379,7 +379,7 @@ func TestClass(t *testing.T) {
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
 		*cairo0Hash: cairo0Class,
 		*cairo1Hash: cairo1Class,
-	}))
+	}, false))
 
 	gotCairo1Class, err := state.Class(cairo1Hash)
 	require.NoError(t, err)
@@ -405,10 +405,10 @@ func TestRevert(t *testing.T) {
 	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(0, su0, nil, false))
 	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(1, su1, nil, false))
 
 	t.Run("revert a replaced class", func(t *testing.T) {
 		replaceStateUpdate := &core.StateUpdate{
@@ -421,7 +421,7 @@ func TestRevert(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(2, replaceStateUpdate, nil))
+		require.NoError(t, state.Update(2, replaceStateUpdate, nil, false))
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
 		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
@@ -439,7 +439,7 @@ func TestRevert(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(2, nonceStateUpdate, nil))
+		require.NoError(t, state.Update(2, nonceStateUpdate, nil, false))
 		require.NoError(t, state.Revert(2, nonceStateUpdate))
 		nonce, sErr := state.ContractNonce(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
@@ -491,7 +491,7 @@ func TestRevert(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, state.Update(2, declaredClassesStateUpdate, classesM))
+		require.NoError(t, state.Update(2, declaredClassesStateUpdate, classesM, false))
 		require.NoError(t, state.Revert(2, declaredClassesStateUpdate))
 
 		var decClass *core.DeclaredClass
@@ -507,7 +507,7 @@ func TestRevert(t *testing.T) {
 	su2, err := gw.StateUpdate(t.Context(), 2)
 	require.NoError(t, err)
 	t.Run("should be able to apply new update after a Revert", func(t *testing.T) {
-		require.NoError(t, state.Update(2, su2, nil))
+		require.NoError(t, state.Update(2, su2, nil, false))
 	})
 
 	t.Run("should be able to revert all the state", func(t *testing.T) {
@@ -562,7 +562,7 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, state.Update(0, su, nil))
+	require.NoError(t, state.Update(0, su, nil, false))
 	require.NoError(t, state.Revert(0, su))
 }
 
@@ -582,7 +582,7 @@ func TestRevertSystemContracts(t *testing.T) {
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
-	require.NoError(t, state.Update(0, su0, nil))
+	require.NoError(t, state.Update(0, su0, nil, false))
 
 	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
@@ -598,7 +598,7 @@ func TestRevertSystemContracts(t *testing.T) {
 
 	su1.StateDiff.StorageDiffs[*scAddr] = map[felt.Felt]*felt.Felt{*scKey: scValue}
 
-	require.NoError(t, state.Update(1, su1, nil))
+	require.NoError(t, state.Update(1, su1, nil, false))
 
 	require.NoError(t, state.Revert(1, su1))
 
@@ -635,7 +635,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 		*sierraHash: &core.Cairo1Class{},
 	}
 
-	require.NoError(t, state.Update(0, declareDiff, newClasses))
+	require.NoError(t, state.Update(0, declareDiff, newClasses, false))
 	declaredClass, err := state.Class(classHash)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), declaredClass.At)
@@ -644,7 +644,7 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	assert.Equal(t, uint64(0), sierraClass.At)
 
 	declareDiff.OldRoot = declareDiff.NewRoot
-	require.NoError(t, state.Update(1, declareDiff, newClasses))
+	require.NoError(t, state.Update(1, declareDiff, newClasses, false))
 
 	t.Run("re-declaring a class shouldnt change it's DeclaredAt attribute", func(t *testing.T) {
 		declaredClass, err = state.Class(classHash)

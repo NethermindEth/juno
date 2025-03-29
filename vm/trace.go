@@ -110,6 +110,33 @@ type TransactionTrace struct {
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
 
+// Todo: this was deleted during RP refactoring. However, the builder pkg needs it.
+// Think about if we can handle this more elegantly.
+func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
+	total := new(ExecutionResources)
+	for _, invocation := range t.allInvocations() {
+		r := invocation.ExecutionResources
+		if r == nil {
+			continue
+		}
+		total.Pedersen += r.Pedersen
+		total.RangeCheck += r.RangeCheck
+		total.Bitwise += r.Bitwise
+		total.Ecdsa += r.Ecdsa
+		total.EcOp += r.EcOp
+		total.Keccak += r.Keccak
+		total.Poseidon += r.Poseidon
+		total.SegmentArena += r.SegmentArena
+		total.MemoryHoles += r.MemoryHoles
+		total.Steps += r.Steps
+	}
+	return total
+}
+
+func (t *TransactionTrace) IsReverted() bool {
+	return t.ExecuteInvocation != nil && t.ExecuteInvocation.FunctionInvocation == nil
+}
+
 type TransactionReceipt struct {
 	Fee   *felt.Felt
 	Gas   GasConsumed

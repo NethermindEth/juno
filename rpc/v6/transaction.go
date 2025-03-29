@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -561,8 +562,42 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber, true), nil
 }
 
-// AddTransaction relays a transaction to the gateway.
+// AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	if h.memPool != nil {
+		return h.addToMempool(&tx)
+	} else {
+		return h.pushToFeederGateway(ctx, tx)
+	}
+}
+
+func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+	userTxn, userClass, paidFeeOnL1, err := adaptBroadcastedTransaction(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
+		Transaction:   userTxn,
+		DeclaredClass: userClass,
+		PaidFeeOnL1:   paidFeeOnL1,
+	}); err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+
+	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
+	if tx.Type == TxnDeployAccount {
+		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+	} else if tx.Type == TxnDeclare {
+		res.ClassHash, err = userClass.Hash()
+		if err != nil {
+			return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		}
+	}
+	return res, nil
+}
+
+// AddTransaction relays a transaction to the gateway.
+func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {

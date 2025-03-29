@@ -87,6 +87,10 @@ const (
 	pluginPathF             = "plugin-path"
 	logHostF                = "log-host"
 	logPortF                = "log-port"
+	seqEnF                  = "seq-enable"
+	seqBlockTimeF           = "seq-block-time"
+	seqGenesisFileF         = "seq-genesis-file"
+	seqDisableFeesF         = "seq-disable-fees"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -127,6 +131,10 @@ const (
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
 	defaultLogPort                  = 0
+	defaultSeqEn                    = false
+	defaultSeqBlockTime             = 60
+	defaultSeqGenesisFile           = ""
+	defaultSeqDisableFees           = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -182,6 +190,10 @@ const (
 	pluginPathUsage             = "Path to the plugin .so file"
 	logHostUsage                = "The interface on which the log level HTTP server will listen for requests."
 	logPortUsage                = "The port on which the log level HTTP server will listen for requests."
+	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqBlockTimeUsage           = "Time to build a block, in seconds"
+	seqGenesisFileUsage         = "Path to the genesis file"
+	seqDisableFeesUsage         = "Skip charge fee for sequencer execution"
 )
 
 var Version string
@@ -377,6 +389,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
 	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
 	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
+	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
