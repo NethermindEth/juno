@@ -60,7 +60,7 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           source: ./juno-artifact/juno-${{ env.SHORT_SHA }}-linux-amd64
           target: ~/juno-benchmark
-          strip_components: 1
+          strip_components: 2
 
       - name: Rename binary
         uses: appleboy/ssh-action@master
