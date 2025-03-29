@@ -18,6 +18,13 @@ on:
       snapshot_url:
         required: false
         type: string
+    secrets:
+      EC2_HOST:
+        required: true
+      EC2_USER:
+        required: true
+      EC2_PRIVATE_KEY:
+        required: true
 
 jobs:
   juno-benchmark:

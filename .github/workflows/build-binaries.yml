@@ -100,10 +100,9 @@ jobs:
 
   benchmark:
     needs: [build]
-    if: github.ref_type == 'tag'
     uses: ./.github/workflows/juno-benchmark.yml
     with:
-      version: ${{ github.ref_name }}
+      version: ${{ github.ref_type == 'tag' && github.ref_name || github.head_ref || github.ref_name }}
       snapshot_url: https://juno-snapshots.nethermind.io/files/sepolia/latest
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
