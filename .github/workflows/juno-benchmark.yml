@@ -31,10 +31,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${{ inputs.version::7 }}" >> $GITHUB_ENV
+
       - name: Download binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: juno-${{ inputs.version }}-linux-amd64
+          name: juno-${{ env.SHORT_SHA }}-linux-amd64
           path: ./juno-artifact
 
       - name: Clean environment and create benchmark directory on EC2

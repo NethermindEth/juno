@@ -104,7 +104,7 @@ jobs:
     needs: [build]
     uses: ./.github/workflows/juno-benchmark.yml
     with:
-      version: ${{ github.ref_type == 'tag' && github.ref_name || github.head_ref || github.ref_name }}
+      version: ${{ github.sha }}
       snapshot_url: https://juno-snapshots.nethermind.io/files/sepolia/latest
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
