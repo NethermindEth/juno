@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-JUNO_VERSION="${1:-latest}"
 SNAPSHOT_URL="${SNAPSHOT_URL:-https://juno-snapshots.nethermind.io/files/sepolia/latest}"
 WORK_DIR="$HOME/juno-benchmark"
 DB_DIR="$WORK_DIR/db"
