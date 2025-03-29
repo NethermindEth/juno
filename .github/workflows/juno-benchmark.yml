@@ -58,7 +58,7 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: ./juno-artifact/juno-${{ inputs.version }}-linux-amd64
+          source: ./juno-artifact/juno-${{ env.SHORT_SHA }}-linux-amd64
           target: ~/juno-benchmark/juno
 
       - name: Checkout scripts
