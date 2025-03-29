@@ -1041,7 +1041,6 @@ func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Bloc
 	pending := *b
 	pending.Number = 0
 	pending.Hash = nil
-	pending.Hash = nil
 	pending.Transactions = pending.Transactions[:txCount]
 	pending.Receipts = pending.Receipts[:txCount]
 	return &pending
