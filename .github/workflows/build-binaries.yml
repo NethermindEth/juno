@@ -51,8 +51,10 @@ jobs:
             starknet/compiler/rust
 
       - name: Get latest tag
-        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
-
+        run: |
+          TAG=$(git describe --tags --exact-match 2>/dev/null || echo ${GITHUB_REF_NAME})
+          echo "TAG=$TAG" >> $GITHUB_ENV
+      
       - name: Get artifact name
         run: |
           OS_NAME=$([ "${{ runner.os }}" == "macOS" ] && echo "darwin" || echo "linux")
