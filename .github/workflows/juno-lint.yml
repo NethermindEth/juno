@@ -31,3 +31,6 @@ jobs:
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.0
+      - uses: dominikh/staticcheck-action@v1
+        with:
+        version: "2025.1.1"
