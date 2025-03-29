@@ -87,7 +87,7 @@ test-cover: clean-testcache rustdeps ## Run tests with coverage
 	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.out -covermode=atomic $(PKG)
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
+install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust install-staticcheck ## Install dependencies
 
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
@@ -98,7 +98,11 @@ install-mockgen:
 install-golangci-lint:
 	@which golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2
 
+install-staticcheck:
+	@which staticcheck || go install honnef.co/go/tools/cmd/staticcheck@2025.1.1
+
 lint: install-golangci-lint ## Run linter
+	staticcheck ./...
 	golangci-lint run
 
 tidy: ## Add missing and remove unused modules
