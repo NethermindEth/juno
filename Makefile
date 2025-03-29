@@ -87,7 +87,7 @@ test-cover: clean-testcache rustdeps ## Run tests with coverage
 	go test $(GO_TAGS) -coverpkg=$(PKG) -coverprofile=coverage/coverage.out -covermode=atomic $(PKG)
 	go tool cover -html=coverage/coverage.out -o coverage/coverage.html
 
-install-deps: install-gofumpt install-mockgen check-rust ## Install dependencies
+install-deps: install-gofumpt install-mockgen install-golangci-lint check-rust ## Install dependencies
 
 install-gofumpt:
 	go install mvdan.cc/gofumpt@latest
@@ -96,9 +96,7 @@ install-mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 install-golangci-lint:
-	@# binary will be $(go env GOPATH)/bin/golangci-lint
-	@which golangci-lint > /dev/null 2>&1 || (curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.0.2)
-	@golangci-lint --version
+	@which golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2
 
 lint: install-golangci-lint ## Run linter
 	golangci-lint run
