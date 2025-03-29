@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"slices"
 )
 
 var _ Transaction = (*memTransaction)(nil)
@@ -28,7 +29,7 @@ func (t *memTransaction) Commit() error {
 }
 
 func (t *memTransaction) Set(key, val []byte) error {
-	t.storage[string(key)] = append([]byte{}, val...)
+	t.storage[string(key)] = slices.Clone(val)
 	return nil
 }
 

@@ -127,8 +127,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	}
 
 	if peers != "" {
-		splitted := strings.Split(peers, ",")
-		for _, peerStr := range splitted {
+		for peerStr := range strings.SplitSeq(peers, ",") {
 			var peerAddr *peer.AddrInfo
 			peerAddr, err = peer.AddrInfoFromString(peerStr)
 			if err != nil {
