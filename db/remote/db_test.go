@@ -39,7 +39,12 @@ func TestRemote(t *testing.T) {
 		require.NoError(t, grpcSrv.Serve(l))
 	}()
 
-	remoteDB, err := remote.New(l.Addr().String(), t.Context(), utils.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	remoteDB, err := remote.New(
+		l.Addr().String(),
+		t.Context(),
+		utils.NewNopZapLogger(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	require.NoError(t, err)
 
 	t.Run("Get", func(t *testing.T) {

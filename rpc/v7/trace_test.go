@@ -99,9 +99,11 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, test.blockHash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-				return mockReader.BlockByNumber(test.blockNumber)
-			})
+			mockReader.EXPECT().
+				BlockByHash(utils.HexToFelt(t, test.blockHash)).
+				DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+					return mockReader.BlockByNumber(test.blockNumber)
+				})
 
 			handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 			handler = handler.WithFeeder(client)
@@ -1613,7 +1615,9 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().
+			Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1653,7 +1657,9 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().
+			Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,

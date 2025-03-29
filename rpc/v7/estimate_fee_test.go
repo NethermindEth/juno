@@ -58,7 +58,11 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         123,
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			rpcv7.BlockID{Latest: true},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -70,7 +74,11 @@ func TestEstimateFee(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			rpcv7.BlockID{Latest: true},
+		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
