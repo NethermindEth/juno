@@ -2,7 +2,7 @@ package db
 
 import "slices"
 
-//go:generate go run github.com/dmarkham/enumer -type=Bucket -output=buckets_enumer.go
+//go:generate go tool enumer -type=Bucket -output=buckets_enumer.go
 type Bucket byte
 
 // Pebble does not support buckets to differentiate between groups of

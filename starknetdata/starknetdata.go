@@ -9,7 +9,7 @@ import (
 
 // StarknetData defines the function which are required to retrieve Starknet's state
 //
-//go:generate mockgen -destination=../mocks/mock_starknetdata.go -package=mocks github.com/NethermindEth/juno/starknetdata StarknetData
+//go:generate go tool mockgen -destination=../mocks/mock_starknetdata.go -package=mocks github.com/NethermindEth/juno/starknetdata StarknetData
 type StarknetData interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error)
 	BlockLatest(ctx context.Context) (*core.Block, error)
