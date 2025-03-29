@@ -84,6 +84,7 @@ jobs:
           envs: SNAPSHOT_URL
           script: |
             export SNAPSHOT_URL=${{ inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
+            chmod +x ~/juno-benchmark/juno
             chmod +x ~/juno-benchmark/scripts/juno-setup.sh
             ~/juno-benchmark/scripts/juno-setup.sh
 
