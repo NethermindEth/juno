@@ -10,17 +10,35 @@ on:
       snapshot_url:
         description: 'Custom snapshot URL (optional)'
         required: false
-  release:
-    types: [prereleased]
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      snapshot_url:
+        required: false
+        type: string
+    secrets:
+      EC2_HOST:
+        required: true
+      EC2_USER:
+        required: true
+      EC2_PRIVATE_KEY:
+        required: true
 
 jobs:
   juno-benchmark:
-    name: EC2 Snapshot Download and Juno Launch
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Set short SHA
+        run: echo "SHORT_SHA=$(echo '${{ inputs.version }}' | cut -c1-8)" >> $GITHUB_ENV
+      
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: juno-${{ env.SHORT_SHA }}-linux-amd64
+          path: ./juno-artifact
 
       - name: Clean environment and create benchmark directory on EC2
         uses: appleboy/ssh-action@master
@@ -34,38 +52,53 @@ jobs:
             mkdir -p ~/juno-benchmark/scripts
             mkdir -p ~/juno-benchmark/db
 
-      - name: Copy benchmark script to EC2
+      - name: Copy binary to EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: scripts/juno-benchmark.sh
+          source: ./juno-artifact/juno-${{ env.SHORT_SHA }}-linux-amd64
+          target: ~/juno-benchmark
+          strip_components: 2
+
+      - name: Rename binary
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            mv ~/juno-benchmark/juno-${{ env.SHORT_SHA }}-linux-amd64 ~/juno-benchmark/juno
+            chmod +x ~/juno-benchmark/juno
+
+      - name: Checkout scripts
+        uses: actions/checkout@v4
+
+      - name: Copy scripts to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: scripts/juno-setup.sh,scripts/juno-sync-monitor.sh
           target: ~/juno-benchmark/scripts/
           strip_components: 1
 
-      - name: Execute remote benchmark script via SSH
+      - name: Execute setup and run monitoring
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
-          envs: JUNO_VERSION,SNAPSHOT_URL
-          command_timeout: 180m
+          command_timeout: 120m
+          envs: SNAPSHOT_URL
           script: |
-            export JUNO_VERSION=${{ github.event.inputs.version || github.event.release.tag_name }}
-            export SNAPSHOT_URL=${{ github.event.inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
-            chmod +x ~/juno-benchmark/scripts/juno-benchmark.sh
-            bash ~/juno-benchmark/scripts/juno-benchmark.sh "$JUNO_VERSION"
+            export SNAPSHOT_URL=${{ inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
+            chmod +x ~/juno-benchmark/scripts/juno-setup.sh
+            ~/juno-benchmark/scripts/juno-setup.sh
 
-      - name: Verify Juno is running
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          script: |
-            sleep 10
-            ps aux | grep juno | grep -v grep
-            echo "Latest Juno log entries:"
-            tail -n 30 ~/juno-benchmark/juno.log
+            chmod +x ~/juno-benchmark/scripts/juno-sync-monitor.sh
+            ~/juno-benchmark/scripts/juno-sync-monitor.sh
+
+            cat ~/juno-benchmark/sync_report.txt

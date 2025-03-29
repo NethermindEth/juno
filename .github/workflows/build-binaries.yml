@@ -21,8 +21,8 @@ jobs:
             arch: amd64
           - os: macos-13
             arch: amd64
-          - os: ubuntu-arm64-4-core
-            arch: arm64
+          #- os: ubuntu-arm64-4-core
+          #  arch: arm64
           - os: macos-latest
             arch: arm64
     runs-on: ${{ matrix.os }}
@@ -51,7 +51,9 @@ jobs:
             starknet/compiler/rust
 
       - name: Get latest tag
-        run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
+        run: |
+          TAG=$(git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD)
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: Get artifact name
         run: |
@@ -97,3 +99,14 @@ jobs:
             ${{ env.ARTIFACT_NAME }}
             ${{ env.ARTIFACT_NAME }}.sha256
           retention-days: 30
+
+  benchmark:
+    needs: [build]
+    uses: ./.github/workflows/juno-benchmark.yml
+    with:
+      version: ${{ github.sha }}
+      snapshot_url: https://juno-snapshots.nethermind.io/files/sepolia/latest
+    secrets:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
