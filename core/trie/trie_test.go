@@ -433,7 +433,7 @@ var benchTriePutR *felt.Felt
 
 func BenchmarkTriePut(b *testing.B) {
 	keys := make([]*felt.Felt, 0, b.N)
-	for range b.N {
+	for b.Loop() {
 		rnd, err := new(felt.Felt).SetRandom()
 		require.NoError(b, err)
 		keys = append(keys, rnd)
