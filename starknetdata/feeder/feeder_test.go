@@ -177,23 +177,60 @@ func TestTransaction(t *testing.T) {
 		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
 	})
 
-	t.Run("tx with non-zero l2 gas should have l1 data gas", func(t *testing.T) {
+	t.Run("tx with zero l1 data gas should have zero l2 gas", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
 		responseTx.ResourceBounds = utils.HeapPtr(map[starknet.Resource]starknet.ResourceBounds{
-			starknet.ResourceL2Gas: {
+			starknet.ResourceL1Gas: {
 				MaxAmount:       new(felt.Felt).SetUint64(100),
 				MaxPricePerUnit: new(felt.Felt).SetUint64(100),
+			},
+			starknet.ResourceL2Gas: {
+				MaxAmount:       new(felt.Felt).SetUint64(200),
+				MaxPricePerUnit: new(felt.Felt).SetUint64(200),
 			},
 		})
 
 		adaptTx := sn2core.AdaptInvokeTransaction(responseTx)
 
 		require.NotNil(t, adaptTx.ResourceBounds[core.ResourceL1DataGas])
-		require.Equal(t, uint64(0), adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxAmount)
-		require.Equal(t, &felt.Zero, adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxPricePerUnit)
+		require.Equal(t, uint64(100), adaptTx.ResourceBounds[core.ResourceL1Gas].MaxAmount)
+		require.Equal(t, new(felt.Felt).SetUint64(100), adaptTx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit)
+		require.Equal(t, uint64(0), adaptTx.ResourceBounds[core.ResourceL2Gas].MaxAmount)
+		require.Equal(t, &felt.Zero, adaptTx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit)
+	})
+
+	t.Run("tx with non-zero l1 data gas should have l2 gas", func(t *testing.T) {
+		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
+		response, err := clientGoerli.Transaction(ctx, hash)
+		require.NoError(t, err)
+		responseTx := response.Transaction
+		responseTx.ResourceBounds = utils.HeapPtr(map[starknet.Resource]starknet.ResourceBounds{
+			starknet.ResourceL1Gas: {
+				MaxAmount:       new(felt.Felt).SetUint64(100),
+				MaxPricePerUnit: new(felt.Felt).SetUint64(100),
+			},
+			starknet.ResourceL2Gas: {
+				MaxAmount:       new(felt.Felt).SetUint64(200),
+				MaxPricePerUnit: new(felt.Felt).SetUint64(200),
+			},
+			starknet.ResourceL1DataGas: {
+				MaxAmount:       new(felt.Felt).SetUint64(300),
+				MaxPricePerUnit: new(felt.Felt).SetUint64(300),
+			},
+		})
+
+		adaptTx := sn2core.AdaptInvokeTransaction(responseTx)
+
+		require.NotNil(t, adaptTx.ResourceBounds[core.ResourceL1DataGas])
+		require.Equal(t, uint64(100), adaptTx.ResourceBounds[core.ResourceL1Gas].MaxAmount)
+		require.Equal(t, new(felt.Felt).SetUint64(100), adaptTx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit)
+		require.Equal(t, uint64(200), adaptTx.ResourceBounds[core.ResourceL2Gas].MaxAmount)
+		require.Equal(t, new(felt.Felt).SetUint64(200), adaptTx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit)
+		require.Equal(t, uint64(300), adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxAmount)
+		require.Equal(t, new(felt.Felt).SetUint64(300), adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxPricePerUnit)
 	})
 }
 
