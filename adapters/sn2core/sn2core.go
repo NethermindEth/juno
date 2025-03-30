@@ -194,24 +194,34 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 		return nil
 	}
 	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	for resource, bounds := range *rb {
-		coreBounds[core.Resource(resource)] = core.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount.Uint64(),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
-	}
-
 	// Ensures that the L1DataGas resource is always present if L2Gas is non-zero.
 	// In RPC v8, L1Gas, L2Gas and L1DataGas are part of the spec and required.
 	// In RPC v6 and v7, only L1Gas and L2Gas are part of the spec and required.
 	// Blockifier will throw an error if L1DataGas is absent and L2Gas is non-zero.
-	// To avoid that, if L2Gas is non-zero, we set the L1DataGas resource to zero.
-	if l2Gas, ok := coreBounds[core.ResourceL2Gas]; ok && !l2Gas.IsZero() {
-		if _, ok := coreBounds[core.ResourceL1DataGas]; !ok {
-			coreBounds[core.ResourceL1DataGas] = core.ResourceBounds{
-				MaxAmount:       0,
-				MaxPricePerUnit: &felt.Zero,
+	// To avoid that, if L1DataGas is not present, we set L2Gas to zero.
+	// https://github.com/starkware-libs/sequencer/blob/6c14c03e2d9d6f72ae05c98442dbaf17c243433e/crates/starknet_api/src/transaction/fields.rs#L426-L458
+
+	if l1Gas, ok := (*rb)[starknet.ResourceL1Gas]; ok {
+		coreBounds[core.ResourceL1Gas] = core.ResourceBounds{
+			MaxAmount:       l1Gas.MaxAmount.Uint64(),
+			MaxPricePerUnit: l1Gas.MaxPricePerUnit,
+		}
+	}
+	if l1DataGas, ok := (*rb)[starknet.ResourceL1DataGas]; ok {
+		if l2Gas, ok := (*rb)[starknet.ResourceL2Gas]; ok {
+			coreBounds[core.ResourceL2Gas] = core.ResourceBounds{
+				MaxAmount:       l2Gas.MaxAmount.Uint64(),
+				MaxPricePerUnit: l2Gas.MaxPricePerUnit,
 			}
+		}
+		coreBounds[core.ResourceL1DataGas] = core.ResourceBounds{
+			MaxAmount:       l1DataGas.MaxAmount.Uint64(),
+			MaxPricePerUnit: l1DataGas.MaxPricePerUnit,
+		}
+	} else {
+		coreBounds[core.ResourceL2Gas] = core.ResourceBounds{
+			MaxAmount:       0,
+			MaxPricePerUnit: &felt.Zero,
 		}
 	}
 
