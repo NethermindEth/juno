@@ -199,7 +199,6 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 	// In RPC v6 and v7, only L1Gas and L2Gas are part of the spec and required.
 	// Blockifier will throw an error if L1DataGas is absent and L2Gas is non-zero.
 	// To avoid that, if L1DataGas is not present, we set L2Gas to zero.
-	// https://github.com/starkware-libs/sequencer/blob/6c14c03e2d9d6f72ae05c98442dbaf17c243433e/crates/starknet_api/src/transaction/fields.rs#L426-L458
 
 	if l1Gas, ok := (*rb)[starknet.ResourceL1Gas]; ok {
 		coreBounds[core.ResourceL1Gas] = core.ResourceBounds{
