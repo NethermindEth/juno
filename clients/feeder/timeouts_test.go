@@ -13,6 +13,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestTimeoutString(t *testing.T) {
+	tests := []struct {
+		name  string
+		input Timeouts
+		want  string
+	}{
+		{
+			name: "empty timeouts",
+			input: Timeouts{
+				timeouts: []time.Duration{},
+			},
+			want: "",
+		},
+		{
+			name: "single timeout",
+			input: Timeouts{
+				timeouts: []time.Duration{5 * time.Second},
+			},
+			want: "5s",
+		},
+		{
+			name: "multiple timeouts",
+			input: Timeouts{
+				timeouts: []time.Duration{5 * time.Second, 10 * time.Second, 20 * time.Second},
+			},
+			want: "5s,10s,20s",
+		},
+		{
+			name: "mixed duration units",
+			input: Timeouts{
+				timeouts: []time.Duration{5 * time.Second, 2 * time.Minute, 1 * time.Hour},
+			},
+			want: "5s,2m0s,1h0m0s",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input.String()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestParseTimeouts(t *testing.T) {
 	tests := []struct {
 		name    string
