@@ -1,7 +1,6 @@
 package feeder
 
 import (
-	"reflect"
 	"testing"
 	"time"
 
@@ -64,7 +63,14 @@ func TestGetTimeouts(t *testing.T) {
 			maxRetries: 4,
 			want: Timeouts{
 				curTimeout: 0,
-				timeouts:   []time.Duration{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+				timeouts: []time.Duration{
+					5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
+					120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
+					300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
+					748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
+					1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
+					4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
+				},
 			},
 		},
 		{
@@ -73,7 +79,15 @@ func TestGetTimeouts(t *testing.T) {
 			maxRetries: 4,
 			want: Timeouts{
 				curTimeout: 0,
-				timeouts:   []time.Duration{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+				timeouts: []time.Duration{
+					5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
+					120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
+					300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
+					748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
+					1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
+					4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
+					11552 * time.Second,
+				},
 			},
 		},
 		{
@@ -82,7 +96,15 @@ func TestGetTimeouts(t *testing.T) {
 			maxRetries: 4,
 			want: Timeouts{
 				curTimeout: 0,
-				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second,
+					80 * time.Second, 120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
+					250 * time.Second, 300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second,
+					623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
+					1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
+					3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
+					9626 * time.Second,
+				},
 			},
 		},
 		{
@@ -91,15 +113,23 @@ func TestGetTimeouts(t *testing.T) {
 			maxRetries: 4,
 			want: Timeouts{
 				curTimeout: 0,
-				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+				timeouts: []time.Duration{
+					5 * time.Second, 7 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second,
+					80 * time.Second, 120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
+					250 * time.Second, 300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second,
+					623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
+					1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
+					3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
+					9626 * time.Second,
+				},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTimeouts(tt.input, tt.maxRetries)
-			reflect.DeepEqual(tt.want, got)
+			got := getTimeouts(tt.input)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
