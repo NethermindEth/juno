@@ -108,10 +108,6 @@ func TestGetTimeouts(t *testing.T) {
 	}
 }
 
-func TestTimeoutsString(t *testing.T) {
-
-}
-
 func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {
 	req, err := http.NewRequestWithContext(ctx, method, path, http.NoBody)
 	require.NoError(t, err)
