@@ -2,7 +2,6 @@ module github.com/NethermindEth/juno
 
 // if version specified as "1.22" (without bugfix) it breaks CodeQL github build
 go 1.24.1
-
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
@@ -17,7 +16,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.41.0
 	github.com/libp2p/go-libp2p-kad-dht v0.30.2
-	github.com/libp2p/go-libp2p-pubsub v0.13.0
+	github.com/libp2p/go-libp2p-pubsub v0.13.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/olekukonko/tablewriter v0.0.5
