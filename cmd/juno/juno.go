@@ -85,8 +85,8 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
-	logHostF                = "log-host"
-	logPortF                = "log-port"
+	httpUpdateHostF         = "http-update-host"
+	httpUpdatePortF         = "http-update-port"
 
 	defaultConfig                   = ""
 	defaulHost                      = "localhost"
@@ -126,7 +126,7 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
-	defaultLogPort                  = 0
+	defaultHTTPUpdatePort           = 0
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -181,8 +181,8 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
-	logHostUsage                = "The interface on which the log level HTTP server will listen for requests."
-	logPortUsage                = "The port on which the log level HTTP server will listen for requests."
+	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
+	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 )
 
 var Version string
@@ -376,8 +376,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
-	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
-	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
+	junoCmd.Flags().String(httpUpdateHostF, defaulHost, httpUpdateHostUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 

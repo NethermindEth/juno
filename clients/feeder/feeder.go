@@ -284,6 +284,13 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				"retryAfter", wait.String(),
 				"err", err,
 			)
+
+			currentTimeout := c.timeouts.GetCurrentTimeout()
+			if currentTimeout < fastGrowThreshold {
+				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
+					"timeout", currentTimeout.String(),
+					"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the bigger timeout`)
+			}
 		}
 	}
 	return nil, err
