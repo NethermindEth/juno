@@ -75,7 +75,7 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts []time.Duration) *Client {
-	c.timeouts = getTimeouts(timeouts, timeoutsCount)
+	c.timeouts = getTimeouts(timeouts)
 	return c
 }
 
@@ -263,13 +263,14 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 					c.timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
+					if res.StatusCode != http.StatusTooManyRequests {
+						c.timeouts.IncreaseTimeout()
+					}
 					err = errors.New(res.Status)
 				}
 
 				res.Body.Close()
 			}
-
-			c.timeouts.IncreaseTimeout()
 
 			if wait < c.minWait {
 				wait = c.minWait

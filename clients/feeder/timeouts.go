@@ -73,10 +73,10 @@ func timeoutsListFromNumber(initial time.Duration, count int) []time.Duration {
 	return timeouts
 }
 
-func getTimeouts(timeouts []time.Duration, count int) Timeouts {
+func getTimeouts(timeouts []time.Duration) Timeouts {
 	var timeoutsList []time.Duration
 	if len(timeouts) == 0 {
-		timeoutsList = timeoutsListFromNumber(defaultTimeout, count)
+		timeoutsList = timeoutsListFromNumber(defaultTimeout, timeoutsCount)
 	} else {
 		if len(timeouts) > 0 {
 			sort.Slice(timeouts, func(i, j int) bool {
@@ -84,10 +84,10 @@ func getTimeouts(timeouts []time.Duration, count int) Timeouts {
 			})
 		}
 
-		if len(timeouts) > count {
-			timeoutsList = timeouts[:count]
+		if len(timeouts) > timeoutsCount {
+			timeoutsList = timeouts[:timeoutsCount]
 		} else {
-			count := count + 1 - len(timeouts)
+			count := timeoutsCount + 1 - len(timeouts)
 			next := increaseDuration(timeouts[len(timeouts)-1])
 			timeouts := append(timeouts, timeoutsListFromNumber(next, count)...)
 			timeoutsList = timeouts
