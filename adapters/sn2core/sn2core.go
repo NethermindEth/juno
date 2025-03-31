@@ -38,6 +38,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	if sig != nil {
 		sigs = append(sigs, sig.Signature)
 	}
+
 	return &core.Block{
 		Header: &core.Header{
 			Hash:             response.Hash,

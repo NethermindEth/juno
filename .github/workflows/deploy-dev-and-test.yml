@@ -30,10 +30,11 @@ jobs:
       environment: Development
       source_repo: nubia-oci-local-dev
       target_repo: nubia-oci-local-dev
-      rpc_version: v0_7
+      test_mode: ${{ github.event_name == 'pull_request' && 'fast' || 'full' }}
     secrets:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
       RPC_URL: ${{ secrets.DEV_SEPOLIA_URL }}
+      WS_RPC_URL: ${{ secrets.DEV_WS_SEPOLIA_URL }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
