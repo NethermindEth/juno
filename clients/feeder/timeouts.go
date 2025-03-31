@@ -87,7 +87,7 @@ func getTimeouts(timeouts []time.Duration) Timeouts {
 		if len(timeouts) > timeoutsCount {
 			timeoutsList = timeouts[:timeoutsCount]
 		} else {
-			count := timeoutsCount + 1 - len(timeouts)
+			count := timeoutsCount - len(timeouts)
 			next := increaseDuration(timeouts[len(timeouts)-1])
 			timeouts := append(timeouts, timeoutsListFromNumber(next, count)...)
 			timeoutsList = timeouts
