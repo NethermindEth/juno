@@ -75,7 +75,7 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts []time.Duration) *Client {
-	c.timeouts = getTimeouts(timeouts, c.maxRetries)
+	c.timeouts = getTimeouts(timeouts, timeoutsCount)
 	return c
 }
 
@@ -279,7 +279,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				wait = c.maxWait
 			}
 
-			c.log.Warnw("Failed query to feeder, retrying...",
+			c.log.Debugw("Failed query to feeder, retrying...",
 				"req", req.URL.String(),
 				"retryAfter", wait.String(),
 				"err", err,
