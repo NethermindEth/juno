@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -154,14 +153,11 @@ func makeMetrics(host string, port uint16) *httpService {
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
-// Create a new service that updates the log level and timeouts settings.
-func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
+// Create a new service that updates the log level .
+func makeLogService(host string, port uint16, logLevel *utils.LogLevel) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)
-	})
-	mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
-		feeder.HTTPTimeoutsSettings(w, r, feederClient)
 	})
 	var handler http.Handler = mux
 	return makeHTTPService(host, port, handler)

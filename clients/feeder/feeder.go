@@ -278,19 +278,12 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			currentTimeout := c.timeouts.GetCurrentTimeout()
 
 			c.log.Warnw("Failed query to feeder, retrying...",
 				"req", req.URL.String(),
 				"retryAfter", wait.String(),
 				"err", err,
 			)
-
-			if currentTimeout < fastGrowThreshold {
-				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
-					"timeout", currentTimeout.String(),
-					"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the bigger timeout`)
-			}
 		}
 	}
 	return nil, err

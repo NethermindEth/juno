@@ -1,14 +1,10 @@
 package feeder
 
 import (
-	"context"
-	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
