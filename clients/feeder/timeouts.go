@@ -31,13 +31,13 @@ func (t Timeouts) GetCurrentTimeout() time.Duration {
 	return t.timeouts[t.curTimeout]
 }
 
-func (t *Timeouts) IncreaseTimeout() {
+func (t *Timeouts) DecreaseTimeout() {
 	if t.curTimeout > 0 {
 		t.curTimeout--
 	}
 }
 
-func (t *Timeouts) DecreaseTimeout() {
+func (t *Timeouts) IncreaseTimeout() {
 	t.curTimeout++
 	if t.curTimeout >= timeoutsCount {
 		t.curTimeout = timeoutsCount - 1
