@@ -50,6 +50,7 @@ func TestParseTimeouts(t *testing.T) {
 	}
 }
 
+//nolint:dupl
 func TestGetTimeouts(t *testing.T) {
 	tests := []struct {
 		name       string
