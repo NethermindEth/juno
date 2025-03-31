@@ -193,6 +193,7 @@ func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, cl
 	return rr
 }
 
+//nolint:dupl
 func TestHTTPTimeoutsSettings(t *testing.T) {
 	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts([]time.Duration{defaultTimeout})
 	ctx := t.Context()
