@@ -7,7 +7,6 @@ package feeder
 import (
 	"fmt"
 	"math"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -128,37 +127,4 @@ func ParseTimeouts(values []string) ([]time.Duration, error) {
 		timeouts = append(timeouts, d)
 	}
 	return timeouts, nil
-}
-
-func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client) {
-	switch r.Method {
-	case http.MethodGet:
-		fmt.Fprintf(w, "%s\n", client.timeouts.String())
-	case http.MethodPut:
-		timeoutsStr := r.URL.Query().Get("timeouts")
-		if timeoutsStr == "" {
-			http.Error(w, "missing timeouts query parameter", http.StatusBadRequest)
-			return
-		}
-
-		timeoutStrs := strings.Split(timeoutsStr, ",")
-		timeouts := make([]string, 0, len(timeoutStrs))
-		for _, t := range timeoutStrs {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				timeouts = append(timeouts, t)
-			}
-		}
-
-		newTimeouts, err := ParseTimeouts(timeouts)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		client.WithTimeouts(newTimeouts)
-		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
 }

@@ -1,7 +1,6 @@
 package feeder_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -703,7 +702,10 @@ func TestClientRetryBehavior(t *testing.T) {
 				return
 			}
 
-			w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			_, err := w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			if err != nil {
+				panic("TestClientRetryBehavior: write error")
+			}
 		}))
 		defer srv.Close()
 
@@ -712,7 +714,7 @@ func TestClientRetryBehavior(t *testing.T) {
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
-		block, err := client.Block(context.Background(), "1")
+		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
 		require.NotNil(t, block)
 		require.Equal(t, 3, requestCount)
@@ -732,7 +734,7 @@ func TestClientRetryBehavior(t *testing.T) {
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
-		_, err := client.Block(context.Background(), "1")
+		_, err := client.Block(t.Context(), "1")
 		require.Error(t, err)
 		require.Equal(t, 3, requestCount)
 	})
@@ -746,7 +748,10 @@ func TestClientRetryBehavior(t *testing.T) {
 				w.WriteHeader(http.StatusGatewayTimeout)
 				return
 			}
-			w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			_, err := w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			if err != nil {
+				panic("TestClientRetryBehavior: write error")
+			}
 		}))
 		defer srv.Close()
 
@@ -755,7 +760,7 @@ func TestClientRetryBehavior(t *testing.T) {
 			WithMaxRetries(1).
 			WithBackoff(feeder.NopBackoff)
 
-		block, err := client.Block(context.Background(), "1")
+		block, err := client.Block(t.Context(), "1")
 		require.NoError(t, err)
 		require.NotNil(t, block)
 		require.Equal(t, 2, requestCount)
