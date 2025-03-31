@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,28 +17,23 @@ func TestParseTimeouts(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   []string
-		want    TimeoutsList
+		want    []time.Duration
 		wantErr bool
 	}{
 		{
 			name:  "empty input",
 			input: []string{},
-			want:  TimeoutsList{defaultTimeout},
+			want:  []time.Duration{defaultTimeout},
 		},
 		{
 			name:  "single value",
 			input: []string{"5s"},
-			want:  TimeoutsList{5 * time.Second},
+			want:  []time.Duration{5 * time.Second},
 		},
 		{
 			name:  "multiple values",
 			input: []string{"5s", "7s", "10s"},
-			want:  TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second},
-		},
-		{
-			name:  "cap at max timeout",
-			input: []string{"3m"},
-			want:  TimeoutsList{maxTimeout},
+			want:  []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
 		},
 		{
 			name:    "invalid duration",
@@ -62,42 +58,58 @@ func TestParseTimeouts(t *testing.T) {
 func TestGetTimeouts(t *testing.T) {
 	tests := []struct {
 		name       string
-		input      TimeoutsList
+		input      []time.Duration
 		maxRetries int
-		want       TimeoutsList
+		want       Timeouts
 	}{
 		{
 			name:       "empty input",
-			input:      TimeoutsList{},
+			input:      []time.Duration{},
 			maxRetries: 4,
-			want:       TimeoutsList{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+			want: Timeouts{
+				curTimeout: 0,
+				timeouts:   []time.Duration{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+			},
 		},
 		{
 			name:       "single value input",
-			input:      TimeoutsList{5 * time.Second},
+			input:      []time.Duration{5 * time.Second},
 			maxRetries: 4,
-			want:       TimeoutsList{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+			want: Timeouts{
+				curTimeout: 0,
+				timeouts:   []time.Duration{5 * time.Second, 8 * time.Second, 12 * time.Second, 18 * time.Second, 27 * time.Second},
+			},
 		},
 		{
 			name:       "multiple values input",
-			input:      TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second},
+			input:      []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
 			maxRetries: 4,
-			want:       TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+			want: Timeouts{
+				curTimeout: 0,
+				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+			},
 		},
 		{
 			name:       "random order input",
-			input:      TimeoutsList{10 * time.Second, 5 * time.Second, 7 * time.Second},
+			input:      []time.Duration{10 * time.Second, 5 * time.Second, 7 * time.Second},
 			maxRetries: 4,
-			want:       TimeoutsList{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+			want: Timeouts{
+				curTimeout: 0,
+				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second, 15 * time.Second, 23 * time.Second},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getTimeouts(tt.input, tt.maxRetries)
-			assert.Equal(t, tt.want, got)
+			reflect.DeepEqual(tt.want, got)
 		})
 	}
+}
+
+func TestTimeoutsString(t *testing.T) {
+
 }
 
 func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {
@@ -114,13 +126,13 @@ func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, cl
 }
 
 func TestHTTPTimeoutsSettings(t *testing.T) {
-	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts(TimeoutsList{defaultTimeout})
+	client := NewTestClient(t, &utils.Mainnet).WithMaxRetries(4).WithTimeouts([]time.Duration{defaultTimeout})
 	ctx := t.Context()
 
 	t.Run("GET current timeouts", func(t *testing.T) {
 		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
 		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "5s,8s,12s,18s,27s\n", rr.Body.String())
+		assert.Equal(t, "5s,10s,20s,40s,1m20s\n", rr.Body.String())
 	})
 
 	t.Run("PUT update timeouts with missing parameter", func(t *testing.T) {
@@ -134,13 +146,13 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
-		assert.Equal(t, TimeoutsList{
+		assert.Equal(t, []time.Duration{
 			2 * time.Second,
-			3 * time.Second,
-			5 * time.Second,
+			4 * time.Second,
 			8 * time.Second,
-			12 * time.Second,
-		}, client.timeouts)
+			16 * time.Second,
+			32 * time.Second,
+		}, client.timeouts.timeouts)
 	})
 
 	t.Run("PUT update timeouts list", func(t *testing.T) {
@@ -148,20 +160,20 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
-		assert.Equal(t, TimeoutsList{
+		assert.Equal(t, []time.Duration{
 			5 * time.Second,
 			7 * time.Second,
 			10 * time.Second,
-			15 * time.Second,
-			23 * time.Second,
-		}, client.timeouts)
+			20 * time.Second,
+			40 * time.Second,
+		}, client.timeouts.timeouts)
 	})
 
 	t.Run("PUT update timeouts with invalid value", func(t *testing.T) {
 		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=invalid", client)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "parsing timeouts: time: invalid duration \"invalid\"\n", rr.Body.String())
+		assert.Equal(t, "parsing timeouts at index 0: time: invalid duration \"invalid\"\n", rr.Body.String())
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {

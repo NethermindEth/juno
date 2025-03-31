@@ -36,8 +36,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   TimeoutsList
-	curTimeout int
+	timeouts   Timeouts
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -75,9 +74,8 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-func (c *Client) WithTimeouts(timeouts TimeoutsList) *Client {
+func (c *Client) WithTimeouts(timeouts []time.Duration) *Client {
 	c.timeouts = getTimeouts(timeouts, c.maxRetries)
-	c.curTimeout = 0
 	return c
 }
 
@@ -235,8 +233,8 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
-	if c.timeouts == nil {
-		c.timeouts = generateTimeoutsListFromInitial(defaultTimeout, c.maxRetries+1)
+	if c.timeouts.timeouts == nil {
+		c.timeouts.UseDefaultTimeouts()
 	}
 
 	for range c.maxRetries + 1 {
@@ -256,15 +254,13 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
-			c.client.Timeout = c.timeouts[c.curTimeout]
+			c.client.Timeout = c.timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			if err == nil {
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				if res.StatusCode == http.StatusOK {
-					if c.curTimeout > 0 {
-						c.curTimeout--
-					}
+					c.timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
 					err = errors.New(res.Status)
@@ -273,10 +269,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				res.Body.Close()
 			}
 
-			c.curTimeout++
-			if c.curTimeout >= len(c.timeouts) {
-				c.curTimeout = len(c.timeouts) - 1
-			}
+			c.timeouts.IncreaseTimeout()
 
 			if wait < c.minWait {
 				wait = c.minWait
@@ -285,11 +278,19 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait > c.maxWait {
 				wait = c.maxWait
 			}
-			c.log.Debugw("Failed query to feeder, retrying...",
+			currentTimeout := c.timeouts.GetCurrentTimeout()
+
+			c.log.Warnw("Failed query to feeder, retrying...",
 				"req", req.URL.String(),
 				"retryAfter", wait.String(),
 				"err", err,
 			)
+
+			if currentTimeout < fastGrowThreshold {
+				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
+					"timeout", currentTimeout.String(),
+					"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the bigger timeout`)
+			}
 		}
 	}
 	return nil, err
@@ -488,15 +489,4 @@ func findTargetDirectory(targetRelPath string) (string, error) {
 		}
 		root = newRoot
 	}
-}
-
-// For testing purposes
-func (c *Client) GetCurrentTimeout() int {
-	return c.curTimeout
-}
-
-// For testing purposes
-func (c *Client) SetHTTPTransport(transport http.RoundTripper) *Client {
-	c.client.Transport = transport
-	return c
 }
