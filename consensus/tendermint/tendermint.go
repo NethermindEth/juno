@@ -387,6 +387,9 @@ func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
 	56: 	StartRound(round)
 */
 func (t *Tendermint[V, H, A]) line55(futureR round) {
+	t.futureMessagesMu.Lock()
+	defer t.futureMessagesMu.Unlock()
+
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
 
