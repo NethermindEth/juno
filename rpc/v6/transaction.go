@@ -364,14 +364,15 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
 	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		// ResourceL1DataGas is not supported in v6
-		if resource == core.ResourceL1DataGas {
-			continue
-		}
-
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
+	if bounds, ok := rb[core.ResourceL1Gas]; ok {
+		rpcResourceBounds[Resource(core.ResourceL1Gas)] = ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
+		}
+	}
+	if bounds, ok := rb[core.ResourceL2Gas]; ok {
+		rpcResourceBounds[Resource(core.ResourceL2Gas)] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(0),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
