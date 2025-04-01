@@ -1,29 +1,56 @@
 name: 'Build and publish Docker image'
 
 on:
+  workflow_call:
+    inputs:
+      repo_type:
+        description: 'Choose repository type'
+        type: string
+        default: 'non-official'
+    outputs:
+      tag:
+        description: 'The tag that was built'
+        value: ${{ jobs.setup.outputs.tag }}
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Enter an image tag e.g v0.1.0'
-        required: true
       repo_type:
         description: 'Choose repository type'
         type: choice
         required: false
         default: 'non-official'
         options:
-        - official
-        - non-official
+          - official
+          - non-official
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
+  setup:
+    if: github.repository_owner == 'NethermindEth'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set_tag.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Set TAG output
+        id: set_tag
+        run: echo "tag=$(git describe --tags)" >> $GITHUB_OUTPUT
+
   build_and_push_docker_image_amd:
+    needs: setup
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-            fetch-depth: 0
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -34,47 +61,47 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push
+      - name: Build and push AMD64
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: 'linux/amd64'
+          platforms: linux/amd64
           push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}
+          tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}
 
   build_and_push_docker_image_arm:
+    needs: setup
     if: github.repository_owner == 'NethermindEth'
     runs-on: ubuntu-arm64-4-core
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-            fetch-depth: 0
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-            
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push ARM
+      - name: Build and push ARM64
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: 'linux/arm64'
+          platforms: linux/arm64
           push: true
-          tags: nethermindeth/juno:${{ github.event.inputs.tag }}-arm64
-      
+          tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-arm64
+
       - name: Cleanup self-hosted
-        run: |
-          docker system prune -af
+        run: docker system prune -af
 
   create_and_push_official_image:
-    if: github.repository_owner == 'NethermindEth' && github.event.inputs.repo_type == 'official'
-    needs: [build_and_push_docker_image_amd, build_and_push_docker_image_arm]
+    needs: [setup, build_and_push_docker_image_amd, build_and_push_docker_image_arm]
+    if: github.repository_owner == 'NethermindEth' && inputs.repo_type == 'official'
     runs-on: ubuntu-latest
     steps:
       - name: Set up Docker Buildx
@@ -88,12 +115,11 @@ jobs:
 
       - name: Create and push manifest using buildx
         run: |
-            docker buildx imagetools create nethermindeth/juno:${{ github.event.inputs.tag }} \
-                nethermindeth/juno:${{ github.event.inputs.tag }}-arm64 \
-                --tag nethermind/juno:${{ github.event.inputs.tag }}
+          docker buildx imagetools create \
+            nethermindeth/juno:${{ needs.setup.outputs.tag }} \
+            nethermindeth/juno:${{ needs.setup.outputs.tag }}-arm64 \
+            --tag nethermind/juno:${{ needs.setup.outputs.tag }}
 
-      - name: Clean up environment
+      - name: Clean up Docker config
         if: always()
-        run: |
-          rm -f ${HOME}/.docker/config.json
-  
+        run: rm -f ${HOME}/.docker/config.json
