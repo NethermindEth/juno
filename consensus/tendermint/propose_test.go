@@ -209,11 +209,7 @@ func TestPropose(t *testing.T) {
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[1]
-
-		assert.Equal(t, precommit, scheduledTm.s)
-		assert.Equal(t, height(0), scheduledTm.h)
-		assert.Equal(t, round(0), scheduledTm.r)
+		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 
 		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
@@ -274,11 +270,7 @@ func TestPropose(t *testing.T) {
 		// scheduled when nodes move to the next round, and it is not the proposer.
 		// If the precommitTimeout was scheduled more than once, then the len of scheduledTms would be more than 2.
 		assert.Equal(t, 2, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[1]
-
-		assert.Equal(t, precommit, scheduledTm.s)
-		assert.Equal(t, height(0), scheduledTm.h)
-		assert.Equal(t, round(0), scheduledTm.r)
+		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 
 		assert.True(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
@@ -333,16 +325,12 @@ func TestPropose(t *testing.T) {
 		// before the proposeTimeout it is still in the slice. It will only be deleted after its expiry.
 		// The second timeout here is the proposeTimeout for round 1, which is what we are interested in.
 		assert.Equal(t, 2, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[1]
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 1})
 
 		assert.False(t, algo.state.timeoutPrecommitScheduled)
 		assert.Equal(t, propose, algo.state.s)
 		assert.Equal(t, height(0), algo.state.h)
 		assert.Equal(t, round(1), algo.state.r)
-
-		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, height(0), scheduledTm.h)
-		assert.Equal(t, round(1), scheduledTm.r)
 	})
 
 	t.Run("Line 49 (Proposal): commit the value", func(t *testing.T) {
@@ -404,15 +392,11 @@ func TestPropose(t *testing.T) {
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[1]
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
 		assert.Equal(t, propose, algo.state.s)
 		assert.Equal(t, height(1), algo.state.h)
 		assert.Equal(t, round(0), algo.state.r)
-
-		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, height(1), scheduledTm.h)
-		assert.Equal(t, round(0), scheduledTm.r)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)
@@ -483,15 +467,11 @@ func TestPropose(t *testing.T) {
 		algo.Stop()
 
 		assert.Equal(t, 2, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[1]
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
 		assert.Equal(t, propose, algo.state.s)
 		assert.Equal(t, height(1), algo.state.h)
 		assert.Equal(t, round(0), algo.state.r)
-
-		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, height(1), scheduledTm.h)
-		assert.Equal(t, round(0), scheduledTm.r)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)

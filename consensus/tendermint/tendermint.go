@@ -136,7 +136,7 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	listeners    Listeners[V, H, A]
 	broadcasters Broadcasters[V, H, A]
 
-	scheduledTms []timeout
+	scheduledTms map[timeout]*time.Timer
 	timeoutsCh   chan timeout
 
 	// Future round messages are sent to the loop through the following channels
@@ -185,7 +185,7 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 		validators:       vals,
 		listeners:        listeners,
 		broadcasters:     broadcasters,
-		scheduledTms:     make([]timeout, 0),
+		scheduledTms:     make(map[timeout]*time.Timer),
 		timeoutsCh:       make(chan timeout),
 		proposalsCh:      make(chan Proposal[V, H, A]),
 		prevotesCh:       make(chan Prevote[H, A]),
@@ -218,9 +218,7 @@ func (t *Tendermint[V, H, A]) Start() {
 				case precommit:
 					t.OnTimeoutPrecommit(tm.h, tm.r)
 				}
-
-				i := slices.Index(t.scheduledTms, tm)
-				t.scheduledTms = slices.Delete(t.scheduledTms, i, i+1)
+				delete(t.scheduledTms, tm)
 			case p := <-t.proposalsCh:
 				t.handleProposal(p)
 			case p := <-t.listeners.ProposalListener.Listen():
@@ -329,8 +327,6 @@ func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 }
 
 type timeout struct {
-	*time.Timer
-
 	s step
 	h height
 	r round
@@ -338,13 +334,12 @@ type timeout struct {
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h height, r round) {
 	tm := timeout{s: s, h: h, r: r}
-	tm.Timer = time.AfterFunc(duration, func() {
+	t.scheduledTms[tm] = time.AfterFunc(duration, func() {
 		select {
 		case <-t.quit:
 		case t.timeoutsCh <- tm:
 		}
 	})
-	t.scheduledTms = append(t.scheduledTms, tm)
 }
 
 func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
@@ -388,7 +383,6 @@ func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
 */
 func (t *Tendermint[V, H, A]) line55(futureR round) {
 	t.futureMessagesMu.Lock()
-	defer t.futureMessagesMu.Unlock()
 
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
@@ -405,6 +399,8 @@ func (t *Tendermint[V, H, A]) line55(futureR round) {
 	for addr := range precommits {
 		vals[addr] = struct{}{}
 	}
+
+	t.futureMessagesMu.Unlock()
 
 	if t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h)) {
 		t.startRound(futureR)

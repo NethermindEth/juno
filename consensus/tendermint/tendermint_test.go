@@ -180,11 +180,8 @@ func TestStartRound(t *testing.T) {
 		algo.Stop()
 
 		assert.Equal(t, 1, len(algo.scheduledTms))
-		scheduledTm := algo.scheduledTms[0]
 
-		assert.Equal(t, propose, scheduledTm.s)
-		assert.Equal(t, height(0), scheduledTm.h)
-		assert.Equal(t, round(0), scheduledTm.r)
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 0})
 
 		assert.Equal(t, propose, algo.state.s)
 		assert.Equal(t, height(0), algo.state.h)
