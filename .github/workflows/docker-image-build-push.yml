@@ -66,6 +66,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64
+          build-args: JUNO_VERSION=${{ needs.setup.outputs.tag }}
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}
 
@@ -93,6 +94,7 @@ jobs:
         with:
           context: .
           platforms: linux/arm64
+          build-args: JUNO_VERSION=${{ needs.setup.outputs.tag }}
           push: true
           tags: nethermindeth/juno:${{ needs.setup.outputs.tag }}-arm64
 
