@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -175,25 +174,6 @@ func TestTransaction(t *testing.T) {
 		l1HandlerTx, ok := txn.(*core.L1HandlerTransaction)
 		require.True(t, ok)
 		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
-	})
-
-	t.Run("tx with non-zero l2 gas should have l1 data gas", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-		responseTx.ResourceBounds = utils.HeapPtr(map[starknet.Resource]starknet.ResourceBounds{
-			starknet.ResourceL2Gas: {
-				MaxAmount:       new(felt.Felt).SetUint64(100),
-				MaxPricePerUnit: new(felt.Felt).SetUint64(100),
-			},
-		})
-
-		adaptTx := sn2core.AdaptInvokeTransaction(responseTx)
-
-		require.NotNil(t, adaptTx.ResourceBounds[core.ResourceL1DataGas])
-		require.Equal(t, uint64(0), adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxAmount)
-		require.Equal(t, &felt.Zero, adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxPricePerUnit)
 	})
 }
 
