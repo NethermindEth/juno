@@ -106,7 +106,10 @@ jobs:
     with:
       version: ${{ github.sha }}
       snapshot_url: https://juno-snapshots.nethermind.io/files/sepolia/latest
+      blocks_to_monitor: ${{ inputs.blocks_to_monitor || '10000' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_USER: ${{ secrets.EC2_USER }}
       EC2_PRIVATE_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+      NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}

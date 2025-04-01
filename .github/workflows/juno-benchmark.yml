@@ -10,6 +10,12 @@ on:
       snapshot_url:
         description: 'Custom snapshot URL (optional)'
         required: false
+        type: string
+      blocks_to_monitor:
+        description: 'Number of blocks to monitor'
+        required: false
+        default: '10000'
+        type: string
   workflow_call:
     inputs:
       version:
@@ -18,6 +24,10 @@ on:
       snapshot_url:
         required: false
         type: string
+      blocks_to_monitor:
+        required: false
+        type: string
+        default: '10000'
     secrets:
       EC2_HOST:
         required: true
@@ -25,22 +35,244 @@ on:
         required: true
       EC2_PRIVATE_KEY:
         required: true
+      NOTION_API_KEY:
+        required: true
+      NOTION_DATABASE_ID:
+        required: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   juno-benchmark:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 240
+    
     steps:
       - name: Set short SHA
-        run: echo "SHORT_SHA=$(echo '${{ inputs.version }}' | cut -c1-8)" >> $GITHUB_ENV
+        id: set-sha
+        run: echo "SHORT_SHA=$(echo '${{ inputs.version }}' | cut -c1-8)" >> $GITHUB_OUTPUT
+        timeout-minutes: 1
       
       - name: Download binary artifact
+        id: download-artifact
         uses: actions/download-artifact@v4
         with:
-          name: juno-${{ env.SHORT_SHA }}-linux-amd64
+          name: juno-${{ steps.set-sha.outputs.SHORT_SHA }}-linux-amd64
           path: ./juno-artifact
+        timeout-minutes: 5
+        continue-on-error: false
+      
+      - name: Verify binary exists
+        id: verify-binary
+        run: |
+          if [ ! -f "./juno-artifact/juno-${{ steps.set-sha.outputs.SHORT_SHA }}-linux-amd64" ]; then
+            echo "Binary file not found"
+            exit 1
+          fi
+        timeout-minutes: 1
 
       - name: Clean environment and create benchmark directory on EC2
+        id: clean-env
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          command_timeout: 1m
+          script: |
+            set -e
+            pkill -x juno || true
+            rm -rf ~/juno-benchmark
+            mkdir -p ~/juno-benchmark
+            mkdir -p ~/juno-benchmark/db
+
+      - name: Copy binary to EC2
+        id: copy-binary
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          timeout: 2m
+          source: ./juno-artifact/juno-${{ steps.set-sha.outputs.SHORT_SHA }}-linux-amd64
+          target: ~/juno-benchmark
+          strip_components: 2
+
+      - name: Rename binary
+        id: rename-binary
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          command_timeout: 1m
+          script: |
+            set -e
+            mv ~/juno-benchmark/juno-${{ steps.set-sha.outputs.SHORT_SHA }}-linux-amd64 ~/juno-benchmark/juno
+            chmod +x ~/juno-benchmark/juno
+            file ~/juno-benchmark/juno
+
+      - name: Setup and start Juno
+        id: setup-juno
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          timeout: 130m
+          command_timeout: 120m
+          script: |
+            set -eo pipefail
+            
+            SNAPSHOT_URL="${{ inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}"
+            WORK_DIR="$HOME/juno-benchmark"
+            DB_DIR="$WORK_DIR/db"
+            JUNO_LOG="$WORK_DIR/juno.log"
+            
+            function on_error {
+              echo "Error occurred during Juno setup"
+              if [ -f "$JUNO_LOG" ]; then
+                echo "===== JUNO LOG TAIL ====="
+                tail -n 50 "$JUNO_LOG"
+              fi
+              exit 1
+            }
+            trap on_error ERR
+            
+            log() {
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+            }
+            
+            log "Downloading snapshot from $SNAPSHOT_URL..."
+            wget -q -c --tries=3 --retry-connrefused --waitretry=5 --timeout=10 "$SNAPSHOT_URL" -O "$WORK_DIR/snapshot.tar"
+            if [ ! -s "$WORK_DIR/snapshot.tar" ]; then
+                log "Snapshot download failed or file is empty"
+                exit 1
+            fi
+            tar -xf "$WORK_DIR/snapshot.tar" -C "$DB_DIR" && rm "$WORK_DIR/snapshot.tar"
+            
+            log "Starting Juno..."
+            nohup "$WORK_DIR/juno" \
+                --db-path="$DB_DIR" \
+                --disable-l1-verification \
+                --network=sepolia \
+                --http --http-host=0.0.0.0 --http-port=6060 \
+                --metrics --metrics-host=0.0.0.0 --metrics-port=9090 \
+                > "$JUNO_LOG" 2>&1 &
+            
+            sleep 5
+            if ! pgrep -x "juno" > /dev/null; then
+                log "Juno failed to start. Check log:"
+                tail -n 20 "$JUNO_LOG"
+                exit 1
+            fi
+            log "Juno started successfully. PID: $(pgrep -x "juno")"
+
+      - name: Monitor sync progress
+        id: benchmark
+        run: |
+          set -eo pipefail
+          
+          BLOCKS_TO_MONITOR="${{ inputs.blocks_to_monitor || '10000' }}"
+          PROMETHEUS_ENDPOINT="http://${{ secrets.EC2_HOST }}:9090"
+          REPORT_FILE="sync_report.txt"
+          
+          echo "Juno Sync Report - $(date)" > "$REPORT_FILE"
+          echo "--------------------------------" >> "$REPORT_FILE"
+          
+          log() {
+              echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+              echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$REPORT_FILE"
+          }
+          
+          get_current_block() {
+              local result
+              result=$(curl -s "$PROMETHEUS_ENDPOINT" | grep "sync_blockchain_height" | grep -v "^#" | awk '{print $2}' || echo "0")
+              
+              if [[ -z "$result" ]] || ! [[ "$result" =~ ^[0-9]+$ ]]; then
+                  echo "0"
+              else
+                  echo "$result"
+              fi
+          }
+          
+          START_TIME=$(date +%s)
+          log "Sync started at $(date -u)"
+          
+          log "Waiting for initial block height..."
+          RETRY_COUNT=0
+          MAX_RETRIES=24  # 4 minutes (10 seconds * 24)
+          
+          while true; do
+              INITIAL_BLOCK=$(get_current_block)
+              if [[ "$INITIAL_BLOCK" -gt 0 ]]; then
+                  break
+              fi
+              
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [[ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]]; then
+                  log "Failed to get initial block height after multiple attempts"
+                  echo "Failed to access Prometheus endpoint: $PROMETHEUS_ENDPOINT"
+                  echo "Last response:"
+                  curl -v "$PROMETHEUS_ENDPOINT"
+                  exit 1
+              fi
+              
+              log "Waiting for Juno to initialize and expose metrics (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+              sleep 10
+          done
+          
+          TARGET_BLOCK=$((INITIAL_BLOCK + BLOCKS_TO_MONITOR))
+          log "Starting from block: $INITIAL_BLOCK"
+          log "Target block: $TARGET_BLOCK"
+          
+          while true; do
+              CURRENT_BLOCK=$(get_current_block)
+              
+              CURRENT_TIME=$(date +%s)
+              ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+              ELAPSED_MINUTES=$(echo "scale=2; $ELAPSED_TIME / 60" | bc)
+              
+              echo "Current block: $CURRENT_BLOCK / $TARGET_BLOCK (Elapsed: $ELAPSED_MINUTES minutes)"
+              
+              if [[ "$CURRENT_BLOCK" -ge "$TARGET_BLOCK" ]]; then
+                  END_TIME=$(date +%s)
+                  SYNC_DURATION=$((END_TIME - START_TIME))
+                  SYNC_MINUTES=$(echo "scale=2; $SYNC_DURATION / 60" | bc)
+                  
+                  log "Sync completed in: $SYNC_MINUTES minutes"
+                  log "Blocks synced: $((CURRENT_BLOCK - INITIAL_BLOCK))"
+                  log "Average speed: $(echo "scale=2; ($CURRENT_BLOCK - $INITIAL_BLOCK) / $SYNC_DURATION" | bc) blocks/second"
+                  
+                  break
+              fi
+              sleep 5
+          done
+          
+          SYNC_TIME=$(grep "Sync completed in:" "$REPORT_FILE" | awk -F': ' '{print $2}' || echo "N/A")
+          BLOCKS_SYNCED=$(grep "Blocks synced:" "$REPORT_FILE" | awk -F': ' '{print $2}' || echo "0")
+          AVG_SPEED=$(grep "Average speed:" "$REPORT_FILE" | awk -F': ' '{print $2}' || echo "N/A")
+          
+          echo "===== BENCHMARK RESULTS ====="
+          echo "Sync Time: $SYNC_TIME"
+          echo "Blocks Synced: $BLOCKS_SYNCED"
+          echo "Average Speed: $AVG_SPEED"
+          
+          echo "sync_time=$SYNC_TIME" >> $GITHUB_OUTPUT
+          echo "blocks_synced=$BLOCKS_SYNCED" >> $GITHUB_OUTPUT
+          echo "avg_speed=$AVG_SPEED" >> $GITHUB_OUTPUT
+          
+          RUN_ID=$(date +%Y%m%d%H%M%S)
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          
+          echo "===== FULL REPORT ====="
+          cat "$REPORT_FILE"
+        timeout-minutes: 150
+
+      - name: Stop Juno on EC2
+        if: always()
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -48,57 +280,74 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
             pkill -x juno || true
-            rm -rf ~/juno-benchmark
-            mkdir -p ~/juno-benchmark/scripts
-            mkdir -p ~/juno-benchmark/db
+            echo "Juno stopped"
 
-      - name: Copy binary to EC2
-        uses: appleboy/scp-action@master
+      - name: Format version for display
+        id: format-version
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [[ "$VERSION" == "latest" ]]; then
+            VERSION="latest-$(date +%Y%m%d)"
+          elif [[ ${#VERSION} -gt 8 ]]; then
+            SHORT_VERSION="${VERSION:0:8}"
+            echo "display_version=$SHORT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "display_version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+        timeout-minutes: 1
+
+      - name: Create Notion Entry
+        id: create-notion-entry
+        uses: ydataai/update-notion-page@f2ef1df31e27047a15a2c335dae9deeb17e427a3  # v1.0.2
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: ./juno-artifact/juno-${{ env.SHORT_SHA }}-linux-amd64
-          target: ~/juno-benchmark
-          strip_components: 2
+          notion_secret: ${{ secrets.NOTION_API_KEY }}
+          notion_database_id: ${{ secrets.NOTION_DATABASE_ID }}
+          notion_page_update_properties: |
+                      {
+                        "Name": {
+                          "title": [
+                            {
+                              "text": {
+                                "content": "Juno ${{ steps.format-version.outputs.display_version || inputs.version }} Benchmark - ${{ steps.benchmark.outputs.run_id }}"
+                              }
+                            }
+                          ]
+                        },
+                        "Version": {
+                          "text": "${{ inputs.version }}"
+                        },
+                        "Sync Time": {
+                          "text": "${{ steps.benchmark.outputs.sync_time }}"
+                        },
+                        "Blocks Synced": {
+                          "number": ${{ steps.benchmark.outputs.blocks_synced || 0 }}
+                        },
+                        "Average Speed": {
+                          "text": "${{ steps.benchmark.outputs.avg_speed }}"
+                        },
+                        "Run URL": {
+                          "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                        },
+                        "Date": {
+                          "date": {
+                            "start": "${{ github.event.repository.updated_at || github.event.head_commit.timestamp || format('YYYY-MM-DDTHH:mm:ss.sssZ', github.event.repository.pushed_at) }}"
+                          }
+                        },
+                        "Status": {
+                          "select": {
+                            "name": "${{ steps.benchmark.outcome == 'success' && 'Success' || 'Failure' }}"
+                          }
+                        }
+                      }
+        timeout-minutes: 5
+        continue-on-error: true
 
-      - name: Rename binary
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          script: |
-            mv ~/juno-benchmark/juno-${{ env.SHORT_SHA }}-linux-amd64 ~/juno-benchmark/juno
-            chmod +x ~/juno-benchmark/juno
-
-      - name: Checkout scripts
-        uses: actions/checkout@v4
-
-      - name: Copy scripts to EC2
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          source: scripts/juno-setup.sh,scripts/juno-sync-monitor.sh
-          target: ~/juno-benchmark/scripts/
-          strip_components: 1
-
-      - name: Execute setup and run monitoring
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_PRIVATE_KEY }}
-          command_timeout: 120m
-          envs: SNAPSHOT_URL
-          script: |
-            export SNAPSHOT_URL=${{ inputs.snapshot_url || 'https://juno-snapshots.nethermind.io/files/sepolia/latest' }}
-            chmod +x ~/juno-benchmark/scripts/juno-setup.sh
-            ~/juno-benchmark/scripts/juno-setup.sh
-
-            chmod +x ~/juno-benchmark/scripts/juno-sync-monitor.sh
-            ~/juno-benchmark/scripts/juno-sync-monitor.sh
-
-            cat ~/juno-benchmark/sync_report.txt
+      - name: Report Notion update status
+        if: ${{ steps.benchmark.outcome == 'success' }}
+        run: |
+          if [ "${{ steps.create-notion-entry.outcome }}" == "failure" ]; then
+            echo "::warning::Failed to update Notion, but benchmark completed successfully"
+          else
+            echo "✅ Benchmark results successfully reported to Notion"
+          fi
+        timeout-minutes: 1
