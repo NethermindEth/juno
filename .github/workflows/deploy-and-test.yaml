@@ -120,7 +120,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     with:
-      ref: 0993fd35590564b0de79f0d757ff2609a5ed0798
+      ref: 7bee770ecbaf9fc8112bcc2d9ef98ed604f7f5e3
       rpc_version: v0_8
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
