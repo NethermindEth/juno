@@ -10,9 +10,10 @@ import (
 )
 
 type (
-	step   uint8
-	height uint
-	round  uint
+	step        uint8
+	height      uint
+	round       uint
+	votingPower uint
 )
 
 const (
@@ -73,11 +74,11 @@ type Blockchain[V Hashable[H], H Hash, A Addr] interface {
 
 type Validators[A Addr] interface {
 	// TotalVotingPower represents N which is required to calculate the thresholds.
-	TotalVotingPower(height) uint
+	TotalVotingPower(height) votingPower
 
 	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
 	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(A) uint
+	ValidatorVotingPower(A) votingPower
 
 	// Proposer returns the proposer of the current round and height.
 	Proposer(height, round) A
@@ -407,8 +408,8 @@ func (t *Tendermint[V, H, A]) line55(futureR round) {
 	}
 }
 
-func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) uint {
-	var totalVotingPower uint
+func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
+	var totalVotingPower votingPower
 	for _, v := range vals {
 		totalVotingPower += t.validators.ValidatorVotingPower(v)
 	}
@@ -416,12 +417,12 @@ func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) uint {
 }
 
 // Todo: add separate unit tests to check f and q thresholds.
-func f(totalVotingPower uint) uint {
+func f(totalVotingPower votingPower) votingPower {
 	// note: integer division automatically floors the result as it return the quotient.
 	return (totalVotingPower - 1) / 3
 }
 
-func q(totalVotingPower uint) uint {
+func q(totalVotingPower votingPower) votingPower {
 	// Unfortunately there is no ceiling function for integers in go.
 	d := totalVotingPower * 2
 	q := d / 3

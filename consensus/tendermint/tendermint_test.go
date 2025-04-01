@@ -58,23 +58,23 @@ func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt
 
 // Implements Validators[felt.Felt] interface
 type validators struct {
-	totalVotingPower uint
+	totalVotingPower votingPower
 	vals             []felt.Felt
 }
 
 func newVals() *validators { return &validators{} }
 
-func (v *validators) TotalVotingPower(h height) uint {
+func (v *validators) TotalVotingPower(h height) votingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) uint {
+func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) votingPower {
 	return 1
 }
 
 // Proposer is implements round robin
 func (v *validators) Proposer(h height, r round) felt.Felt {
-	i := (uint(h) + uint(r)) % v.totalVotingPower
+	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
 
@@ -236,9 +236,9 @@ func TestStartRound(t *testing.T) {
 
 func TestThresholds(t *testing.T) {
 	tests := []struct {
-		n uint
-		q uint
-		f uint
+		n votingPower
+		q votingPower
+		f votingPower
 	}{
 		{1, 1, 0},
 		{2, 2, 0},
