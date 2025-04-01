@@ -240,10 +240,10 @@ func (t *Tendermint[V, H, A]) Start() {
 
 func (t *Tendermint[V, H, A]) Stop() {
 	close(t.quit)
+	t.wg.Wait()
 	for _, tm := range t.scheduledTms {
 		tm.Stop()
 	}
-	t.wg.Wait()
 }
 
 func (t *Tendermint[V, H, A]) startRound(r round) {
