@@ -309,6 +309,13 @@ type BroadcastedTransaction struct {
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
+	// RPCv6 requests must set l2_gas to zero
+	if broadcastedTxn.ResourceBounds != nil {
+		(*broadcastedTxn.ResourceBounds)[ResourceL2Gas] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(0),
+			MaxPricePerUnit: new(felt.Felt).SetUint64(0),
+		}
+	}
 	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
@@ -318,8 +325,6 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
-	overrideResourceBounds(txn)
 
 	var declaredClass core.Class
 	if len(broadcastedTxn.ContractClass) != 0 {
@@ -362,26 +367,6 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 		return nil, nil, nil, errors.New("deprecated transaction type")
 	}
 	return txn, declaredClass, paidFeeOnL1, nil
-}
-
-// overrideResourceBounds takes a core.Transaction and directly modifies its resource bounds if applicable
-// Full clients must set "l2_gas" to zero
-func overrideResourceBounds(tx core.Transaction) {
-	zeroL2GasBounds := core.ResourceBounds{
-		MaxAmount:       0,
-		MaxPricePerUnit: new(felt.Felt),
-	}
-	// Check if the transaction version is 3, which supports resource bounds
-	if tx.TxVersion().Is(3) {
-		switch t := tx.(type) {
-		case *core.InvokeTransaction:
-			t.ResourceBounds[core.ResourceL2Gas] = zeroL2GasBounds
-		case *core.DeclareTransaction:
-			t.ResourceBounds[core.ResourceL2Gas] = zeroL2GasBounds
-		case *core.DeployAccountTransaction:
-			t.ResourceBounds[core.ResourceL2Gas] = zeroL2GasBounds
-		}
-	}
 }
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
