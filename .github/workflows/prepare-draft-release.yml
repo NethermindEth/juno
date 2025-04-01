@@ -1,0 +1,70 @@
+name: Prepare Draft Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  set-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get_tag.outputs.TAG }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          TAG=$(git describe --tags)
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+  build-binaries:
+    name: Build Binaries
+    needs: set-tag
+    uses: ./.github/workflows/build-binaries.yml
+    with:
+      tag: ${{ needs.set-tag.outputs.tag }}
+
+  docker-image:
+    name: Build and Push Docker Image
+    if: github.repository_owner == 'NethermindEth'
+    needs: set-tag
+    uses: ./.github/workflows/docker-image-build-push.yml
+    with:
+      tag: ${{ needs.set-tag.outputs.tag }}
+      repo_type: 'official'
+    secrets: inherit
+
+  create-release:
+    name: Create Draft Release
+    needs: [set-tag, build-binaries, docker-image]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: juno-${{ needs.set-tag.outputs.tag }}-*
+          merge-multiple: true
+          path: binaries
+
+      - name: Create Draft GitHub Release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
+        with:
+          tag_name: ${{ needs.set-tag.outputs.tag }}
+          name: ${{ needs.set-tag.outputs.tag }}
+          generate_release_notes: true
+          draft: true
+          files: |
+            binaries/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
