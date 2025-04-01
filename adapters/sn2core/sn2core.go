@@ -194,36 +194,12 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 		return nil
 	}
 	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	// Ensures that the L1DataGas resource is always present if L2Gas is non-zero.
-	// In RPC v8, L1Gas, L2Gas and L1DataGas are part of the spec and required.
-	// In RPC v6 and v7, only L1Gas and L2Gas are part of the spec and required.
-	// Blockifier will throw an error if L1DataGas is absent and L2Gas is non-zero.
-	// To avoid that, if L1DataGas is not present, we set L2Gas to zero.
-
-	if l1Gas, ok := (*rb)[starknet.ResourceL1Gas]; ok {
-		coreBounds[core.ResourceL1Gas] = core.ResourceBounds{
-			MaxAmount:       l1Gas.MaxAmount.Uint64(),
-			MaxPricePerUnit: l1Gas.MaxPricePerUnit,
+	for resource, bounds := range *rb {
+		coreBounds[core.Resource(resource)] = core.ResourceBounds{
+			MaxAmount:       bounds.MaxAmount.Uint64(),
+			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
-	if l1DataGas, ok := (*rb)[starknet.ResourceL1DataGas]; ok {
-		if l2Gas, ok := (*rb)[starknet.ResourceL2Gas]; ok {
-			coreBounds[core.ResourceL2Gas] = core.ResourceBounds{
-				MaxAmount:       l2Gas.MaxAmount.Uint64(),
-				MaxPricePerUnit: l2Gas.MaxPricePerUnit,
-			}
-		}
-		coreBounds[core.ResourceL1DataGas] = core.ResourceBounds{
-			MaxAmount:       l1DataGas.MaxAmount.Uint64(),
-			MaxPricePerUnit: l1DataGas.MaxPricePerUnit,
-		}
-	} else {
-		coreBounds[core.ResourceL2Gas] = core.ResourceBounds{
-			MaxAmount:       0,
-			MaxPricePerUnit: &felt.Zero,
-		}
-	}
-
 	return coreBounds
 }
 
