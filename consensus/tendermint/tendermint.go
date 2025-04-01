@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type (
@@ -262,19 +263,9 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 		if t.state.validValue != nil {
 			proposalValue = t.state.validValue
 		} else {
-			v := t.application.Value()
-			proposalValue = &v
+			proposalValue = utils.HeapPtr(t.application.Value())
 		}
-		proposalMessage := Proposal[V, H, A]{
-			H:          t.state.h,
-			R:          r,
-			ValidRound: t.state.validRound,
-			Value:      proposalValue,
-			Sender:     t.nodeAddr,
-		}
-
-		t.messages.addProposal(proposalMessage)
-		t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
+		t.sendProposal(proposalValue)
 	} else {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.h, t.state.r)
 	}
@@ -345,29 +336,13 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h 
 
 func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == propose {
-		vote := Prevote[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-		t.messages.addPrevote(vote)
-		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.s = prevote
+		t.sendPrevote(nil)
 	}
 }
 
 func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == prevote {
-		vote := Precommit[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-		t.messages.addPrecommit(vote)
-		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.s = precommit
+		t.sendPrecommit(nil)
 	}
 }
 

@@ -67,20 +67,11 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 		vals := checkForQuorumPrevotesGivenPrevote(p, prevotesForHR)
 
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-			vote := Prevote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			}
-
+			var votedID *H
 			if t.state.lockedRound >= int(vr) || (*t.state.lockedValue).Hash() == *p.ID {
-				vote.ID = p.ID
+				votedID = p.ID
 			}
-
-			t.messages.addPrevote(vote)
-			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.s = prevote
+			t.sendPrevote(votedID)
 		}
 	}
 }
@@ -120,16 +111,7 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 	}
 
 	if t.state.s == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-		vote := Precommit[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-
-		t.messages.addPrecommit(vote)
-		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.s = precommit
+		t.sendPrecommit(nil)
 	}
 }
 
@@ -166,17 +148,7 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 			if t.state.s == prevote {
 				t.state.lockedValue = proposal.Value
 				t.state.lockedRound = int(cr)
-
-				vote := Precommit[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     p.ID,
-					Sender: t.nodeAddr,
-				}
-
-				t.messages.addPrecommit(vote)
-				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.s = precommit
+				t.sendPrecommit(p.ID)
 			}
 
 			t.state.validValue = proposal.Value

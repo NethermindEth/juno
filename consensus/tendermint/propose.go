@@ -99,20 +99,11 @@ Since the value's id is expected to be unique the id can be used to compare the 
 */
 func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
 	if vr == -1 && proposalFromProposer && t.state.s == propose {
-		vote := Prevote[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-
+		var votedID *H
 		if validProposal && (t.state.lockedRound == -1 || (*t.state.lockedValue).Hash() == vID) {
-			vote.ID = &vID
+			votedID = &vID
 		}
-
-		t.messages.addPrevote(vote)
-		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.s = prevote
+		t.sendPrevote(votedID)
 	}
 }
 
@@ -139,20 +130,11 @@ func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], 
 		vals := checkQuorumPrevotesGivenProposalVID(prevotesForHVr, vID)
 
 		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-			vote := Prevote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			}
-
+			var votedID *H
 			if validProposal && (t.state.lockedRound <= vr || (*t.state.lockedValue).Hash() == vID) {
-				vote.ID = &vID
+				votedID = &vID
 			}
-
-			t.messages.addPrevote(vote)
-			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.s = prevote
+			t.sendPrevote(votedID)
 		}
 	}
 }
@@ -193,17 +175,7 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 			if t.state.s == prevote {
 				t.state.lockedValue = p.Value
 				t.state.lockedRound = int(cr)
-
-				vote := Precommit[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     &vID,
-					Sender: t.nodeAddr,
-				}
-
-				t.messages.addPrecommit(vote)
-				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.s = precommit
+				t.sendPrecommit(&vID)
 			}
 
 			t.state.validValue = p.Value
