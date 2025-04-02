@@ -175,7 +175,7 @@ const (
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	gwTimeoutsUsage      = "Timeouts for requests made to the gateway. Can be specified in three ways:\n" +
-		"- Single value (e.g. '5s'): After each failure, the timeout will increase exponentially\n" +
+		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically \n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures. " +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment"
 	callMaxStepsUsage = "Maximum number of steps to be executed in starknet_call requests. " +

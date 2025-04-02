@@ -116,6 +116,11 @@ func TestParseTimeouts(t *testing.T) {
 			input:   "10s,5s,7s,",
 			wantErr: true,
 		},
+		{
+			name:    "max amount of timeouts exceeded",
+			input:   "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s,16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -134,54 +139,23 @@ func TestParseTimeouts(t *testing.T) {
 
 //nolint:dupl
 func TestGetDynamicTimeouts(t *testing.T) {
-	tests := []*struct {
-		name  string
-		input []time.Duration
-		want  Timeouts
-	}{
-		{
-			name:  "empty input",
-			input: []time.Duration{},
-			want: Timeouts{
-				curTimeout: 0,
-				timeouts:   []time.Duration{},
-				mu:         sync.RWMutex{},
-			},
+	input := 5 * time.Second
+	want := Timeouts{
+		curTimeout: 0,
+		timeouts: []time.Duration{
+			5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
+			120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
+			300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
+			748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
+			1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
+			4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
 		},
-		{
-			name:  "single value input",
-			input: []time.Duration{5 * time.Second},
-			want: Timeouts{
-				curTimeout: 0,
-				timeouts: []time.Duration{
-					5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
-					120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
-					300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
-					748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
-					1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
-					4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
-				},
-				mu: sync.RWMutex{},
-			},
-		},
-		{
-			name:  "multiple values input",
-			input: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
-			want: Timeouts{
-				curTimeout: 0,
-				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
-				mu:         sync.RWMutex{},
-			},
-		},
+		mu: sync.RWMutex{},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getDynamicTimeouts(tt.input)
-			assert.Equal(t, tt.want.curTimeout, got.curTimeout)
-			assert.Equal(t, tt.want.timeouts, got.timeouts)
-		})
-	}
+	got := getDynamicTimeouts(input)
+	assert.Equal(t, want.curTimeout, got.curTimeout)
+	assert.Equal(t, want.timeouts, got.timeouts)
 }
 
 func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {

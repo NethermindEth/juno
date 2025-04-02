@@ -75,10 +75,10 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
-	if fixed {
+	if len(timeouts) > 1 || fixed {
 		c.timeouts = getFixedTimeouts(timeouts)
 	} else {
-		c.timeouts = getDynamicTimeouts(timeouts)
+		c.timeouts = getDynamicTimeouts(timeouts[0])
 	}
 	return c
 }
