@@ -19,7 +19,7 @@ const (
 	fastGrowThreshold   = 1 * time.Minute
 	mediumGrowThreshold = 2 * time.Minute
 	timeoutsCount       = 30
-	DefaultTimeouts     = "5s,"
+	DefaultTimeouts     = "5s"
 )
 
 type Timeouts struct {
@@ -92,15 +92,10 @@ func increaseDuration(prev time.Duration) time.Duration {
 	return next
 }
 
-func getDynamicTimeouts(timeouts []time.Duration) Timeouts {
-	timeoutsList := timeouts
-
-	if len(timeouts) == 1 {
-		timeoutsList = timeoutsListFromNumber(timeouts[0])
-	}
+func getDynamicTimeouts(timeouts time.Duration) Timeouts {
 	return Timeouts{
 		curTimeout: 0,
-		timeouts:   timeoutsList,
+		timeouts:   timeoutsListFromNumber(timeouts),
 	}
 }
 
@@ -133,12 +128,9 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 
 	timeouts := make([]time.Duration, 0, len(values))
 	for i, v := range values {
-		if v == "" {
-			continue
-		}
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return nil, false, fmt.Errorf("parsing timeout at index %d: %v", i, err)
+			return nil, false, fmt.Errorf("parsing timeout parameter number %d: %v", i+1, err)
 		}
 		timeouts = append(timeouts, d)
 	}
@@ -146,11 +138,9 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 		return timeouts, true, nil
 	}
 
-	if len(timeouts) > 1 {
-		for i := 1; i < len(timeouts); i++ {
-			if timeouts[i] <= timeouts[i-1] {
-				return nil, false, fmt.Errorf("timeouts must be in ascending order, got %v <= %v", timeouts[i], timeouts[i-1])
-			}
+	for i := 1; i < len(timeouts); i++ {
+		if timeouts[i] <= timeouts[i-1] {
+			return nil, false, fmt.Errorf("timeout values must be in ascending order, got %v <= %v", timeouts[i], timeouts[i-1])
 		}
 	}
 
