@@ -13,7 +13,7 @@ import (
 type (
 	step        uint8
 	height      uint
-	round       uint
+	round       int
 	votingPower uint
 )
 
@@ -156,9 +156,9 @@ type state[V Hashable[H], H Hash] struct {
 	s step
 
 	lockedValue *V
-	lockedRound int
+	lockedRound round
 	validValue  *V
-	validRound  int
+	validRound  round
 
 	// The following are round level variable therefore when a round changes they must be reset.
 	timeoutPrevoteScheduled       bool // line34 for the first time condition

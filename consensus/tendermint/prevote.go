@@ -68,7 +68,7 @@ func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevo
 
 		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
 			var votedID *H
-			if t.state.lockedRound >= int(vr) || (*t.state.lockedValue).Hash() == *p.ID {
+			if t.state.lockedRound >= vr || (*t.state.lockedValue).Hash() == *p.ID {
 				votedID = p.ID
 			}
 			t.sendPrevote(votedID)
@@ -147,12 +147,12 @@ func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], propo
 
 			if t.state.s == prevote {
 				t.state.lockedValue = proposal.Value
-				t.state.lockedRound = int(cr)
+				t.state.lockedRound = cr
 				t.sendPrecommit(p.ID)
 			}
 
 			t.state.validValue = proposal.Value
-			t.state.validRound = int(cr)
+			t.state.validRound = cr
 			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}

@@ -97,7 +97,7 @@ The implementation uses nil as -1 to avoid using int type.
 
 Since the value's id is expected to be unique the id can be used to compare the values.
 */
-func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
+func (t *Tendermint[V, H, A]) line22(vr round, proposalFromProposer, validProposal bool, vID H) {
 	if vr == -1 && proposalFromProposer && t.state.s == propose {
 		var votedID *H
 		if validProposal && (t.state.lockedRound == -1 || (*t.state.lockedValue).Hash() == vID) {
@@ -121,10 +121,10 @@ Check the upon condition on line 28:
 Ideally, the condition on line 28 would be checked in a single if statement, however,
 this cannot be done because valid round needs to be non-nil before the prevotes are fetched.
 */
-func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], vr int, proposalFromProposer bool,
+func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], vr round, proposalFromProposer bool,
 	vID H, validProposal bool,
 ) {
-	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < int(t.state.r) {
+	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < t.state.r {
 		_, prevotesForHVr, _ := t.messages.allMessages(p.H, round(vr))
 
 		vals := checkQuorumPrevotesGivenProposalVID(prevotesForHVr, vID)
@@ -174,12 +174,12 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 
 			if t.state.s == prevote {
 				t.state.lockedValue = p.Value
-				t.state.lockedRound = int(cr)
+				t.state.lockedRound = cr
 				t.sendPrecommit(&vID)
 			}
 
 			t.state.validValue = p.Value
-			t.state.validRound = int(cr)
+			t.state.validRound = cr
 			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}
