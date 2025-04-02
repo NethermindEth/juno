@@ -294,9 +294,16 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
+	// RPCv7 requests must set l2_gas to zero
+	if broadcastedTxn.ResourceBounds != nil {
+		(*broadcastedTxn.ResourceBounds)[ResourceL2Gas] = ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(0),
+			MaxPricePerUnit: new(felt.Felt).SetUint64(0),
+		}
+	}
 	var feederTxn starknet.Transaction
 	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
 		return nil, nil, nil, err
@@ -306,7 +313,6 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
 	var declaredClass core.Class
 	if len(broadcastedTxn.ContractClass) != 0 {
 		declaredClass, err = adaptDeclaredClass(broadcastedTxn.ContractClass)
