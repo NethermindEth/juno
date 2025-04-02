@@ -175,7 +175,7 @@ const (
 	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
 	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
 	gwTimeoutsUsage      = "Timeouts for requests made to the gateway. Can be specified as a single value or comma-separated list" +
-		"or multiple flags. Values over 2m will be capped. Example: --gw-timeouts=5s,7s,10s"
+		"Example: --gw-timeouts=5s,7s,10s. The system will automatically adjust timeouts based on request performance."
 	callMaxStepsUsage = "Maximum number of steps to be executed in starknet_call requests. " +
 		"The upper limit is 4 million steps, and any higher value will still be capped at 4 million."
 	corsEnableUsage             = "Enable CORS on RPC endpoints"

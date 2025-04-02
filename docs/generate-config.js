@@ -141,6 +141,14 @@ function parseValue(value) {
     return value.slice(1, -1);
   }
 
+  // Handle string slices
+  if (value.startsWith('[]string{') && value.endsWith('}')) {
+    // Remove the []string{} wrapper and split by comma
+    const sliceContent = value.slice(9, -1);
+    if (sliceContent === '') return '[]';
+    return sliceContent.split(',').map(s => s.trim().replace(/"/g, '')).join(',');
+  }
+
   // Return the value directly if it's not empty, otherwise return null
   return value || null;
 }
@@ -194,7 +202,7 @@ function fetchUrl(url) {
 async function main() {
   try {
     const url =
-      "https://raw.githubusercontent.com/NethermindEth/juno/main/cmd/juno/juno.go";
+      "https://raw.githubusercontent.com/NethermindEth/juno/MaksymMalicki/dynamic-timeouts/cmd/juno/juno.go";
     const codebase = await fetchUrl(url);
     console.log("Fetched Juno's source code");
 
