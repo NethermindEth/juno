@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func TestTimeoutString(t *testing.T) {
-	tests := []struct {
+	tests := []*struct {
 		name  string
 		input Timeouts
 		want  string
@@ -132,7 +133,7 @@ func TestParseTimeouts(t *testing.T) {
 }
 
 func TestGetDynamicTimeouts(t *testing.T) {
-	tests := []struct {
+	tests := []*struct {
 		name  string
 		input []time.Duration
 		want  Timeouts
@@ -143,6 +144,7 @@ func TestGetDynamicTimeouts(t *testing.T) {
 			want: Timeouts{
 				curTimeout: 0,
 				timeouts:   []time.Duration{},
+				mu:         sync.RWMutex{},
 			},
 		},
 		{
@@ -158,6 +160,7 @@ func TestGetDynamicTimeouts(t *testing.T) {
 					1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
 					4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
 				},
+				mu: sync.RWMutex{},
 			},
 		},
 		{
@@ -166,6 +169,7 @@ func TestGetDynamicTimeouts(t *testing.T) {
 			want: Timeouts{
 				curTimeout: 0,
 				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
+				mu:         sync.RWMutex{},
 			},
 		},
 	}
@@ -173,7 +177,8 @@ func TestGetDynamicTimeouts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := getDynamicTimeouts(tt.input)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want.curTimeout, got.curTimeout)
+			assert.Equal(t, tt.want.timeouts, got.timeouts)
 		})
 	}
 }
