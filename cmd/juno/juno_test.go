@@ -62,7 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
-	defaultGwTimeout := []string{"5s"}
+	defaultGwTimeout := "5s,"
 
 	tests := map[string]struct {
 		cfgFile         bool

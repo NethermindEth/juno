@@ -710,7 +710,7 @@ func TestClientRetryBehavior(t *testing.T) {
 		defer srv.Close()
 
 		client := feeder.NewClient(srv.URL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second}).
+			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second}, false).
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
@@ -730,7 +730,7 @@ func TestClientRetryBehavior(t *testing.T) {
 		defer srv.Close()
 
 		client := feeder.NewClient(srv.URL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond}).
+			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
 			WithMaxRetries(2).
 			WithBackoff(feeder.NopBackoff)
 
@@ -756,7 +756,7 @@ func TestClientRetryBehavior(t *testing.T) {
 		defer srv.Close()
 
 		client := feeder.NewClient(srv.URL).
-			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}).
+			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
 			WithMaxRetries(1).
 			WithBackoff(feeder.NopBackoff)
 

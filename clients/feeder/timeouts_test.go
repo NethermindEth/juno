@@ -53,59 +53,97 @@ func TestTimeoutString(t *testing.T) {
 }
 
 func TestParseTimeouts(t *testing.T) {
+	type want struct {
+		timeouts []time.Duration
+		fixed    bool
+	}
+
 	tests := []struct {
 		name    string
-		input   []string
-		want    []time.Duration
+		input   string
+		want    want
 		wantErr bool
 	}{
 		{
-			name:  "empty input",
-			input: []string{},
-			want:  []time.Duration{defaultTimeout},
+			name:    "empty input",
+			input:   "",
+			wantErr: true,
 		},
 		{
 			name:  "single value",
-			input: []string{"5s"},
-			want:  []time.Duration{5 * time.Second},
+			input: "5s",
+			want:  want{timeouts: []time.Duration{5 * time.Second}, fixed: false},
+		},
+		{
+			name:    "single value with trailing comma",
+			input:   "5s,",
+			want:    want{timeouts: []time.Duration{5 * time.Second}, fixed: true},
+			wantErr: false,
 		},
 		{
 			name:  "multiple values",
-			input: []string{"5s", "7s", "10s"},
-			want:  []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
+			input: "5s,7s,10s",
+			want:  want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+		},
+		{
+			name:    "multiple values with trailing comma",
+			input:   "5s,7s,10s,",
+			want:    want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			wantErr: false,
 		},
 		{
 			name:    "invalid duration",
-			input:   []string{"5s", "invalid", "10s"},
+			input:   "5s,invalid,10s",
+			wantErr: true,
+		},
+		{
+			name:    "empty timeouts",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "random order input",
+			input:   "10s,5s,7s",
+			wantErr: true,
+		},
+		{
+			name:    "random order input with trailing comma",
+			input:   "10s,5s,7s,",
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseTimeouts(tt.input)
+			got, fixed, err := ParseTimeouts(tt.input)
 			if tt.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want.timeouts, got)
+			assert.Equal(t, tt.want.fixed, fixed)
 		})
 	}
 }
 
-//nolint:dupl
-func TestGetTimeouts(t *testing.T) {
+func TestGetDynamicTimeouts(t *testing.T) {
 	tests := []struct {
-		name       string
-		input      []time.Duration
-		maxRetries int
-		want       Timeouts
+		name  string
+		input []time.Duration
+		want  Timeouts
 	}{
 		{
-			name:       "empty input",
-			input:      []time.Duration{},
-			maxRetries: 4,
+			name:  "empty input",
+			input: []time.Duration{},
+			want: Timeouts{
+				curTimeout: 0,
+				timeouts:   []time.Duration{},
+			},
+		},
+		{
+			name:  "single value input",
+			input: []time.Duration{5 * time.Second},
 			want: Timeouts{
 				curTimeout: 0,
 				timeouts: []time.Duration{
@@ -119,58 +157,18 @@ func TestGetTimeouts(t *testing.T) {
 			},
 		},
 		{
-			name:       "single value input",
-			input:      []time.Duration{5 * time.Second},
-			maxRetries: 4,
+			name:  "multiple values input",
+			input: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
 			want: Timeouts{
 				curTimeout: 0,
-				timeouts: []time.Duration{
-					5 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second, 80 * time.Second,
-					120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second, 250 * time.Second,
-					300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second, 623 * time.Second,
-					748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second, 1553 * time.Second,
-					1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second, 3867 * time.Second,
-					4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second, 9626 * time.Second,
-				},
-			},
-		},
-		{
-			name:       "multiple values input",
-			input:      []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
-			maxRetries: 4,
-			want: Timeouts{
-				curTimeout: 0,
-				timeouts: []time.Duration{
-					5 * time.Second, 7 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second,
-					80 * time.Second, 120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
-					250 * time.Second, 300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second,
-					623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
-					1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
-					3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
-				},
-			},
-		},
-		{
-			name:       "random order input",
-			input:      []time.Duration{10 * time.Second, 5 * time.Second, 7 * time.Second},
-			maxRetries: 4,
-			want: Timeouts{
-				curTimeout: 0,
-				timeouts: []time.Duration{
-					5 * time.Second, 7 * time.Second, 10 * time.Second, 20 * time.Second, 40 * time.Second,
-					80 * time.Second, 120 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
-					250 * time.Second, 300 * time.Second, 360 * time.Second, 432 * time.Second, 519 * time.Second,
-					623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
-					1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
-					3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
-				},
+				timeouts:   []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTimeouts(tt.input)
+			got := getDynamicTimeouts(tt.input)
 			assert.Equal(t, tt.want, got)
 		})
 	}

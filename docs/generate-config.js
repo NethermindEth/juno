@@ -79,7 +79,9 @@ const extractConfigs = (codebase) => {
       if (configName === "max-vm-queue") {
         defaultValue = "2 * max-vms";
       }
-
+      if (configName === "gw-timeouts") {
+        defaultValue = "5s";
+      }
       configs.push({
         configName,
         defaultValue,
@@ -139,14 +141,6 @@ function parseValue(value) {
   // Remove quotes from a string
   if (value.startsWith('"') && value.endsWith('"')) {
     return value.slice(1, -1);
-  }
-
-  // Handle string slices
-  if (value.startsWith('[]string{') && value.endsWith('}')) {
-    // Remove the []string{} wrapper and split by comma
-    const sliceContent = value.slice(9, -1);
-    if (sliceContent === '') return '[]';
-    return sliceContent.split(',').map(s => s.trim().replace(/"/g, '')).join(',');
   }
 
   // Return the value directly if it's not empty, otherwise return null
