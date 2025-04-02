@@ -74,8 +74,12 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-func (c *Client) WithTimeouts(timeouts []time.Duration) *Client {
-	c.timeouts = getTimeouts(timeouts)
+func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
+	if fixed {
+		c.timeouts = getFixedTimeouts(timeouts)
+	} else {
+		c.timeouts = getDynamicTimeouts(timeouts)
+	}
 	return c
 }
 
@@ -207,6 +211,7 @@ func NewClient(clientURL string) *Client {
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
+		timeouts:   getDefaultFixedTimeouts(),
 	}
 }
 
@@ -233,10 +238,6 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 	var res *http.Response
 	var err error
 	wait := time.Duration(0)
-	if c.timeouts.timeouts == nil {
-		c.timeouts.UseDefaultTimeouts()
-	}
-
 	for range c.maxRetries + 1 {
 		select {
 		case <-ctx.Done():
@@ -257,19 +258,22 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			c.client.Timeout = c.timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
+			tooManyRequests := false
 			if err == nil {
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
 				if res.StatusCode == http.StatusOK {
 					c.timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
-					if res.StatusCode != http.StatusTooManyRequests {
-						c.timeouts.IncreaseTimeout()
-					}
 					err = errors.New(res.Status)
 				}
 
 				res.Body.Close()
+			}
+
+			if !tooManyRequests {
+				c.timeouts.IncreaseTimeout()
 			}
 
 			if wait < c.minWait {

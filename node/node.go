@@ -88,8 +88,8 @@ type Config struct {
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
-	GatewayAPIKey   string   `mapstructure:"gw-api-key"`
-	GatewayTimeouts []string `mapstructure:"gw-timeouts"`
+	GatewayAPIKey   string `mapstructure:"gw-api-key"`
+	GatewayTimeouts string `mapstructure:"gw-timeouts"`
 
 	PluginPath string `mapstructure:"plugin-path"`
 
@@ -159,15 +159,18 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	timeouts, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
+	if cfg.GatewayTimeouts == "" {
+		cfg.GatewayTimeouts = feeder.DefaultTimeouts
+	}
+	timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
 	if err != nil {
-		return nil, fmt.Errorf("invalid gateway timeout: %w", err)
+		return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 	}
 
 	client := feeder.NewClient(cfg.Network.FeederURL).
 		WithUserAgent(ua).
 		WithLogger(log).
-		WithTimeouts(timeouts).
+		WithTimeouts(timeouts, fixed).
 		WithAPIKey(cfg.GatewayAPIKey)
 
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
