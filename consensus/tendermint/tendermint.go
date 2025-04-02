@@ -457,68 +457,55 @@ func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]
 	return true
 }
 
-func checkForQuorumPrecommit[H Hash, A Addr](precommitsForHR map[A][]Precommit[H, A], vID H) ([]Precommit[H, A], []A) {
-	var precommits []Precommit[H, A]
-	var vals []A
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingPrecommits []Precommit[H, A], hasQuorum bool) {
+	precommits, ok := t.messages.precommits[t.state.h][r]
+	if !ok {
+		return nil, false
+	}
 
-	for addr, valPrecommits := range precommitsForHR {
+	var vals []A
+	for addr, valPrecommits := range precommits {
 		for _, p := range valPrecommits {
 			if *p.ID == vID {
-				precommits = append(precommits, p)
+				matchingPrecommits = append(matchingPrecommits, p)
 				vals = append(vals, addr)
 			}
 		}
 	}
-	return precommits, vals
+	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
 }
 
-func checkForQuorumPrevotesGivenPrevote[H Hash, A Addr](p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) []A {
-	var vals []A
-	for addr, valPrevotes := range prevotesForHR {
-		for _, v := range valPrevotes {
-			if *v.ID == *p.ID {
-				vals = append(vals, addr)
-			}
-		}
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H) (hasQuorum bool) {
+	prevotes, ok := t.messages.prevotes[t.state.h][r]
+	if !ok {
+		return false
 	}
-	return vals
-}
 
-func checkQuorumPrevotesGivenProposalVID[H Hash, A Addr](prevotesForHVr map[A][]Prevote[H, A], vID H) []A {
 	var vals []A
-	for addr, valPrevotes := range prevotesForHVr {
+	for addr, valPrevotes := range prevotes {
 		for _, p := range valPrevotes {
 			if *p.ID == vID {
 				vals = append(vals, addr)
 			}
 		}
 	}
-	return vals
+	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
 }
 
-func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrecommit(p Precommit[H, A],
-	proposalsForHR map[A][]Proposal[V, H, A],
-) *Proposal[V, H, A] {
-	var proposal *Proposal[V, H, A]
-
-	for _, prop := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-		if (*prop.Value).Hash() == *p.ID {
-			propCopy := prop
-			proposal = &propCopy
-		}
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id H) *Proposal[V, H, A] {
+	proposals, ok := t.messages.proposals[t.state.h][r][t.validators.Proposer(t.state.h, r)]
+	if !ok {
+		return nil
 	}
-	return proposal
-}
 
-func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrevote(p Prevote[H, A],
-	proposalsForHR map[A][]Proposal[V, H, A],
-) *Proposal[V, H, A] {
 	var proposal *Proposal[V, H, A]
 
-	for _, v := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-		if (*v.Value).Hash() == *p.ID {
-			vCopy := v
-			proposal = &vCopy
+	for _, v := range proposals {
+		if (*v.Value).Hash() == id {
+			proposal = utils.HeapPtr(v)
 		}
 	}
 	return proposal
