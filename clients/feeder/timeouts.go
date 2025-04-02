@@ -145,7 +145,7 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 	}
 
 	if len(timeouts) > timeoutsCount {
-		return nil, false, fmt.Errorf("too many timeouts, max is %d", timeoutsCount)
+		return nil, false, fmt.Errorf("exceeded max amount of allowed timeout parameters. Set %d but max is %d", len(timeouts), timeoutsCount)
 	}
 	return timeouts, false, nil
 }

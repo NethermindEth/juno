@@ -112,6 +112,11 @@ func TestParseTimeouts(t *testing.T) {
 			input:   "10s,5s,7s,",
 			wantErr: true,
 		},
+		{
+			name:    "max amount of timeouts exceeded",
+			input:   "1s,2s,3s,4s,5s,6s,7s,8s,9s,10s,11s,12s,13s,14s,15s,16s,17s,18s,19s,20s,21s,22s,23s,24s,25s,26s,27s,28s,29s,30s,31s",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
