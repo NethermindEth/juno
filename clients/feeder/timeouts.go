@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,26 +26,35 @@ const (
 type Timeouts struct {
 	timeouts   []time.Duration
 	curTimeout int
+	mu         sync.RWMutex
 }
 
-func (t Timeouts) GetCurrentTimeout() time.Duration {
+func (t *Timeouts) GetCurrentTimeout() time.Duration {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	return t.timeouts[t.curTimeout]
 }
 
 func (t *Timeouts) DecreaseTimeout() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.curTimeout > 0 {
 		t.curTimeout--
 	}
 }
 
 func (t *Timeouts) IncreaseTimeout() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.curTimeout++
 	if t.curTimeout >= len(t.timeouts) {
 		t.curTimeout = len(t.timeouts) - 1
 	}
 }
 
-func (t Timeouts) String() string {
+func (t *Timeouts) String() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
 	timeouts := make([]string, len(t.timeouts))
 	for i, t := range t.timeouts {
 		timeouts[i] = t.String()
