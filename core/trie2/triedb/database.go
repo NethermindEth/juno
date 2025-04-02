@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
+	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -13,7 +14,7 @@ import (
 
 type Config struct {
 	PathConfig *pathdb.Config
-	// TODO: add hashdb config here
+	HashConfig *hashdb.Config
 }
 
 type Database struct {
@@ -28,8 +29,16 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 			PathConfig: &pathdb.Config{},
 		}
 	}
-
-	return &Database{ // TODO: handle both pathdb and hashdb
+	if config.HashConfig != nil && config.PathConfig != nil {
+		// TODO: log warning
+	}
+	if config.PathConfig != nil {
+		config.PathConfig = &pathdb.Config{}
+	}
+	if config.HashConfig != nil {
+		config.HashConfig = &hashdb.Config{}
+	}
+	return &Database{
 		triedb: pathdb.New(disk, config.PathConfig),
 		config: config,
 	}
