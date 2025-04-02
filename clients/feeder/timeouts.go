@@ -139,7 +139,7 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 		}
 		d, err := time.ParseDuration(v)
 		if err != nil {
-			return nil, false, fmt.Errorf("parsing timeout at index %d: %v", i, err)
+			return nil, false, fmt.Errorf("parsing timeouts at index %d: %v", i, err)
 		}
 		timeouts = append(timeouts, d)
 	}
@@ -172,22 +172,13 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			return
 		}
 
-		timeoutStrs := strings.Split(timeoutsStr, ",")
-		timeouts := make([]string, 0, len(timeoutStrs))
-		for _, t := range timeoutStrs {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				timeouts = append(timeouts, t)
-			}
-		}
-
-		newTimeouts, err := ParseTimeouts(timeouts)
+		newTimeouts, fixed, err := ParseTimeouts(timeoutsStr)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		client.WithTimeouts(newTimeouts)
+		client.WithTimeouts(newTimeouts, fixed)
 		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
