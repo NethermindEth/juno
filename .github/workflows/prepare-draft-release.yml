@@ -2,17 +2,17 @@ name: Prepare Draft Release
 
 on:
   push:
-    branches:
-      - wojciechos/release-action
     tags:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
 
 jobs:
   build-binaries:
     name: Build Binaries
+    if: github.repository_owner == 'NethermindEth'
     uses: ./.github/workflows/build-binaries.yml
 
   docker-image:
@@ -20,16 +20,14 @@ jobs:
     if: github.repository_owner == 'NethermindEth'
     uses: ./.github/workflows/docker-image-build-push.yml
     with:
-      repo_type: 'official'
+      repo_type: 'unofficial'
     secrets: inherit
 
   create-release:
     name: Create Draft Release
+    if: github.repository_owner == 'NethermindEth'
     needs: [build-binaries, docker-image]
-    if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Download binaries
         uses: actions/download-artifact@v4
