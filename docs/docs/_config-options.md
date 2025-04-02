@@ -20,7 +20,7 @@
 | `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
 | `grpc-port` | `6064` | The port on which the gRPC server will listen for requests |
 | `gw-api-key` |  | API key for gateway endpoints to avoid throttling |
-| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified as a single value or comma-separated listExample: --gw-timeouts=5s,7s,10s. The system will automatically adjust timeouts based on request performance |
+| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified in three ways:\n- Single value (e.g. '5s'): After each failure, the timeout will increase exponentially\n- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures. - Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment |
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |

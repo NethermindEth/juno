@@ -196,7 +196,7 @@ function fetchUrl(url) {
 async function main() {
   try {
     const url =
-      "https://raw.githubusercontent.com/NethermindEth/juno/MaksymMalicki/dynamic-timeouts/cmd/juno/juno.go";
+      "https://raw.githubusercontent.com/NethermindEth/juno/main/cmd/juno/juno.go";
     const codebase = await fetchUrl(url);
     console.log("Fetched Juno's source code");
 
