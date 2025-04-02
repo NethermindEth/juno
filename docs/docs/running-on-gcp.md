@@ -63,7 +63,7 @@ curl --location 'http://localhost:6060' \
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "v0.11.7",
+  "result": "v0.14.0",
   "id": 1
 }
 ```

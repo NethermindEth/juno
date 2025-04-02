@@ -24,7 +24,9 @@
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
-| `log-level` | `info` | Options: trace, debug, info, warn, error |
+| `log-host` | `localhost` | The interface on which the log level HTTP server will listen for requests |
+| `log-level` |  | Options: trace, debug, info, warn, error |
+| `log-port` | `0` | The port on which the log level HTTP server will listen for requests |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
 | `metrics` | `false` | Enables the Prometheus metrics endpoint on the default port |
