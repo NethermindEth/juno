@@ -281,12 +281,12 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			}
 
 			currentTimeout := c.timeouts.GetCurrentTimeout()
-			if currentTimeout < fastGrowThreshold {
+			if currentTimeout >= fastGrowThreshold {
 				c.log.Warnw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),
 					"retryAfter", wait.String(),
 					"err", err,
-					"newHTTPTimeout", c.timeouts.GetCurrentTimeout(),
+					"newHTTPTimeout", c.timeouts.GetCurrentTimeout().String(),
 				)
 				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
 					"timeout", currentTimeout.String(),
