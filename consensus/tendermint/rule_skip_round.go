@@ -14,9 +14,6 @@ Check the upon condition on line 55:
 If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
 func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
-	t.futureMessagesMu.Lock()
-	defer t.futureMessagesMu.Unlock()
-
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
 
