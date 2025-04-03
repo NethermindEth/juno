@@ -54,10 +54,9 @@ jobs:
         if: matrix.os != 'ubuntu-latest'
         run: make test
 
-      #    Tests with race condition detector are flaky; we're disabling them for now
-      #      - name: Tests (Race Detection)
-      #        if: matrix.os == 'ubuntu-latest'
-      #        run: make test-race
+      - name: Tests (Race Detection)
+        if: matrix.os == 'ubuntu-latest'
+        run: make test-race
 
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest'
