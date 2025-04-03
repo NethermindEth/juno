@@ -21,14 +21,23 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 	t.messages.addPrevote(p)
 
-	_, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
+	cachedProposal := t.findMatchingProposal(t.state.r, p.ID)
 
-	t.line28WhenPrevoteIsReceived(p)
+	if cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal, p.R) {
+		t.doProposalAndPolkaPrevious(cachedProposal)
+	}
 
 	if p.R == t.state.r {
-		t.line34(p, prevotesForHR)
-		t.line44(p, prevotesForHR)
+		if t.uponPolkaAny(p) {
+			t.doPolkaAny(p)
+		}
 
-		t.line36WhenPrevoteIsReceived(p)
+		if t.uponPolkaNil(p) {
+			t.doPolkaNil()
+		}
+	}
+
+	if cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal) {
+		t.doProposalAndPolkaCurrent(cachedProposal)
 	}
 }
