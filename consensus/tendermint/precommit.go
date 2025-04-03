@@ -26,9 +26,9 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 
 	t.messages.addPrecommit(p)
 
-	proposalsForHR, _, precommitsForHR := t.messages.allMessages(p.H, p.R)
+	_, _, precommitsForHR := t.messages.allMessages(p.H, p.R)
 
-	if t.line49WhenPrecommitIsReceived(p, proposalsForHR, precommitsForHR) {
+	if t.line49WhenPrecommitIsReceived(p) {
 		return
 	}
 
@@ -52,15 +52,13 @@ validity of the proposal can be skipped.
 There is no need to check decision_p[h_p] = nil since it is implied that decision are made
 sequentially, i.e. x, x+1, x+2... .
 */
-func (t *Tendermint[V, H, A]) line49WhenPrecommitIsReceived(p Precommit[H, A], proposalsForHR map[A][]Proposal[V, H,
-	A], precommitsForHR map[A][]Precommit[H, A],
-) bool {
+func (t *Tendermint[V, H, A]) line49WhenPrecommitIsReceived(p Precommit[H, A]) bool {
 	if p.ID != nil {
-		proposal := t.checkForMatchingProposalGivenPrecommit(p, proposalsForHR)
+		proposal := t.findMatchingProposal(p.R, *p.ID)
 
-		precommits, vals := checkForQuorumPrecommit[H, A](precommitsForHR, *p.ID)
+		precommits, hasQuorum := t.checkForQuorumPrecommit(p.R, *p.ID)
 
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+		if proposal != nil && hasQuorum {
 			t.blockchain.Commit(t.state.h, *proposal.Value, precommits)
 
 			t.messages.deleteHeightMessages(t.state.h)

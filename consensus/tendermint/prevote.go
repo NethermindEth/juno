@@ -26,15 +26,15 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 	t.messages.addPrevote(p)
 
-	proposalsForHR, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
+	_, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
 
-	t.line28WhenPrevoteIsReceived(p, prevotesForHR)
+	t.line28WhenPrevoteIsReceived(p)
 
 	if p.R == t.state.r {
 		t.line34(p, prevotesForHR)
 		t.line44(p, prevotesForHR)
 
-		t.line36WhenPrevoteIsReceived(p, proposalsForHR, prevotesForHR)
+		t.line36WhenPrevoteIsReceived(p)
 	}
 }
 
@@ -56,31 +56,18 @@ validity of the proposal can be skipped.
 Calculating quorum of prevotes is more resource intensive than checking other condition on line	28,
 therefore, it is checked in a subsequent if statement.
 */
-func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) {
+func (t *Tendermint[V, H, A]) line28WhenPrevoteIsReceived(p Prevote[H, A]) {
 	// vr >= 0 doesn't need to be checked since vr is a uint
 	if vr := p.R; p.ID != nil && t.state.s == propose && vr < t.state.r {
-		cr := t.state.r
+		proposal := t.findMatchingProposal(t.state.r, *p.ID)
+		hasQuorum := t.checkQuorumPrevotesGivenProposalVID(p.R, *p.ID)
 
-		proposalsForHCR, _, _ := t.messages.allMessages(p.H, cr)
-
-		proposal := t.checkForMatchingProposalGivenPrevote(p, proposalsForHCR)
-		vals := checkForQuorumPrevotesGivenPrevote(p, prevotesForHR)
-
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-			vote := Prevote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
+		if proposal != nil && hasQuorum {
+			var votedID *H
+			if t.state.lockedRound >= vr || (*t.state.lockedValue).Hash() == *p.ID {
+				votedID = p.ID
 			}
-
-			if t.state.lockedRound >= int(vr) || (*t.state.lockedValue).Hash() == *p.ID {
-				vote.ID = p.ID
-			}
-
-			t.messages.addPrevote(vote)
-			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.s = prevote
+			t.sendPrevote(votedID)
 		}
 	}
 }
@@ -120,16 +107,7 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 	}
 
 	if t.state.s == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-		vote := Precommit[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-
-		t.messages.addPrecommit(vote)
-		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.s = precommit
+		t.sendPrecommit(nil)
 	}
 }
 
@@ -153,34 +131,22 @@ validity of the proposal can be skipped.
 Calculating quorum of prevotes is more resource intensive than checking other condition on line 36,
 therefore, it is checked in a subsequent if statement.
 */
-func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A], proposalsForHR map[A][]Proposal[V, H, A],
-	prevotesForHR map[A][]Prevote[H, A],
-) {
-	if !t.state.lockedValueAndOrValidValueSet && t.state.s >= prevote {
-		proposal := t.checkForMatchingProposalGivenPrevote(p, proposalsForHR)
-		vals := checkForQuorumPrevotesGivenPrevote(p, prevotesForHR)
+func (t *Tendermint[V, H, A]) line36WhenPrevoteIsReceived(p Prevote[H, A]) {
+	if p.ID != nil && !t.state.lockedValueAndOrValidValueSet && t.state.s >= prevote {
+		proposal := t.findMatchingProposal(t.state.r, *p.ID)
+		hasQuorum := t.checkQuorumPrevotesGivenProposalVID(p.R, *p.ID)
 
-		if proposal != nil && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+		if proposal != nil && hasQuorum {
 			cr := t.state.r
 
 			if t.state.s == prevote {
 				t.state.lockedValue = proposal.Value
-				t.state.lockedRound = int(cr)
-
-				vote := Precommit[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     p.ID,
-					Sender: t.nodeAddr,
-				}
-
-				t.messages.addPrecommit(vote)
-				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.s = precommit
+				t.state.lockedRound = cr
+				t.sendPrecommit(p.ID)
 			}
 
 			t.state.validValue = proposal.Value
-			t.state.validRound = int(cr)
+			t.state.validRound = cr
 			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}

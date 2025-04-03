@@ -32,9 +32,9 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		t.messages.addProposal(p)
 	}
 
-	_, prevotesForHR, precommitsForHR := t.messages.allMessages(p.H, p.R)
+	_, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
 
-	if t.line49WhenProposalIsReceived(p, precommitsForHR, vID, validProposal, proposalFromProposer) {
+	if t.line49WhenProposalIsReceived(p, vID, validProposal, proposalFromProposer) {
 		return
 	}
 
@@ -45,7 +45,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	}
 
 	t.line22(vr, proposalFromProposer, validProposal, vID)
-	t.line28WhenProposalIsReceived(p, vr, proposalFromProposer, vID, validProposal)
+	t.line28WhenProposalIsReceived(vr, proposalFromProposer, vID, validProposal)
 	t.line36WhenProposalIsReceived(p, validProposal, proposalFromProposer, prevotesForHR, vID)
 }
 
@@ -63,13 +63,10 @@ Check the upon condition on line 49:
 	 sequentially, i.e. x, x+1, x+2... . The validity of the proposal value can be checked in the same if
 	 statement since there is no else statement.
 */
-func (t *Tendermint[V, H, A]) line49WhenProposalIsReceived(p Proposal[V, H, A], precommitsForHR map[A][]Precommit[H,
-	A], vID H, validProposal bool, proposalFromProposer bool,
-) bool {
-	precommits, vals := checkForQuorumPrecommit[H, A](precommitsForHR, vID)
+func (t *Tendermint[V, H, A]) line49WhenProposalIsReceived(p Proposal[V, H, A], vID H, validProposal, proposalFromProposer bool) bool {
+	precommits, hasQuorum := t.checkForQuorumPrecommit(p.R, vID)
 
-	if validProposal && proposalFromProposer &&
-		t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
+	if validProposal && proposalFromProposer && hasQuorum {
 		// After committing the block, how the new height and round is started needs to be coordinated
 		// with the synchronisation process.
 		t.blockchain.Commit(t.state.h, *p.Value, precommits)
@@ -97,22 +94,13 @@ The implementation uses nil as -1 to avoid using int type.
 
 Since the value's id is expected to be unique the id can be used to compare the values.
 */
-func (t *Tendermint[V, H, A]) line22(vr int, proposalFromProposer, validProposal bool, vID H) {
+func (t *Tendermint[V, H, A]) line22(vr round, proposalFromProposer, validProposal bool, vID H) {
 	if vr == -1 && proposalFromProposer && t.state.s == propose {
-		vote := Prevote[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-
+		var votedID *H
 		if validProposal && (t.state.lockedRound == -1 || (*t.state.lockedValue).Hash() == vID) {
-			vote.ID = &vID
+			votedID = &vID
 		}
-
-		t.messages.addPrevote(vote)
-		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.s = prevote
+		t.sendPrevote(votedID)
 	}
 }
 
@@ -130,29 +118,17 @@ Check the upon condition on line 28:
 Ideally, the condition on line 28 would be checked in a single if statement, however,
 this cannot be done because valid round needs to be non-nil before the prevotes are fetched.
 */
-func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(p Proposal[V, H, A], vr int, proposalFromProposer bool,
+func (t *Tendermint[V, H, A]) line28WhenProposalIsReceived(vr round, proposalFromProposer bool,
 	vID H, validProposal bool,
 ) {
-	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < int(t.state.r) {
-		_, prevotesForHVr, _ := t.messages.allMessages(p.H, round(vr))
-
-		vals := checkQuorumPrevotesGivenProposalVID(prevotesForHVr, vID)
-
-		if t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-			vote := Prevote[H, A]{
-				H:      t.state.h,
-				R:      t.state.r,
-				ID:     nil,
-				Sender: t.nodeAddr,
-			}
-
+	if vr != -1 && proposalFromProposer && t.state.s == propose && vr >= 0 && vr < t.state.r {
+		hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, vID)
+		if hasQuorum {
+			var votedID *H
 			if validProposal && (t.state.lockedRound <= vr || (*t.state.lockedValue).Hash() == vID) {
-				vote.ID = &vID
+				votedID = &vID
 			}
-
-			t.messages.addPrevote(vote)
-			t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-			t.state.s = prevote
+			t.sendPrevote(votedID)
 		}
 	}
 }
@@ -192,22 +168,12 @@ func (t *Tendermint[V, H, A]) line36WhenProposalIsReceived(p Proposal[V, H, A], 
 
 			if t.state.s == prevote {
 				t.state.lockedValue = p.Value
-				t.state.lockedRound = int(cr)
-
-				vote := Precommit[H, A]{
-					H:      t.state.h,
-					R:      t.state.r,
-					ID:     &vID,
-					Sender: t.nodeAddr,
-				}
-
-				t.messages.addPrecommit(vote)
-				t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-				t.state.s = precommit
+				t.state.lockedRound = cr
+				t.sendPrecommit(&vID)
 			}
 
 			t.state.validValue = p.Value
-			t.state.validRound = int(cr)
+			t.state.validRound = cr
 			t.state.lockedValueAndOrValidValueSet = true
 		}
 	}
