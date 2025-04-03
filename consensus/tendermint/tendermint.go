@@ -1,18 +1,17 @@
 package tendermint
 
 import (
-	"maps"
-	"slices"
 	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type (
 	step        uint8
 	height      uint
-	round       uint
+	round       int
 	votingPower uint
 )
 
@@ -155,9 +154,9 @@ type state[V Hashable[H], H Hash] struct {
 	s step
 
 	lockedValue *V
-	lockedRound int
+	lockedRound round
 	validValue  *V
-	validRound  int
+	validRound  round
 
 	// The following are round level variable therefore when a round changes they must be reset.
 	timeoutPrevoteScheduled       bool // line34 for the first time condition
@@ -262,19 +261,9 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 		if t.state.validValue != nil {
 			proposalValue = t.state.validValue
 		} else {
-			v := t.application.Value()
-			proposalValue = &v
+			proposalValue = utils.HeapPtr(t.application.Value())
 		}
-		proposalMessage := Proposal[V, H, A]{
-			H:          t.state.h,
-			R:          r,
-			ValidRound: t.state.validRound,
-			Value:      proposalValue,
-			Sender:     t.nodeAddr,
-		}
-
-		t.messages.addProposal(proposalMessage)
-		t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
+		t.sendProposal(proposalValue)
 	} else {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.h, t.state.r)
 	}
@@ -345,66 +334,19 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h 
 
 func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == propose {
-		vote := Prevote[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-		t.messages.addPrevote(vote)
-		t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-		t.state.s = prevote
+		t.sendPrevote(nil)
 	}
 }
 
 func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
 	if t.state.h == h && t.state.r == r && t.state.s == prevote {
-		vote := Precommit[H, A]{
-			H:      t.state.h,
-			R:      t.state.r,
-			ID:     nil,
-			Sender: t.nodeAddr,
-		}
-		t.messages.addPrecommit(vote)
-		t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-		t.state.s = precommit
+		t.sendPrecommit(nil)
 	}
 }
 
 func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
 	if t.state.h == h && t.state.r == r {
 		t.startRound(r + 1)
-	}
-}
-
-// line55 assumes the caller has acquired a mutex for accessing future messages.
-/*
-	55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
-	56: 	StartRound(round)
-*/
-func (t *Tendermint[V, H, A]) line55(futureR round) {
-	t.futureMessagesMu.Lock()
-
-	vals := make(map[A]struct{})
-	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
-
-	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
-	for addr := range proposals {
-		vals[addr] = struct{}{}
-	}
-
-	for addr := range prevotes {
-		vals[addr] = struct{}{}
-	}
-
-	for addr := range precommits {
-		vals[addr] = struct{}{}
-	}
-
-	t.futureMessagesMu.Unlock()
-
-	if t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h)) {
-		t.startRound(futureR)
 	}
 }
 
@@ -482,68 +424,55 @@ func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]
 	return true
 }
 
-func checkForQuorumPrecommit[H Hash, A Addr](precommitsForHR map[A][]Precommit[H, A], vID H) ([]Precommit[H, A], []A) {
-	var precommits []Precommit[H, A]
-	var vals []A
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingPrecommits []Precommit[H, A], hasQuorum bool) {
+	precommits, ok := t.messages.precommits[t.state.h][r]
+	if !ok {
+		return nil, false
+	}
 
-	for addr, valPrecommits := range precommitsForHR {
+	var vals []A
+	for addr, valPrecommits := range precommits {
 		for _, p := range valPrecommits {
 			if *p.ID == vID {
-				precommits = append(precommits, p)
+				matchingPrecommits = append(matchingPrecommits, p)
 				vals = append(vals, addr)
 			}
 		}
 	}
-	return precommits, vals
+	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
 }
 
-func checkForQuorumPrevotesGivenPrevote[H Hash, A Addr](p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) []A {
-	var vals []A
-	for addr, valPrevotes := range prevotesForHR {
-		for _, v := range valPrevotes {
-			if *v.ID == *p.ID {
-				vals = append(vals, addr)
-			}
-		}
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H) (hasQuorum bool) {
+	prevotes, ok := t.messages.prevotes[t.state.h][r]
+	if !ok {
+		return false
 	}
-	return vals
-}
 
-func checkQuorumPrevotesGivenProposalVID[H Hash, A Addr](prevotesForHVr map[A][]Prevote[H, A], vID H) []A {
 	var vals []A
-	for addr, valPrevotes := range prevotesForHVr {
+	for addr, valPrevotes := range prevotes {
 		for _, p := range valPrevotes {
 			if *p.ID == vID {
 				vals = append(vals, addr)
 			}
 		}
 	}
-	return vals
+	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
 }
 
-func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrecommit(p Precommit[H, A],
-	proposalsForHR map[A][]Proposal[V, H, A],
-) *Proposal[V, H, A] {
-	var proposal *Proposal[V, H, A]
-
-	for _, prop := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-		if (*prop.Value).Hash() == *p.ID {
-			propCopy := prop
-			proposal = &propCopy
-		}
+// TODO: Improve performance. Current complexity is O(n).
+func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id H) *Proposal[V, H, A] {
+	proposals, ok := t.messages.proposals[t.state.h][r][t.validators.Proposer(t.state.h, r)]
+	if !ok {
+		return nil
 	}
-	return proposal
-}
 
-func (t *Tendermint[V, H, A]) checkForMatchingProposalGivenPrevote(p Prevote[H, A],
-	proposalsForHR map[A][]Proposal[V, H, A],
-) *Proposal[V, H, A] {
 	var proposal *Proposal[V, H, A]
 
-	for _, v := range proposalsForHR[t.validators.Proposer(p.H, p.R)] {
-		if (*v.Value).Hash() == *p.ID {
-			vCopy := v
-			proposal = &vCopy
+	for _, v := range proposals {
+		if (*v.Value).Hash() == id {
+			proposal = utils.HeapPtr(v)
 		}
 	}
 	return proposal
