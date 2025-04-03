@@ -264,11 +264,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
-		_, hasSubscription := handler.subscriptions.Load(id)
+		_, hasSubscription := handler.subscriptions.Load(string(id))
 		require.True(t, hasSubscription)
 
 		time.Sleep(200 * time.Millisecond)
-		_, hasSubscription = handler.subscriptions.Load(id)
+		_, hasSubscription = handler.subscriptions.Load(string(id))
 		require.False(t, hasSubscription)
 	})
 
