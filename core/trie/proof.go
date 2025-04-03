@@ -151,7 +151,11 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 
 		// Verify the hash matches
 		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expectedHash.String(), proofNode.Hash(hash).String())
+			return nil, fmt.Errorf(
+				"proof node hash mismatch, expected hash: %s, got hash: %s",
+				expectedHash.String(),
+				proofNode.Hash(hash).String(),
+			)
 		}
 
 		switch node := proofNode.(type) {
@@ -239,7 +243,8 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 
 	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
 	// Empty range proof with more elements on the right is not accepted in this function.
-	// This is due to snap sync specification detail, where the responder must send an existing key (if any) if the requested range is empty.
+	// This is due to snap sync specification detail, where the responder must send an existing key (if any) if the requested range is
+	// empty.
 	if len(keys) == 0 {
 		rootKey, val, err := proofToPath(root, firstKey, proof, nodes)
 		if err != nil {
