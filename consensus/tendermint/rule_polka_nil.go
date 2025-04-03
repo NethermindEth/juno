@@ -10,7 +10,7 @@ Check the upon condition on line 44:
 Line 36 and 44 for a round are mutually exclusive.
 */
 func (t *Tendermint[V, H, A]) uponPolkaNil(p Prevote[H, A]) bool {
-	prevotes := t.messages.prevotes[t.state.h][t.state.r]
+	prevotes := t.messages.prevotes[t.state.height][t.state.round]
 
 	var vals []A
 	for addr, valPrevotes := range prevotes {
@@ -22,9 +22,9 @@ func (t *Tendermint[V, H, A]) uponPolkaNil(p Prevote[H, A]) bool {
 	}
 
 	// TODO: refactor this
-	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H))
+	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height))
 
-	return hasQuorum && t.state.s == prevote
+	return hasQuorum && t.state.step == prevote
 }
 
 func (t *Tendermint[V, H, A]) doPolkaNil() {

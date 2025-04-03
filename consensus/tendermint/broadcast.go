@@ -2,8 +2,8 @@ package tendermint
 
 func (t *Tendermint[V, H, A]) sendProposal(value *V) {
 	proposalMessage := Proposal[V, H, A]{
-		H:          t.state.h,
-		R:          t.state.r,
+		Height:     t.state.height,
+		Round:      t.state.round,
 		ValidRound: t.state.validRound,
 		Value:      value,
 		Sender:     t.nodeAddr,
@@ -15,26 +15,26 @@ func (t *Tendermint[V, H, A]) sendProposal(value *V) {
 
 func (t *Tendermint[V, H, A]) sendPrevote(id *H) {
 	vote := Prevote[H, A]{
-		H:      t.state.h,
-		R:      t.state.r,
+		Height: t.state.height,
+		Round:  t.state.round,
 		ID:     id,
 		Sender: t.nodeAddr,
 	}
 
 	t.messages.addPrevote(vote)
 	t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-	t.state.s = prevote
+	t.state.step = prevote
 }
 
 func (t *Tendermint[V, H, A]) sendPrecommit(id *H) {
 	vote := Precommit[H, A]{
-		H:      t.state.h,
-		R:      t.state.r,
+		Height: t.state.height,
+		Round:  t.state.round,
 		ID:     id,
 		Sender: t.nodeAddr,
 	}
 
 	t.messages.addPrecommit(vote)
 	t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-	t.state.s = precommit
+	t.state.step = precommit
 }

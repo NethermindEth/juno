@@ -18,7 +18,7 @@ There is no need to check decision_p[h_p] = nil since it is implied that decisio
 sequentially, i.e. x, x+1, x+2... .
 */
 func (t *Tendermint[V, H, A]) uponProposalAndPrecommitValue(cachedProposal *CachedProposal[V, H, A]) bool {
-	_, hasQuorum := t.checkForQuorumPrecommit(cachedProposal.R, *cachedProposal.ID)
+	_, hasQuorum := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 
 	// This is checked here instead of inside execution, because it's the only case in execution in this rule
 	isValid := cachedProposal.Valid
@@ -29,10 +29,10 @@ func (t *Tendermint[V, H, A]) uponProposalAndPrecommitValue(cachedProposal *Cach
 
 func (t *Tendermint[V, H, A]) doProposalAndPrecommitValue(cachedProposal *CachedProposal[V, H, A]) {
 	// TODO: Optimise this
-	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.R, *cachedProposal.ID)
-	t.blockchain.Commit(t.state.h, *cachedProposal.Value, precommits)
+	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
+	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)
 
-	t.messages.deleteHeightMessages(t.state.h)
-	t.state.h++
+	t.messages.deleteHeightMessages(t.state.height)
+	t.state.height++
 	t.startRound(0)
 }
