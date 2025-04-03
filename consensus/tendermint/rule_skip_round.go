@@ -5,15 +5,13 @@ import (
 	"slices"
 )
 
-// skipRound assumes the caller has acquired a mutex for accessing future messages.
 /*
+Check the upon condition on line 55:
+
 	55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
 	56: 	StartRound(round)
 */
 func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
-	t.futureMessagesMu.Lock()
-	defer t.futureMessagesMu.Unlock()
-
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
 

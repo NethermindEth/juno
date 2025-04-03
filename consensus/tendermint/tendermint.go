@@ -123,8 +123,6 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	messages       messages[V, H, A]
 	futureMessages messages[V, H, A]
 
-	futureMessagesMu *sync.Mutex
-
 	timeoutPropose   timeoutFn
 	timeoutPrevote   timeoutFn
 	timeoutPrecommit timeoutFn
@@ -138,11 +136,6 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 	scheduledTms map[timeout]*time.Timer
 	timeoutsCh   chan timeout
-
-	// Future round messages are sent to the loop through the following channels
-	proposalsCh  chan Proposal[V, H, A]
-	prevotesCh   chan Prevote[H, A]
-	precommitsCh chan Precommit[H, A]
 
 	wg   sync.WaitGroup
 	quit chan struct{}
@@ -176,7 +169,6 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 		},
 		messages:         newMessages[V, H, A](),
 		futureMessages:   newMessages[V, H, A](),
-		futureMessagesMu: &sync.Mutex{},
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
 		timeoutPrecommit: tmPrecommit,
@@ -187,9 +179,6 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 		broadcasters:     broadcasters,
 		scheduledTms:     make(map[timeout]*time.Timer),
 		timeoutsCh:       make(chan timeout),
-		proposalsCh:      make(chan Proposal[V, H, A]),
-		prevotesCh:       make(chan Prevote[H, A]),
-		precommitsCh:     make(chan Precommit[H, A]),
 		quit:             make(chan struct{}),
 	}
 }
@@ -225,16 +214,10 @@ func (t *Tendermint[V, H, A]) Start() {
 					t.OnTimeoutPrecommit(tm.h, tm.r)
 				}
 				delete(t.scheduledTms, tm)
-			case p := <-t.proposalsCh:
-				t.handleProposal(p)
 			case p := <-t.listeners.ProposalListener.Listen():
 				t.handleProposal(p)
-			case p := <-t.prevotesCh:
-				t.handlePrevote(p)
 			case p := <-t.listeners.PrevoteListener.Listen():
 				t.handlePrevote(p)
-			case p := <-t.precommitsCh:
-				t.handlePrecommit(p)
 			case p := <-t.listeners.PrecommitListener.Listen():
 				t.handlePrecommit(p)
 			}
@@ -274,14 +257,10 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.h, t.state.r)
 	}
 
-	go t.processFutureMessages(t.state.h, t.state.r)
+	t.processFutureMessages(t.state.h, t.state.r)
 }
 
-//nolint:gocyclo
 func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
-	t.futureMessagesMu.Lock()
-	defer t.futureMessagesMu.Unlock()
-
 	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
 	if len(proposals) > 0 {
 		for _, addrProposals := range proposals {
@@ -289,7 +268,8 @@ func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 				select {
 				case <-t.quit:
 					return
-				case t.proposalsCh <- proposal:
+				default:
+					t.handleProposal(proposal)
 				}
 			}
 		}
@@ -301,7 +281,8 @@ func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 				select {
 				case <-t.quit:
 					return
-				case t.prevotesCh <- vote:
+				default:
+					t.handlePrevote(vote)
 				}
 			}
 		}
@@ -313,7 +294,8 @@ func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 				select {
 				case <-t.quit:
 					return
-				case t.precommitsCh <- vote:
+				default:
+					t.handlePrecommit(vote)
 				}
 			}
 		}
@@ -393,9 +375,7 @@ func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]]
 			return false
 		}
 
-		t.futureMessagesMu.Lock()
 		addMessage(m)
-		t.futureMessagesMu.Unlock()
 
 		if t.uponSkipRound(mR) {
 			t.doSkipRound(mR)
@@ -424,9 +404,8 @@ func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]
 			return false
 		}
 
-		t.futureMessagesMu.Lock()
 		addMessage(m)
-		t.futureMessagesMu.Unlock()
+
 		return false
 	}
 	return true
