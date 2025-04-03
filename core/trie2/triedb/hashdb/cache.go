@@ -1,9 +1,5 @@
 package hashdb
 
-import (
-	"bytes"
-)
-
 type CacheType int
 
 const (
@@ -13,18 +9,17 @@ const (
 )
 
 type CleanCache interface {
-	Get(buf *bytes.Buffer, key []byte) bool
+	Get(key []byte) ([]byte, bool)
 	Set(key []byte, value []byte)
-	Remove(key []byte)
+	Remove(key []byte) bool
 	Hits() uint64
 	HitRate() float64
 }
 
 type DirtyCache interface {
-	Get(buf *bytes.Buffer, key []byte) bool
+	Get(key []byte) ([]byte, bool)
 	Set(key []byte, value []byte) bool
 	Remove(key []byte) bool
-	Peek(key []byte) ([]byte, bool)
 	Hits() uint64
 	HitRate() float64
 	Len() int

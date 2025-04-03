@@ -1,7 +1,6 @@
 package hashdb
 
 import (
-	"bytes"
 	"sync"
 
 	"github.com/VictoriaMetrics/fastcache"
@@ -20,23 +19,22 @@ func NewFastCache(size int) *FastCache {
 	}
 }
 
-func (c *FastCache) Get(buf *bytes.Buffer, key []byte) bool {
+func (c *FastCache) Get(key []byte) ([]byte, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	if c.cache == nil {
-		return false
+		return nil, false
 	}
 
 	value := c.cache.Get(nil, key)
 	if value == nil {
 		c.misses++
-		return false
+		return nil, false
 	}
 
-	buf.Write(value)
 	c.hits++
-	return true
+	return value, true
 }
 
 func (c *FastCache) Set(key, value []byte) {
@@ -50,15 +48,16 @@ func (c *FastCache) Set(key, value []byte) {
 	c.cache.Set(key, value)
 }
 
-func (c *FastCache) Remove(key []byte) {
+func (c *FastCache) Remove(key []byte) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.cache == nil {
-		panic("cache is nil")
+		return false
 	}
 
 	c.cache.Del(key)
+	return true
 }
 
 func (c *FastCache) Hits() uint64 {

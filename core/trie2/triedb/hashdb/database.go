@@ -1,10 +1,8 @@
 package hashdb
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -16,12 +14,6 @@ import (
 )
 
 var ErrCallEmptyDatabase = errors.New("call to empty database")
-
-var dbBufferPool = sync.Pool{
-	New: func() any {
-		return new(bytes.Buffer)
-	},
-}
 
 type Database struct {
 	disk   db.KeyValueStore
@@ -57,80 +49,50 @@ func New(disk db.KeyValueStore, prefix db.Bucket, config *Config) *Database {
 	}
 }
 
-func (d *Database) get(buf *bytes.Buffer, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) (int, error) {
-	dbBuf := dbBufferPool.Get().(*bytes.Buffer)
-	dbBuf.Reset()
-	defer func() {
-		dbBuf.Reset()
-		dbBufferPool.Put(dbBuf)
-	}()
+func (d *Database) get(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+	key := trieutils.NodeKeyByHash(d.prefix, owner, path, hash, isLeaf)
 
-	if err := d.dbKey(dbBuf, owner, path, hash, isLeaf); err != nil {
-		return 0, err
+	if blob, hit := d.CleanCache.Get(key); hit {
+		return blob, nil
 	}
 
-	if hit := d.CleanCache.Get(buf, dbBuf.Bytes()); hit {
-		return buf.Len(), nil
+	if blob, hit := d.DirtyCache.Get(key); hit {
+		return blob, nil
 	}
 
-	if hit := d.DirtyCache.Get(buf, dbBuf.Bytes()); hit {
-		return buf.Len(), nil
-	}
-
-	err := d.disk.Get(dbBuf.Bytes(), func(blob []byte) error {
-		buf.Write(blob)
+	var blob []byte
+	err := d.disk.Get(key, func(blob []byte) error {
+		blob = blob
 		return nil
 	})
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	if d.CleanCache != nil && buf.Len() > 0 {
-		d.CleanCache.Set(dbBuf.Bytes(), buf.Bytes())
+	if d.CleanCache != nil && len(blob) > 0 {
+		d.CleanCache.Set(key, blob)
 	}
 
-	return buf.Len(), nil
+	return blob, nil
 }
 
 func (d *Database) insert(owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
-	buffer := dbBufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer func() {
-		buffer.Reset()
-		dbBufferPool.Put(buffer)
-	}()
+	key := trieutils.NodeKeyByHash(d.prefix, owner, path, hash, isLeaf)
 
-	if err := d.dbKey(buffer, owner, path, hash, isLeaf); err != nil {
-		return err
-	}
-
-	d.DirtyCache.Set(buffer.Bytes(), blob)
+	d.DirtyCache.Set(key, blob)
 	d.dirtyCacheSize += len(blob) + d.hashLen()
 	return nil
 }
 
 func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
-	buffer := dbBufferPool.Get().(*bytes.Buffer)
-	buffer.Reset()
-	defer func() {
-		buffer.Reset()
-		dbBufferPool.Put(buffer)
-	}()
-
-	_, err := buffer.Write(d.prefix.Key())
-	if err != nil {
-		return nil, err
-	}
+	key := d.prefix.Key()
 
 	if owner != (felt.Felt{}) {
 		oBytes := owner.Bytes()
-		_, err := buffer.Write(oBytes[:])
-		if err != nil {
-			return nil, err
-		}
+		key = append(key, oBytes[:]...)
 	}
 
-	return d.disk.NewIterator(buffer.Bytes(), true)
+	return d.disk.NewIterator(key, true)
 }
 
 func (db *Database) Update(root felt.Felt, parent felt.Felt, block uint64, nodes *trienode.MergeNodeSet) error {

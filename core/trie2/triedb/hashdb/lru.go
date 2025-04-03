@@ -1,7 +1,6 @@
 package hashdb
 
 import (
-	"bytes"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common/lru"
@@ -30,24 +29,16 @@ func (c *LRUCache) Set(key []byte, value []byte) (evicted bool) {
 }
 
 // Get retrieves a value from the cache. This marks the key as recently used.
-func (c *LRUCache) Get(buf *bytes.Buffer, key []byte) bool {
+func (c *LRUCache) Get(key []byte) ([]byte, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	cachedValue, hit := c.cache.Get(string(key))
 	if !hit {
 		c.misses++
-		return false
+		return nil, false
 	}
-	buf.Write(cachedValue)
 	c.hits++
-	return true
-}
-
-func (c *LRUCache) Peek(key []byte) ([]byte, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return c.cache.Peek(string(key))
+	return cachedValue, true
 }
 
 // Len returns the current number of items in the cache.

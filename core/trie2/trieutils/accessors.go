@@ -86,7 +86,7 @@ func nodeKeyByPath(prefix db.Bucket, owner felt.Felt, path Path, isLeaf bool) []
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func nodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) []byte {
+func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) []byte {
 	const (
 		pathSignificantBytes = 8
 		shortPathLength      = 5
@@ -128,7 +128,7 @@ func nodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt,
 	key = append(key, nodeType...)
 	key = append(key, pathBytes[0:pathSignificantBytes]...)
 	key = append(key, byte(len(pathBytes)))
-	key = append(key, hashBytes...)
+	key = append(key, hashBytes[:]...)
 
 	return key
 }
