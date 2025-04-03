@@ -21,7 +21,7 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate       `json:"fee_estimation"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitzero"`
 }
 
 type TracedBlockTransaction struct {
