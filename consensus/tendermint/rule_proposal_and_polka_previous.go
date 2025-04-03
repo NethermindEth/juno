@@ -16,9 +16,9 @@ func (t *Tendermint[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cache
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
 	return cachedProposal.ValidRound == prevoteRound &&
 		hasQuorum &&
-		t.state.s == propose &&
+		t.state.step == propose &&
 		vr >= 0 &&
-		vr < t.state.r
+		vr < t.state.round
 }
 
 func (t *Tendermint[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) {

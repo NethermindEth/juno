@@ -15,7 +15,7 @@ If there are f + 1 messages from a newer round, there is at least an honest node
 */
 func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	vals := make(map[A]struct{})
-	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
+	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.height, futureR)
 
 	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
 	for addr := range proposals {
@@ -30,7 +30,7 @@ func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 		vals[addr] = struct{}{}
 	}
 
-	hasQuorum := t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h))
+	hasQuorum := t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.height))
 
 	return hasQuorum
 }

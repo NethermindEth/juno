@@ -14,22 +14,22 @@ Check upon condition on line 36:
 	43: validRound_p ← round_p
 */
 func (t *Tendermint[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) bool {
-	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(t.state.r, *cachedProposal.ID)
+	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(t.state.round, *cachedProposal.ID)
 	firstTime := !t.state.lockedValueAndOrValidValueSet
 	return hasQuorum &&
 		cachedProposal.Valid &&
-		t.state.s >= prevote &&
+		t.state.step >= prevote &&
 		firstTime
 }
 
 func (t *Tendermint[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) {
-	if t.state.s == prevote {
+	if t.state.step == prevote {
 		t.state.lockedValue = cachedProposal.Value
-		t.state.lockedRound = t.state.r
+		t.state.lockedRound = t.state.round
 		t.sendPrecommit(cachedProposal.ID)
 	}
 
 	t.state.validValue = cachedProposal.Value
-	t.state.validRound = t.state.r
+	t.state.validRound = t.state.round
 	t.state.lockedValueAndOrValidValueSet = true
 }
