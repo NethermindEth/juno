@@ -1,3 +1,24 @@
-# do not copy local database files
+.github/
+.vscode/
+
+# Build artifacts
+build/
+coverage/
+
+# Local data/config
+.DS_Store
+docker-compose.yml
 p2p-dbs/
+
+# Documentation
+docs/
+README.md
+LICENSE
+SECURITY.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+
+# Scripts/Other
+scripts/
+
 juno/
