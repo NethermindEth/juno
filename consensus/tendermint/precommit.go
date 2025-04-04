@@ -21,11 +21,14 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 
 	t.messages.addPrecommit(p)
 
-	_, _, precommitsForHR := t.messages.allMessages(p.H, p.R)
+	cachedProposal := t.findMatchingProposal(p.R, p.ID)
 
-	if t.line49WhenPrecommitIsReceived(p) {
+	if cachedProposal != nil && t.uponProposalAndPrecommitValue(cachedProposal) {
+		t.doProposalAndPrecommitValue(cachedProposal)
 		return
 	}
 
-	t.line47(p, precommitsForHR)
+	if t.uponPrecommitAny(p) {
+		t.doPrecommitAny(p)
+	}
 }

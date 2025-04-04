@@ -194,6 +194,12 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 	}
 }
 
+type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
+	Proposal[V, H, A]
+	Valid bool
+	ID    *H
+}
+
 func (t *Tendermint[V, H, A]) Start() {
 	t.wg.Add(1)
 	go func() {
@@ -391,7 +397,9 @@ func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]]
 		addMessage(m)
 		t.futureMessagesMu.Unlock()
 
-		t.line55(mR)
+		if t.uponSkipRound(mR) {
+			t.doSkipRound(mR)
+		}
 		return false
 	}
 	return true
@@ -462,18 +470,25 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id H) *Proposal[V, H, A] {
+func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id *H) *CachedProposal[V, H, A] {
+	if id == nil {
+		return nil
+	}
+
 	proposals, ok := t.messages.proposals[t.state.h][r][t.validators.Proposer(t.state.h, r)]
 	if !ok {
 		return nil
 	}
 
-	var proposal *Proposal[V, H, A]
-
 	for _, v := range proposals {
-		if (*v.Value).Hash() == id {
-			proposal = utils.HeapPtr(v)
+		if (*v.Value).Hash() == *id {
+			return &CachedProposal[V, H, A]{
+				Proposal: v,
+				Valid:    t.application.Valid(*v.Value),
+				ID:       id,
+			}
 		}
 	}
-	return proposal
+
+	return nil
 }
