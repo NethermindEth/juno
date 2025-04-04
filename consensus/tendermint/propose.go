@@ -3,21 +3,7 @@ package tendermint
 import "github.com/NethermindEth/juno/utils"
 
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
-	if p.Height < t.state.height {
-		return
-	}
-
-	if !handleFutureHeightMessage(
-		t,
-		p,
-		func(p Proposal[V, H, A]) height { return p.Height },
-		func(p Proposal[V, H, A]) round { return p.Round },
-		t.futureMessages.addProposal,
-	) {
-		return
-	}
-
-	if !handleFutureRoundMessage(t, p, func(p Proposal[V, H, A]) round { return p.Round }, t.futureMessages.addProposal) {
+	if !t.preprocessMessage(p.MessageHeader, func() { t.futureMessages.addProposal(p) }) {
 		return
 	}
 
