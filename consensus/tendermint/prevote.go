@@ -28,11 +28,11 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 	}
 
 	if p.Round == t.state.round {
-		if t.uponPolkaAny(p) {
-			t.doPolkaAny(p)
+		if t.uponPolkaAny() {
+			t.doPolkaAny()
 		}
 
-		if t.uponPolkaNil(p) {
+		if t.uponPolkaNil() {
 			t.doPolkaNil()
 		}
 	}
