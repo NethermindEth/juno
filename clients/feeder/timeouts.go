@@ -113,8 +113,9 @@ func getDefaultFixedTimeouts() Timeouts {
 
 // ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration.
 // Returns:
-// - []time.Duration: parsed timeout values
-// - bool: true if single timeout value with trailing comma, indicating fixed/dynamic timeouts should be used
+// - the parsed timeout values
+// - if a fixed or dynamic timeouts should be used
+// - an error in case the string cannot be parsed
 func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 	if value == "" {
 		return nil, true, fmt.Errorf("timeouts are not set")
