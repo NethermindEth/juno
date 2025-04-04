@@ -30,11 +30,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy only Cargo.toml files and Makefiles first for better Rust dependency caching
-COPY vm/rust/Cargo.toml vm/rust/
+COPY vm/rust/Cargo.toml vm/rust/Cargo.lock vm/rust/
 COPY vm/rust/Makefile vm/rust/
-COPY core/rust/Cargo.toml core/rust/
+COPY core/rust/Cargo.toml core/rust/Cargo.lock core/rust/
 COPY core/rust/Makefile core/rust/
-COPY starknet/compiler/rust/Cargo.toml starknet/compiler/rust/
+COPY starknet/compiler/rust/Cargo.toml starknet/compiler/rust/Cargo.lock starknet/compiler/rust/
 COPY starknet/compiler/rust/Makefile starknet/compiler/rust/
 
 # Create dummy source files to satisfy Cargo
