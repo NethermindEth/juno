@@ -4,25 +4,25 @@ title: Database Snapshots
 
 # Database Snapshots :camera_flash:
 
-You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node.
+You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node. Fresh snapshots are automatically uploaded once a week and are available under the links below.
 
 ## Mainnet
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
+| **>=v0.13.0**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
 
 ## Sepolia
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
+| **>=v0.13.0** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
 
 ## Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| **>=v0.13.0** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ## Getting snapshot sizes
 

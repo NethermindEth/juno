@@ -127,6 +127,7 @@ const (
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
 	defaultLogPort                  = 0
+	defaultLogLevel                 = utils.INFO
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -324,7 +325,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	defaultCNUnverifiableRange := []int{} // Uint64Slice is not supported in Flags()
 
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
-	junoCmd.Flags().String(logLevelF, utils.INFO.String(), logLevelFlagUsage)
+	junoCmd.Flags().String(logLevelF, defaultLogLevel.String(), logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
 	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
