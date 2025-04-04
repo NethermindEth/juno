@@ -1,5 +1,17 @@
 const fs = require("fs");
+const path = require("path");
 const https = require("https");
+
+// Function to read local file
+function readLocalFile() {
+  return fs.readFileSync(path.join(__dirname, "..", "cmd", "juno", "juno.go"), "utf8");
+}
+
+// Fallback to GitHub if local file can't be read
+async function fetchFromGitHub() {
+  const url = "https://raw.githubusercontent.com/NethermindEth/juno/main/cmd/juno/juno.go";
+  return fetchUrl(url);
+}
 
 function preprocessCodebase(codebase) {
   // Split the codebase into lines
@@ -63,6 +75,12 @@ const extractConfigs = (codebase) => {
       } else {
         configName = variables[args[args.length - 3]];
         defaultValue = variables[args[args.length - 2]];
+        // Special case handling for defaultLogLevel.String() removed
+
+        // Special case for defaultLogLevel.String()
+        if (args[args.length - 2] === "defaultLogLevel.String()") {
+          defaultValue = "info";
+        }
       }
 
       if (defaultValue === undefined) {
@@ -128,8 +146,10 @@ function parseValue(value) {
     return "juno";
   }
 
-  // Logging level
-  if (value === "utils.INFO") {
+  // Special case handling for utils.INFO.String() removed
+
+  // Handle utils.INFO.String()
+  if (value === "utils.INFO.String()") {
     return "info";
   }
 
@@ -195,10 +215,16 @@ function fetchUrl(url) {
 
 async function main() {
   try {
-    const url =
-      "https://raw.githubusercontent.com/NethermindEth/juno/main/cmd/juno/juno.go";
-    const codebase = await fetchUrl(url);
-    console.log("Fetched Juno's source code");
+    // Try reading from local file first
+    let codebase;
+    try {
+      codebase = readLocalFile();
+      console.log("Read Juno's source code from local file");
+    } catch (error) {
+      console.log("Could not read local file, fetching from GitHub...");
+      codebase = await fetchFromGitHub();
+      console.log("Fetched Juno's source code from GitHub");
+    }
 
     const preprocessedCode = preprocessCodebase(codebase);
     const configs = extractConfigs(preprocessedCode);
@@ -214,4 +240,4 @@ async function main() {
   }
 }
 
-main();
+main(); 
