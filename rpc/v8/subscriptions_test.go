@@ -579,8 +579,8 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Unsubscribe
 	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_unsubscribe","params":[%d]}`
-	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
-	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
+	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, firstID)))
+	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, secondID)))
 }
 
 func TestSubscriptionReorg(t *testing.T) {
