@@ -632,21 +632,30 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			break
 		}
 
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
-		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		if status, err := h.fetchTxStatusFromFeeder(ctx, &hash); err != nil {
+			return nil, err
+		} else {
+			return status, nil
 		}
-
-		status, err := adaptTransactionStatus(txStatus)
-		if err != nil {
-			if !errors.Is(err, errTransactionNotFound) {
-				h.log.Errorw("Failed to adapt transaction status", "err", err)
-			}
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-		return status, nil
 	}
 	return nil, txErr
+}
+
+func (h *Handler) fetchTxStatusFromFeeder(ctx context.Context, hash *felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+	txStatus, err := h.feederClient.Transaction(ctx, hash)
+	if err != nil {
+		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+
+	status, err := adaptTransactionStatus(txStatus)
+	if err != nil {
+		if !errors.Is(err, errTransactionNotFound) {
+			h.log.Errorw("Failed to adapt transaction status", "err", err)
+		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	return status, nil
 }
 
 // In 0.7.0, the failure reason is not returned in the TransactionStatus response.
