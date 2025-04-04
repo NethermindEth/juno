@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -34,6 +35,7 @@ type Handler struct {
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
 	newHeads      *feed.Feed[*core.Block]
+	memPool       *mempool.Pool
 
 	log             utils.Logger
 	version         string
@@ -69,6 +71,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 	}
+}
+
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+	h.memPool = memPool
+	return h
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
