@@ -141,11 +141,13 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
-			Height:     0,
-			Round:      0,
+			MessageHeader: MessageHeader[felt.Felt]{
+				Height: 0,
+				Round:  0,
+				Sender: *nodeAddr,
+			},
 			ValidRound: -1,
 			Value:      utils.HeapPtr(app.cur + 1),
-			Sender:     *nodeAddr,
 		}
 
 		proposalBroadcaster := broadcasters.ProposalBroadcaster.(*senderAndReceiver[Proposal[value, felt.Felt,
@@ -209,10 +211,12 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
-			Height: 0,
-			Round:  0,
-			ID:     nil,
-			Sender: *nodeAddr,
+			MessageHeader: MessageHeader[felt.Felt]{
+				Height: 0,
+				Round:  0,
+				Sender: *nodeAddr,
+			},
+			ID: nil,
 		}
 
 		prevoteBroadcaster := broadcasters.PrevoteBroadcaster.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
