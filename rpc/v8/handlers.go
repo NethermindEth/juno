@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"strings"
 	stdsync "sync"
@@ -37,8 +38,8 @@ type Handler struct {
 	pendingBlock *feed.Feed[*core.Block]
 	l1Heads      *feed.Feed[*core.L1Head]
 
-	idgen         func() uint64
-	subscriptions stdsync.Map // map[uint64]*subscription
+	idgen         func() string
+	subscriptions stdsync.Map // map[string]*subscription
 
 	blockTraceCache *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
 
@@ -67,11 +68,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		syncReader: syncReader,
 		log:        logger,
 		vm:         virtualMachine,
-		idgen: func() uint64 {
+		idgen: func() string {
 			var n uint64
 			for err := binary.Read(rand.Reader, binary.LittleEndian, &n); err != nil; {
 			}
-			return n
+			return fmt.Sprintf("%d", n)
 		},
 		version:      version,
 		newHeads:     feed.New[*core.Block](),
@@ -101,7 +102,7 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
-func (h *Handler) WithIDGen(idgen func() uint64) *Handler {
+func (h *Handler) WithIDGen(idgen func() string) *Handler {
 	h.idgen = idgen
 	return h
 }

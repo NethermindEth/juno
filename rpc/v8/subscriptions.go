@@ -101,7 +101,7 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type on[T any] func(ctx context.Context, id uint64, sub *subscription, event T) error
+type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
 	onStart   on[any]
@@ -204,7 +204,7 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	lenKeys := len(keys)
@@ -212,36 +212,36 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 		lenKeys += len(k)
 	}
 	if lenKeys > rpccore.MaxEventFilterKeys {
-		return 0, rpccore.ErrTooManyKeysInFilter
+		return "", rpccore.ErrTooManyKeysInFilter
 	}
 
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
-		return 0, rpcErr
+		return "", rpcErr
 	}
 
 	nextBlock := headHeader.Number + 1
 	eventsPreviouslySent := make(map[SentEvent]struct{})
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
+		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return h.processEvents(ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
 		},
-		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			if err := sendReorg(w, reorg, id); err != nil {
 				return err
 			}
 			nextBlock = reorg.StartBlockNum
 			return nil
 		},
-		onNewHead: func(ctx context.Context, id uint64, _ *subscription, head *core.Block) error {
+		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			if err := h.processEvents(ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent); err != nil {
 				return err
 			}
 			nextBlock = head.Number + 1
 			return nil
 		},
-		onPending: func(ctx context.Context, id uint64, _ *subscription, pending *core.Block) error {
+		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
 			return h.processEvents(ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent)
 		},
 	}
@@ -254,23 +254,23 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	var lastStatus TxnStatus
 	var err error
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, sub *subscription, _ any) error {
+		onStart: func(ctx context.Context, id string, sub *subscription, _ any) error {
 			if lastStatus, err = h.getInitialTxStatus(ctx, sub, id, txHash); err != nil {
 				return err
 			}
 			return nil
 		},
-		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id uint64, sub *subscription, head *core.Block) error {
+		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -278,7 +278,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onPending: func(ctx context.Context, id uint64, sub *subscription, pending *core.Block) error {
+		onPending: func(ctx context.Context, id string, sub *subscription, pending *core.Block) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -286,7 +286,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onL1Head: func(ctx context.Context, id uint64, sub *subscription, l1Head *core.L1Head) error {
+		onL1Head: func(ctx context.Context, id string, sub *subscription, l1Head *core.L1Head) error {
 			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 // therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
 // If the transaction is found during the timout expiry, then we continue to keep track of its status otherwise the
 // websocket connection is closed after the expiry.
-func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id uint64, txHash *felt.Felt) (TxnStatus, error) {
+func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id string, txHash *felt.Felt) (TxnStatus, error) {
 	var lastStatus TxnStatus
 	var err error
 	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
@@ -326,7 +326,7 @@ func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id 
 func (h *Handler) checkTxStatus(
 	ctx context.Context,
 	sub *subscription,
-	id uint64,
+	id string,
 	txHash *felt.Felt,
 	lastStatus TxnStatus,
 ) (TxnStatus, error) {
@@ -353,7 +353,7 @@ func (h *Handler) checkTxStatus(
 	return status.Finality, nil
 }
 
-func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, to uint64, fromAddr *felt.Felt,
+func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to uint64, fromAddr *felt.Felt,
 	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
 ) error {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys)
@@ -398,7 +398,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id, from, t
 }
 
 func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]struct{}, id uint64,
+	eventsPreviouslySent map[SentEvent]struct{}, id string,
 ) error {
 	for _, event := range events {
 		select {
@@ -446,22 +446,22 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	startHeader, latestHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
-		return 0, rpcErr
+		return "", rpcErr
 	}
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
+		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return h.sendHistoricalHeaders(ctx, startHeader, latestHeader, w, id)
 		},
-		onReorg: func(ctx context.Context, id uint64, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id uint64, _ *subscription, head *core.Block) error {
+		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			return sendHeader(w, head.Header, id)
 		},
 	}
@@ -474,24 +474,24 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
-		return 0, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
+		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
 	}
 
 	if len(senderAddr) > rpccore.MaxEventFilterKeys {
-		return 0, rpccore.ErrTooManyAddressesInFilter
+		return "", rpccore.ErrTooManyAddressesInFilter
 	}
 
 	sentTxHashes := make(map[felt.Felt]struct{})
 	lastParentHash := felt.Zero
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id uint64, _ *subscription, _ any) error {
+		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			if pending := h.syncReader.PendingBlock(); pending != nil {
 				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 			}
 			return nil
 		},
-		onPending: func(ctx context.Context, id uint64, _ *subscription, pending *core.Block) error {
+		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
 			return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 		},
 	}
@@ -501,7 +501,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 // If getDetails is true, response will contain the transaction details.
 // If getDetails is false, response will only contain the transaction hashes.
 func (h *Handler) onPendingBlock(
-	id uint64,
+	id string,
 	w jsonrpc.Conn,
 	getDetails *bool,
 	senderAddr []felt.Felt,
@@ -569,7 +569,7 @@ func (h *Handler) filterTxBySender(txn core.Transaction, senderAddr []felt.Felt)
 	return false
 }
 
-func sendPendingTxs(w jsonrpc.Conn, result any, id uint64) error {
+func sendPendingTxs(w jsonrpc.Conn, result any, id string) error {
 	return sendResponse("starknet_subscriptionPendingTransactions", w, id, result)
 }
 
@@ -606,7 +606,7 @@ func (h *Handler) sendHistoricalHeaders(
 	ctx context.Context,
 	startHeader, latestHeader *core.Header,
 	w jsonrpc.Conn,
-	id uint64,
+	id string,
 ) error {
 	var (
 		err       error
@@ -635,7 +635,7 @@ func (h *Handler) sendHistoricalHeaders(
 }
 
 // sendHeader creates a request and sends it to the client
-func sendHeader(w jsonrpc.Conn, header *core.Header, id uint64) error {
+func sendHeader(w jsonrpc.Conn, header *core.Header, id string) error {
 	return sendResponse("starknet_subscriptionNewHeads", w, id, adaptBlockHeader(header))
 }
 
@@ -646,7 +646,7 @@ type ReorgEvent struct {
 	EndBlockNum    uint64     `json:"ending_block_number"`
 }
 
-func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
+func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id string) error {
 	return sendResponse("starknet_subscriptionReorg", w, id, &ReorgEvent{
 		StartBlockHash: reorg.StartBlockHash,
 		StartBlockNum:  reorg.StartBlockNum,
@@ -655,7 +655,7 @@ func sendReorg(w jsonrpc.Conn, reorg *sync.ReorgBlockRange, id uint64) error {
 	})
 }
 
-func (h *Handler) Unsubscribe(ctx context.Context, id uint64) (bool, *jsonrpc.Error) {
+func (h *Handler) Unsubscribe(ctx context.Context, id string) (bool, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return false, jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -682,11 +682,11 @@ type SubscriptionTransactionStatus struct {
 }
 
 // sendTxnStatus creates a response and sends it to the client
-func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id uint64) error {
+func sendTxnStatus(w jsonrpc.Conn, status SubscriptionTransactionStatus, id string) error {
 	return sendResponse("starknet_subscriptionTransactionStatus", w, id, status)
 }
 
-func sendResponse(method string, w jsonrpc.Conn, id uint64, result any) error {
+func sendResponse(method string, w jsonrpc.Conn, id string, result any) error {
 	resp, err := json.Marshal(SubscriptionResponse{
 		Version: "2.0",
 		Method:  method,
