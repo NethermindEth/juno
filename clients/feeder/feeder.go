@@ -36,6 +36,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
+	timeouts   Timeouts
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -73,8 +74,12 @@ func (c *Client) WithUserAgent(ua string) *Client {
 	return c
 }
 
-func (c *Client) WithTimeout(t time.Duration) *Client {
-	c.client.Timeout = t
+func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
+	if len(timeouts) > 1 || fixed {
+		c.timeouts = getFixedTimeouts(timeouts)
+	} else {
+		c.timeouts = getDynamicTimeouts(timeouts[0])
+	}
 	return c
 }
 
@@ -206,6 +211,7 @@ func NewClient(clientURL string) *Client {
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
+		timeouts:   getDefaultFixedTimeouts(),
 	}
 }
 
@@ -249,11 +255,15 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
+			c.client.Timeout = c.timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
+			tooManyRequests := false
 			if err == nil {
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
+				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
 				if res.StatusCode == http.StatusOK {
+					c.timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
 					err = errors.New(res.Status)
@@ -262,11 +272,24 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				res.Body.Close()
 			}
 
+			if !tooManyRequests {
+				c.timeouts.IncreaseTimeout()
+			}
+
 			if wait < c.minWait {
 				wait = c.minWait
 			}
-			wait = min(c.backoff(wait), c.maxWait)
-			c.log.Debugw("Failed query to feeder, retrying...", "req", req.URL.String(), "retryAfter", wait.String(), "err", err)
+			wait = c.backoff(wait)
+			if wait > c.maxWait {
+				wait = c.maxWait
+			}
+
+			c.log.Debugw("Failed query to feeder, retrying...",
+				"req", req.URL.String(),
+				"retryAfter", wait.String(),
+				"err", err,
+				"newHTTPTimeout", c.timeouts.GetCurrentTimeout().String(),
+			)
 		}
 	}
 	return nil, err
