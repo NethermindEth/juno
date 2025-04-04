@@ -137,7 +137,6 @@ func TestParseTimeouts(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestGetDynamicTimeouts(t *testing.T) {
 	input := 5 * time.Second
 	want := Timeouts{
