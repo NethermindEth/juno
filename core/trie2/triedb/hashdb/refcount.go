@@ -4,13 +4,19 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
+type refcountCachedNode struct {
+	cachedNode
+	flushPrev string
+	flushNext string
+}
+
 type RefCountCache struct {
-	dirties map[common.Hash]*cachedNode
-	oldest  common.Hash
-	newest  common.Hash
+	dirties map[string]*refcountCachedNode
+	oldest  string
+	newest  string
 
 	hits   uint64
 	misses uint64
@@ -18,57 +24,49 @@ type RefCountCache struct {
 	lock sync.RWMutex
 }
 
-type cachedNode struct {
-	blob      []byte
-	parents   uint32
-	external  map[common.Hash]struct{}
-	flushPrev common.Hash
-	flushNext common.Hash
-}
-
 func NewRefCountCache() *RefCountCache {
 	return &RefCountCache{
-		dirties: make(map[common.Hash]*cachedNode),
+		dirties: make(map[string]*refcountCachedNode),
 	}
 }
 
-func (c *RefCountCache) Get(key []byte) ([]byte, bool) {
+func (c *RefCountCache) Get(key []byte) (cachedNode, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	hash := common.BytesToHash(key)
-	node, ok := c.dirties[hash]
+	node, ok := c.dirties[string(key)]
 	if !ok {
 		atomic.AddUint64(&c.misses, 1)
-		return nil, false
+		return cachedNode{}, false
 	}
 
 	atomic.AddUint64(&c.hits, 1)
-	return node.blob, true
+	return node.cachedNode, true
 }
 
-func (c *RefCountCache) Set(key []byte, value []byte) bool {
+func (c *RefCountCache) Set(key []byte, node cachedNode) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	hash := common.BytesToHash(key)
+	hash := felt.Felt{}
+	hash.SetBytes(key)
 
-	if _, ok := c.dirties[hash]; ok {
+	if _, ok := c.dirties[string(key)]; ok {
 		return false
 	}
 
-	entry := &cachedNode{
-		blob:      value,
-		flushPrev: c.newest,
+	entry := &refcountCachedNode{
+		cachedNode: node,
+		flushPrev:  string(c.newest),
 	}
 
-	if c.oldest == (common.Hash{}) {
-		c.oldest, c.newest = hash, hash
+	if c.oldest == "" {
+		c.oldest, c.newest = string(key), string(key)
 	} else {
-		c.dirties[c.newest].flushNext, c.newest = hash, hash
+		c.dirties[string(c.newest)].flushNext, c.newest = string(key), string(key)
 	}
 
-	c.dirties[hash] = entry
+	c.dirties[string(key)] = entry
 	return true
 }
 
@@ -76,29 +74,28 @@ func (c *RefCountCache) Remove(key []byte) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	hash := common.BytesToHash(key)
-	node, ok := c.dirties[hash]
+	node, ok := c.dirties[string(key)]
 	if !ok {
 		return false
 	}
 
-	switch hash {
+	switch string(key) {
 	case c.oldest:
 		c.oldest = node.flushNext
-		if node.flushNext != (common.Hash{}) {
-			c.dirties[node.flushNext].flushPrev = common.Hash{}
+		if node.flushNext != "" {
+			c.dirties[node.flushNext].flushPrev = ""
 		}
 	case c.newest:
 		c.newest = node.flushPrev
-		if node.flushPrev != (common.Hash{}) {
-			c.dirties[node.flushPrev].flushNext = common.Hash{}
+		if node.flushPrev != "" {
+			c.dirties[node.flushPrev].flushNext = ""
 		}
 	default:
 		c.dirties[node.flushPrev].flushNext = node.flushNext
 		c.dirties[node.flushNext].flushPrev = node.flushPrev
 	}
 
-	delete(c.dirties, hash)
+	delete(c.dirties, string(key))
 	return true
 }
 
@@ -122,23 +119,23 @@ func (c *RefCountCache) Len() int {
 	return len(c.dirties)
 }
 
-func (c *RefCountCache) GetOldest() ([]byte, []byte, bool) {
+func (c *RefCountCache) GetOldest() (key []byte, value cachedNode, ok bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	if c.oldest == (common.Hash{}) {
-		return nil, nil, false
+	if c.oldest == "" {
+		return nil, cachedNode{}, false
 	}
 
 	node := c.dirties[c.oldest]
-	return c.oldest[:], node.blob, true
+	return []byte(c.oldest), node.cachedNode, true
 }
 
 func (c *RefCountCache) RemoveOldest() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.oldest == (common.Hash{}) {
+	if c.oldest == "" {
 		return false
 	}
 
@@ -146,51 +143,51 @@ func (c *RefCountCache) RemoveOldest() bool {
 	node := c.dirties[oldest]
 
 	c.oldest = node.flushNext
-	if node.flushNext != (common.Hash{}) {
-		c.dirties[node.flushNext].flushPrev = common.Hash{}
+	if node.flushNext != "" {
+		c.dirties[node.flushNext].flushPrev = ""
 	}
 
 	delete(c.dirties, oldest)
 	return true
 }
 
-func (c *RefCountCache) Reference(child common.Hash, parent common.Hash) {
+func (c *RefCountCache) Reference(child []byte, parent []byte) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	node, ok := c.dirties[child]
+	node, ok := c.dirties[string(child)]
 	if !ok {
 		return
 	}
 
-	if parent == (common.Hash{}) {
+	if parent == nil {
 		node.parents += 1
 		return
 	}
 
-	if c.dirties[parent].external == nil {
-		c.dirties[parent].external = make(map[common.Hash]struct{})
+	if c.dirties[string(parent)].external == nil {
+		c.dirties[string(parent)].external = make(map[string]struct{})
 	}
-	if _, ok := c.dirties[parent].external[child]; ok {
+	if _, ok := c.dirties[string(parent)].external[string(child)]; ok {
 		return
 	}
 
 	node.parents++
-	c.dirties[parent].external[child] = struct{}{}
+	c.dirties[string(parent)].external[string(child)] = struct{}{}
 }
 
-func (c *RefCountCache) Dereference(root common.Hash) {
+func (c *RefCountCache) Dereference(root []byte) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if root == (common.Hash{}) {
+	if root == nil {
 		return
 	}
 
-	c.dereference(root)
+	c.dereference(string(root))
 }
 
-func (c *RefCountCache) dereference(hash common.Hash) {
+func (c *RefCountCache) dereference(hash string) {
 	node, ok := c.dirties[hash]
 	if !ok {
 		return
@@ -204,13 +201,13 @@ func (c *RefCountCache) dereference(hash common.Hash) {
 		switch hash {
 		case c.oldest:
 			c.oldest = node.flushNext
-			if node.flushNext != (common.Hash{}) {
-				c.dirties[node.flushNext].flushPrev = common.Hash{}
+			if node.flushNext != "" {
+				c.dirties[node.flushNext].flushPrev = ""
 			}
 		case c.newest:
 			c.newest = node.flushPrev
-			if node.flushPrev != (common.Hash{}) {
-				c.dirties[node.flushPrev].flushNext = common.Hash{}
+			if node.flushPrev != "" {
+				c.dirties[node.flushPrev].flushNext = ""
 			}
 		default:
 			c.dirties[node.flushPrev].flushNext = node.flushNext

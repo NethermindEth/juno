@@ -8,6 +8,12 @@ const (
 	CacheTypeRefCount
 )
 
+type cachedNode struct {
+	blob     []byte
+	parents  uint32
+	external map[string]struct{}
+}
+
 type CleanCache interface {
 	Get(key []byte) ([]byte, bool)
 	Set(key []byte, value []byte)
@@ -17,13 +23,13 @@ type CleanCache interface {
 }
 
 type DirtyCache interface {
-	Get(key []byte) ([]byte, bool)
-	Set(key []byte, value []byte) bool
+	Get(key []byte) (cachedNode, bool)
+	Set(key []byte, value cachedNode) bool
 	Remove(key []byte) bool
 	Hits() uint64
 	HitRate() float64
 	Len() int
-	GetOldest() ([]byte, []byte, bool)
+	GetOldest() (key []byte, value cachedNode, ok bool)
 	RemoveOldest() bool
 }
 
@@ -47,6 +53,8 @@ func NewDirtyCache(cacheType CacheType, size int) DirtyCache {
 	switch cacheType {
 	case CacheTypeLRU:
 		return NewLRUCache(size)
+	case CacheTypeRefCount:
+		return NewRefCountCache()
 	default:
 		return NewLRUCache(size)
 	}

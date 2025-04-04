@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/ethdb"
 )
 
 var ErrCallEmptyDatabase = errors.New("call to empty database")
@@ -57,7 +58,7 @@ func (d *Database) get(owner felt.Felt, path trieutils.Path, hash felt.Felt, isL
 	}
 
 	if blob, hit := d.DirtyCache.Get(key); hit {
-		return blob, nil
+		return blob.blob, nil
 	}
 
 	var blob []byte
@@ -76,18 +77,29 @@ func (d *Database) get(owner felt.Felt, path trieutils.Path, hash felt.Felt, isL
 	return blob, nil
 }
 
-func (d *Database) insert(owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
-	key := trieutils.NodeKeyByHash(d.prefix, owner, path, hash, isLeaf)
+func (d *Database) insert(prefix db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
+	key := trieutils.NodeKeyByHash(prefix, owner, path, hash, isLeaf)
 
-	d.DirtyCache.Set(key, blob)
+	d.DirtyCache.Set(key, cachedNode{
+		blob:     blob,
+		parents:  0,
+		external: make(map[string]struct{}),
+	})
 	d.dirtyCacheSize += len(blob) + d.hashLen()
 	return nil
 }
 
-func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
-	key := d.prefix.Key()
+func (d *Database) remove(prefix db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
+	key := trieutils.NodeKeyByHash(prefix, owner, path, hash, isLeaf)
+	d.DirtyCache.Remove(key)
+	d.dirtyCacheSize -= len(blob) + d.hashLen()
+	return nil
+}
 
-	if owner != (felt.Felt{}) {
+func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
+	key := id.Bucket().Key()
+	owner := id.Owner()
+	if !owner.Equal(&felt.Zero) {
 		oBytes := owner.Bytes()
 		key = append(key, oBytes[:]...)
 	}
@@ -95,51 +107,96 @@ func (d *Database) NewIterator(owner felt.Felt) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (db *Database) Update(root felt.Felt, parent felt.Felt, block uint64, nodes *trienode.MergeNodeSet) error {
-	for owner := range nodes.Sets {
-		subset := nodes.Sets[owner]
-		subset.ForEach(true, func(path trieutils.Path, n trienode.TrieNode) error {
-			db.insert(owner, path, n.Hash(), n.Blob(), n.IsLeaf())
-			return nil
-		})
+func (d *Database) Update(
+	root,
+	parent felt.Felt,
+	blockNum uint64,
+	classNodes map[trieutils.Path]trienode.TrieNode,
+	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+) {
+	for path, node := range classNodes {
+		if _, ok := node.(*trienode.DeletedNode); ok {
+			d.remove(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+		} else {
+			d.insert(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+		}
 	}
-	return nil
+
+	for owner, nodes := range contractNodes {
+		bucket := db.ContractTrieStorage
+		if owner.Equal(&felt.Zero) {
+			bucket = db.ContractTrieContract
+		}
+
+		for path, node := range nodes {
+			if _, ok := node.(*trienode.DeletedNode); ok {
+				d.remove(bucket, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
+			} else {
+				d.insert(bucket, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
+			}
+		}
+	}
 }
 
-func (d *Database) Commit() error {
-	key, value, cacheNotEmpty := d.DirtyCache.GetOldest()
+func (d *Database) Commit(root felt.Felt) error {
 	batch := d.disk.NewBatch()
+	key := trieutils.NodeKeyByHash(d.prefix, felt.Zero, trieutils.Path{}, root, false)
+	type stackEntry struct {
+		key       []byte
+		processed bool
+	}
+	stack := []stackEntry{{key: key, processed: false}}
 
-	for cacheNotEmpty {
-		batch.Put(key, value)
+	for len(stack) > 0 {
+		current := &stack[len(stack)-1]
 
-		if batch.Size() > idealBatchSize {
+		if !current.processed {
+			node, ok := d.DirtyCache.Get(current.key)
+			if !ok {
+				stack = stack[:len(stack)-1]
+				continue
+			}
+
+			current.processed = true
+			for childKey := range node.external {
+				stack = append(stack, stackEntry{key: []byte(childKey), processed: false})
+			}
+			continue
+		}
+
+		node, ok := d.DirtyCache.Get(current.key)
+		if !ok {
+			stack = stack[:len(stack)-1]
+			continue
+		}
+
+		d.DirtyCache.Remove(current.key)
+		d.CleanCache.Set(current.key, node.blob)
+
+		batch.Put(current.key, node.blob)
+
+		if batch.Size() >= ethdb.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return err
 			}
 			batch.Reset()
 		}
 
-		d.dirtyCacheSize -= (len(value) + d.hashLen())
-		key, value, cacheNotEmpty = d.DirtyCache.GetOldest()
-		ok := d.DirtyCache.RemoveOldest()
-		if !ok {
-			return fmt.Errorf("oldest element in dirty cache not found")
-		}
-		d.CleanCache.Set(key, value)
+		stack = stack[:len(stack)-1]
 	}
+
 	return nil
 }
 
 func (d *Database) Cap(limit uint64) error {
-	key, value, cacheNotEmpty := d.DirtyCache.GetOldest()
+	key, node, cacheNotEmpty := d.DirtyCache.GetOldest()
 	batch := d.disk.NewBatch()
 	startTime := time.Now()
 	nodes := d.DirtyCache.Len()
 	dirtyCacheSize := d.dirtyCacheSize
 
 	for uint64(d.dirtyCacheSize) > limit && cacheNotEmpty {
-		batch.Put(key, value)
+		batch.Put(key, node.blob)
 
 		if batch.Size() > idealBatchSize {
 			if err := batch.Write(); err != nil {
@@ -149,12 +206,12 @@ func (d *Database) Cap(limit uint64) error {
 			batch.Reset()
 		}
 
-		d.dirtyCacheSize -= (len(value) + d.hashLen())
+		d.dirtyCacheSize -= (len(node.blob) + d.hashLen())
 		ok := d.DirtyCache.RemoveOldest()
 		if !ok {
 			return fmt.Errorf("oldest element in dirty cache not found")
 		}
-		key, value, cacheNotEmpty = d.DirtyCache.GetOldest()
+		key, node, cacheNotEmpty = d.DirtyCache.GetOldest()
 	}
 
 	if batch.Size() > 0 {
@@ -187,13 +244,17 @@ func (d *Database) hashLen() int {
 
 type reader struct {
 	id trieutils.TrieID
-	db *Database
+	d  *Database
 }
 
 func (r *reader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
-	return trieutils.GetNodeByPath(r.db.disk, r.id.Bucket(), owner, path, isLeaf)
+	return trieutils.GetNodeByPath(r.d.disk, r.id.Bucket(), owner, path, isLeaf)
 }
 
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
-	return &reader{db: d, id: id}, nil
+	return &reader{d: d, id: id}, nil
+}
+
+func (d *Database) Close() error {
+	return nil
 }

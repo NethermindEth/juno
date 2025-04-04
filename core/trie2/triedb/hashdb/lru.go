@@ -9,7 +9,7 @@ import (
 // Cache is a LRU cache.
 // This type is safe for concurrent use.
 type LRUCache struct {
-	cache  lru.BasicLRU[string, []byte]
+	cache  lru.BasicLRU[string, cachedNode]
 	mu     sync.Mutex
 	hits   uint64
 	misses uint64
@@ -17,25 +17,25 @@ type LRUCache struct {
 
 // NewCache creates an LRU cache.
 func NewLRUCache(capacity int) *LRUCache {
-	return &LRUCache{cache: lru.NewBasicLRU[string, []byte](capacity)}
+	return &LRUCache{cache: lru.NewBasicLRU[string, cachedNode](capacity)}
 }
 
 // Add adds a value to the cache. Returns true if an item was evicted to store the new item.
-func (c *LRUCache) Set(key []byte, value []byte) (evicted bool) {
+func (c *LRUCache) Set(key []byte, node cachedNode) (evicted bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.cache.Add(string(key), value)
+	return c.cache.Add(string(key), node)
 }
 
 // Get retrieves a value from the cache. This marks the key as recently used.
-func (c *LRUCache) Get(key []byte) ([]byte, bool) {
+func (c *LRUCache) Get(key []byte) (cachedNode, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	cachedValue, hit := c.cache.Get(string(key))
 	if !hit {
 		c.misses++
-		return nil, false
+		return cachedNode{}, false
 	}
 	c.hits++
 	return cachedValue, true
@@ -57,12 +57,12 @@ func (c *LRUCache) Remove(key []byte) bool {
 	return c.cache.Remove(string(key))
 }
 
-func (c *LRUCache) GetOldest() ([]byte, []byte, bool) {
+func (c *LRUCache) GetOldest() (key []byte, value cachedNode, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	key, value, ok := c.cache.GetOldest()
-	return []byte(key), value, ok
+	oldestKey, oldestValue, ok := c.cache.GetOldest()
+	return []byte(oldestKey), oldestValue, ok
 }
 
 func (c *LRUCache) RemoveOldest() bool {
