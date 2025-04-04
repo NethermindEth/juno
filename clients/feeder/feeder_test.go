@@ -689,3 +689,80 @@ func TestEventListener(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, isCalled)
 }
+
+func TestClientRetryBehavior(t *testing.T) {
+	t.Run("succeeds after retrying with increased timeout", func(t *testing.T) {
+		requestCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+
+			if requestCount == 2 || requestCount == 1 {
+				time.Sleep(800 * time.Millisecond)
+				w.WriteHeader(http.StatusGatewayTimeout)
+				return
+			}
+
+			_, err := w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			if err != nil {
+				panic("TestClientRetryBehavior: write error")
+			}
+		}))
+		defer srv.Close()
+
+		client := feeder.NewClient(srv.URL).
+			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond, 2 * time.Second}, false).
+			WithMaxRetries(2).
+			WithBackoff(feeder.NopBackoff)
+
+		block, err := client.Block(t.Context(), "1")
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, 3, requestCount)
+	})
+
+	t.Run("fails when max retries exceeded", func(t *testing.T) {
+		requestCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+			time.Sleep(300 * time.Millisecond)
+			w.WriteHeader(http.StatusGatewayTimeout)
+		}))
+		defer srv.Close()
+
+		client := feeder.NewClient(srv.URL).
+			WithTimeouts([]time.Duration{250 * time.Millisecond}, false).
+			WithMaxRetries(2).
+			WithBackoff(feeder.NopBackoff)
+
+		_, err := client.Block(t.Context(), "1")
+		require.Error(t, err)
+		require.Equal(t, 3, requestCount)
+	})
+
+	t.Run("stops retrying on success", func(t *testing.T) {
+		requestCount := 0
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+			if requestCount == 1 {
+				time.Sleep(300 * time.Millisecond)
+				w.WriteHeader(http.StatusGatewayTimeout)
+				return
+			}
+			_, err := w.Write([]byte(`{"block_hash": "0x123", "block_number": 1}`))
+			if err != nil {
+				panic("TestClientRetryBehavior: write error")
+			}
+		}))
+		defer srv.Close()
+
+		client := feeder.NewClient(srv.URL).
+			WithTimeouts([]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}, false).
+			WithMaxRetries(1).
+			WithBackoff(feeder.NopBackoff)
+
+		block, err := client.Block(t.Context(), "1")
+		require.NoError(t, err)
+		require.NotNil(t, block)
+		require.Equal(t, 2, requestCount)
+	})
+}
