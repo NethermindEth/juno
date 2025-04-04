@@ -2,11 +2,13 @@ package tendermint
 
 func (t *Tendermint[V, H, A]) sendProposal(value *V) {
 	proposalMessage := Proposal[V, H, A]{
-		Height:     t.state.height,
-		Round:      t.state.round,
+		MessageHeader: MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
 		ValidRound: t.state.validRound,
 		Value:      value,
-		Sender:     t.nodeAddr,
 	}
 
 	t.messages.addProposal(proposalMessage)
@@ -15,10 +17,12 @@ func (t *Tendermint[V, H, A]) sendProposal(value *V) {
 
 func (t *Tendermint[V, H, A]) sendPrevote(id *H) {
 	vote := Prevote[H, A]{
-		Height: t.state.height,
-		Round:  t.state.round,
-		ID:     id,
-		Sender: t.nodeAddr,
+		MessageHeader: MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
+		ID: id,
 	}
 
 	t.messages.addPrevote(vote)
@@ -28,10 +32,12 @@ func (t *Tendermint[V, H, A]) sendPrevote(id *H) {
 
 func (t *Tendermint[V, H, A]) sendPrecommit(id *H) {
 	vote := Precommit[H, A]{
-		Height: t.state.height,
-		Round:  t.state.round,
-		ID:     id,
-		Sender: t.nodeAddr,
+		MessageHeader: MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
+		ID: id,
 	}
 
 	t.messages.addPrecommit(vote)

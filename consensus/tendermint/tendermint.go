@@ -363,52 +363,43 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
-func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mR := r(m)
-	if mR > t.state.round {
-		if mR-t.state.round > maxFutureRound {
+func (t *Tendermint[V, H, A]) handleFutureRoundMessage(header MessageHeader[A], addMessage func()) bool {
+	if header.Round > t.state.round {
+		if header.Round-t.state.round > maxFutureRound {
 			return false
 		}
 
-		addMessage(m)
+		addMessage()
 
-		if t.uponSkipRound(mR) {
-			t.doSkipRound(mR)
+		if t.uponSkipRound(header.Round) {
+			t.doSkipRound(header.Round)
 		}
 		return false
 	}
 	return true
 }
 
-func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	h func(M) height,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mH := h(m)
-	mR := r(m)
-
-	if mH > t.state.height {
-		if mH-t.state.height > maxFutureHeight {
+func (t *Tendermint[V, H, A]) handleFutureHeightMessage(header MessageHeader[A], addMessage func()) bool {
+	if header.Height > t.state.height {
+		if header.Height-t.state.height > maxFutureHeight {
 			return false
 		}
 
-		if mR > maxFutureRound {
+		if header.Round > maxFutureRound {
 			return false
 		}
 
-		addMessage(m)
+		addMessage()
 
 		return false
 	}
 	return true
+}
+
+func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
+	return header.Height >= t.state.height &&
+		t.handleFutureHeightMessage(header, addMessage) &&
+		t.handleFutureRoundMessage(header, addMessage)
 }
 
 // TODO: Improve performance. Current complexity is O(n).
