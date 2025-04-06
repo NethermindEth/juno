@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -43,9 +44,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	}
 
-	var stateDiff *StateDiff
+	var stateDiff *rpcv8.StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.HeapPtr(AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(rpcv8.AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{
@@ -79,11 +80,11 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt events
-	adaptedEvents := make([]OrderedEvent, len(vmFnInvocation.Events))
+	adaptedEvents := make([]rpcv8.OrderedEvent, len(vmFnInvocation.Events))
 	for index := range vmFnInvocation.Events {
 		vmEvent := &vmFnInvocation.Events[index]
 
-		adaptedEvents[index] = OrderedEvent{
+		adaptedEvents[index] = rpcv8.OrderedEvent{
 			Order: vmEvent.Order,
 			Keys:  vmEvent.Keys,
 			Data:  vmEvent.Data,
@@ -91,13 +92,13 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]OrderedL2toL1Message, len(vmFnInvocation.Messages))
+	adaptedMessages := make([]rpcv8.OrderedL2toL1Message, len(vmFnInvocation.Messages))
 	for index := range vmFnInvocation.Messages {
 		vmMessage := &vmFnInvocation.Messages[index]
 
 		toAddr, _ := new(felt.Felt).SetString(vmMessage.To)
 
-		adaptedMessages[index] = OrderedL2toL1Message{
+		adaptedMessages[index] = rpcv8.OrderedL2toL1Message{
 			Order:   vmMessage.Order,
 			From:    vmMessage.From,
 			To:      toAddr,
@@ -135,83 +136,6 @@ func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionIn
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
 		ExecutionResources: adaptedResources,
-	}
-}
-
-func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
-	// Adapt storage diffs
-	adaptedStorageDiffs := make([]StorageDiff, len(vmStateDiff.StorageDiffs))
-	for index := range vmStateDiff.StorageDiffs {
-		vmStorageDiff := &vmStateDiff.StorageDiffs[index]
-
-		// Adapt storage entries
-		adaptedEntries := make([]Entry, len(vmStorageDiff.StorageEntries))
-		for entryIndex := range vmStorageDiff.StorageEntries {
-			vmEntry := &vmStorageDiff.StorageEntries[entryIndex]
-
-			adaptedEntries[entryIndex] = Entry{
-				Key:   vmEntry.Key,
-				Value: vmEntry.Value,
-			}
-		}
-
-		adaptedStorageDiffs[index] = StorageDiff{
-			Address:        vmStorageDiff.Address,
-			StorageEntries: adaptedEntries,
-		}
-	}
-
-	// Adapt nonces
-	adaptedNonces := make([]Nonce, len(vmStateDiff.Nonces))
-	for index := range vmStateDiff.Nonces {
-		vmNonce := &vmStateDiff.Nonces[index]
-
-		adaptedNonces[index] = Nonce{
-			ContractAddress: vmNonce.ContractAddress,
-			Nonce:           vmNonce.Nonce,
-		}
-	}
-
-	// Adapt deployed contracts
-	adaptedDeployedContracts := make([]DeployedContract, len(vmStateDiff.DeployedContracts))
-	for index := range vmStateDiff.DeployedContracts {
-		vmDeployedContract := &vmStateDiff.DeployedContracts[index]
-
-		adaptedDeployedContracts[index] = DeployedContract{
-			Address:   vmDeployedContract.Address,
-			ClassHash: vmDeployedContract.ClassHash,
-		}
-	}
-
-	// Adapt declared classes
-	adaptedDeclaredClasses := make([]DeclaredClass, len(vmStateDiff.DeclaredClasses))
-	for index := range vmStateDiff.DeclaredClasses {
-		vmDeclaredClass := &vmStateDiff.DeclaredClasses[index]
-
-		adaptedDeclaredClasses[index] = DeclaredClass{
-			ClassHash:         vmDeclaredClass.ClassHash,
-			CompiledClassHash: vmDeclaredClass.CompiledClassHash,
-		}
-	}
-
-	// Adapt replaced classes
-	adaptedReplacedClasses := make([]ReplacedClass, len(vmStateDiff.ReplacedClasses))
-	for index := range vmStateDiff.ReplacedClasses {
-		vmReplacedClass := &vmStateDiff.ReplacedClasses[index]
-
-		adaptedReplacedClasses[index] = ReplacedClass{
-			ContractAddress: vmReplacedClass.ContractAddress,
-			ClassHash:       vmReplacedClass.ClassHash,
-		}
-	}
-
-	return StateDiff{
-		StorageDiffs:              adaptedStorageDiffs,
-		Nonces:                    adaptedNonces,
-		DeployedContracts:         adaptedDeployedContracts,
-		DeprecatedDeclaredClasses: vmStateDiff.DeprecatedDeclaredClasses,
-		DeclaredClasses:           adaptedDeclaredClasses,
-		ReplacedClasses:           adaptedReplacedClasses,
 	}
 }
 
@@ -281,11 +205,11 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt events
-	adaptedEvents := make([]OrderedEvent, len(snFnInvocation.Events))
+	adaptedEvents := make([]rpcv8.OrderedEvent, len(snFnInvocation.Events))
 	for index := range snFnInvocation.Events {
 		snEvent := &snFnInvocation.Events[index]
 
-		adaptedEvents[index] = OrderedEvent{
+		adaptedEvents[index] = rpcv8.OrderedEvent{
 			Order: snEvent.Order,
 			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
 			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
@@ -293,13 +217,13 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 	}
 
 	// Adapt messages
-	adaptedMessages := make([]OrderedL2toL1Message, len(snFnInvocation.Messages))
+	adaptedMessages := make([]rpcv8.OrderedL2toL1Message, len(snFnInvocation.Messages))
 	for index := range snFnInvocation.Messages {
 		snMessage := &snFnInvocation.Messages[index]
 
 		toAddr, _ := new(felt.Felt).SetString(snMessage.ToAddr)
 
-		adaptedMessages[index] = OrderedL2toL1Message{
+		adaptedMessages[index] = rpcv8.OrderedL2toL1Message{
 			Order:   snMessage.Order,
 			From:    &snFnInvocation.ContractAddress,
 			To:      toAddr,

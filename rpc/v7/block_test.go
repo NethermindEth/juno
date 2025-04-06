@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -152,7 +153,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
 			assert.Nil(t, b.Number)
-			assert.Equal(t, rpcv6.BlockPending, b.Status)
+			assert.Equal(t, rpcv8.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -198,7 +199,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(rpcv7.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpcv8.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -391,25 +392,25 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	got.Transactions = got.Transactions[:1]
 
 	require.Equal(t, &rpcv7.BlockWithTxs{
-		BlockHeader: rpcv6.BlockHeader{
+		BlockHeader: rpcv8.BlockHeader{
 			Hash:            coreBlock.Hash,
 			StarknetVersion: coreBlock.ProtocolVersion,
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,
-			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
-			L1GasPrice: &rpcv6.ResourcePrice{
+			L1DAMode:        utils.HeapPtr(rpcv8.Blob),
+			L1GasPrice: &rpcv8.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
-			L1DataGasPrice: &rpcv6.ResourcePrice{
+			L1DataGasPrice: &rpcv8.ResourcePrice{
 				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
 				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
 			},
 			SequencerAddress: coreBlock.SequencerAddress,
 			Timestamp:        coreBlock.Timestamp,
 		},
-		Status: rpcv6.BlockAcceptedL2,
+		Status: rpcv8.BlockAcceptedL2,
 		Transactions: []*rpcv7.Transaction{
 			{
 				Hash:               tx.Hash(),
@@ -501,8 +502,8 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
-			Status: rpcv6.BlockPending,
-			BlockHeader: rpcv6.BlockHeader{
+			Status: rpcv8.BlockPending,
+			BlockHeader: rpcv8.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,
@@ -545,8 +546,8 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv7.BlockWithReceipts{
-			Status: rpcv6.BlockAcceptedL1,
-			BlockHeader: rpcv6.BlockHeader{
+			Status: rpcv8.BlockAcceptedL1,
+			BlockHeader: rpcv8.BlockHeader{
 				Hash:             header.Hash,
 				ParentHash:       header.ParentHash,
 				Number:           header.Number,

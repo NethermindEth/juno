@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -515,8 +516,8 @@ func TestTraceTransaction(t *testing.T) {
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x56414c4944")},
 				Calls:          []rpcv6.FunctionInvocation{},
-				Events:         []rpcv6.OrderedEvent{},
-				Messages:       []rpcv6.OrderedL2toL1Message{},
+				Events:         []rpcv8.OrderedEvent{},
+				Messages:       []rpcv8.OrderedL2toL1Message{},
 				ExecutionResources: &rpcv6.ComputationResources{
 					Steps:       754,
 					MemoryHoles: 5,
@@ -552,7 +553,7 @@ func TestTraceTransaction(t *testing.T) {
 						CallType:       "DELEGATE",
 						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
 						Calls:          []rpcv6.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{
+						Events: []rpcv8.OrderedEvent{
 							{
 								Order: 0,
 								Keys:  []*felt.Felt{utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
@@ -564,7 +565,7 @@ func TestTraceTransaction(t *testing.T) {
 								},
 							},
 						},
-						Messages: []rpcv6.OrderedL2toL1Message{},
+						Messages: []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{
 							Steps:       529,
 							MemoryHoles: 57,
@@ -573,8 +574,8 @@ func TestTraceTransaction(t *testing.T) {
 						},
 					},
 				},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 				ExecutionResources: &rpcv6.ComputationResources{
 					Steps:       589,
 					MemoryHoles: 57,
@@ -719,34 +720,34 @@ func TestTraceBlockTransactions(t *testing.T) {
 			Type: rpcv7.TxnInvoke,
 			ValidateInvocation: &rpcv6.FunctionInvocation{
 				Calls:              []rpcv6.FunctionInvocation{},
-				Events:             []rpcv6.OrderedEvent{},
-				Messages:           []rpcv6.OrderedL2toL1Message{},
+				Events:             []rpcv8.OrderedEvent{},
+				Messages:           []rpcv8.OrderedL2toL1Message{},
 				ExecutionResources: &rpcv6.ComputationResources{},
 			},
 			ExecuteInvocation: &rpcv6.ExecuteInvocation{
 				FunctionInvocation: &rpcv6.FunctionInvocation{
 					Calls:              []rpcv6.FunctionInvocation{},
-					Events:             []rpcv6.OrderedEvent{},
-					Messages:           []rpcv6.OrderedL2toL1Message{},
+					Events:             []rpcv8.OrderedEvent{},
+					Messages:           []rpcv8.OrderedL2toL1Message{},
 					ExecutionResources: &rpcv6.ComputationResources{},
 				},
 			},
 			FeeTransferInvocation: &rpcv6.FunctionInvocation{
 				Calls:              []rpcv6.FunctionInvocation{},
-				Events:             []rpcv6.OrderedEvent{},
-				Messages:           []rpcv6.OrderedL2toL1Message{},
+				Events:             []rpcv8.OrderedEvent{},
+				Messages:           []rpcv8.OrderedL2toL1Message{},
 				ExecutionResources: &rpcv6.ComputationResources{},
 			},
 			ExecutionResources: &rpcv7.ExecutionResources{
 				DataAvailability: &rpcv7.DataAvailability{},
 			},
-			StateDiff: &rpcv6.StateDiff{
-				StorageDiffs:              []rpcv6.StorageDiff{},
-				Nonces:                    []rpcv6.Nonce{},
-				DeployedContracts:         []rpcv6.DeployedContract{},
+			StateDiff: &rpcv8.StateDiff{
+				StorageDiffs:              []rpcv8.StorageDiff{},
+				Nonces:                    []rpcv8.Nonce{},
+				DeployedContracts:         []rpcv8.DeployedContract{},
 				DeprecatedDeclaredClasses: []*felt.Felt{},
-				DeclaredClasses:           []rpcv6.DeclaredClass{},
-				ReplacedClasses:           []rpcv6.ReplacedClass{},
+				DeclaredClasses:           []rpcv8.DeclaredClass{},
+				ReplacedClasses:           []rpcv8.ReplacedClass{},
 			},
 		}, result[0].TraceRoot)
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
@@ -943,8 +944,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			Type: rpcv7.TxnInvoke,
 			ValidateInvocation: &rpcv6.FunctionInvocation{
 				Calls:  []rpcv6.FunctionInvocation{},
-				Events: []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{
+				Events: []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{
 					{
 						Order: 0,
 						From:  fromAddr,
@@ -973,22 +974,22 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 			FeeTransferInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 			ExecuteInvocation: &rpcv6.ExecuteInvocation{
 				RevertReason: "",
 				FunctionInvocation: &rpcv6.FunctionInvocation{
 					Calls:    []rpcv6.FunctionInvocation{},
-					Events:   []rpcv6.OrderedEvent{},
-					Messages: []rpcv6.OrderedL2toL1Message{},
+					Events:   []rpcv8.OrderedEvent{},
+					Messages: []rpcv8.OrderedL2toL1Message{},
 				},
 			},
-			StateDiff: &rpcv6.StateDiff{ //nolint:dupl
-				StorageDiffs: []rpcv6.StorageDiff{
+			StateDiff: &rpcv8.StateDiff{ //nolint:dupl
+				StorageDiffs: []rpcv8.StorageDiff{
 					{
 						Address: felt.Zero,
-						StorageEntries: []rpcv6.Entry{
+						StorageEntries: []rpcv8.Entry{
 							{
 								Key:   felt.Zero,
 								Value: felt.Zero,
@@ -996,13 +997,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				Nonces: []rpcv6.Nonce{
+				Nonces: []rpcv8.Nonce{
 					{
 						ContractAddress: felt.Zero,
 						Nonce:           felt.Zero,
 					},
 				},
-				DeployedContracts: []rpcv6.DeployedContract{
+				DeployedContracts: []rpcv8.DeployedContract{
 					{
 						Address:   felt.Zero,
 						ClassHash: felt.Zero,
@@ -1011,13 +1012,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				DeprecatedDeclaredClasses: []*felt.Felt{
 					&felt.Zero,
 				},
-				DeclaredClasses: []rpcv6.DeclaredClass{
+				DeclaredClasses: []rpcv8.DeclaredClass{
 					{
 						ClassHash:         felt.Zero,
 						CompiledClassHash: felt.Zero,
 					},
 				},
-				ReplacedClasses: []rpcv6.ReplacedClass{
+				ReplacedClasses: []rpcv8.ReplacedClass{
 					{
 						ContractAddress: felt.Zero,
 						ClassHash:       felt.Zero,
@@ -1046,18 +1047,18 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			Type: rpcv7.TxnDeployAccount,
 			ValidateInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 			FeeTransferInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 			ConstructorInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 		}
 
@@ -1083,8 +1084,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			Type: rpcv7.TxnL1Handler,
 			FunctionInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 		}
 
@@ -1110,13 +1111,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			Type: rpcv7.TxnDeclare,
 			ValidateInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 			FeeTransferInvocation: &rpcv6.FunctionInvocation{
 				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+				Events:   []rpcv8.OrderedEvent{},
+				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
 		}
 
@@ -1180,12 +1181,12 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpcv7.TxnL1Handler,
 					FunctionInvocation: &rpcv6.FunctionInvocation{
 						Calls: []rpcv6.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{{
+						Events: []rpcv8.OrderedEvent{{
 							Order: 1,
 							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
 							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
 						}},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 				},
@@ -1224,14 +1225,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpcv7.TxnInvoke,
 					FeeTransferInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 					ValidateInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 					ExecuteInvocation: &rpcv6.ExecuteInvocation{
@@ -1272,20 +1273,20 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpcv7.TxnDeployAccount,
 					FeeTransferInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 					ValidateInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 					ConstructorInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 				},
@@ -1323,14 +1324,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 					Type: rpcv7.TxnDeclare,
 					FeeTransferInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 					ValidateInvocation: &rpcv6.FunctionInvocation{
 						Calls:              []rpcv6.FunctionInvocation{},
-						Events:             []rpcv6.OrderedEvent{},
-						Messages:           []rpcv6.OrderedL2toL1Message{},
+						Events:             []rpcv8.OrderedEvent{},
+						Messages:           []rpcv8.OrderedL2toL1Message{},
 						ExecutionResources: &rpcv6.ComputationResources{},
 					},
 				},

@@ -10,29 +10,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
-
-type SimulationFlag int
-
-const (
-	SkipValidateFlag SimulationFlag = iota + 1
-	SkipFeeChargeFlag
-)
-
-func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
-	switch flag := string(bytes); flag {
-	case `"SKIP_VALIDATE"`:
-		*s = SkipValidateFlag
-	case `"SKIP_FEE_CHARGE"`:
-		*s = SkipFeeChargeFlag
-	default:
-		err = fmt.Errorf("unknown simulation flag %q", flag)
-	}
-
-	return
-}
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
@@ -50,16 +31,16 @@ type TracedBlockTransaction struct {
 
 // pre 13.1
 func (h *Handler) SimulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag,
+	simulationFlags []rpcv8.SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
 	return h.simulateTransactions(id, broadcastedTxns, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool,
+	simulationFlags []rpcv8.SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, rpcv8.SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, rpcv8.SkipValidateFlag)
 
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -33,7 +34,7 @@ type TransactionTrace struct {
 	FeeTransferInvocation *rpcv6.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
 	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *rpcv6.StateDiff          `json:"state_diff,omitempty"`
+	StateDiff             *rpcv8.StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources       `json:"execution_resources"`
 }
 

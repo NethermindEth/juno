@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -40,9 +41,9 @@ type FeeEstimate struct {
 *****************************************************/
 
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
+	simulationFlags []rpcv8.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error) {
-	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, SkipFeeChargeFlag), true)
+	result, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv8.SkipFeeChargeFlag), true)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +53,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), nil
 }
 
-func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(msg rpcv8.MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	feeEstimate, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFee)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -61,10 +62,10 @@ func (h *Handler) EstimateMessageFee(msg MsgFromL1, id BlockID) (*FeeEstimate, *
 }
 
 type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, id BlockID,
+	simulationFlags []rpcv8.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error)
 
-func (h *Handler) estimateMessageFee(msg MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) estimateMessageFee(msg rpcv8.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))

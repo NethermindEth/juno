@@ -3,56 +3,13 @@ package rpcv6
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 )
-
-// https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
-type BlockStatus uint8
-
-const (
-	BlockPending BlockStatus = iota
-	BlockAcceptedL2
-	BlockAcceptedL1
-	BlockRejected
-)
-
-func (s BlockStatus) MarshalText() ([]byte, error) {
-	switch s {
-	case BlockPending:
-		return []byte("PENDING"), nil
-	case BlockAcceptedL2:
-		return []byte("ACCEPTED_ON_L2"), nil
-	case BlockAcceptedL1:
-		return []byte("ACCEPTED_ON_L1"), nil
-	case BlockRejected:
-		return []byte("REJECTED"), nil
-	default:
-		return nil, fmt.Errorf("unknown block status %v", s)
-	}
-}
-
-type L1DAMode uint8
-
-const (
-	Blob L1DAMode = iota
-	Calldata
-)
-
-func (l L1DAMode) MarshalText() ([]byte, error) {
-	switch l {
-	case Blob:
-		return []byte("BLOB"), nil
-	case Calldata:
-		return []byte("CALLDATA"), nil
-	default:
-		return nil, fmt.Errorf("unknown L1DAMode value = %v", l)
-	}
-}
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L520-L534
 type BlockHashAndNumber struct {
@@ -94,36 +51,17 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ResourcePrice struct {
-	InFri *felt.Felt `json:"price_in_fri"`
-	InWei *felt.Felt `json:"price_in_wei"`
-}
-
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
-type BlockHeader struct {
-	Hash             *felt.Felt     `json:"block_hash,omitempty"`
-	ParentHash       *felt.Felt     `json:"parent_hash"`
-	Number           *uint64        `json:"block_number,omitempty"`
-	NewRoot          *felt.Felt     `json:"new_root,omitempty"`
-	Timestamp        uint64         `json:"timestamp"`
-	SequencerAddress *felt.Felt     `json:"sequencer_address,omitempty"`
-	L1GasPrice       *ResourcePrice `json:"l1_gas_price"`
-	L1DataGasPrice   *ResourcePrice `json:"l1_data_gas_price,omitempty"`
-	L1DAMode         *L1DAMode      `json:"l1_da_mode,omitempty"`
-	StarknetVersion  string         `json:"starknet_version"`
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status BlockStatus `json:"status,omitempty"`
-	BlockHeader
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status BlockStatus `json:"status,omitempty"`
-	BlockHeader
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
 
@@ -133,8 +71,8 @@ type TransactionWithReceipt struct {
 }
 
 type BlockWithReceipts struct {
-	Status BlockStatus `json:"status,omitempty"`
-	BlockHeader
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
@@ -227,7 +165,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	}
 
 	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == BlockAcceptedL1 {
+	if blockStatus == rpcv8.BlockAcceptedL1 {
 		finalityStatus = TxnAcceptedOnL1
 	}
 
@@ -287,23 +225,23 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	return resp, nil
 }
 
-func (h *Handler) blockStatus(id BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv8.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := BlockAcceptedL2
+	status := rpcv8.BlockAcceptedL2
 	if id.Pending {
-		status = BlockPending
+		status = rpcv8.BlockPending
 	} else if isL1Verified(block.Number, l1H) {
-		status = BlockAcceptedL1
+		status = rpcv8.BlockAcceptedL1
 	}
 
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) BlockHeader {
+func adaptBlockHeader(header *core.Header) rpcv8.BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {
@@ -315,14 +253,14 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 		sequencerAddress = &felt.Zero
 	}
 
-	return BlockHeader{
+	return rpcv8.BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
 		Number:           blockNumber,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
-		L1GasPrice: &ResourcePrice{
+		L1GasPrice: &rpcv8.ResourcePrice{
 			InWei: header.L1GasPriceETH,
 			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
 		},

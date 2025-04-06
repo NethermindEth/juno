@@ -302,6 +302,16 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
+type MsgFromL1 struct {
+	// The address of the L1 contract sending the message.
+	From common.Address `json:"from_address" validate:"required"`
+	// The address of the L2 contract receiving the message.
+	To felt.Felt `json:"to_address" validate:"required"`
+	// The payload of the message.
+	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
+}
+
 func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {

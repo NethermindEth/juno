@@ -12,10 +12,29 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
+
+type SimulationFlag int
+
+const (
+	SkipValidateFlag SimulationFlag = iota + 1
+	SkipFeeChargeFlag
+)
+
+func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
+	switch flag := string(bytes); flag {
+	case `"SKIP_VALIDATE"`:
+		*s = SkipValidateFlag
+	case `"SKIP_FEE_CHARGE"`:
+		*s = SkipFeeChargeFlag
+	default:
+		err = fmt.Errorf("unknown simulation flag %q", flag)
+	}
+
+	return
+}
 
 const ExecutionStepsHeader string = "X-Cairo-Steps"
 
@@ -34,16 +53,16 @@ type TracedBlockTransaction struct {
 *****************************************************/
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag,
+	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
+	simulationFlags []SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")

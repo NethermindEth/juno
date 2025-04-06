@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -32,7 +33,7 @@ type TransactionTrace struct {
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
+	StateDiff             *rpcv8.StateDiff    `json:"state_diff,omitempty"`
 }
 
 type ExecuteInvocation struct {
@@ -49,31 +50,18 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 }
 
 type FunctionInvocation struct {
-	ContractAddress    felt.Felt              `json:"contract_address"`
-	EntryPointSelector *felt.Felt             `json:"entry_point_selector"`
-	Calldata           []felt.Felt            `json:"calldata"`
-	CallerAddress      felt.Felt              `json:"caller_address"`
-	ClassHash          *felt.Felt             `json:"class_hash"`
-	EntryPointType     string                 `json:"entry_point_type"`
-	CallType           string                 `json:"call_type"`
-	Result             []felt.Felt            `json:"result"`
-	Calls              []FunctionInvocation   `json:"calls"`
-	Events             []OrderedEvent         `json:"events"`
-	Messages           []OrderedL2toL1Message `json:"messages"`
-	ExecutionResources *ComputationResources  `json:"execution_resources"`
-}
-
-type OrderedEvent struct {
-	Order uint64       `json:"order"`
-	Keys  []*felt.Felt `json:"keys"`
-	Data  []*felt.Felt `json:"data"`
-}
-
-type OrderedL2toL1Message struct {
-	Order   uint64       `json:"order"`
-	From    *felt.Felt   `json:"from_address"`
-	To      *felt.Felt   `json:"to_address"`
-	Payload []*felt.Felt `json:"payload"`
+	ContractAddress    felt.Felt                    `json:"contract_address"`
+	EntryPointSelector *felt.Felt                   `json:"entry_point_selector"`
+	Calldata           []felt.Felt                  `json:"calldata"`
+	CallerAddress      felt.Felt                    `json:"caller_address"`
+	ClassHash          *felt.Felt                   `json:"class_hash"`
+	EntryPointType     string                       `json:"entry_point_type"`
+	CallType           string                       `json:"call_type"`
+	Result             []felt.Felt                  `json:"result"`
+	Calls              []FunctionInvocation         `json:"calls"`
+	Events             []rpcv8.OrderedEvent         `json:"events"`
+	Messages           []rpcv8.OrderedL2toL1Message `json:"messages"`
+	ExecutionResources *ComputationResources        `json:"execution_resources"`
 }
 
 /****************************************************

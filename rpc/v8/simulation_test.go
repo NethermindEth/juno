@@ -11,8 +11,8 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -46,7 +46,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed       uint64
 		err             *jsonrpc.Error
 		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateHistoryReader)
-		simulationFlags []rpcv6.SimulationFlag
+		simulationFlags []rpcv8.SimulationFlag
 		simulatedTxs    []rpc.SimulatedTransaction
 	}{
 		{ //nolint:dupl
@@ -65,7 +65,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+			simulationFlags: []rpcv8.SimulationFlag{rpcv8.SkipFeeChargeFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
 		},
 		{ //nolint:dupl
@@ -84,7 +84,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv8.SimulationFlag{rpcv8.SkipValidateFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
 		},
 		{
@@ -99,7 +99,7 @@ func TestSimulateTransactions(t *testing.T) {
 						Cause: json.RawMessage("oops"),
 					})
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv8.SimulationFlag{rpcv8.SkipValidateFlag},
 			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
@@ -120,7 +120,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(0),
 					}, nil)
 			},
-			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			simulationFlags: []rpcv8.SimulationFlag{rpcv8.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
 				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 			)),
