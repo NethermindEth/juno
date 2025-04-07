@@ -211,7 +211,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
 		}
-		client := feeder.NewClient(cfg.Network.FeederURL).
+		client = feeder.NewClient(cfg.Network.FeederURL).
 			WithUserAgent(ua).
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
