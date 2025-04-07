@@ -24,7 +24,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -52,11 +52,11 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][rPrime][*val2]))
-		assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2][0])
+		assert.Contains(t, algo.messages.proposals[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2])
 
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step is not propose because the proposal which is received in round r' leads to consensus
 		// engine broadcasting prevote to the proposal which changes the step from propose to prevote.
@@ -76,7 +76,7 @@ func TestPropose(t *testing.T) {
 
 		tm := func(r round) time.Duration { return 2 * time.Second }
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -103,11 +103,11 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val2]))
-		assert.Equal(t, val2Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val2][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val2])
 
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step here remains propose because a proposal is yet to be received to allow the node to send the
 		// prevote for it.
@@ -125,7 +125,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime := round(4)
@@ -153,11 +153,11 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 1, len(algo.messages.precommits[expectedHeight][rPrime][*val2]))
-		assert.Equal(t, val2Precommit, algo.messages.precommits[expectedHeight][rPrime][*val2][0])
+		assert.Contains(t, algo.messages.precommits[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Precommit, algo.messages.precommits[expectedHeight][rPrime][*val2])
 
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][rPrime][*val3]))
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step here remains propose because a proposal is yet to be received to allow the node to send the
 		// prevote for it.
@@ -176,7 +176,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			Height: 0,
@@ -227,7 +227,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		nodePrecommit := Precommit[felt.Felt, felt.Felt]{
 			Height: 0,
@@ -289,7 +289,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			Height: 0,
@@ -343,7 +343,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		h, r := height(0), round(0)
 
@@ -419,7 +419,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		h, r := height(0), round(0)
 
