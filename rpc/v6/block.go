@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 )
 
@@ -58,13 +59,6 @@ type BlockWithTxs struct {
 	Transactions []*Transaction `json:"transactions"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
-type BlockWithTxHashes struct {
-	Status rpcv8.BlockStatus `json:"status,omitempty"`
-	rpcv8.BlockHeader
-	TxnHashes []*felt.Felt `json:"transactions"`
-}
-
 type TransactionWithReceipt struct {
 	Transaction *Transaction        `json:"transaction"`
 	Receipt     *TransactionReceipt `json:"receipt"`
@@ -109,7 +103,7 @@ func (h *Handler) BlockHashAndNumber() (*BlockHashAndNumber, *jsonrpc.Error) {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) blockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) blockWithTxHashes(id BlockID) (*rpcv7.BlockWithTxHashes, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -122,14 +116,14 @@ func (h *Handler) blockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	return &BlockWithTxHashes{
+	return &rpcv7.BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,
 	}, nil
 }
 
-func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashes(id BlockID) (*rpcv7.BlockWithTxHashes, *jsonrpc.Error) {
 	resp, err := h.blockWithTxHashes(id)
 	if err != nil {
 		return nil, err

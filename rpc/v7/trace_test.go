@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
@@ -155,7 +154,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 func TestTransactionTraceValidation(t *testing.T) {
 	validInvokeTransactionTrace := rpcv7.TransactionTrace{
 		Type:               rpcv7.TxnInvoke,
-		ExecuteInvocation:  &rpcv6.ExecuteInvocation{},
+		ExecuteInvocation:  &rpcv7.ExecuteInvocation{},
 		ExecutionResources: &rpcv7.ExecutionResources{},
 	}
 
@@ -165,7 +164,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 
 	validDeployAccountTransactionTrace := rpcv7.TransactionTrace{
 		Type:                  rpcv7.TxnDeployAccount,
-		ConstructorInvocation: &rpcv6.FunctionInvocation{},
+		ConstructorInvocation: &rpcv7.FunctionInvocation{},
 	}
 
 	invalidDeployAccountTransactionTrace := rpcv7.TransactionTrace{
@@ -174,7 +173,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 
 	validL1HandlerTransactionTrace := rpcv7.TransactionTrace{
 		Type:               rpcv7.TxnL1Handler,
-		FunctionInvocation: &rpcv6.FunctionInvocation{},
+		FunctionInvocation: &rpcv7.FunctionInvocation{},
 	}
 
 	invalidL1HandlerTransactionTrace := rpcv7.TransactionTrace{
@@ -500,7 +499,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		expectedRevertedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnInvoke,
-			ValidateInvocation: &rpcv6.FunctionInvocation{
+			ValidateInvocation: &rpcv7.FunctionInvocation{
 				ContractAddress:    *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
 				EntryPointSelector: utils.HexToFelt(t, "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
 				Calldata: []felt.Felt{
@@ -515,17 +514,17 @@ func TestTraceTransaction(t *testing.T) {
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x56414c4944")},
-				Calls:          []rpcv6.FunctionInvocation{},
+				Calls:          []rpcv7.FunctionInvocation{},
 				Events:         []rpcv8.OrderedEvent{},
 				Messages:       []rpcv8.OrderedL2toL1Message{},
-				ExecutionResources: &rpcv6.ComputationResources{
+				ExecutionResources: &rpcv7.ComputationResources{
 					Steps:       754,
 					MemoryHoles: 5,
 					RangeCheck:  17,
 					EcOp:        3,
 				},
 			},
-			FeeTransferInvocation: &rpcv6.FunctionInvocation{
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
 				ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 				EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				Calldata: []felt.Felt{
@@ -538,7 +537,7 @@ func TestTraceTransaction(t *testing.T) {
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
-				Calls: []rpcv6.FunctionInvocation{
+				Calls: []rpcv7.FunctionInvocation{
 					{
 						ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 						EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
@@ -552,7 +551,7 @@ func TestTraceTransaction(t *testing.T) {
 						EntryPointType: "EXTERNAL",
 						CallType:       "DELEGATE",
 						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
-						Calls:          []rpcv6.FunctionInvocation{},
+						Calls:          []rpcv7.FunctionInvocation{},
 						Events: []rpcv8.OrderedEvent{
 							{
 								Order: 0,
@@ -566,7 +565,7 @@ func TestTraceTransaction(t *testing.T) {
 							},
 						},
 						Messages: []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{
+						ExecutionResources: &rpcv7.ComputationResources{
 							Steps:       529,
 							MemoryHoles: 57,
 							Pedersen:    4,
@@ -576,14 +575,14 @@ func TestTraceTransaction(t *testing.T) {
 				},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
-				ExecutionResources: &rpcv6.ComputationResources{
+				ExecutionResources: &rpcv7.ComputationResources{
 					Steps:       589,
 					MemoryHoles: 57,
 					Pedersen:    4,
 					RangeCheck:  21,
 				},
 			},
-			ExecuteInvocation: &rpcv6.ExecuteInvocation{
+			ExecuteInvocation: &rpcv7.ExecuteInvocation{
 				RevertReason: "Error in the called contract (0x070503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84):\nError at pc=0:4288:\nGot an exception while executing a hint: Custom Hint Error: Execution failed. Failure reason: 'Fatal'.\nCairo traceback (most recent call last):\nUnknown location (pc=0:67)\nUnknown location (pc=0:1997)\nUnknown location (pc=0:2729)\nUnknown location (pc=0:3577)\n",
 			},
 			ExecutionResources: &rpcv7.ExecutionResources{
@@ -718,25 +717,25 @@ func TestTraceBlockTransactions(t *testing.T) {
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, &rpcv7.TransactionTrace{
 			Type: rpcv7.TxnInvoke,
-			ValidateInvocation: &rpcv6.FunctionInvocation{
-				Calls:              []rpcv6.FunctionInvocation{},
+			ValidateInvocation: &rpcv7.FunctionInvocation{
+				Calls:              []rpcv7.FunctionInvocation{},
 				Events:             []rpcv8.OrderedEvent{},
 				Messages:           []rpcv8.OrderedL2toL1Message{},
-				ExecutionResources: &rpcv6.ComputationResources{},
+				ExecutionResources: &rpcv7.ComputationResources{},
 			},
-			ExecuteInvocation: &rpcv6.ExecuteInvocation{
-				FunctionInvocation: &rpcv6.FunctionInvocation{
-					Calls:              []rpcv6.FunctionInvocation{},
+			ExecuteInvocation: &rpcv7.ExecuteInvocation{
+				FunctionInvocation: &rpcv7.FunctionInvocation{
+					Calls:              []rpcv7.FunctionInvocation{},
 					Events:             []rpcv8.OrderedEvent{},
 					Messages:           []rpcv8.OrderedL2toL1Message{},
-					ExecutionResources: &rpcv6.ComputationResources{},
+					ExecutionResources: &rpcv7.ComputationResources{},
 				},
 			},
-			FeeTransferInvocation: &rpcv6.FunctionInvocation{
-				Calls:              []rpcv6.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				Calls:              []rpcv7.FunctionInvocation{},
 				Events:             []rpcv8.OrderedEvent{},
 				Messages:           []rpcv8.OrderedL2toL1Message{},
-				ExecutionResources: &rpcv6.ComputationResources{},
+				ExecutionResources: &rpcv7.ComputationResources{},
 			},
 			ExecutionResources: &rpcv7.ExecutionResources{
 				DataAvailability: &rpcv7.DataAvailability{},
@@ -942,8 +941,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnInvoke,
-			ValidateInvocation: &rpcv6.FunctionInvocation{
-				Calls:  []rpcv6.FunctionInvocation{},
+			ValidateInvocation: &rpcv7.FunctionInvocation{
+				Calls:  []rpcv7.FunctionInvocation{},
 				Events: []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{
 					{
@@ -959,7 +958,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 						},
 					},
 				},
-				ExecutionResources: &rpcv6.ComputationResources{
+				ExecutionResources: &rpcv7.ComputationResources{
 					Steps:        1,
 					MemoryHoles:  2,
 					Pedersen:     3,
@@ -972,15 +971,15 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 					SegmentArena: 10,
 				},
 			},
-			FeeTransferInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
-			ExecuteInvocation: &rpcv6.ExecuteInvocation{
+			ExecuteInvocation: &rpcv7.ExecuteInvocation{
 				RevertReason: "",
-				FunctionInvocation: &rpcv6.FunctionInvocation{
-					Calls:    []rpcv6.FunctionInvocation{},
+				FunctionInvocation: &rpcv7.FunctionInvocation{
+					Calls:    []rpcv7.FunctionInvocation{},
 					Events:   []rpcv8.OrderedEvent{},
 					Messages: []rpcv8.OrderedL2toL1Message{},
 				},
@@ -1045,18 +1044,18 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnDeployAccount,
-			ValidateInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			ValidateInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
-			FeeTransferInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
-			ConstructorInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			ConstructorInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
@@ -1082,8 +1081,8 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnL1Handler,
-			FunctionInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			FunctionInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
@@ -1109,13 +1108,13 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
 			Type: rpcv7.TxnDeclare,
-			ValidateInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			ValidateInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
-			FeeTransferInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
+			FeeTransferInvocation: &rpcv7.FunctionInvocation{
+				Calls:    []rpcv7.FunctionInvocation{},
 				Events:   []rpcv8.OrderedEvent{},
 				Messages: []rpcv8.OrderedL2toL1Message{},
 			},
@@ -1179,15 +1178,15 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpcv7.TransactionTrace{
 					Type: rpcv7.TxnL1Handler,
-					FunctionInvocation: &rpcv6.FunctionInvocation{
-						Calls: []rpcv6.FunctionInvocation{},
+					FunctionInvocation: &rpcv7.FunctionInvocation{
+						Calls: []rpcv7.FunctionInvocation{},
 						Events: []rpcv8.OrderedEvent{{
 							Order: 1,
 							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
 							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
 						}},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
 				},
 			},
@@ -1223,19 +1222,19 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpcv7.TransactionTrace{
 					Type: rpcv7.TxnInvoke,
-					FeeTransferInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					FeeTransferInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
-					ValidateInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					ValidateInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
-					ExecuteInvocation: &rpcv6.ExecuteInvocation{
+					ExecuteInvocation: &rpcv7.ExecuteInvocation{
 						RevertReason: "some error",
 					},
 				},
@@ -1271,23 +1270,23 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpcv7.TransactionTrace{
 					Type: rpcv7.TxnDeployAccount,
-					FeeTransferInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					FeeTransferInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
-					ValidateInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					ValidateInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
-					ConstructorInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					ConstructorInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
 				},
 			},
@@ -1322,17 +1321,17 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpcv7.TransactionTrace{
 					Type: rpcv7.TxnDeclare,
-					FeeTransferInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					FeeTransferInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
-					ValidateInvocation: &rpcv6.FunctionInvocation{
-						Calls:              []rpcv6.FunctionInvocation{},
+					ValidateInvocation: &rpcv7.FunctionInvocation{
+						Calls:              []rpcv7.FunctionInvocation{},
 						Events:             []rpcv8.OrderedEvent{},
 						Messages:           []rpcv8.OrderedL2toL1Message{},
-						ExecutionResources: &rpcv6.ComputationResources{},
+						ExecutionResources: &rpcv7.ComputationResources{},
 					},
 				},
 			},
@@ -1345,7 +1344,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 }
 
 func TestTotalExecutionResources(t *testing.T) {
-	resources := &rpcv6.ComputationResources{
+	resources := &rpcv7.ComputationResources{
 		Steps:        1,
 		MemoryHoles:  2,
 		Pedersen:     3,
@@ -1365,21 +1364,21 @@ func TestTotalExecutionResources(t *testing.T) {
 		"many top-level invocations": {
 			multiplier: 5,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv6.FunctionInvocation{
+				ValidateInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				FunctionInvocation: &rpcv6.FunctionInvocation{
+				FunctionInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				ConstructorInvocation: &rpcv6.FunctionInvocation{
+				ConstructorInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
 				},
-				ExecuteInvocation: &rpcv6.ExecuteInvocation{
-					FunctionInvocation: &rpcv6.FunctionInvocation{
+				ExecuteInvocation: &rpcv7.ExecuteInvocation{
+					FunctionInvocation: &rpcv7.FunctionInvocation{
 						ExecutionResources: resources,
 					},
 				},
-				FeeTransferInvocation: &rpcv6.FunctionInvocation{
+				FeeTransferInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
 				},
 			},
@@ -1387,7 +1386,7 @@ func TestTotalExecutionResources(t *testing.T) {
 		"only validate invocation": {
 			multiplier: 1,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv6.FunctionInvocation{
+				ValidateInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
 				},
 			},
@@ -1395,17 +1394,17 @@ func TestTotalExecutionResources(t *testing.T) {
 		"present in some sub-calls": {
 			multiplier: 2,
 			trace: &rpcv7.TransactionTrace{
-				ValidateInvocation: &rpcv6.FunctionInvocation{
+				ValidateInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
-					Calls: []rpcv6.FunctionInvocation{
+					Calls: []rpcv7.FunctionInvocation{
 						{
 							ExecutionResources: resources,
 						},
 					},
 				},
-				FunctionInvocation: &rpcv6.FunctionInvocation{
+				FunctionInvocation: &rpcv7.FunctionInvocation{
 					ExecutionResources: resources,
-					Calls: []rpcv6.FunctionInvocation{
+					Calls: []rpcv7.FunctionInvocation{
 						{
 							ExecutionResources: resources,
 						},

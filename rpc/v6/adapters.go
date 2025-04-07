@@ -3,7 +3,7 @@ package rpcv6
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core/felt"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -15,32 +15,32 @@ import (
 *****************************************************/
 
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
-	var validateInvocation *FunctionInvocation
+	var validateInvocation *rpcv7.FunctionInvocation
 	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(rpcv7.AdaptVMFunctionInvocation(trace.ValidateInvocation))
 	}
 
-	var feeTransferInvocation *FunctionInvocation
+	var feeTransferInvocation *rpcv7.FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(rpcv7.AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
 	}
 
-	var constructorInvocation *FunctionInvocation
-	var executeInvocation *ExecuteInvocation
-	var functionInvocation *FunctionInvocation
+	var constructorInvocation *rpcv7.FunctionInvocation
+	var executeInvocation *rpcv7.ExecuteInvocation
+	var functionInvocation *rpcv7.FunctionInvocation
 
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(rpcv7.AdaptVMFunctionInvocation(trace.ConstructorInvocation))
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.HeapPtr(AdaptVMExecuteInvocation(trace.ExecuteInvocation))
+			executeInvocation = utils.HeapPtr(rpcv7.AdaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
+			functionInvocation = utils.HeapPtr(rpcv7.AdaptVMFunctionInvocation(trace.FunctionInvocation))
 		}
 	}
 
@@ -57,85 +57,6 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		ConstructorInvocation: constructorInvocation,
 		FunctionInvocation:    functionInvocation,
 		StateDiff:             stateDiff,
-	}
-}
-
-func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
-	var functionInvocation *FunctionInvocation
-	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
-	}
-
-	return ExecuteInvocation{
-		RevertReason:       vmFnInvocation.RevertReason,
-		FunctionInvocation: functionInvocation,
-	}
-}
-
-func AdaptVMFunctionInvocation(vmFnInvocation *vm.FunctionInvocation) FunctionInvocation {
-	// Adapt inner calls
-	adaptedCalls := make([]FunctionInvocation, len(vmFnInvocation.Calls))
-	for index := range vmFnInvocation.Calls {
-		adaptedCalls[index] = AdaptVMFunctionInvocation(&vmFnInvocation.Calls[index])
-	}
-
-	// Adapt events
-	adaptedEvents := make([]rpcv8.OrderedEvent, len(vmFnInvocation.Events))
-	for index := range vmFnInvocation.Events {
-		vmEvent := &vmFnInvocation.Events[index]
-
-		adaptedEvents[index] = rpcv8.OrderedEvent{
-			Order: vmEvent.Order,
-			Keys:  vmEvent.Keys,
-			Data:  vmEvent.Data,
-		}
-	}
-
-	// Adapt messages
-	adaptedMessages := make([]rpcv8.OrderedL2toL1Message, len(vmFnInvocation.Messages))
-	for index := range vmFnInvocation.Messages {
-		vmMessage := &vmFnInvocation.Messages[index]
-
-		toAddr, _ := new(felt.Felt).SetString(vmMessage.To)
-
-		adaptedMessages[index] = rpcv8.OrderedL2toL1Message{
-			Order:   vmMessage.Order,
-			From:    vmMessage.From,
-			To:      toAddr,
-			Payload: vmMessage.Payload,
-		}
-	}
-
-	// Adapt execution resources
-	var adaptedResources *ComputationResources
-	if r := vmFnInvocation.ExecutionResources; r != nil {
-		adaptedResources = &ComputationResources{
-			Steps:        r.Steps,
-			MemoryHoles:  r.MemoryHoles,
-			Pedersen:     r.Pedersen,
-			RangeCheck:   r.RangeCheck,
-			Bitwise:      r.Bitwise,
-			Ecdsa:        r.Ecdsa,
-			EcOp:         r.EcOp,
-			Keccak:       r.Keccak,
-			Poseidon:     r.Poseidon,
-			SegmentArena: r.SegmentArena,
-		}
-	}
-
-	return FunctionInvocation{
-		ContractAddress:    vmFnInvocation.ContractAddress,
-		EntryPointSelector: vmFnInvocation.EntryPointSelector,
-		Calldata:           vmFnInvocation.Calldata,
-		CallerAddress:      vmFnInvocation.CallerAddress,
-		ClassHash:          vmFnInvocation.ClassHash,
-		EntryPointType:     vmFnInvocation.EntryPointType,
-		CallType:           vmFnInvocation.CallType,
-		Result:             vmFnInvocation.Result,
-		Calls:              adaptedCalls,
-		Events:             adaptedEvents,
-		Messages:           adaptedMessages,
-		ExecutionResources: adaptedResources,
 	}
 }
 
@@ -162,23 +83,23 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if fee := feederTrace.FeeTransferInvocation; fee != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fee))
+			trace.FeeTransferInvocation = utils.HeapPtr(rpcv7.AdaptFeederFunctionInvocation(fee))
 		}
 
 		if val := feederTrace.ValidateInvocation; val != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(val))
+			trace.ValidateInvocation = utils.HeapPtr(rpcv7.AdaptFeederFunctionInvocation(val))
 		}
 
-		var fnInvocation *FunctionInvocation
+		var fnInvocation *rpcv7.FunctionInvocation
 		if fct := feederTrace.FunctionInvocation; fct != nil {
-			fnInvocation = utils.HeapPtr(AdaptFeederFunctionInvocation(fct))
+			fnInvocation = utils.HeapPtr(rpcv7.AdaptFeederFunctionInvocation(fct))
 		}
 
 		switch trace.Type {
 		case TxnDeploy, TxnDeployAccount:
 			trace.ConstructorInvocation = fnInvocation
 		case TxnInvoke:
-			trace.ExecuteInvocation = new(ExecuteInvocation)
+			trace.ExecuteInvocation = new(rpcv7.ExecuteInvocation)
 			if feederTrace.RevertError != "" {
 				trace.ExecuteInvocation.RevertReason = feederTrace.RevertError
 			} else {
@@ -195,71 +116,4 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 	}
 
 	return adaptedTraces, nil
-}
-
-func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) FunctionInvocation {
-	// Adapt internal calls
-	adaptedCalls := make([]FunctionInvocation, len(snFnInvocation.InternalCalls))
-	for index := range snFnInvocation.InternalCalls {
-		adaptedCalls[index] = AdaptFeederFunctionInvocation(&snFnInvocation.InternalCalls[index])
-	}
-
-	// Adapt events
-	adaptedEvents := make([]rpcv8.OrderedEvent, len(snFnInvocation.Events))
-	for index := range snFnInvocation.Events {
-		snEvent := &snFnInvocation.Events[index]
-
-		adaptedEvents[index] = rpcv8.OrderedEvent{
-			Order: snEvent.Order,
-			Keys:  utils.Map(snEvent.Keys, utils.HeapPtr[felt.Felt]),
-			Data:  utils.Map(snEvent.Data, utils.HeapPtr[felt.Felt]),
-		}
-	}
-
-	// Adapt messages
-	adaptedMessages := make([]rpcv8.OrderedL2toL1Message, len(snFnInvocation.Messages))
-	for index := range snFnInvocation.Messages {
-		snMessage := &snFnInvocation.Messages[index]
-
-		toAddr, _ := new(felt.Felt).SetString(snMessage.ToAddr)
-
-		adaptedMessages[index] = rpcv8.OrderedL2toL1Message{
-			Order:   snMessage.Order,
-			From:    &snFnInvocation.ContractAddress,
-			To:      toAddr,
-			Payload: utils.Map(snMessage.Payload, utils.HeapPtr[felt.Felt]),
-		}
-	}
-
-	return FunctionInvocation{
-		ContractAddress:    snFnInvocation.ContractAddress,
-		EntryPointSelector: snFnInvocation.Selector,
-		Calldata:           snFnInvocation.Calldata,
-		CallerAddress:      snFnInvocation.CallerAddress,
-		ClassHash:          snFnInvocation.ClassHash,
-		EntryPointType:     snFnInvocation.EntryPointType,
-		CallType:           snFnInvocation.CallType,
-		Result:             snFnInvocation.Result,
-		Calls:              adaptedCalls,
-		Events:             adaptedEvents,
-		Messages:           adaptedMessages,
-		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
-	}
-}
-
-func adaptFeederExecutionResources(resources *starknet.ExecutionResources) ComputationResources {
-	builtins := &resources.BuiltinInstanceCounter
-
-	return ComputationResources{
-		Steps:        resources.Steps,
-		MemoryHoles:  resources.MemoryHoles,
-		Pedersen:     builtins.Pedersen,
-		RangeCheck:   builtins.RangeCheck,
-		Bitwise:      builtins.Bitwise,
-		Ecdsa:        builtins.Ecsda,
-		EcOp:         builtins.EcOp,
-		Keccak:       builtins.Keccak,
-		Poseidon:     builtins.Poseidon,
-		SegmentArena: builtins.SegmentArena,
-	}
 }

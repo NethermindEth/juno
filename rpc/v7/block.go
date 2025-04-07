@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 )
 
@@ -61,6 +60,13 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
+type BlockWithTxHashes struct {
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
+	TxnHashes []*felt.Felt `json:"transactions"`
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
 	Status rpcv8.BlockStatus `json:"status,omitempty"`
@@ -87,7 +93,7 @@ type BlockWithReceipts struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id BlockID) (*rpcv6.BlockWithTxHashes, *jsonrpc.Error) {
+func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -103,7 +109,7 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*rpcv6.BlockWithTxHashes, *json
 		return nil, rpcErr
 	}
 
-	return &rpcv6.BlockWithTxHashes{
+	return &BlockWithTxHashes{
 		Status:      status,
 		BlockHeader: adaptBlockHeader(block.Header),
 		TxnHashes:   txnHashes,

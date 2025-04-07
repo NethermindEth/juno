@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -750,7 +751,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				},
 			}},
 			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
+				ComputationResources: rpcv7.ComputationResources{
 					Steps:      6172,
 					Pedersen:   16,
 					RangeCheck: 208,
@@ -811,7 +812,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				},
 			}},
 			ExecutionResources: &rpc.ExecutionResources{
-				ComputationResources: rpc.ComputationResources{
+				ComputationResources: rpcv7.ComputationResources{
 					Steps:      6172,
 					Pedersen:   16,
 					RangeCheck: 208,
