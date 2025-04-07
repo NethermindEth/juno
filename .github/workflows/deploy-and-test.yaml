@@ -19,10 +19,11 @@ on:
         required: true
         type: string
         description: "Target repository for the image"
-      rpc_version:
+      test_mode:
         required: false
         type: string
-        default: "v0_7"
+        default: "full"
+        description: "Test mode to run (fast or full)"
     secrets:
       ARTIFACTORY_NUBIA_USERNAME:
         required: true
@@ -30,15 +31,17 @@ on:
         required: true
       RPC_URL:
         required: true
+      WS_RPC_URL:
+        required: true
       TEST_ACCOUNT_ADDRESS:
         required: true
       TEST_ACCOUNT_PRIVATE_KEY:
         required: true
 
 concurrency:
-    group: shared_${{ inputs.environment }}_environment
-    cancel-in-progress: false 
-    
+  group: shared_${{ inputs.environment }}_environment
+  cancel-in-progress: false 
+
 permissions:
   contents: read  
 
@@ -92,18 +95,33 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.RPC_URL }}/${{ inputs.rpc_version }}
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_7
 
   starknet-js:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
+    with:
+      test_mode: ${{ inputs.test_mode }}
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}/${{ inputs.rpc_version }}
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_7
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  starknet-go:
+  starknet-go-rpcv07:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: 1ede19210c10f1f1f9c3cb49a42f737cd90eda5e
+      rpc_version: v0_7
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}/${{ inputs.rpc_version }} 
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+
+  starknet-go-rpcv08:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: 7bee770ecbaf9fc8112bcc2d9ef98ed604f7f5e3
+      rpc_version: v0_8
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+      TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}

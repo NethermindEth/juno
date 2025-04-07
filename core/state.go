@@ -38,6 +38,7 @@ type StateHistoryReader interface {
 }
 
 type StateReader interface {
+	ChainHeight() (uint64, error)
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
@@ -58,6 +59,10 @@ func NewState(txn db.Transaction) *State {
 		history: &history{txn: txn},
 		txn:     txn,
 	}
+}
+
+func (s *State) ChainHeight() (uint64, error) {
+	return ChainHeight(s.txn)
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
