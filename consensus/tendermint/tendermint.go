@@ -263,40 +263,34 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
 	if len(proposals) > 0 {
-		for _, addrProposals := range proposals {
-			for _, proposal := range addrProposals {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handleProposal(proposal)
-				}
+		for _, proposal := range proposals {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handleProposal(proposal)
 			}
 		}
 	}
 
 	if len(prevotes) > 0 {
-		for _, addrPrevotes := range prevotes {
-			for _, vote := range addrPrevotes {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrevote(vote)
-				}
+		for _, vote := range prevotes {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handlePrevote(vote)
 			}
 		}
 	}
 
 	if len(precommits) > 0 {
-		for _, addrPrecommits := range precommits {
-			for _, vote := range addrPrecommits {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrecommit(vote)
-				}
+		for _, vote := range precommits {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handlePrecommit(vote)
 			}
 		}
 	}
@@ -419,12 +413,10 @@ func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingP
 	}
 
 	var vals []A
-	for addr, valPrecommits := range precommits {
-		for _, p := range valPrecommits {
-			if *p.ID == vID {
-				matchingPrecommits = append(matchingPrecommits, p)
-				vals = append(vals, addr)
-			}
+	for addr, p := range precommits {
+		if *p.ID == vID {
+			matchingPrecommits = append(matchingPrecommits, p)
+			vals = append(vals, addr)
 		}
 	}
 	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
@@ -438,36 +430,24 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 	}
 
 	var vals []A
-	for addr, valPrevotes := range prevotes {
-		for _, p := range valPrevotes {
-			if *p.ID == vID {
-				vals = append(vals, addr)
-			}
+	for addr, p := range prevotes {
+		if *p.ID == vID {
+			vals = append(vals, addr)
 		}
 	}
 	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id *H) *CachedProposal[V, H, A] {
-	if id == nil {
-		return nil
-	}
-
-	proposals, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
+func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
+	v, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
 	if !ok {
 		return nil
 	}
 
-	for _, v := range proposals {
-		if (*v.Value).Hash() == *id {
-			return &CachedProposal[V, H, A]{
-				Proposal: v,
-				Valid:    t.application.Valid(*v.Value),
-				ID:       id,
-			}
-		}
+	return &CachedProposal[V, H, A]{
+		Proposal: v,
+		Valid:    t.application.Valid(*v.Value),
+		ID:       utils.HeapPtr((*v.Value).Hash()),
 	}
-
-	return nil
 }
