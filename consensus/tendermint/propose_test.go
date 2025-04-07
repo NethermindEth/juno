@@ -47,7 +47,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(rPrimeVal.Hash()),
 		}
 
-		algo.futureMessages.addPrevote(val3Prevote)
+		algo.messages.addPrevote(val3Prevote)
 		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
 			value, felt.Felt, felt.Felt])
 		proposalListener.send(val2Proposal)
@@ -102,7 +102,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(rPrimeVal.Hash()),
 		}
 
-		algo.futureMessages.addPrevote(val2Prevote)
+		algo.messages.addPrevote(val2Prevote)
 		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val3Prevote)
@@ -156,7 +156,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(round4Value.Hash()),
 		}
 
-		algo.futureMessages.addPrevote(val3Prevote)
+		algo.messages.addPrevote(val3Prevote)
 		prevoteListener := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val2Precommit)
@@ -431,7 +431,9 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 2, len(algo.scheduledTms))
+		assert.Equal(t, 3, len(algo.scheduledTms))
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 0})
+		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
 		assert.Equal(t, propose, algo.state.step)
@@ -514,7 +516,9 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Equal(t, 2, len(algo.scheduledTms))
+		assert.Equal(t, 3, len(algo.scheduledTms))
+		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 0})
+		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
 		assert.Equal(t, propose, algo.state.step)
