@@ -195,9 +195,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if kErr != nil {
 			return nil, kErr
 		}
-		mempool, mempoolCloser := mempool.New(database, chain, mempoolLimit, log)
+		mempool := mempool.New(database, chain, mempoolLimit, log)
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(sequencerAddress), chain, nodeVM,
-			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database, mempoolCloser)
+			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database)
 		sequencer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(sequencer.PendingBlock)
 		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network)

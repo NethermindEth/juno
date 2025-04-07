@@ -44,7 +44,6 @@ type Builder struct {
 	subPendingBlock *feed.Feed[*core.Block]
 	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
 	mempool         *mempool.Pool
-	mempoolCloser   func() error
 	plugin          plugin.JunoPlugin
 
 	pendingBlock atomic.Pointer[sync.Pending]
@@ -56,7 +55,6 @@ type Builder struct {
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
 	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.DB,
-	mempoolCloser func() error,
 ) Builder {
 	return Builder{
 		ownAddress: *ownAddr,
@@ -72,7 +70,6 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		subNewHeads:     feed.New[*core.Block](),
 		subPendingBlock: feed.New[*core.Block](),
 		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
-		mempoolCloser:   mempoolCloser,
 		finaliseMutex:   musync.RWMutex{},
 	}
 }
@@ -123,9 +120,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 
 func (b *Builder) Run(ctx context.Context) error {
 	defer func() {
-		if err := b.mempoolCloser(); err != nil {
-			b.log.Errorw("closing mempool", "err", err)
-		}
+		b.mempool.Close()
 	}()
 	// Clear pending state on shutdown
 	defer func() {

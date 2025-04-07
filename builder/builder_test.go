@@ -85,8 +85,8 @@ func TestSign(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB, closer)
+	p := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -103,10 +103,10 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, closer := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	p := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
 
 	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, closer)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
@@ -183,7 +183,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p, mempoolCloser := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	p := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, mempoolCloser)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)

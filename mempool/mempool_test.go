@@ -50,7 +50,7 @@ func TestMempool(t *testing.T) {
 
 	require.NoError(t, err)
 	defer dbCloser()
-	pool, closer := mempool.New(testDB, chain, 4, log)
+	pool := mempool.New(testDB, chain, 4, log)
 	require.NoError(t, pool.LoadFromDB())
 
 	require.Equal(t, 0, pool.Len())
@@ -114,7 +114,7 @@ func TestMempool(t *testing.T) {
 
 	_, err = pool.Pop()
 	require.Equal(t, err.Error(), "transaction pool is empty")
-	require.NoError(t, closer())
+	pool.Close()
 }
 
 func TestRestoreMempool(t *testing.T) {
@@ -126,7 +126,7 @@ func TestRestoreMempool(t *testing.T) {
 	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
 	defer dbDeleter()
-	pool, mempoolCloser := mempool.New(testDB, chain, 1024, log)
+	pool := mempool.New(testDB, chain, 1024, log)
 	require.NoError(t, pool.LoadFromDB())
 	// Check both pools are empty
 	lenDB, err := pool.LenDB()
@@ -155,12 +155,12 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	// Close the mempool
-	require.NoError(t, mempoolCloser())
+	pool.Close()
 	require.NoError(t, testDB.Close())
 	testDB, _, err = setupDatabase("testrestoremempool", false)
 	require.NoError(t, err)
 
-	poolRestored, mempoolCloser2 := mempool.New(testDB, chain, 1024, log)
+	poolRestored := mempool.New(testDB, chain, 1024, log)
 	time.Sleep(100 * time.Millisecond)
 	require.NoError(t, poolRestored.LoadFromDB())
 	lenDB, err = poolRestored.LenDB()
@@ -177,7 +177,7 @@ func TestRestoreMempool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
 	require.Equal(t, 1, poolRestored.Len())
-	require.NoError(t, mempoolCloser2())
+	poolRestored.Close()
 }
 
 func TestWait(t *testing.T) {
@@ -199,7 +199,7 @@ func TestWait(t *testing.T) {
 	for k := range stateUpdate0.StateDiff.Nonces {
 		address = k
 	}
-	pool, mempoolCloser := mempool.New(testDB, bc, 1024, log)
+	pool := mempool.New(testDB, bc, 1024, log)
 	require.NoError(t, pool.LoadFromDB())
 
 	select {
@@ -219,6 +219,5 @@ func TestWait(t *testing.T) {
 		},
 	}))
 	<-pool.Wait()
-
-	require.NoError(t, mempoolCloser())
+	pool.Close()
 }

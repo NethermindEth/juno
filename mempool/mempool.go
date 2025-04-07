@@ -89,7 +89,7 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
+func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) *Pool {
 	pool := Pool{
 		log:         log,
 		bc:          bc,
@@ -99,13 +99,13 @@ func New(mainDB db.DB, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLog
 		maxNumTxns:  maxNumTxns,
 		dbWriteChan: make(chan *BroadcastedTransaction, maxNumTxns),
 	}
-	closer := func() error {
-		close(pool.dbWriteChan)
-		pool.wg.Wait()
-		return nil
-	}
 	pool.dbWriter()
-	return &pool, closer
+	return &pool
+}
+
+func (p *Pool) Close() {
+	close(p.dbWriteChan)
+	p.wg.Wait()
 }
 
 func (p *Pool) dbWriter() {
