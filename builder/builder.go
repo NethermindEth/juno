@@ -189,12 +189,12 @@ func (b *Builder) InitPendingBlock() error {
 			Number:           header.Number + 1,
 			SequencerAddress: &b.ownAddress,
 			// Todo: dynamically set fees (follow-up PR)
-			L1GasPriceETH:  new(felt.Felt).SetUint64(1),
-			L1GasPriceSTRK: new(felt.Felt).SetUint64(1),
+			L1GasPriceETH:  felt.One.Clone(),
+			L1GasPriceSTRK: felt.One.Clone(),
 			L1DAMode:       core.Calldata,
 			L1DataGasPrice: &core.GasPrice{
-				PriceInWei: new(felt.Felt).SetUint64(1),
-				PriceInFri: new(felt.Felt).SetUint64(1),
+				PriceInWei: felt.One.Clone(),
+				PriceInFri: felt.One.Clone(),
 			},
 		},
 		Transactions: []core.Transaction{},
@@ -380,7 +380,8 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	}
 
 	// Handle declared classes for declare transactions
-	if b.hasDeclaredClasses(vmResults.Traces[0].StateDiff) {
+	if vmResults.Traces[0].StateDiff.DeclaredClasses != nil ||
+		vmResults.Traces[0].StateDiff.DeprecatedDeclaredClasses != nil {
 		if err := b.processClassDeclaration(txn, &state); err != nil {
 			return err
 		}
@@ -393,14 +394,9 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	seqTrace := vm2core.AdaptStateDiff(vmResults.Traces[0].StateDiff)
 
 	// Update pending block with transaction results
-	b.updatePendingBlock(pending, receipt, txn.Transaction, seqTrace)
+	b.updatePendingBlock(pending, &receipt, txn.Transaction, seqTrace)
 
 	return b.StorePending(pending)
-}
-
-// hasDeclaredClasses checks if the state diff contains declared classes
-func (b *Builder) hasDeclaredClasses(stateDiff *vm.StateDiff) bool {
-	return stateDiff.DeclaredClasses != nil || stateDiff.DeprecatedDeclaredClasses != nil
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
