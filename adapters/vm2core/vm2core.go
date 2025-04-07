@@ -90,28 +90,31 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 
 func Receipt(fee *felt.Felt, txn core.Transaction,
 	trace *vm.TransactionTrace, txnReceipt *vm.TransactionReceipt,
-) *core.TransactionReceipt {
+) core.TransactionReceipt {
 	// Determine fee unit based on transaction version
 	feeUnit := core.WEI
 	if txn.TxVersion().Is(3) {
 		feeUnit = core.STRK
 	}
 
-	return &core.TransactionReceipt{
+	adaptedER := AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas)
+	isReverted := trace.ExecuteInvocation != nil && trace.ExecuteInvocation.FunctionInvocation == nil
+	return core.TransactionReceipt{
 		Fee:                fee,
 		FeeUnit:            feeUnit,
 		Events:             AdaptOrderedEvents(trace.AllEvents()),
-		ExecutionResources: AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas),
+		ExecutionResources: &adaptedER,
 		L1ToL2Message:      nil, // Todo: sequencer currently can't post messages to L1 (follow up PR)
 		L2ToL1Message:      AdaptOrderedMessagesToL1(trace.AllMessages()),
 		TransactionHash:    txn.Hash(),
-		Reverted:           trace.IsReverted(),
+		Reverted:           isReverted,
 		RevertReason:       trace.RevertReason(),
 	}
 }
 
-func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasConsumed) *core.ExecutionResources {
-	return &core.ExecutionResources{
+func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasConsumed) core.ExecutionResources {
+	adaptedDA := adaptDA(resources.DataAvailability)
+	return core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
 			Pedersen:     resources.Pedersen,
 			RangeCheck:   resources.RangeCheck,
@@ -128,17 +131,17 @@ func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasC
 		},
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,
-		DataAvailability: adaptDA(resources.DataAvailability),
+		DataAvailability: &adaptedDA,
 		TotalGasConsumed: &core.GasConsumed{L1Gas: totalGas.L1Gas, L1DataGas: totalGas.L1DataGas, L2Gas: 0}, // Todo
 	}
 }
 
-func adaptDA(da *vm.DataAvailability) *core.DataAvailability {
+func adaptDA(da *vm.DataAvailability) core.DataAvailability {
 	if da == nil {
-		return nil
+		return core.DataAvailability{}
 	}
 
-	return &core.DataAvailability{
+	return core.DataAvailability{
 		L1Gas:     da.L1Gas,
 		L1DataGas: da.L1DataGas,
 	}

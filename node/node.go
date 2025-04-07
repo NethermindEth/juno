@@ -48,6 +48,7 @@ const (
 	mempoolLimit     = 1024
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress = 1337
 )
 
 // Config is the top-level juno configuration.
@@ -194,13 +195,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if kErr != nil {
 			return nil, kErr
 		}
-		poolDB, err := pebble.NewMem()
-		if err != nil {
-			return nil, err
-		}
-		mempool, mempoolCloser := mempool.New(poolDB, chain, mempoolLimit, log)
-
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(1337), chain, nodeVM, //nolint:mnd
+		mempool, mempoolCloser := mempool.New(database, chain, mempoolLimit, log)
+		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(sequencerAddress), chain, nodeVM,
 			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database, mempoolCloser)
 		sequencer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(sequencer.PendingBlock)

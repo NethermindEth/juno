@@ -282,7 +282,7 @@ db-path: /home/.juno
 network: sepolia
 pprof: true
 `,
-			expectedConfig: &node.Config{ //nolint:dupl // false trigger (see Pprof,DatabasePath)
+			expectedConfig: &node.Config{ //nolint:dupl // false trigger (see `Pprof`, `DatabasePath` fields)
 				LogLevel:            "debug",
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",

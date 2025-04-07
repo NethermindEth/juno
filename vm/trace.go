@@ -133,10 +133,6 @@ func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
 	return total
 }
 
-func (t *TransactionTrace) IsReverted() bool {
-	return t.ExecuteInvocation != nil && t.ExecuteInvocation.FunctionInvocation == nil
-}
-
 type TransactionReceipt struct {
 	Fee   *felt.Felt
 	Gas   GasConsumed

@@ -180,12 +180,12 @@ pathfinder: juno-cached ## Run a node to sync from pathfinder feedernode. P2P us
 test-fuzz: ## Run fuzzing script
 	./scripts/fuzz_all.sh
 
-sequencer:
+sequencer: juno-cached
 	./build/juno \
 	--http \
 	--http-port=6060 \
 	--http-host=0.0.0.0 \
-	--db-path=../seq-db-tmp \
+	--db-path=./seq-db-tmp \
 	--log-level=debug \
 	--seq-enable \
 	--seq-block-time=1 \
@@ -193,12 +193,12 @@ sequencer:
 	--disable-l1-verification \
 	--rpc-call-max-steps=4123000
 
-sequencer-with-accounts:
+sequencer-with-accounts: juno-cached
 	./build/juno \
     --http \
     --http-port=6060 \
     --http-host=0.0.0.0 \
-    --db-path=../seq-db-tmp-w-accounts \
+    --db-path=./seq-db-tmp-w-accounts \
     --log-level=debug \
     --seq-enable \
     --seq-block-time=1 \

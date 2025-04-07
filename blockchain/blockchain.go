@@ -342,7 +342,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 			return err
 		}
 
-		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, true); err != nil {
+		if err := core.NewState(txn).Update(block.Number, stateUpdate, newClasses, false); err != nil {
 			return err
 		}
 		if err := StoreBlockHeader(txn, block.Header); err != nil {
@@ -1046,7 +1046,10 @@ func (b *Blockchain) signBlock(block *core.Block, stateUpdate *core.StateUpdate,
 }
 
 // storeBlockData persists all block-related data to the database
-func (b *Blockchain) storeBlockData(txn db.Transaction, block *core.Block, stateUpdate *core.StateUpdate,
+func (b *Blockchain) storeBlockData(
+	txn db.Transaction,
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
 	commitments *core.BlockCommitments,
 ) error {
 	// Store block header
