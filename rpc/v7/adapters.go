@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -48,9 +49,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		resources = utils.HeapPtr(adaptVMExecutionResources(trace.ExecutionResources))
 	}
 
-	var stateDiff *rpcv6.StateDiff
+	var stateDiff *rpcv8.StateDiff
 	if trace.StateDiff != nil {
-		stateDiff = utils.HeapPtr(rpcv6.AdaptVMStateDiff(trace.StateDiff))
+		stateDiff = utils.HeapPtr(rpcv8.AdaptVMStateDiff(trace.StateDiff))
 	}
 
 	return TransactionTrace{

@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 )
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
@@ -62,8 +63,8 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
-	rpcv6.BlockHeader
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
@@ -73,8 +74,8 @@ type TransactionWithReceipt struct {
 }
 
 type BlockWithReceipts struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
-	rpcv6.BlockHeader
+	Status rpcv8.BlockStatus `json:"status,omitempty"`
+	rpcv8.BlockHeader
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
 
@@ -121,7 +122,7 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 	}
 
 	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == rpcv6.BlockAcceptedL1 {
+	if blockStatus == rpcv8.BlockAcceptedL1 {
 		finalityStatus = TxnAcceptedOnL1
 	}
 
@@ -170,23 +171,23 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv8.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := rpcv6.BlockAcceptedL2
+	status := rpcv8.BlockAcceptedL2
 	if id.Pending {
-		status = rpcv6.BlockPending
+		status = rpcv8.BlockPending
 	} else if isL1Verified(block.Number, l1H) {
-		status = rpcv6.BlockAcceptedL1
+		status = rpcv8.BlockAcceptedL1
 	}
 
 	return status, nil
 }
 
-func adaptBlockHeader(header *core.Header) rpcv6.BlockHeader {
+func adaptBlockHeader(header *core.Header) rpcv8.BlockHeader {
 	var blockNumber *uint64
 	// if header.Hash == nil it's a pending block
 	if header.Hash != nil {
@@ -198,35 +199,35 @@ func adaptBlockHeader(header *core.Header) rpcv6.BlockHeader {
 		sequencerAddress = &felt.Zero
 	}
 
-	var l1DAMode rpcv6.L1DAMode
+	var l1DAMode rpcv8.L1DAMode
 	switch header.L1DAMode {
 	case core.Blob:
-		l1DAMode = rpcv6.Blob
+		l1DAMode = rpcv8.Blob
 	case core.Calldata:
-		l1DAMode = rpcv6.Calldata
+		l1DAMode = rpcv8.Calldata
 	}
 
-	var l1DataGasPrice rpcv6.ResourcePrice
+	var l1DataGasPrice rpcv8.ResourcePrice
 	if header.L1DataGasPrice != nil {
-		l1DataGasPrice = rpcv6.ResourcePrice{
+		l1DataGasPrice = rpcv8.ResourcePrice{
 			InWei: nilToZero(header.L1DataGasPrice.PriceInWei),
 			InFri: nilToZero(header.L1DataGasPrice.PriceInFri),
 		}
 	} else {
-		l1DataGasPrice = rpcv6.ResourcePrice{
+		l1DataGasPrice = rpcv8.ResourcePrice{
 			InWei: &felt.Zero,
 			InFri: &felt.Zero,
 		}
 	}
 
-	return rpcv6.BlockHeader{
+	return rpcv8.BlockHeader{
 		Hash:             header.Hash,
 		ParentHash:       header.ParentHash,
 		Number:           blockNumber,
 		NewRoot:          header.GlobalStateRoot,
 		Timestamp:        header.Timestamp,
 		SequencerAddress: sequencerAddress,
-		L1GasPrice: &rpcv6.ResourcePrice{
+		L1GasPrice: &rpcv8.ResourcePrice{
 			InWei: header.L1GasPriceETH,
 			InFri: nilToZero(header.L1GasPriceSTRK),
 		},

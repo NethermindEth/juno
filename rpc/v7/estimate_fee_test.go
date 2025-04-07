@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +44,7 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         123,
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv8.SimulationFlag{}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -58,7 +58,7 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         123,
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv8.SimulationFlag{rpcv8.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -70,7 +70,7 @@ func TestEstimateFee(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv8.SimulationFlag{rpcv8.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
@@ -95,7 +95,7 @@ func TestEstimateFee(t *testing.T) {
 			},
 			ContractClass: json.RawMessage(`{}`),
 		}
-		_, _, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{invalidTx}, []rpcv6.SimulationFlag{}, rpcv7.BlockID{Latest: true})
+		_, _, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{invalidTx}, []rpcv8.SimulationFlag{}, rpcv7.BlockID{Latest: true})
 		expectedErr := &jsonrpc.Error{
 			Code:    jsonrpc.InvalidParams,
 			Message: "Invalid Params",

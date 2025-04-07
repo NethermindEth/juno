@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -135,11 +134,11 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	checkBlock := func(t *testing.T, b *rpcv8.BlockWithTxHashes) {
 		t.Helper()
-		assert.Equal(t, latestBlock.Hash, b.Hash)
-		assert.Equal(t, latestBlock.GlobalStateRoot, b.NewRoot)
-		assert.Equal(t, latestBlock.ParentHash, b.ParentHash)
-		assert.Equal(t, latestBlock.SequencerAddress, b.SequencerAddress)
-		assert.Equal(t, latestBlock.Timestamp, b.Timestamp)
+		assert.Equal(t, latestBlock.Hash, b.BlockHeader.Hash)
+		assert.Equal(t, latestBlock.GlobalStateRoot, b.BlockHeader.NewRoot)
+		assert.Equal(t, latestBlock.ParentHash, b.BlockHeader.ParentHash)
+		assert.Equal(t, latestBlock.SequencerAddress, b.BlockHeader.SequencerAddress)
+		assert.Equal(t, latestBlock.Timestamp, b.BlockHeader.Timestamp)
 		assert.Equal(t, len(latestBlock.Transactions), len(b.TxnHashes))
 		for i := range len(latestBlock.Transactions) {
 			assert.Equal(t, latestBlock.Transactions[i].Hash(), b.TxnHashes[i])
@@ -149,10 +148,10 @@ func TestBlockWithTxHashes(t *testing.T) {
 	checkLatestBlock := func(t *testing.T, b *rpcv8.BlockWithTxHashes) {
 		t.Helper()
 		if latestBlock.Hash != nil {
-			assert.Equal(t, latestBlock.Number, *b.Number)
+			assert.Equal(t, latestBlock.Number, *b.BlockHeader.Number)
 		} else {
-			assert.Nil(t, b.Number)
-			assert.Equal(t, rpcv6.BlockPending, b.Status)
+			assert.Nil(t, b.BlockHeader.Number)
+			assert.Equal(t, rpcv8.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
 	}
@@ -198,7 +197,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
 		require.Nil(t, rpcErr)
 
-		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
+		assert.Equal(t, rpcv8.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
@@ -386,31 +385,31 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	got.Transactions = got.Transactions[:1]
 
 	require.Equal(t, &rpcv8.BlockWithTxs{
-		BlockHeader: rpcv8.BlockHeader{
-			BlockHeader: rpcv6.BlockHeader{
+		BlockHeader: rpcv8.BlockHeaderV8{
+			BlockHeader: rpcv8.BlockHeader{
 				Hash:            coreBlock.Hash,
 				StarknetVersion: coreBlock.ProtocolVersion,
 				NewRoot:         coreBlock.GlobalStateRoot,
 				Number:          &coreBlock.Number,
 				ParentHash:      coreBlock.ParentHash,
-				L1DAMode:        utils.HeapPtr(rpcv6.Blob),
-				L1GasPrice: &rpcv6.ResourcePrice{
+				L1DAMode:        utils.HeapPtr(rpcv8.Blob),
+				L1GasPrice: &rpcv8.ResourcePrice{
 					InFri: utils.HexToFelt(t, "0x17882b6aa74"),
 					InWei: utils.HexToFelt(t, "0x3b9aca10"),
 				},
-				L1DataGasPrice: &rpcv6.ResourcePrice{
+				L1DataGasPrice: &rpcv8.ResourcePrice{
 					InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
 					InWei: utils.HexToFelt(t, "0x716a8f6dd"),
 				},
 				SequencerAddress: coreBlock.SequencerAddress,
 				Timestamp:        coreBlock.Timestamp,
 			},
-			L2GasPrice: &rpcv6.ResourcePrice{
+			L2GasPrice: &rpcv8.ResourcePrice{
 				InFri: &felt.Zero,
 				InWei: &felt.Zero,
 			},
 		},
-		Status: rpcv6.BlockAcceptedL2,
+		Status: rpcv8.BlockAcceptedL2,
 		Transactions: []*rpcv8.Transaction{
 			{
 				Hash:               tx.Hash(),
@@ -503,9 +502,9 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
-			Status: rpcv6.BlockPending,
-			BlockHeader: rpcv8.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
+			Status: rpcv8.BlockPending,
+			BlockHeader: rpcv8.BlockHeaderV8{
+				BlockHeader: rpcv8.BlockHeader{
 					Hash:             header.Hash,
 					ParentHash:       header.ParentHash,
 					Number:           header.Number,
@@ -551,9 +550,9 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		assert.Nil(t, rpcErr)
 		assert.Equal(t, &rpcv8.BlockWithReceipts{
-			Status: rpcv6.BlockAcceptedL1,
-			BlockHeader: rpcv8.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
+			Status: rpcv8.BlockAcceptedL1,
+			BlockHeader: rpcv8.BlockHeaderV8{
+				BlockHeader: rpcv8.BlockHeader{
 					Hash:             header.Hash,
 					ParentHash:       header.ParentHash,
 					Number:           header.Number,

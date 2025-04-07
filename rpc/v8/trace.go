@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -32,7 +31,7 @@ type TransactionTrace struct {
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
 	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
+	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
@@ -50,19 +49,32 @@ func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
 }
 
 type FunctionInvocation struct {
-	ContractAddress    felt.Felt                    `json:"contract_address"`
-	EntryPointSelector *felt.Felt                   `json:"entry_point_selector"`
-	Calldata           []felt.Felt                  `json:"calldata"`
-	CallerAddress      felt.Felt                    `json:"caller_address"`
-	ClassHash          *felt.Felt                   `json:"class_hash"`
-	EntryPointType     string                       `json:"entry_point_type"` // shouldnt we put it as enum here ?
-	CallType           string                       `json:"call_type"`        // shouldnt we put it as enum here ?
-	Result             []felt.Felt                  `json:"result"`
-	Calls              []FunctionInvocation         `json:"calls"`
-	Events             []rpcv6.OrderedEvent         `json:"events"`
-	Messages           []rpcv6.OrderedL2toL1Message `json:"messages"`
-	ExecutionResources *InnerExecutionResources     `json:"execution_resources"`
-	IsReverted         bool                         `json:"is_reverted"`
+	ContractAddress    felt.Felt                `json:"contract_address"`
+	EntryPointSelector *felt.Felt               `json:"entry_point_selector"`
+	Calldata           []felt.Felt              `json:"calldata"`
+	CallerAddress      felt.Felt                `json:"caller_address"`
+	ClassHash          *felt.Felt               `json:"class_hash"`
+	EntryPointType     string                   `json:"entry_point_type"` // shouldnt we put it as enum here ?
+	CallType           string                   `json:"call_type"`        // shouldnt we put it as enum here ?
+	Result             []felt.Felt              `json:"result"`
+	Calls              []FunctionInvocation     `json:"calls"`
+	Events             []OrderedEvent           `json:"events"`
+	Messages           []OrderedL2toL1Message   `json:"messages"`
+	ExecutionResources *InnerExecutionResources `json:"execution_resources"`
+	IsReverted         bool                     `json:"is_reverted"`
+}
+
+type OrderedEvent struct {
+	Order uint64       `json:"order"`
+	Keys  []*felt.Felt `json:"keys"`
+	Data  []*felt.Felt `json:"data"`
+}
+
+type OrderedL2toL1Message struct {
+	Order   uint64       `json:"order"`
+	From    *felt.Felt   `json:"from_address"`
+	To      *felt.Felt   `json:"to_address"`
+	Payload []*felt.Felt `json:"payload"`
 }
 
 /****************************************************
