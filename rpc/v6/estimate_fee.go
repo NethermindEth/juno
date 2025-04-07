@@ -54,7 +54,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 }
 
 func (h *Handler) EstimateMessageFee(msg rpcv8.MsgFromL1, id BlockID) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
-	feeEstimate, rpcErr := h.estimateMessageFee(msg, id, h.EstimateFee)
+	feeEstimate, rpcErr := h.estimateMessageFee(&msg, id, h.EstimateFee)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -65,7 +65,11 @@ type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []rpcv8.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, *jsonrpc.Error)
 
-func (h *Handler) estimateMessageFee(msg rpcv8.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) estimateMessageFee(
+	msg *rpcv8.MsgFromL1,
+	id BlockID,
+	f estimateFeeHandler,
+) (*FeeEstimate, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
 	// The order of the calldata parameters matters. msg.From must be prepended.
 	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
