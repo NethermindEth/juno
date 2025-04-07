@@ -137,7 +137,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val3)
 		vals.addValidator(*val4)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
@@ -162,7 +162,7 @@ func TestStartRound(t *testing.T) {
 		assert.Contains(t, algo.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
 		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
 
-		assert.Equal(t, propose, algo.state.step)
+		assert.Equal(t, prevote, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
 		assert.Equal(t, expectedRound, algo.state.round)
 	})
@@ -176,7 +176,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		algo.Start()
 		algo.Stop()
@@ -207,7 +207,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{

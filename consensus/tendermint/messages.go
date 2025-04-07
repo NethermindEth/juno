@@ -96,9 +96,3 @@ func (m *messages[V, H, A]) deleteHeightMessages(h height) {
 	delete(m.prevotes, h)
 	delete(m.precommits, h)
 }
-
-func (m *messages[V, H, A]) deleteRoundMessages(h height, r round) {
-	delete(m.proposals[h], r)
-	delete(m.prevotes[h], r)
-	delete(m.precommits[h], r)
-}

@@ -11,11 +11,10 @@ Check the upon condition on line 28:
 	32:  	broadcast {PREVOTE, hp, round_p, nil}
 	33: step_p ← prevote
 */
-func (t *Tendermint[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A], prevoteRound round) bool {
+func (t *Tendermint[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
 	vr := cachedProposal.ValidRound
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
-	return cachedProposal.ValidRound == prevoteRound &&
-		hasQuorum &&
+	return hasQuorum &&
 		t.state.step == propose &&
 		vr >= 0 &&
 		vr < t.state.round
