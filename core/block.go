@@ -398,6 +398,10 @@ func MarshalBlockNumber(blockNumber uint64) []byte {
 	return numBytes
 }
 
+func UnmarshalBlockNumber(val []byte) uint64 {
+	return binary.BigEndian.Uint64(val)
+}
+
 func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {

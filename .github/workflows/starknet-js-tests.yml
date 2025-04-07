@@ -2,6 +2,11 @@ name: starknet-js tests
 
 on:
   workflow_call:
+    inputs:
+      test_mode:
+        type: string
+        default: 'full'
+        description: 'Test mode to run (fast or full)'
     secrets:
       TEST_RPC_URL:
         required: false
@@ -27,9 +32,18 @@ jobs:
   
       - name: Install dependencies
         run: npm ci
-  
-      - name: Run tests
-        run: npm test -- rpcProvider.test.ts transactionReceipt.test.ts rpcChannel.test.ts defaultProvider.test.ts contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts cairo1.test.ts account.test.ts account.starknetId.test.ts --testNamePattern="^(?!.*(getSyncingStats|traceTransaction)).*$"
+      
+      - name: Set test configuration
+        id: tests
+        run: |
+          if [ "${{ inputs.test_mode }}" == "fast" ]; then
+            echo "tests=rpcProvider.test.ts transactionReceipt.test.ts rpcChannel.test.ts defaultProvider.test.ts" >> $GITHUB_OUTPUT
+          else
+            echo "tests=rpcProvider.test.ts transactionReceipt.test.ts rpcChannel.test.ts defaultProvider.test.ts contract.test.ts cairo1v2.test.ts cairo1v2_typed.test.ts cairo1.test.ts account.test.ts account.starknetId.test.ts" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Run tests (${{ inputs.test_mode }} mode)
+        run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction)).*$"
         env:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
