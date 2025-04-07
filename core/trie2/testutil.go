@@ -107,6 +107,39 @@ func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader,
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 
+func (d *TestNodeDatabase) Commit(stateComm felt.Felt) error {
+	if stateComm == d.root {
+		return nil
+	}
+
+	pending, roots := d.dirties(stateComm, false)
+	for i, nodes := range pending {
+		for owner, set := range nodes.ChildSets {
+			// Write contract storage trie nodes
+			if err := set.ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
+				return writeNode(d.disk, trieutils.NewContractStorageTrieID(stateComm, owner), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Write contract trie nodes
+		if err := nodes.OwnerSet.ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
+			return writeNode(d.disk, trieutils.NewContractTrieID(stateComm), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
+		}); err != nil {
+			return err
+		}
+		d.root = roots[i]
+	}
+
+	for _, root := range roots {
+		delete(d.nodes, root)
+		delete(d.rootLinks, root)
+	}
+
+	return nil
+}
+
 func (d *TestNodeDatabase) dirties(root felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
 	var (
 		pending []*trienode.MergeNodeSet
