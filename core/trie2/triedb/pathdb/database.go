@@ -10,7 +10,9 @@ import (
 
 var _ database.TrieDB = (*Database)(nil)
 
-type Config struct{} // TODO(weiihann): handle this
+type Config struct {
+	CleanCacheSize int // Maximum size (in bytes) for caching clean nodes
+} // TODO(weiihann): handle this
 
 type Database struct {
 	disk db.KeyValueStore

@@ -27,16 +27,27 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 }
 
 func (n *testNodeReader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+	var (
+		node trienode.TrieNode
+		set  *trienode.NodeSet
+		ok   bool
+	)
 	for _, nodes := range n.nodes {
-		if _, ok := nodes.Sets[owner]; !ok {
-			continue
+		if nodes.OwnerSet.Owner.IsZero() {
+			node, ok = nodes.OwnerSet.Nodes[path]
+			if !ok {
+				continue
+			}
+		} else {
+			set, ok = nodes.ChildSets[owner]
+			if !ok {
+				continue
+			}
+			node, ok = set.Nodes[path]
+			if !ok {
+				continue
+			}
 		}
-
-		node, ok := nodes.Sets[owner].Nodes[path]
-		if !ok {
-			continue
-		}
-
 		nHash := node.Hash()
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			return nil, &MissingNodeError{owner: owner, path: path, hash: nHash}
@@ -113,11 +124,7 @@ func (d *TestNodeDatabase) Commit(stateComm felt.Felt) error {
 
 	pending, roots := d.dirties(stateComm, false)
 	for i, nodes := range pending {
-		for owner, set := range nodes.Sets {
-			if owner.Equal(&felt.Zero) {
-				continue
-			}
-
+		for owner, set := range nodes.ChildSets {
 			// Write contract storage trie nodes
 			if err := set.ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
 				return writeNode(d.disk, trieutils.NewContractStorageTrieID(stateComm, owner), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
@@ -127,7 +134,7 @@ func (d *TestNodeDatabase) Commit(stateComm felt.Felt) error {
 		}
 
 		// Write contract trie nodes
-		if err := nodes.Sets[felt.Zero].ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
+		if err := nodes.OwnerSet.ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
 			return writeNode(d.disk, trieutils.NewContractTrieID(stateComm), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
 		}); err != nil {
 			return err

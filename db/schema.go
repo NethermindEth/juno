@@ -130,6 +130,10 @@ func ContractHistoryStorageKey(addr, key *felt.Felt, blockNum uint64) []byte {
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }
 
+func StateIDKey(root felt.Felt) []byte {
+	return StateID.Key(root.Marshal())
+}
+
 func uint64ToBytes(num uint64) [8]byte {
 	var numBytes [8]byte
 	binary.BigEndian.PutUint64(numBytes[:], num)

@@ -1,6 +1,8 @@
 package trieutils
 
 import (
+	"encoding/binary"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
@@ -30,6 +32,47 @@ func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, pa
 func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner felt.Felt) error {
 	prefix := db.ContractTrieStorage.Key(owner.Marshal())
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
+}
+
+func WriteStateID(w db.KeyValueWriter, root felt.Felt, id uint64) error {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], id)
+	return w.Put(db.StateIDKey(root), buf[:])
+}
+
+func ReadStateID(r db.KeyValueReader, root felt.Felt) (uint64, error) {
+	key := db.StateIDKey(root)
+
+	var id uint64
+	if err := r.Get(key, func(value []byte) error {
+		id = binary.BigEndian.Uint64(value)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func DeleteStateID(w db.KeyValueWriter, root felt.Felt) error {
+	return w.Delete(db.StateIDKey(root))
+}
+
+func ReadPersistedStateID(r db.KeyValueReader) (uint64, error) {
+	var id uint64
+	if err := r.Get(db.PersistedStateID.Key(), func(value []byte) error {
+		id = binary.BigEndian.Uint64(value)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], id)
+	return w.Put(db.PersistedStateID.Key(), buf[:])
 }
 
 // Construct key bytes to insert a trie node. The format is as follows:
