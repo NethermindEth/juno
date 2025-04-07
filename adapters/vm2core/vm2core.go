@@ -138,7 +138,10 @@ func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasC
 
 func adaptDA(da *vm.DataAvailability) core.DataAvailability {
 	if da == nil {
-		return core.DataAvailability{}
+		return core.DataAvailability{
+			L1Gas:     0,
+			L1DataGas: 0,
+		}
 	}
 
 	return core.DataAvailability{
