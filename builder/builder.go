@@ -389,7 +389,7 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	seqTrace := vm2core.AdaptStateDiff(vmResults.Traces[0].StateDiff)
 
 	// Update pending block with transaction results
-	b.updatePendingBlock(pending, &receipt, txn.Transaction, seqTrace)
+	updatePendingBlock(pending, &receipt, txn.Transaction, seqTrace)
 
 	return b.StorePending(pending)
 }
@@ -413,8 +413,11 @@ func (b *Builder) processClassDeclaration(txn *mempool.BroadcastedTransaction, s
 }
 
 // updatePendingBlock updates the pending block with transaction results
-func (b *Builder) updatePendingBlock(pending *sync.Pending, receipt *core.TransactionReceipt,
-	transaction core.Transaction, stateDiff core.StateDiff,
+func updatePendingBlock(
+	pending *sync.Pending,
+	receipt *core.TransactionReceipt,
+	transaction core.Transaction,
+	stateDiff core.StateDiff,
 ) {
 	pending.Block.Receipts = append(pending.Block.Receipts, receipt)
 	pending.Block.Transactions = append(pending.Block.Transactions, transaction)
