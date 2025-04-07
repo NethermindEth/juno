@@ -3,7 +3,7 @@ package tendermint
 import "github.com/NethermindEth/juno/utils"
 
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
-	if !t.preprocessMessage(p.MessageHeader, func() { t.futureMessages.addProposal(p) }) {
+	if !t.preprocessMessage(p.MessageHeader, func() { t.messages.addProposal(p) }) {
 		return
 	}
 

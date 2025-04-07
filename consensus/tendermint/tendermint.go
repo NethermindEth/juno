@@ -120,8 +120,7 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 	state state[V, H] // Todo: Does state need to be protected?
 
-	messages       messages[V, H, A]
-	futureMessages messages[V, H, A]
+	messages messages[V, H, A]
 
 	timeoutPropose   timeoutFn
 	timeoutPrevote   timeoutFn
@@ -168,7 +167,6 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 			validRound:  -1,
 		},
 		messages:         newMessages[V, H, A](),
-		futureMessages:   newMessages[V, H, A](),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
 		timeoutPrecommit: tmPrecommit,
@@ -257,45 +255,7 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.height, t.state.round)
 	}
 
-	t.processFutureMessages(t.state.height, t.state.round)
-}
-
-func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
-	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
-	if len(proposals) > 0 {
-		for _, proposal := range proposals {
-			select {
-			case <-t.quit:
-				return
-			default:
-				t.handleProposal(proposal)
-			}
-		}
-	}
-
-	if len(prevotes) > 0 {
-		for _, vote := range prevotes {
-			select {
-			case <-t.quit:
-				return
-			default:
-				t.handlePrevote(vote)
-			}
-		}
-	}
-
-	if len(precommits) > 0 {
-		for _, vote := range precommits {
-			select {
-			case <-t.quit:
-				return
-			default:
-				t.handlePrecommit(vote)
-			}
-		}
-	}
-
-	t.futureMessages.deleteRoundMessages(h, r)
+	t.processExistingMessages()
 }
 
 type timeout struct {

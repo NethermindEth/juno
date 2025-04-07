@@ -1,7 +1,7 @@
 package tendermint
 
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
-	if !t.preprocessMessage(p.MessageHeader, func() { t.futureMessages.addPrevote(p) }) {
+	if !t.preprocessMessage(p.MessageHeader, func() { t.messages.addPrevote(p) }) {
 		return
 	}
 

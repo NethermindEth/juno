@@ -13,7 +13,7 @@ Check the upon condition on line 55:
 */
 func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	vals := make(map[A]struct{})
-	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.height, futureR)
+	proposals, prevotes, precommits := t.messages.allMessages(t.state.height, futureR)
 
 	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
 	for addr := range proposals {
