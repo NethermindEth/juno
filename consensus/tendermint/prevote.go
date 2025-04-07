@@ -7,7 +7,7 @@ func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
 
 	t.messages.addPrevote(p)
 
-	cachedProposal := t.findMatchingProposal(t.state.round, p.ID)
+	cachedProposal := t.findProposal(t.state.round)
 
 	if cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal, p.Round) {
 		t.doProposalAndPolkaPrevious(cachedProposal)
