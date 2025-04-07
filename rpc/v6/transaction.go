@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -236,19 +237,6 @@ type MsgToL1 struct {
 	Payload []*felt.Felt   `json:"payload"`
 }
 
-type ComputationResources struct {
-	Steps        uint64 `json:"steps"`
-	MemoryHoles  uint64 `json:"memory_holes,omitempty"`
-	Pedersen     uint64 `json:"pedersen_builtin_applications,omitempty"`
-	RangeCheck   uint64 `json:"range_check_builtin_applications,omitempty"`
-	Bitwise      uint64 `json:"bitwise_builtin_applications,omitempty"`
-	Ecdsa        uint64 `json:"ecdsa_builtin_applications,omitempty"`
-	EcOp         uint64 `json:"ec_op_builtin_applications,omitempty"`
-	Keccak       uint64 `json:"keccak_builtin_applications,omitempty"`
-	Poseidon     uint64 `json:"poseidon_builtin_applications,omitempty"`
-	SegmentArena uint64 `json:"segment_arena_builtin,omitempty"`
-}
-
 type DataAvailability struct {
 	L1Gas     uint64 `json:"l1_gas"`
 	L1DataGas uint64 `json:"l1_data_gas"`
@@ -257,7 +245,7 @@ type DataAvailability struct {
 // TODO: specs say no DataAvailability
 // I will remove this in another PR because it causes a bit of code deletion
 type ExecutionResources struct {
-	ComputationResources
+	rpcv7.ComputationResources
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
 

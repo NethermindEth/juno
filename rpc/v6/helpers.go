@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -97,7 +98,7 @@ func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bo
 	}
 
 	res := &ExecutionResources{
-		ComputationResources: ComputationResources{
+		ComputationResources: rpcv7.ComputationResources{
 			Steps:        resources.Steps,
 			MemoryHoles:  resources.MemoryHoles,
 			Pedersen:     resources.BuiltinInstanceCounter.Pedersen,

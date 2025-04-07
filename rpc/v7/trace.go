@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
-	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -28,14 +27,42 @@ var traceFallbackVersion = semver.MustParse("0.13.1")
 const excludedVersion = "0.13.1.1"
 
 type TransactionTrace struct {
-	Type                  TransactionType           `json:"type"`
-	ValidateInvocation    *rpcv6.FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *rpcv6.ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
-	FeeTransferInvocation *rpcv6.FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *rpcv6.FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *rpcv6.FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
-	StateDiff             *rpcv8.StateDiff          `json:"state_diff,omitempty"`
-	ExecutionResources    *ExecutionResources       `json:"execution_resources"`
+	Type                  TransactionType     `json:"type"`
+	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	StateDiff             *rpcv8.StateDiff    `json:"state_diff,omitempty"`
+	ExecutionResources    *ExecutionResources `json:"execution_resources"`
+}
+
+type ExecuteInvocation struct {
+	RevertReason        string `json:"revert_reason"`
+	*FunctionInvocation `json:",omitempty"`
+}
+
+func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
+	if e.FunctionInvocation != nil {
+		return json.Marshal(e.FunctionInvocation)
+	}
+	type alias ExecuteInvocation
+	return json.Marshal(alias(e))
+}
+
+type FunctionInvocation struct {
+	ContractAddress    felt.Felt                    `json:"contract_address"`
+	EntryPointSelector *felt.Felt                   `json:"entry_point_selector"`
+	Calldata           []felt.Felt                  `json:"calldata"`
+	CallerAddress      felt.Felt                    `json:"caller_address"`
+	ClassHash          *felt.Felt                   `json:"class_hash"`
+	EntryPointType     string                       `json:"entry_point_type"`
+	CallType           string                       `json:"call_type"`
+	Result             []felt.Felt                  `json:"result"`
+	Calls              []FunctionInvocation         `json:"calls"`
+	Events             []rpcv8.OrderedEvent         `json:"events"`
+	Messages           []rpcv8.OrderedL2toL1Message `json:"messages"`
+	ExecutionResources *ComputationResources        `json:"execution_resources"`
 }
 
 func (t *TransactionTrace) TotalComputationResources() ComputationResources {
@@ -59,19 +86,19 @@ func (t *TransactionTrace) TotalComputationResources() ComputationResources {
 	return total
 }
 
-func (t *TransactionTrace) allInvocations() []*rpcv6.FunctionInvocation {
-	var executeInvocation *rpcv6.FunctionInvocation
+func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
+	var executeInvocation *FunctionInvocation
 	if t.ExecuteInvocation != nil {
 		executeInvocation = t.ExecuteInvocation.FunctionInvocation
 	}
 
-	return slices.DeleteFunc([]*rpcv6.FunctionInvocation{
+	return slices.DeleteFunc([]*FunctionInvocation{
 		t.ConstructorInvocation,
 		t.ValidateInvocation,
 		t.FeeTransferInvocation,
 		executeInvocation,
 		t.FunctionInvocation,
-	}, func(i *rpcv6.FunctionInvocation) bool { return i == nil })
+	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
 /****************************************************
