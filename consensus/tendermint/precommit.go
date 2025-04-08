@@ -1,8 +1,8 @@
 package tendermint
 
-func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
-	if !t.preprocessMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) }) {
-		return
+func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) Action[V, H, A] {
+	if action, ok := t.preprocessMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) }); !ok {
+		return action
 	}
 
 	t.messages.addPrecommit(p)
@@ -10,11 +10,12 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 	cachedProposal := t.findProposal(p.Round)
 
 	if cachedProposal != nil && t.uponProposalAndPrecommitValue(cachedProposal) {
-		t.doProposalAndPrecommitValue(cachedProposal)
-		return
+		return t.doProposalAndPrecommitValue(cachedProposal)
 	}
 
 	if t.uponPrecommitAny() {
-		t.doPrecommitAny()
+		return t.doPrecommitAny()
 	}
+
+	return nil
 }

@@ -31,6 +31,6 @@ func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	return t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.height))
 }
 
-func (t *Tendermint[V, H, A]) doSkipRound(futureR round) {
-	t.startRound(futureR)
+func (t *Tendermint[V, H, A]) doSkipRound(futureR round) Action[V, H, A] {
+	return t.startRound(futureR)
 }

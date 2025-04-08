@@ -2,13 +2,13 @@ package tendermint
 
 import "github.com/NethermindEth/juno/utils"
 
-func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
-	if !t.preprocessMessage(p.MessageHeader, func() { t.messages.addProposal(p) }) {
-		return
+func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) Action[V, H, A] {
+	if action, ok := t.preprocessMessage(p.MessageHeader, func() { t.messages.addProposal(p) }); !ok {
+		return action
 	}
 
 	if p.Sender != t.validators.Proposer(p.Height, p.Round) {
-		return
+		return nil
 	}
 
 	// The code below shouldn't panic because it is expected Proposal is well-formed. However, there need to be a way to
@@ -26,25 +26,26 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 	}
 
 	if t.uponProposalAndPrecommitValue(cachedProposal) {
-		t.doProposalAndPrecommitValue(cachedProposal)
-		return
+		return t.doProposalAndPrecommitValue(cachedProposal)
 	}
 
 	if p.Round < t.state.round {
 		// Except line 49 all other upon condition which refer to the proposals expect to be acted upon
 		// when the current round is equal to the proposal's round.
-		return
+		return nil
 	}
 
 	if t.uponFirstProposal(cachedProposal) {
-		t.doFirstProposal(cachedProposal)
+		return t.doFirstProposal(cachedProposal)
 	}
 
 	if t.uponProposalAndPolkaPrevious(cachedProposal, p.ValidRound) {
-		t.doProposalAndPolkaPrevious(cachedProposal)
+		return t.doProposalAndPolkaPrevious(cachedProposal)
 	}
 
 	if t.uponProposalAndPolkaCurrent(cachedProposal) {
-		t.doProposalAndPolkaCurrent(cachedProposal)
+		return t.doProposalAndPolkaCurrent(cachedProposal)
 	}
+
+	return nil
 }

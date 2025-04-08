@@ -115,20 +115,12 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 	PrecommitBroadcaster Broadcaster[Precommit[H, A], V, H, A]
 }
 
-type Tendermint[V Hashable[H], H Hash, A Addr] struct {
-	nodeAddr A
-
-	state state[V, H] // Todo: Does state need to be protected?
-
-	messages messages[V, H, A]
+type Driver[V Hashable[H], H Hash, A Addr] struct {
+	stateMachine *Tendermint[V, H, A]
 
 	timeoutPropose   timeoutFn
 	timeoutPrevote   timeoutFn
 	timeoutPrecommit timeoutFn
-
-	application Application[V, H]
-	blockchain  Blockchain[V, H, A]
-	validators  Validators[A]
 
 	listeners    Listeners[V, H, A]
 	broadcasters Broadcasters[V, H, A]
@@ -138,6 +130,18 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 	wg   sync.WaitGroup
 	quit chan struct{}
+}
+
+type Tendermint[V Hashable[H], H Hash, A Addr] struct {
+	nodeAddr A
+
+	state state[V, H] // Todo: Does state need to be protected?
+
+	messages messages[V, H, A]
+
+	application Application[V, H]
+	blockchain  Blockchain[V, H, A]
+	validators  Validators[A]
 }
 
 type state[V Hashable[H], H Hash] struct {
@@ -156,8 +160,11 @@ type state[V Hashable[H], H Hash] struct {
 	lockedValueAndOrValidValueSet bool // line36 for the first time condition
 }
 
-func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
-	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+func New[V Hashable[H], H Hash, A Addr](
+	nodeAddr A,
+	app Application[V, H],
+	chain Blockchain[V, H, A],
+	vals Validators[A],
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
 		nodeAddr: nodeAddr,
@@ -166,13 +173,21 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 			lockedRound: -1,
 			validRound:  -1,
 		},
-		messages:         newMessages[V, H, A](),
+		messages:    newMessages[V, H, A](),
+		application: app,
+		blockchain:  chain,
+		validators:  vals,
+	}
+}
+
+func NewDriver[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
+	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+) *Driver[V, H, A] {
+	return &Driver[V, H, A]{
+		stateMachine:     New(nodeAddr, app, chain, vals),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
 		timeoutPrecommit: tmPrecommit,
-		application:      app,
-		blockchain:       chain,
-		validators:       vals,
 		listeners:        listeners,
 		broadcasters:     broadcasters,
 		scheduledTms:     make(map[timeout]*time.Timer),
@@ -187,61 +202,65 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 	ID    *H
 }
 
-func (t *Tendermint[V, H, A]) Start() {
-	t.wg.Add(1)
+func (d *Driver[V, H, A]) Start() {
+	d.wg.Add(1)
 	go func() {
-		defer t.wg.Done()
+		defer d.wg.Done()
 
-		t.startRound(0)
+		action := d.stateMachine.startRound(0)
+		if action != nil {
+			action.Execute(d)
+		}
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
 
 		for {
 			select {
-			case <-t.quit:
+			case <-d.quit:
 				return
-			case tm := <-t.timeoutsCh:
+			case tm := <-d.timeoutsCh:
 				// Handling of timeouts is priorities over messages
 				switch tm.s {
 				case propose:
-					t.OnTimeoutPropose(tm.h, tm.r)
+					action = d.stateMachine.OnTimeoutPropose(tm.h, tm.r)
 				case prevote:
-					t.OnTimeoutPrevote(tm.h, tm.r)
+					action = d.stateMachine.OnTimeoutPrevote(tm.h, tm.r)
 				case precommit:
-					t.OnTimeoutPrecommit(tm.h, tm.r)
+					action = d.stateMachine.OnTimeoutPrecommit(tm.h, tm.r)
 				}
-				delete(t.scheduledTms, tm)
-			case p := <-t.listeners.ProposalListener.Listen():
-				t.handleProposal(p)
-			case p := <-t.listeners.PrevoteListener.Listen():
-				t.handlePrevote(p)
-			case p := <-t.listeners.PrecommitListener.Listen():
-				t.handlePrecommit(p)
+				delete(d.scheduledTms, tm)
+			case p := <-d.listeners.ProposalListener.Listen():
+				action = d.stateMachine.handleProposal(p)
+			case p := <-d.listeners.PrevoteListener.Listen():
+				action = d.stateMachine.handlePrevote(p)
+			case p := <-d.listeners.PrecommitListener.Listen():
+				action = d.stateMachine.handlePrecommit(p)
+			}
+			if action != nil {
+				action.Execute(d)
 			}
 		}
 	}()
 }
 
-func (t *Tendermint[V, H, A]) Stop() {
-	close(t.quit)
-	t.wg.Wait()
-	for _, tm := range t.scheduledTms {
+func (d *Driver[V, H, A]) Stop() {
+	close(d.quit)
+	d.wg.Wait()
+	for _, tm := range d.scheduledTms {
 		tm.Stop()
 	}
 }
 
-func (t *Tendermint[V, H, A]) startRound(r round) {
-	if r != 0 && r <= t.state.round {
-		return
-	}
-
+func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 	t.state.round = r
 	t.state.step = propose
 
 	t.state.timeoutPrevoteScheduled = false
 	t.state.lockedValueAndOrValidValueSet = false
 	t.state.timeoutPrecommitScheduled = false
+
+	defer t.processExistingMessages()
 
 	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
 		var proposalValue *V
@@ -250,12 +269,10 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 		} else {
 			proposalValue = utils.HeapPtr(t.application.Value())
 		}
-		t.sendProposal(proposalValue)
+		return t.sendProposal(proposalValue)
 	} else {
-		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.height, t.state.round)
+		return t.scheduleTimeout(propose)
 	}
-
-	t.processExistingMessages()
 }
 
 type timeout struct {
@@ -264,32 +281,36 @@ type timeout struct {
 	r round
 }
 
-func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h height, r round) {
-	tm := timeout{s: s, h: h, r: r}
-	t.scheduledTms[tm] = time.AfterFunc(duration, func() {
-		select {
-		case <-t.quit:
-		case t.timeoutsCh <- tm:
-		}
-	})
+func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
+	return utils.HeapPtr(
+		ScheduleTimeout[V, H, A]{
+			s: s,
+			h: t.state.height,
+			r: t.state.round,
+		},
+	)
+
 }
 
-func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
+func (t *Tendermint[V, H, A]) OnTimeoutPropose(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == propose {
-		t.sendPrevote(nil)
+		return t.sendPrevote(nil)
 	}
+	return nil
 }
 
-func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
+func (t *Tendermint[V, H, A]) OnTimeoutPrevote(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == prevote {
-		t.sendPrecommit(nil)
+		return t.sendPrecommit(nil)
 	}
+	return nil
 }
 
-func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
+func (t *Tendermint[V, H, A]) OnTimeoutPrecommit(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r {
-		t.startRound(r + 1)
+		return t.startRound(r + 1)
 	}
+	return nil
 }
 
 func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
@@ -317,20 +338,20 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
-func (t *Tendermint[V, H, A]) handleFutureRoundMessage(header MessageHeader[A], addMessage func()) bool {
+func (t *Tendermint[V, H, A]) handleFutureRoundMessage(header MessageHeader[A], addMessage func()) (Action[V, H, A], bool) {
 	if header.Round > t.state.round {
 		if header.Round-t.state.round > maxFutureRound {
-			return false
+			return nil, false
 		}
 
 		addMessage()
 
 		if t.uponSkipRound(header.Round) {
-			t.doSkipRound(header.Round)
+			return t.doSkipRound(header.Round), false
 		}
-		return false
+		return nil, false
 	}
-	return true
+	return nil, true
 }
 
 func (t *Tendermint[V, H, A]) handleFutureHeightMessage(header MessageHeader[A], addMessage func()) bool {
@@ -350,10 +371,16 @@ func (t *Tendermint[V, H, A]) handleFutureHeightMessage(header MessageHeader[A],
 	return true
 }
 
-func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
-	return header.Height >= t.state.height &&
-		t.handleFutureHeightMessage(header, addMessage) &&
-		t.handleFutureRoundMessage(header, addMessage)
+func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) (Action[V, H, A], bool) {
+	if header.Height < t.state.height {
+		return nil, false
+	}
+
+	if !t.handleFutureHeightMessage(header, addMessage) {
+		return nil, false
+	}
+
+	return t.handleFutureRoundMessage(header, addMessage)
 }
 
 // TODO: Improve performance. Current complexity is O(n).
