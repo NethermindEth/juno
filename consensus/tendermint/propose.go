@@ -39,8 +39,8 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		t.messages.addProposal(p)
 	}
 
-	if t.uponProposalAndPrecommitValue(cachedProposal) {
-		t.doProposalAndPrecommitValue(cachedProposal)
+	if t.uponCommitValue(cachedProposal) {
+		t.doCommitValue(cachedProposal)
 		return
 	}
 
