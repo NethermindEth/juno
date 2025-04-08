@@ -75,6 +75,10 @@ func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
 	return w.Put(db.PersistedStateID.Key(), buf[:])
 }
 
+func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
+	return w.Put(db.TrieJournal.Key(), journal)
+}
+
 // Construct key bytes to insert a trie node. The format is as follows:
 //
 // ClassTrie/ContractTrie:

@@ -22,7 +22,7 @@ func TestNodeSet(t *testing.T) {
 
 		// Add a regular node
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewLeaf([]byte{1, 2, 3})
+		node1 := NewLeaf(felt.Zero, []byte{1, 2, 3})
 		ns.Add(key1, node1)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 0, ns.deletes)
@@ -45,7 +45,7 @@ func TestNodeSet(t *testing.T) {
 
 		// Add nodes to first set
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewLeaf([]byte{1, 2, 3})
+		node1 := NewLeaf(felt.Zero, []byte{1, 2, 3})
 		ns1.Add(key1, node1)
 
 		// Add nodes to second set
@@ -82,7 +82,7 @@ func TestNodeSet(t *testing.T) {
 		// Create a map to merge
 		nodes := make(map[trieutils.Path]TrieNode)
 		key1 := trieutils.NewBitArray(8, 0xFF)
-		node1 := NewLeaf([]byte{1, 2, 3})
+		node1 := NewLeaf(felt.Zero, []byte{1, 2, 3})
 		nodes[key1] = node1
 
 		// Merge map
@@ -106,7 +106,7 @@ func TestNodeSet(t *testing.T) {
 			trieutils.NewBitArray(8, 0x55),
 		}
 		for _, key := range keys {
-			ns.Add(key, NewLeaf([]byte{1}))
+			ns.Add(key, NewLeaf(felt.Zero, []byte{1}))
 		}
 
 		t.Run("ascending order", func(t *testing.T) {

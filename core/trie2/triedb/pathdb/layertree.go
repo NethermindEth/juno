@@ -3,6 +3,7 @@ package pathdb
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,9 +14,10 @@ import (
 type layer interface {
 	node(id trieutils.TrieID, owner felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error)
 	update(root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer
-	journal() error
+	journal(w io.Writer) error
 	rootHash() felt.Felt
 	stateID() uint64
+	parentLayer() layer
 }
 
 type layerTree struct {
@@ -23,19 +25,25 @@ type layerTree struct {
 	lock   sync.RWMutex
 }
 
-func (l *layerTree) get(root felt.Felt) layer {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
-
-	return l.layers[root]
+func newLayerTree(head layer) *layerTree {
+	tree := new(layerTree)
+	tree.reset(head)
+	return tree
 }
 
-func (l *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
+func (tree *layerTree) get(root felt.Felt) layer {
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+
+	return tree.layers[root]
+}
+
+func (tree *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
 	if root == parentRoot {
 		return errors.New("cannot have cycled layer")
 	}
 
-	parent := l.get(parentRoot)
+	parent := tree.get(parentRoot)
 	if parent == nil {
 		return fmt.Errorf("parent layer %v not found", parentRoot)
 	}
@@ -45,9 +53,103 @@ func (l *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassNode
 
 	newLayer := parent.update(root, parent.stateID()+1, block, newNodeSet(classNodes, contractNodes, contractStorageNodes))
 
-	l.lock.Lock()
-	l.layers[root] = newLayer
-	l.lock.Unlock()
+	tree.lock.Lock()
+	tree.layers[root] = newLayer
+	tree.lock.Unlock()
 
 	return nil
+}
+
+func (tree *layerTree) cap(root felt.Felt, layers int) error {
+	l := tree.get(root)
+	if l == nil {
+		return fmt.Errorf("layer %v not found", root)
+	}
+
+	diff, ok := l.(*diffLayer)
+	if !ok {
+		return fmt.Errorf("layer %v is not a diff layer", root)
+	}
+
+	tree.lock.Lock()
+	defer tree.lock.Unlock()
+
+	if layers == 0 {
+		base, err := diff.persist(true)
+		if err != nil {
+			return err
+		}
+
+		tree.layers = map[felt.Felt]layer{base.rootHash(): base}
+		return nil
+	}
+
+	// Traverse the layer tree until we reach the desired number of layers
+	// If we reach the disk layer, it means that the layer tree is still shallow
+	// and can allow for further growing. So we return early.
+	for i := 0; i < layers-1; i++ {
+		if parent, ok := diff.parentLayer().(*diffLayer); ok {
+			diff = parent
+		} else {
+			return nil
+		}
+	}
+
+	// At this point, the layer tree is full, so we need to flatten.
+	switch parent := diff.parentLayer().(type) {
+	case *diskLayer:
+		return nil
+	case *diffLayer:
+		diff.lock.Lock()
+
+		base, err := parent.persist(false)
+		if err != nil {
+			diff.lock.Unlock()
+			return err
+		}
+
+		tree.layers[base.rootHash()] = base
+		diff.parent = base
+		diff.lock.Unlock()
+	default:
+		return fmt.Errorf("unexpected parent layer type: %T", parent)
+	}
+
+	// Remove layers that are stale
+	children := make(map[felt.Felt][]felt.Felt)
+	for root, layer := range tree.layers {
+		if dl, ok := layer.(*diffLayer); ok {
+			parent := dl.parentLayer().rootHash()
+			children[parent] = append(children[parent], root)
+		}
+	}
+
+	var removeLinks func(root felt.Felt)
+	removeLinks = func(root felt.Felt) {
+		delete(tree.layers, root)
+		for _, child := range children[root] {
+			removeLinks(child)
+		}
+		delete(children, root)
+	}
+
+	for root, layers := range tree.layers {
+		if dl, ok := layers.(*diskLayer); ok && dl.isStale() {
+			removeLinks(root)
+		}
+	}
+
+	return nil
+}
+
+func (tree *layerTree) reset(head layer) {
+	tree.lock.Lock()
+	defer tree.lock.Unlock()
+
+	layers := make(map[felt.Felt]layer)
+	for head != nil {
+		layers[head.rootHash()] = head
+		head = head.parentLayer()
+	}
+	tree.layers = layers
 }

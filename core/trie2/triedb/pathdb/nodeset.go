@@ -1,6 +1,7 @@
 package pathdb
 
 import (
+	"io"
 	"maps"
 	"math"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 )
 
 // Contains the set of trie nodes for all the trie types
@@ -107,6 +109,120 @@ func (s *nodeSet) merge(other *nodeSet) {
 
 func (s *nodeSet) write(w db.KeyValueWriter, cleans *cleanCache) error {
 	return writeNodes(w, s.classNodes, s.contractNodes, s.contractStorageNodes, cleans)
+}
+
+type journalNode struct {
+	Path []byte
+	Blob []byte
+	Hash felt.Felt
+}
+
+type journalNodes struct {
+	TrieType trieutils.TrieType
+	Owner    felt.Felt
+	Nodes    []journalNode
+}
+
+type JournalNodeSet struct {
+	Nodes []journalNodes
+}
+
+func (s *nodeSet) encode(w io.Writer) error {
+	nodes := make([]journalNodes, 0, len(s.contractStorageNodes)+2) // 2 because of class and contract nodes
+
+	classEntry := journalNodes{
+		TrieType: trieutils.Class,
+		Owner:    felt.Zero,
+		Nodes:    make([]journalNode, 0, len(s.classNodes)),
+	}
+	for path, n := range s.classNodes {
+		classEntry.Nodes = append(classEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob()})
+	}
+	nodes = append(nodes, classEntry)
+
+	contractEntry := journalNodes{
+		TrieType: trieutils.Contract,
+		Owner:    felt.Zero,
+		Nodes:    make([]journalNode, 0, len(s.contractNodes)),
+	}
+	for path, n := range s.contractNodes {
+		contractEntry.Nodes = append(contractEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
+	}
+	nodes = append(nodes, contractEntry)
+
+	for owner, sn := range s.contractStorageNodes {
+		entry := journalNodes{
+			TrieType: trieutils.ContractStorage,
+			Owner:    owner,
+			Nodes:    make([]journalNode, 0, len(sn)),
+		}
+		for path, n := range sn {
+			entry.Nodes = append(entry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
+		}
+		nodes = append(nodes, entry)
+	}
+
+	enc, err := encoder.Marshal(&JournalNodeSet{Nodes: nodes})
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(enc)
+	return err
+}
+
+func (s *nodeSet) decode(data []byte) error {
+	var encoded JournalNodeSet
+	if err := encoder.Unmarshal(data, &encoded); err != nil {
+		return err
+	}
+	s.classNodes = make(classNodesMap)
+	s.contractNodes = make(contractNodesMap)
+	s.contractStorageNodes = make(contractStorageNodesMap)
+
+	for _, entry := range encoded.Nodes {
+		switch entry.TrieType {
+		case trieutils.Class:
+			for _, n := range entry.Nodes {
+				var path trieutils.Path
+				if err := path.UnmarshalBinary(n.Path); err != nil {
+					return err
+				}
+				node, err := decodeJournalNode(path, n.Blob, n.Hash)
+				if err != nil {
+					return err
+				}
+				s.classNodes[path] = node
+			}
+		case trieutils.Contract:
+			for _, n := range entry.Nodes {
+				var path trieutils.Path
+				if err := path.UnmarshalBinary(n.Path); err != nil {
+					return err
+				}
+				node, err := decodeJournalNode(path, n.Blob, n.Hash)
+				if err != nil {
+					return err
+				}
+				s.contractNodes[path] = node
+			}
+		case trieutils.ContractStorage:
+			s.contractStorageNodes[entry.Owner] = make(map[trieutils.Path]trienode.TrieNode)
+			for _, n := range entry.Nodes {
+				var path trieutils.Path
+				if err := path.UnmarshalBinary(n.Path); err != nil {
+					return err
+				}
+				node, err := decodeJournalNode(path, n.Blob, n.Hash)
+				if err != nil {
+					return err
+				}
+				s.contractStorageNodes[entry.Owner][path] = node
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *nodeSet) computeSize() {
@@ -215,4 +331,19 @@ func writeNodes(
 	}
 
 	return nil
+}
+
+func decodeJournalNode(path trieutils.Path, blob []byte, hash felt.Felt) (trienode.TrieNode, error) {
+	// Handle leaf
+	if path.Len() == 251 { // TODO(weiihann): handle this
+		if len(blob) == 0 {
+			return trienode.NewDeleted(true), nil
+		}
+		return trienode.NewLeaf(hash, blob), nil
+	}
+
+	if len(blob) == 0 {
+		return trienode.NewDeleted(false), nil
+	}
+	return trienode.NewNonLeaf(hash, blob), nil
 }

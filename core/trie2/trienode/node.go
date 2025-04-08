@@ -32,14 +32,15 @@ func (r *NonLeafNode) IsLeaf() bool    { return false }
 
 type LeafNode struct {
 	blob []byte
+	hash felt.Felt
 }
 
-func NewLeaf(blob []byte) *LeafNode {
-	return &LeafNode{blob: blob}
+func NewLeaf(hash felt.Felt, blob []byte) *LeafNode {
+	return &LeafNode{blob: blob, hash: hash}
 }
 
 func (r *LeafNode) Blob() []byte    { return r.blob }
-func (r *LeafNode) Hash() felt.Felt { return felt.Felt{} }
+func (r *LeafNode) Hash() felt.Felt { return r.hash }
 func (r *LeafNode) IsLeaf() bool    { return true }
 
 type DeletedNode struct {
@@ -51,5 +52,5 @@ func NewDeleted(isLeaf bool) *DeletedNode {
 }
 
 func (r *DeletedNode) Blob() []byte    { return nil }
-func (r *DeletedNode) Hash() felt.Felt { return felt.Felt{} }
+func (r *DeletedNode) Hash() felt.Felt { return felt.Zero }
 func (r *DeletedNode) IsLeaf() bool    { return r.isLeaf }

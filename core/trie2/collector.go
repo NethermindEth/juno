@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
 
@@ -124,7 +125,9 @@ func (c *collector) store(path *Path, n Node) Node {
 
 	blob := nodeToBytes(n)
 	if hash == nil { // this is a value node
-		c.nodes.Add(*path, trienode.NewLeaf(blob))
+		var h felt.Felt
+		h.SetBytes(blob)
+		c.nodes.Add(*path, trienode.NewLeaf(h, blob))
 		return n
 	}
 

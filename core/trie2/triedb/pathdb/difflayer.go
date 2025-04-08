@@ -78,10 +78,6 @@ func (dl *diffLayer) parentLayer() layer {
 	return dl.parent
 }
 
-func (dl *diffLayer) journal() error {
-	panic("TODO(weiihann): implement me")
-}
-
 func diffToDisk(dl *diffLayer, force bool) (layer, error) {
 	disk, ok := dl.parentLayer().(*diskLayer)
 	if !ok {

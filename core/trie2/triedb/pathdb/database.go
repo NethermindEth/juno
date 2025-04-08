@@ -1,6 +1,8 @@
 package pathdb
 
 import (
+	"sync"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -17,7 +19,9 @@ type Config struct {
 type Database struct {
 	disk db.KeyValueStore
 	// TODO(weiihann): add the cache stuff here
+	tree   *layerTree
 	config *Config
+	lock   sync.RWMutex
 }
 
 func New(disk db.KeyValueStore, config *Config) *Database {

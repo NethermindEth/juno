@@ -1,6 +1,7 @@
 package pathdb
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
@@ -25,12 +26,12 @@ func TestNewNodeSet(t *testing.T) {
 	contractNodes := make(contractNodesMap)
 	contractStorage := make(contractStorageNodesMap)
 
-	classNodes[path1] = trienode.NewLeaf([]byte{0xaa})
-	contractNodes[path2] = trienode.NewLeaf([]byte{0xbb})
+	classNodes[path1] = trienode.NewLeaf(felt.Zero, []byte{0xaa})
+	contractNodes[path2] = trienode.NewLeaf(felt.Zero, []byte{0xbb})
 
 	owner := felt.Zero
 	contractStorage[owner] = make(map[trieutils.Path]trienode.TrieNode)
-	contractStorage[owner][path3] = trienode.NewLeaf([]byte{0xcc})
+	contractStorage[owner][path3] = trienode.NewLeaf(felt.Zero, []byte{0xcc})
 
 	ns := newNodeSet(classNodes, contractNodes, contractStorage)
 
@@ -47,14 +48,14 @@ func TestGetNode(t *testing.T) {
 
 	ns := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1: trienode.NewLeaf(class),
+			path1: trienode.NewLeaf(felt.Zero, class),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf(contract),
+			path2: trienode.NewLeaf(felt.Zero, contract),
 		},
 		map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
 			owner: {
-				path3: trienode.NewLeaf(storage),
+				path3: trienode.NewLeaf(felt.Zero, storage),
 			},
 		},
 	)
@@ -90,30 +91,30 @@ func TestMerge(t *testing.T) {
 
 	baseSet := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1: trienode.NewLeaf([]byte(old)),
+			path1: trienode.NewLeaf(felt.Zero, []byte(old)),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf([]byte(old)),
+			path2: trienode.NewLeaf(felt.Zero, []byte(old)),
 		},
 		map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
 			feltff: {
-				path3: trienode.NewLeaf([]byte(old)),
+				path3: trienode.NewLeaf(felt.Zero, []byte(old)),
 			},
 		},
 	)
 
 	mergeSet := newNodeSet(
 		map[trieutils.Path]trienode.TrieNode{
-			path1:  trienode.NewLeaf([]byte(updated)),
-			pathff: trienode.NewLeaf([]byte(added)),
+			path1:  trienode.NewLeaf(felt.Zero, []byte(updated)),
+			pathff: trienode.NewLeaf(felt.Zero, []byte(added)),
 		},
 		map[trieutils.Path]trienode.TrieNode{
-			path2: trienode.NewLeaf([]byte(updated)),
+			path2: trienode.NewLeaf(felt.Zero, []byte(updated)),
 		},
 		map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
 			feltff: {
-				path3: trienode.NewLeaf([]byte(updated)),
-				path5: trienode.NewLeaf([]byte(added)),
+				path3: trienode.NewLeaf(felt.Zero, []byte(updated)),
+				path5: trienode.NewLeaf(felt.Zero, []byte(added)),
 			},
 		},
 	)
@@ -151,4 +152,130 @@ func TestEdgeCases(t *testing.T) {
 		ns.reset()
 		require.Equal(t, uint64(0), ns.size)
 	})
+}
+
+func TestNodeSetEncodeDecode(t *testing.T) {
+	// Create test data
+	classPath := *new(trieutils.Path).SetUint64(10, 0x01)
+	contractPath := *new(trieutils.Path).SetUint64(10, 0x02)
+	storagePath := *new(trieutils.Path).SetUint64(10, 0x03)
+
+	owner := *new(felt.Felt).SetBytes([]byte{0x01})
+
+	classNode := trienode.NewLeaf(felt.Zero, []byte("class data"))
+	contractNode := trienode.NewLeaf(felt.Zero, []byte("contract data"))
+	storageNode := trienode.NewLeaf(felt.Zero, []byte("storage data"))
+
+	// Create original nodeSet
+	original := &nodeSet{
+		classNodes: classNodesMap{
+			classPath: classNode,
+		},
+		contractNodes: contractNodesMap{
+			contractPath: contractNode,
+		},
+		contractStorageNodes: contractStorageNodesMap{
+			owner: {
+				storagePath: storageNode,
+			},
+		},
+	}
+
+	// Encode
+	var buf bytes.Buffer
+	err := original.encode(&buf)
+	require.NoError(t, err)
+
+	// Decode into new nodeSet
+	decoded := &nodeSet{}
+	err = decoded.decode(buf.Bytes())
+	require.NoError(t, err)
+
+	// Verify class nodes
+	assert.Equal(t, len(original.classNodes), len(decoded.classNodes))
+	decodedClassNode, exists := decoded.classNodes[classPath]
+	require.True(t, exists)
+	assert.Equal(t, classNode.Blob(), decodedClassNode.Blob())
+
+	// Verify contract nodes
+	assert.Equal(t, len(original.contractNodes), len(decoded.contractNodes))
+	decodedContractNode, exists := decoded.contractNodes[contractPath]
+	require.True(t, exists)
+	assert.Equal(t, contractNode.Blob(), decodedContractNode.Blob())
+
+	// Verify contract storage nodes
+	assert.Equal(t, len(original.contractStorageNodes), len(decoded.contractStorageNodes))
+	decodedStorageNodes, exists := decoded.contractStorageNodes[owner]
+	require.True(t, exists)
+	decodedStorageNode, exists := decodedStorageNodes[storagePath]
+	require.True(t, exists)
+	assert.Equal(t, storageNode.Blob(), decodedStorageNode.Blob())
+}
+
+func TestNodeSetEncodeDecodeEmpty(t *testing.T) {
+	original := &nodeSet{
+		classNodes:           make(classNodesMap),
+		contractNodes:        make(contractNodesMap),
+		contractStorageNodes: make(contractStorageNodesMap),
+	}
+
+	var buf bytes.Buffer
+	err := original.encode(&buf)
+	require.NoError(t, err)
+
+	decoded := &nodeSet{}
+	err = decoded.decode(buf.Bytes())
+	require.NoError(t, err)
+
+	assert.Empty(t, decoded.classNodes)
+	assert.Empty(t, decoded.contractNodes)
+	assert.Empty(t, decoded.contractStorageNodes)
+}
+
+func TestNodeSetEncodeDecodeMultipleStorageOwners(t *testing.T) {
+	owner1 := *new(felt.Felt).SetBytes([]byte{0x01})
+	owner2 := *new(felt.Felt).SetBytes([]byte{0x02})
+
+	path1 := *new(trieutils.Path).SetUint64(10, 0x01)
+	path2 := *new(trieutils.Path).SetUint64(10, 0x02)
+
+	node1 := trienode.NewLeaf(felt.Zero, []byte("data1"))
+	node2 := trienode.NewLeaf(felt.Zero, []byte("data2"))
+
+	original := &nodeSet{
+		classNodes:    make(classNodesMap),
+		contractNodes: make(contractNodesMap),
+		contractStorageNodes: contractStorageNodesMap{
+			owner1: {
+				path1: node1,
+			},
+			owner2: {
+				path2: node2,
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	err := original.encode(&buf)
+	require.NoError(t, err)
+
+	decoded := &nodeSet{}
+	err = decoded.decode(buf.Bytes())
+	require.NoError(t, err)
+
+	assert.Equal(t, len(original.contractStorageNodes), len(decoded.contractStorageNodes))
+
+	// Verify owner1's nodes
+	decodedNodes1, exists := decoded.contractStorageNodes[owner1]
+	require.True(t, exists)
+	decodedNode1, exists := decodedNodes1[path1]
+	require.True(t, exists)
+	assert.Equal(t, node1.Blob(), decodedNode1.Blob())
+
+	// Verify owner2's nodes
+	decodedNodes2, exists := decoded.contractStorageNodes[owner2]
+	require.True(t, exists)
+	decodedNode2, exists := decodedNodes2[path2]
+	require.True(t, exists)
+	assert.Equal(t, node2.Blob(), decodedNode2.Blob())
 }

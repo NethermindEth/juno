@@ -110,7 +110,3 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	newDl := newDiskLayer(bottom.rootHash(), bottom.stateID(), dl.db, dl.cleans, combined)
 	return newDl, nil
 }
-
-func (dl *diskLayer) journal() error {
-	panic("TODO(weiihann): implement me")
-}
