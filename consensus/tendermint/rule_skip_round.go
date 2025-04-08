@@ -33,7 +33,9 @@ func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 		vals[addr] = struct{}{}
 	}
 
-	return t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h))
+	hasQuorum := t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h))
+
+	return hasQuorum
 }
 
 func (t *Tendermint[V, H, A]) doSkipRound(futureR round) {

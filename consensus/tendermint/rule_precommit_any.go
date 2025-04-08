@@ -19,7 +19,9 @@ func (t *Tendermint[V, H, A]) uponPrecommitAny(p Precommit[H, A]) bool {
 
 	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H))
 
-	return p.R == t.state.r && hasQuorum && isFirstTime
+	return p.R == t.state.r &&
+		hasQuorum &&
+		isFirstTime
 }
 
 func (t *Tendermint[V, H, A]) doPrecommitAny(p Precommit[H, A]) {

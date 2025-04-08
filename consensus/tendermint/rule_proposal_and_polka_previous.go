@@ -14,7 +14,11 @@ Check the upon condition on line 28:
 func (t *Tendermint[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A], prevoteRound round) bool {
 	vr := cachedProposal.ValidRound
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
-	return cachedProposal.ValidRound == prevoteRound && hasQuorum && t.state.s == propose && vr >= 0 && vr < t.state.r
+	return cachedProposal.ValidRound == prevoteRound &&
+		hasQuorum &&
+		t.state.s == propose &&
+		vr >= 0 &&
+		vr < t.state.r
 }
 
 func (t *Tendermint[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) {

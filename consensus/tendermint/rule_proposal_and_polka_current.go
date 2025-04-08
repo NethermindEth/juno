@@ -16,7 +16,10 @@ Check upon condition on line 36:
 func (t *Tendermint[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) bool {
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(t.state.r, *cachedProposal.ID)
 	firstTime := !t.state.lockedValueAndOrValidValueSet
-	return hasQuorum && cachedProposal.Valid && t.state.s >= prevote && firstTime
+	return hasQuorum &&
+		cachedProposal.Valid &&
+		t.state.s >= prevote &&
+		firstTime
 }
 
 func (t *Tendermint[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) {

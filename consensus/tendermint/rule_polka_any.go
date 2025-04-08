@@ -19,7 +19,10 @@ func (t *Tendermint[V, H, A]) uponPolkaAny(p Prevote[H, A]) bool {
 
 	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H))
 
-	return p.R == t.state.r && t.state.s == prevote && hasQuorum && isFirstTime
+	return p.R == t.state.r &&
+		t.state.s == prevote &&
+		hasQuorum &&
+		isFirstTime
 }
 
 func (t *Tendermint[V, H, A]) doPolkaAny(p Prevote[H, A]) {
