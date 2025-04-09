@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ type Client struct {
 	apiKey     string
 	listener   EventListener
 	timeouts   Timeouts
+	timeoutsMu sync.RWMutex
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -75,6 +77,8 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
+	c.timeoutsMu.Lock()
+	defer c.timeoutsMu.Unlock()
 	if len(timeouts) > 1 || fixed {
 		c.timeouts = getFixedTimeouts(timeouts)
 	} else {
@@ -255,7 +259,9 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
+			c.timeoutsMu.RLock()
 			c.client.Timeout = c.timeouts.GetCurrentTimeout()
+			c.timeoutsMu.RUnlock()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			tooManyRequests := false
@@ -284,13 +290,15 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				wait = c.maxWait
 			}
 
+			c.timeoutsMu.RLock()
 			currentTimeout := c.timeouts.GetCurrentTimeout()
+			c.timeoutsMu.RUnlock()
 			if currentTimeout >= fastGrowThreshold {
 				c.log.Warnw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),
 					"retryAfter", wait.String(),
 					"err", err,
-					"newHTTPTimeout", c.timeouts.GetCurrentTimeout().String(),
+					"newHTTPTimeout", currentTimeout.String(),
 				)
 				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
 					"timeout", currentTimeout.String(),
@@ -300,7 +308,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 					"req", req.URL.String(),
 					"retryAfter", wait.String(),
 					"err", err,
-					"newHTTPTimeout", c.timeouts.GetCurrentTimeout().String(),
+					"newHTTPTimeout", currentTimeout.String(),
 				)
 			}
 		}

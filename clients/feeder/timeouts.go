@@ -172,7 +172,6 @@ func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		client.WithTimeouts(newTimeouts, fixed)
 		fmt.Fprintf(w, "Replaced timeouts with '%s' successfully\n", timeoutsStr)
 	default:
