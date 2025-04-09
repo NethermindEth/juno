@@ -159,7 +159,7 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client) {
 	switch r.Method {
 	case http.MethodGet:
-		timeouts := client.timeouts.Load().(*Timeouts)
+		timeouts := client.timeouts.Load()
 		fmt.Fprintf(w, "%s\n", timeouts.String())
 	case http.MethodPut:
 		timeoutsStr := r.URL.Query().Get("timeouts")

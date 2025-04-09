@@ -37,7 +37,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   atomic.Value
+	timeouts   atomic.Pointer[Timeouts]
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -262,7 +262,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
-			timeouts := c.timeouts.Load().(*Timeouts)
+			timeouts := c.timeouts.Load()
 			c.client.Timeout = timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)

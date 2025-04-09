@@ -210,7 +210,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
-		timeouts := client.timeouts.Load().(*Timeouts)
+		timeouts := client.timeouts.Load()
 		assert.Equal(t, []time.Duration{
 			2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second,
 			64 * time.Second, 96 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
@@ -226,7 +226,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s,' successfully\n", rr.Body.String())
-		timeouts := client.timeouts.Load().(*Timeouts)
+		timeouts := client.timeouts.Load()
 		assert.Equal(t, []time.Duration{
 			2 * time.Second,
 		}, timeouts.timeouts)
@@ -238,7 +238,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
 
-		timeouts := client.timeouts.Load().(*Timeouts)
+		timeouts := client.timeouts.Load()
 		assert.Equal(t, []time.Duration{
 			5 * time.Second, 7 * time.Second, 10 * time.Second,
 		}, timeouts.timeouts)
