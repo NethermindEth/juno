@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -38,7 +37,6 @@ type Client struct {
 	apiKey     string
 	listener   EventListener
 	timeouts   Timeouts
-	timeoutsMu sync.RWMutex
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -259,9 +257,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
-			c.timeoutsMu.RLock()
 			c.client.Timeout = c.timeouts.GetCurrentTimeout()
-			c.timeoutsMu.RUnlock()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			tooManyRequests := false
@@ -290,9 +286,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				wait = c.maxWait
 			}
 
-			c.timeoutsMu.RLock()
 			currentTimeout := c.timeouts.GetCurrentTimeout()
-			c.timeoutsMu.RUnlock()
 			if currentTimeout >= fastGrowThreshold {
 				c.log.Warnw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),
