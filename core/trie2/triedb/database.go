@@ -28,6 +28,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	if config == nil {
 		config = &Config{
 			PathConfig: &pathdb.Config{},
+			HashConfig: hashdb.DefaultConfig,
 		}
 	}
 
@@ -48,7 +49,9 @@ func (d *Database) Update(
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
 		return td.Update(root, parent, blockNum, classNodes, contractNodes)
-	// TODO: handle hashdb
+	case *hashdb.Database:
+		td.Update(root, parent, blockNum, classNodes, contractNodes)
+		return nil
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
