@@ -107,6 +107,11 @@ func getFixedTimeouts(timeouts []time.Duration) Timeouts {
 	}
 }
 
+func getDefaultFixedTimeouts() Timeouts {
+	timeouts, _, _ := ParseTimeouts(DefaultTimeouts)
+	return getFixedTimeouts(timeouts)
+}
+
 // ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration.
 // Returns:
 // - the parsed timeout values

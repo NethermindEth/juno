@@ -207,7 +207,7 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 }
 
 func NewClient(clientURL string) *Client {
-	defaultTimeouts := getDynamicTimeouts(5 * time.Second)
+	defaultTimeouts := getDefaultFixedTimeouts()
 	client := &Client{
 		url:        clientURL,
 		client:     http.DefaultClient,
