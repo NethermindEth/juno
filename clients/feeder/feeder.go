@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,7 +37,7 @@ type Client struct {
 	userAgent  string
 	apiKey     string
 	listener   EventListener
-	timeouts   Timeouts
+	timeouts   atomic.Value
 }
 
 func (c *Client) WithListener(l EventListener) *Client {
@@ -75,13 +76,15 @@ func (c *Client) WithUserAgent(ua string) *Client {
 }
 
 func (c *Client) WithTimeouts(timeouts []time.Duration, fixed bool) *Client {
-	c.timeoutsMu.Lock()
-	defer c.timeoutsMu.Unlock()
+	var newTimeouts *Timeouts
 	if len(timeouts) > 1 || fixed {
-		c.timeouts = getFixedTimeouts(timeouts)
+		t := getFixedTimeouts(timeouts)
+		newTimeouts = &t
 	} else {
-		c.timeouts = getDynamicTimeouts(timeouts[0])
+		t := getDynamicTimeouts(timeouts[0])
+		newTimeouts = &t
 	}
+	c.timeouts.Store(newTimeouts)
 	return c
 }
 
@@ -204,7 +207,8 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 }
 
 func NewClient(clientURL string) *Client {
-	return &Client{
+	defaultTimeouts := getDynamicTimeouts(5 * time.Second)
+	client := &Client{
 		url:        clientURL,
 		client:     http.DefaultClient,
 		backoff:    ExponentialBackoff,
@@ -213,8 +217,9 @@ func NewClient(clientURL string) *Client {
 		minWait:    time.Second,
 		log:        utils.NewNopZapLogger(),
 		listener:   &SelectiveListener{},
-		timeouts:   getDefaultFixedTimeouts(),
 	}
+	client.timeouts.Store(&defaultTimeouts)
+	return client
 }
 
 // buildQueryString builds the query url with encoded parameters
@@ -257,7 +262,8 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				req.Header.Set("X-Throttling-Bypass", c.apiKey)
 			}
 
-			c.client.Timeout = c.timeouts.GetCurrentTimeout()
+			timeouts := c.timeouts.Load().(*Timeouts)
+			c.client.Timeout = timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
 			tooManyRequests := false
@@ -265,7 +271,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
 				if res.StatusCode == http.StatusOK {
-					c.timeouts.DecreaseTimeout()
+					timeouts.DecreaseTimeout()
 					return res.Body, nil
 				} else {
 					err = errors.New(res.Status)
@@ -275,7 +281,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			}
 
 			if !tooManyRequests {
-				c.timeouts.IncreaseTimeout()
+				timeouts.IncreaseTimeout()
 			}
 
 			if wait < c.minWait {
@@ -286,7 +292,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				wait = c.maxWait
 			}
 
-			currentTimeout := c.timeouts.GetCurrentTimeout()
+			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= fastGrowThreshold {
 				c.log.Warnw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),

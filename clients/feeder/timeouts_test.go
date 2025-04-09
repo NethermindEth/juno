@@ -210,6 +210,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s' successfully\n", rr.Body.String())
+		timeouts := client.timeouts.Load().(*Timeouts)
 		assert.Equal(t, []time.Duration{
 			2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second,
 			64 * time.Second, 96 * time.Second, 144 * time.Second, 173 * time.Second, 208 * time.Second,
@@ -217,7 +218,7 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 			623 * time.Second, 748 * time.Second, 898 * time.Second, 1078 * time.Second, 1294 * time.Second,
 			1553 * time.Second, 1864 * time.Second, 2237 * time.Second, 2685 * time.Second, 3222 * time.Second,
 			3867 * time.Second, 4641 * time.Second, 5570 * time.Second, 6684 * time.Second, 8021 * time.Second,
-		}, client.timeouts.timeouts)
+		}, timeouts.timeouts)
 	})
 
 	t.Run("PUT update single value timeout with trailing comma", func(t *testing.T) {
@@ -225,9 +226,10 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '2s,' successfully\n", rr.Body.String())
+		timeouts := client.timeouts.Load().(*Timeouts)
 		assert.Equal(t, []time.Duration{
 			2 * time.Second,
-		}, client.timeouts.timeouts)
+		}, timeouts.timeouts)
 	})
 
 	t.Run("PUT update timeouts list", func(t *testing.T) {
@@ -235,9 +237,11 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
+
+		timeouts := client.timeouts.Load().(*Timeouts)
 		assert.Equal(t, []time.Duration{
 			5 * time.Second, 7 * time.Second, 10 * time.Second,
-		}, client.timeouts.timeouts)
+		}, timeouts.timeouts)
 	})
 
 	t.Run("PUT update timeouts with invalid value", func(t *testing.T) {

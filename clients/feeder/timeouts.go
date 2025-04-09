@@ -107,11 +107,6 @@ func getFixedTimeouts(timeouts []time.Duration) Timeouts {
 	}
 }
 
-func getDefaultFixedTimeouts() Timeouts {
-	timeouts, _, _ := ParseTimeouts(DefaultTimeouts)
-	return getFixedTimeouts(timeouts)
-}
-
 // ParseTimeouts parses a comma-separated string of duration values into a slice of time.Duration.
 // Returns:
 // - the parsed timeout values
@@ -159,7 +154,8 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 func HTTPTimeoutsSettings(w http.ResponseWriter, r *http.Request, client *Client) {
 	switch r.Method {
 	case http.MethodGet:
-		fmt.Fprintf(w, "%s\n", client.timeouts.String())
+		timeouts := client.timeouts.Load().(*Timeouts)
+		fmt.Fprintf(w, "%s\n", timeouts.String())
 	case http.MethodPut:
 		timeoutsStr := r.URL.Query().Get("timeouts")
 		if timeoutsStr == "" {
