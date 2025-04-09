@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-//go:generate mockgen -destination=../mocks/mock_plugin.go -package=mocks github.com/NethermindEth/juno/plugin JunoPlugin
+//go:generate go tool mockgen -destination=../mocks/mock_plugin.go -package=mocks github.com/NethermindEth/juno/plugin JunoPlugin
 type JunoPlugin interface {
 	Init() error
 	Shutdown() error

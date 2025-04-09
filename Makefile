@@ -64,7 +64,6 @@ generate-buf: ## Generate protobuf files
 
 generate: ## Generate mocks and code
 	mkdir -p mocks
-	generate-buf
 	go generate ./...
 
 clean-testcache: ## Clean Go test cache
