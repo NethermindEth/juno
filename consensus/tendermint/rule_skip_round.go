@@ -5,13 +5,17 @@ import (
 	"slices"
 )
 
-// line55 assumes the caller has acquired a mutex for accessing future messages.
 /*
+Check the upon condition on line 55:
+
 	55: upon f + 1 {∗, h_p, round, ∗, ∗} with round > round_p do
 	56: 	StartRound(round)
+
+If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
-func (t *Tendermint[V, H, A]) line55(futureR round) {
+func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	t.futureMessagesMu.Lock()
+	defer t.futureMessagesMu.Unlock()
 
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.futureMessages.allMessages(t.state.h, futureR)
@@ -29,9 +33,11 @@ func (t *Tendermint[V, H, A]) line55(futureR round) {
 		vals[addr] = struct{}{}
 	}
 
-	t.futureMessagesMu.Unlock()
+	hasQuorum := t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h))
 
-	if t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.h)) {
-		t.startRound(futureR)
-	}
+	return hasQuorum
+}
+
+func (t *Tendermint[V, H, A]) doSkipRound(futureR round) {
+	t.startRound(futureR)
 }
