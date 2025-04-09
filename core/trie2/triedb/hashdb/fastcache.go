@@ -14,12 +14,21 @@ type FastCache struct {
 }
 
 func NewFastCache(size int) *FastCache {
+	if size <= 0 {
+		return nil
+	}
 	return &FastCache{
-		cache: fastcache.New(size),
+		cache:  fastcache.New(size),
+		mu:     sync.RWMutex{},
+		hits:   0,
+		misses: 0,
 	}
 }
 
 func (c *FastCache) Get(key []byte) ([]byte, bool) {
+	if c == nil {
+		return nil, false
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -38,6 +47,9 @@ func (c *FastCache) Get(key []byte) ([]byte, bool) {
 }
 
 func (c *FastCache) Set(key, value []byte) {
+	if c == nil {
+		return
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

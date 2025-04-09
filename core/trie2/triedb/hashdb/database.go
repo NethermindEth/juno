@@ -46,6 +46,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		config:     config,
 		CleanCache: NewCleanCache(config.CleanCacheType, config.CleanCacheSize),
 		DirtyCache: NewDirtyCache(config.DirtyCacheType, config.DirtyCacheSize),
+		log:        utils.NewNopZapLogger(),
 	}
 }
 
@@ -66,7 +67,6 @@ func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path
 
 func (d *Database) Node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-
 	if d.CleanCache != nil {
 		blob, found := d.CleanCache.Get(key)
 		if found {
