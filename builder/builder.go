@@ -25,9 +25,10 @@ import (
 )
 
 var (
-	_                    service.Service = (*Builder)(nil)
-	_                    sync.Reader     = (*Builder)(nil)
-	ErrPendingParentHash                 = errors.New("pending block parent hash does not match chain head")
+	_                     service.Service = (*Builder)(nil)
+	_                     sync.Reader     = (*Builder)(nil)
+	NumTxnsToBatchExecute                 = 10
+	ErrPendingParentHash                  = errors.New("pending block parent hash does not match chain head")
 )
 
 type Builder struct {
@@ -183,10 +184,9 @@ func (b *Builder) InitPendingBlock() error {
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: &b.ownAddress,
-			// Todo: dynamically set fees (follow-up PR)
-			L1GasPriceETH:  felt.One.Clone(),
-			L1GasPriceSTRK: felt.One.Clone(),
-			L1DAMode:       core.Calldata,
+			L1GasPriceETH:    felt.One.Clone(),
+			L1GasPriceSTRK:   felt.One.Clone(),
+			L1DAMode:         core.Calldata,
 			L1DataGasPrice: &core.GasPrice{
 				PriceInWei: felt.One.Clone(),
 				PriceInFri: felt.One.Clone(),
@@ -295,21 +295,21 @@ func (b *Builder) depletePool(ctx context.Context) error {
 	}
 	for {
 		b.finaliseMutex.RLock()
-		userTxn, err := b.mempool.Pop()
+		userTxns, err := b.mempool.PopBatch(NumTxnsToBatchExecute)
 		if err != nil {
 			b.finaliseMutex.RUnlock()
 			return err
 		}
-		b.log.Debugw("running txn", "hash", userTxn.Transaction.Hash().String())
-		if err = b.runTxn(&userTxn, blockHashToBeRevealed); err != nil {
-			b.log.Debugw("failed txn", "hash", userTxn.Transaction.Hash().String(), "err", err.Error())
+		b.log.Debugw("running txns", userTxns)
+		if err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
+			b.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
 				b.finaliseMutex.RUnlock()
 				return err
 			}
 		}
-		b.log.Debugw("running txn success", "hash", userTxn.Transaction.Hash().String())
+		b.log.Debugw("running txns success")
 		b.finaliseMutex.RUnlock()
 		select {
 		case <-ctx.Done():
@@ -336,9 +336,9 @@ func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-// runTxn executes the provided transaction and applies the state changes
+// runTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -349,19 +349,23 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	state := sync.NewPendingStateWriter(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState)
 
 	// Prepare declared classes, if any
-	var declaredClass []core.Class
-	if txn.DeclaredClass != nil {
-		declaredClass = append(declaredClass, txn.DeclaredClass)
+	var declaredClasses []core.Class
+	paidFeesOnL1 := []*felt.Felt{}
+	coreTxns := make([]core.Transaction, len(txns))
+	for i, txn := range txns {
+		if txn.DeclaredClass != nil {
+			declaredClasses = append(declaredClasses, txn.DeclaredClass)
+		}
+		if txn.PaidFeeOnL1 != nil {
+			paidFeesOnL1 = append(paidFeesOnL1, txn.PaidFeeOnL1)
+		}
+		coreTxns[i] = txn.Transaction
 	}
 
-	paidFeesOnL1 := []*felt.Felt{}
-	if txn.PaidFeeOnL1 != nil {
-		paidFeesOnL1 = append(paidFeesOnL1, txn.PaidFeeOnL1)
-	}
 	// Execute the transaction
 	vmResults, err := b.vm.Execute(
-		[]core.Transaction{txn.Transaction},
-		declaredClass,
+		coreTxns,
+		declaredClasses,
 		paidFeesOnL1,
 		&vm.BlockInfo{
 			Header:                pending.Block.Header,
@@ -375,21 +379,27 @@ func (b *Builder) runTxn(txn *mempool.BroadcastedTransaction, blockHashToBeRevea
 	}
 
 	// Handle declared classes for declare transactions
-	if vmResults.Traces[0].StateDiff.DeclaredClasses != nil ||
-		vmResults.Traces[0].StateDiff.DeprecatedDeclaredClasses != nil {
-		if err := b.processClassDeclaration(txn, &state); err != nil {
-			return err
+	for i, trace := range vmResults.Traces {
+		if trace.StateDiff.DeclaredClasses != nil ||
+			trace.StateDiff.DeprecatedDeclaredClasses != nil {
+			if err := b.processClassDeclaration(&txns[i], &state); err != nil {
+				return err
+			}
 		}
 	}
 
-	// Create transaction receipt
-	receipt := vm2core.Receipt(vmResults.OverallFees[0], txn.Transaction, &vmResults.Traces[0], &vmResults.Receipts[0])
-
-	// Process state diff
-	seqTrace := vm2core.AdaptStateDiff(vmResults.Traces[0].StateDiff)
+	// Adapt results to core type (which use reference types)
+	receipts := make([]*core.TransactionReceipt, len(txns))
+	mergedStateDiff := vm2core.AdaptStateDiff(vmResults.Traces[0].StateDiff)
+	for i, trace := range vmResults.Traces {
+		adaptedStateDiff := vm2core.AdaptStateDiff(trace.StateDiff)
+		mergedStateDiff.Merge(&adaptedStateDiff)
+		adaptedReceipt := vm2core.Receipt(vmResults.OverallFees[i], txns[i].Transaction, &vmResults.Traces[i], &vmResults.Receipts[i])
+		receipts[i] = &adaptedReceipt
+	}
 
 	// Update pending block with transaction results
-	updatePendingBlock(pending, &receipt, txn.Transaction, seqTrace)
+	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
 	return b.StorePending(pending)
 }
@@ -415,14 +425,16 @@ func (b *Builder) processClassDeclaration(txn *mempool.BroadcastedTransaction, s
 // updatePendingBlock updates the pending block with transaction results
 func updatePendingBlock(
 	pending *sync.Pending,
-	receipt *core.TransactionReceipt,
-	transaction core.Transaction,
+	receipts []*core.TransactionReceipt,
+	transactions []core.Transaction,
 	stateDiff core.StateDiff,
 ) {
-	pending.Block.Receipts = append(pending.Block.Receipts, receipt)
-	pending.Block.Transactions = append(pending.Block.Transactions, transaction)
-	pending.Block.TransactionCount += 1
-	pending.Block.EventCount += uint64(len(receipt.Events))
+	pending.Block.Receipts = append(pending.Block.Receipts, receipts...)
+	pending.Block.Transactions = append(pending.Block.Transactions, transactions...)
+	pending.Block.TransactionCount += uint64(len(transactions))
+	for _, receipt := range receipts {
+		pending.Block.EventCount += uint64(len(receipt.Events))
+	}
 	pending.StateUpdate.StateDiff.Merge(&stateDiff)
 }
 

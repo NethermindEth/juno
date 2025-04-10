@@ -221,3 +221,89 @@ func TestWait(t *testing.T) {
 	<-pool.Wait()
 	pool.Close()
 }
+
+func TestPopBatch(t *testing.T) {
+	testDB, dbCloser, err := setupDatabase("testpopbatch", true)
+	log := utils.NewNopZapLogger()
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	chain := mocks.NewMockReader(mockCtrl)
+	state := mocks.NewMockStateHistoryReader(mockCtrl)
+
+	require.NoError(t, err)
+	defer dbCloser()
+	pool := mempool.New(testDB, chain, 10, log)
+	require.NoError(t, pool.LoadFromDB())
+
+	require.Equal(t, 0, pool.Len())
+
+	// Test PopBatch on empty pool
+	txns, err := pool.PopBatch(3)
+	require.ErrorIs(t, err, mempool.ErrTxnPoolEmpty)
+	require.Nil(t, txns)
+
+	// Test with zero count
+	txns, err = pool.PopBatch(0)
+	require.NoError(t, err)
+	require.Empty(t, txns)
+
+	// Test with negative count
+	txns, err = pool.PopBatch(-5)
+	require.NoError(t, err)
+	require.Empty(t, txns)
+
+	// Helper function to add transactions to the pool
+	addTransactions := func(start, end uint64) {
+		for i := start; i <= end; i++ {
+			senderAddress := new(felt.Felt).SetUint64(i)
+			chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
+			state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+			require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
+				Transaction: &core.InvokeTransaction{
+					TransactionHash: new(felt.Felt).SetUint64(i),
+					Nonce:           new(felt.Felt).SetUint64(1),
+					SenderAddress:   senderAddress,
+					Version:         new(core.TransactionVersion).SetUint64(1),
+				},
+			}))
+		}
+	}
+
+	// Push 5 transactions to the pool
+	addTransactions(1, 5)
+	require.Equal(t, 5, pool.Len())
+
+	// Test PopBatch with count less than pool size
+	txns, err = pool.PopBatch(3)
+	require.NoError(t, err)
+	require.Len(t, txns, 3)
+	for i, txn := range txns {
+		require.Equal(t, uint64(i+1), txn.Transaction.Hash().Uint64())
+	}
+	require.Equal(t, 2, pool.Len())
+
+	// Test PopBatch with count equal to pool size
+	txns, err = pool.PopBatch(2)
+	require.NoError(t, err)
+	require.Len(t, txns, 2)
+	for i, txn := range txns {
+		require.Equal(t, uint64(i+4), txn.Transaction.Hash().Uint64())
+	}
+	require.Equal(t, 0, pool.Len())
+
+	// Test PopBatch with count greater than pool size
+	// First, add 2 more transactions
+	addTransactions(6, 7)
+	require.Equal(t, 2, pool.Len())
+
+	// Try to pop more than available
+	txns, err = pool.PopBatch(5)
+	require.NoError(t, err)
+	require.Len(t, txns, 2)
+	for i, txn := range txns {
+		require.Equal(t, uint64(i+6), txn.Transaction.Hash().Uint64())
+	}
+	require.Equal(t, 0, pool.Len())
+
+	pool.Close()
+}

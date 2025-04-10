@@ -74,6 +74,37 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 	return headNode.Txn, nil
 }
 
+func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.head == nil {
+		return nil, ErrTxnPoolEmpty
+	}
+
+	// Limit numToPop to the actual number of transactions available
+	if numToPop > t.len {
+		numToPop = t.len
+	}
+
+	result := make([]BroadcastedTransaction, 0, numToPop)
+	current := t.head
+
+	for range numToPop {
+		result = append(result, current.Txn)
+		current = current.Next
+	}
+
+	// Update the head to point to the next transaction after the batch
+	t.head = current
+	if t.head == nil {
+		t.tail = nil
+	}
+	t.len -= numToPop
+
+	return result, nil
+}
+
 // Pool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type Pool struct {
@@ -286,6 +317,14 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 // Pop returns the transaction with the highest priority from the in-memory pool
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
 	return p.memTxnList.pop()
+}
+
+// PopBatch returns a batch of transactions with the highest priority from the in-memory pool
+func (p *Pool) PopBatch(numToPop int) ([]BroadcastedTransaction, error) {
+	if numToPop <= 0 {
+		return []BroadcastedTransaction{}, nil
+	}
+	return p.memTxnList.popBatch(numToPop)
 }
 
 // Remove removes a set of transactions from the pool
