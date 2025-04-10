@@ -14,8 +14,8 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
-	H          height
-	R          round
+	Height     height
+	Round      round
 	ValidRound round
 	Value      *V
 
@@ -28,9 +28,9 @@ type (
 )
 
 type Vote[H Hash, A Addr] struct {
-	H  height
-	R  round
-	ID *H
+	Height height
+	Round  round
+	ID     *H
 
 	Sender A
 }
@@ -76,15 +76,15 @@ func addMessages[T any, A Addr](storage map[height]map[round]map[A][]T, msg T, a
 
 // Todo: ensure duplicated messages are ignored.
 func (m *messages[V, H, A]) addProposal(p Proposal[V, H, A]) {
-	addMessages(m.proposals, p, p.Sender, p.H, p.R)
+	addMessages(m.proposals, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) addPrevote(p Prevote[H, A]) {
-	addMessages(m.prevotes, p, p.Sender, p.H, p.R)
+	addMessages(m.prevotes, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) addPrecommit(p Precommit[H, A]) {
-	addMessages(m.precommits, p, p.Sender, p.H, p.R)
+	addMessages(m.precommits, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *messages[V, H, A]) allMessages(h height, r round) (map[A][]Proposal[V, H, A], map[A][]Prevote[H, A],

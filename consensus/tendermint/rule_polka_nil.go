@@ -9,9 +9,11 @@ Check the upon condition on line 44:
 
 Line 36 and 44 for a round are mutually exclusive.
 */
-func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prevote[H, A]) {
+func (t *Tendermint[V, H, A]) uponPolkaNil(p Prevote[H, A]) bool {
+	prevotes := t.messages.prevotes[t.state.height][t.state.round]
+
 	var vals []A
-	for addr, valPrevotes := range prevotesForHR {
+	for addr, valPrevotes := range prevotes {
 		for _, v := range valPrevotes {
 			if v.ID == nil {
 				vals = append(vals, addr)
@@ -19,7 +21,12 @@ func (t *Tendermint[V, H, A]) line44(p Prevote[H, A], prevotesForHR map[A][]Prev
 		}
 	}
 
-	if t.state.s == prevote && t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.H)) {
-		t.sendPrecommit(nil)
-	}
+	// TODO: refactor this
+	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(p.Height))
+
+	return hasQuorum && t.state.step == prevote
+}
+
+func (t *Tendermint[V, H, A]) doPolkaNil() {
+	t.sendPrecommit(nil)
 }

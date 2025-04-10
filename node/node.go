@@ -105,8 +105,8 @@ type Config struct {
 
 	PluginPath string `mapstructure:"plugin-path"`
 
-	LogHost string `mapstructure:"log-host"`
-	LogPort uint16 `mapstructure:"log-port"`
+	HTTPUpdateHost string `mapstructure:"http-update-host"`
+	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 }
 
 type Node struct {
@@ -291,9 +291,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
-	if cfg.LogPort != 0 {
-		log.Infow("Log level can be changed via HTTP PUT request to " + cfg.LogHost + ":" + fmt.Sprintf("%d", cfg.LogPort) + "/log/level")
-		earlyServices = append(earlyServices, makeLogService(cfg.LogHost, cfg.LogPort, logLevel))
+	if cfg.HTTPUpdatePort != 0 {
+		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		)
+		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
