@@ -3,25 +3,25 @@ package tendermint
 import "github.com/NethermindEth/juno/utils"
 
 func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
-	if p.H < t.state.h {
+	if p.Height < t.state.height {
 		return
 	}
 
 	if !handleFutureHeightMessage(
 		t,
 		p,
-		func(p Proposal[V, H, A]) height { return p.H },
-		func(p Proposal[V, H, A]) round { return p.R },
+		func(p Proposal[V, H, A]) height { return p.Height },
+		func(p Proposal[V, H, A]) round { return p.Round },
 		t.futureMessages.addProposal,
 	) {
 		return
 	}
 
-	if !handleFutureRoundMessage(t, p, func(p Proposal[V, H, A]) round { return p.R }, t.futureMessages.addProposal) {
+	if !handleFutureRoundMessage(t, p, func(p Proposal[V, H, A]) round { return p.Round }, t.futureMessages.addProposal) {
 		return
 	}
 
-	if p.Sender != t.validators.Proposer(p.H, p.R) {
+	if p.Sender != t.validators.Proposer(p.Height, p.Round) {
 		return
 	}
 
@@ -44,7 +44,7 @@ func (t *Tendermint[V, H, A]) handleProposal(p Proposal[V, H, A]) {
 		return
 	}
 
-	if p.R < t.state.r {
+	if p.Round < t.state.round {
 		// Except line 49 all other upon condition which refer to the proposals expect to be acted upon
 		// when the current round is equal to the proposal's round.
 		return

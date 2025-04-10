@@ -1,33 +1,33 @@
 package tendermint
 
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
-	if p.H < t.state.h {
+	if p.Height < t.state.height {
 		return
 	}
 
 	if !handleFutureHeightMessage(
 		t,
 		p,
-		func(p Prevote[H, A]) height { return p.H },
-		func(p Prevote[H, A]) round { return p.R },
+		func(p Prevote[H, A]) height { return p.Height },
+		func(p Prevote[H, A]) round { return p.Round },
 		t.futureMessages.addPrevote,
 	) {
 		return
 	}
 
-	if !handleFutureRoundMessage(t, p, func(p Prevote[H, A]) round { return p.R }, t.futureMessages.addPrevote) {
+	if !handleFutureRoundMessage(t, p, func(p Prevote[H, A]) round { return p.Round }, t.futureMessages.addPrevote) {
 		return
 	}
 
 	t.messages.addPrevote(p)
 
-	cachedProposal := t.findMatchingProposal(t.state.r, p.ID)
+	cachedProposal := t.findMatchingProposal(t.state.round, p.ID)
 
-	if cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal, p.R) {
+	if cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal, p.Round) {
 		t.doProposalAndPolkaPrevious(cachedProposal)
 	}
 
-	if p.R == t.state.r {
+	if p.Round == t.state.round {
 		if t.uponPolkaAny(p) {
 			t.doPolkaAny(p)
 		}
