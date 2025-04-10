@@ -118,6 +118,7 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	nodeAddr A
 
+	log   utils.SimpleLogger
 	state state[V, H] // Todo: Does state need to be protected?
 
 	messages       messages[V, H, A]
@@ -166,9 +167,11 @@ type state[V Hashable[H], H Hash] struct {
 
 func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
 	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+	log utils.SimpleLogger,
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
 		nodeAddr: nodeAddr,
+		log:      log,
 		state: state[V, H]{
 			h:           chain.Height(),
 			lockedRound: -1,

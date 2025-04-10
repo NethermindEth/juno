@@ -137,7 +137,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val3)
 		vals.addValidator(*val4)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
@@ -174,7 +174,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		algo.Start()
 		algo.Stop()
@@ -205,7 +205,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{

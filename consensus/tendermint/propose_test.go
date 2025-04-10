@@ -24,7 +24,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -76,7 +76,7 @@ func TestPropose(t *testing.T) {
 
 		tm := func(r round) time.Duration { return 2 * time.Second }
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -125,7 +125,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		expectedHeight := height(0)
 		rPrime := round(4)
@@ -176,7 +176,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			H:      0,
@@ -227,7 +227,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		nodePrecommit := Precommit[felt.Felt, felt.Felt]{
 			H:      0,
@@ -289,7 +289,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit, utils.NewNopZapLogger())
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			H:      0,
@@ -343,7 +343,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		h, r := height(0), round(0)
 
@@ -419,7 +419,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := New[value, felt.Felt, felt.Felt](*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm, utils.NewNopZapLogger())
 
 		h, r := height(0), round(0)
 
