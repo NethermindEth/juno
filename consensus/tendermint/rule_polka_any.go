@@ -24,7 +24,7 @@ func (t *Tendermint[V, H, A]) uponPolkaAny() bool {
 		isFirstTime
 }
 
-func (t *Tendermint[V, H, A]) doPolkaAny() {
-	t.scheduleTimeout(t.timeoutPrevote(t.state.round), prevote, t.state.height, t.state.round)
+func (t *Tendermint[V, H, A]) doPolkaAny() Action[V, H, A] {
 	t.state.timeoutPrevoteScheduled = true
+	return t.scheduleTimeout(prevote)
 }

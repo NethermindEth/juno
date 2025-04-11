@@ -1,19 +1,22 @@
 package tendermint
 
-func (t *Tendermint[_, H, A]) onTimeoutPropose(h height, r round) {
+func (t *Tendermint[V, H, A]) onTimeoutPropose(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == propose {
-		t.sendPrevote(nil)
+		return t.setStepAndSendPrevote(nil)
 	}
+	return nil
 }
 
-func (t *Tendermint[_, H, A]) onTimeoutPrevote(h height, r round) {
+func (t *Tendermint[V, H, A]) onTimeoutPrevote(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == prevote {
-		t.sendPrecommit(nil)
+		return t.setStepAndSendPrecommit(nil)
 	}
+	return nil
 }
 
-func (t *Tendermint[_, _, _]) onTimeoutPrecommit(h height, r round) {
+func (t *Tendermint[V, H, A]) onTimeoutPrecommit(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r {
-		t.startRound(r + 1)
+		return t.startRound(r + 1)
 	}
+	return nil
 }
