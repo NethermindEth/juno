@@ -62,6 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
+	defaultSeqBlockTime := uint(60)
 	defaultGwTimeout := "5s,"
 
 	tests := map[string]struct {
@@ -109,6 +110,7 @@ func TestConfigPrecedence(t *testing.T) {
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -156,6 +158,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -190,6 +193,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -224,6 +228,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -263,6 +268,7 @@ cn-unverifiable-range: [0,10]
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -276,7 +282,7 @@ db-path: /home/.juno
 network: sepolia
 pprof: true
 `,
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl // false trigger (see `Pprof`, `DatabasePath` fields)
 				LogLevel:            "debug",
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -304,6 +310,7 @@ pprof: true
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -342,6 +349,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -379,6 +387,7 @@ http-port: 4576
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -388,7 +397,7 @@ http-port: 4576
 				"--log-level", "debug", "--http-port", "4576", "--http-host", "0.0.0.0", "--db-path", "/home/.juno",
 				"--network", "sepolia",
 			},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl // false trigger (see Pprof,DatabasePath)
 				LogLevel:            "debug",
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -416,6 +425,7 @@ http-port: 4576
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -477,6 +487,7 @@ db-cache-size: 1024
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -489,7 +500,7 @@ http-port: 4576
 network: sepolia
 `,
 			inputArgs: []string{"--db-path", "/home/flag/.juno"},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl // false trigger (see Pprof,DatabasePath)
 				LogLevel:            "warn",
 				HTTP:                defaultHTTP,
 				HTTPHost:            "0.0.0.0",
@@ -517,6 +528,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -553,6 +565,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -587,6 +600,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -622,6 +636,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
@@ -658,6 +673,7 @@ network: sepolia
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
 				GatewayTimeouts:     defaultGwTimeout,
+				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
 			},
