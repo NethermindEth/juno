@@ -120,8 +120,7 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 
 	state state[V, H] // Todo: Does state need to be protected?
 
-	messages       messages[V, H, A]
-	futureMessages messages[V, H, A]
+	messages messages[V, H, A]
 
 	timeoutPropose   timeoutFn
 	timeoutPrevote   timeoutFn
@@ -168,7 +167,6 @@ func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain
 			validRound:  -1,
 		},
 		messages:         newMessages[V, H, A](),
-		futureMessages:   newMessages[V, H, A](),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
 		timeoutPrecommit: tmPrecommit,
@@ -195,6 +193,7 @@ func (t *Tendermint[V, H, A]) Start() {
 		defer t.wg.Done()
 
 		t.startRound(0)
+		t.processLoop(nil)
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
@@ -205,21 +204,14 @@ func (t *Tendermint[V, H, A]) Start() {
 				return
 			case tm := <-t.timeoutsCh:
 				// Handling of timeouts is priorities over messages
-				switch tm.s {
-				case propose:
-					t.OnTimeoutPropose(tm.h, tm.r)
-				case prevote:
-					t.OnTimeoutPrevote(tm.h, tm.r)
-				case precommit:
-					t.OnTimeoutPrecommit(tm.h, tm.r)
-				}
+				t.processTimeout(tm)
 				delete(t.scheduledTms, tm)
 			case p := <-t.listeners.ProposalListener.Listen():
-				t.handleProposal(p)
+				t.processMessage(p.MessageHeader, func() { t.messages.addProposal(p) })
 			case p := <-t.listeners.PrevoteListener.Listen():
-				t.handlePrevote(p)
+				t.processMessage(p.MessageHeader, func() { t.messages.addPrevote(p) })
 			case p := <-t.listeners.PrecommitListener.Listen():
-				t.handlePrecommit(p)
+				t.processMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) })
 			}
 		}
 	}()
@@ -256,52 +248,6 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 	} else {
 		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.height, t.state.round)
 	}
-
-	t.processFutureMessages(t.state.height, t.state.round)
-}
-
-func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
-	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
-	if len(proposals) > 0 {
-		for _, addrProposals := range proposals {
-			for _, proposal := range addrProposals {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handleProposal(proposal)
-				}
-			}
-		}
-	}
-
-	if len(prevotes) > 0 {
-		for _, addrPrevotes := range prevotes {
-			for _, vote := range addrPrevotes {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrevote(vote)
-				}
-			}
-		}
-	}
-
-	if len(precommits) > 0 {
-		for _, addrPrecommits := range precommits {
-			for _, vote := range addrPrecommits {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrecommit(vote)
-				}
-			}
-		}
-	}
-
-	t.futureMessages.deleteRoundMessages(h, r)
 }
 
 type timeout struct {
@@ -318,24 +264,6 @@ func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h 
 		case t.timeoutsCh <- tm:
 		}
 	})
-}
-
-func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
-	if t.state.height == h && t.state.round == r && t.state.step == propose {
-		t.sendPrevote(nil)
-	}
-}
-
-func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
-	if t.state.height == h && t.state.round == r && t.state.step == prevote {
-		t.sendPrecommit(nil)
-	}
-}
-
-func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
-	if t.state.height == h && t.state.round == r {
-		t.startRound(r + 1)
-	}
 }
 
 func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
@@ -363,52 +291,26 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
-func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mR := r(m)
-	if mR > t.state.round {
-		if mR-t.state.round > maxFutureRound {
-			return false
-		}
-
-		addMessage(m)
-
-		if t.uponSkipRound(mR) {
-			t.doSkipRound(mR)
-		}
-		return false
+func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
+	var currentRound round
+	isCurrentHeight := header.Height == t.state.height
+	if isCurrentHeight {
+		currentRound = t.state.round
 	}
-	return true
+
+	switch {
+	case !isCurrentOrNearFuture(header.Height, t.state.height, maxFutureHeight):
+		return false
+	case !isCurrentOrNearFuture(header.Round, currentRound, maxFutureRound):
+		return false
+	default:
+		addMessage()
+		return isCurrentHeight
+	}
 }
 
-func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	h func(M) height,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mH := h(m)
-	mR := r(m)
-
-	if mH > t.state.height {
-		if mH-t.state.height > maxFutureHeight {
-			return false
-		}
-
-		if mR > maxFutureRound {
-			return false
-		}
-
-		addMessage(m)
-
-		return false
-	}
-	return true
+func isCurrentOrNearFuture[T ~uint | ~int](header, current, maxFuture T) bool {
+	return header >= current && header <= current+maxFuture
 }
 
 // TODO: Improve performance. Current complexity is O(n).
@@ -419,12 +321,10 @@ func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingP
 	}
 
 	var vals []A
-	for addr, valPrecommits := range precommits {
-		for _, p := range valPrecommits {
-			if *p.ID == vID {
-				matchingPrecommits = append(matchingPrecommits, p)
-				vals = append(vals, addr)
-			}
+	for addr, p := range precommits {
+		if *p.ID == vID {
+			matchingPrecommits = append(matchingPrecommits, p)
+			vals = append(vals, addr)
 		}
 	}
 	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
@@ -438,36 +338,24 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 	}
 
 	var vals []A
-	for addr, valPrevotes := range prevotes {
-		for _, p := range valPrevotes {
-			if *p.ID == vID {
-				vals = append(vals, addr)
-			}
+	for addr, p := range prevotes {
+		if *p.ID == vID {
+			vals = append(vals, addr)
 		}
 	}
 	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id *H) *CachedProposal[V, H, A] {
-	if id == nil {
-		return nil
-	}
-
-	proposals, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
+func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
+	v, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
 	if !ok {
 		return nil
 	}
 
-	for _, v := range proposals {
-		if (*v.Value).Hash() == *id {
-			return &CachedProposal[V, H, A]{
-				Proposal: v,
-				Valid:    t.application.Valid(*v.Value),
-				ID:       id,
-			}
-		}
+	return &CachedProposal[V, H, A]{
+		Proposal: v,
+		Valid:    t.application.Valid(*v.Value),
+		ID:       utils.HeapPtr((*v.Value).Hash()),
 	}
-
-	return nil
 }
