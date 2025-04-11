@@ -26,12 +26,12 @@ func (t *Tendermint[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, 
 	return hasQuorum && isValid
 }
 
-func (t *Tendermint[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) {
+func (t *Tendermint[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
 	// TODO: Optimise this
 	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)
 
 	t.messages.deleteHeightMessages(t.state.height)
 	t.state.height++
-	t.startRound(0)
+	return t.startRound(0)
 }

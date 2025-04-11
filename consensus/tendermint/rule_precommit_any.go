@@ -22,7 +22,7 @@ func (t *Tendermint[V, H, A]) uponPrecommitAny() bool {
 	return hasQuorum && isFirstTime
 }
 
-func (t *Tendermint[V, H, A]) doPrecommitAny() {
-	t.scheduleTimeout(t.timeoutPrecommit(t.state.round), precommit, t.state.height, t.state.round)
+func (t *Tendermint[V, H, A]) doPrecommitAny() Action[V, H, A] {
 	t.state.timeoutPrecommitScheduled = true
+	return t.scheduleTimeout(precommit)
 }

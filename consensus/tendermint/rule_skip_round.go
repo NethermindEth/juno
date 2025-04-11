@@ -37,6 +37,6 @@ func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	return isNewerRound && hasQuorum
 }
 
-func (t *Tendermint[V, H, A]) doSkipRound(futureR round) {
-	t.startRound(futureR)
+func (t *Tendermint[V, H, A]) doSkipRound(futureR round) Action[V, H, A] {
+	return t.startRound(futureR)
 }

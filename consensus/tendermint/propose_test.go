@@ -24,7 +24,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -47,7 +47,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(rPrimeVal.Hash()),
 		}
 
-		algo.messages.addPrevote(val3Prevote)
+		algo.stateMachine.messages.addPrevote(val3Prevote)
 		proposalListener := listeners.ProposalListener.(*senderAndReceiver[Proposal[value, felt.Felt, felt.Felt],
 			value, felt.Felt, felt.Felt])
 		proposalListener.send(val2Proposal)
@@ -56,17 +56,17 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Contains(t, algo.messages.proposals[expectedHeight][rPrime], *val2)
-		assert.Equal(t, val2Proposal, algo.messages.proposals[expectedHeight][rPrime][*val2])
+		assert.Contains(t, algo.stateMachine.messages.proposals[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Proposal, algo.stateMachine.messages.proposals[expectedHeight][rPrime][*val2])
 
-		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
+		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.stateMachine.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step is not propose because the proposal which is received in round r' leads to consensus
 		// engine broadcasting prevote to the proposal which changes the step from propose to prevote.
-		assert.Equal(t, prevote, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, rPrime, algo.state.round)
+		assert.Equal(t, prevote, algo.stateMachine.state.step)
+		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
+		assert.Equal(t, rPrime, algo.stateMachine.state.round)
 	})
 
 	t.Run("Line 55 (Prevote): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestPropose(t *testing.T) {
 
 		tm := func(r round) time.Duration { return 2 * time.Second }
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime, rPrimeVal := round(4), value(10)
@@ -102,7 +102,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(rPrimeVal.Hash()),
 		}
 
-		algo.messages.addPrevote(val2Prevote)
+		algo.stateMachine.messages.addPrevote(val2Prevote)
 		prevoteListener := listeners.PrevoteListener.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val3Prevote)
@@ -111,17 +111,17 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val2)
-		assert.Equal(t, val2Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val2])
+		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Prevote, algo.stateMachine.messages.prevotes[expectedHeight][rPrime][*val2])
 
-		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
+		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.stateMachine.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step here remains propose because a proposal is yet to be received to allow the node to send the
 		// prevote for it.
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, rPrime, algo.state.round)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
+		assert.Equal(t, rPrime, algo.stateMachine.state.round)
 	})
 
 	t.Run("Line 55 (Precommit): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
@@ -133,7 +133,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight := height(0)
 		rPrime := round(4)
@@ -156,7 +156,7 @@ func TestPropose(t *testing.T) {
 			ID: utils.HeapPtr(round4Value.Hash()),
 		}
 
-		algo.messages.addPrevote(val3Prevote)
+		algo.stateMachine.messages.addPrevote(val3Prevote)
 		prevoteListener := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
 		prevoteListener.send(val2Precommit)
@@ -165,17 +165,17 @@ func TestPropose(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		algo.Stop()
 
-		assert.Contains(t, algo.messages.precommits[expectedHeight][rPrime], *val2)
-		assert.Equal(t, val2Precommit, algo.messages.precommits[expectedHeight][rPrime][*val2])
+		assert.Contains(t, algo.stateMachine.messages.precommits[expectedHeight][rPrime], *val2)
+		assert.Equal(t, val2Precommit, algo.stateMachine.messages.precommits[expectedHeight][rPrime][*val2])
 
-		assert.Contains(t, algo.messages.prevotes[expectedHeight][rPrime], *val3)
-		assert.Equal(t, val3Prevote, algo.messages.prevotes[expectedHeight][rPrime][*val3])
+		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][rPrime], *val3)
+		assert.Equal(t, val3Prevote, algo.stateMachine.messages.prevotes[expectedHeight][rPrime][*val3])
 
 		// The step here remains propose because a proposal is yet to be received to allow the node to send the
 		// prevote for it.
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, rPrime, algo.state.round)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
+		assert.Equal(t, rPrime, algo.stateMachine.state.round)
 	})
 
 	t.Run("Line 47: schedule timeout precommit", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			MessageHeader: MessageHeader[felt.Felt]{
@@ -215,8 +215,8 @@ func TestPropose(t *testing.T) {
 			ID: nil,
 		}
 
-		algo.messages.addPrecommit(val2Precommit)
-		algo.messages.addPrecommit(val3Precommit)
+		algo.stateMachine.messages.addPrecommit(val2Precommit)
+		algo.stateMachine.messages.addPrecommit(val3Precommit)
 
 		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
@@ -229,10 +229,10 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 
-		assert.True(t, algo.state.timeoutPrecommitScheduled)
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(0), algo.state.height)
-		assert.Equal(t, round(0), algo.state.round)
+		assert.True(t, algo.stateMachine.state.timeoutPrecommitScheduled)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(0), algo.stateMachine.state.height)
+		assert.Equal(t, round(0), algo.stateMachine.state.round)
 	})
 
 	t.Run("Line 47: don't schedule timeout precommit multiple times", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		nodePrecommit := Precommit[felt.Felt, felt.Felt]{
 			MessageHeader: MessageHeader[felt.Felt]{
@@ -280,8 +280,8 @@ func TestPropose(t *testing.T) {
 			ID: nil,
 		}
 
-		algo.messages.addPrecommit(val2Precommit)
-		algo.messages.addPrecommit(val3Precommit)
+		algo.stateMachine.messages.addPrecommit(val2Precommit)
+		algo.stateMachine.messages.addPrecommit(val3Precommit)
 
 		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
@@ -298,10 +298,10 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 
-		assert.True(t, algo.state.timeoutPrecommitScheduled)
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(0), algo.state.height)
-		assert.Equal(t, round(0), algo.state.round)
+		assert.True(t, algo.stateMachine.state.timeoutPrecommitScheduled)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(0), algo.stateMachine.state.height)
+		assert.Equal(t, round(0), algo.stateMachine.state.round)
 	})
 
 	t.Run("OnTimeoutPrecommit: move to next round", func(t *testing.T) {
@@ -315,7 +315,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tmPrecommit)
 
 		val2Precommit := Precommit[felt.Felt, felt.Felt]{
 			MessageHeader: MessageHeader[felt.Felt]{
@@ -342,8 +342,8 @@ func TestPropose(t *testing.T) {
 			ID: nil,
 		}
 
-		algo.messages.addPrecommit(val2Precommit)
-		algo.messages.addPrecommit(val3Precommit)
+		algo.stateMachine.messages.addPrecommit(val2Precommit)
+		algo.stateMachine.messages.addPrecommit(val3Precommit)
 
 		precommitListner := listeners.PrecommitListener.(*senderAndReceiver[Precommit[felt.Felt, felt.Felt], value,
 			felt.Felt, felt.Felt])
@@ -359,10 +359,10 @@ func TestPropose(t *testing.T) {
 		assert.Equal(t, 2, len(algo.scheduledTms))
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 1})
 
-		assert.False(t, algo.state.timeoutPrecommitScheduled)
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(0), algo.state.height)
-		assert.Equal(t, round(1), algo.state.round)
+		assert.False(t, algo.stateMachine.state.timeoutPrecommitScheduled)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(0), algo.stateMachine.state.height)
+		assert.Equal(t, round(1), algo.stateMachine.state.round)
 	})
 
 	t.Run("Line 49 (Proposal): commit the value", func(t *testing.T) {
@@ -375,7 +375,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		h, r := height(0), round(0)
 
@@ -408,9 +408,9 @@ func TestPropose(t *testing.T) {
 		}
 
 		// The node has received all the precommits but has received the corresponding proposal
-		algo.messages.addPrecommit(val2Precommit)
-		algo.messages.addPrecommit(val3Precommit)
-		algo.messages.addPrecommit(val4Precommit)
+		algo.stateMachine.messages.addPrecommit(val2Precommit)
+		algo.stateMachine.messages.addPrecommit(val3Precommit)
+		algo.stateMachine.messages.addPrecommit(val4Precommit)
 
 		// since val2 is the proposer of round 0, the proposal arrives after the precommits
 		val2Proposal := Proposal[value, felt.Felt, felt.Felt]{
@@ -436,9 +436,9 @@ func TestPropose(t *testing.T) {
 		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(1), algo.state.height)
-		assert.Equal(t, round(0), algo.state.round)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(1), algo.stateMachine.state.height)
+		assert.Equal(t, round(0), algo.stateMachine.state.round)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)
@@ -446,9 +446,9 @@ func TestPropose(t *testing.T) {
 			assert.True(t, slices.Contains(precommits, p))
 		}
 
-		assert.Equal(t, 0, len(algo.messages.proposals))
-		assert.Equal(t, 0, len(algo.messages.prevotes))
-		assert.Equal(t, 0, len(algo.messages.precommits))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.proposals))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.prevotes))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.precommits))
 	})
 
 	t.Run("Line 49 (Precommit): commit the value", func(t *testing.T) {
@@ -461,7 +461,7 @@ func TestPropose(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		h, r := height(0), round(0)
 
@@ -495,9 +495,9 @@ func TestPropose(t *testing.T) {
 		}
 
 		// The node has received all the precommits but has received the corresponding proposal
-		algo.messages.addPrecommit(val2Precommit)
-		algo.messages.addProposal(val2Proposal)
-		algo.messages.addPrecommit(val3Precommit)
+		algo.stateMachine.messages.addPrecommit(val2Precommit)
+		algo.stateMachine.messages.addProposal(val2Proposal)
+		algo.stateMachine.messages.addPrecommit(val3Precommit)
 
 		val4Precommit := Precommit[felt.Felt, felt.Felt]{
 			MessageHeader: MessageHeader[felt.Felt]{
@@ -521,9 +521,9 @@ func TestPropose(t *testing.T) {
 		assert.Contains(t, algo.scheduledTms, timeout{s: precommit, h: 0, r: 0})
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 1, r: 0})
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(1), algo.state.height)
-		assert.Equal(t, round(0), algo.state.round)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(1), algo.stateMachine.state.height)
+		assert.Equal(t, round(0), algo.stateMachine.state.round)
 
 		precommits := []Precommit[felt.Felt, felt.Felt]{val2Precommit, val3Precommit, val4Precommit}
 		assert.Equal(t, chain.decision[0], val)
@@ -531,9 +531,9 @@ func TestPropose(t *testing.T) {
 			assert.True(t, slices.Contains(precommits, p))
 		}
 
-		assert.Equal(t, 0, len(algo.messages.proposals))
-		assert.Equal(t, 0, len(algo.messages.prevotes))
-		assert.Equal(t, 0, len(algo.messages.precommits))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.proposals))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.prevotes))
+		assert.Equal(t, 0, len(algo.stateMachine.messages.precommits))
 	})
 
 	t.Run("Line 22: receive a new proposal before timeout expiry", func(t *testing.T) {
