@@ -104,7 +104,7 @@ func Receipt(fee *felt.Felt, txn core.Transaction,
 		FeeUnit:            feeUnit,
 		Events:             AdaptOrderedEvents(trace.AllEvents()),
 		ExecutionResources: &adaptedER,
-		L1ToL2Message:      nil, // Todo: sequencer currently can't post messages to L1 (follow up PR)
+		L1ToL2Message:      nil, // Todo: sequencer currently can't post messages to L1
 		L2ToL1Message:      AdaptOrderedMessagesToL1(trace.AllMessages()),
 		TransactionHash:    txn.Hash(),
 		Reverted:           isReverted,
