@@ -14,12 +14,9 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
-	Height     height
-	Round      round
+	MessageHeader[A]
 	ValidRound round
 	Value      *V
-
-	Sender A
 }
 
 type (
@@ -28,10 +25,13 @@ type (
 )
 
 type Vote[H Hash, A Addr] struct {
+	MessageHeader[A]
+	ID *H
+}
+
+type MessageHeader[A Addr] struct {
 	Height height
 	Round  round
-	ID     *H
-
 	Sender A
 }
 
