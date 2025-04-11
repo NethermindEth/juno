@@ -21,7 +21,7 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 
 	t.messages.addPrecommit(p)
 
-	cachedProposal := t.findMatchingProposal(p.Round, p.ID)
+	cachedProposal := t.findProposal(p.Round)
 
 	if cachedProposal != nil && t.uponCommitValue(cachedProposal) {
 		t.doCommitValue(cachedProposal)
