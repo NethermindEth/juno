@@ -53,8 +53,6 @@ func NewDirtyCache(cacheType CacheType, size int) DirtyCache {
 	switch cacheType {
 	case CacheTypeLRU:
 		return NewLRUCache(size)
-	case CacheTypeRefCount:
-		return NewRefCountCache()
 	default:
 		return NewLRUCache(size)
 	}

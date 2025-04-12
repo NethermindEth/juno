@@ -57,6 +57,28 @@ func (d *Database) Update(
 	}
 }
 
+func (d *Database) Commit(stateComm felt.Felt) error {
+	switch td := d.triedb.(type) {
+	case *pathdb.Database:
+		return td.Commit(stateComm)
+	case *hashdb.Database:
+		return td.Commit(stateComm)
+	default:
+		return fmt.Errorf("unsupported trie db type: %T", td)
+	}
+}
+
+func (d *Database) Cap(limit uint64) error {
+	switch td := d.triedb.(type) {
+	case *pathdb.Database:
+		return fmt.Errorf("pathdb does not support cap")
+	case *hashdb.Database:
+		return td.Cap(limit)
+	default:
+		return fmt.Errorf("unsupported trie db type: %T", td)
+	}
+}
+
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
 	return d.triedb.NodeReader(id)
 }
