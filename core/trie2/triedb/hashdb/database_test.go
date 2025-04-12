@@ -7,360 +7,429 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	memorydb "github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBasicCacheOperations(t *testing.T) {
-	diskdb := memorydb.New()
-	database := New(diskdb, &Config{
-		CleanCacheType: CacheTypeLRU,
-		CleanCacheSize: 4 * 1024 * 1024,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 1 * 1024 * 1024,
+func TestDatabase(t *testing.T) {
+	t.Run("New creates database with correct defaults", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+
+		assert.Equal(t, memDB, database.disk)
+		assert.Equal(t, DefaultConfig, database.config)
+		assert.NotNil(t, database.CleanCache)
+		assert.NotNil(t, database.DirtyCache)
 	})
 
-	owner := felt.Zero
-	path := trieutils.Path{}
-	hash := new(felt.Felt).SetUint64(123)
-	blob := []byte("test node data")
-	isLeaf := false
+	t.Run("New creates database with provided config", func(t *testing.T) {
+		memDB := memory.New()
+		config := &Config{
+			DirtyCacheSize: 1024,
+			CleanCacheSize: 1024,
+			DirtyCacheType: CacheTypeLRU,
+			CleanCacheType: CacheTypeFastCache,
+		}
+		database := New(memDB, config)
 
-	err := database.insert(db.ContractStorage, owner, path, *hash, blob, isLeaf)
-	require.NoError(t, err)
-
-	retrievedBlob, err := database.Node(db.ContractStorage, owner, path, *hash, isLeaf)
-	require.NoError(t, err)
-	assert.Equal(t, blob, retrievedBlob)
-
-	err = database.Cap(0)
-	require.NoError(t, err)
-
-	retrievedBlob, err = database.Node(db.ContractStorage, owner, path, *hash, isLeaf)
-	require.NoError(t, err)
-	assert.Equal(t, blob, retrievedBlob)
-
-	database2 := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 0,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 0,
-	})
-	retrievedBlob, err = database2.Node(db.ContractStorage, owner, path, *hash, isLeaf)
-	require.NoError(t, err)
-	assert.Equal(t, blob, retrievedBlob)
-}
-
-func TestRefCountingMechanism(t *testing.T) {
-	diskdb := memorydb.New()
-	database := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 4 * 1024 * 1024,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 1 * 1024 * 1024,
+		assert.Equal(t, memDB, database.disk)
+		assert.Equal(t, config, database.config)
+		assert.NotNil(t, database.CleanCache)
+		assert.NotNil(t, database.DirtyCache)
 	})
 
-	parentHash := new(felt.Felt).SetUint64(100)
-	childHash1 := new(felt.Felt).SetUint64(101)
-	childHash2 := new(felt.Felt).SetUint64(102)
+	t.Run("insert adds node to dirty cache", func(t *testing.T) {
+		database := New(memory.New(), nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
+		path := trieutils.NewBitArray(8, 0xAA)
+		hash := *new(felt.Felt).SetUint64(123)
+		blob := []byte{1, 2, 3}
+		isLeaf := true
 
-	parentBlob := []byte("parent node data")
-	childBlob1 := []byte("child node 1 data")
-	childBlob2 := []byte("child node 2 data")
+		err := database.insert(bucket, owner, path, hash, blob, isLeaf)
+		require.NoError(t, err)
 
-	err := database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *parentHash, parentBlob, false)
-	require.NoError(t, err)
+		key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
+		cachedNode, found := database.DirtyCache.Get(key)
 
-	err = database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *childHash1, childBlob1, false)
-	require.NoError(t, err)
-
-	err = database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *childHash2, childBlob2, false)
-	require.NoError(t, err)
-
-	refcountCache, ok := database.DirtyCache.(*RefCountCache)
-	require.True(t, ok, "Expected RefCountCache")
-
-	parentKey := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *parentHash, false)
-	child1Key := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *childHash1, false)
-	child2Key := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *childHash2, false)
-
-	refcountCache.Reference(child1Key, parentKey)
-	refcountCache.Reference(child2Key, parentKey)
-
-	parentNode, found := refcountCache.Get(parentKey)
-	require.True(t, found)
-	assert.Contains(t, parentNode.external, string(child1Key))
-	assert.Contains(t, parentNode.external, string(child2Key))
-
-	child1Node, found := refcountCache.Get(child1Key)
-	require.True(t, found)
-	assert.Equal(t, uint32(1), child1Node.parents)
-
-	child2Node, found := refcountCache.Get(child2Key)
-	require.True(t, found)
-	assert.Equal(t, uint32(1), child2Node.parents)
-
-	refcountCache.Dereference(parentKey)
-
-	_, found = refcountCache.Get(child1Key)
-	assert.False(t, found)
-
-	_, found = refcountCache.Get(child2Key)
-	assert.False(t, found)
-
-	_, found = refcountCache.Get(parentKey)
-	assert.False(t, found)
-}
-
-func TestMultiTrieOperations(t *testing.T) {
-	diskdb := memorydb.New()
-	database := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 4 * 1024 * 1024,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 1 * 1024 * 1024,
+		assert.True(t, found)
+		assert.Equal(t, blob, cachedNode.blob)
+		assert.Equal(t, uint32(0), cachedNode.parents)
+		assert.Empty(t, cachedNode.external)
+		assert.Equal(t, len(blob)+database.hashLen(), database.dirtyCacheSize)
 	})
 
-	// Create nodes for different tries
-	classHash := new(felt.Felt).SetUint64(1000)
-	contractHash := new(felt.Felt).SetUint64(2000)
-	storageHash := new(felt.Felt).SetUint64(3000)
+	t.Run("Node retrieves from caches and disk", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
+		path := trieutils.NewBitArray(8, 0xAA)
+		hash := *new(felt.Felt).SetUint64(123)
+		blob := []byte{1, 2, 3}
+		isLeaf := true
+		key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
 
-	classBlob := []byte("class node data")
-	contractBlob := []byte("contract node data")
-	storageBlob := []byte("storage node data")
+		t.Run("retrieves from clean cache", func(t *testing.T) {
+			database.CleanCache.Set(key, blob)
 
-	// Insert into different buckets
-	err := database.insert(db.ClassTrie, felt.Zero, trieutils.Path{}, *classHash, classBlob, false)
-	require.NoError(t, err)
+			result, err := database.Node(bucket, owner, path, hash, isLeaf)
+			require.NoError(t, err)
+			assert.Equal(t, blob, result)
+		})
 
-	contractOwner := new(felt.Felt).SetUint64(5000)
-	err = database.insert(db.ContractTrieContract, *contractOwner, trieutils.Path{}, *contractHash, contractBlob, false)
-	require.NoError(t, err)
+		t.Run("retrieves from dirty cache", func(t *testing.T) {
+			database := New(memDB, nil)
+			err := database.insert(bucket, owner, path, hash, blob, isLeaf)
+			require.NoError(t, err)
 
-	storageOwner := new(felt.Felt).SetUint64(6000)
-	err = database.insert(db.ContractTrieStorage, *storageOwner, trieutils.Path{}, *storageHash, storageBlob, false)
-	require.NoError(t, err)
+			result, err := database.Node(bucket, owner, path, hash, isLeaf)
+			require.NoError(t, err)
+			assert.Equal(t, blob, result)
+		})
 
-	// Retrieve from each bucket
-	retrievedClassBlob, err := database.Node(db.ClassTrie, felt.Zero, trieutils.Path{}, *classHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, classBlob, retrievedClassBlob)
+		t.Run("retrieves from disk and adds to clean cache", func(t *testing.T) {
+			database := New(memDB, nil)
 
-	retrievedContractBlob, err := database.Node(db.ContractTrieContract, *contractOwner, trieutils.Path{}, *contractHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, contractBlob, retrievedContractBlob)
+			err := memDB.Put(key, blob)
+			require.NoError(t, err)
 
-	retrievedStorageBlob, err := database.Node(db.ContractTrieStorage, *storageOwner, trieutils.Path{}, *storageHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, storageBlob, retrievedStorageBlob)
+			_, found := database.CleanCache.Get(key)
+			assert.False(t, found)
 
-	// Commit everything
-	err = database.Commit(*classHash)
-	require.NoError(t, err)
+			result, err := database.Node(bucket, owner, path, hash, isLeaf)
+			require.NoError(t, err)
+			assert.Equal(t, blob, result)
 
-	err = database.Commit(*contractHash)
-	require.NoError(t, err)
+			cachedBlob, found := database.CleanCache.Get(key)
+			assert.True(t, found)
+			assert.Equal(t, blob, cachedBlob)
+		})
 
-	err = database.Commit(*storageHash)
-	require.NoError(t, err)
+		t.Run("returns error when node not found", func(t *testing.T) {
+			database := New(memory.New(), nil)
 
-	// Verify everything is in the database by creating a new instance
-	database2 := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 0,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 0,
+			nonExistentHash := *new(felt.Felt).SetUint64(456)
+			_, err := database.Node(bucket, owner, path, nonExistentHash, isLeaf)
+			require.Error(t, err)
+		})
 	})
 
-	retrievedClassBlob, err = database2.Node(db.ClassTrie, felt.Zero, trieutils.Path{}, *classHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, classBlob, retrievedClassBlob)
+	t.Run("remove deletes node from dirty cache", func(t *testing.T) {
+		database := New(memory.New(), nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
+		path := trieutils.NewBitArray(8, 0xAA)
+		hash := *new(felt.Felt).SetUint64(123)
+		blob := []byte{1, 2, 3}
+		isLeaf := true
 
-	retrievedContractBlob, err = database2.Node(db.ContractTrieContract, *contractOwner, trieutils.Path{}, *contractHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, contractBlob, retrievedContractBlob)
+		err := database.insert(bucket, owner, path, hash, blob, isLeaf)
+		require.NoError(t, err)
 
-	retrievedStorageBlob, err = database2.Node(db.ContractTrieStorage, *storageOwner, trieutils.Path{}, *storageHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, storageBlob, retrievedStorageBlob)
-}
+		key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
+		_, found := database.DirtyCache.Get(key)
+		assert.True(t, found)
 
-// TestCommitAndCapFunctionality 	tests the commit and cap functionality
-func TestCommitAndCapFunctionality(t *testing.T) {
-	diskdb := memorydb.New()
-	database := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 4 * 1024 * 1024,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 1 * 1024 * 1024,
+		err = database.remove(bucket, owner, path, hash, blob, isLeaf)
+		require.NoError(t, err)
+
+		_, found = database.DirtyCache.Get(key)
+		assert.False(t, found)
+		assert.Equal(t, 0, database.dirtyCacheSize)
 	})
 
-	rootHash := new(felt.Felt).SetUint64(100)
-	child1Hash := new(felt.Felt).SetUint64(101)
-	child2Hash := new(felt.Felt).SetUint64(102)
+	t.Run("Cap flushes dirty cache to disk", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
 
-	rootBlob := []byte("root node data")
-	child1Blob := []byte("child node 1 data")
-	child2Blob := []byte("child node 2 data")
+		for i := uint64(0); i < 5; i++ {
+			path := trieutils.NewBitArray(8, i)
+			hash := *new(felt.Felt).SetUint64(i)
+			blob := []byte{byte(i), byte(i + 1), byte(i + 2)}
 
-	err := database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *rootHash, rootBlob, false)
-	require.NoError(t, err)
+			err := database.insert(bucket, owner, path, hash, blob, false)
+			require.NoError(t, err)
+		}
 
-	err = database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *child1Hash, child1Blob, false)
-	require.NoError(t, err)
+		initialCacheSize := database.dirtyCacheSize
+		assert.Greater(t, initialCacheSize, 0)
 
-	err = database.insert(db.ContractStorage, felt.Zero, trieutils.Path{}, *child2Hash, child2Blob, false)
-	require.NoError(t, err)
+		err := database.Cap(0)
+		require.NoError(t, err)
 
-	refcountCache, ok := database.DirtyCache.(*RefCountCache)
-	require.True(t, ok, "Expected RefCountCache")
+		assert.Equal(t, 0, database.dirtyCacheSize)
+		assert.Equal(t, 0, database.DirtyCache.Len())
 
-	rootKey := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *rootHash, false)
-	child1Key := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *child1Hash, false)
-	child2Key := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, trieutils.Path{}, *child2Hash, false)
+		for i := uint64(0); i < 5; i++ {
+			path := trieutils.NewBitArray(8, i)
+			hash := *new(felt.Felt).SetUint64(i)
+			key := trieutils.NodeKeyByHash(bucket, owner, path, hash, false)
 
-	refcountCache.Reference(child1Key, rootKey)
-	refcountCache.Reference(child2Key, rootKey)
-
-	err = database.Cap(uint64(len(rootBlob)))
-	require.NoError(t, err)
-
-	retrievedRootBlob, err := database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *rootHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, rootBlob, retrievedRootBlob)
-
-	retrievedChild1Blob, err := database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *child1Hash, false)
-	require.NoError(t, err)
-	assert.Equal(t, child1Blob, retrievedChild1Blob)
-
-	retrievedChild2Blob, err := database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *child2Hash, false)
-	require.NoError(t, err)
-	assert.Equal(t, child2Blob, retrievedChild2Blob)
-
-	err = database.Commit(*rootHash)
-	require.NoError(t, err)
-
-	retrievedRootBlob, err = database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *rootHash, false)
-	require.NoError(t, err)
-	assert.Equal(t, rootBlob, retrievedRootBlob)
-
-	retrievedChild1Blob, err = database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *child1Hash, false)
-	require.NoError(t, err)
-	assert.Equal(t, child1Blob, retrievedChild1Blob)
-
-	retrievedChild2Blob, err = database.Node(db.ContractStorage, felt.Zero, trieutils.Path{}, *child2Hash, false)
-	require.NoError(t, err)
-	assert.Equal(t, child2Blob, retrievedChild2Blob)
-}
-
-func TestUpdateFunctionality(t *testing.T) {
-	diskdb := memorydb.New()
-	database := New(diskdb, &Config{
-		CleanCacheType: CacheTypeFastCache,
-		CleanCacheSize: 4 * 1024 * 1024,
-		DirtyCacheType: CacheTypeRefCount,
-		DirtyCacheSize: 1 * 1024 * 1024,
+			has, err := memDB.Has(key)
+			require.NoError(t, err)
+			assert.True(t, has)
+		}
 	})
 
-	classRoot := new(felt.Felt).SetUint64(1000)
+	t.Run("Cap flushes until limit is reached", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
 
-	path1 := trieutils.NewBitArray(3, 0b1101)
-	path2 := trieutils.NewBitArray(3, 0b110)
+		nodeKeys := make([][]byte, 5)
+		var totalSize int
+		for i := uint64(0); i < 5; i++ {
+			path := trieutils.NewBitArray(8, i)
+			hash := *new(felt.Felt).SetUint64(i)
+			blob := []byte{byte(i), byte(i + 1), byte(i + 2)}
 
-	classNode1 := createTestNode([]byte("class node 1"), false)
-	classNode2 := createTestNode([]byte("class node 2"), true)
+			err := database.insert(bucket, owner, path, hash, blob, false)
+			require.NoError(t, err)
 
-	contractOwner := new(felt.Felt).SetUint64(5000)
-	contractNode1 := createTestNode([]byte("contract node 1"), false)
-	contractNode2 := createTestNode([]byte("contract node 2"), true)
+			nodeKeys[i] = trieutils.NodeKeyByHash(bucket, owner, path, hash, false)
+			totalSize += len(blob) + database.hashLen()
+		}
 
-	classNodes := map[trieutils.Path]trienode.TrieNode{
-		path1: classNode1,
-		path2: classNode2,
-	}
+		limit := uint64(totalSize / 2)
 
-	contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
-		*contractOwner: {
-			path1: contractNode1,
-			path2: contractNode2,
-		},
-	}
+		err := database.Cap(limit)
+		require.NoError(t, err)
 
-	database.Update(*classRoot, felt.Zero, 1, classNodes, contractNodes)
+		assert.Greater(t, database.dirtyCacheSize, 0)
+		assert.Greater(t, database.DirtyCache.Len(), 0)
 
-	retrievedClassNode1, err := database.Node(db.ContractStorage, felt.Zero, path1, classNode1.Hash(), false)
-	require.NoError(t, err)
-	assert.Equal(t, classNode1.Blob(), retrievedClassNode1)
+		diskCount := 0
+		for i := 0; i < len(nodeKeys); i++ {
+			has, err := memDB.Has(nodeKeys[i])
+			require.NoError(t, err)
+			if has {
+				diskCount++
+			}
+		}
+		assert.Greater(t, diskCount, 0)
+	})
 
-	retrievedClassNode2, err := database.Node(db.ContractStorage, felt.Zero, path2, classNode2.Hash(), true)
-	require.NoError(t, err)
-	assert.Equal(t, classNode2.Blob(), retrievedClassNode2)
+	t.Run("Update adds nodes to cache", func(t *testing.T) {
+		database := New(memory.New(), nil)
 
-	retrievedContractNode1, err := database.Node(db.ContractTrieStorage, *contractOwner, path1, contractNode1.Hash(), false)
-	require.NoError(t, err)
-	assert.Equal(t, contractNode1.Blob(), retrievedContractNode1)
+		classPath := trieutils.NewBitArray(8, 0xAA)
+		classNode := trienode.NewLeaf([]byte{1, 2, 3})
 
-	retrievedContractNode2, err := database.Node(db.ContractTrieStorage, *contractOwner, path2, contractNode2.Hash(), true)
-	require.NoError(t, err)
-	assert.Equal(t, contractNode2.Blob(), retrievedContractNode2)
+		contractOwner := *new(felt.Felt).SetUint64(123)
+		contractPath := trieutils.NewBitArray(8, 0xBB)
+		contractNode := trienode.NewLeaf([]byte{4, 5, 6})
 
-	deletedClassNode := &testDeletedNode{hash: *new(felt.Felt).SetUint64(9999), blob: []byte("deleted node")}
-	classNodesWithDelete := map[trieutils.Path]trienode.TrieNode{
-		path1: deletedClassNode,
-	}
+		classNodes := map[trieutils.Path]trienode.TrieNode{
+			classPath: classNode,
+		}
 
-	database.Update(*classRoot, felt.Zero, 2, classNodesWithDelete, nil)
+		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
+			contractOwner: {
+				contractPath: contractNode,
+			},
+		}
 
-	_, err = database.Node(db.ContractStorage, felt.Zero, path1, deletedClassNode.Hash(), false)
-	assert.Error(t, err)
-}
+		root := *new(felt.Felt).SetUint64(999)
+		parent := *new(felt.Felt).SetUint64(888)
+		blockNum := uint64(42)
 
-type testNode struct {
-	hash   felt.Felt
-	blob   []byte
-	isLeaf bool
-}
+		database.Update(root, parent, blockNum, classNodes, contractNodes)
 
-func createTestNode(blob []byte, isLeaf bool) *testNode {
-	hash := new(felt.Felt).SetBytes(blob)
-	return &testNode{
-		hash:   *hash,
-		blob:   blob,
-		isLeaf: isLeaf,
-	}
-}
+		classKey := trieutils.NodeKeyByHash(db.ContractStorage, felt.Zero, classPath, classNode.Hash(), classNode.IsLeaf())
+		classResult, found := database.DirtyCache.Get(classKey)
+		assert.True(t, found)
+		assert.Equal(t, classNode.Blob(), classResult.blob)
 
-func (n *testNode) Hash() felt.Felt {
-	return n.hash
-}
+		contractKey := trieutils.NodeKeyByHash(db.ContractTrieStorage, contractOwner, contractPath, contractNode.Hash(), contractNode.IsLeaf())
+		contractResult, found := database.DirtyCache.Get(contractKey)
+		assert.True(t, found)
+		assert.Equal(t, contractNode.Blob(), contractResult.blob)
+	})
 
-func (n *testNode) Blob() []byte {
-	return n.blob
-}
+	t.Run("Update deletes nodes marked for deletion", func(t *testing.T) {
+		database := New(memory.New(), nil)
 
-func (n *testNode) IsLeaf() bool {
-	return n.isLeaf
-}
+		bucket := db.ContractStorage
+		owner := felt.Zero
+		path := trieutils.NewBitArray(8, 0xAA)
+		hash := *new(felt.Felt).SetUint64(123)
+		blob := []byte{1, 2, 3}
 
-type testDeletedNode struct {
-	hash felt.Felt
-	blob []byte
-}
+		err := database.insert(bucket, owner, path, hash, blob, false)
+		require.NoError(t, err)
 
-func (n *testDeletedNode) Hash() felt.Felt {
-	return n.hash
-}
+		deletedNode := trienode.NewDeleted(false)
 
-func (n *testDeletedNode) Blob() []byte {
-	return n.blob
-}
+		classNodes := map[trieutils.Path]trienode.TrieNode{
+			path: deletedNode,
+		}
 
-func (n *testDeletedNode) IsLeaf() bool {
-	return false
-}
+		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
 
-func (n *testDeletedNode) IsDeleted() bool {
-	return true
+		root := *new(felt.Felt).SetUint64(999)
+		parent := *new(felt.Felt).SetUint64(888)
+		blockNum := uint64(42)
+
+		database.Update(root, parent, blockNum, classNodes, contractNodes)
+
+		key := trieutils.NodeKeyByHash(bucket, owner, path, hash, false)
+		_, found := database.DirtyCache.Get(key)
+		assert.False(t, found)
+	})
+
+	t.Run("Commit adds nodes to disk and moves from dirty to clean cache", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+		bucket := db.ContractStorage
+		owner := felt.Zero
+
+		rootPath := trieutils.NewBitArray(8, 0x01)
+		rootHash := *new(felt.Felt).SetUint64(100)
+		rootBlob := []byte{10, 20, 30}
+		rootIsLeaf := false
+		rootKey := trieutils.NodeKeyByHash(bucket, owner, rootPath, rootHash, rootIsLeaf)
+
+		err := database.insert(bucket, owner, rootPath, rootHash, rootBlob, rootIsLeaf)
+		require.NoError(t, err)
+
+		childPath1 := trieutils.NewBitArray(8, 0x02)
+		childHash1 := *new(felt.Felt).SetUint64(101)
+		childBlob1 := []byte{11, 21, 31}
+		childIsLeaf1 := true
+		childKey1 := trieutils.NodeKeyByHash(bucket, owner, childPath1, childHash1, childIsLeaf1)
+
+		childPath2 := trieutils.NewBitArray(8, 0x03)
+		childHash2 := *new(felt.Felt).SetUint64(102)
+		childBlob2 := []byte{12, 22, 32}
+		childIsLeaf2 := true
+		childKey2 := trieutils.NodeKeyByHash(bucket, owner, childPath2, childHash2, childIsLeaf2)
+
+		err = database.insert(bucket, owner, childPath1, childHash1, childBlob1, childIsLeaf1)
+		require.NoError(t, err)
+		err = database.insert(bucket, owner, childPath2, childHash2, childBlob2, childIsLeaf2)
+		require.NoError(t, err)
+
+		rootNode, found := database.DirtyCache.Get(rootKey)
+		require.True(t, found)
+
+		rootNode.external = map[string]struct{}{
+			string(childKey1): {},
+			string(childKey2): {},
+		}
+		database.DirtyCache.Set(rootKey, rootNode)
+
+		err = database.Commit(rootHash)
+		require.NoError(t, err)
+
+		_, found = database.DirtyCache.Get(rootKey)
+		assert.False(t, found)
+
+		_, found = database.DirtyCache.Get(childKey1)
+		assert.False(t, found)
+
+		_, found = database.DirtyCache.Get(childKey2)
+		assert.False(t, found)
+
+		cachedRootBlob, found := database.CleanCache.Get(rootKey)
+		assert.True(t, found)
+		assert.Equal(t, rootBlob, cachedRootBlob)
+
+		cachedChildBlob1, found := database.CleanCache.Get(childKey1)
+		assert.True(t, found)
+		assert.Equal(t, childBlob1, cachedChildBlob1)
+
+		cachedChildBlob2, found := database.CleanCache.Get(childKey2)
+		assert.True(t, found)
+		assert.Equal(t, childBlob2, cachedChildBlob2)
+
+		var diskRootBlob []byte
+		err = memDB.Get(rootKey, func(val []byte) error {
+			diskRootBlob = val
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, rootBlob, diskRootBlob)
+
+		var diskChildBlob1 []byte
+		err = memDB.Get(childKey1, func(val []byte) error {
+			diskChildBlob1 = val
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, childBlob1, diskChildBlob1)
+
+		var diskChildBlob2 []byte
+		err = memDB.Get(childKey2, func(val []byte) error {
+			diskChildBlob2 = val
+			return nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, childBlob2, diskChildBlob2)
+	})
+
+	t.Run("NewIterator creates iterator with correct prefix", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+
+		owner := *new(felt.Felt).SetUint64(123)
+		mockTrieID := trieutils.NewClassTrieID(felt.Zero)
+
+		bucket := mockTrieID.Bucket()
+		for i := uint64(0); i < 3; i++ {
+			path := trieutils.NewBitArray(8, i)
+			hash := *new(felt.Felt).SetUint64(i)
+			blob := []byte{byte(i), byte(i + 1), byte(i + 2)}
+			key := trieutils.NodeKeyByHash(bucket, owner, path, hash, false)
+			err := memDB.Put(key, blob)
+			require.NoError(t, err)
+		}
+
+		iterator, err := database.NewIterator(mockTrieID)
+		require.NoError(t, err)
+		defer iterator.Close()
+
+		count := 0
+		for iterator.Next() {
+			count++
+			key := iterator.Key()
+			assert.True(t, len(key) > 0)
+
+			assert.Equal(t, byte(bucket), key[0])
+
+			value, err := iterator.Value()
+			require.NoError(t, err)
+			assert.True(t, len(value) > 0)
+		}
+
+		assert.Equal(t, 3, count)
+	})
+
+	t.Run("NodeReader interface", func(t *testing.T) {
+		memDB := memory.New()
+		database := New(memDB, nil)
+
+		mockTrieID := trieutils.NewClassTrieID(felt.Zero)
+
+		path := trieutils.NewBitArray(8, 0xAA)
+		hash := *new(felt.Felt).SetUint64(123)
+		blob := []byte{1, 2, 3}
+		isLeaf := true
+
+		key := trieutils.NodeKeyByHash(mockTrieID.Bucket(), mockTrieID.Owner(), path, hash, isLeaf)
+		err := memDB.Put(key, blob)
+		require.NoError(t, err)
+
+		reader, err := database.NodeReader(mockTrieID)
+		require.NoError(t, err)
+
+		result, err := reader.Node(mockTrieID.Owner(), path, hash, isLeaf)
+		require.NoError(t, err)
+		assert.Equal(t, blob, result)
+	})
 }
