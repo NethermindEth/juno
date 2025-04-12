@@ -225,11 +225,6 @@ func (d *Database) Update(
 ) {
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			//TODO: Handle it better
-			_, isRefcountCache := d.DirtyCache.(*RefCountCache)
-			if isRefcountCache {
-				continue
-			}
 			d.remove(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		} else {
 			d.insert(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
@@ -244,11 +239,6 @@ func (d *Database) Update(
 
 		for path, node := range nodes {
 			if _, ok := node.(*trienode.DeletedNode); ok {
-				//TODO: Handle it better
-				_, isRefcountCache := d.DirtyCache.(*RefCountCache)
-				if isRefcountCache {
-					continue
-				}
 				d.remove(bucket, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
 			} else {
 				d.insert(bucket, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
