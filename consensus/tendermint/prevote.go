@@ -1,21 +1,7 @@
 package tendermint
 
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
-	if p.Height < t.state.height {
-		return
-	}
-
-	if !handleFutureHeightMessage(
-		t,
-		p,
-		func(p Prevote[H, A]) height { return p.Height },
-		func(p Prevote[H, A]) round { return p.Round },
-		t.futureMessages.addPrevote,
-	) {
-		return
-	}
-
-	if !handleFutureRoundMessage(t, p, func(p Prevote[H, A]) round { return p.Round }, t.futureMessages.addPrevote) {
+	if !t.preprocessMessage(p.MessageHeader, func() { t.futureMessages.addPrevote(p) }) {
 		return
 	}
 
