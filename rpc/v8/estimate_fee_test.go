@@ -357,7 +357,7 @@ func runTests(t *testing.T, tests []test, handler *rpc.Handler) {
 		t.Run(test.name, func(t *testing.T) {
 			feeEstimate, _, jsonErr := handler.EstimateFee(
 				test.broadcastedTransactions,
-				[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+				[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 				rpc.BlockID{Latest: true},
 			)
 
