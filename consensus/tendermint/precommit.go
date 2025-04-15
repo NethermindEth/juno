@@ -28,7 +28,7 @@ func (t *Tendermint[V, H, A]) handlePrecommit(p Precommit[H, A]) {
 		return
 	}
 
-	if t.uponPrecommitAny(p) {
-		t.doPrecommitAny(p)
+	if t.uponPrecommitAny() {
+		t.doPrecommitAny()
 	}
 }
