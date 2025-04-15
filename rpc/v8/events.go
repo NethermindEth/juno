@@ -5,7 +5,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-type SubscriptionID uint64
+type SubscriptionID string
 
 type Event struct {
 	From *felt.Felt   `json:"from_address,omitempty"`
@@ -20,7 +20,7 @@ type EmittedEvent struct {
 	TransactionHash *felt.Felt `json:"transaction_hash"`
 }
 
-func (h *Handler) unsubscribe(sub *subscription, id uint64) {
+func (h *Handler) unsubscribe(sub *subscription, id string) {
 	sub.cancel()
 	h.subscriptions.Delete(id)
 }

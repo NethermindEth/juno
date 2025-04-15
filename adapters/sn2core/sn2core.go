@@ -38,6 +38,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 	if sig != nil {
 		sigs = append(sigs, sig.Signature)
 	}
+
 	return &core.Block{
 		Header: &core.Header{
 			Hash:             response.Hash,
@@ -199,21 +200,6 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
 		}
 	}
-
-	// Ensures that the L1DataGas resource is always present if L2Gas is non-zero.
-	// In RPC v8, L1Gas, L2Gas and L1DataGas are part of the spec and required.
-	// In RPC v6 and v7, only L1Gas and L2Gas are part of the spec and required.
-	// Blockifier will throw an error if L1DataGas is absent and L2Gas is non-zero.
-	// To avoid that, if L2Gas is non-zero, we set the L1DataGas resource to zero.
-	if l2Gas, ok := coreBounds[core.ResourceL2Gas]; ok && !l2Gas.IsZero() {
-		if _, ok := coreBounds[core.ResourceL1DataGas]; !ok {
-			coreBounds[core.ResourceL1DataGas] = core.ResourceBounds{
-				MaxAmount:       0,
-				MaxPricePerUnit: &felt.Zero,
-			}
-		}
-	}
-
 	return coreBounds
 }
 

@@ -104,6 +104,10 @@ To view logs from the Docker container, use the following command:
 docker logs -f juno
 ```
 
+## 📚 Documentation
+
+You can find the full documentation [here](https://juno.nethermind.io/).
+
 ## 📸 Snapshots
 
 Use the provided snapshots to quickly sync your Juno node with the current state of the network. Fresh snapshots are automatically uploaded once a week and are available under the links below.
@@ -359,6 +363,9 @@ The decentralization of Starknet is complete! Juno becomes a sequencer and parti
 
 We welcome PRs from external contributors and would love to help you get up to speed.
 Let us know you're interested in the [Discord server](https://discord.gg/TcHbSZ9ATd) and we can discuss good first issues.
+
+For more details on how to get started, check out our [contributing guidelines](https://github.com/NethermindEth/juno/blob/main/CONTRIBUTING.md).
+
 There are also many other ways to contribute. Here are some ideas:
 
 * Run a node.
