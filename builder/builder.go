@@ -150,10 +150,8 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
-			b.finaliseMutex.Lock()
 			err := b.Finalise(b.Sign)
 			b.log.Infof("Finalised new block")
-			b.finaliseMutex.Unlock()
 			if err != nil {
 				return err
 			}
@@ -212,6 +210,9 @@ func (b *Builder) InitPendingBlock() error {
 
 // Finalise the pending block and initialise the next one
 func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
+	b.finaliseMutex.Lock()
+	defer b.finaliseMutex.Unlock()
+
 	pending, err := b.Pending()
 	if err != nil {
 		return err
