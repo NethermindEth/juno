@@ -4,10 +4,9 @@ import (
 	"strconv"
 	"testing"
 
-	"golang.org/x/exp/constraints"
-
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/constraints"
 )
 
 // Todo(rdr): this methods can be better place somewhere else. Probably the types package
