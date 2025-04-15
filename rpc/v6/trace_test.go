@@ -48,7 +48,7 @@ func TestTraceFallback(t *testing.T) {
 			},
 		}
 
-		AssertTracedBlockTransactions(t, &utils.Integration, tests)
+		AssertTracedBlockTransactions(t, &utils.SepoliaIntegration, tests)
 	})
 
 	t.Run("Sepolia", func(t *testing.T) {

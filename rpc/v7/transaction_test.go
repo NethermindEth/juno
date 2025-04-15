@@ -418,7 +418,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"execution_resources":{"data_availability": {"l1_data_gas": 0, "l1_gas": 0}, "steps":0}
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
@@ -486,7 +486,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			"type": "INVOKE"
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		block, err := integGw.BlockByNumber(t.Context(), 319132)
@@ -682,7 +682,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0","steps":"0x0"}
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
@@ -739,7 +739,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			"type": "INVOKE"
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		block, err := integGw.BlockByNumber(t.Context(), 319132)
@@ -852,7 +852,7 @@ func TestTransactionStatus(t *testing.T) {
 			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
-			network:           &utils.Integration,
+			network:           &utils.SepoliaIntegration,
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),

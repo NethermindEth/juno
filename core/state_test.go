@@ -104,6 +104,7 @@ func TestUpdate(t *testing.T) {
 		assert.NotEqual(t, su3.NewRoot, su3.OldRoot)
 	})
 
+	// Note: This url is no longer valid as goerli integration is deprecated
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := utils.HexToFelt(t, "0x492e8")
@@ -363,7 +364,7 @@ func TestClass(t *testing.T) {
 		require.NoError(t, txn.Discard())
 	})
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")

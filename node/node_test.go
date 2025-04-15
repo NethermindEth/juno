@@ -50,7 +50,7 @@ func TestNewNode(t *testing.T) {
 }
 
 func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
-	network := utils.Integration
+	network := utils.SepoliaIntegration
 	tests := map[string]struct {
 		network   utils.Network
 		errString string

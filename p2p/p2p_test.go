@@ -21,7 +21,7 @@ func TestInvalidKey(t *testing.T) {
 		"something",
 		false,
 		nil,
-		&utils.Integration,
+		&utils.SepoliaIntegration,
 		utils.NewNopZapLogger(),
 		nil,
 	)
@@ -58,7 +58,7 @@ func TestLoadAndPersistPeers(t *testing.T) {
 		"5f6cdc3aebcc74af494df054876100368ef6126e3a33fa65b90c765b381ffc37a0a63bbeeefab0740f24a6a38dabb513b9233254ad0020c721c23e69bc820089",
 		false,
 		nil,
-		&utils.Integration,
+		&utils.SepoliaIntegration,
 		utils.NewNopZapLogger(),
 		testDB,
 	)

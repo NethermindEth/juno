@@ -307,7 +307,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DECLARE v3": {
 			hash:    "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
-			network: &utils.Integration,
+			network: &utils.SepoliaIntegration,
 			expected: `{
 		"transaction_hash": "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
 		"type": "DECLARE",
@@ -336,7 +336,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"INVOKE v3": {
 			hash:    "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
-			network: &utils.Integration,
+			network: &utils.SepoliaIntegration,
 			expected: `{
 				"type": "INVOKE",
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
@@ -380,7 +380,7 @@ func TestTransactionByHash(t *testing.T) {
 		},
 		"DEPLOY ACCOUNT v3": {
 			hash:    "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
-			network: &utils.Integration,
+			network: &utils.SepoliaIntegration,
 			expected: `{
 				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 				"version": "0x3",
@@ -1003,7 +1003,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			"execution_resources":{"bitwise_builtin_applications":"0x0", "ec_op_builtin_applications":"0x0", "ecdsa_builtin_applications":"0x0", "keccak_builtin_applications":"0x0", "memory_holes":"0x0", "pedersen_builtin_applications":"0x0", "poseidon_builtin_applications":"0x0", "range_check_builtin_applications":"0x0","steps":"0x0"}
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
@@ -1060,7 +1060,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 			"type": "INVOKE"
 		}`
 
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integClient)
 
 		block, err := integGw.BlockByNumber(t.Context(), 319132)
@@ -1157,7 +1157,7 @@ func TestAdaptTransaction(t *testing.T) {
 }
 
 func TestAddTransaction(t *testing.T) {
-	n := &utils.Integration
+	n := &utils.SepoliaIntegration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
@@ -1456,7 +1456,7 @@ func TestTransactionStatus(t *testing.T) {
 			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
-			network:           &utils.Integration,
+			network:           &utils.SepoliaIntegration,
 			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
 			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
 			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),

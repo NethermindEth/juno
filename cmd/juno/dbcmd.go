@@ -264,7 +264,6 @@ func getNetwork(head *core.Block, stateDiff *core.StateDiff) string {
 		&utils.Sepolia,
 		&utils.Goerli,
 		&utils.Goerli2,
-		&utils.Integration,
 		&utils.SepoliaIntegration,
 	}
 
