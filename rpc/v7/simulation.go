@@ -21,7 +21,7 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitzero"`
 }
 
 type TracedBlockTransaction struct {
@@ -52,6 +52,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
+
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -60,6 +61,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	network := h.bcReader.Network()
+
 	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
@@ -69,6 +71,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
+
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
@@ -98,7 +101,7 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -171,7 +174,6 @@ func createSimulatedTransactions(
 			l1GasPrice = l1GasPriceStrk
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
-
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{

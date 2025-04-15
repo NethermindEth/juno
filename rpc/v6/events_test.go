@@ -205,4 +205,44 @@ func TestEvents(t *testing.T) {
 		assert.Nil(t, events.Events[0].BlockNumber)
 		assert.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), events.Events[0].TransactionHash)
 	})
+
+	t.Run("get pending events with pagination", func(t *testing.T) {
+		var err error
+		pendingB, err = gw.BlockByNumber(t.Context(), 5)
+		require.Nil(t, err)
+
+		args = rpc.EventsArg{
+			EventFilter: rpc.EventFilter{
+				FromBlock: &rpc.BlockID{Pending: true},
+				ToBlock:   &rpc.BlockID{Pending: true},
+			},
+			ResultPageRequest: rpc.ResultPageRequest{
+				ChunkSize: 1,
+			},
+		}
+
+		allEvents := []*core.Event{}
+
+		for _, receipt := range pendingB.Receipts {
+			allEvents = append(allEvents, receipt.Events...)
+		}
+
+		for i, expectedEvent := range allEvents {
+			events, err := handler.Events(args)
+			require.Nil(t, err)
+			require.Len(t, events.Events, 1)
+			actualEvent := events.Events[0]
+			if i == len(allEvents)-1 {
+				require.Empty(t, events.ContinuationToken)
+			} else {
+				require.NotEmpty(t, events.ContinuationToken)
+			}
+
+			assert.Equal(t, actualEvent.From, expectedEvent.From)
+			assert.Equal(t, actualEvent.Keys, expectedEvent.Keys)
+			assert.Equal(t, actualEvent.Data, expectedEvent.Data)
+
+			args.ContinuationToken = events.ContinuationToken
+		}
+	})
 }

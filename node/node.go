@@ -88,13 +88,13 @@ type Config struct {
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
-	GatewayAPIKey  string        `mapstructure:"gw-api-key"`
-	GatewayTimeout time.Duration `mapstructure:"gw-timeout"`
+	GatewayAPIKey   string `mapstructure:"gw-api-key"`
+	GatewayTimeouts string `mapstructure:"gw-timeouts"`
 
 	PluginPath string `mapstructure:"plugin-path"`
 
-	LogHost string `mapstructure:"log-host"`
-	LogPort uint16 `mapstructure:"log-port"`
+	HTTPUpdateHost string `mapstructure:"http-update-host"`
+	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 }
 
 type Node struct {
@@ -159,8 +159,20 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	client := feeder.NewClient(cfg.Network.FeederURL).WithUserAgent(ua).WithLogger(log).
-		WithTimeout(cfg.GatewayTimeout).WithAPIKey(cfg.GatewayAPIKey)
+	if cfg.GatewayTimeouts == "" {
+		cfg.GatewayTimeouts = feeder.DefaultTimeouts
+	}
+	timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
+	if err != nil {
+		return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
+	}
+
+	client := feeder.NewClient(cfg.Network.FeederURL).
+		WithUserAgent(ua).
+		WithLogger(log).
+		WithTimeouts(timeouts, fixed).
+		WithAPIKey(cfg.GatewayAPIKey)
+
 	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
 	chain.WithPendingBlockFn(synchronizer.PendingBlock)
 	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
@@ -245,9 +257,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
-	if cfg.LogPort != 0 {
-		log.Infow("Log level can be changed via HTTP PUT request to " + cfg.LogHost + ":" + fmt.Sprintf("%d", cfg.LogPort) + "/log/level")
-		earlyServices = append(earlyServices, makeLogService(cfg.LogHost, cfg.LogPort, logLevel))
+	if cfg.HTTPUpdatePort != 0 {
+		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		)
+		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()

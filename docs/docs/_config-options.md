@@ -20,10 +20,12 @@
 | `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
 | `grpc-port` | `6064` | The port on which the gRPC server will listen for requests |
 | `gw-api-key` |  | API key for gateway endpoints to avoid throttling |
-| `gw-timeout` | `5` | Timeout for requests made to the gateway |
+| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified in three ways:\n- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically \n- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures. - Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment |
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
+| `http-update-host` | `localhost` | The interface on which the log level and gateway timeouts HTTP server will listen for requests |
+| `http-update-port` | `0` | The port on which the log level and gateway timeouts HTTP server will listen for requests |
 | `log-level` | `info` | Options: trace, debug, info, warn, error |
 | `max-vm-queue` | `2 * max-vms` | Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests |
 | `max-vms` | `3 * CPU Cores` | Maximum number for VM instances to be used for RPC calls concurrently |
