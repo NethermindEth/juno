@@ -94,10 +94,10 @@ func (b *testBlockchain) AccountClassHash() felt.Felt {
 	return b.account.hash
 }
 
-func (b *testBlockchain) ClassHashByAddress(address felt.Felt) felt.Felt {
+func (b *testBlockchain) ClassHashByAddress(address felt.Felt) *felt.Felt {
 	classHash, ok := b.addr2classHash[address]
 	require.True(b.t, ok)
-	return classHash
+	return &classHash
 }
 
 func (b *testBlockchain) NewRoot(t *testing.T,
