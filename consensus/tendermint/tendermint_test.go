@@ -159,8 +159,8 @@ func TestStartRound(t *testing.T) {
 		proposal := <-proposalBroadcaster.mCh
 
 		assert.Equal(t, expectedProposalMsg, proposal)
-		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr]))
-		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr][0])
+		assert.Contains(t, algo.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
 
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
@@ -229,8 +229,8 @@ func TestStartRound(t *testing.T) {
 		prevoteMsg := <-prevoteBroadcaster.mCh
 
 		assert.Equal(t, expectedPrevoteMsg, prevoteMsg)
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr]))
-		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr])
 
 		assert.Equal(t, prevote, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
