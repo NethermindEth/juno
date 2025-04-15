@@ -8,9 +8,15 @@ on:
         required: false
         default: '1ede19210c10f1f1f9c3cb49a42f737cd90eda5e'
         type: string
+      rpc_version:
+        description: 'The RPC version to test (v0_7 or v0_8)'
+        required: true
+        type: string
     secrets:
       TEST_RPC_URL:
         required: true
+      TEST_WS_RPC_URL:
+        required: false
 
 jobs:
   test:
@@ -30,7 +36,26 @@ jobs:
       - name: Install dependencies
         run: go mod download
 
-      - name: Test RPC on testnet
-        run: cd rpc && go test -skip 'TestBlockWithReceipts'  -timeout 1200s -v -env testnet .
-        env:
-          INTEGRATION_BASE: ${{ secrets.TEST_RPC_URL }}
+      - name: Configure test environment variables
+        run: |
+          RPC_URL="${{ secrets.TEST_RPC_URL }}"
+          VERSION="${{ inputs.rpc_version }}"
+
+          if [ "$VERSION" = "v0_7" ]; then
+            echo "INTEGRATION_BASE=${RPC_URL}/${VERSION}" >> $GITHUB_ENV
+          elif [ "$VERSION" = "v0_8" ]; then
+            if [ -z "${{ secrets.TEST_WS_RPC_URL }}" ]; then
+              echo "Error: TEST_WS_RPC_URL secret must be set for RPC v0_8"
+              exit 1
+            fi
+            echo "HTTP_PROVIDER_URL=${RPC_URL}/${VERSION}" >> $GITHUB_ENV
+            echo "WS_PROVIDER_URL=${{ secrets.TEST_WS_RPC_URL }}/${VERSION}" >> $GITHUB_ENV
+          else
+            echo "Version $VERSION is not supported."
+            exit 1
+          fi
+
+      - name: Run RPC tests
+        run: |
+          cd rpc
+          go test -timeout 1200s -v -env testnet .

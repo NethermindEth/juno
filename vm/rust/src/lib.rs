@@ -11,7 +11,11 @@ use execution::process_transaction;
 use serde::Deserialize;
 use serde_json::json;
 use std::{
+    collections::BTreeMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
+    fs::File,
+    io::Read,
+    path::Path,
     slice,
     sync::Arc,
 };
@@ -63,6 +67,7 @@ use starknet_api::{
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
+use anyhow::Context;
 use once_cell::sync::Lazy;
 
 // Allow users to call CONSTRUCTOR entry point type which has fixed entry_point_felt "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194"
@@ -405,6 +410,7 @@ pub extern "C" fn cairoVMExecute(
                         json!(error).to_string()
                     };
                     report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
+                    return;
                 }
                 ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
@@ -413,6 +419,7 @@ pub extern "C" fn cairoVMExecute(
                         txn_index as i64,
                         0,
                     );
+                    return;
                 }
             },
             Ok(mut tx_execution_info) => {
@@ -754,21 +761,54 @@ fn build_block_context(
 
 #[allow(static_mut_refs)]
 fn get_versioned_constants(version: *const c_char) -> VersionedConstants {
-    if let Some(constants) = unsafe { &CUSTOM_VERSIONED_CONSTANTS } {
-        return constants.clone();
+    let starknet_version = unsafe { CStr::from_ptr(version) }
+        .to_str()
+        .ok()
+        .and_then(|version_str| StarknetVersion::try_from(version_str).ok());
+
+    if let (Some(custom_constants), Some(version)) =
+        (unsafe { &CUSTOM_VERSIONED_CONSTANTS }, starknet_version)
+    {
+        if let Some(constants) = custom_constants.0.get(&version) {
+            return constants.clone();
+        }
     }
 
-    let version_str = unsafe { CStr::from_ptr(version) }.to_str();
-
-    version_str
-        .ok()
-        .and_then(|version| StarknetVersion::try_from(version).ok())
+    starknet_version
         .and_then(|version| VersionedConstants::get(&version).ok())
         .unwrap_or(VersionedConstants::latest_constants())
         .to_owned()
 }
 
-static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstants> = None;
+#[derive(Debug)]
+pub struct VersionedConstantsMap(pub BTreeMap<StarknetVersion, VersionedConstants>);
+
+impl VersionedConstantsMap {
+    pub fn from_file(version_with_path: BTreeMap<String, String>) -> Result<Self> {
+        let mut result = BTreeMap::new();
+
+        for (version, path) in version_with_path {
+            let mut file = File::open(Path::new(&path))
+                .with_context(|| format!("Failed to open file: {}", path))?;
+
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)
+                .with_context(|| format!("Failed to read contents of file: {}", path))?;
+
+            let constants: VersionedConstants = serde_json::from_str(&contents)
+                .with_context(|| format!("Failed to parse JSON in file: {}", path))?;
+
+            let parsed_version = StarknetVersion::try_from(version.as_str())
+                .with_context(|| format!("Failed to parse version string: {}", version))?;
+
+            result.insert(parsed_version, constants);
+        }
+
+        Ok(VersionedConstantsMap(result))
+    }
+}
+
+static mut CUSTOM_VERSIONED_CONSTANTS: Option<VersionedConstantsMap> = None;
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -784,14 +824,25 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
         }
     };
 
-    match serde_json::from_str::<VersionedConstants>(json_str) {
-        Ok(parsed) => unsafe {
-            CUSTOM_VERSIONED_CONSTANTS = Some(parsed);
-            CString::new("").unwrap().into_raw() // No error, return an empty string
-        },
-        Err(e) => CString::new(format!("Failed to parse JSON: {}", e))
-            .unwrap()
-            .into_raw(),
+    let versioned_constants_files_paths: Result<BTreeMap<String, String>, _> =
+        serde_json::from_str(json_str);
+    if let Ok(paths) = versioned_constants_files_paths {
+        match VersionedConstantsMap::from_file(paths) {
+            Ok(custom_constants) => unsafe {
+                CUSTOM_VERSIONED_CONSTANTS = Some(custom_constants);
+                return CString::new("").unwrap().into_raw();
+            },
+            Err(e) => {
+                return CString::new(format!(
+                    "Failed to load versioned constants from paths: {}",
+                    e
+                ))
+                .unwrap()
+                .into_raw();
+            }
+        }
+    } else {
+        return CString::new("Failed to parse JSON").unwrap().into_raw();
     }
 }
 

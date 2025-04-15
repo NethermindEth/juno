@@ -5,11 +5,7 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - .github/workflows/build-binaries.yml
+  workflow_call:
 
 jobs:
   build:
@@ -50,7 +46,7 @@ jobs:
             core/rust
             starknet/compiler/rust
 
-      - name: Get latest tag
+      - name: Set TAG env var
         run: echo "TAG=$(git describe --tags)" >> $GITHUB_ENV
 
       - name: Get artifact name
@@ -67,7 +63,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install jemalloc
-          
+
       - name: Build binary
         run: make juno
 
@@ -89,11 +85,14 @@ jobs:
             sha256sum ${{ env.ARTIFACT_NAME }} > ${{ env.ARTIFACT_NAME }}.sha256
           fi
 
+      - name: Zip binary and checksum
+        run: |
+          zip ${{ env.ARTIFACT_NAME }}.zip ${{ env.ARTIFACT_NAME }} ${{ env.ARTIFACT_NAME }}.sha256
+          rm ${{ env.ARTIFACT_NAME }} ${{ env.ARTIFACT_NAME }}.sha256
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: |
-            ${{ env.ARTIFACT_NAME }}
-            ${{ env.ARTIFACT_NAME }}.sha256
+          name: ${{ env.ARTIFACT_NAME }}.zip
+          path: ${{ env.ARTIFACT_NAME }}.zip
           retention-days: 30
