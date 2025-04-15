@@ -1,0 +1,127 @@
+name: Deploy and Test
+
+on:
+  workflow_call:
+    inputs:
+      docker_image_tag:
+        required: true
+        type: string
+        description: "The Docker image tag to deploy"
+      environment:
+        required: true
+        type: string
+        description: "The environment to deploy to (Development or Staging)"
+      source_repo:
+        required: true
+        type: string
+        description: "Source repository for the image"
+      target_repo:
+        required: true
+        type: string
+        description: "Target repository for the image"
+      test_mode:
+        required: false
+        type: string
+        default: "full"
+        description: "Test mode to run (fast or full)"
+    secrets:
+      ARTIFACTORY_NUBIA_USERNAME:
+        required: true
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
+        required: true
+      RPC_URL:
+        required: true
+      WS_RPC_URL:
+        required: true
+      TEST_ACCOUNT_ADDRESS:
+        required: true
+      TEST_ACCOUNT_PRIVATE_KEY:
+        required: true
+
+concurrency:
+  group: shared_${{ inputs.environment }}_environment
+  cancel-in-progress: false 
+
+permissions:
+  contents: read  
+
+env:
+  DOCKER_REGISTRY: nethermind.jfrog.io
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+        id: buildx
+
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+
+      - name: Setup ORAS
+        uses: oras-project/setup-oras@5c0b487ce3fe0ce3ab0d034e63669e426e294e4d
+
+      - name: Check image exists in source repository
+        run: |
+          oras manifest fetch \
+          ${{ env.DOCKER_REGISTRY }}/${{ inputs.source_repo }}/juno:${{ inputs.docker_image_tag }} || \
+          (echo "❌ Image not found in source repository!" && exit 1)
+
+      - name: Deploy image
+        run: |
+          SOURCE_TAG=${{ env.DOCKER_REGISTRY }}/${{ inputs.source_repo }}/juno:${{ inputs.docker_image_tag }}
+          TARGET_TAG=${{ env.DOCKER_REGISTRY }}/${{ inputs.target_repo }}/juno:${{ inputs.docker_image_tag }}
+          
+          if [ "${{ inputs.source_repo }}" = "${{ inputs.target_repo }}" ]; then
+            echo "Source and target repositories are the same, pushing as latest"
+            docker buildx imagetools create -t ${{ env.DOCKER_REGISTRY }}/${{ inputs.target_repo }}/juno:latest $SOURCE_TAG
+          else
+            echo "Copying image from source to target repository"
+            oras cp -r $SOURCE_TAG $TARGET_TAG,latest
+          fi
+            
+      - name: Verify Deployment Version
+        run: |
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }} ${{ inputs.docker_image_tag }}
+
+  starknet-rs:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-rs-tests.yml
+    secrets:
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_7
+
+  starknet-js:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-js-tests.yml
+    with:
+      test_mode: ${{ inputs.test_mode }}
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_7
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+
+  starknet-go-rpcv07:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: 1ede19210c10f1f1f9c3cb49a42f737cd90eda5e
+      rpc_version: v0_7
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+
+  starknet-go-rpcv08:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: f8f0b717aa5b59c797540c0567f309ae78537e09
+      rpc_version: v0_8
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+      TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}

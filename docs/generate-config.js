@@ -79,7 +79,9 @@ const extractConfigs = (codebase) => {
       if (configName === "max-vm-queue") {
         defaultValue = "2 * max-vms";
       }
-
+      if (configName === "gw-timeouts") {
+        defaultValue = "5s";
+      }
       configs.push({
         configName,
         defaultValue,

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -24,6 +25,13 @@ import (
 	"github.com/rs/cors"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
+)
+
+const (
+	defaultReadTimeout       = 30 * time.Second
+	defaultReadHeaderTimeout = 30 * time.Second
+	defaultWriteTimeout      = 30 * time.Second
+	defaultIdleTimeout       = 2 * time.Minute
 )
 
 type httpService struct {
@@ -62,7 +70,10 @@ func makeHTTPService(host string, port uint16, handler http.Handler) *httpServic
 		srv: &http.Server{
 			Addr:              net.JoinHostPort(host, portStr),
 			Handler:           handler,
-			ReadHeaderTimeout: 30 * time.Second,
+			ReadHeaderTimeout: defaultReadHeaderTimeout,
+			ReadTimeout:       defaultReadTimeout,
+			WriteTimeout:      defaultWriteTimeout,
+			IdleTimeout:       defaultIdleTimeout,
 		},
 	}
 }
@@ -143,11 +154,14 @@ func makeMetrics(host string, port uint16) *httpService {
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
-// Create a new service that updates the log level setting.
-func makeLogService(host string, port uint16, logLevel *utils.LogLevel) *httpService {
+// Create a new service that updates the log level and timeouts settings.
+func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)
+	})
+	mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
+		feeder.HTTPTimeoutsSettings(w, r, feederClient)
 	})
 	var handler http.Handler = mux
 	return makeHTTPService(host, port, handler)

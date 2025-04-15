@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
@@ -69,7 +70,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		mainnetGw := adaptfeeder.New(client)
 
-		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 		require.NoError(t, err)
 
 		txAtIdx1InBlock := utils.HexToFelt(t, "0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
@@ -118,7 +119,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		client := feeder.NewTestClient(t, n)
 		mainnetGw := adaptfeeder.New(client)
 
-		block, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 		require.NoError(t, err)
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -416,7 +417,7 @@ func TestTransactionByHash(t *testing.T) {
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-				return gw.Transaction(context.Background(), hash)
+				return gw.Transaction(t.Context(), hash)
 			}).Times(1)
 			handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
 
@@ -451,7 +452,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 
 	latestBlockNumber := 19199
-	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -587,6 +588,243 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 }
 
+func TestTransactionReceiptByHash(t *testing.T) {
+	t.Run("internal error when returning tx by hash from DB", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		handler := rpc.New(mockReader, nil, nil, "", &utils.Sepolia, nil)
+
+		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, errors.New("some internal error"))
+
+		txHash := new(felt.Felt).SetBytes([]byte("some tx hash"))
+		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New("some internal error")), rpcErr)
+	})
+
+	t.Run("not found if pending block nil", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", &utils.Sepolia, nil)
+
+		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+
+		txHash := new(felt.Felt).SetBytes([]byte("some tx hash"))
+		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
+
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
+
+	t.Run("not found in non-nil pending block", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		n := &utils.Sepolia
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+
+		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+
+		client := feeder.NewTestClient(t, n)
+		gateway := adaptfeeder.New(client)
+		mockSyncReader.EXPECT().PendingBlock().DoAndReturn(func() *core.Block {
+			block, err := gateway.BlockByNumber(t.Context(), 4850)
+			require.NoError(t, err)
+
+			return block
+		})
+
+		unexistingTxHashInBlock := utils.HexToFelt(t, "0x123")
+		tx, rpcErr := handler.TransactionReceiptByHash(*unexistingTxHashInBlock)
+
+		assert.Nil(t, tx)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
+
+	t.Run("receipt not found (even though tx is found)", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		n := &utils.Sepolia
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+
+		client := feeder.NewTestClient(t, n)
+		gateway := adaptfeeder.New(client)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
+		require.NoError(t, err)
+
+		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+
+		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
+		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(nil, nil, uint64(0), errors.New("some error"))
+
+		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
+
+		assert.Nil(t, txReceipt)
+		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
+	})
+
+	t.Run("internal error when verifying finality status", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		n := &utils.Sepolia
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+
+		client := feeder.NewTestClient(t, n)
+		gateway := adaptfeeder.New(client)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
+		require.NoError(t, err)
+
+		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+
+		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
+		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockReader.EXPECT().L1Head().Return(nil, errors.New("some internal error"))
+
+		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
+
+		assert.Nil(t, txReceipt)
+		assert.Equal(t, jsonrpc.Err(jsonrpc.InternalError, "some internal error"), rpcErr)
+	})
+
+	t.Run("found in pending block", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		n := &utils.Sepolia
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+
+		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
+
+		client := feeder.NewTestClient(t, n)
+		gateway := adaptfeeder.New(client)
+		mockSyncReader.EXPECT().PendingBlock().DoAndReturn(func() *core.Block {
+			block, err := gateway.BlockByNumber(t.Context(), 4850)
+			require.NoError(t, err)
+
+			return block
+		})
+
+		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
+
+		expectedReceipt := rpc.TransactionReceipt{
+			FinalityStatus:  rpc.TxnAcceptedOnL2,
+			ExecutionStatus: rpc.TxnSuccess,
+			Type:            rpc.TxnInvoke,
+			Hash:            tx0HashInBlock4850,
+			ActualFee: &rpc.FeePayment{
+				Amount: utils.HexToFelt(t, "0x4e7f9f784c0"),
+				Unit:   rpc.WEI,
+			},
+			// nil because pending block
+			BlockHash:    nil,
+			BlockNumber:  nil,
+			MessagesSent: []*rpc.MsgToL1{},
+			Events: []*rpc.Event{{
+				From: utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				Keys: []*felt.Felt{
+					utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+				},
+				Data: []*felt.Felt{
+					utils.HexToFelt(t, "0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655"),
+					utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					utils.HexToFelt(t, "0x4e7f9f784c0"),
+					utils.HexToFelt(t, "0x0"),
+				},
+			}},
+			ExecutionResources: &rpc.ExecutionResources{
+				ComputationResources: rpc.ComputationResources{
+					Steps:      6172,
+					Pedersen:   16,
+					RangeCheck: 208,
+					Ecdsa:      1,
+				},
+			},
+		}
+
+		assert.Nil(t, rpcErr)
+		assert.Equal(t, &expectedReceipt, txReceipt)
+	})
+
+	t.Run("found in (non-pending) block", func(t *testing.T) {
+		mockCtrl := gomock.NewController(t)
+		t.Cleanup(mockCtrl.Finish)
+
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		n := &utils.Sepolia
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+
+		client := feeder.NewTestClient(t, n)
+		gateway := adaptfeeder.New(client)
+		block, err := gateway.BlockByNumber(t.Context(), 4850)
+		require.NoError(t, err)
+
+		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+
+		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
+		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: 4851}, nil) // block number not very important here
+
+		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
+
+		expectedBlockNumber := uint64(4850)
+		expectedReceipt := rpc.TransactionReceipt{
+			FinalityStatus:  rpc.TxnAcceptedOnL1,
+			ExecutionStatus: rpc.TxnSuccess,
+			Type:            rpc.TxnInvoke,
+			Hash:            tx0HashInBlock4850,
+			ActualFee: &rpc.FeePayment{
+				Amount: utils.HexToFelt(t, "0x4e7f9f784c0"),
+				Unit:   rpc.WEI,
+			},
+			BlockHash:    utils.HexToFelt(t, "0x410dfca0f99545e62aef946e228329ce3a906f6785f5e6f97389f30ad1c1088"),
+			BlockNumber:  &expectedBlockNumber,
+			MessagesSent: []*rpc.MsgToL1{},
+			Events: []*rpc.Event{{
+				From: utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				Keys: []*felt.Felt{
+					utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+				},
+				Data: []*felt.Felt{
+					utils.HexToFelt(t, "0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655"),
+					utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					utils.HexToFelt(t, "0x4e7f9f784c0"),
+					utils.HexToFelt(t, "0x0"),
+				},
+			}},
+			ExecutionResources: &rpc.ExecutionResources{
+				ComputationResources: rpc.ComputationResources{
+					Steps:      6172,
+					Pedersen:   16,
+					RangeCheck: 208,
+					Ecdsa:      1,
+				},
+			},
+		}
+
+		assert.Nil(t, rpcErr)
+		assert.Equal(t, &expectedReceipt, txReceipt)
+	})
+}
+
 //nolint:dupl
 func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	t.Skip()
@@ -609,7 +847,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
@@ -768,7 +1006,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -825,7 +1063,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -922,7 +1160,7 @@ func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
-		tx, err := gw.Transaction(context.Background(), utils.HexToFelt(t, hash))
+		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
@@ -1186,11 +1424,11 @@ func TestAddTransaction(t *testing.T) {
 				Times(1)
 
 			handler := rpc.New(nil, nil, nil, "", n, utils.NewNopZapLogger())
-			_, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+			_, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
-			got, rpcErr := handler.AddTransaction(context.Background(), test.txn)
+			got, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Nil(t, rpcErr)
 			require.Equal(t, &rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),
@@ -1225,7 +1463,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -1237,7 +1475,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("tx found in db", func(t *testing.T) {
 				gw := adaptfeeder.New(client)
 
-				block, err := gw.BlockLatest(context.Background())
+				block, err := gw.BlockLatest(t.Context())
 				require.NoError(t, err)
 
 				tx := block.Transactions[0]
@@ -1295,8 +1533,10 @@ func TestTransactionStatus(t *testing.T) {
 				for description, notFoundTest := range notFoundTests {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
+						syncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						handler := rpc.New(mockReader, nil, nil, "", test.network, nil)
+						syncReader.EXPECT().PendingBlock().Return(nil).Times(2)
+						handler := rpc.New(mockReader, syncReader, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1309,11 +1549,12 @@ func TestTransactionStatus(t *testing.T) {
 				}
 			})
 
-			// transaction no† found in db and feeder
-			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
+			t.Run("transaction not found in db and feeder", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
+				syncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, nil, nil, "", test.network, nil).WithFeeder(client)
+				syncReader.EXPECT().PendingBlock().Return(nil)
+				handler := rpc.New(mockReader, syncReader, nil, "", test.network, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -1321,4 +1562,83 @@ func TestTransactionStatus(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestAdaptBroadcastedTransaction(t *testing.T) {
+	txnNonZeroL2GasData := `{
+			"type": "DEPLOY_ACCOUNT",
+			"version": "0x3",
+			"signature": [
+				"0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+				"0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"
+			],
+			"nonce": "0x1",
+			"contract_address_salt": "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+			"constructor_calldata": [
+				"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				"0x2",
+				"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				"0x0"
+			],
+			"class_hash": "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			"resource_bounds": {
+				"l1_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				},
+				"l2_gas": {													
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				}
+			},
+			"tip": "0x1",
+			"paymaster_data": [],
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L2"
+		}`
+	expectedTxn := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     utils.HexToFelt(t, "0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353"),
+			ContractAddressSalt: utils.HexToFelt(t, "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+			ClassHash:           utils.HexToFelt(t, "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+			ContractAddress:     utils.HexToFelt(t, "0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			ConstructorCallData: []*felt.Felt{
+				utils.HexToFelt(t, "0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				utils.HexToFelt(t, "0x2"),
+				utils.HexToFelt(t, "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+				utils.HexToFelt(t, "0x0"),
+			},
+			Version: new(core.TransactionVersion).SetUint64(3),
+		},
+		TransactionSignature: []*felt.Felt{
+			utils.HexToFelt(t, "0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
+			utils.HexToFelt(t, "0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+		},
+		Nonce: utils.HexToFelt(t, "0x1"),
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       utils.HexToFelt(t, "0x0").Uint64(), // The original txn should have this field set to zero
+				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
+			},
+		},
+		Tip:           1, // 0x1
+		PaymasterData: []*felt.Felt{},
+		NonceDAMode:   core.DAModeL1,
+		FeeDAMode:     core.DAModeL2,
+	}
+
+	txnNonZeroL2Gas := rpc.BroadcastedTransaction{}
+	require.NoError(t, json.Unmarshal([]byte(txnNonZeroL2GasData), &txnNonZeroL2Gas))
+
+	tx, _, _, err := rpc.AdaptBroadcastedTransaction(&txnNonZeroL2Gas, &utils.Sepolia)
+	require.NoError(t, err)
+	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
+	require.True(t, ok)
+	require.Equal(t, expectedTxn, *resultTxn)
 }

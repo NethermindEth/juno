@@ -12,35 +12,16 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
 
-type SimulationFlag int
-
-const (
-	SkipValidateFlag SimulationFlag = iota + 1
-	SkipFeeChargeFlag
-)
-
 const ExecutionStepsHeader string = "X-Cairo-Steps"
-
-func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
-	switch flag := string(bytes); flag {
-	case `"SKIP_VALIDATE"`:
-		*s = SkipValidateFlag
-	case `"SKIP_FEE_CHARGE"`:
-		*s = SkipFeeChargeFlag
-	default:
-		err = fmt.Errorf("unknown simulation flag %q", flag)
-	}
-
-	return
-}
 
 type SimulatedTransaction struct {
 	TransactionTrace *TransactionTrace `json:"transaction_trace,omitempty"`
-	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitempty"`
+	FeeEstimation    FeeEstimate       `json:"fee_estimation,omitzero"`
 }
 
 type TracedBlockTransaction struct {
@@ -53,16 +34,16 @@ type TracedBlockTransaction struct {
 *****************************************************/
 
 func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag,
+	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
-	simulationFlags []SimulationFlag, errOnRevert bool,
+	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
-	skipFeeCharge := slices.Contains(simulationFlags, SkipFeeChargeFlag)
-	skipValidate := slices.Contains(simulationFlags, SkipValidateFlag)
+	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
+	skipValidate := slices.Contains(simulationFlags, rpcv6.SkipValidateFlag)
 
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -71,6 +52,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
+
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -79,6 +61,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	network := h.bcReader.Network()
+
 	txns, classes, paidFeesOnL1, rpcErr := prepareTransactions(transactions, network)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
@@ -88,6 +71,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
+
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
@@ -117,7 +101,7 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -190,7 +174,6 @@ func createSimulatedTransactions(
 			l1GasPrice = l1GasPriceStrk
 			l1DataGasPrice = l1DataGasPriceStrk
 		}
-
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{

@@ -66,7 +66,7 @@ func TestSubscribeEvents(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
 		assert.Zero(t, id)
@@ -90,7 +90,7 @@ func TestSubscribeEvents(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		// Note the end of the window doesn't need to be tested because if requested block number is more than the
 		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
@@ -118,10 +118,10 @@ func TestSubscribeEvents(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(context.Background(), 56377)
+	b1, err := gw.BlockByNumber(t.Context(), 56377)
 	require.NoError(t, err)
 
-	b2, err := gw.BlockByNumber(context.Background(), 56378)
+	b2, err := gw.BlockByNumber(t.Context(), 56378)
 	require.NoError(t, err)
 
 	pending1 := createTestPendingBlock(t, b2, 3)
@@ -264,11 +264,11 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
-		_, hasSubscription := handler.subscriptions.Load(uint64(id))
+		_, hasSubscription := handler.subscriptions.Load(string(id))
 		require.True(t, hasSubscription)
 
 		time.Sleep(200 * time.Millisecond)
-		_, hasSubscription = handler.subscriptions.Load(uint64(id))
+		_, hasSubscription = handler.subscriptions.Load(string(id))
 		require.False(t, hasSubscription)
 	})
 
@@ -323,7 +323,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(client)
 
-		block, err := gw.BlockByNumber(context.Background(), 38748)
+		block, err := gw.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
 		txHash, err := new(felt.Felt).SetString("0x1001")
@@ -409,7 +409,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
@@ -434,7 +434,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		t.Cleanup(cancel)
 
 		mockChain := mocks.NewMockReader(mockCtrl)
@@ -447,8 +447,8 @@ func TestSubscribeNewHeads(t *testing.T) {
 		handler, server := setupRPC(t, ctx, mockChain, syncer)
 		conn := createWsConn(t, ctx, server)
 
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
+		id := "1"
+		handler.WithIDGen(func() string { return id })
 
 		got := sendWsMessage(t, ctx, conn, subMsg("starknet_subscribeNewHeads"))
 		require.Equal(t, subResp(id), got)
@@ -471,10 +471,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	block0, err := gw.BlockByNumber(context.Background(), 0)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
-	stateUpdate0, err := gw.StateUpdate(context.Background(), 0)
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	testDB := pebble.NewMemTest(t)
@@ -484,22 +484,22 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	chain = blockchain.New(testDB, &utils.Mainnet)
 	syncer := newFakeSyncer()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	handler, server := setupRPC(t, ctx, chain, syncer)
 
 	conn := createWsConn(t, ctx, server)
 
-	id := uint64(1)
-	handler.WithIDGen(func() uint64 { return id })
+	id := "1"
+	handler.WithIDGen(func() string { return id })
 
-	subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
+	subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribeNewHeads", "params":{"block_id":{"block_number":0}}}`
 	got := sendWsMessage(t, ctx, conn, subMsg)
 	require.Equal(t, subResp(id), got)
 
 	// Check block 0 content
-	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`
+	want := `{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x47c3637b57c2b079b93c61539950c17e868a28f46cdef28f88521067f21e943","parent_hash":"0x0","block_number":0,"new_root":"0x21870ba80540e7831fb21c591ee93481f5ae1bb71ff85a86ddd465be4eddee6","timestamp":1637069048,"sequencer_address":"0x0","l1_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_data_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"},"l1_da_mode":"CALLDATA","starknet_version":"","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":"%s"}}`
 	want = fmt.Sprintf(want, id)
 	_, block0Got, err := conn.Read(ctx)
 	require.NoError(t, err)
@@ -518,7 +518,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
@@ -546,15 +546,15 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 		require.NoError(t, conn2.Close(websocket.StatusNormalClosure, ""))
 	})
 
-	firstID := uint64(1)
-	secondID := uint64(2)
+	firstID := "1"
+	secondID := "2"
 
-	handler.WithIDGen(func() uint64 { return firstID })
+	handler.WithIDGen(func() string { return firstID })
 	firstGot := sendWsMessage(t, ctx, conn1, subMsg("starknet_subscribeNewHeads"))
 	require.NoError(t, err)
 	require.Equal(t, subResp(firstID), firstGot)
 
-	handler.WithIDGen(func() uint64 { return secondID })
+	handler.WithIDGen(func() string { return secondID })
 	secondGot := sendWsMessage(t, ctx, conn2, subMsg("starknet_subscribeNewHeads"))
 	require.NoError(t, err)
 	require.Equal(t, subResp(secondID), secondGot)
@@ -578,13 +578,13 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	require.Equal(t, newHeadsResponse(secondID), string(secondHeaderGot))
 
 	// Unsubscribe
-	unsubMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_unsubscribe","params":[%d]}`
-	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, firstID))))
-	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, []byte(fmt.Sprintf(unsubMsg, secondID))))
+	unsubMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_unsubscribe","params":[%s]}`
+	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, firstID)))
+	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, secondID)))
 }
 
 func TestSubscriptionReorg(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockCtrl := gomock.NewController(t)
@@ -627,8 +627,8 @@ func TestSubscriptionReorg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			conn := createWsConn(t, ctx, server)
 
-			id := uint64(1)
-			handler.WithIDGen(func() uint64 { return id })
+			id := "1"
+			handler.WithIDGen(func() string { return id })
 
 			got := sendWsMessage(t, ctx, conn, subMsg(tc.subscribeMethod))
 			require.Equal(t, subResp(id), got)
@@ -647,7 +647,7 @@ func TestSubscriptionReorg(t *testing.T) {
 			})
 
 			// Receive reorg event
-			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":%d}}`
+			expectedRes := `{"jsonrpc":"2.0","method":"starknet_subscriptionReorg","params":{"result":{"starting_block_hash":"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6","starting_block_number":0,"ending_block_hash":"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86","ending_block_number":2},"subscription_id":"%s"}}`
 			want := fmt.Sprintf(expectedRes, id)
 			_, reorgGot, err := conn.Read(ctx)
 			require.NoError(t, err)
@@ -657,7 +657,7 @@ func TestSubscriptionReorg(t *testing.T) {
 }
 
 func TestSubscribePendingTxs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
 	mockCtrl := gomock.NewController(t)
@@ -673,9 +673,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Basic subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions"}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
+		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions"}`
+		id := "1"
+		handler.WithIDGen(func() string { return id })
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
@@ -705,7 +705,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		})
 
 		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
 			want = fmt.Sprintf(want, expectedResult, id)
 			_, pendingTxsGot, err := conn.Read(ctx)
 			require.NoError(t, err)
@@ -716,9 +716,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Filtered subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
+		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
+		id := "1"
+		handler.WithIDGen(func() string { return id })
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
@@ -756,7 +756,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		})
 
 		for _, expectedResult := range []string{"0x1", "0x2"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":%d}}`
+			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
 			want = fmt.Sprintf(want, expectedResult, id)
 			_, pendingTxsGot, err := conn.Read(ctx)
 			require.NoError(t, err)
@@ -767,9 +767,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Run("Full details subscription", func(t *testing.T) {
 		conn := createWsConn(t, ctx, server)
 
-		subMsg := `{"jsonrpc":"2.0","id":1,"method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
-		id := uint64(1)
-		handler.WithIDGen(func() uint64 { return id })
+		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
+		id := "1"
+		handler.WithIDGen(func() string { return id })
 		got := sendWsMessage(t, ctx, conn, subMsg)
 		require.Equal(t, subResp(id), got)
 
@@ -797,7 +797,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":%d}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":"%s"}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
@@ -812,7 +812,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
 		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
 		assert.Zero(t, id)
@@ -831,7 +831,7 @@ func TestUnsubscribe(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		success, rpcErr := handler.Unsubscribe(context.Background(), 1)
+		success, rpcErr := handler.Unsubscribe(t.Context(), "1")
 		assert.False(t, success)
 		assert.Equal(t, jsonrpc.Err(jsonrpc.MethodNotFound, nil), rpcErr)
 	})
@@ -849,8 +849,8 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn.Close())
 		})
 
-		ctx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
-		success, rpcErr := handler.Unsubscribe(ctx, 999)
+		ctx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+		success, rpcErr := handler.Unsubscribe(ctx, "999")
 		assert.False(t, success)
 		assert.Equal(t, rpccore.ErrInvalidSubscriptionID, rpcErr)
 	})
@@ -869,7 +869,7 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn1.Close())
 		})
 
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn1})
 		_, subscriptionCtxCancel := context.WithCancel(subCtx)
 		sub := &subscription{
 			cancel: subscriptionCtxCancel,
@@ -883,8 +883,8 @@ func TestUnsubscribe(t *testing.T) {
 			require.NoError(t, serverConn2.Close())
 		})
 
-		unsubCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
-		success, rpcErr := handler.Unsubscribe(unsubCtx, 1)
+		unsubCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn2})
+		success, rpcErr := handler.Unsubscribe(unsubCtx, "1")
 		assert.False(t, success)
 		assert.NotNil(t, rpcErr)
 	})
@@ -903,20 +903,20 @@ func TestUnsubscribe(t *testing.T) {
 		})
 
 		conn := &fakeConn{w: serverConn}
-		subCtx := context.WithValue(context.Background(), jsonrpc.ConnKey{}, conn)
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, conn)
 		_, subscriptionCtxCancel := context.WithCancel(subCtx)
 		sub := &subscription{
 			cancel: subscriptionCtxCancel,
 			conn:   conn,
 		}
-		handler.subscriptions.Store(uint64(1), sub)
+		handler.subscriptions.Store("1", sub)
 
-		success, rpcErr := handler.Unsubscribe(subCtx, 1)
+		success, rpcErr := handler.Unsubscribe(subCtx, "1")
 		assert.True(t, success)
 		assert.Nil(t, rpcErr)
 
 		// Verify subscription was removed
-		_, exists := handler.subscriptions.Load(uint64(1))
+		_, exists := handler.subscriptions.Load("1")
 		assert.False(t, exists)
 	})
 }
@@ -935,12 +935,12 @@ func createWsConn(t *testing.T, ctx context.Context, server *jsonrpc.Server) *we
 	return conn
 }
 
-func subResp(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","result":%d,"id":1}`, id)
+func subResp(id string) string {
+	return fmt.Sprintf(`{"jsonrpc":"2.0","result":%q,"id":"1"}`, id)
 }
 
 func subMsg(method string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":%q}`, method)
+	return fmt.Sprintf(`{"jsonrpc":"2.0","id":"1","method":%q}`, method)
 }
 
 func testHeadBlock(t *testing.T) *core.Block {
@@ -950,14 +950,14 @@ func testHeadBlock(t *testing.T) *core.Block {
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 
-	b1, err := gw.BlockByNumber(context.Background(), 56377)
+	b1, err := gw.BlockByNumber(t.Context(), 56377)
 	require.NoError(t, err)
 
 	return b1
 }
 
-func newHeadsResponse(id uint64) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%d}}`, id)
+func newHeadsResponse(id string) string {
+	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`, id)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
@@ -1101,7 +1101,7 @@ func createTestWebsocket(t *testing.T, subscribe func(context.Context) (Subscrip
 
 	serverConn, clientConn := net.Pipe()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	subCtx := context.WithValue(ctx, jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 	id, rpcErr := subscribe(subCtx)
 	require.Nil(t, rpcErr)

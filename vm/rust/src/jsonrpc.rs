@@ -1,22 +1,22 @@
+use crate::juno_state_reader::JunoStateReader;
 use blockifier;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
-use blockifier::state::cached_state::CachedState;
+use blockifier::state::cached_state::{CachedState, StateMaps};
 use blockifier::state::cached_state::{CommitmentStateDiff, TransactionalState};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::StateReader;
 use cairo_vm::types::builtin_name::BuiltinName;
+use indexmap::IndexMap;
 use serde::Serialize;
 use starknet_api::contract_class::EntryPointType;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
-use starknet_api::transaction::fields::Calldata;
+use starknet_api::execution_resources::GasVector;
+use starknet_api::transaction::fields::{Calldata, Fee};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
 use starknet_types_core::felt::Felt;
-
 type StarkFelt = Felt;
-
-use crate::juno_state_reader::JunoStateReader;
 
 #[derive(Serialize, Default)]
 #[serde(rename_all = "UPPERCASE")]
@@ -30,6 +30,13 @@ pub enum TransactionType {
     DeployAccount,
     #[serde(rename = "L1_HANDLER")]
     L1Handler,
+}
+
+#[derive(serde::Serialize, Default, Debug, PartialEq)]
+pub struct TransactionReceipt {
+    pub fee: Fee,
+    pub gas: GasVector,
+    pub da_gas: GasVector,
 }
 
 #[derive(Serialize, Default)]
@@ -49,13 +56,93 @@ pub struct TransactionTrace {
 }
 
 #[derive(Serialize, Default)]
-struct StateDiff {
+pub struct StateDiff {
     storage_diffs: Vec<StorageDiff>,
     nonces: Vec<Nonce>,
     deployed_contracts: Vec<DeployedContract>,
     deprecated_declared_classes: Vec<StarkFelt>,
     declared_classes: Vec<DeclaredClass>,
     replaced_classes: Vec<ReplacedClass>,
+}
+
+impl From<StateMaps> for StateDiff {
+    fn from(state_maps: StateMaps) -> Self {
+        let storage_diffs = state_maps
+            .storage
+            .into_iter()
+            .fold(
+                IndexMap::<StarkFelt, Vec<Entry>>::new(),
+                |mut acc, ((address, key), value)| {
+                    let starkfelt_address = address.into();
+                    let entry = Entry {
+                        key: key.into(),
+                        value: value.into(),
+                    };
+
+                    acc.entry(starkfelt_address)
+                        .or_insert_with(Vec::new)
+                        .push(entry);
+
+                    acc
+                },
+            )
+            .into_iter()
+            .map(|(address, storage_entries)| StorageDiff {
+                address,
+                storage_entries,
+            })
+            .collect();
+
+        let nonces = state_maps
+            .nonces
+            .into_iter()
+            .map(|(address, nonce)| Nonce {
+                contract_address: address.into(),
+                nonce: (*nonce).into(),
+            })
+            .collect();
+
+        let deployed_contracts = state_maps
+            .class_hashes
+            .into_iter()
+            .map(|(address, class_hash)| DeployedContract {
+                address: address.into(),
+                class_hash: (*class_hash).into(),
+            })
+            .collect();
+
+        let deprecated_declared_classes = state_maps
+            .declared_contracts
+            .into_iter()
+            .filter(|(_, is_deprecated)| *is_deprecated)
+            .map(|(class_hash, _)| (*class_hash).into())
+            .collect();
+
+        let declared_classes = state_maps
+            .compiled_class_hashes
+            .into_iter()
+            .map(|(class_hash, compiled_class_hash)| DeclaredClass {
+                class_hash: (*class_hash).into(),
+                compiled_class_hash: compiled_class_hash.0.into(),
+            })
+            .collect();
+
+        // Currently this field is unneeded, since we don't declare and
+        // immediately replace a contracts class hash in a single block.
+        // If we decide to support this field, then we could handle it
+        // in the genesis pkg, since there is no corresponding field in StateMaps.
+        // Only the genesis pkg ever uses this logic.
+        let replaced_classes = Default::default();
+
+        Self {
+            storage_diffs,
+            nonces,
+            deployed_contracts,
+            deprecated_declared_classes,
+            declared_classes,
+            replaced_classes,
+        }
+    }
 }
 
 #[derive(Serialize)]

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -290,7 +291,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false)
+	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
@@ -304,7 +305,10 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		var strErr string
 		if len(res.Result) != 0 {
 			if res.Result[0].String() == rpccore.EntrypointNotFoundFelt {
-				strErr = rpccore.ErrEntrypointNotFound.Message
+				strErr = fmt.Sprintf(
+					rpccore.ErrEPSNotFound,
+					funcCall.EntryPointSelector.String(),
+				)
 			} else {
 				strErr = utils.FeltArrToString(res.Result)
 			}

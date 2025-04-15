@@ -1,9 +1,9 @@
 package core_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -36,13 +36,13 @@ func TestUpdate(t *testing.T) {
 
 	state := core.NewState(txn)
 
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
-	su1, err := gw.StateUpdate(context.Background(), 1)
+	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
-	su2, err := gw.StateUpdate(context.Background(), 2)
+	su2, err := gw.StateUpdate(t.Context(), 2)
 	require.NoError(t, err)
 
 	t.Run("empty state updated with mainnet block 0 state update", func(t *testing.T) {
@@ -163,10 +163,10 @@ func TestContractClassHash(t *testing.T) {
 
 	state := core.NewState(txn)
 
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
-	su1, err := gw.StateUpdate(context.Background(), 1)
+	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
 	require.NoError(t, state.Update(0, su0, nil))
@@ -174,13 +174,8 @@ func TestContractClassHash(t *testing.T) {
 
 	allDeployedContracts := make(map[felt.Felt]*felt.Felt)
 
-	for addr, classHash := range su0.StateDiff.DeployedContracts {
-		allDeployedContracts[addr] = classHash
-	}
-
-	for addr, classHash := range su1.StateDiff.DeployedContracts {
-		allDeployedContracts[addr] = classHash
-	}
+	maps.Copy(allDeployedContracts, su0.StateDiff.DeployedContracts)
+	maps.Copy(allDeployedContracts, su1.StateDiff.DeployedContracts)
 
 	for addr, expectedClassHash := range allDeployedContracts {
 		gotClassHash, err := state.ContractClassHash(&addr)
@@ -271,7 +266,7 @@ func TestStateHistory(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil))
 
@@ -321,10 +316,10 @@ func TestContractIsDeployedAt(t *testing.T) {
 
 	state := core.NewState(txn)
 
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
-	su1, err := gw.StateUpdate(context.Background(), 1)
+	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
 	require.NoError(t, state.Update(0, su0, nil))
@@ -372,14 +367,14 @@ func TestClass(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
-	cairo0Class, err := gw.Class(context.Background(), cairo0Hash)
+	cairo0Class, err := gw.Class(t.Context(), cairo0Hash)
 	require.NoError(t, err)
 	cairo1Hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
-	cairo1Class, err := gw.Class(context.Background(), cairo0Hash)
+	cairo1Class, err := gw.Class(t.Context(), cairo0Hash)
 	require.NoError(t, err)
 
 	state := core.NewState(txn)
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
 		*cairo0Hash: cairo0Class,
@@ -408,10 +403,10 @@ func TestRevert(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	state := core.NewState(txn)
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil))
-	su1, err := gw.StateUpdate(context.Background(), 1)
+	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(1, su1, nil))
 
@@ -509,7 +504,7 @@ func TestRevert(t *testing.T) {
 		assert.Nil(t, decClass)
 	})
 
-	su2, err := gw.StateUpdate(context.Background(), 2)
+	su2, err := gw.StateUpdate(t.Context(), 2)
 	require.NoError(t, err)
 	t.Run("should be able to apply new update after a Revert", func(t *testing.T) {
 		require.NoError(t, state.Update(2, su2, nil))
@@ -584,12 +579,12 @@ func TestRevertSystemContracts(t *testing.T) {
 
 	state := core.NewState(txn)
 
-	su0, err := gw.StateUpdate(context.Background(), 0)
+	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
 	require.NoError(t, state.Update(0, su0, nil))
 
-	su1, err := gw.StateUpdate(context.Background(), 1)
+	su1, err := gw.StateUpdate(t.Context(), 1)
 	require.NoError(t, err)
 
 	// These value were taken from part of integration state update number 299762

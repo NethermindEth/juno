@@ -61,21 +61,31 @@ type StorageProofResult struct {
 func (h *Handler) StorageProof(id BlockID,
 	classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
-	head, err := h.bcReader.Head()
+	state, closer, err := h.bcReader.HeadState()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	chainHeight, err := state.ChainHeight()
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+
+	// TODO(infrmtcs): This is still a half baked solution because we're using another transaction to get the block number.
+	// We don't use the head query directly to avoid race condition where there is a new incoming block.
+	// Currently it's still working because we don't have revert yet.
+	// We should figure out a way to merge the two transactions.
+	head, err := h.bcReader.BlockByNumber(chainHeight)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
 	// We do not support historical storage proofs for now
 	// Ensure that the block requested is the head block
-	if rpcErr := isBlockSupported(id, head); rpcErr != nil {
+	if rpcErr := h.isBlockSupported(&id, chainHeight); rpcErr != nil {
 		return nil, rpcErr
 	}
 
-	state, closer, err := h.bcReader.HeadState()
-	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err)
-	}
 	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
 
 	classTrie, err := state.ClassTrie()
@@ -135,12 +145,8 @@ func (h *Handler) StorageProof(id BlockID,
 
 // Ensures each contract is unique and each storage key in each contract is unique
 func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Error) {
-	if storageKeys == nil {
-		return nil, nil
-	}
-
 	if len(storageKeys) == 0 {
-		return nil, jsonrpc.Err(jsonrpc.InvalidParams, MissingContractAddress)
+		return nil, nil
 	}
 
 	merged := make(map[felt.Felt][]felt.Felt, len(storageKeys))
@@ -167,7 +173,8 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 
 // isBlockSupported checks if the block ID requested is supported for storage proofs
 // Currently returns true only if the block ID requested matches the head block
-func isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error {
+func (h *Handler) isBlockSupported(id *BlockID, chainHeight uint64) *jsonrpc.Error {
+	var blockNumber uint64
 	switch {
 	case id.IsLatest():
 		return nil
@@ -175,16 +182,25 @@ func isBlockSupported(id BlockID, head *core.Block) *jsonrpc.Error {
 		// TODO: Remove this case when specs replaced BLOCK_ID by another type.
 		return rpccore.ErrCallOnPending
 	case id.GetHash() != nil:
-		if id.GetHash().Equal(head.Hash) {
-			return nil
+		header, err := h.bcReader.BlockHeaderByHash(id.GetHash())
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return rpccore.ErrBlockNotFound
+			}
+			return rpccore.ErrInternal.CloneWithData(err)
 		}
-		return rpccore.ErrStorageProofNotSupported
+		blockNumber = header.Number
 	default:
-		if id.GetNumber() == head.Number {
-			return nil
-		}
-		return rpccore.ErrStorageProofNotSupported
+		blockNumber = id.GetNumber()
 	}
+
+	switch {
+	case blockNumber < chainHeight:
+		return rpccore.ErrStorageProofNotSupported
+	case blockNumber > chainHeight:
+		return rpccore.ErrBlockNotFound
+	}
+	return nil
 }
 
 func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {

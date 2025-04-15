@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"context"
 	"math"
 	"math/big"
 	"os"
@@ -63,7 +62,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
-	defaultGwTimeout := 5 * time.Second
+	defaultGwTimeout := "5s,"
 
 	tests := map[string]struct {
 		cfgFile         bool
@@ -109,9 +108,9 @@ func TestConfigPrecedence(t *testing.T) {
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"custom network config file": {
@@ -156,9 +155,9 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"default config with no flags": {
@@ -190,9 +189,9 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"config file path is empty string": {
@@ -224,9 +223,9 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"config file doesn't exist": {
@@ -263,9 +262,9 @@ cn-unverifiable-range: [0,10]
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -304,9 +303,9 @@ pprof: true
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -342,9 +341,9 @@ http-port: 4576
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"all flags without config file": {
@@ -378,10 +377,10 @@ http-port: 4576
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
+				GatewayTimeouts:     defaultGwTimeout,
 				PendingPollInterval: defaultPendingPollInterval,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"some flags without config file": {
@@ -416,9 +415,9 @@ http-port: 4576
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -477,9 +476,9 @@ db-cache-size: 1024
 				DBCacheSize:         9,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -517,9 +516,9 @@ network: sepolia
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -553,9 +552,9 @@ network: sepolia
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"only set env variables": {
@@ -587,9 +586,9 @@ network: sepolia
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -622,9 +621,9 @@ network: sepolia
 				DBCacheSize:         defaultMaxCacheSize,
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -658,15 +657,14 @@ network: sepolia
 				GatewayAPIKey:       "apikey",
 				DBMaxHandles:        defaultMaxHandles,
 				RPCCallMaxSteps:     defaultCallMaxSteps,
-				GatewayTimeout:      defaultGwTimeout,
-				LogHost:             defaultHost,
-				LogPort:             0,
+				GatewayTimeouts:     defaultGwTimeout,
+				HTTPUpdateHost:      defaultHost,
+				HTTPUpdatePort:      0,
 			},
 		},
 	}
 
-	junoEnv := unsetJunoPrefixedEnv(t)
-
+	unsetJunoPrefixedEnv(t)
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tc.cfgFile {
@@ -678,7 +676,7 @@ network: sepolia
 
 			if len(tc.env) > 0 {
 				for i := range len(tc.env) / 2 {
-					require.NoError(t, os.Setenv(tc.env[2*i], tc.env[2*i+1]))
+					t.Setenv(tc.env[2*i], tc.env[2*i+1])
 				}
 			}
 
@@ -686,7 +684,7 @@ network: sepolia
 			cmd := juno.NewCmd(config, func(_ *cobra.Command, _ []string) error { return nil })
 			cmd.SetArgs(tc.inputArgs)
 
-			err := cmd.ExecuteContext(context.Background())
+			err := cmd.ExecuteContext(t.Context())
 			if tc.expectErr {
 				require.Error(t, err)
 				return
@@ -694,14 +692,8 @@ network: sepolia
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedConfig, config)
-			if len(tc.env) > 0 {
-				for i := range len(tc.env) / 2 {
-					require.NoError(t, os.Unsetenv(tc.env[2*i]))
-				}
-			}
 		})
 	}
-	setJunoPrefixedEnv(t, junoEnv)
 }
 
 func TestGenP2PKeyPair(t *testing.T) {
@@ -727,28 +719,16 @@ func tempCfgFile(t *testing.T, cfg string) string {
 	return f.Name()
 }
 
-func unsetJunoPrefixedEnv(t *testing.T) map[string]string {
+func unsetJunoPrefixedEnv(t *testing.T) {
 	t.Helper()
 
 	const prefix = "JUNO_"
-	junoEnv := make(map[string]string)
-
 	for _, e := range os.Environ() {
 		pair := strings.Split(e, "=")
-		k, v := pair[0], pair[1]
+		k := pair[0]
 
 		if strings.HasPrefix(k, prefix) {
-			junoEnv[k] = v
-
-			require.NoError(t, os.Unsetenv(k))
+			t.Setenv(k, "")
 		}
-	}
-	return junoEnv
-}
-
-func setJunoPrefixedEnv(t *testing.T, env map[string]string) {
-	t.Helper()
-	for k, v := range env {
-		require.NoError(t, os.Setenv(k, v))
 	}
 }

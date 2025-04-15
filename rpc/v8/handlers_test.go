@@ -1,13 +1,13 @@
 package rpcv8_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +30,7 @@ func TestSpecVersion(t *testing.T) {
 	handler := rpcv8.New(nil, nil, nil, "", nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
-	require.Equal(t, "0.8.0", version)
+	require.Equal(t, "0.8.1", version)
 }
 
 func TestThrottledVMError(t *testing.T) {
@@ -64,7 +64,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv8.BlockID{Latest: true}, []rpcv8.BroadcastedTransaction{}, []rpcv8.SimulationFlag{rpcv8.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv8.BlockID{Latest: true}, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})
@@ -100,7 +100,7 @@ func TestThrottledVMError(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(context.Background(), rpcv8.BlockID{Hash: blockHash})
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv8.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})

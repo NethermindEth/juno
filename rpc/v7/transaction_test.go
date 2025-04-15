@@ -1,7 +1,6 @@
 package rpcv7_test
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"math/rand"
@@ -32,7 +31,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mainnetGw := adaptfeeder.New(client)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	latestBlockNumber := 19199
-	latestBlock, err := mainnetGw.BlockByNumber(context.Background(), 19199)
+	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
@@ -264,7 +263,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, h *felt.Felt, expected string) {
@@ -422,7 +421,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -490,7 +489,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -527,7 +526,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	block0, err := mainnetGw.BlockByNumber(context.Background(), 0)
+	block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 
 	checkTxReceipt := func(t *testing.T, _ *felt.Felt, expected string) {
@@ -686,7 +685,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		blockWithRevertedTxn, err := integGw.BlockByNumber(context.Background(), 304740)
+		blockWithRevertedTxn, err := integGw.BlockByNumber(t.Context(), 304740)
 		require.NoError(t, err)
 
 		revertedTxnIdx := 1
@@ -743,7 +742,7 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		integClient := feeder.NewTestClient(t, &utils.Integration)
 		integGw := adaptfeeder.New(integClient)
 
-		block, err := integGw.BlockByNumber(context.Background(), 319132)
+		block, err := integGw.BlockByNumber(t.Context(), 319132)
 		require.NoError(t, err)
 
 		index := 0
@@ -860,7 +859,7 @@ func TestTransactionStatus(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, test := range tests {
 		t.Run(test.network.String(), func(t *testing.T) {
@@ -872,7 +871,7 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("tx found in db", func(t *testing.T) {
 				gw := adaptfeeder.New(client)
 
-				block, err := gw.BlockLatest(context.Background())
+				block, err := gw.BlockLatest(t.Context())
 				require.NoError(t, err)
 
 				tx := block.Transactions[0]
@@ -964,4 +963,83 @@ func TestTransactionStatus(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestAdaptBroadcastedTransaction(t *testing.T) {
+	txnNonZeroL2GasData := `{
+			"type": "DEPLOY_ACCOUNT",
+			"version": "0x3",
+			"signature": [
+				"0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa",
+				"0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"
+			],
+			"nonce": "0x1",
+			"contract_address_salt": "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+			"constructor_calldata": [
+				"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				"0x2",
+				"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				"0x0"
+			],
+			"class_hash": "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			"resource_bounds": {
+				"l1_gas": {
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				},
+				"l2_gas": {													
+					"max_amount": "0x6fde2b4eb000",
+					"max_price_per_unit": "0x6fde2b4eb000"
+				}
+			},
+			"tip": "0x1",
+			"paymaster_data": [],
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L2"
+		}`
+	expectedTxn := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     utils.HexToFelt(t, "0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353"),
+			ContractAddressSalt: utils.HexToFelt(t, "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+			ClassHash:           utils.HexToFelt(t, "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+			ContractAddress:     utils.HexToFelt(t, "0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			ConstructorCallData: []*felt.Felt{
+				utils.HexToFelt(t, "0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				utils.HexToFelt(t, "0x2"),
+				utils.HexToFelt(t, "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+				utils.HexToFelt(t, "0x0"),
+			},
+			Version: new(core.TransactionVersion).SetUint64(3),
+		},
+		TransactionSignature: []*felt.Felt{
+			utils.HexToFelt(t, "0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
+			utils.HexToFelt(t, "0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+		},
+		Nonce: utils.HexToFelt(t, "0x1"),
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       utils.HexToFelt(t, "0x0").Uint64(), // The original txn should have this field set to zero
+				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
+			},
+		},
+		Tip:           1, // 0x1
+		PaymasterData: []*felt.Felt{},
+		NonceDAMode:   core.DAModeL1,
+		FeeDAMode:     core.DAModeL2,
+	}
+
+	txnNonZeroL2Gas := rpc.BroadcastedTransaction{}
+	require.NoError(t, json.Unmarshal([]byte(txnNonZeroL2GasData), &txnNonZeroL2Gas))
+
+	tx, _, _, err := rpc.AdaptBroadcastedTransaction(&txnNonZeroL2Gas, &utils.Sepolia)
+	require.NoError(t, err)
+	resultTxn, ok := (tx).(*core.DeployAccountTransaction)
+	require.True(t, ok)
+	require.Equal(t, expectedTxn, *resultTxn)
 }

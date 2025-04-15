@@ -109,7 +109,7 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := ChainHeight(e.txn)
+	latest, err := core.ChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -124,9 +124,11 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		}
 	}
 
+	var skippedEvents uint64
 	curBlock := e.fromBlock
 	// skip the blocks that we previously processed for this request
 	if cToken != nil {
+		skippedEvents = cToken.processedEvents
 		curBlock = cToken.fromBlock
 	}
 
@@ -161,7 +163,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, receipts, cToken, chunkSize)
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, receipts, skippedEvents, chunkSize)
 		if err != nil {
 			if errors.Is(err, errChunkSizeReached) {
 				rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
@@ -169,6 +171,9 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 			}
 			return nil, nil, err
 		}
+
+		// Skipped events are processed, so we can reset the counter
+		skippedEvents = 0
 	}
 
 	if rToken == nil && remainingScannedBlocks == 0 && curBlock <= e.toBlock {

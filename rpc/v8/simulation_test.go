@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -45,7 +46,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed       uint64
 		err             *jsonrpc.Error
 		mockBehavior    func(*mocks.MockReader, *mocks.MockVM, *mocks.MockStateHistoryReader)
-		simulationFlags []rpc.SimulationFlag
+		simulationFlags []rpcv6.SimulationFlag
 		simulatedTxs    []rpc.SimulatedTransaction
 	}{
 		{ //nolint:dupl
@@ -64,7 +65,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpc.SimulationFlag{rpc.SkipFeeChargeFlag},
+			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
 		},
 		{ //nolint:dupl
@@ -83,7 +84,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(123),
 					}, nil)
 			},
-			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
+			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			simulatedTxs:    []rpc.SimulatedTransaction{},
 		},
 		{
@@ -98,7 +99,7 @@ func TestSimulateTransactions(t *testing.T) {
 						Cause: json.RawMessage("oops"),
 					})
 			},
-			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
+			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
@@ -119,7 +120,7 @@ func TestSimulateTransactions(t *testing.T) {
 						NumSteps:         uint64(0),
 					}, nil)
 			},
-			simulationFlags: []rpc.SimulationFlag{rpc.SkipValidateFlag},
+			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
 			err: rpccore.ErrInternal.CloneWithData(errors.New(
 				"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 			)),

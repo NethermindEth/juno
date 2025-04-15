@@ -1,7 +1,6 @@
 package feeder_test
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -9,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +19,7 @@ func TestBlockByNumber(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -42,7 +40,7 @@ func TestBlockByNumber(t *testing.T) {
 func TestBlockLatest(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	response, err := client.Block(ctx, "latest")
 	require.NoError(t, err)
@@ -60,7 +58,7 @@ func TestStateUpdate(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -87,7 +85,7 @@ func TestClassV0(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, hashString := range classHashes {
 		t.Run("hash "+hashString, func(t *testing.T) {
@@ -111,7 +109,7 @@ func TestTransaction(t *testing.T) {
 	clientMainnet := feeder.NewTestClient(t, &utils.Mainnet)
 	adapterMainnet := adaptfeeder.New(clientMainnet)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("invoke transaction", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
@@ -177,25 +175,6 @@ func TestTransaction(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, sn2core.AdaptL1HandlerTransaction(responseTx), l1HandlerTx)
 	})
-
-	t.Run("tx with non-zero l2 gas should have l1 data gas", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
-		response, err := clientGoerli.Transaction(ctx, hash)
-		require.NoError(t, err)
-		responseTx := response.Transaction
-		responseTx.ResourceBounds = utils.HeapPtr(map[starknet.Resource]starknet.ResourceBounds{
-			starknet.ResourceL2Gas: {
-				MaxAmount:       new(felt.Felt).SetUint64(100),
-				MaxPricePerUnit: new(felt.Felt).SetUint64(100),
-			},
-		})
-
-		adaptTx := sn2core.AdaptInvokeTransaction(responseTx)
-
-		require.NotNil(t, adaptTx.ResourceBounds[core.ResourceL1DataGas])
-		require.Equal(t, uint64(0), adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxAmount)
-		require.Equal(t, &felt.Zero, adaptTx.ResourceBounds[core.ResourceL1DataGas].MaxPricePerUnit)
-	})
 }
 
 func TestClassV1(t *testing.T) {
@@ -217,12 +196,12 @@ func TestClassV1(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		class, err := adapter.Class(context.Background(), test.classHash)
+		class, err := adapter.Class(t.Context(), test.classHash)
 		require.NoError(t, err)
 
-		feederClass, err := client.ClassDefinition(context.Background(), test.classHash)
+		feederClass, err := client.ClassDefinition(t.Context(), test.classHash)
 		require.NoError(t, err)
-		compiled, err := client.CompiledClassDefinition(context.Background(), test.classHash)
+		compiled, err := client.CompiledClassDefinition(t.Context(), test.classHash)
 		if test.hasCompiledClass {
 			require.NoError(t, err)
 		} else {
@@ -246,7 +225,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, number := range numbers {
 		numberStr := strconv.FormatUint(number, 10)
@@ -270,7 +249,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 func TestStateUpdatePendingWithBlock(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	adapter := adaptfeeder.New(client)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	response, err := client.StateUpdateWithBlock(ctx, "pending")
 	require.NoError(t, err)

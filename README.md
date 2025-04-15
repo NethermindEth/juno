@@ -45,7 +45,7 @@
 
 ### Prerequisites
 
-- Golang 1.23 or higher is required to build and run the project. You can find the installer on
+- Golang 1.24 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
 - [Rust](https://www.rust-lang.org/tools/install) 1.85.0 or higher.
 - A C compiler: `gcc`.
@@ -104,27 +104,31 @@ To view logs from the Docker container, use the following command:
 docker logs -f juno
 ```
 
+## 📚 Documentation
+
+You can find the full documentation [here](https://juno.nethermind.io/).
+
 ## 📸 Snapshots
 
-Use the provided snapshots to quickly sync your Juno node with the current state of the network. 
+Use the provided snapshots to quickly sync your Juno node with the current state of the network. Fresh snapshots are automatically uploaded once a week and are available under the links below.
 
 #### Mainnet
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
+| **>=v0.13.0**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
 
 #### Sepolia
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
+| **>=v0.13.0** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
 
 #### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.9.2** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| **>=v0.13.0** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ### Getting the size for each snapshot
 ```console
@@ -188,7 +192,7 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.4](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.4) support.
+- Starknet [v0.13.5](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.5) support.
 - JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0-rc3) (Available under `/v0_8` and default`/` endpoints)
   
   Chain/Network Information:
@@ -359,6 +363,9 @@ The decentralization of Starknet is complete! Juno becomes a sequencer and parti
 
 We welcome PRs from external contributors and would love to help you get up to speed.
 Let us know you're interested in the [Discord server](https://discord.gg/TcHbSZ9ATd) and we can discuss good first issues.
+
+For more details on how to get started, check out our [contributing guidelines](https://github.com/NethermindEth/juno/blob/main/CONTRIBUTING.md).
+
 There are also many other ways to contribute. Here are some ideas:
 
 * Run a node.

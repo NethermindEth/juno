@@ -565,11 +565,11 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 
+	pendingBlock.Number = head.Number + 1
 	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
 		return err
 	}
-
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
 	return s.StorePending(&Pending{
 		Block:       pendingBlock,
@@ -688,6 +688,8 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 			L1GasPriceETH:    latestHeader.L1GasPriceETH,
 			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
 			L2GasPrice:       latestHeader.L2GasPrice,
+			L1DataGasPrice:   latestHeader.L1DataGasPrice,
+			L1DAMode:         latestHeader.L1DAMode,
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,

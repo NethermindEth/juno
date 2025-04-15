@@ -1,0 +1,28 @@
+name: Promote to Staging and Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      docker_image_tag:
+        description: 'Docker image tag from Dev to promote'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote_to_staging:
+    uses: ./.github/workflows/deploy-and-test.yaml
+    with:
+      docker_image_tag: ${{ inputs.docker_image_tag }}
+      environment: Staging
+      source_repo: nubia-oci-local-dev
+      target_repo: nubia-oci-local-staging
+    secrets:
+      ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+      RPC_URL: ${{ secrets.STAGING_SEPOLIA_URL }}
+      WS_RPC_URL: ${{ secrets.STAGING_WS_SEPOLIA_URL }}
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
