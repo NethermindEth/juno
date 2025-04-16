@@ -1,34 +1,29 @@
 package tendermint
 
 func (t *Tendermint[V, H, A]) handlePrevote(p Prevote[H, A]) {
-	if p.H < t.state.h {
-		return
-	}
-
-	if !handleFutureHeightMessage(
-		t,
-		p,
-		func(p Prevote[H, A]) height { return p.H },
-		func(p Prevote[H, A]) round { return p.R },
-		t.futureMessages.addPrevote,
-	) {
-		return
-	}
-
-	if !handleFutureRoundMessage(t, p, func(p Prevote[H, A]) round { return p.R }, t.futureMessages.addPrevote) {
+	if !t.preprocessMessage(p.MessageHeader, func() { t.futureMessages.addPrevote(p) }) {
 		return
 	}
 
 	t.messages.addPrevote(p)
 
-	_, prevotesForHR, _ := t.messages.allMessages(p.H, p.R)
+	cachedProposal := t.findProposal(t.state.round)
 
-	t.line28WhenPrevoteIsReceived(p)
+	if cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal, p.Round) {
+		t.doProposalAndPolkaPrevious(cachedProposal)
+	}
 
-	if p.R == t.state.r {
-		t.line34(p, prevotesForHR)
-		t.line44(p, prevotesForHR)
+	if p.Round == t.state.round {
+		if t.uponPolkaAny() {
+			t.doPolkaAny()
+		}
 
-		t.line36WhenPrevoteIsReceived(p)
+		if t.uponPolkaNil() {
+			t.doPolkaNil()
+		}
+	}
+
+	if cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal) {
+		t.doProposalAndPolkaCurrent(cachedProposal)
 	}
 }

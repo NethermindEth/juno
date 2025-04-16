@@ -410,6 +410,7 @@ pub extern "C" fn cairoVMExecute(
                         json!(error).to_string()
                     };
                     report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
+                    return;
                 }
                 ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
@@ -418,6 +419,7 @@ pub extern "C" fn cairoVMExecute(
                         txn_index as i64,
                         0,
                     );
+                    return;
                 }
             },
             Ok(mut tx_execution_info) => {

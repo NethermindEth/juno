@@ -85,11 +85,11 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
-	logHostF                = "log-host"
-	logPortF                = "log-port"
+	httpUpdateHostF         = "http-update-host"
+	httpUpdatePortF         = "http-update-port"
 
 	defaultConfig                   = ""
-	defaulHost                      = "localhost"
+	defaultHost                     = "localhost"
 	defaultHTTP                     = false
 	defaultHTTPPort                 = 6060
 	defaultWS                       = false
@@ -126,7 +126,7 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
-	defaultLogPort                  = 0
+	defaultHTTPUpdatePort           = 0
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -183,8 +183,8 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
-	logHostUsage                = "The interface on which the log level HTTP server will listen for requests."
-	logPortUsage                = "The port on which the log level HTTP server will listen for requests."
+	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
+	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 )
 
 var Version string
@@ -329,10 +329,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().StringVar(&cfgFile, configF, defaultConfig, configFlagUsage)
 	junoCmd.Flags().String(logLevelF, utils.INFO.String(), logLevelFlagUsage)
 	junoCmd.Flags().Bool(httpF, defaultHTTP, httpUsage)
-	junoCmd.Flags().String(httpHostF, defaulHost, httpHostUsage)
+	junoCmd.Flags().String(httpHostF, defaultHost, httpHostUsage)
 	junoCmd.Flags().Uint16(httpPortF, defaultHTTPPort, httpPortUsage)
 	junoCmd.Flags().Bool(wsF, defaultWS, wsUsage)
-	junoCmd.Flags().String(wsHostF, defaulHost, wsHostUsage)
+	junoCmd.Flags().String(wsHostF, defaultHost, wsHostUsage)
 	junoCmd.Flags().Uint16(wsPortF, defaultWSPort, wsPortUsage)
 	junoCmd.Flags().String(dbPathF, defaultDBPath, dbPathUsage)
 	junoCmd.Flags().Var(&defaultNetwork, networkF, networkUsage)
@@ -347,7 +347,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(disableL1VerificationF, defaultDisableL1Verification, disableL1VerificationUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(ethNodeF, disableL1VerificationF)
 	junoCmd.Flags().Bool(pprofF, defaultPprof, pprofUsage)
-	junoCmd.Flags().String(pprofHostF, defaulHost, pprofHostUsage)
+	junoCmd.Flags().String(pprofHostF, defaultHost, pprofHostUsage)
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
@@ -358,10 +358,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
-	junoCmd.Flags().String(metricsHostF, defaulHost, metricsHostUsage)
+	junoCmd.Flags().String(metricsHostF, defaultHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
 	junoCmd.Flags().Bool(grpcF, defaultGRPC, grpcUsage)
-	junoCmd.Flags().String(grpcHostF, defaulHost, grpcHostUsage)
+	junoCmd.Flags().String(grpcHostF, defaultHost, grpcHostUsage)
 	junoCmd.Flags().Uint16(grpcPortF, defaultGRPCPort, grpcPortUsage)
 	junoCmd.Flags().Uint(maxVMsF, uint(defaultMaxVMs), maxVMsUsage)
 	junoCmd.Flags().Uint(maxVMQueueF, 2*uint(defaultMaxVMs), maxVMQueueUsage)
@@ -378,8 +378,8 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
-	junoCmd.Flags().String(logHostF, defaulHost, logHostUsage)
-	junoCmd.Flags().Uint16(logPortF, defaultLogPort, logPortUsage)
+	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
+	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
