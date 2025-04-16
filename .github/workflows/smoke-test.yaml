@@ -1,0 +1,69 @@
+on:
+  workflow_call:
+    inputs:
+      docker_image_tag:
+        required: true
+        type: string
+        description: 'Docker image tag of Juno to pull and test.'
+    secrets:
+      APP_PRIVATE_KEY:
+        required: true
+        description: 'Private key for the GitHub App used to generate tokens.'
+      ARTIFACTORY_NUBIA_USERNAME:
+        required: true
+        description: 'Username for the Artifactory Docker registry.'
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
+        required: true
+        description: 'Token/Password for the Artifactory Docker registry.'
+      APP_ID:
+        required: true
+        description: 'The ID of the GitHub App.'
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_REGISTRY: nethermind.jfrog.io
+      REPO_DEV: nubia-oci-local-dev
+    steps:
+      - name: Define Full Image Path
+        id: set_image_path
+        env:
+          DOCKER_TAG: ${{ inputs.docker_image_tag }}
+        run: |
+          echo "FULL_IMAGE_PATH=${{ env.DOCKER_REGISTRY }}/${{ env.REPO_DEV }}/juno:${DOCKER_TAG}" >> $GITHUB_ENV
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "juno,juno-smoke-tests"
+
+      - name: Login and pull docker image
+        env:
+          IMAGE_TO_PULL: ${{ env.FULL_IMAGE_PATH }}
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+          docker pull $IMAGE_TO_PULL
+
+      - name: Checkout Juno Smoke Tests
+        uses: actions/checkout@v4
+        with:
+          repository: NethermindEth/juno-smoke-tests
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Run smoke tests
+        env:
+          TARGET_BLOCK: 100
+          TIMEOUT: 10m
+          JUNO_PARAMETERS: "--network mainnet --disable-l1-verification"
+          JUNO_IMAGE: ${{ env.FULL_IMAGE_PATH }}
+        run: |
+          cd smoke-tests/node_tests
+          go test -v -run TestMonitorNodeSync -args -targetBlock=$TARGET_BLOCK -timeout=$TIMEOUT
