@@ -16,7 +16,7 @@ permissions:
   contents: read  
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-image-build
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 env:
