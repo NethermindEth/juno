@@ -15,6 +15,17 @@ type buffer struct {
 	nodes  *nodeSet
 }
 
+func newBuffer(limit int, nodes *nodeSet, layer uint64) *buffer {
+	if nodes == nil {
+		nodes = newNodeSet(nil, nil, nil)
+	}
+	return &buffer{
+		limit:  uint64(limit),
+		nodes:  nodes,
+		layers: layer,
+	}
+}
+
 func (b *buffer) node(owner felt.Felt, path trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
 	return b.nodes.node(owner, path, isClass)
 }
@@ -40,11 +51,7 @@ func (b *buffer) isFull() bool {
 }
 
 func (b *buffer) flush(d db.KeyValueStore, cleans *cleanCache, id uint64) error {
-	latestPersistedID, err := trieutils.ReadPersistedStateID(d)
-	if err != nil {
-		return err
-	}
-
+	latestPersistedID, _ := trieutils.ReadPersistedStateID(d)
 	if latestPersistedID+b.layers != id {
 		return fmt.Errorf(
 			"mismatch buffer layers applied: latest state id (%d) + buffer layers (%d) != target state id (%d)",
@@ -55,7 +62,9 @@ func (b *buffer) flush(d db.KeyValueStore, cleans *cleanCache, id uint64) error 
 	}
 
 	batch := d.NewBatchWithSize(b.nodes.dbSize())
-	b.nodes.write(batch, cleans)
+	if err := b.nodes.write(batch, cleans); err != nil {
+		return err
+	}
 	if err := trieutils.WritePersistedStateID(batch, id); err != nil {
 		return err
 	}
@@ -64,5 +73,6 @@ func (b *buffer) flush(d db.KeyValueStore, cleans *cleanCache, id uint64) error 
 		return err
 	}
 
+	b.reset()
 	return nil
 }

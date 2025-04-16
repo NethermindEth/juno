@@ -52,7 +52,7 @@ func (dl *diffLayer) stateID() uint64 {
 }
 
 func (dl *diffLayer) update(root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
-	return newDiffLayer(dl.parent, root, id, block, nodes)
+	return newDiffLayer(dl, root, id, block, nodes)
 }
 
 func (dl *diffLayer) persist(force bool) (layer, error) {

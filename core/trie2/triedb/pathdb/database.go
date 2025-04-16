@@ -10,15 +10,19 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+const (
+	maxDiffLayers = 128 // TODO(weiihann): might want to make this configurable
+)
+
 var _ database.TrieDB = (*Database)(nil)
 
 type Config struct {
-	CleanCacheSize int // Maximum size (in bytes) for caching clean nodes
+	CleanCacheSize  int // Maximum size (in bytes) for caching clean nodes
+	WriteBufferSize int // Maximum size (in bytes) for buffering writes before flushing
 } // TODO(weiihann): handle this
 
 type Database struct {
-	disk db.KeyValueStore
-	// TODO(weiihann): add the cache stuff here
+	disk   db.KeyValueStore
 	tree   *layerTree
 	config *Config
 	lock   sync.RWMutex
@@ -32,8 +36,27 @@ func (d *Database) Close() error {
 	panic("TODO(weiihann): implement me")
 }
 
-func (d *Database) Commit(stateComm felt.Felt) error {
-	panic("TODO(weiihann): implement me")
+func (d *Database) Commit(root felt.Felt) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	return d.tree.cap(root, 0)
+}
+
+func (d *Database) Update(
+	root,
+	parent felt.Felt,
+	blockNum uint64,
+	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	if err := d.tree.add(root, parent, blockNum, mergeClassNodes, mergeContractNodes); err != nil {
+		return err
+	}
+
+	return d.tree.cap(root, maxDiffLayers)
 }
 
 // TODO(weiihann): how to deal with state comm and the layer tree?
@@ -54,47 +77,4 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	prefix = append(prefix, ownerBytes...)
 
 	return d.disk.NewIterator(prefix, true)
-}
-
-func (d *Database) Update(
-	root,
-	parent felt.Felt,
-	blockNum uint64,
-	classNodes map[trieutils.Path]trienode.TrieNode,
-	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
-) error {
-	batch := d.disk.NewBatch()
-
-	for path, node := range classNodes {
-		if _, ok := node.(*trienode.DeletedNode); ok {
-			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf()); err != nil {
-				return err
-			}
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf(), node.Blob()); err != nil {
-				return err
-			}
-		}
-	}
-
-	for owner, nodes := range contractNodes {
-		bucket := db.ContractTrieStorage
-		if owner.Equal(&felt.Zero) {
-			bucket = db.ContractTrieContract
-		}
-
-		for path, node := range nodes {
-			if _, ok := node.(*trienode.DeletedNode); ok {
-				if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, node.IsLeaf()); err != nil {
-					return err
-				}
-			} else {
-				if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, node.IsLeaf(), node.Blob()); err != nil {
-					return err
-				}
-			}
-		}
-	}
-
-	return batch.Write()
 }

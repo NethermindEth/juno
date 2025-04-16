@@ -154,18 +154,18 @@ func TestEdgeCases(t *testing.T) {
 	})
 }
 
-func TestNodeSetEncodeDecode(t *testing.T) {
+func TestEnc(t *testing.T) {
 	// Create test data
 	classPath := *new(trieutils.Path).SetUint64(10, 0x01)
 	contractPath := *new(trieutils.Path).SetUint64(10, 0x02)
 	storagePath := *new(trieutils.Path).SetUint64(10, 0x03)
 
-	owner := *new(felt.Felt).SetBytes([]byte{0x01})
-
+	owner1 := *new(felt.Felt).SetBytes([]byte{0x01})
+	owner2 := *new(felt.Felt).SetBytes([]byte{0x02})
 	classNode := trienode.NewLeaf(felt.Zero, []byte("class data"))
 	contractNode := trienode.NewLeaf(felt.Zero, []byte("contract data"))
-	storageNode := trienode.NewLeaf(felt.Zero, []byte("storage data"))
-
+	storageNode1 := trienode.NewLeaf(felt.Zero, []byte("storage data 1"))
+	storageNode2 := trienode.NewLeaf(felt.Zero, []byte("storage data 2"))
 	// Create original nodeSet
 	original := &nodeSet{
 		classNodes: classNodesMap{
@@ -175,8 +175,11 @@ func TestNodeSetEncodeDecode(t *testing.T) {
 			contractPath: contractNode,
 		},
 		contractStorageNodes: contractStorageNodesMap{
-			owner: {
-				storagePath: storageNode,
+			owner1: {
+				storagePath: storageNode1,
+			},
+			owner2: {
+				storagePath: storageNode2,
 			},
 		},
 	}
@@ -205,14 +208,20 @@ func TestNodeSetEncodeDecode(t *testing.T) {
 
 	// Verify contract storage nodes
 	assert.Equal(t, len(original.contractStorageNodes), len(decoded.contractStorageNodes))
-	decodedStorageNodes, exists := decoded.contractStorageNodes[owner]
+	decodedStorageNodes, exists := decoded.contractStorageNodes[owner1]
 	require.True(t, exists)
 	decodedStorageNode, exists := decodedStorageNodes[storagePath]
 	require.True(t, exists)
-	assert.Equal(t, storageNode.Blob(), decodedStorageNode.Blob())
+	assert.Equal(t, storageNode1.Blob(), decodedStorageNode.Blob())
+
+	decodedStorageNodes, exists = decoded.contractStorageNodes[owner2]
+	require.True(t, exists)
+	decodedStorageNode, exists = decodedStorageNodes[storagePath]
+	require.True(t, exists)
+	assert.Equal(t, storageNode2.Blob(), decodedStorageNode.Blob())
 }
 
-func TestNodeSetEncodeDecodeEmpty(t *testing.T) {
+func TestEncEmpty(t *testing.T) {
 	original := &nodeSet{
 		classNodes:           make(classNodesMap),
 		contractNodes:        make(contractNodesMap),
@@ -230,52 +239,4 @@ func TestNodeSetEncodeDecodeEmpty(t *testing.T) {
 	assert.Empty(t, decoded.classNodes)
 	assert.Empty(t, decoded.contractNodes)
 	assert.Empty(t, decoded.contractStorageNodes)
-}
-
-func TestNodeSetEncodeDecodeMultipleStorageOwners(t *testing.T) {
-	owner1 := *new(felt.Felt).SetBytes([]byte{0x01})
-	owner2 := *new(felt.Felt).SetBytes([]byte{0x02})
-
-	path1 := *new(trieutils.Path).SetUint64(10, 0x01)
-	path2 := *new(trieutils.Path).SetUint64(10, 0x02)
-
-	node1 := trienode.NewLeaf(felt.Zero, []byte("data1"))
-	node2 := trienode.NewLeaf(felt.Zero, []byte("data2"))
-
-	original := &nodeSet{
-		classNodes:    make(classNodesMap),
-		contractNodes: make(contractNodesMap),
-		contractStorageNodes: contractStorageNodesMap{
-			owner1: {
-				path1: node1,
-			},
-			owner2: {
-				path2: node2,
-			},
-		},
-	}
-
-	var buf bytes.Buffer
-	err := original.encode(&buf)
-	require.NoError(t, err)
-
-	decoded := &nodeSet{}
-	err = decoded.decode(buf.Bytes())
-	require.NoError(t, err)
-
-	assert.Equal(t, len(original.contractStorageNodes), len(decoded.contractStorageNodes))
-
-	// Verify owner1's nodes
-	decodedNodes1, exists := decoded.contractStorageNodes[owner1]
-	require.True(t, exists)
-	decodedNode1, exists := decodedNodes1[path1]
-	require.True(t, exists)
-	assert.Equal(t, node1.Blob(), decodedNode1.Blob())
-
-	// Verify owner2's nodes
-	decodedNodes2, exists := decoded.contractStorageNodes[owner2]
-	require.True(t, exists)
-	decodedNode2, exists := decodedNodes2[path2]
-	require.True(t, exists)
-	assert.Equal(t, node2.Blob(), decodedNode2.Blob())
 }

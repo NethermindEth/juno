@@ -153,3 +153,30 @@ func (tree *layerTree) reset(head layer) {
 	}
 	tree.layers = layers
 }
+
+func (tree *layerTree) len() int {
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+
+	return len(tree.layers)
+}
+
+func (tree *layerTree) diskLayer() *diskLayer {
+	tree.lock.RLock()
+	defer tree.lock.RUnlock()
+
+	if len(tree.layers) == 0 {
+		return nil
+	}
+
+	var current layer
+	for _, layer := range tree.layers {
+		current = layer
+		break
+	}
+
+	for current.parentLayer() != nil {
+		current = current.parentLayer()
+	}
+	return current.(*diskLayer)
+}
