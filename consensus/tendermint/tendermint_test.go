@@ -141,11 +141,13 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
-			Height:     0,
-			Round:      0,
+			MessageHeader: MessageHeader[felt.Felt]{
+				Height: 0,
+				Round:  0,
+				Sender: *nodeAddr,
+			},
 			ValidRound: -1,
 			Value:      utils.HeapPtr(app.cur + 1),
-			Sender:     *nodeAddr,
 		}
 
 		proposalBroadcaster := broadcasters.ProposalBroadcaster.(*senderAndReceiver[Proposal[value, felt.Felt,
@@ -157,8 +159,8 @@ func TestStartRound(t *testing.T) {
 		proposal := <-proposalBroadcaster.mCh
 
 		assert.Equal(t, expectedProposalMsg, proposal)
-		assert.Equal(t, 1, len(algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr]))
-		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr][0])
+		assert.Contains(t, algo.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
 
 		assert.Equal(t, propose, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)
@@ -209,10 +211,12 @@ func TestStartRound(t *testing.T) {
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
-			Height: 0,
-			Round:  0,
-			ID:     nil,
-			Sender: *nodeAddr,
+			MessageHeader: MessageHeader[felt.Felt]{
+				Height: 0,
+				Round:  0,
+				Sender: *nodeAddr,
+			},
+			ID: nil,
 		}
 
 		prevoteBroadcaster := broadcasters.PrevoteBroadcaster.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
@@ -225,8 +229,8 @@ func TestStartRound(t *testing.T) {
 		prevoteMsg := <-prevoteBroadcaster.mCh
 
 		assert.Equal(t, expectedPrevoteMsg, prevoteMsg)
-		assert.Equal(t, 1, len(algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr]))
-		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr][0])
+		assert.Contains(t, algo.messages.prevotes[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr])
 
 		assert.Equal(t, prevote, algo.state.step)
 		assert.Equal(t, expectedHeight, algo.state.height)

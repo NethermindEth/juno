@@ -263,40 +263,34 @@ func (t *Tendermint[V, H, A]) startRound(r round) {
 func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
 	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
 	if len(proposals) > 0 {
-		for _, addrProposals := range proposals {
-			for _, proposal := range addrProposals {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handleProposal(proposal)
-				}
+		for _, proposal := range proposals {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handleProposal(proposal)
 			}
 		}
 	}
 
 	if len(prevotes) > 0 {
-		for _, addrPrevotes := range prevotes {
-			for _, vote := range addrPrevotes {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrevote(vote)
-				}
+		for _, vote := range prevotes {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handlePrevote(vote)
 			}
 		}
 	}
 
 	if len(precommits) > 0 {
-		for _, addrPrecommits := range precommits {
-			for _, vote := range addrPrecommits {
-				select {
-				case <-t.quit:
-					return
-				default:
-					t.handlePrecommit(vote)
-				}
+		for _, vote := range precommits {
+			select {
+			case <-t.quit:
+				return
+			default:
+				t.handlePrecommit(vote)
 			}
 		}
 	}
@@ -363,52 +357,43 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
-func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mR := r(m)
-	if mR > t.state.round {
-		if mR-t.state.round > maxFutureRound {
+func (t *Tendermint[V, H, A]) handleFutureRoundMessage(header MessageHeader[A], addMessage func()) bool {
+	if header.Round > t.state.round {
+		if header.Round-t.state.round > maxFutureRound {
 			return false
 		}
 
-		addMessage(m)
+		addMessage()
 
-		if t.uponSkipRound(mR) {
-			t.doSkipRound(mR)
+		if t.uponSkipRound(header.Round) {
+			t.doSkipRound(header.Round)
 		}
 		return false
 	}
 	return true
 }
 
-func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	h func(M) height,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mH := h(m)
-	mR := r(m)
-
-	if mH > t.state.height {
-		if mH-t.state.height > maxFutureHeight {
+func (t *Tendermint[V, H, A]) handleFutureHeightMessage(header MessageHeader[A], addMessage func()) bool {
+	if header.Height > t.state.height {
+		if header.Height-t.state.height > maxFutureHeight {
 			return false
 		}
 
-		if mR > maxFutureRound {
+		if header.Round > maxFutureRound {
 			return false
 		}
 
-		addMessage(m)
+		addMessage()
 
 		return false
 	}
 	return true
+}
+
+func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
+	return header.Height >= t.state.height &&
+		t.handleFutureHeightMessage(header, addMessage) &&
+		t.handleFutureRoundMessage(header, addMessage)
 }
 
 // TODO: Improve performance. Current complexity is O(n).
@@ -419,12 +404,10 @@ func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingP
 	}
 
 	var vals []A
-	for addr, valPrecommits := range precommits {
-		for _, p := range valPrecommits {
-			if *p.ID == vID {
-				matchingPrecommits = append(matchingPrecommits, p)
-				vals = append(vals, addr)
-			}
+	for addr, p := range precommits {
+		if *p.ID == vID {
+			matchingPrecommits = append(matchingPrecommits, p)
+			vals = append(vals, addr)
 		}
 	}
 	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
@@ -438,36 +421,24 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 	}
 
 	var vals []A
-	for addr, valPrevotes := range prevotes {
-		for _, p := range valPrevotes {
-			if *p.ID == vID {
-				vals = append(vals, addr)
-			}
+	for addr, p := range prevotes {
+		if *p.ID == vID {
+			vals = append(vals, addr)
 		}
 	}
 	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id *H) *CachedProposal[V, H, A] {
-	if id == nil {
-		return nil
-	}
-
-	proposals, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
+func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
+	v, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
 	if !ok {
 		return nil
 	}
 
-	for _, v := range proposals {
-		if (*v.Value).Hash() == *id {
-			return &CachedProposal[V, H, A]{
-				Proposal: v,
-				Valid:    t.application.Valid(*v.Value),
-				ID:       id,
-			}
-		}
+	return &CachedProposal[V, H, A]{
+		Proposal: v,
+		Valid:    t.application.Valid(*v.Value),
+		ID:       utils.HeapPtr((*v.Value).Hash()),
 	}
-
-	return nil
 }
