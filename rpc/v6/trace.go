@@ -201,7 +201,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	}
 
 	executionResults, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false, false)
+		false, false, false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

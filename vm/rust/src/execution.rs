@@ -20,17 +20,20 @@ pub fn process_transaction(
     txn_state: &mut TransactionalState<'_, CachedState<JunoStateReader>>,
     block_context: &BlockContext,
     error_on_revert: bool,
+    allow_binary_search: bool,
 ) -> Result<TransactionExecutionInfo, ExecutionError> {
-    match is_l2_gas_accounting_enabled(
+    let execute_binary_search_result = is_l2_gas_accounting_enabled(
         txn,
         txn_state,
         block_context,
         &determine_gas_vector_mode(txn),
-    ) {
-        Ok(true) => {
+    );
+
+    match execute_binary_search_result {
+        Ok(true) if allow_binary_search => {
             execute_transaction_with_binary_search(txn, txn_state, block_context, error_on_revert)
         }
-        Ok(false) => execute_transaction(txn, txn_state, block_context, error_on_revert),
+        Ok(_) => execute_transaction(txn, txn_state, block_context, error_on_revert),
         Err(error) => Err(ExecutionError::new(TransactionExecutionError::StateError(
             error,
         ))),
