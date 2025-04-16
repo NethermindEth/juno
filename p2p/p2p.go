@@ -1,3 +1,4 @@
+//go:generate buf generate
 package p2p
 
 import (
