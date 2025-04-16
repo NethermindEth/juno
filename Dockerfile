@@ -18,9 +18,10 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 WORKDIR /app
 
 # Copy Cargo manifests for dependency caching
-COPY starknet/compiler/rust/Cargo.toml starknet/compiler/rust/Cargo.lock starknet/compiler/rust/
-COPY vm/rust/Cargo.toml vm/rust/Cargo.lock vm/rust/
-COPY core/rust/Cargo.toml core/rust/Cargo.lock core/rust/
+COPY Makefile ./
+COPY starknet/compiler/rust/Makefile starknet/compiler/rust/Cargo.toml starknet/compiler/rust/Cargo.lock starknet/compiler/rust/
+COPY vm/rust/Makefile vm/rust/Cargo.toml vm/rust/Cargo.lock vm/rust/
+COPY core/rust/Makefile core/rust/Cargo.toml core/rust/Cargo.lock core/rust/
 
 # Touch empty lib.rs to satisfy Cargo
 RUN mkdir -p \
@@ -31,21 +32,12 @@ RUN mkdir -p \
             vm/rust/src/lib.rs \
             core/rust/src/lib.rs
 
-# Pre-fetch dependencies
-RUN cargo build --manifest-path=starknet/compiler/rust/Cargo.toml
-RUN cargo build --manifest-path=vm/rust/Cargo.toml
-RUN cargo build --manifest-path=core/rust/Cargo.toml
-
-# Build Rust libraries
-COPY Makefile ./
-COPY starknet/compiler/rust/ ./starknet/compiler/rust/
-RUN make compiler
-
-COPY vm/rust/ ./vm/rust/
-RUN make vm
-
-COPY core/rust/ ./core/rust/
-RUN make core-rust
+# Pre-build Rust dependencies, then clean to force cargo to only cache the dependencies and rebuild the application.
+# See: https://github.com/rust-lang/cargo/issues/9598
+RUN make rustdeps
+RUN cargo clean --release --manifest-path starknet/compiler/rust/Cargo.toml --package juno-starknet-compiler-rs && \
+    cargo clean --release --manifest-path vm/rust/Cargo.toml --package juno-starknet-rs && \
+    cargo clean --release --manifest-path core/rust/Cargo.toml --package juno-starknet-core-rs
 
 # Copy go mod files and download deps
 COPY go.mod go.sum ./
@@ -54,9 +46,8 @@ RUN go mod download
 # Copy the rest of the source
 COPY . .
 
-# Build with make juno (setting VM_DEBUG=false to use release builds)
-ENV VM_DEBUG=false
-RUN make juno-cached
+# Build with make juno
+RUN make juno
 
 # --- Final stage ---
 FROM debian:bookworm-slim AS final
