@@ -81,20 +81,6 @@ var (
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
 	}
-	Integration = Network{
-		Name:       "integration",
-		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
-		GatewayURL: "https://external.integration.starknet.io/gateway/",
-		L2ChainID:  "SN_GOERLI",
-		//nolint:mnd
-		L1ChainID:           big.NewInt(5),
-		CoreContractAddress: common.HexToAddress("0xd5c325D183C592C94998000C5e0EED9e6655c020"),
-		BlockHashMetaInfo: &BlockHashMetaInfo{
-			First07Block:             110511,
-			UnverifiableRange:        []uint64{0, 110511},
-			FallBackSequencerAddress: fallBackSequencerAddress,
-		},
-	}
 	Sepolia = Network{
 		Name:       "sepolia",
 		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",

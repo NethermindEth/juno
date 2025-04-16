@@ -19,7 +19,7 @@ import (
 )
 
 func TestClass(t *testing.T) {
-	n := &utils.Integration
+	n := &utils.SepoliaIntegration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 
@@ -94,7 +94,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestClassAt(t *testing.T) {
-	n := &utils.Integration
+	n := &utils.SepoliaIntegration
 	integrationClient := feeder.NewTestClient(t, n)
 	integGw := adaptfeeder.New(integrationClient)
 

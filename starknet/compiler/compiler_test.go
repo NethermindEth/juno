@@ -22,7 +22,7 @@ func TestCompile(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		cl := feeder.NewTestClient(t, &utils.Integration)
+		cl := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		classHash := utils.HexToFelt(t, "0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b")
 
 		classDef, err := cl.ClassDefinition(t.Context(), classHash)

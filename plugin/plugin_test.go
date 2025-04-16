@@ -27,7 +27,7 @@ func TestPlugin(t *testing.T) {
 	mainClient := feeder.NewTestClient(t, &utils.Mainnet)
 	mainGw := adaptfeeder.New(mainClient)
 
-	integClient := feeder.NewTestClient(t, &utils.Integration)
+	integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	integGw := adaptfeeder.New(integClient)
 
 	testDB := pebble.NewMemTest(t)
@@ -38,7 +38,7 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.SepoliaIntegration)
 	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)

@@ -12,7 +12,7 @@ import (
 )
 
 func TestStateDiffCommitment(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	gw := adaptfeeder.New(client)
 
 	for _, test := range []struct {

@@ -178,7 +178,7 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestClassV1(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 
 	tests := []struct {
@@ -223,7 +223,7 @@ func TestClassV1(t *testing.T) {
 func TestStateUpdateWithBlock(t *testing.T) {
 	numbers := []uint64{0, 78541}
 
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 
@@ -247,7 +247,7 @@ func TestStateUpdateWithBlock(t *testing.T) {
 }
 
 func TestStateUpdatePendingWithBlock(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	adapter := adaptfeeder.New(client)
 	ctx := t.Context()
 

@@ -49,6 +49,7 @@ message Transaction
         Hash compiled_class_hash = 6;
     }
 
+    // Note: This url is no longer valid as goerli integration is deprecated
     // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
     message DeclareV3 {
         Address sender = 1;
@@ -80,6 +81,7 @@ message Transaction
         repeated Felt252 calldata = 6;
     }
 
+    // Note: This url is no longer valid as goerli integration is deprecated
     // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
     message DeployAccountV3 {
         AccountSignature signature = 1;
@@ -109,7 +111,8 @@ message Transaction
         repeated Felt252 calldata = 4;
         Felt252 nonce = 5;
     }
-
+    
+    // Note: This url is no longer valid as goerli integration is deprecated
     // see https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41906f1c314cca5f43170ea75d3b1904196a10101190d2b12a41cc61cfd17c
     message InvokeV3 {
         Address sender = 1;

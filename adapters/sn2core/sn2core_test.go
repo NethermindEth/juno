@@ -41,7 +41,7 @@ func TestAdaptBlock(t *testing.T) {
 		{
 			number:          304740,
 			protocolVersion: "0.12.1",
-			network:         utils.Integration,
+			network:         utils.SepoliaIntegration,
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{utils.HexToFelt(t, "0x44"), utils.HexToFelt(t, "0x37")},
 			},
@@ -49,7 +49,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 		{
 			number:          319132,
-			network:         utils.Integration,
+			network:         utils.SepoliaIntegration,
 			protocolVersion: "0.13.0",
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{
@@ -62,7 +62,7 @@ func TestAdaptBlock(t *testing.T) {
 		},
 		{
 			number:          330363,
-			network:         utils.Integration,
+			network:         utils.SepoliaIntegration,
 			protocolVersion: "0.13.1",
 			sig: &starknet.Signature{
 				Signature: []*felt.Felt{
@@ -208,7 +208,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	t.Run("v0.11.0 state update", func(t *testing.T) {
-		integClient := feeder.NewTestClient(t, &utils.Integration)
+		integClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 
 		t.Run("declared Cairo0 classes", func(t *testing.T) {
 			feederUpdate, err := integClient.StateUpdate(ctx, "283746")
@@ -399,10 +399,11 @@ func TestTransaction(t *testing.T) {
 }
 
 func TestTransactionV3(t *testing.T) {
-	client := feeder.NewTestClient(t, &utils.Integration)
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 	ctx := t.Context()
 
 	tests := map[string]core.Transaction{
+		// This url is no longer valid as goerli integration is deprecated
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd
 		"invoke": &core.InvokeTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
@@ -450,6 +451,7 @@ func TestTransactionV3(t *testing.T) {
 			},
 			AccountDeploymentData: []*felt.Felt{},
 		},
+		// Note: This url is no longer valid as goerli integration is deprecated
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3
 		"declare": &core.DeclareTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3"),
@@ -482,6 +484,7 @@ func TestTransactionV3(t *testing.T) {
 			CompiledClassHash:     utils.HexToFelt(t, "0x1add56d64bebf8140f3b8a38bdf102b7874437f0c861ab4ca7526ec33b4d0f8"),
 			AccountDeploymentData: []*felt.Felt{},
 		},
+		// Note: This url is no longer valid as goerli integration is deprecated
 		// https://external.integration.starknet.io/feeder_gateway/get_transaction?transactionHash=0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0
 		"deploy account": &core.DeployAccountTransaction{
 			DeployTransaction: core.DeployTransaction{
@@ -541,7 +544,7 @@ func TestClassV1(t *testing.T) {
 		{
 			name:                  "cairo one class adapt sierra version 0.1.0",
 			classHash:             "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
-			network:               &utils.Integration,
+			network:               &utils.SepoliaIntegration,
 			expectedSierraVersion: "0.1.0",
 		},
 		{

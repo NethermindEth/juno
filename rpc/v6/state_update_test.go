@@ -120,7 +120,7 @@ func TestStateUpdate(t *testing.T) {
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
-		integrationClient := feeder.NewTestClient(t, &utils.Integration)
+		integrationClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 		integGw := adaptfeeder.New(integrationClient)
 
 		for name, height := range map[string]uint64{

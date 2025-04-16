@@ -49,10 +49,11 @@ func TestBlockHash(t *testing.T) {
 			name:   "mainnet (post 0.7.0 with sequencer address)",
 		},
 		{
+			// Note: This url is no longer valid as goerli integration is deprecated
 			// block 1: integration
 			// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=1"
 			number: 1,
-			chain:  utils.Integration,
+			chain:  utils.SepoliaIntegration,
 			name:   "integration network (pre 0.7.0 without sequencer address)",
 		},
 		{
@@ -144,16 +145,18 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.Mainnet,
 			name:   "Block 192 with Failing l1 handler transaction version 1",
 		},
+		// Note: This url is no longer valid as goerli integration is deprecated
 		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=283364"
 		{
 			number: 283364,
-			chain:  utils.Integration,
+			chain:  utils.SepoliaIntegration,
 			name:   "Block 283364 with Declare v2",
 		},
+		// Note: This url is no longer valid as goerli integration is deprecated
 		// "https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=286310"
 		{
 			number: 286310,
-			chain:  utils.Integration,
+			chain:  utils.SepoliaIntegration,
 			name:   "Block 286310 with version 0.11.1",
 		},
 		// "https://alpha4-2.starknet.io/feeder_gateway/get_block?blockNumber=110238"
@@ -162,10 +165,11 @@ func TestBlockHash(t *testing.T) {
 			chain:  utils.Goerli2,
 			name:   "Block 110238 with version 0.11.1",
 		},
+		// Note: This url is no longer valid as goerli integration is deprecated
 		// https://external.integration.starknet.io/feeder_gateway/get_block?blockNumber=330363
 		{
 			number: 330363,
-			chain:  utils.Integration,
+			chain:  utils.SepoliaIntegration,
 			name:   "Block 330363 with version 0.13.1",
 		},
 	}
