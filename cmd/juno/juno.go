@@ -178,7 +178,7 @@ const (
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically \n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures. " +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment"
-	callMaxStepsUsage           = "Maximum number of steps to be executed in starknet_call requests. "
+	callMaxStepsUsage           = "Maximum number of steps to be executed in starknet_call requests "
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
