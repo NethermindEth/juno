@@ -93,6 +93,11 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return simulatedTransactions, httpHeader, nil
 }
 
+func isVersion3(transaction *BroadcastedTransaction) bool {
+	version := felt.FromUint64(3)
+	return transaction.Transaction.Version != nil && transaction.Transaction.Version.Equal(&version)
+}
+
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
 	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
 ) {
@@ -101,6 +106,27 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
+		// Check for missing required fields in struct that can't be validated by
+		// jsonschema due to validation happening after omit empty
+		//
+		// TODO: as its expected that this will happen in other cases as well,
+		// it might be a good idea to implement a custom validator and unmarshal handler
+		// to solve this problem in a more elegant way
+		if (transactions[idx].Transaction.Type == TxnDeclare ||
+			transactions[idx].Transaction.Type == TxnInvoke) && isVersion3(&transactions[idx]) {
+			if transactions[idx].Transaction.SenderAddress == nil {
+				return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+			}
+		}
+
+		if (transactions[idx].Transaction.Type == TxnInvoke ||
+			transactions[idx].Transaction.Type == TxnDeployAccount ||
+			transactions[idx].Transaction.Type == TxnDeclare) && isVersion3(&transactions[idx]) {
+			if transactions[idx].Transaction.ResourceBounds == nil {
+				return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+			}
+		}
+
 		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())

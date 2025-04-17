@@ -780,16 +780,29 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 			Transactions: []core.Transaction{
 				&core.InvokeTransaction{
-					TransactionHash:       new(felt.Felt).SetUint64(1),
-					CallData:              []*felt.Felt{new(felt.Felt).SetUint64(2)},
-					TransactionSignature:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-					MaxFee:                new(felt.Felt).SetUint64(4),
-					ContractAddress:       new(felt.Felt).SetUint64(5),
-					Version:               new(core.TransactionVersion).SetUint64(3),
-					EntryPointSelector:    new(felt.Felt).SetUint64(6),
-					Nonce:                 new(felt.Felt).SetUint64(7),
-					SenderAddress:         new(felt.Felt).SetUint64(8),
-					ResourceBounds:        map[core.Resource]core.ResourceBounds{},
+					TransactionHash:      new(felt.Felt).SetUint64(1),
+					CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
+					TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
+					MaxFee:               new(felt.Felt).SetUint64(4),
+					ContractAddress:      new(felt.Felt).SetUint64(5),
+					Version:              new(core.TransactionVersion).SetUint64(3),
+					EntryPointSelector:   new(felt.Felt).SetUint64(6),
+					Nonce:                new(felt.Felt).SetUint64(7),
+					SenderAddress:        new(felt.Felt).SetUint64(8),
+					ResourceBounds: map[core.Resource]core.ResourceBounds{
+						core.ResourceL1Gas: {
+							MaxAmount:       1,
+							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+						},
+						core.ResourceL2Gas: {
+							MaxAmount:       1,
+							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+						},
+						core.ResourceL1DataGas: {
+							MaxAmount:       1,
+							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+						},
+					},
 					Tip:                   9,
 					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
 					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
@@ -797,7 +810,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 			},
 		})
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":"%s"}}`
+		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{"l1_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l2_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l1_data_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"}},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":"%s"}}`
 		want = fmt.Sprintf(want, id)
 		_, pendingTxsGot, err := conn.Read(ctx)
 		require.NoError(t, err)
