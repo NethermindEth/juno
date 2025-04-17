@@ -7,14 +7,19 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/tendermint/autofile"
+	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/gogo/protobuf/proto"
 )
 
 const (
+	maxMsgSize = 1048576 // 1MB
+
 	// time.Time + max consensus msg size
 	maxMsgSizeBytes = maxMsgSize + 24
 
@@ -28,7 +33,7 @@ const (
 // TimedWALMessage wraps WALMessage and adds Time for debugging purposes.
 type TimedWALMessage struct {
 	Time time.Time  `json:"time"`
-	Msg  WALMessage `json:"msg"` //Todo (rian)
+	Msg  WALMessage `json:"msg"` // Todo (rian)
 }
 
 // EndHeightMessage marks the end of the given height inside WAL.
@@ -41,9 +46,9 @@ type WALMessage interface{}
 
 // Todo (rian): replace with types we actually use
 func init() {
-	tmjson.RegisterType(msgInfo{}, "tendermint/wal/MsgInfo")
-	tmjson.RegisterType(timeoutInfo{}, "tendermint/wal/TimeoutInfo")
-	tmjson.RegisterType(EndHeightMessage{}, "tendermint/wal/EndHeightMessage")
+	// tmjson.RegisterType(msgInfo{}, "tendermint/wal/MsgInfo")
+	// tmjson.RegisterType(timeoutInfo{}, "tendermint/wal/TimeoutInfo")
+	// tmjson.RegisterType(EndHeightMessage{}, "tendermint/wal/EndHeightMessage")
 }
 
 //--------------------------------------------------------
@@ -67,7 +72,7 @@ type BaseWAL struct {
 	// service.BaseService // Todo (rian)
 	ctx    context.Context
 	logger utils.SimpleLogger
-	group  *auto.Group
+	group  *autofile.Group
 
 	enc *WALEncoder
 
@@ -75,17 +80,20 @@ type BaseWAL struct {
 	flushInterval time.Duration
 }
 
-var _ WAL = &BaseWAL{}
+var (
+	_ WAL             = &BaseWAL{}
+	_ service.Service = &BaseWAL{}
+)
 
 // NewWAL returns a new write-ahead logger based on `baseWAL`, which implements
 // WAL. It's flushed and synced to disk every 2s and once when stopped.
-func NewWAL(ctx context.Context, walFile string, logger utils.SimpleLogger, groupOptions ...func(*auto.Group)) (*BaseWAL, error) {
-	err := tmos.EnsureDir(filepath.Dir(walFile), 0700)
+func NewWAL(ctx context.Context, walFile string, logger utils.SimpleLogger, groupOptions ...func(*autofile.Group)) (*BaseWAL, error) {
+	err := os.MkdirAll(filepath.Dir(walFile), 0o700)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure WAL directory is in place: %w", err)
 	}
 
-	group, err := auto.OpenGroup(walFile, groupOptions...)
+	group, err := autofile.OpenGroup(ctx, logger, walFile, groupOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +104,7 @@ func NewWAL(ctx context.Context, walFile string, logger utils.SimpleLogger, grou
 		flushInterval: walDefaultFlushInterval,
 		logger:        logger,
 	}
-	wal.group.Setlogger(logger)
+	// wal.group.Setlogger(logger)
 	// wal.BaseService = *service.NewBaseService(nil, "baseWAL", wal) // Todo (rian)
 	return wal, nil
 }
@@ -106,11 +114,11 @@ func (wal *BaseWAL) SetFlushInterval(i time.Duration) {
 	wal.flushInterval = i
 }
 
-func (wal *BaseWAL) Group() *auto.Group {
+func (wal *BaseWAL) Group() *autofile.Group {
 	return wal.group
 }
 
-func (wal *BaseWAL) OnStart() error {
+func (wal *BaseWAL) Run(ctx context.Context) error {
 	size, err := wal.group.Head.Size()
 	if err != nil {
 		return err
@@ -119,12 +127,16 @@ func (wal *BaseWAL) OnStart() error {
 			return err
 		}
 	}
-	err = wal.group.Start()
+	err = wal.group.Run(wal.ctx)
 	if err != nil {
 		return err
 	}
 	wal.flushTicker = time.NewTicker(wal.flushInterval)
 	go wal.processFlushTicks()
+
+	<-ctx.Done()
+	wal.group.Wait() // Todo: we need to make sure the group is finised??
+	wal.OnStop()
 	return nil
 }
 
@@ -156,9 +168,7 @@ func (wal *BaseWAL) OnStop() {
 	if err := wal.FlushAndSync(); err != nil {
 		wal.logger.Errorw("error on flush data to disk", "error", err)
 	}
-	if err := wal.group.Stop(); err != nil {
-		wal.logger.Errorw("error trying to stop wal", "error", err)
-	}
+	// wal.group.OnStop() // Todo: the group should stop iteslf?..
 	wal.group.Close()
 }
 
@@ -220,10 +230,11 @@ type WALSearchOptions struct {
 // CONTRACT: caller must close group reader.
 func (wal *BaseWAL) SearchForEndHeight(
 	height int64,
-	options *WALSearchOptions) (rd io.ReadCloser, found bool, err error) {
+	options *WALSearchOptions,
+) (rd io.ReadCloser, found bool, err error) {
 	var (
 		msg *TimedWALMessage
-		gr  *auto.GroupReader
+		gr  *autofile.GroupReader
 	)
 	lastHeightFound := int64(-1)
 
@@ -390,7 +401,7 @@ func (dec *WALDecoder) Decode() (*TimedWALMessage, error) {
 		return nil, DataCorruptionError{fmt.Errorf("checksums do not match: read: %v, actual: %v", crc, actualCRC)}
 	}
 
-	var res = new(tmcons.TimedWALMessage)
+	res := new(tmcons.TimedWALMessage)
 	err = proto.Unmarshal(data, res)
 	if err != nil {
 		return nil, DataCorruptionError{fmt.Errorf("failed to decode data: %v", err)}

@@ -1,6 +1,7 @@
 package autofile
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -68,10 +69,10 @@ func TestSIGHUP(t *testing.T) {
 	require.NoError(t, err)
 
 	// Both files should exist
-	if body := tmos.MustReadFile(filepath.Join(dir, name+"_old")); string(body) != "Line 1\nLine 2\n" {
+	if body := MustReadFile(filepath.Join(dir, name+"_old")); string(body) != "Line 1\nLine 2\n" {
 		t.Errorf("unexpected body %s", body)
 	}
-	if body := tmos.MustReadFile(filepath.Join(dir, name)); string(body) != "Line 3\nLine 4\n" {
+	if body := MustReadFile(filepath.Join(dir, name)); string(body) != "Line 3\nLine 4\n" {
 		t.Errorf("unexpected body %s", body)
 	}
 
@@ -79,6 +80,20 @@ func TestSIGHUP(t *testing.T) {
 	files, err := os.ReadDir(".")
 	require.NoError(t, err)
 	assert.Empty(t, files)
+}
+
+func MustReadFile(filePath string) []byte {
+	fileBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		Exit(fmt.Sprintf("MustReadFile failed: %v", err))
+		return nil
+	}
+	return fileBytes
+}
+
+func Exit(s string) {
+	fmt.Printf(s + "\n")
+	os.Exit(1)
 }
 
 // // Manually modify file permissions, close, and reopen using autofile:

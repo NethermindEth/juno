@@ -1,25 +1,26 @@
 package autofile
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/tendermint/autofile/rand"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func createTestGroupWithHeadSizeLimit(t *testing.T, headSizeLimit int64) *Group {
-	testID := tmrand.Str(12)
+	testID := rand.Str(12)
 	testDir := "_test_" + testID
-	err := tmos.EnsureDir(testDir, 0o700)
+	err := os.MkdirAll(testDir, 0o700)
 	require.NoError(t, err, "Error creating dir")
 
 	headPath := testDir + "/myfile"
-	g, err := OpenGroup(headPath, GroupHeadSizeLimit(headSizeLimit))
+	g, err := OpenGroup(context.Background(), utils.NewNopZapLogger(), headPath, GroupHeadSizeLimit(headSizeLimit))
 	require.NoError(t, err, "Error opening Group")
 	require.NotEqual(t, nil, g, "Failed to create Group")
 
@@ -48,7 +49,7 @@ func TestCheckHeadSizeLimit(t *testing.T) {
 
 	// Write 1000 bytes 999 times.
 	for i := 0; i < 999; i++ {
-		err := g.WriteLine(tmrand.Str(999))
+		err := g.WriteLine(rand.Str(999))
 		require.NoError(t, err, "Error appending to head")
 	}
 	err := g.FlushAndSync()
@@ -60,7 +61,7 @@ func TestCheckHeadSizeLimit(t *testing.T) {
 	assertGroupInfo(t, g.ReadGroupInfo(), 0, 0, 999000, 999000)
 
 	// Write 1000 more bytes.
-	err = g.WriteLine(tmrand.Str(999))
+	err = g.WriteLine(rand.Str(999))
 	require.NoError(t, err, "Error appending to head")
 	err = g.FlushAndSync()
 	require.NoError(t, err)
@@ -70,7 +71,7 @@ func TestCheckHeadSizeLimit(t *testing.T) {
 	assertGroupInfo(t, g.ReadGroupInfo(), 0, 1, 1000000, 0)
 
 	// Write 1000 more bytes.
-	err = g.WriteLine(tmrand.Str(999))
+	err = g.WriteLine(rand.Str(999))
 	require.NoError(t, err, "Error appending to head")
 	err = g.FlushAndSync()
 	require.NoError(t, err)
@@ -81,7 +82,7 @@ func TestCheckHeadSizeLimit(t *testing.T) {
 
 	// Write 1000 bytes 999 times.
 	for i := 0; i < 999; i++ {
-		err = g.WriteLine(tmrand.Str(999))
+		err = g.WriteLine(rand.Str(999))
 		require.NoError(t, err, "Error appending to head")
 	}
 	err = g.FlushAndSync()
@@ -93,7 +94,7 @@ func TestCheckHeadSizeLimit(t *testing.T) {
 	assertGroupInfo(t, g.ReadGroupInfo(), 0, 2, 2000000, 0)
 
 	// Write 1000 more bytes.
-	_, err = g.Head.Write([]byte(tmrand.Str(999) + "\n"))
+	_, err = g.Head.Write([]byte(rand.Str(999) + "\n"))
 	require.NoError(t, err, "Error appending to head")
 	err = g.FlushAndSync()
 	require.NoError(t, err)

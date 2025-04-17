@@ -2,6 +2,7 @@ package autofile
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/utils"
 )
 
 const (
@@ -53,6 +55,8 @@ assuming that marker lines are written occasionally.
 */
 type Group struct {
 	service.Service
+	ctx context.Context
+	log utils.SimpleLogger
 
 	ID                 string
 	Head               *AutoFile // The head AutoFile to write to
@@ -75,9 +79,11 @@ type Group struct {
 	// and their dependencies.
 }
 
+var _ service.Service = &Group{}
+
 // OpenGroup creates a new Group with head at headPath. It returns an error if
 // it fails to open head file.
-func OpenGroup(headPath string, groupOptions ...func(*Group)) (*Group, error) {
+func OpenGroup(ctx context.Context, log utils.SimpleLogger, headPath string, groupOptions ...func(*Group)) (*Group, error) {
 	dir, err := filepath.Abs(filepath.Dir(headPath))
 	if err != nil {
 		return nil, err
@@ -88,6 +94,8 @@ func OpenGroup(headPath string, groupOptions ...func(*Group)) (*Group, error) {
 	}
 
 	g := &Group{
+		ctx:                ctx,
+		log:                log,
 		ID:                 "group:" + head.ID,
 		Head:               head,
 		headBuf:            bufio.NewWriterSize(head, 4096*10),
@@ -103,8 +111,6 @@ func OpenGroup(headPath string, groupOptions ...func(*Group)) (*Group, error) {
 	for _, option := range groupOptions {
 		option(g)
 	}
-
-	g.BaseService = *service.NewBaseService(nil, "Group", g)
 
 	gInfo := g.readGroupInfo()
 	g.minIndex = gInfo.MinIndex
@@ -135,9 +141,11 @@ func GroupTotalSizeLimit(limit int64) func(*Group) {
 
 // OnStart implements service.Service by starting the goroutine that checks file
 // and group limits.
-func (g *Group) OnStart() error {
+func (g *Group) Run(ctx context.Context) error {
 	g.ticker = time.NewTicker(g.groupCheckDuration)
 	go g.processTicks()
+	<-ctx.Done()
+	g.OnStop()
 	return nil
 }
 
@@ -146,7 +154,7 @@ func (g *Group) OnStart() error {
 func (g *Group) OnStop() {
 	g.ticker.Stop()
 	if err := g.FlushAndSync(); err != nil {
-		g.Logger.Error("Error flushin to disk", "err", err)
+		g.log.Errorw("Error flushin to disk", "err", err)
 	}
 }
 
@@ -160,7 +168,7 @@ func (g *Group) Wait() {
 // Close closes the head file. The group must be stopped by this moment.
 func (g *Group) Close() {
 	if err := g.FlushAndSync(); err != nil {
-		g.Logger.Error("Error flushin to disk", "err", err)
+		g.log.Errorw("Error flushin to disk", "err", err)
 	}
 
 	g.mtx.Lock()
@@ -243,7 +251,7 @@ func (g *Group) processTicks() {
 		case <-g.ticker.C:
 			g.checkHeadSizeLimit()
 			g.checkTotalSizeLimit()
-		case <-g.Quit():
+		case <-g.ctx.Done():
 			return
 		}
 	}
@@ -257,7 +265,7 @@ func (g *Group) checkHeadSizeLimit() {
 	}
 	size, err := g.Head.Size()
 	if err != nil {
-		g.Logger.Error("Group's head may grow without bound", "head", g.Head.Path, "err", err)
+		g.log.Errorw("Group's head may grow without bound", "head", g.Head.Path, "err", err)
 		return
 	}
 	if size >= limit {
@@ -280,18 +288,18 @@ func (g *Group) checkTotalSizeLimit() {
 		}
 		if index == gInfo.MaxIndex {
 			// Special degenerate case, just do nothing.
-			g.Logger.Error("Group's head may grow without bound", "head", g.Head.Path)
+			g.log.Errorw("Group's head may grow without bound", "head", g.Head.Path)
 			return
 		}
 		pathToRemove := filePathForIndex(g.Head.Path, index, gInfo.MaxIndex)
 		fInfo, err := os.Stat(pathToRemove)
 		if err != nil {
-			g.Logger.Error("Failed to fetch info for file", "file", pathToRemove)
+			g.log.Errorw("Failed to fetch info for file", "file", pathToRemove)
 			continue
 		}
 		err = os.Remove(pathToRemove)
 		if err != nil {
-			g.Logger.Error("Failed to remove path", "path", pathToRemove)
+			g.log.Errorw("Failed to remove path", "path", pathToRemove)
 			return
 		}
 		totalSize -= fInfo.Size()
