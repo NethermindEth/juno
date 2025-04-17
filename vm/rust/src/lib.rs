@@ -701,7 +701,9 @@ fn build_block_context(
     }
     let mut constants = get_versioned_constants(block_info.version);
     if let Some(max_steps) = max_steps {
-        constants.invoke_tx_max_n_steps = max_steps as u32;
+        if max_steps > 0 {
+            constants.invoke_tx_max_n_steps = max_steps as u32;
+        }
     }
 
     let block_info = BlockifierBlockInfo {
