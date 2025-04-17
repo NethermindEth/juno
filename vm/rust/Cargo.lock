@@ -103,8 +103,7 @@ checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 [[package]]
 name = "apollo_compile_to_native_types"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04abf08b9a1c958f16307c9ff48ed1fb5dfe0e90f10f78bcc21c055f051209e4"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "apollo_config",
  "serde",
@@ -114,8 +113,7 @@ dependencies = [
 [[package]]
 name = "apollo_config"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fb39734ba7a0596776fa1e4e4c4d2d32117b927c2b0b526bfe14c4c73743361"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "apollo_infra_utils",
  "clap",
@@ -133,8 +131,7 @@ dependencies = [
 [[package]]
 name = "apollo_infra_utils"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef50783135b0289f491e738fb3ea57ffccde51e68b12be4d96b8a74db252532c"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "apollo_proc_macros",
  "num_enum",
@@ -149,8 +146,7 @@ dependencies = [
 [[package]]
 name = "apollo_metrics"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2a070146c18fea3fb7e42931ddb52828baf8e64cabc9873ea8f978f118c4fbe"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "indexmap 2.9.0",
  "metrics",
@@ -162,8 +158,7 @@ dependencies = [
 [[package]]
 name = "apollo_proc_macros"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b177fec2f66debebbe1d39bf5e4c8680037f58f877c9527fb9a1885f7300135"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -174,8 +169,7 @@ dependencies = [
 [[package]]
 name = "apollo_sizeof"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b230dd6ebc0c6cfe7ef87c9c3bbf760063b40b6b7b469b43fb216994033569f"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "apollo_sizeof_macros",
  "starknet-types-core",
@@ -184,8 +178,7 @@ dependencies = [
 [[package]]
 name = "apollo_sizeof_macros"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b83d9b1feea5e65bccc822427caf564f5fc85cdcae116b2a87b72f1fd606c6"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -600,8 +593,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b550a0722401d283cd20b6b778d81d784d7efe3dedc3a2417f5366275b30a0fa"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "anyhow",
  "apollo_compile_to_native_types",
@@ -3546,8 +3538,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.16.0-rc.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d1b32bfe0c7d92604633fe2a6beafc732e6517e07203f0c5c3be1ec06d90d99"
+source = "git+https://github.com/infrmtcs/sequencer.git?rev=52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe#52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe"
 dependencies = [
  "apollo_infra_utils",
  "apollo_sizeof",

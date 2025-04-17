@@ -22,5 +22,9 @@ lazy_static = "1.4.0"
 semver = "1.0.22"
 anyhow = "1.0.81"
 
+[patch.crates-io]
+blockifier = { git = "https://github.com/infrmtcs/sequencer.git", rev = "52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe" }
+starknet_api = { git = "https://github.com/infrmtcs/sequencer.git", rev = "52c41bc5ebc7f5c6276e35b90eaed9657b4a7bfe" }
+
 [lib]
 crate-type = ["staticlib"]
