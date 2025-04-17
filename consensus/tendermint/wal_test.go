@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/tendermint/autofile"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,22 +32,23 @@ func TestWALTruncate(t *testing.T) {
 
 	walFile := filepath.Join(walDir, "wal")
 
+	ctx, cancel := context.WithCancel(t.Context())
 	// this magic number 4K can truncate the content when RotateFile.
 	// defaultHeadSizeLimit(10M) is hard to simulate.
 	// this magic number 1 * time.Millisecond make RotateFile check frequently.
 	// defaultGroupCheckDuration(5s) is hard to simulate.
-	wal, err := NewWAL(walFile,
+	wal, err := NewWAL(ctx, walFile, utils.NewNopZapLogger(),
 		autofile.GroupHeadSizeLimit(4096),
 		autofile.GroupCheckDuration(1*time.Millisecond),
 	)
 	require.NoError(t, err)
-	wal.SetLogger(log.TestingLogger())
-	err = wal.Start()
-	require.NoError(t, err)
+	go func() {
+		err = wal.Run(ctx)
+		require.NoError(t, err)
+	}()
+
 	defer func() {
-		if err := wal.Stop(); err != nil {
-			t.Error(err)
-		}
+		cancel()
 		// wait for the wal to finish shutting down so we
 		// can safely remove the directory
 		wal.Wait()
