@@ -199,6 +199,10 @@ type ResourceBounds struct {
 	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
 }
 
+// TODO: using Value fields here is a good idea, however
+// we are currently keeping the field's type Reference since the current
+// validation tags we are using does not work well with Value field.
+// We should revisit this when we start implementing custom validations.
 type ResourceBoundsMap struct {
 	L1Gas *ResourceBounds `json:"l1_gas" validate:"required"`
 	L2Gas *ResourceBounds `json:"l2_gas" validate:"required"`

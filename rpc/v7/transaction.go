@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -159,74 +160,30 @@ func (m *DataAvailabilityMode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Resource uint32
-
-const (
-	ResourceL1Gas Resource = iota + 1
-	ResourceL2Gas
-)
-
-func (r Resource) MarshalText() ([]byte, error) {
-	switch r {
-	case ResourceL1Gas:
-		return []byte("l1_gas"), nil
-	case ResourceL2Gas:
-		return []byte("l2_gas"), nil
-	default:
-		return nil, fmt.Errorf("unknown Resource %v", r)
-	}
-}
-
-func (r *Resource) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"l1_gas"`:
-		*r = ResourceL1Gas
-	case `"l2_gas"`:
-		*r = ResourceL2Gas
-	default:
-		return fmt.Errorf("unknown Resource: %q", string(data))
-	}
-	return nil
-}
-
-func (r *Resource) UnmarshalText(data []byte) error {
-	return r.UnmarshalJSON(data)
-}
-
-type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
-}
-
-type ResourceBoundsMap struct {
-	L1Gas *ResourceBounds `json:"l1_gas" validate:"required"`
-	L2Gas *ResourceBounds `json:"l2_gas" validate:"required"`
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
 type Transaction struct {
-	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
-	Type                  TransactionType       `json:"type" validate:"required"`
-	Version               *felt.Felt            `json:"version,omitempty" validate:"required"`
-	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee                *felt.Felt            `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
-	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
-	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
-	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required_if=Version 0x3"`
-	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
-	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
-	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	Hash                  *felt.Felt               `json:"transaction_hash,omitempty"`
+	Type                  TransactionType          `json:"type" validate:"required"`
+	Version               *felt.Felt               `json:"version,omitempty" validate:"required"`
+	Nonce                 *felt.Felt               `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
+	MaxFee                *felt.Felt               `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	ContractAddress       *felt.Felt               `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt               `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt               `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt            `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt               `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
+	Signature             *[]*felt.Felt            `json:"signature,omitempty" validate:"required"`
+	CallData              *[]*felt.Felt            `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt               `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash     *felt.Felt               `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	ResourceBounds        *rpcv6.ResourceBoundsMap `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt               `json:"tip,omitempty" validate:"required_if=Version 0x3"`
+	PaymasterData         *[]*felt.Felt            `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
+	AccountDeploymentData *[]*felt.Felt            `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
+	NonceDAMode           *DataAvailabilityMode    `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	FeeDAMode             *DataAvailabilityMode    `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
 type TransactionStatus struct {
@@ -309,9 +266,9 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 
 	// RPCv7 requests must set l2_gas to zero
 	if broadcastedTxn.ResourceBounds != nil {
-		broadcastedTxn.ResourceBounds = &ResourceBoundsMap{
+		broadcastedTxn.ResourceBounds = &rpcv6.ResourceBoundsMap{
 			L1Gas: broadcastedTxn.ResourceBounds.L1Gas,
-			L2Gas: &ResourceBounds{
+			L2Gas: &rpcv6.ResourceBounds{
 				MaxAmount:       new(felt.Felt).SetUint64(0),
 				MaxPricePerUnit: new(felt.Felt).SetUint64(0),
 			},
@@ -367,13 +324,13 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
-	rpcResourceBounds := ResourceBoundsMap{
-		L1Gas: &ResourceBounds{
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) rpcv6.ResourceBoundsMap {
+	rpcResourceBounds := rpcv6.ResourceBoundsMap{
+		L1Gas: &rpcv6.ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
 		},
-		L2Gas: &ResourceBounds{
+		L2Gas: &rpcv6.ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL2Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
 		},
@@ -381,7 +338,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *rpcv6.ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}

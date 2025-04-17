@@ -93,9 +93,19 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return simulatedTransactions, httpHeader, nil
 }
 
-func isVersion3(transaction *BroadcastedTransaction) bool {
-	version := felt.FromUint64(3)
-	return transaction.Transaction.Version != nil && transaction.Transaction.Version.Equal(&version)
+func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == TxnDeclare ||
+		tx.Transaction.Type == TxnInvoke) &&
+		rpcv6.IsVersion3(tx.Version) &&
+		tx.Transaction.SenderAddress == nil
+}
+
+func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == TxnInvoke ||
+		tx.Transaction.Type == TxnDeployAccount ||
+		tx.Transaction.Type == TxnDeclare) &&
+		rpcv6.IsVersion3(tx.Version) &&
+		tx.Transaction.ResourceBounds == nil
 }
 
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
@@ -112,19 +122,12 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 		// TODO: as its expected that this will happen in other cases as well,
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
-		if (transactions[idx].Transaction.Type == TxnDeclare ||
-			transactions[idx].Transaction.Type == TxnInvoke) && isVersion3(&transactions[idx]) {
-			if transactions[idx].Transaction.SenderAddress == nil {
-				return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
-			}
+		if checkTxHasSenderAddress(&transactions[idx]) {
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
 		}
 
-		if (transactions[idx].Transaction.Type == TxnInvoke ||
-			transactions[idx].Transaction.Type == TxnDeployAccount ||
-			transactions[idx].Transaction.Type == TxnDeclare) && isVersion3(&transactions[idx]) {
-			if transactions[idx].Transaction.ResourceBounds == nil {
-				return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
-			}
+		if checkTxHasResourceBounds(&transactions[idx]) {
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
 		}
 
 		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
