@@ -59,16 +59,16 @@ func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool) (vm.ExecutionResults, error) {
+func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack)
+	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch)
 	ret0, _ := ret[0].(vm.ExecutionResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack any) *gomock.Call {
+func (mr *MockVMMockRecorder) Execute(txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockVM)(nil).Execute), txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch)
 }

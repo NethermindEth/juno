@@ -260,7 +260,7 @@ func TestExecute(t *testing.T) {
 				L1GasPriceSTRK:   &felt.Zero,
 			},
 		}, state,
-			&network, false, false, false, false)
+			&network, false, false, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
@@ -270,7 +270,7 @@ func TestExecute(t *testing.T) {
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, &network, false, false, false, false)
+		}, state, &network, false, false, false, false, false)
 		require.NoError(t, err)
 	})
 }

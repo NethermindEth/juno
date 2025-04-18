@@ -296,7 +296,7 @@ func TestTraceTransaction(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
 				Traces:           []vm.TransactionTrace{*vmTrace},
@@ -359,7 +359,7 @@ func TestTraceTransaction(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				Traces:   []vm.TransactionTrace{*vmTrace},
 				NumSteps: 0,
@@ -576,7 +576,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).
+			gomock.Any(), n, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},
 				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
@@ -648,7 +648,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).
+			gomock.Any(), n, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},
 				Traces:           []vm.TransactionTrace{vmTrace},

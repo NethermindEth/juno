@@ -231,7 +231,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, true)
+		&blockInfo, state, network, false, false, false, true, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
