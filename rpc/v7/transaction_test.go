@@ -191,16 +191,18 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 func adaptV6TxToV7(t *testing.T, tx *rpcv6.Transaction) *rpc.Transaction {
 	t.Helper()
 
-	var v7ResourceBounds *map[rpc.Resource]rpc.ResourceBounds
+	var v7ResourceBounds *rpcv6.ResourceBoundsMap
 	if tx.ResourceBounds != nil {
-		v7ResourceBoundsMap := make(map[rpc.Resource]rpc.ResourceBounds)
-		for r, rb := range *tx.ResourceBounds {
-			v7ResourceBoundsMap[rpc.Resource(r)] = rpc.ResourceBounds{
-				MaxAmount:       rb.MaxAmount,
-				MaxPricePerUnit: rb.MaxPricePerUnit,
-			}
+		v7ResourceBounds = &rpcv6.ResourceBoundsMap{
+			L1Gas: &rpcv6.ResourceBounds{
+				MaxAmount:       tx.ResourceBounds.L1Gas.MaxAmount,
+				MaxPricePerUnit: tx.ResourceBounds.L1Gas.MaxPricePerUnit,
+			},
+			L2Gas: &rpcv6.ResourceBounds{
+				MaxAmount:       tx.ResourceBounds.L2Gas.MaxAmount,
+				MaxPricePerUnit: tx.ResourceBounds.L2Gas.MaxPricePerUnit,
+			},
 		}
-		v7ResourceBounds = &v7ResourceBoundsMap
 	}
 
 	var v7NonceDAMode *rpc.DataAvailabilityMode
@@ -817,9 +819,9 @@ func TestAdaptTransaction(t *testing.T) {
 		expectedTx := &rpc.Transaction{
 			Type:    rpc.TxnInvoke,
 			Version: new(felt.Felt).SetUint64(3),
-			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
-				rpc.ResourceL1Gas: {MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
-				rpc.ResourceL2Gas: {MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+			ResourceBounds: &rpcv6.ResourceBoundsMap{
+				L1Gas: &rpcv6.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				L2Gas: &rpcv6.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
 			},
 			Tip: new(felt.Felt).SetUint64(0),
 			// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)

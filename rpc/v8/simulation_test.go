@@ -160,3 +160,122 @@ func TestSimulateTransactions(t *testing.T) {
 		})
 	}
 }
+
+func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *testing.T) {
+	t.Parallel()
+	n := &utils.Mainnet
+	headsHeader := &core.Header{
+		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
+		L1GasPriceETH:    &felt.Zero,
+		L1GasPriceSTRK:   &felt.Zero,
+		L1DAMode:         0,
+		L1DataGasPrice: &core.GasPrice{
+			PriceInWei: &felt.Zero,
+			PriceInFri: &felt.Zero,
+		},
+		L2GasPrice: &core.GasPrice{
+			PriceInWei: &felt.Zero,
+			PriceInFri: &felt.Zero,
+		},
+	}
+
+	version3 := felt.FromUint64(3)
+
+	tests := []struct {
+		name         string
+		transactions []rpc.BroadcastedTransaction
+		err          *jsonrpc.Error
+	}{
+		{
+			name: "declare transaction without sender address",
+			transactions: []rpc.BroadcastedTransaction{
+				{
+					Transaction: rpc.Transaction{
+						Version: &version3,
+						Type:    rpc.TxnDeclare,
+					},
+				},
+			},
+			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+		},
+		{
+			name: "declare transaction without resource bounds",
+			transactions: []rpc.BroadcastedTransaction{
+				{
+					Transaction: rpc.Transaction{
+						Version:       &version3,
+						Type:          rpc.TxnDeclare,
+						SenderAddress: &felt.Zero,
+					},
+				},
+			},
+			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+		},
+		{
+			name: "invoke transaction without sender address",
+			transactions: []rpc.BroadcastedTransaction{
+				{
+					Transaction: rpc.Transaction{
+						Version: &version3,
+						Type:    rpc.TxnInvoke,
+					},
+				},
+			},
+			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+		},
+		{
+			name: "invoke transaction without resource bounds",
+			transactions: []rpc.BroadcastedTransaction{
+				{
+					Transaction: rpc.Transaction{
+						Version:       &version3,
+						Type:          rpc.TxnInvoke,
+						SenderAddress: &felt.Zero,
+					},
+				},
+			},
+			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+		},
+		{
+			name: "deploy account transaction without resource bounds",
+			transactions: []rpc.BroadcastedTransaction{
+				{
+					Transaction: rpc.Transaction{
+						Version: &version3,
+						Type:    rpc.TxnDeployAccount,
+					},
+				},
+			},
+			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockVM := mocks.NewMockVM(mockCtrl)
+			mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+
+			mockReader.EXPECT().Network().Return(n)
+			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
+
+			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+
+			_, _, err := handler.SimulateTransactions(
+				rpc.BlockID{Latest: true},
+				test.transactions,
+				[]rpcv6.SimulationFlag{},
+			)
+			if test.err != nil {
+				require.Equal(t, test.err, err)
+				return
+			}
+			require.Nil(t, err)
+		})
+	}
+}
