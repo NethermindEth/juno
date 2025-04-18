@@ -25,6 +25,17 @@ jobs:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
   
+  smoke_test_100_blocks:
+    needs: [build]
+    uses: ./.github/workflows/smoke-test.yaml
+    with:
+      docker_image_tag: ${{ needs.build.outputs.docker_image_tag }}
+    secrets:
+      APP_ID: ${{ vars.APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+      
   dev_deploy_test:
     needs: [build]
     uses: ./.github/workflows/deploy-and-test.yaml
