@@ -225,7 +225,7 @@ where
     // in the case where the user defined gas limit is less than the required gas limit
     if get_execution_flags(transaction).charge_fee && l2_gas_limit > initial_gas_limit {
         tx_state.abort();
-        set_l2_gas_limit(transaction, GasAmount::ZERO)?;
+        set_l2_gas_limit(transaction, initial_gas_limit)?;
         return execute_transaction(&transaction, state, block_context, error_on_revert);
     }
 
