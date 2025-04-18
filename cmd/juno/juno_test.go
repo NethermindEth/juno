@@ -61,7 +61,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
-	defaultCallMaxSteps := uint(4_000_000)
+	defaultCallMaxSteps := uint(0)
 	defaultGwTimeout := "5s,"
 
 	tests := map[string]struct {

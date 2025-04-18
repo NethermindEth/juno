@@ -110,7 +110,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1, simpleClass.SierraVersion(), false, false)
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
