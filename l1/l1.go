@@ -17,6 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 )
 
+const (
+	maxRetryDelay = 60000 // 1 minute in ms
+)
+
 //go:generate mockgen -destination=../mocks/mock_subscriber.go -package=mocks github.com/NethermindEth/juno/l1 Subscriber
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
@@ -86,19 +90,43 @@ func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contra
 }
 
 func (c *Client) checkChainID(ctx context.Context) error {
-	gotChainID, err := c.l1.ChainID(ctx)
-	if err != nil {
-		return fmt.Errorf("retrieve Ethereum chain ID: %w", err)
-	}
+	retryDelay := c.resubscribeDelay
 
-	wantChainID := c.network.L1ChainID
-	if gotChainID.Cmp(wantChainID) == 0 {
-		return nil
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			actualChainID, err := c.l1.ChainID(ctx)
+			if err == nil {
+				expectedChainID := c.network.L1ChainID
+				if actualChainID.Cmp(expectedChainID) == 0 {
+					c.log.Infow("Chain ID verification successful",
+						"chainID", actualChainID.String(),
+						"network", c.network.String())
+					return nil
+				}
+				// NOTE: for now we return an error. If we want to support users who fork
+				// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
+				return fmt.Errorf("mismatched L1 and L2 networks: got L1 chain ID %s, expected %s for L2 network %s",
+					actualChainID.String(), expectedChainID.String(), c.network.String())
+			}
 
-	// NOTE: for now we return an error. If we want to support users who fork
-	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
+			c.log.Debugw("Failed to check chain ID", "error", err)
+
+			timer := time.NewTimer(retryDelay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil
+			case <-timer.C:
+				// Continue to next retry
+			}
+
+			// Exponential backoff with 1 minute cap
+			retryDelay = time.Duration(min(retryDelay.Milliseconds()*2, maxRetryDelay)) * time.Millisecond
+		}
+	}
 }
 
 func (c *Client) Run(ctx context.Context) error {
