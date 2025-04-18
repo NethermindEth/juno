@@ -18,7 +18,7 @@ var (
 
 func validateResourceBounds(fl validator.FieldLevel) bool {
 	req, ok := fl.Parent().Interface().(rpcv8.Transaction)
-	return ok && req.ResourceBounds != nil && len(*req.ResourceBounds) == 3
+	return ok && req.ResourceBounds != nil
 }
 
 // Custom validation function for version
