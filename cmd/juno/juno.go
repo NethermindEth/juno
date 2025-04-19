@@ -85,6 +85,10 @@ const (
 	corsEnableF             = "rpc-cors-enable"
 	versionedConstantsFileF = "versioned-constants-file"
 	pluginPathF             = "plugin-path"
+	seqEnF                  = "seq-enable"
+	seqBlockTimeF           = "seq-block-time"
+	seqGenesisFileF         = "seq-genesis-file"
+	seqDisableFeesF         = "seq-disable-fees"
 	httpUpdateHostF         = "http-update-host"
 	httpUpdatePortF         = "http-update-port"
 
@@ -126,6 +130,10 @@ const (
 	defaultCorsEnable               = false
 	defaultVersionedConstantsFile   = ""
 	defaultPluginPath               = ""
+	defaultSeqEn                    = false
+	defaultSeqBlockTime             = 60
+	defaultSeqGenesisFile           = ""
+	defaultSeqDisableFees           = false
 	defaultHTTPUpdatePort           = 0
 
 	configFlagUsage                       = "The YAML configuration file."
@@ -182,6 +190,10 @@ const (
 	corsEnableUsage             = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
 	pluginPathUsage             = "Path to the plugin .so file"
+	seqEnUsage                  = "Enables sequencer mode of operation"
+	seqBlockTimeUsage           = "Time to build a block, in seconds"
+	seqGenesisFileUsage         = "Path to the genesis file"
+	seqDisableFeesUsage         = "Skip charge fee for sequencer execution"
 	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 )
@@ -377,6 +389,10 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)
 	junoCmd.MarkFlagsMutuallyExclusive(p2pFeederNodeF, p2pPeersF)
 	junoCmd.Flags().String(pluginPathF, defaultPluginPath, pluginPathUsage)
+	junoCmd.Flags().Bool(seqEnF, defaultSeqEn, seqEnUsage)
+	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
+	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
+	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 
