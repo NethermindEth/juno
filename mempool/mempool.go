@@ -87,11 +87,11 @@ func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
 		numToPop = t.len
 	}
 
-	result := make([]BroadcastedTransaction, 0, numToPop)
+	result := make([]BroadcastedTransaction, numToPop)
 	current := t.head
 
-	for range numToPop {
-		result = append(result, current.Txn)
+	for i := range numToPop {
+		result[i] = current.Txn
 		current = current.Next
 	}
 

@@ -120,9 +120,8 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) Run(ctx context.Context) error {
-	defer func() {
-		b.mempool.Close()
-	}()
+	defer b.mempool.Close()
+
 	// Clear pending state on shutdown
 	defer func() {
 		if pErr := b.ClearPending(); pErr != nil {
