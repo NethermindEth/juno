@@ -373,7 +373,7 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 		},
 		state,
 		b.bc.Network(),
-		false, false, false, true)
+		false, false, false, true, false)
 	if err != nil {
 		return err
 	}

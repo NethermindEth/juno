@@ -588,7 +588,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 }
 
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
-	userTxn, userClass, paidFeeOnL1, err := adaptBroadcastedTransaction(tx, h.bcReader.Network())
+	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
