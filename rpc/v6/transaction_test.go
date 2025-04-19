@@ -1138,9 +1138,9 @@ func TestAdaptTransaction(t *testing.T) {
 		expectedTx := &rpc.Transaction{
 			Type:    rpc.TxnInvoke,
 			Version: new(felt.Felt).SetUint64(3),
-			ResourceBounds: &map[rpc.Resource]rpc.ResourceBounds{
-				rpc.ResourceL1Gas: {MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
-				rpc.ResourceL2Gas: {MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
+			ResourceBounds: &rpc.ResourceBoundsMap{
+				L1Gas: &rpc.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
+				L2Gas: &rpc.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
 			},
 			Tip: new(felt.Felt).SetUint64(0),
 			// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)

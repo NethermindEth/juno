@@ -13,11 +13,9 @@ func (t *Tendermint[V, H, A]) uponPolkaNil() bool {
 	prevotes := t.messages.prevotes[t.state.height][t.state.round]
 
 	var vals []A
-	for addr, valPrevotes := range prevotes {
-		for _, v := range valPrevotes {
-			if v.ID == nil {
-				vals = append(vals, addr)
-			}
+	for addr, v := range prevotes {
+		if v.ID == nil {
+			vals = append(vals, addr)
 		}
 	}
 

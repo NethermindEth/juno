@@ -279,6 +279,7 @@ pub extern "C" fn cairoVMExecute(
     err_on_revert: c_uchar,
     concurrency_mode: c_uchar,
     err_stack: c_uchar,
+    allow_binary_search: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
@@ -328,6 +329,7 @@ pub extern "C" fn cairoVMExecute(
     let validate = skip_validate == 0;
     let err_stack = err_stack == 1;
     let err_on_revert = err_on_revert == 1;
+    let allow_binary_search = allow_binary_search == 1;
 
     let mut writer_buffer = Vec::with_capacity(10_000);
 
@@ -401,7 +403,13 @@ pub extern "C" fn cairoVMExecute(
             Transaction::L1Handler(t) => (None, t.fee_type()),
         };
 
-        match process_transaction(&mut txn, &mut txn_state, &block_context, err_on_revert) {
+        match process_transaction(
+            &mut txn,
+            &mut txn_state,
+            &block_context,
+            err_on_revert,
+            allow_binary_search,
+        ) {
             Err(e) => match e {
                 ExecutionError::ExecutionError { error, error_stack } => {
                     let err_string = if err_stack {
@@ -410,6 +418,7 @@ pub extern "C" fn cairoVMExecute(
                         json!(error).to_string()
                     };
                     report_error(reader_handle, err_string.as_str(), txn_index as i64, 0);
+                    return;
                 }
                 ExecutionError::Internal(e) | ExecutionError::Custom(e) => {
                     report_error(
@@ -418,6 +427,7 @@ pub extern "C" fn cairoVMExecute(
                         txn_index as i64,
                         0,
                     );
+                    return;
                 }
             },
             Ok(mut tx_execution_info) => {

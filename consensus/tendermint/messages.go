@@ -14,12 +14,9 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
-	Height     height
-	Round      round
+	MessageHeader[A]
 	ValidRound round
 	Value      *V
-
-	Sender A
 }
 
 type (
@@ -28,10 +25,13 @@ type (
 )
 
 type Vote[H Hash, A Addr] struct {
+	MessageHeader[A]
+	ID *H
+}
+
+type MessageHeader[A Addr] struct {
 	Height height
 	Round  round
-	ID     *H
-
 	Sender A
 }
 
@@ -44,34 +44,31 @@ type Vote[H Hash, A Addr] struct {
 //	How would we keep track of nil votes? In golan map key cannot be nil.
 //	It is not easy to calculate a zero value when dealing with generics.
 type messages[V Hashable[H], H Hash, A Addr] struct {
-	proposals  map[height]map[round]map[A][]Proposal[V, H, A]
-	prevotes   map[height]map[round]map[A][]Prevote[H, A]
-	precommits map[height]map[round]map[A][]Precommit[H, A]
+	proposals  map[height]map[round]map[A]Proposal[V, H, A]
+	prevotes   map[height]map[round]map[A]Prevote[H, A]
+	precommits map[height]map[round]map[A]Precommit[H, A]
 }
 
 func newMessages[V Hashable[H], H Hash, A Addr]() messages[V, H, A] {
 	return messages[V, H, A]{
-		proposals:  make(map[height]map[round]map[A][]Proposal[V, H, A]),
-		prevotes:   make(map[height]map[round]map[A][]Prevote[H, A]),
-		precommits: make(map[height]map[round]map[A][]Precommit[H, A]),
+		proposals:  make(map[height]map[round]map[A]Proposal[V, H, A]),
+		prevotes:   make(map[height]map[round]map[A]Prevote[H, A]),
+		precommits: make(map[height]map[round]map[A]Precommit[H, A]),
 	}
 }
 
-func addMessages[T any, A Addr](storage map[height]map[round]map[A][]T, msg T, a A, h height, r round) {
+func addMessages[T any, A Addr](storage map[height]map[round]map[A]T, msg T, a A, h height, r round) {
 	if _, ok := storage[h]; !ok {
-		storage[h] = make(map[round]map[A][]T)
+		storage[h] = make(map[round]map[A]T)
 	}
 
 	if _, ok := storage[h][r]; !ok {
-		storage[h][r] = make(map[A][]T)
+		storage[h][r] = make(map[A]T)
 	}
 
-	sendersMessages, ok := storage[h][r][a]
-	if !ok {
-		sendersMessages = []T{}
+	if _, ok := storage[h][r][a]; !ok {
+		storage[h][r][a] = msg
 	}
-
-	storage[h][r][a] = append(sendersMessages, msg)
 }
 
 // Todo: ensure duplicated messages are ignored.
@@ -87,8 +84,8 @@ func (m *messages[V, H, A]) addPrecommit(p Precommit[H, A]) {
 	addMessages(m.precommits, p, p.Sender, p.Height, p.Round)
 }
 
-func (m *messages[V, H, A]) allMessages(h height, r round) (map[A][]Proposal[V, H, A], map[A][]Prevote[H, A],
-	map[A][]Precommit[H, A],
+func (m *messages[V, H, A]) allMessages(h height, r round) (map[A]Proposal[V, H, A], map[A]Prevote[H, A],
+	map[A]Precommit[H, A],
 ) {
 	// Todo: Should they be copied?
 	return m.proposals[h][r], m.prevotes[h][r], m.precommits[h][r]

@@ -45,7 +45,7 @@
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
 | `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
 | `remote-db` |  | gRPC URL of a remote Juno node |
-| `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests. The upper limit is 4 million steps, and any higher value will still be capped at 4 million |
+| `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
