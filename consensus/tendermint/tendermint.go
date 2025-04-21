@@ -291,26 +291,29 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
+// preprocessMessage add message to the message pool if:
+// - height is within [current height, current height + maxFutureHeight]
+// - if height is the current height, round is within [0, current round + maxFutureRound]
+// - if height is a future height, round is within [0, maxFutureRound]
+// The message is processed immediately if all the conditions above are met plus height is the current height.
 func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
-	var currentRound round
 	isCurrentHeight := header.Height == t.state.height
+
+	var currentRoundOfHeaderHeight round
+	// If the height is a future height, the round is considered to be 0, as the height hasn't started yet.
 	if isCurrentHeight {
-		currentRound = t.state.round
+		currentRoundOfHeaderHeight = t.state.round
 	}
 
 	switch {
-	case !isCurrentOrNearFuture(header.Height, t.state.height, maxFutureHeight):
+	case header.Height < t.state.height || header.Height > t.state.height+maxFutureHeight:
 		return false
-	case !isCurrentOrNearFuture(header.Round, currentRound, maxFutureRound):
+	case header.Round < 0 || header.Round > currentRoundOfHeaderHeight+maxFutureRound:
 		return false
 	default:
 		addMessage()
 		return isCurrentHeight
 	}
-}
-
-func isCurrentOrNearFuture[T ~uint | ~int](header, current, maxFuture T) bool {
-	return header >= current && header <= current+maxFuture
 }
 
 // TODO: Improve performance. Current complexity is O(n).
