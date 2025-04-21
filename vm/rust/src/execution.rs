@@ -21,6 +21,7 @@ use starknet_api::transaction::{
     DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
     InvokeTransaction, InvokeTransactionV3,
 };
+use anyhow::{Error, anyhow};
 
 pub fn process_transaction(
     txn: &mut Transaction,
@@ -293,7 +294,7 @@ where
 fn set_l2_gas_limit(
     transaction: &mut Transaction,
     gas_limit: GasAmount,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), Error> {
     if let Transaction::Account(ref mut account_transaction) = transaction {
         match &mut account_transaction.tx {
             AccountTransaction::Declare(ref mut tx) => {
@@ -328,11 +329,11 @@ fn set_l2_gas_limit(
             }
         }
     }
-    Err(anyhow::anyhow!("Failed to set L2 gas limit"))
+    Err(anyhow!("Failed to set L2 gas limit"))
 }
 
 /// Retrieves the resource bounds for a given transaction.
-fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, anyhow::Error> {
+fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, Error> {
     match tx {
         Transaction::Account(account_tx) => match &account_tx.tx {
             AccountTransaction::Declare(declare_tx) => match &declare_tx.tx {
@@ -340,14 +341,14 @@ fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, anyhow
                     resource_bounds: ValidResourceBounds::AllResources(all_resources),
                     ..
                 }) => Ok(*all_resources),
-                _ => Err(anyhow::anyhow!("Unsupported Declare transaction version")),
+                _ => Err(anyhow!("Unsupported Declare transaction version")),
             },
             AccountTransaction::DeployAccount(deploy_tx) => match &deploy_tx.tx {
                 DeployAccountTransaction::V3(DeployAccountTransactionV3 {
                     resource_bounds: ValidResourceBounds::AllResources(all_resources),
                     ..
                 }) => Ok(*all_resources),
-                _ => Err(anyhow::anyhow!(
+                _ => Err(anyhow!(
                     "Unsupported DeployAccount transaction version"
                 )),
             },
@@ -356,10 +357,10 @@ fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, anyhow
                     resource_bounds: ValidResourceBounds::AllResources(all_resources),
                     ..
                 }) => Ok(*all_resources),
-                _ => Err(anyhow::anyhow!("Unsupported Invoke transaction version")),
+                _ => Err(anyhow!("Unsupported Invoke transaction version")),
             },
         },
-        _ => Err(anyhow::anyhow!("Unsupported transaction type")),
+        _ => Err(anyhow!("Unsupported transaction type")),
     }
 }
 
@@ -368,7 +369,7 @@ fn calculate_max_l2_gas_covered<S>(
     tx: &Transaction,
     block_context: &blockifier::context::BlockContext,
     state: &mut S,
-) -> Result<GasAmount, anyhow::Error>
+) -> Result<GasAmount, Error>
 where
     S: UpdatableState,
 {
@@ -414,7 +415,7 @@ where
         }
         Transaction::L1Handler(_) => {
             // L1 handler transactions don't have L2 gas.
-            Err(anyhow::anyhow!("L1 handler transactions don't have L2 gas"))
+            Err(anyhow!("L1 handler transactions don't have L2 gas"))
         }
     }
 }
