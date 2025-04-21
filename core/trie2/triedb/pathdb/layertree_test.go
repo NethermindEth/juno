@@ -29,7 +29,7 @@ func TestLayers(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tree, tracker := setupLayerTree(tc.numDiffs, tc.nodesPerLayer, r)
+			tree, tracker := setupLayerTree(tc.numDiffs, tc.nodesPerLayer)
 
 			// Verify all layers
 			for i := 0; i <= tc.numDiffs; i++ {
@@ -55,7 +55,7 @@ func TestLayersNonExistNode(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tree, _ := setupLayerTree(tc.numDiffs, tc.nodesPerLayer, r)
+			tree, _ := setupLayerTree(tc.numDiffs, tc.nodesPerLayer)
 
 			// Invalid root
 			invalidRoot := *new(felt.Felt).SetUint64(uint64(tc.numDiffs + 1))
@@ -101,7 +101,7 @@ func TestLayersCap(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tree, tracker := setupLayerTree(numDiffs, nodesPerLayer, r)
+			tree, tracker := setupLayerTree(numDiffs, nodesPerLayer)
 			root := *new(felt.Felt).SetUint64(uint64(numDiffs))
 			require.NoError(t, tree.cap(root, tc.capLayers))
 			err := verifyLayer(tree, root, tracker)
@@ -115,15 +115,6 @@ func TestLayersCap(t *testing.T) {
 			require.Equal(t, expDiskHash, actualDiskHash, fmt.Sprintf("expected disk hash %s, got %s", expDiskHash.String(), actualDiskHash.String()))
 		})
 	}
-}
-
-func TestCap(t *testing.T) {
-	nodeCount := 10
-	numLayers := 10
-	head := *new(felt.Felt).SetUint64(uint64(numLayers - 1))
-	tree, _ := setupLayerTree(numLayers, nodeCount, r)
-	err := tree.cap(head, 0) // everything in disk layer
-	require.NoError(t, err)
 }
 
 // mockTrieNode is a simple implementation of trienode.TrieNode for testing
@@ -277,7 +268,7 @@ func generateRandomOwner(r *rand.Rand, maxOwners int) felt.Felt {
 }
 
 // createTestNodeSet generates a MergeNodeSet with controlled overlapping paths
-func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bool, r *rand.Rand) *trienode.MergeNodeSet {
+func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bool) *trienode.MergeNodeSet {
 	// Create reusable path and owner sets for consistent overlaps
 	paths := make([]trieutils.Path, 0, nodeCount)
 	owners := make([]felt.Felt, 0, nodeCount)
@@ -330,22 +321,26 @@ func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bo
 
 // createPathDB creates a new PathDB instance for testing
 func createPathDB() *Database {
-	return New(memory.New(), &Config{
+	db, err := New(memory.New(), &Config{
 		CleanCacheSize:  1000,
 		WriteBufferSize: 1000,
 	})
+	if err != nil {
+		panic(err)
+	}
+	return db
 }
 
 // setupLayerTreeOverlap creates a layer tree with controlled overlapping nodes
 // and returns both the tree and a tracker for verification
-func setupLayerTree(numDiffs, nodesPerLayer int, r *rand.Rand) (*layerTree, *layerTracker) {
+func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 	pathDB := createPathDB()
 	parent := felt.Zero
 	tracker := newLayerTracker()
 
 	// Create initial empty disk layer
-	classNodes := createTestNodeSet(nodesPerLayer, 0, numDiffs+1, true, r)
-	contractNodes := createTestNodeSet(nodesPerLayer, 0, numDiffs+1, false, r)
+	classNodes := createTestNodeSet(nodesPerLayer, 0, numDiffs+1, true)
+	contractNodes := createTestNodeSet(nodesPerLayer, 0, numDiffs+1, false)
 	flatClass, _ := classNodes.Flatten()
 	flatContract, flatStorage := contractNodes.Flatten()
 
@@ -373,8 +368,8 @@ func setupLayerTree(numDiffs, nodesPerLayer int, r *rand.Rand) (*layerTree, *lay
 		layerRoot := *new(felt.Felt).SetUint64(uint64(i))
 
 		// Generate nodes for this layer with controlled overlap
-		classNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, true, r)
-		contractNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, false, r)
+		classNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, true)
+		contractNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, false)
 
 		// Add layer to tree
 		err := tree.add(layerRoot, parent, uint64(i), classNodes, contractNodes)

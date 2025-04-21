@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 const (
@@ -21,6 +22,11 @@ type Config struct {
 	WriteBufferSize int // Maximum size (in bytes) for buffering writes before flushing
 } // TODO(weiihann): handle this
 
+var defaultConfig = &Config{
+	CleanCacheSize:  16 * utils.Megabyte,
+	WriteBufferSize: 64 * utils.Megabyte,
+}
+
 type Database struct {
 	disk   db.KeyValueStore
 	tree   *layerTree
@@ -28,8 +34,17 @@ type Database struct {
 	lock   sync.RWMutex
 }
 
-func New(disk db.KeyValueStore, config *Config) *Database {
-	return &Database{disk: disk, config: config}
+func New(disk db.KeyValueStore, config *Config) (*Database, error) {
+	if config == nil {
+		config = defaultConfig
+	}
+	db := &Database{disk: disk, config: config}
+	head, err := db.loadJournal()
+	if err != nil {
+		return nil, err
+	}
+	db.tree = newLayerTree(head)
+	return db, nil
 }
 
 func (d *Database) Close() error {

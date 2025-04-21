@@ -21,7 +21,7 @@ type Database struct {
 	config *Config
 }
 
-func New(disk db.KeyValueStore, config *Config) *Database {
+func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	// Default to path config if not provided
 	if config == nil {
 		config = &Config{
@@ -29,10 +29,15 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		}
 	}
 
-	return &Database{ // TODO: handle both pathdb and hashdb
-		triedb: pathdb.New(disk, config.PathConfig),
-		config: config,
+	pathdb, err := pathdb.New(disk, config.PathConfig)
+	if err != nil {
+		return nil, err
 	}
+
+	return &Database{ // TODO: handle both pathdb and hashdb
+		triedb: pathdb,
+		config: config,
+	}, nil
 }
 
 func (d *Database) Update(

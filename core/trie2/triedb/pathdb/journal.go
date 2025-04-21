@@ -3,11 +3,13 @@ package pathdb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 )
 
@@ -15,7 +17,7 @@ const (
 	journalVersion = 1
 )
 
-type journalType int
+type journalType byte
 
 const (
 	diffJournal journalType = iota + 1
@@ -72,7 +74,7 @@ func (dl *diffLayer) journal(w io.Writer) error {
 	}
 
 	// Then write the length of the encoded journal
-	var encLen []byte
+	encLen := make([]byte, 8)
 	binary.BigEndian.PutUint64(encLen, uint64(len(enc)))
 	_, err = w.Write(encLen)
 	if err != nil {
@@ -113,7 +115,7 @@ func (dl *diskLayer) journal(w io.Writer) error {
 		return err
 	}
 
-	var encLen []byte
+	encLen := make([]byte, 8)
 	binary.BigEndian.PutUint64(encLen, uint64(len(enc)))
 	_, err = w.Write(encLen)
 	if err != nil {
@@ -150,4 +152,108 @@ func (d *Database) Journal(root felt.Felt) error {
 	}
 
 	return trieutils.WriteTrieJournal(d.disk, enc)
+}
+
+func (d *Database) loadJournal() (layer, error) {
+	enc, err := trieutils.ReadTrieJournal(d.disk)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return nil, err
+		}
+
+		// TODO(weiihann): need to get the actual root for the disk layer
+		root := felt.Zero
+		latestID, err := trieutils.ReadPersistedStateID(d.disk)
+		if err != nil {
+			if !errors.Is(err, db.ErrKeyNotFound) {
+				return nil, err
+			}
+		}
+		disk := newDiskLayer(root, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
+		return disk, nil
+	}
+
+	var journal DBJournal
+	if err := encoder.Unmarshal(enc, &journal); err != nil {
+		return nil, err
+	}
+
+	if journal.Version != journalVersion {
+		return nil, fmt.Errorf("unsupported journal version: %d", journal.Version)
+	}
+
+	head, err := d.loadLayers(journal.EncLayers)
+	if err != nil {
+		return nil, err
+	}
+
+	return head, nil
+}
+
+func (d *Database) loadLayers(enc []byte) (layer, error) {
+	const layerMetadataSize = 9
+
+	var head layer
+	var parent layer
+	for len(enc) > 0 {
+		if len(enc) < layerMetadataSize {
+			return nil, ErrJournalCorrupt
+		}
+		layerType := journalType(enc[0])
+		encLen := binary.BigEndian.Uint64(enc[1:layerMetadataSize])
+
+		if len(enc) < int(encLen) {
+			return nil, ErrJournalCorrupt
+		}
+
+		encLayer := enc[layerMetadataSize : layerMetadataSize+encLen]
+		switch layerType {
+		case diffJournal:
+			var diffJn DiffJournal
+			if err := encoder.Unmarshal(encLayer, &diffJn); err != nil {
+				return nil, err
+			}
+			nodes := new(nodeSet)
+			if err := nodes.decode(diffJn.EncNodeset); err != nil {
+				return nil, err
+			}
+			head = &diffLayer{
+				root:   diffJn.Root,
+				block:  diffJn.Block,
+				nodes:  nodes,
+				parent: parent,
+				id:     parent.stateID() + 1,
+			}
+			parent = head
+		case diskJournal:
+			var diskJn DiskJournal
+			if err := encoder.Unmarshal(encLayer, &diskJn); err != nil {
+				return nil, err
+			}
+
+			latestPersistedID, err := trieutils.ReadPersistedStateID(d.disk)
+			if err != nil {
+				if !errors.Is(err, db.ErrKeyNotFound) {
+					return nil, err
+				}
+			}
+			nodes := new(nodeSet)
+			if err := nodes.decode(diskJn.EncNodeset); err != nil {
+				return nil, err
+			}
+			head = newDiskLayer(
+				diskJn.Root,
+				diskJn.ID,
+				d,
+				nil,
+				newBuffer(d.config.WriteBufferSize, nodes, diskJn.ID-latestPersistedID),
+			)
+			parent = head
+		default:
+			return nil, fmt.Errorf("unknown journal type: %d", layerType)
+		}
+		enc = enc[layerMetadataSize+encLen:]
+	}
+
+	return head, nil
 }
