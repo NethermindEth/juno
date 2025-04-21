@@ -217,6 +217,32 @@ type ResourceBoundsMap struct {
 	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
+func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
+	type tempResourceBoundsMap struct {
+		L1Gas *ResourceBounds `json:"l1_gas"`
+		L2Gas *ResourceBounds `json:"l2_gas"`
+	}
+
+	temp := tempResourceBoundsMap{
+		L1Gas: r.L1Gas,
+		L2Gas: r.L2Gas,
+	}
+
+	// Check if L1DataGas is nil, if it is, remove it from the struct/map
+	if r.L1DataGas == nil {
+		return json.Marshal(temp)
+	}
+
+	// L1Gas and L2Gas should always be present.
+	return json.Marshal(struct {
+		*tempResourceBoundsMap
+		L1DataGas *ResourceBounds `json:"l1_data_gas"`
+	}{
+		tempResourceBoundsMap: &temp,
+		L1DataGas:             r.L1DataGas,
+	})
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
@@ -373,6 +399,16 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 }
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+	// Check if L1DataGas exists in the map
+	var l1DataGasResourceBounds *ResourceBounds
+	if _, ok := rb[core.ResourceL1DataGas]; ok {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
+		}
+	}
+
+	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
 		L1Gas: &ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1Gas].MaxAmount),
@@ -382,10 +418,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL2Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
 		},
-		L1DataGas: &ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
-			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
-		},
+		L1DataGas: l1DataGasResourceBounds,
 	}
 	return rpcResourceBounds
 }
