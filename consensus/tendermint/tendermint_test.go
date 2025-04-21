@@ -2,10 +2,8 @@ package tendermint
 
 import (
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -83,159 +81,24 @@ func (v *validators) addValidator(addr felt.Felt) {
 	v.totalVotingPower++
 }
 
-// Implements Listener[M Message[V, H], V Hashable[H], H Hash] and Broadcasters[V Hashable[H], H Hash, A Addr] interface
-type senderAndReceiver[M Message[V, H, A], V Hashable[H], H Hash, A Addr] struct {
-	mCh chan M
+func getVal(idx int) *felt.Felt {
+	return new(felt.Felt).SetUint64(uint64(idx))
 }
 
-func (r *senderAndReceiver[M, _, _, _]) send(m M) {
-	r.mCh <- m
-}
+func setupStateMachine(
+	t *testing.T,
+	numValidators, thisValidator int, //nolint:unparam // This is because in all current tests numValidators is always 4.
+) *Tendermint[value, felt.Felt, felt.Felt] {
+	t.Helper()
+	app, chain, vals := newApp(), newChain(), newVals()
 
-func (r *senderAndReceiver[M, _, _, _]) Listen() <-chan M {
-	return r.mCh
-}
-
-func (r *senderAndReceiver[M, _, _, _]) Broadcast(msg M) { r.mCh <- msg }
-
-func (r *senderAndReceiver[M, _, _, A]) SendMsg(validatorAddr A, msg M) {}
-
-func newSenderAndReceiver[M Message[V, H, A], V Hashable[H], H Hash, A Addr]() *senderAndReceiver[M, V, H, A] {
-	return &senderAndReceiver[M, V, H, A]{mCh: make(chan M, 10)}
-}
-
-func testListenersAndBroadcasters() (Listeners[value, felt.Felt, felt.Felt], Broadcasters[value,
-	felt.Felt, felt.Felt],
-) {
-	listeners := Listeners[value, felt.Felt, felt.Felt]{
-		ProposalListener:  newSenderAndReceiver[Proposal[value, felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
-		PrevoteListener:   newSenderAndReceiver[Prevote[felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
-		PrecommitListener: newSenderAndReceiver[Precommit[felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
+	for i := range numValidators {
+		vals.addValidator(*getVal(i))
 	}
 
-	broadcasters := Broadcasters[value, felt.Felt, felt.Felt]{
-		ProposalBroadcaster:  newSenderAndReceiver[Proposal[value, felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
-		PrevoteBroadcaster:   newSenderAndReceiver[Prevote[felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
-		PrecommitBroadcaster: newSenderAndReceiver[Precommit[felt.Felt, felt.Felt], value, felt.Felt, felt.Felt](),
-	}
+	thisNodeAddr := getVal(thisValidator)
 
-	return listeners, broadcasters
-}
-
-func TestStartRound(t *testing.T) {
-	nodeAddr := new(felt.Felt).SetBytes([]byte("my node address"))
-	val2, val3, val4 := new(felt.Felt).SetUint64(2), new(felt.Felt).SetUint64(3), new(felt.Felt).SetUint64(4)
-
-	tm := func(r round) time.Duration { return time.Duration(r) * time.Nanosecond }
-
-	t.Run("node is the proposer", func(t *testing.T) {
-		listeners, broadcasters := testListenersAndBroadcasters()
-		app, chain, vals := newApp(), newChain(), newVals()
-
-		vals.addValidator(*nodeAddr)
-		vals.addValidator(*val2)
-		vals.addValidator(*val3)
-		vals.addValidator(*val4)
-
-		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
-
-		expectedHeight, expectedRound := height(0), round(0)
-		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
-			MessageHeader: MessageHeader[felt.Felt]{
-				Height: 0,
-				Round:  0,
-				Sender: *nodeAddr,
-			},
-			ValidRound: -1,
-			Value:      utils.HeapPtr(app.cur + 1),
-		}
-
-		proposalBroadcaster := broadcasters.ProposalBroadcaster.(*senderAndReceiver[Proposal[value, felt.Felt,
-			felt.Felt], value, felt.Felt, felt.Felt])
-
-		algo.Start()
-		algo.Stop()
-
-		proposal := <-proposalBroadcaster.mCh
-
-		assert.Equal(t, expectedProposalMsg, proposal)
-		assert.Contains(t, algo.stateMachine.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
-		assert.Equal(t, expectedProposalMsg, algo.stateMachine.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
-
-		assert.Equal(t, prevote, algo.stateMachine.state.step)
-		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
-		assert.Equal(t, expectedRound, algo.stateMachine.state.round)
-	})
-
-	t.Run("node is not the proposer: schedule timeoutPropose", func(t *testing.T) {
-		listeners, broadcasters := testListenersAndBroadcasters()
-		app, chain, vals := newApp(), newChain(), newVals()
-
-		vals.addValidator(*val2)
-		vals.addValidator(*val3)
-		vals.addValidator(*val4)
-		vals.addValidator(*nodeAddr)
-
-		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
-
-		algo.Start()
-		algo.Stop()
-
-		assert.Equal(t, 1, len(algo.scheduledTms))
-
-		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 0})
-
-		assert.Equal(t, propose, algo.stateMachine.state.step)
-		assert.Equal(t, height(0), algo.stateMachine.state.height)
-		assert.Equal(t, round(0), algo.stateMachine.state.round)
-	})
-
-	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
-		listeners, broadcasters := testListenersAndBroadcasters()
-		app, chain, vals := newApp(), newChain(), newVals()
-		// The algo needs to run for a minimum amount of time but it cannot be long enough the state to change
-		// multiple times. This can happen if the timeouts are too small.
-		tm := func(r round) time.Duration {
-			if r == 0 {
-				return time.Nanosecond
-			}
-			return time.Second
-		}
-
-		vals.addValidator(*val2)
-		vals.addValidator(*val3)
-		vals.addValidator(*val4)
-		vals.addValidator(*nodeAddr)
-
-		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
-
-		expectedHeight, expectedRound := height(0), round(0)
-		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
-			MessageHeader: MessageHeader[felt.Felt]{
-				Height: 0,
-				Round:  0,
-				Sender: *nodeAddr,
-			},
-			ID: nil,
-		}
-
-		prevoteBroadcaster := broadcasters.PrevoteBroadcaster.(*senderAndReceiver[Prevote[felt.Felt, felt.Felt], value,
-			felt.Felt, felt.Felt])
-
-		algo.Start()
-		time.Sleep(time.Millisecond)
-		algo.Stop()
-
-		prevoteMsg := <-prevoteBroadcaster.mCh
-
-		assert.Equal(t, expectedPrevoteMsg, prevoteMsg)
-		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][expectedRound], *nodeAddr)
-		assert.Equal(t, expectedPrevoteMsg, algo.stateMachine.messages.prevotes[expectedHeight][expectedRound][*nodeAddr])
-
-		assert.Equal(t, prevote, algo.stateMachine.state.step)
-		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
-		assert.Equal(t, expectedRound, algo.stateMachine.state.round)
-	})
+	return New(*thisNodeAddr, app, chain, vals)
 }
 
 func TestThresholds(t *testing.T) {
