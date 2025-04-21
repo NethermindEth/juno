@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
@@ -216,6 +217,32 @@ type ResourceBoundsMap struct {
 	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
 }
 
+func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
+	type tempResourceBoundsMap struct {
+		L1Gas *ResourceBounds `json:"l1_gas"`
+		L2Gas *ResourceBounds `json:"l2_gas"`
+	}
+
+	temp := tempResourceBoundsMap{
+		L1Gas: r.L1Gas,
+		L2Gas: r.L2Gas,
+	}
+
+	// Check if L1DataGas is nil, if it is, remove it from the struct/map
+	if r.L1DataGas == nil {
+		return json.Marshal(temp)
+	}
+
+	// L1Gas and L2Gas should always be present.
+	return json.Marshal(struct {
+		*tempResourceBoundsMap
+		L1DataGas *ResourceBounds `json:"l1_data_gas"`
+	}{
+		tempResourceBoundsMap: &temp,
+		L1DataGas:             r.L1DataGas,
+	})
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
@@ -372,6 +399,16 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 }
 
 func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+	// Check if L1DataGas exists in the map
+	var l1DataGasResourceBounds *ResourceBounds
+	if _, ok := rb[core.ResourceL1DataGas]; ok {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
+		}
+	}
+
+	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
 		L1Gas: &ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1Gas].MaxAmount),
@@ -381,10 +418,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL2Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
 		},
-		L1DataGas: &ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
-			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
-		},
+		L1DataGas: l1DataGasResourceBounds,
 	}
 	return rpcResourceBounds
 }
@@ -577,8 +611,40 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
-// AddTransaction relays a transaction to the gateway.
+// AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	if h.memPool != nil {
+		return h.addToMempool(&tx)
+	} else {
+		return h.pushToFeederGateway(ctx, tx)
+	}
+}
+
+func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
+		Transaction:   userTxn,
+		DeclaredClass: userClass,
+		PaidFeeOnL1:   paidFeeOnL1,
+	}); err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
+	if tx.Type == TxnDeployAccount {
+		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+	} else if tx.Type == TxnDeclare {
+		res.ClassHash, err = userClass.Hash()
+		if err != nil {
+			return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		}
+	}
+	return res, nil
+}
+
+func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {

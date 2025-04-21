@@ -211,7 +211,6 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 	if err != nil {
 		return err
 	}
-
 	if !root.Equal(currentRoot) {
 		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
 	}
@@ -222,7 +221,12 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 // updated if an error is encountered during the operation. If update's
 // old or new root does not match the state's old or new roots,
 // [ErrMismatchedRoot] is returned.
-func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses map[felt.Felt]Class) error {
+func (s *State) Update(
+	blockNumber uint64,
+	update *StateUpdate,
+	declaredClasses map[felt.Felt]Class,
+	skipVerifyNewRoot bool,
+) error {
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
 		return err
@@ -257,6 +261,11 @@ func (s *State) Update(blockNumber uint64, update *StateUpdate, declaredClasses 
 
 	if err = storageCloser(); err != nil {
 		return err
+	}
+
+	// The following check isn't relevant for the centralised Juno sequencer
+	if skipVerifyNewRoot {
+		return nil
 	}
 
 	return s.verifyStateUpdateRoot(update.NewRoot)
