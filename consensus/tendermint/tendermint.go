@@ -368,7 +368,7 @@ func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingP
 
 	var vals []A
 	for addr, p := range precommits {
-		if *p.ID == vID {
+		if p.ID != nil && *p.ID == vID {
 			matchingPrecommits = append(matchingPrecommits, p)
 			vals = append(vals, addr)
 		}
@@ -385,7 +385,7 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 
 	var vals []A
 	for addr, p := range prevotes {
-		if *p.ID == vID {
+		if p.ID != nil && *p.ID == vID {
 			vals = append(vals, addr)
 		}
 	}
