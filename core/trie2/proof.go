@@ -6,13 +6,14 @@ import (
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/utils"
 )
 
-type ProofNodeSet = utils.OrderedSet[felt.Felt, Node]
+type ProofNodeSet = utils.OrderedSet[felt.Felt, trienode.Node]
 
 func NewProofNodeSet() *ProofNodeSet {
-	return utils.NewOrderedSet[felt.Felt, Node]()
+	return utils.NewOrderedSet[felt.Felt, trienode.Node]()
 }
 
 // Prove generates a Merkle proof for a given key in the trie.
@@ -28,15 +29,15 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	k := &path
 
 	var (
-		nodes  []Node
+		nodes  []trienode.Node
 		prefix = new(Path)
 		rn     = t.root
 	)
 
 	for k.Len() > 0 && rn != nil {
 		switch n := rn.(type) {
-		case *EdgeNode:
-			if !n.pathMatches(k) {
+		case *trienode.EdgeNode:
+			if !n.PathMatches(k) {
 				rn = nil // Trie doesn't contain the key
 			} else {
 				rn = n.Child
@@ -44,13 +45,13 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 				k.LSBs(k, n.Path.Len())
 			}
 			nodes = append(nodes, n)
-		case *BinaryNode:
+		case *trienode.BinaryNode:
 			bit := k.MSB()
 			rn = n.Children[bit]
 			prefix.AppendBit(prefix, bit)
 			k.LSBs(k, 1)
 			nodes = append(nodes, n)
-		case *HashNode:
+		case *trienode.HashNode:
 			resolved, err := t.resolveNode(n, *prefix)
 			if err != nil {
 				return err
@@ -65,11 +66,11 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	// There should be a better way to do this
 	hasher := newHasher(t.hashFn, false)
 	for i, n := range nodes {
-		var hn Node
+		var hn trienode.Node
 		n, hn = hasher.proofHash(n)
-		if hash, ok := hn.(*HashNode); ok || i == 0 {
+		if hash, ok := hn.(*trienode.HashNode); ok || i == 0 {
 			if !ok {
-				hash = &HashNode{Felt: n.Hash(hasher.hashFn)}
+				hash = &trienode.HashNode{Felt: n.Hash(hasher.hashFn)}
 			}
 			proof.Put(hash.Felt, n)
 		}
@@ -121,7 +122,7 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 		nHash, _ := h.hash(node)
 
 		// Verify the hash matches
-		if !nHash.(*HashNode).Felt.Equal(&expected) {
+		if !nHash.(*trienode.HashNode).Felt.Equal(&expected) {
 			return felt.Zero, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expected.String(), nHash.String())
 		}
 
@@ -129,7 +130,7 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 		switch cld := child.(type) {
 		case nil:
 			return felt.Zero, nil
-		case *HashNode:
+		case *trienode.HashNode:
 			// TODO(weiihann):
 			// There's a case where the leaf node is defined as a hash node instead of a value node
 			// Ideally, this should not occur.
@@ -137,10 +138,10 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 				return cld.Felt, nil
 			}
 			expected = cld.Felt
-		case *ValueNode:
+		case *trienode.ValueNode:
 			return cld.Felt, nil
-		case *EdgeNode, *BinaryNode:
-			if hash, _ := cld.cache(); hash != nil {
+		case *trienode.EdgeNode, *trienode.BinaryNode:
+			if hash, _ := cld.Cache(); hash != nil {
 				expected = hash.Felt
 			}
 		}
@@ -279,9 +280,9 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
 // as hashes. The given edge proof can be existent or non-existent.
-func proofToPath(rootHash *felt.Felt, root Node, keyBits Path, proof *ProofNodeSet, allowNonExistent bool) (Node, *felt.Felt, error) {
+func proofToPath(rootHash *felt.Felt, root trienode.Node, keyBits Path, proof *ProofNodeSet, allowNonExistent bool) (trienode.Node, *felt.Felt, error) {
 	// Retrieves the node from the proof node set given the node hash
-	retrieveNode := func(hash felt.Felt) (Node, error) {
+	retrieveNode := func(hash felt.Felt) (trienode.Node, error) {
 		n, _ := proof.Get(hash)
 		if n == nil {
 			return nil, fmt.Errorf("proof node not found, expected hash: %s", hash.String())
@@ -300,7 +301,7 @@ func proofToPath(rootHash *felt.Felt, root Node, keyBits Path, proof *ProofNodeS
 
 	var (
 		err           error
-		child, parent Node
+		child, parent trienode.Node
 		val           *felt.Felt
 	)
 
@@ -314,25 +315,25 @@ func proofToPath(rootHash *felt.Felt, root Node, keyBits Path, proof *ProofNodeS
 				return root, nil, nil
 			}
 			return nil, nil, errors.New("the node is not in the trie")
-		case *EdgeNode:
+		case *trienode.EdgeNode:
 			parent = child
 			continue
-		case *BinaryNode:
+		case *trienode.BinaryNode:
 			parent = child
 			continue
-		case *HashNode:
+		case *trienode.HashNode:
 			child, err = retrieveNode(n.Felt)
 			if err != nil {
 				return nil, nil, err
 			}
-		case *ValueNode:
+		case *trienode.ValueNode:
 			val = &n.Felt
 		}
 		// Link the parent and child
 		switch p := parent.(type) {
-		case *EdgeNode:
+		case *trienode.EdgeNode:
 			p.Child = child
-		case *BinaryNode:
+		case *trienode.BinaryNode:
 			p.Children[msb] = child
 		default:
 			panic(fmt.Sprintf("unknown parent node type: %T", p))
@@ -358,7 +359,7 @@ func proofToPath(rootHash *felt.Felt, root Node, keyBits Path, proof *ProofNodeS
 // and right is larger than left.
 //
 //nolint:gocyclo
-func unsetInternal(n Node, left, right Path) (bool, error) {
+func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
 	// Step down to the fork point. There are two scenarios that can happen:
 	// - the fork point is an EdgeNode: either the key of left proof or
 	//   right proof doesn't match with the edge node's path
@@ -366,7 +367,7 @@ func unsetInternal(n Node, left, right Path) (bool, error) {
 	//   to point to a non-existent key
 	var (
 		pos    uint8
-		parent Node
+		parent trienode.Node
 
 		// fork indicator for edge nodes
 		edgeForkLeft, edgeForkRight int
@@ -375,8 +376,8 @@ func unsetInternal(n Node, left, right Path) (bool, error) {
 findFork:
 	for {
 		switch rn := n.(type) {
-		case *EdgeNode:
-			rn.flags = newFlag()
+		case *trienode.EdgeNode:
+			rn.Flags = trienode.NewNodeFlag()
 
 			if left.Len()-pos < rn.Path.Len() {
 				edgeForkLeft = new(Path).LSBs(&left, pos).Cmp(rn.Path)
@@ -399,8 +400,8 @@ findFork:
 			parent = n
 			n = rn.Child
 			pos += rn.Path.Len()
-		case *BinaryNode:
-			rn.flags = newFlag()
+		case *trienode.BinaryNode:
+			rn.Flags = trienode.NewNodeFlag()
 
 			leftnode, rightnode := rn.Children[left.Bit(pos)], rn.Children[right.Bit(pos)]
 			if leftnode == nil || rightnode == nil || leftnode != rightnode {
@@ -415,7 +416,7 @@ findFork:
 	}
 
 	switch rn := n.(type) {
-	case *EdgeNode:
+	case *trienode.EdgeNode:
 		// There can have these five scenarios:
 		// - both proofs are less than the trie path => no valid range
 		// - both proofs are greater than the trie path => no valid range
@@ -433,34 +434,34 @@ findFork:
 			if parent == nil {
 				return true, nil
 			}
-			parent.(*BinaryNode).Children[left.Bit(pos-1)] = nil
+			parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
 			return false, nil
 		}
 		// Only one proof points to non-existent key
 		if edgeForkRight != 0 {
-			if _, ok := rn.Child.(*ValueNode); ok {
+			if _, ok := rn.Child.(*trienode.ValueNode); ok {
 				// The fork point is root node, unset the entire trie
 				if parent == nil {
 					return true, nil
 				}
-				parent.(*BinaryNode).Children[left.Bit(pos-1)] = nil
+				parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
 				return false, nil
 			}
 			return false, unset(rn, rn.Child, new(Path).LSBs(&left, pos), rn.Path.Len(), false)
 		}
 		if edgeForkLeft != 0 {
-			if _, ok := rn.Child.(*ValueNode); ok {
+			if _, ok := rn.Child.(*trienode.ValueNode); ok {
 				// The fork point is root node, unset the entire trie
 				if parent == nil {
 					return true, nil
 				}
-				parent.(*BinaryNode).Children[right.Bit(pos-1)] = nil
+				parent.(*trienode.BinaryNode).Children[right.Bit(pos-1)] = nil
 				return false, nil
 			}
 			return false, unset(rn, rn.Child, new(Path).LSBs(&right, pos), rn.Path.Len(), true)
 		}
 		return false, nil
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		leftBit := left.Bit(pos)
 		rightBit := right.Bit(pos)
 		if leftBit == 0 && rightBit == 0 {
@@ -482,11 +483,11 @@ findFork:
 }
 
 // unset removes all internal node references either the left most or right most.
-func unset(parent, child Node, key *Path, pos uint8, removeLeft bool) error {
+func unset(parent, child trienode.Node, key *Path, pos uint8, removeLeft bool) error {
 	switch cld := child.(type) {
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		keyBit := key.Bit(pos)
-		cld.flags = newFlag() // Mark dirty
+		cld.Flags = trienode.NewNodeFlag() // Mark dirty
 		if removeLeft {
 			// Remove left child if we're removing left side
 			if keyBit == 1 {
@@ -500,10 +501,10 @@ func unset(parent, child Node, key *Path, pos uint8, removeLeft bool) error {
 		}
 		return unset(cld, cld.Children[key.Bit(pos)], key, pos+1, removeLeft)
 
-	case *EdgeNode:
+	case *trienode.EdgeNode:
 		keyPos := new(Path).LSBs(key, pos)
 		keyBit := key.Bit(pos - 1)
-		if !cld.pathMatches(keyPos) {
+		if !cld.PathMatches(keyPos) {
 			// We append zeros to the path to match the length of the remaining key
 			// The key length is guaranteed to be >= path length
 			edgePath := new(Path).AppendZeros(cld.Path, keyPos.Len()-cld.Path.Len())
@@ -511,23 +512,23 @@ func unset(parent, child Node, key *Path, pos uint8, removeLeft bool) error {
 			if removeLeft {
 				if edgePath.Cmp(keyPos) < 0 {
 					// Edge node path is in range, unset entire branch
-					parent.(*BinaryNode).Children[keyBit] = nil
+					parent.(*trienode.BinaryNode).Children[keyBit] = nil
 				}
 			} else {
 				if edgePath.Cmp(keyPos) > 0 {
-					parent.(*BinaryNode).Children[keyBit] = nil
+					parent.(*trienode.BinaryNode).Children[keyBit] = nil
 				}
 			}
 			return nil
 		}
-		if _, ok := cld.Child.(*ValueNode); ok {
-			parent.(*BinaryNode).Children[keyBit] = nil
+		if _, ok := cld.Child.(*trienode.ValueNode); ok {
+			parent.(*trienode.BinaryNode).Children[keyBit] = nil
 			return nil
 		}
-		cld.flags = newFlag()
+		cld.Flags = trienode.NewNodeFlag()
 		return unset(cld, cld.Child, key, pos+cld.Path.Len(), removeLeft)
 
-	case nil, *HashNode, *ValueNode:
+	case nil, *trienode.HashNode, *trienode.ValueNode:
 		// Child is nil, nothing to unset
 		return nil
 	default:
@@ -537,10 +538,10 @@ func unset(parent, child Node, key *Path, pos uint8, removeLeft bool) error {
 
 // hasRightElement checks if there is a right sibling for the given key in the trie.
 // This function assumes that the entire path has been resolved.
-func hasRightElement(node Node, key Path) bool {
+func hasRightElement(node trienode.Node, key Path) bool {
 	for node != nil {
 		switch n := node.(type) {
-		case *BinaryNode:
+		case *trienode.BinaryNode:
 			bit := key.MSB()
 			if bit == 0 && n.Children[1] != nil {
 				// right sibling exists
@@ -548,8 +549,8 @@ func hasRightElement(node Node, key Path) bool {
 			}
 			node = n.Children[bit]
 			key.LSBs(&key, 1)
-		case *EdgeNode:
-			if !n.pathMatches(&key) {
+		case *trienode.EdgeNode:
+			if !n.PathMatches(&key) {
 				// There's a divergence in the path, check if the node path is greater than the key
 				// If so, that means that this node comes after the search key, which indicates that
 				// there are elements with larger values
@@ -563,7 +564,7 @@ func hasRightElement(node Node, key Path) bool {
 			}
 			node = n.Child
 			key.LSBs(&key, n.Path.Len())
-		case *ValueNode:
+		case *trienode.ValueNode:
 			return false // resolved the whole path
 		default:
 			panic(fmt.Sprintf("unknown node type: %T", n))
@@ -574,22 +575,22 @@ func hasRightElement(node Node, key Path) bool {
 
 // Resolves the whole path of the given key and node.
 // If skipResolved is true, it will only return the immediate child node of the current node
-func get(rn Node, key *Path, skipResolved bool) Node {
+func get(rn trienode.Node, key *Path, skipResolved bool) trienode.Node {
 	for {
 		switch n := rn.(type) {
-		case *EdgeNode:
-			if !n.pathMatches(key) {
+		case *trienode.EdgeNode:
+			if !n.PathMatches(key) {
 				return nil
 			}
 			rn = n.Child
 			key.LSBs(key, n.Path.Len())
-		case *BinaryNode:
+		case *trienode.BinaryNode:
 			bit := key.MSB()
 			rn = n.Children[bit]
 			key.LSBs(key, 1)
-		case *HashNode:
+		case *trienode.HashNode:
 			return n
-		case *ValueNode:
+		case *trienode.ValueNode:
 			return n
 		case nil:
 			return nil

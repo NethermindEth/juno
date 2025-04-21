@@ -1,4 +1,4 @@
-package trie2
+package trienode
 
 import (
 	"bytes"
@@ -110,11 +110,11 @@ func TestNodeEncodingDecoding(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Encode the node
-			encoded := nodeToBytes(tt.node)
+			encoded := EncodeNode(tt.node)
 
 			// Try to decode
 			hash := tt.node.Hash(crypto.Pedersen)
-			decoded, err := decodeNode(encoded, hash, tt.pathLen, tt.maxPath)
+			decoded, err := DecodeNode(encoded, hash, tt.pathLen, tt.maxPath)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -126,7 +126,7 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			require.NotNil(t, decoded)
 
 			// Re-encode the decoded node and compare with original encoding
-			reEncoded := nodeToBytes(decoded)
+			reEncoded := EncodeNode(decoded)
 			assert.True(t, bytes.Equal(encoded, reEncoded), "re-encoded node doesn't match original encoding")
 
 			// Test specific node type assertions and properties
@@ -152,19 +152,19 @@ func TestNodeEncodingDecoding(t *testing.T) {
 func TestNodeEncodingDecodingBoundary(t *testing.T) {
 	// Test empty/nil nodes
 	t.Run("nil node encoding", func(t *testing.T) {
-		assert.Panics(t, func() { nodeToBytes(nil) })
+		assert.Panics(t, func() { EncodeNode(nil) })
 	})
 
 	// Test with invalid path lengths
 	t.Run("invalid path lengths", func(t *testing.T) {
 		blob := make([]byte, hashOrValueNodeSize)
-		_, err := decodeNode(blob, felt.Zero, 255, 8) // pathLen > maxPath
+		_, err := DecodeNode(blob, felt.Zero, 255, 8) // pathLen > maxPath
 		require.Error(t, err)
 	})
 
 	// Test with empty buffer
 	t.Run("empty buffer", func(t *testing.T) {
-		_, err := decodeNode([]byte{}, felt.Zero, 0, 8)
+		_, err := DecodeNode([]byte{}, felt.Zero, 0, 8)
 		require.Error(t, err)
 	})
 }

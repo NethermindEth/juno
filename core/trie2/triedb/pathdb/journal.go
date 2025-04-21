@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
@@ -16,6 +18,8 @@ import (
 const (
 	journalVersion = 1
 )
+
+var stateVersion = new(felt.Felt).SetBytes([]byte(`STARKNET_STATE_V0`))
 
 type journalType byte
 
@@ -161,15 +165,15 @@ func (d *Database) loadJournal() (layer, error) {
 			return nil, err
 		}
 
-		// TODO(weiihann): need to get the actual root for the disk layer
-		root := felt.Zero
 		latestID, err := trieutils.ReadPersistedStateID(d.disk)
 		if err != nil {
 			if !errors.Is(err, db.ErrKeyNotFound) {
 				return nil, err
 			}
 		}
-		disk := newDiskLayer(root, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
+
+		diskRoot := d.getStateRoot()
+		disk := newDiskLayer(diskRoot, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
 		return disk, nil
 	}
 
@@ -256,4 +260,42 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 	}
 
 	return head, nil
+}
+
+func (d *Database) getStateRoot() felt.Felt {
+	encContractRoot, err := trieutils.GetNodeByPath(
+		d.disk,
+		db.ContractTrieContract,
+		felt.Zero,
+		trieutils.Path{},
+		false,
+	)
+	if err != nil {
+		return felt.Zero
+	}
+
+	encStorageRoot, err := trieutils.GetNodeByPath(
+		d.disk,
+		db.ClassTrie,
+		felt.Zero,
+		trieutils.Path{},
+		false,
+	)
+	if err != nil {
+		return felt.Zero
+	}
+
+	contractRootNode, err := trienode.DecodeNode(encContractRoot, felt.Zero, 0, 251)
+	if err != nil {
+		return felt.Zero
+	}
+	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
+
+	classRootNode, err := trienode.DecodeNode(encStorageRoot, felt.Zero, 0, 251)
+	if err != nil {
+		return felt.Zero
+	}
+	classRootHash := classRootNode.Hash(crypto.Pedersen)
+
+	return *crypto.PoseidonArray(stateVersion, &contractRootHash, &classRootHash)
 }
