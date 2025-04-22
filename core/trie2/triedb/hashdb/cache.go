@@ -9,9 +9,8 @@ const (
 )
 
 type cachedNode struct {
-	blob     []byte
-	parents  uint32
-	external map[string]struct{}
+	blob    []byte
+	parents uint32
 }
 
 type CleanCache interface {

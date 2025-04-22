@@ -75,10 +75,6 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 	return tr, nil
 }
 
-func NewWithRootHash(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase, rootHash felt.Felt) (*Trie, error) {
-
-}
-
 // Creates an empty trie, only used for temporary trie construction
 func NewEmpty(height uint8, hashFn crypto.HashFn) *Trie {
 	return &Trie{
