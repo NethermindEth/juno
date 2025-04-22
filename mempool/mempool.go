@@ -5,17 +5,22 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
 
-var ErrTxnPoolFull = errors.New("transaction pool is full")
+var (
+	ErrTxnPoolFull  = errors.New("transaction pool is full")
+	ErrTxnPoolEmpty = errors.New("transaction pool is empty")
+)
 
 type BroadcastedTransaction struct {
 	Transaction   core.Transaction
 	DeclaredClass core.Class
+	PaidFeeOnL1   *felt.Felt
 }
 
 // runtime mempool txn
@@ -56,7 +61,7 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 	defer t.mu.Unlock()
 
 	if t.head == nil {
-		return BroadcastedTransaction{}, errors.New("transaction pool is empty")
+		return BroadcastedTransaction{}, ErrTxnPoolEmpty
 	}
 
 	headNode := t.head
@@ -68,11 +73,42 @@ func (t *memTxnList) pop() (BroadcastedTransaction, error) {
 	return headNode.Txn, nil
 }
 
+func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.head == nil {
+		return nil, ErrTxnPoolEmpty
+	}
+
+	// Limit numToPop to the actual number of transactions available
+	if numToPop > t.len {
+		numToPop = t.len
+	}
+
+	result := make([]BroadcastedTransaction, numToPop)
+	current := t.head
+
+	for i := range numToPop {
+		result[i] = current.Txn
+		current = current.Next
+	}
+
+	// Update the head to point to the next transaction after the batch
+	t.head = current
+	if t.head == nil {
+		t.tail = nil
+	}
+	t.len -= numToPop
+
+	return result, nil
+}
+
 // Pool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
 type Pool struct {
 	log         utils.SimpleLogger
-	state       core.StateReader
+	bc          blockchain.Reader
 	db          db.KeyValueStore // to store the persistent mempool
 	txPushed    chan struct{}
 	memTxnList  *memTxnList
@@ -83,26 +119,23 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.KeyValueStore, state core.StateReader, maxNumTxns int, log utils.SimpleLogger) (*Pool, func() error) {
+func New(mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) *Pool {
 	pool := &Pool{
 		log:         log,
-		state:       state,
+		bc:          bc,
 		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
 		txPushed:    make(chan struct{}, 1),
 		memTxnList:  &memTxnList{},
 		maxNumTxns:  maxNumTxns,
 		dbWriteChan: make(chan *BroadcastedTransaction, maxNumTxns),
 	}
-	closer := func() error {
-		close(pool.dbWriteChan)
-		pool.wg.Wait()
-		if err := pool.db.Close(); err != nil {
-			return fmt.Errorf("failed to close mempool database: %v", err)
-		}
-		return nil
-	}
 	pool.dbWriter()
-	return pool, closer
+	return pool
+}
+
+func (p *Pool) Close() {
+	close(p.dbWriteChan)
+	p.wg.Wait()
 }
 
 func (p *Pool) dbWriter() {
@@ -204,8 +237,10 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 
 // Push queues a transaction to the pool
 func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
+	p.log.Debugw("mempool received transaction for pre-processing")
 	err := p.validate(userTxn)
 	if err != nil {
+		p.log.Debugw("mempool transaction failed validation")
 		return err
 	}
 
@@ -225,6 +260,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 
 	newNode := &memPoolTxn{Txn: *userTxn, Next: nil}
 	p.memTxnList.push(newNode)
+	p.log.Debugw("successfully pushed transaction to the mempool")
 
 	select {
 	case p.txPushed <- struct{}{}:
@@ -239,6 +275,17 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		return ErrTxnPoolFull
 	}
 
+	state, closer, err := p.bc.HeadState()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err := closer(); err != nil {
+			p.log.Errorw("closing state in mempool validate", "err", err)
+		}
+	}()
+
 	switch t := userTxn.Transaction.(type) {
 	case *core.DeployTransaction:
 		return fmt.Errorf("deploy transactions are not supported")
@@ -247,7 +294,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
 		}
 	case *core.DeclareTransaction:
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := state.ContractNonce(t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
@@ -258,7 +305,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
 			return fmt.Errorf("invoke v0 transactions not supported")
 		}
-		nonce, err := p.state.ContractNonce(t.SenderAddress)
+		nonce, err := state.ContractNonce(t.SenderAddress)
 		if err != nil {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
@@ -275,6 +322,14 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 // Pop returns the transaction with the highest priority from the in-memory pool
 func (p *Pool) Pop() (BroadcastedTransaction, error) {
 	return p.memTxnList.pop()
+}
+
+// PopBatch returns a batch of transactions with the highest priority from the in-memory pool
+func (p *Pool) PopBatch(numToPop int) ([]BroadcastedTransaction, error) {
+	if numToPop <= 0 {
+		return []BroadcastedTransaction{}, nil
+	}
+	return p.memTxnList.popBatch(numToPop)
 }
 
 // Remove removes a set of transactions from the pool

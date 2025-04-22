@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
@@ -78,14 +78,14 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 }
 
 func TestSign(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
@@ -94,7 +94,7 @@ func TestSign(t *testing.T) {
 }
 
 func TestBuildTwoEmptyBlocks(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
@@ -103,7 +103,7 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p := mempool.New(pebble.NewMemTest(t), bc, 1000, utils.NewNopZapLogger())
+	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
 
 	minHeight := uint64(2)
 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
@@ -176,7 +176,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	}
 
 	expectedExnsInBlock := []rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	network := &utils.Mainnet
 	bc := blockchain.New(testDB, network)
 	log := utils.NewNopZapLogger()
