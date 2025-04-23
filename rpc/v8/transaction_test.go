@@ -355,6 +355,59 @@ func TestTransactionByHash(t *testing.T) {
 				"fee_data_availability_mode": "L1"
 			}`,
 		},
+		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282
+		"INVOKE v3 without l1_data_gas": {
+			hash:    "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
+			network: &utils.Integration,
+			expected: `{
+				"transaction_hash": "0x2db07ed11b1f6c678de9fc19ef0dfb8e71631e1cff236a34e68f51528a21282",
+				"version": "0x3",
+				"signature": [
+					"0x6b67b53231b0ad782b651cb529004258ac79f8bd069042127e0f58edd40fd89",
+					"0x36cc9eaeb31b0b3d990624cf105aa0cea86590452e188dadb75edc02ddeea51"
+				],
+				"nonce": "0x12c0c",
+				"resource_bounds": {
+					"l1_gas": {
+						"max_amount": "0x60",
+						"max_price_per_unit": "0x13ac02cbe617"
+					},
+					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
+				},
+				"tip": "0x0",
+				"paymaster_data": [],
+				"sender_address": "0x573ea9a8602e03417a4a31d55d115748f37a08bbb23adf6347cb699743a998d",
+				"calldata": [
+					"0x1",
+					"0x53d5cb0de4f03f9ac31f83621cef64b9372bf1f690fdfa2ba8a07c316e67817",
+					"0xc844fd57777b0cd7e75c8ea68deec0adf964a6308da7a58de32364b7131cc8",
+					"0x13",
+					"0x4c7fb0cc02a3432253dcc76f8ab04ed11bc804ca36312d9fbd0777541f266",
+					"0x192603",
+					"0xd34ba8c515a574cd724301a5b50e997abcfd377f705e70a8330c706f3ccf34",
+					"0x663c8f59",
+					"0x204030100000000000000000000000000000000000000000000000000000000",
+					"0x4",
+					"0x5444abc7",
+					"0x54497b21",
+					"0x54497b21",
+					"0x54497b21",
+					"0xb6d5fbd139a7d956f",
+					"0x1",
+					"0x2",
+					"0x723516b6471960da09efa937c31abd5c46590e7b9df4773a5a6111497541508",
+					"0x385effc19083082f432ed7ab855de96b575e14a21b0a6d7a4395ff4d99e30f6",
+					"0x2cb74dff29a13dd5d855159349ec92f943bacf0547ff3734e7d84a15d08cbc5",
+					"0xb5eb2dec854e82a991956a933cd3b20b888bcb1737427e829efc5cd7e241e7",
+					"0xb71581436348419b44d939dc2af69a310c7a4b7d4f16b07f71d1957e9d5ceb",
+					"0x4225d1c8ee8e451a25e30c10689ef898e11ccf5c0f68d0fc7876c47b318e946"
+				],
+				"account_deployment_data": [],
+				"type": "INVOKE",
+				"nonce_data_availability_mode": "L1",
+				"fee_data_availability_mode": "L1"
+			}`,
+		},
 	}
 
 	for name, test := range tests {
@@ -1680,4 +1733,80 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 
 	require.True(t, ok)
 	require.Equal(t, expectedTxn, *resultTxn)
+}
+
+func TestResourceBoundsMapMarshalJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *rpc.ResourceBoundsMap
+		expected string
+	}{
+		{
+			name: "with l1_data_gas",
+			input: &rpc.ResourceBoundsMap{
+				L1Gas: &rpc.ResourceBounds{
+					MaxAmount:       new(felt.Felt).SetUint64(100),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+				},
+				L2Gas: &rpc.ResourceBounds{
+					MaxAmount:       new(felt.Felt).SetUint64(200),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+				},
+				L1DataGas: &rpc.ResourceBounds{
+					MaxAmount:       new(felt.Felt).SetUint64(300),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(30),
+				},
+			},
+			expected: `{
+				"l1_gas": {
+					"max_amount": "0x64",
+					"max_price_per_unit": "0xa"
+				},
+				"l2_gas": {
+					"max_amount": "0xc8",
+					"max_price_per_unit": "0x14"
+				},
+				"l1_data_gas": {
+					"max_amount": "0x12c",
+					"max_price_per_unit": "0x1e"
+				}
+			}`,
+		},
+		{
+			name: "without l1_data_gas",
+			input: &rpc.ResourceBoundsMap{
+				L1Gas: &rpc.ResourceBounds{
+					MaxAmount:       new(felt.Felt).SetUint64(100),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+				},
+				L2Gas: &rpc.ResourceBounds{
+					MaxAmount:       new(felt.Felt).SetUint64(200),
+					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+				},
+				L1DataGas: nil,
+			},
+			expected: `{
+				"l1_gas": {
+					"max_amount": "0x64",
+					"max_price_per_unit": "0xa"
+				},
+				"l2_gas": {
+					"max_amount": "0xc8",
+					"max_price_per_unit": "0x14"
+				}
+			}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := test.input.MarshalJSON()
+			require.NoError(t, err)
+
+			var gotMap, expectedMap map[string]interface{}
+			require.NoError(t, json.Unmarshal(got, &gotMap))
+			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
+			assert.Equal(t, expectedMap, gotMap)
+		})
+	}
 }
