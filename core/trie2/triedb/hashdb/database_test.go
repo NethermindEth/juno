@@ -164,7 +164,7 @@ func TestDatabase(t *testing.T) {
 		classReader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
 		require.NoError(t, err)
 
-		contractReader, err := database.NodeReader(trieutils.NewContractTrieID(contractOwner))
+		contractReader, err := database.NodeReader(trieutils.NewContractStorageTrieID(felt.Zero, contractOwner))
 		require.NoError(t, err)
 
 		classBlob, err := classReader.Node(felt.Zero, classPath, classNode.Hash(), classNode.IsLeaf())
@@ -187,7 +187,7 @@ func TestDatabase(t *testing.T) {
 			classNodes map[trieutils.Path]trienode.TrieNode
 		}, numTries)
 
-		for i := 0; i < numTries; i++ {
+		for i := range numTries {
 			rootPath := trieutils.NewBitArray(8, uint64(i*2))
 			rootNode := trienode.NewNonLeaf(*new(felt.Felt).SetUint64(uint64(i * 100)), []byte{1, 0, 0})
 
@@ -212,7 +212,7 @@ func TestDatabase(t *testing.T) {
 
 		var wg sync.WaitGroup
 		wg.Add(numTries)
-		for i := 0; i < numTries; i++ {
+		for i := range numTries {
 			go func(i int) {
 				defer wg.Done()
 				err := database.Commit(tries[i].root)

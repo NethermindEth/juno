@@ -67,6 +67,27 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 	return key
 }
 
+func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+	var res []byte
+	if err := r.Get(NodeKeyByHash(bucket, owner, path, hash, isLeaf),
+		func(value []byte) error {
+			res = value
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool, blob []byte) error {
+	return w.Put(NodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
+}
+
+func DeleteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) error {
+	return w.Delete(NodeKeyByHash(bucket, owner, path, hash, isLeaf))
+}
+
 // References: https://github.com/NethermindEth/nethermind/pull/6331
 // Construct key bytes to insert a trie node. The format is as follows:
 //
