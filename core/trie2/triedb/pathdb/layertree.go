@@ -68,7 +68,7 @@ func (tree *layerTree) cap(root felt.Felt, layers int) error {
 
 	diff, ok := l.(*diffLayer)
 	if !ok {
-		return fmt.Errorf("layer %v is not a diff layer", root)
+		return nil
 	}
 
 	tree.lock.Lock()

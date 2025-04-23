@@ -20,7 +20,7 @@ var _ database.TrieDB = (*Database)(nil)
 type Config struct {
 	CleanCacheSize  int // Maximum size (in bytes) for caching clean nodes
 	WriteBufferSize int // Maximum size (in bytes) for buffering writes before flushing
-} // TODO(weiihann): handle this
+}
 
 var defaultConfig = &Config{
 	CleanCacheSize:  16 * utils.Megabyte,
@@ -48,7 +48,11 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 }
 
 func (d *Database) Close() error {
-	panic("TODO(weiihann): implement me")
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	d.tree.diskLayer().resetCache()
+	return nil
 }
 
 func (d *Database) Commit(root felt.Felt) error {

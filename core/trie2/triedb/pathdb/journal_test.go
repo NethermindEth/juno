@@ -41,3 +41,14 @@ func TestJournal(t *testing.T) {
 		})
 	}
 }
+
+func TestMissingJournal(t *testing.T) {
+	testDB := memory.New()
+	db, err := New(testDB, nil)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, db.tree.len())
+
+	root := *new(felt.Felt).SetUint64(uint64(1))
+	require.Error(t, db.Journal(root))
+}

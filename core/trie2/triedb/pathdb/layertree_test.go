@@ -155,7 +155,23 @@ func newLayerTracker() *layerTracker {
 }
 
 func (t *layerTracker) trackLayer(root, parent felt.Felt) {
+	if root.Equal(&parent) {
+		return
+	}
 	t.childToParent[root] = parent
+}
+
+func (t *layerTracker) trackNodes(
+	root felt.Felt,
+	parent felt.Felt,
+	classNodes,
+	contractNodes map[trieutils.Path]trienode.TrieNode,
+	storageNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+) {
+	t.trackClassNodes(root, classNodes)
+	t.trackContractNodes(root, contractNodes)
+	t.trackContractStorageNodes(root, storageNodes)
+	t.trackLayer(root, parent)
 }
 
 func (t *layerTracker) trackClassNodes(root felt.Felt, nodes map[trieutils.Path]trienode.TrieNode) {
@@ -260,13 +276,6 @@ func generateRandomPath(r *rand.Rand) trieutils.Path {
 	return path
 }
 
-// generateRandomOwner creates a random contract owner for testing
-func generateRandomOwner(r *rand.Rand, maxOwners int) felt.Felt {
-	var owner felt.Felt
-	owner.SetUint64(r.Uint64()%uint64(maxOwners) + 1)
-	return owner
-}
-
 // createTestNodeSet generates a MergeNodeSet with controlled overlapping paths
 func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bool) *trienode.MergeNodeSet {
 	// Create reusable path and owner sets for consistent overlaps
@@ -359,17 +368,20 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 	tree := newLayerTree(diskLayer)
 
 	// Track the base layer nodes
-	tracker.trackClassNodes(parent, flatClass)
-	tracker.trackContractNodes(parent, flatContract)
-	tracker.trackContractStorageNodes(parent, flatStorage)
+	tracker.trackNodes(parent, parent, flatClass, flatContract, flatStorage)
 
 	// Create additional layers with controlled overlap
-	for i := 1; i < numDiffs+1; i++ {
+	for i := 0; i < numDiffs+1; i++ {
 		layerRoot := *new(felt.Felt).SetUint64(uint64(i))
 
 		// Generate nodes for this layer with controlled overlap
 		classNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, true)
 		contractNodes := createTestNodeSet(nodesPerLayer, i, numDiffs+1, false)
+
+		// Track nodes for verification
+		flatClass, _ := classNodes.Flatten()
+		flatContract, flatStorage := contractNodes.Flatten()
+		tracker.trackNodes(layerRoot, parent, flatClass, flatContract, flatStorage)
 
 		// Add layer to tree
 		err := tree.add(layerRoot, parent, uint64(i), classNodes, contractNodes)
@@ -377,15 +389,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 			panic(fmt.Sprintf("Failed to add layer %d: %v", i, err))
 		}
 
-		// Track nodes for verification
-		flatClass, _ := classNodes.Flatten()
-		flatContract, flatStorage := contractNodes.Flatten()
-		tracker.trackClassNodes(layerRoot, flatClass)
-		tracker.trackContractNodes(layerRoot, flatContract)
-		tracker.trackContractStorageNodes(layerRoot, flatStorage)
-
 		// Track parent relationship
-		tracker.trackLayer(layerRoot, parent)
 		parent = layerRoot
 	}
 
@@ -483,4 +487,66 @@ func verifyLayer(tree *layerTree, root felt.Felt, tracker *layerTracker) error {
 		return err
 	}
 	return nil
+}
+
+func (t *layerTracker) print() {
+	fmt.Println("\n=== Layer Tracker Summary ===")
+
+	// Print child to parent relationships
+	fmt.Println("\nLayer Relationships:")
+	for child, parent := range t.childToParent {
+		fmt.Printf("Child: %s -> Parent: %s\n", child.String(), parent.String())
+	}
+
+	// Print class nodes
+	fmt.Println("\nClass Nodes:")
+	for root, nodes := range t.classNodes {
+		fmt.Printf("\nRoot: %s\n", root.String())
+		for path, node := range nodes {
+			fmt.Printf("  Path: %s, Node: %v\n", path.String(), node)
+		}
+	}
+
+	// Print contract nodes
+	fmt.Println("\nContract Nodes:")
+	for root, nodes := range t.contractNodes {
+		fmt.Printf("\nRoot: %s\n", root.String())
+		for path, node := range nodes {
+			fmt.Printf("  Path: %s, Node: %v\n", path.String(), node)
+		}
+	}
+
+	// Print contract storage nodes
+	fmt.Println("\nContract Storage Nodes:")
+	for root, owners := range t.contractStorageNodes {
+		fmt.Printf("\nRoot: %s\n", root.String())
+		for owner, nodes := range owners {
+			fmt.Printf("  Owner: %s\n", owner.String())
+			for path, node := range nodes {
+				fmt.Printf("    Path: %s, Node: %v\n", path.String(), node)
+			}
+		}
+	}
+
+	// Print unique paths
+	fmt.Println("\nUnique Paths:")
+	fmt.Println("Class Paths:")
+	for path, node := range t.classPaths {
+		fmt.Printf("  Path: %s, Node: %v\n", path.String(), node)
+	}
+
+	fmt.Println("\nContract Paths:")
+	for path, node := range t.contractPaths {
+		fmt.Printf("  Path: %s, Node: %v\n", path.String(), node)
+	}
+
+	fmt.Println("\nContract Storage Paths:")
+	for owner, paths := range t.contractStoragePaths {
+		fmt.Printf("  Owner: %s\n", owner.String())
+		for path, node := range paths {
+			fmt.Printf("    Path: %s, Node: %v\n", path.String(), node)
+		}
+	}
+
+	fmt.Println("=== End Layer Tracker Summary ===")
 }

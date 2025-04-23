@@ -85,7 +85,6 @@ func (dl *diskLayer) update(root felt.Felt, id, block uint64, nodes *nodeSet) *d
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
-// TODO(weiihann): deal with persisted state id later
 func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
@@ -109,4 +108,17 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	}
 	newDl := newDiskLayer(bottom.rootHash(), bottom.stateID(), dl.db, dl.cleans, combined)
 	return newDl, nil
+}
+
+func (dl *diskLayer) resetCache() {
+	dl.lock.Lock()
+	defer dl.lock.Unlock()
+
+	if dl.stale {
+		return
+	}
+
+	if dl.cleans != nil {
+		dl.cleans.cache.Reset()
+	}
 }
