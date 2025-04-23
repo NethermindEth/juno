@@ -406,7 +406,7 @@ where
                         .max_price_per_unit
                         .0
                         .max(1u64.into());
-                Ok(u64::try_from(max_l2_gas).unwrap_or(u64::MAX).into())
+                Ok(u64::try_from(max_l2_gas).unwrap_or(GasAmount::MAX.0).into())
             } else {
                 // Balance is less than committed L1 gas and L1 data gas, transaction will fail.
                 // Let it pass through here so that execution returns a detailed error.
