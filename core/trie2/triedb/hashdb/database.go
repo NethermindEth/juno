@@ -51,18 +51,17 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
+func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
 	_, found := d.dirtyCache.Get(key)
 	if found {
-		return nil
+		return
 	}
 	d.dirtyCache.Set(key, cachedNode{
 		blob:    blob,
 		parents: 0,
 	})
 	d.dirtyCacheSize += len(blob) + d.hashLen()
-	return nil
 }
 
 func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
@@ -97,11 +96,10 @@ func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, 
 	return blob, nil
 }
 
-func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
+func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
 	d.dirtyCache.Remove(key)
 	d.dirtyCacheSize -= len(blob) + d.hashLen()
-	return nil
 }
 
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
@@ -121,7 +119,10 @@ func (d *Database) Cap(limit uint64) error {
 	nodes, dirtyCacheSize, startTime := d.dirtyCache.Len(), d.dirtyCacheSize, time.Now()
 
 	for uint64(d.dirtyCacheSize) > limit && cacheNotEmpty {
-		batch.Put(key, node.blob)
+		if err := batch.Put(key, node.blob); err != nil {
+			d.log.Errorw("Failed to write flush list to disk", "error", err)
+			return err
+		}
 
 		if batch.Size() > idealBatchSize {
 			if err := batch.Write(); err != nil {
@@ -208,7 +209,9 @@ func (d *Database) commit(root felt.Felt, batch db.Batch) error {
 		}
 	}
 
-	batch.Put(key, node.blob)
+	if err := batch.Put(key, node.blob); err != nil {
+		return err
+	}
 
 	d.dirtyCache.Remove(key)
 	d.cleanCache.Set(key, node.blob)
@@ -225,7 +228,7 @@ func (d *Database) commit(root felt.Felt, batch db.Batch) error {
 	return nil
 }
 
-// TODO: This is really ugly, temporary solution
+// TODO: This is temporary solution, have to think of a way to parse nodes without cyclic dependency
 // Binary Node: binaryNodeType(1) + HashNode(left) + HashNode(right)
 // Edge Node: edgeNodeType(2) + HashNode(child) + Path
 // Hash/Value Node: just the felt bytes
@@ -243,7 +246,7 @@ func (d *Database) getNodeChildren(blob []byte) ([]felt.Felt, error) {
 	blob = blob[1:]
 
 	switch nodeType {
-	case 1: //binaryNodeType:
+	case 1:
 		if len(blob) < 2*felt.Bytes {
 			return nil, fmt.Errorf("invalid binary node size: %d", len(blob))
 		}
@@ -260,7 +263,7 @@ func (d *Database) getNodeChildren(blob []byte) ([]felt.Felt, error) {
 			children = append(children, *rightHash)
 		}
 
-	case 2: //edgeNodeType:
+	case 2:
 		if len(blob) < felt.Bytes {
 			return nil, fmt.Errorf("invalid edge node size: %d", len(blob))
 		}
@@ -287,9 +290,9 @@ func (d *Database) Update(
 ) {
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			d.remove(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			d.remove(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		} else {
-			d.insert(db.ContractStorage, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			d.insert(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		}
 	}
 

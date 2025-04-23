@@ -27,27 +27,16 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 }
 
 func (n *testNodeReader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
-	var (
-		node trienode.TrieNode
-		set  *trienode.NodeSet
-		ok   bool
-	)
 	for _, nodes := range n.nodes {
-		if nodes.OwnerSet.Owner.IsZero() {
-			node, ok = nodes.OwnerSet.Nodes[path]
-			if !ok {
-				continue
-			}
-		} else {
-			set, ok = nodes.ChildSets[owner]
-			if !ok {
-				continue
-			}
-			node, ok = set.Nodes[path]
-			if !ok {
-				continue
-			}
+		if _, ok := nodes.Sets[owner]; !ok {
+			continue
 		}
+
+		node, ok := nodes.Sets[owner].Nodes[path]
+		if !ok {
+			continue
+		}
+
 		nHash := node.Hash()
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			return nil, &MissingNodeError{owner: owner, path: path, hash: nHash}
@@ -60,13 +49,23 @@ func (n *testNodeReader) Node(owner felt.Felt, path trieutils.Path, hash felt.Fe
 func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
 	switch scheme {
 	case PathScheme:
-		owner := id.Owner()
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), id.Owner(), path, isLeaf)
 	case HashScheme:
-		// TODO: implement hash scheme
+		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf)
 	}
 
 	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: hash}
+}
+
+func writeNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash felt.Felt, isLeaf bool, node []byte) error { //nolint:lll
+	switch scheme {
+	case PathScheme:
+		return trieutils.WriteNodeByPath(r, id.Bucket(), id.Owner(), path, isLeaf, node)
+	case HashScheme:
+		return trieutils.WriteNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf, node)
+	}
+
+	return nil
 }
 
 type TestNodeDatabase struct {
@@ -77,8 +76,8 @@ type TestNodeDatabase struct {
 	rootLinks map[felt.Felt]felt.Felt // map[child_root]parent_root - keep track of the parent root for each child root
 }
 
-func NewTestNodeDatabase(disk db.KeyValueStore, scheme dbScheme) TestNodeDatabase {
-	return TestNodeDatabase{
+func NewTestNodeDatabase(disk db.KeyValueStore, scheme dbScheme) *TestNodeDatabase {
+	return &TestNodeDatabase{
 		disk:      disk,
 		root:      felt.Zero,
 		scheme:    scheme,
@@ -105,6 +104,43 @@ func (d *TestNodeDatabase) Update(root, parent felt.Felt, nodes *trienode.MergeN
 func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
 	nodes, _ := d.dirties(id.StateComm(), true)
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
+}
+
+func (d *TestNodeDatabase) Commit(stateComm felt.Felt) error {
+	if stateComm == d.root {
+		return nil
+	}
+
+	pending, roots := d.dirties(stateComm, false)
+	for i, nodes := range pending {
+		for owner, set := range nodes.Sets {
+			if owner.Equal(&felt.Zero) {
+				continue
+			}
+
+			// Write contract storage trie nodes
+			if err := set.ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
+				return writeNode(d.disk, trieutils.NewContractStorageTrieID(stateComm, owner), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Write contract trie nodes
+		if err := nodes.Sets[felt.Zero].ForEach(true, func(path trieutils.Path, node trienode.TrieNode) error {
+			return writeNode(d.disk, trieutils.NewContractTrieID(stateComm), d.scheme, path, node.Hash(), node.IsLeaf(), node.Blob())
+		}); err != nil {
+			return err
+		}
+		d.root = roots[i]
+	}
+
+	for _, root := range roots {
+		delete(d.nodes, root)
+		delete(d.rootLinks, root)
+	}
+
+	return nil
 }
 
 func (d *TestNodeDatabase) dirties(root felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
