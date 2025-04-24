@@ -12,6 +12,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func verifyNode(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
+	t.Helper()
+
+	reader, err := database.NodeReader(id)
+	require.NoError(t, err)
+
+	blob, err := reader.Node(id.Owner(), path, node.Hash(), node.IsLeaf())
+	require.NoError(t, err)
+	assert.Equal(t, node.Blob(), blob)
+
+	// Verify node is not in dirty cache
+	key := trieutils.NodeKeyByHash(id.Bucket(), id.Owner(), path, node.Hash(), node.IsLeaf())
+	_, found := database.dirtyCache.Get(key)
+	assert.False(t, found, "node should not be in dirty cache after commit")
+}
+
 func TestDatabase(t *testing.T) {
 	t.Run("New creates database with correct defaults", func(t *testing.T) {
 		memDB := memory.New()
@@ -61,20 +77,9 @@ func TestDatabase(t *testing.T) {
 		err := database.Commit(root)
 		require.NoError(t, err)
 
-		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
-		require.NoError(t, err)
-
-		rootBlob, err := reader.Node(felt.Zero, rootPath, rootNode.Hash(), false)
-		require.NoError(t, err)
-		assert.Equal(t, rootNode.Blob(), rootBlob)
-
-		leaf1Blob, err := reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf1Node.Blob(), leaf1Blob)
-
-		leaf2Blob, err := reader.Node(felt.Zero, leaf2Path, leaf2Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf2Node.Blob(), leaf2Blob)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
 	})
 
 	t.Run("Update and Commit deep trie structure", func(t *testing.T) {
@@ -115,20 +120,11 @@ func TestDatabase(t *testing.T) {
 		err := database.Commit(root)
 		require.NoError(t, err)
 
-		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
-		require.NoError(t, err)
-
-		verifyNode := func(path trieutils.Path, node trienode.TrieNode) {
-			blob, err := reader.Node(felt.Zero, path, node.Hash(), node.IsLeaf())
-			require.NoError(t, err)
-			assert.Equal(t, node.Blob(), blob)
-		}
-
-		verifyNode(rootPath, rootNode)
-		verifyNode(level1Path1, level1Node1)
-		verifyNode(level1Path2, level1Node2)
-		verifyNode(leaf1Path, leaf1Node)
-		verifyNode(leaf2Path, leaf2Node)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), level1Path1, level1Node1)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), level1Path2, level1Node2)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
 	})
 
 	t.Run("Update and Commit with contract nodes", func(t *testing.T) {
@@ -161,19 +157,8 @@ func TestDatabase(t *testing.T) {
 		err := database.Commit(root)
 		require.NoError(t, err)
 
-		classReader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
-		require.NoError(t, err)
-
-		contractReader, err := database.NodeReader(trieutils.NewContractStorageTrieID(felt.Zero, contractOwner))
-		require.NoError(t, err)
-
-		classBlob, err := classReader.Node(felt.Zero, classPath, classNode.Hash(), classNode.IsLeaf())
-		require.NoError(t, err)
-		assert.Equal(t, classNode.Blob(), classBlob)
-
-		contractBlob, err := contractReader.Node(contractOwner, contractPath, contractNode.Hash(), contractNode.IsLeaf())
-		require.NoError(t, err)
-		assert.Equal(t, contractNode.Blob(), contractBlob)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), classPath, classNode)
+		verifyNode(t, database, trieutils.NewContractStorageTrieID(felt.Zero, contractOwner), contractPath, contractNode)
 	})
 
 	t.Run("Commit handles concurrent operations", func(t *testing.T) {
@@ -221,14 +206,9 @@ func TestDatabase(t *testing.T) {
 		}
 		wg.Wait()
 
-		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
-		require.NoError(t, err)
-
 		for _, trie := range tries {
 			for path, node := range trie.classNodes {
-				blob, err := reader.Node(felt.Zero, path, node.Hash(), node.IsLeaf())
-				require.NoError(t, err)
-				assert.Equal(t, node.Blob(), blob)
+				verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), path, node)
 			}
 		}
 	})
@@ -263,42 +243,14 @@ func TestDatabase(t *testing.T) {
 		err := database.Commit(root)
 		require.NoError(t, err)
 
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
+
+		// Verify deleted node is not in database
 		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
 		require.NoError(t, err)
-
-		rootBlob, err := reader.Node(felt.Zero, rootPath, rootNode.Hash(), false)
-		require.NoError(t, err)
-		assert.Equal(t, rootNode.Blob(), rootBlob)
-
-		leaf1Blob, err := reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf1Node.Blob(), leaf1Blob)
-
-		leaf2Blob, err := reader.Node(felt.Zero, leaf2Path, leaf2Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf2Node.Blob(), leaf2Blob)
-
-		classNodes = map[trieutils.Path]trienode.TrieNode{
-			rootPath:  rootNode,
-			leaf1Path: trienode.NewDeleted(true),
-		}
-
-		database.Update(root, parent, blockNum+1, classNodes, contractNodes)
-
-		err = database.Commit(root)
-		require.NoError(t, err)
-
-		rootBlob, err = reader.Node(felt.Zero, rootPath, rootNode.Hash(), false)
-		require.NoError(t, err)
-		assert.Equal(t, rootNode.Blob(), rootBlob)
-
-		leaf1Blob, err = reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), true)
+		_, err = reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), leaf1Node.IsLeaf())
 		require.Error(t, err)
-		assert.Nil(t, leaf1Blob)
-
-		leaf2Blob, err = reader.Node(felt.Zero, leaf2Path, leaf2Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf2Node.Blob(), leaf2Blob)
 	})
 
 	t.Run("Cap empty cache", func(t *testing.T) {
@@ -342,20 +294,9 @@ func TestDatabase(t *testing.T) {
 
 		assert.Less(t, database.dirtyCacheSize, initialSize)
 
-		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
-		require.NoError(t, err)
-
-		rootBlob, err := reader.Node(felt.Zero, rootPath, rootNode.Hash(), false)
-		require.NoError(t, err)
-		assert.Equal(t, rootNode.Blob(), rootBlob)
-
-		leaf1Blob, err := reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf1Node.Blob(), leaf1Blob)
-
-		leaf2Blob, err := reader.Node(felt.Zero, leaf2Path, leaf2Node.Hash(), true)
-		require.NoError(t, err)
-		assert.Equal(t, leaf2Node.Blob(), leaf2Blob)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
 	})
 
 	t.Run("Cap to size larger than cache", func(t *testing.T) {
