@@ -10,20 +10,20 @@ import (
 // Each method builds a message, processes it, assert if it's stored in the state machine, and returns an actionAsserter to assert the result actions.
 type incomingMessageBuilder struct {
 	testing      *testing.T
-	stateMachine *Tendermint[value, felt.Felt, felt.Felt]
+	stateMachine *stateMachine[value, felt.Felt, felt.Felt]
 	header       MessageHeader[felt.Felt]
 }
 
 // proposal builds and processes a Proposal message, asserts it's stored in the state machine,
 // and returns an actionAsserter to check resulting actions.
-func (t incomingMessageBuilder) proposal(val value, validRound round) actionAsserter[Proposal[value, felt.Felt, felt.Felt]] {
+func (t incomingMessageBuilder) proposal(val value, validRound Round) actionAsserter[Proposal[value, felt.Felt, felt.Felt]] {
 	t.testing.Helper()
 	proposal := Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: t.header,
 		ValidRound:    validRound,
 		Value:         &val,
 	}
-	actions := t.stateMachine.processProposal(proposal)
+	actions := t.stateMachine.ProcessProposal(proposal)
 
 	assertProposal(t.testing, t.stateMachine, proposal)
 
@@ -43,7 +43,7 @@ func (t incomingMessageBuilder) prevote(val *value) actionAsserter[Prevote[felt.
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
-	actions := t.stateMachine.processPrevote(prevote)
+	actions := t.stateMachine.ProcessPrevote(prevote)
 
 	assertPrevote(t.testing, t.stateMachine, prevote)
 
@@ -63,7 +63,7 @@ func (t incomingMessageBuilder) precommit(val *value) actionAsserter[Precommit[f
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
-	actions := t.stateMachine.processPrecommit(precommit)
+	actions := t.stateMachine.ProcessPrecommit(precommit)
 
 	assertPrecommit(t.testing, t.stateMachine, precommit)
 

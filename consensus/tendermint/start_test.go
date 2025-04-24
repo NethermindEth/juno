@@ -18,15 +18,15 @@ func TestStartRound(t *testing.T) {
 			currentRound.action().broadcastPrevote(utils.HeapPtr(val)),
 		)
 
-		assertState(t, stateMachine, height(0), round(0), prevote)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
 	})
 
 	t.Run("node is not the proposer: schedule timeoutPropose", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		currentRound.start().expectActions(currentRound.action().scheduleTimeout(propose))
+		currentRound.start().expectActions(currentRound.action().scheduleTimeout(StepPropose))
 
-		assertState(t, stateMachine, height(0), round(0), propose)
+		assertState(t, stateMachine, Height(0), Round(0), StepPropose)
 	})
 }

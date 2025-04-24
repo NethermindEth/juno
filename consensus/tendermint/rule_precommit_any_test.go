@@ -23,10 +23,10 @@ func TestPrecommitAny(t *testing.T) {
 
 		// Receive 2 more precommits combined with our own precommit, all with mixed values
 		currentRound.validator(0).precommit(utils.HeapPtr(value(42)))
-		currentRound.validator(1).precommit(nil).expectActions(currentRound.action().scheduleTimeout(precommit))
+		currentRound.validator(1).precommit(nil).expectActions(currentRound.action().scheduleTimeout(StepPrecommit))
 
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 	})
 
 	t.Run("Line 47: upon 2f + 1 {PRECOMMIT, h_p, round_p, *} without receiving proposal", func(t *testing.T) {
@@ -39,10 +39,10 @@ func TestPrecommitAny(t *testing.T) {
 		// Receive 3 precommits even though we haven't received a proposal.
 		currentRound.validator(0).precommit(utils.HeapPtr(value(42)))
 		currentRound.validator(1).precommit(nil)
-		currentRound.validator(2).precommit(utils.HeapPtr(value(43))).expectActions(currentRound.action().scheduleTimeout(precommit))
+		currentRound.validator(2).precommit(utils.HeapPtr(value(43))).expectActions(currentRound.action().scheduleTimeout(StepPrecommit))
 
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), propose)
+		assertState(t, stateMachine, Height(0), Round(0), StepPropose)
 	})
 
 	t.Run("Line 47: not enough precommits (less than 2f + 1)", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestPrecommitAny(t *testing.T) {
 
 		// No timeout should be scheduled
 		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 	})
 
 	t.Run("Line 47: only schedule timeout the first time", func(t *testing.T) {
@@ -79,20 +79,20 @@ func TestPrecommitAny(t *testing.T) {
 		)
 		currentRound.validator(0).prevote(utils.HeapPtr(value(42)))
 		currentRound.validator(1).prevote(utils.HeapPtr(value(42))).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(StepPrevote),
 			currentRound.action().broadcastPrecommit(utils.HeapPtr(value(42))),
 		)
 		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 
 		// Receive 2 precommits, combined with our own precommit and schedule timeout
 		currentRound.validator(0).precommit(nil)
-		currentRound.validator(1).precommit(utils.HeapPtr(value(42))).expectActions(currentRound.action().scheduleTimeout(precommit))
+		currentRound.validator(1).precommit(utils.HeapPtr(value(42))).expectActions(currentRound.action().scheduleTimeout(StepPrecommit))
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 
 		currentRound.validator(2).precommit(nil).expectActions()
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 	})
 }
