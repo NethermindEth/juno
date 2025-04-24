@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -91,15 +92,19 @@ type Blockchain struct {
 	listener       EventListener
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
+
+	curBlockHeader atomic.Pointer[core.Header] // current block header of the chain
 }
 
 func New(database db.DB, network *utils.Network) *Blockchain {
-	return &Blockchain{
+	bc := &Blockchain{
 		database:   database,
 		network:    network,
 		listener:   &SelectiveListener{},
 		l1HeadFeed: feed.New[*core.L1Head](),
 	}
+
+	return bc
 }
 
 func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {
@@ -131,6 +136,12 @@ func (b *Blockchain) StateCommitment() (*felt.Felt, error) {
 // Height returns the latest block height. If blockchain is empty nil is returned.
 func (b *Blockchain) Height() (uint64, error) {
 	b.listener.OnRead("Height")
+
+	curHeader := b.curBlockHeader.Load()
+	if curHeader != nil {
+		return curHeader.Number, nil
+	}
+
 	var height uint64
 	return height, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -152,6 +163,10 @@ func (b *Blockchain) Head() (*core.Block, error) {
 func (b *Blockchain) HeadsHeader() (*core.Header, error) {
 	b.listener.OnRead("HeadsHeader")
 	var header *core.Header
+
+	if curHeader := b.curBlockHeader.Load(); curHeader != nil {
+		return curHeader, nil
+	}
 
 	return header, b.database.View(func(txn db.Transaction) error {
 		var err error
@@ -329,7 +344,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.Transaction) error {
+	err := b.database.Update(func(txn db.Transaction) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -362,6 +377,13 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 
 		return core.SetChainHeight(txn, block.Number)
 	})
+	if err != nil {
+		return err
+	}
+
+	b.curBlockHeader.Store(block.Header)
+
+	return nil
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -822,9 +844,14 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	latest, err := core.ChainHeight(txn)
-	if err != nil {
-		return nil, err
+	var latest uint64
+	if curHeader := b.curBlockHeader.Load(); curHeader != nil {
+		latest = curHeader.Number
+	} else {
+		latest, err = core.ChainHeight(txn)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return newEventFilter(txn, from, keys, 0, latest, b.pendingBlockFn), nil
@@ -838,10 +865,18 @@ func (b *Blockchain) RevertHead() error {
 func (b *Blockchain) GetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 	return reverseStateDiff, b.database.View(func(txn db.Transaction) error {
-		blockNumber, err := core.ChainHeight(txn)
-		if err != nil {
-			return err
+		var blockNumber uint64
+		curHeader := b.curBlockHeader.Load()
+		if curHeader != nil {
+			blockNumber = curHeader.Number
+		} else {
+			var err error
+			blockNumber, err = core.ChainHeight(txn)
+			if err != nil {
+				return err
+			}
 		}
+
 		stateUpdate, err := stateUpdateByNumber(txn, blockNumber)
 		if err != nil {
 			return err
@@ -896,6 +931,8 @@ func (b *Blockchain) revertHead(txn db.Transaction) error {
 	if err = txn.Delete(db.StateUpdatesByBlockNumber.Key(numBytes)); err != nil {
 		return err
 	}
+
+	b.curBlockHeader.Store(nil)
 
 	// Revert chain height.
 	if genesisBlock {
