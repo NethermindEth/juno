@@ -191,10 +191,25 @@ func (d *Database) Commit(root felt.Felt) error {
 }
 
 func (d *Database) commit(root felt.Felt, batch db.Batch) error {
-	key := trieutils.NodeKeyByHash(d.bucket, felt.Zero, trieutils.Path{}, root, false)
+	// TODO: Fetch the class and contract trie roots from the state	(cache/db)
+	buckets := []db.Bucket{db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage}
+	var node cachedNode
+	var key []byte
+	var found bool
 
-	node, ok := d.dirtyCache.Get(key)
-	if !ok {
+	fmt.Printf("Looking for root: %x\n", root.Bytes())
+
+	for _, b := range buckets {
+		key = trieutils.NodeKeyByHash(b, felt.Zero, trieutils.Path{}, root, false)
+		fmt.Printf("Trying bucket %v, key: %x\n", b, key)
+		if node, found = d.dirtyCache.Get(key); found {
+			fmt.Printf("Found node in bucket %v\n", b)
+			break
+		}
+	}
+
+	if !found {
+		fmt.Println("Node not found in any bucket")
 		return nil
 	}
 
@@ -215,7 +230,6 @@ func (d *Database) commit(root felt.Felt, batch db.Batch) error {
 
 	d.dirtyCache.Remove(key)
 	d.cleanCache.Set(key, node.blob)
-	fmt.Println("clean cache size", d.cleanCache)
 	d.dirtyCacheSize -= len(node.blob)
 
 	if batch.Size() >= idealBatchSize {
