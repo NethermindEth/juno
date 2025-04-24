@@ -16,7 +16,7 @@ height and round.
 There is no need to check decision_p[h_p] = nil since it is implied that decision are made
 sequentially, i.e. x, x+1, x+2... .
 */
-func (t *Tendermint[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, H, A]) bool {
 	_, hasQuorum := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 
 	// This is checked here instead of inside execution, because it's the only case in execution in this rule
@@ -26,7 +26,7 @@ func (t *Tendermint[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, 
 	return hasQuorum && isValid
 }
 
-func (t *Tendermint[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
 	// TODO: Optimise this
 	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)

@@ -27,10 +27,10 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		firstRound.validator(2).prevote(&correctValue)
 		firstRound.validator(1).precommit(&correctValue)
 		firstRound.validator(2).precommit(&correctValue)
-		firstRound.processTimeout(prevote)
-		firstRound.processTimeout(precommit)
+		firstRound.processTimeout(StepPrevote)
+		firstRound.processTimeout(StepPrecommit)
 
-		assertState(t, stateMachine, height(0), round(1), propose)
+		assertState(t, stateMachine, Height(0), Round(1), StepPropose)
 
 		// In the 2nd round, validator 1 proposes the correct value with valid round set to the 1st round.
 		// We accept and prevote it because we receive quorum of prevotes in the 1st round.
@@ -73,7 +73,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		firstRound.validator(0).proposal(firstValue, -1).expectActions(
 			firstRound.action().broadcastPrevote(&firstValue),
 		)
-		assertState(t, stateMachine, height(0), round(0), prevote)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
 		firstRound.validator(0).prevote(&firstValue)
 
 		// Validator 2 receives no proposal
@@ -84,15 +84,15 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 			firstRound.action().broadcastPrecommit(&firstValue),
 		)
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 
 		// Validator 0 sends prevote nil to validator 1, so validator 1 will precommit nil.
 		firstRound.validator(1).precommit(nil)
 		firstRound.validator(2).precommit(nil)
-		firstRound.processTimeout(precommit)
+		firstRound.processTimeout(StepPrecommit)
 
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(1), propose)
+		assertState(t, stateMachine, Height(0), Round(1), StepPropose)
 
 		// In the second round, validator 1 proposes a different value, because it didn't lock to the previous value.
 		// We reject it because we locked to the previous value.
@@ -101,9 +101,9 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		)
 		secondRound.validator(1).prevote(&secondValue)
 		secondRound.validator(2).prevote(&secondValue).expectActions(
-			secondRound.action().scheduleTimeout(prevote),
+			secondRound.action().scheduleTimeout(StepPrevote),
 		)
-		secondRound.processTimeout(prevote).expectActions(
+		secondRound.processTimeout(StepPrevote).expectActions(
 			secondRound.action().broadcastPrecommit(nil),
 		)
 		// Validator 0 delays sending the prevote so we can only receives after timeout.
@@ -112,10 +112,10 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// Then validator 0 stays silent during the precommit phase.
 		secondRound.validator(1).precommit(&secondValue)
 		secondRound.validator(2).precommit(&secondValue)
-		secondRound.processTimeout(precommit)
+		secondRound.processTimeout(StepPrecommit)
 
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(2), propose)
+		assertState(t, stateMachine, Height(0), Round(2), StepPropose)
 
 		// In the third round, validator 2 proposes value from second round. We accept it
 		thirdRound.validator(2).proposal(secondValue, 1).expectActions(
