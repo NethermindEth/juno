@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
@@ -103,10 +103,11 @@ func GenesisStateDiff(
 	maxSteps uint64,
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
 	initialStateDiff := core.EmptyStateDiff()
+	memDB := memory.New()
 	genesisState := sync.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),
-		core.NewState(db.NewMemTransaction()),
+		core.NewState(memDB.NewIndexedBatch()),
 	)
 
 	classhashToSierraVersion, err := declareClasses(config, &genesisState)

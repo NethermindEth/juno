@@ -38,6 +38,7 @@ type StateHistoryReader interface {
 }
 
 type StateReader interface {
+	ChainHeight() (uint64, error)
 	ContractClassHash(addr *felt.Felt) (*felt.Felt, error)
 	ContractNonce(addr *felt.Felt) (*felt.Felt, error)
 	ContractStorage(addr, key *felt.Felt) (*felt.Felt, error)
