@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+// Stores the pending nodes in memory to be committed later
 type buffer struct {
 	layers uint64
 	limit  uint64

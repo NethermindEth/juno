@@ -10,6 +10,7 @@ import (
 
 var _ layer = (*diffLayer)(nil)
 
+// Represents an in-memory layer which contains the diff nodes for a specific state root hash
 type diffLayer struct {
 	root  felt.Felt // State root hash where this diff layer is applied
 	id    uint64    // Corresponding state id

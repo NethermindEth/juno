@@ -10,6 +10,7 @@ import (
 
 var _ database.NodeReader = (*reader)(nil)
 
+// Represents a node reader which allows for node reading starting from a given layer
 type reader struct {
 	id trieutils.TrieID
 	l  layer

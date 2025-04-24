@@ -9,6 +9,9 @@ import (
 
 var _ layer = (*diskLayer)(nil)
 
+// Allows access to the underlying database.
+// Nodes are buffered in memory and when the buffer size reaches a certain threshold,
+// the nodes are flushed to the database.
 type diskLayer struct {
 	root    felt.Felt // The corresponding state commitment
 	id      uint64

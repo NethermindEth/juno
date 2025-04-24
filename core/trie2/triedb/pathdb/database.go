@@ -27,6 +27,7 @@ var defaultConfig = &Config{
 	WriteBufferSize: 64 * utils.Megabyte,
 }
 
+// Represents the path-based database which contains a in-memory layer tree (cache) + disk layer (database)
 type Database struct {
 	disk   db.KeyValueStore
 	tree   *layerTree
@@ -34,6 +35,8 @@ type Database struct {
 	lock   sync.RWMutex
 }
 
+// Creates a new path-based database. It will load the journal from the disk and recreate the layer tree.
+// If the journal is not found, it will create a new disk layer only.
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	if config == nil {
 		config = defaultConfig
@@ -55,6 +58,7 @@ func (d *Database) Close() error {
 	return nil
 }
 
+// Forces the commit of all the in-memory diff layers to the disk layer
 func (d *Database) Commit(root felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -62,6 +66,9 @@ func (d *Database) Commit(root felt.Felt) error {
 	return d.tree.cap(root, 0)
 }
 
+// Creates a new diff layer on top of the current layer tree.
+// If the creation of the diff layer exceeds the given height of the layer tree, the bottom-most layer
+// will be merged to the disk layer.
 func (d *Database) Update(
 	root,
 	parent felt.Felt,

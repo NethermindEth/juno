@@ -8,10 +8,19 @@ import (
 
 var nodeCacheSize = ownerSize + trieutils.PathSize + 1
 
+type trieType byte
+
+const (
+	contract trieType = iota
+	class
+)
+
+// Stores committed trie nodes in memory
 type cleanCache struct {
-	cache *fastcache.Cache
+	cache *fastcache.Cache // map[nodeKey]node
 }
 
+// Creates a new clean cache with the given size. The size is the maximum size of the cache in bytes.
 func newCleanCache(size int) *cleanCache {
 	return &cleanCache{cache: fastcache.New(size)}
 }
@@ -28,6 +37,7 @@ func (c *cleanCache) deleteNode(owner felt.Felt, path trieutils.Path, isClass bo
 	c.cache.Del(nodeKey(owner, path, isClass))
 }
 
+// key = owner (32 bytes) + path (20 bytes) + trie type (1 byte)
 func nodeKey(owner felt.Felt, path trieutils.Path, isClass bool) []byte {
 	key := make([]byte, nodeCacheSize)
 	ownerBytes := owner.Bytes()
@@ -35,7 +45,7 @@ func nodeKey(owner felt.Felt, path trieutils.Path, isClass bool) []byte {
 	copy(key[felt.Bytes:felt.Bytes+trieutils.PathSize], path.EncodedBytes())
 
 	if isClass {
-		key[nodeCacheSize-1] = 1
+		key[nodeCacheSize-1] = byte(class)
 	}
 
 	return key

@@ -18,7 +18,7 @@ type nodeSet struct {
 	contractNodes        contractNodesMap
 	contractStorageNodes contractStorageNodesMap
 
-	size uint64
+	size uint64 // Approximate size of the node set
 }
 
 func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contractStorageNodes contractStorageNodesMap) *nodeSet {
@@ -107,26 +107,31 @@ func (s *nodeSet) merge(other *nodeSet) {
 	s.updateSize(delta)
 }
 
+// Commits the in-memory nodes to the DB and updates the cache
 func (s *nodeSet) write(w db.KeyValueWriter, cleans *cleanCache) error {
 	return writeNodes(w, s.classNodes, s.contractNodes, s.contractStorageNodes, cleans)
 }
 
+// Represents a node when writing to the journal
 type journalNode struct {
 	Path []byte
 	Blob []byte
 	Hash felt.Felt
 }
 
+// Represents a set of journal nodes for a specific trie type and owner
 type journalNodes struct {
 	TrieType trieutils.TrieType
 	Owner    felt.Felt
 	Nodes    []journalNode
 }
 
+// Represents all the journal nodeset
 type JournalNodeSet struct {
 	Nodes []journalNodes
 }
 
+// Writes the node set to the journal
 func (s *nodeSet) encode(w io.Writer) error {
 	nodes := make([]journalNodes, 0, len(s.contractStorageNodes)+2) // 2 because of class and contract nodes
 
@@ -136,7 +141,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 		Nodes:    make([]journalNode, 0, len(s.classNodes)),
 	}
 	for path, n := range s.classNodes {
-		classEntry.Nodes = append(classEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob()})
+		classEntry.Nodes = append(classEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
 	}
 	nodes = append(nodes, classEntry)
 
@@ -171,6 +176,7 @@ func (s *nodeSet) encode(w io.Writer) error {
 	return err
 }
 
+// Decodes the journal nodeset from the encoded bytes
 func (s *nodeSet) decode(data []byte) error {
 	var encoded JournalNodeSet
 	if err := encoder.Unmarshal(data, &encoded); err != nil {
@@ -225,6 +231,7 @@ func (s *nodeSet) decode(data []byte) error {
 	return nil
 }
 
+// Computes the approximate size of the node set in bytes
 func (s *nodeSet) computeSize() {
 	var size uint64
 
@@ -243,9 +250,10 @@ func (s *nodeSet) computeSize() {
 		}
 	}
 
-	s.size = uint64(size)
+	s.size = size
 }
 
+// Updates the size of the node set
 func (s *nodeSet) updateSize(delta int64) {
 	if delta > 0 && s.size > math.MaxUint64-uint64(delta) { // Overflow occurred
 		s.size = math.MaxUint64 // Set to max uint64 value

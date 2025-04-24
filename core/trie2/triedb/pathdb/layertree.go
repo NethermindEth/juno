@@ -11,15 +11,23 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
+// Represents a layer of the layer tree
 type layer interface {
+	// Returns the encoded node bytes for a given trie id, owner, path and isLeaf flag
 	node(id trieutils.TrieID, owner felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error)
+	// Updates the layer with a new root hash, state id and block number
 	update(root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer
+	// Writes the journal to the given writer
 	journal(w io.Writer) error
+	// Returns the root hash of the layer
 	rootHash() felt.Felt
+	// Returns the state id of the layer
 	stateID() uint64
+	// Returns the parent layer of the current layer
 	parentLayer() layer
 }
 
+// Represents a layer tree which contains multiple in-memory diff layers and a single disk layer
 type layerTree struct {
 	layers map[felt.Felt]layer
 	lock   sync.RWMutex
@@ -31,6 +39,7 @@ func newLayerTree(head layer) *layerTree {
 	return tree
 }
 
+// Returns the layer for a given root hash
 func (tree *layerTree) get(root felt.Felt) layer {
 	tree.lock.RLock()
 	defer tree.lock.RUnlock()
@@ -38,6 +47,7 @@ func (tree *layerTree) get(root felt.Felt) layer {
 	return tree.layers[root]
 }
 
+// Adds a new layer to the layer tree
 func (tree *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
 	if root == parentRoot {
 		return errors.New("cannot have cycled layer")
@@ -60,6 +70,8 @@ func (tree *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassN
 	return nil
 }
 
+// Traverses the layer tree and check if the number of diffs exceeds the given number of layers.
+// If it does, the bottom-most layer will be merged to the disk layer.
 func (tree *layerTree) cap(root felt.Felt, layers int) error {
 	l := tree.get(root)
 	if l == nil {
