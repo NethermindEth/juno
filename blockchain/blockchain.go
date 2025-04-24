@@ -18,7 +18,6 @@ import (
 type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
 }
-
 type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
