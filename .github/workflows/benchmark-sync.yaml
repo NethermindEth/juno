@@ -1,0 +1,49 @@
+name: Benchmark Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+  push:
+    branches:
+      - wojciechos/benchmark-trigger
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-sync
+  cancel-in-progress: true
+
+env:
+  DOCKER_REGISTRY: nethermind.jfrog.io
+
+jobs:
+  sync-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: v0.14.4-rc1
+
+      - name: Extract version
+        id: version
+        run: echo "version=$(git describe --tags)" >> $GITHUB_OUTPUT
+
+      - name: Login to registry
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+
+      - name: Pull existing image
+        run: |
+          docker pull ${{ env.DOCKER_REGISTRY }}/nubia-oci-local-dev/juno:${{ steps.version.outputs.version }}
+
+      - name: Retag image for benchmark
+        run: |
+          docker tag ${{ env.DOCKER_REGISTRY }}/nubia-oci-local-dev/juno:${{ steps.version.outputs.version }} ${{ env.DOCKER_REGISTRY }}/nubia-oci-local-dev/juno:benchmark-${{ steps.version.outputs.version }}
+
+      - name: Push benchmark tag
+        run: |
+          docker push ${{ env.DOCKER_REGISTRY }}/nubia-oci-local-dev/juno:benchmark-${{ steps.version.outputs.version }} 
