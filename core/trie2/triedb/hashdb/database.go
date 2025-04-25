@@ -18,11 +18,11 @@ var ErrCallEmptyDatabase = errors.New("call to empty database")
 
 type Database struct {
 	disk   db.KeyValueStore
-	bucket db.Bucket
 	config *Config
 
 	cleanCache CleanCache
 	dirtyCache DirtyCache
+	rootsCache CleanCache
 
 	dirtyCacheSize int
 
@@ -47,21 +47,22 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		config:     config,
 		cleanCache: NewCleanCache(config.CleanCacheType, config.CleanCacheSize),
 		dirtyCache: NewDirtyCache(config.DirtyCacheType, config.DirtyCacheSize),
+		rootsCache: NewCleanCache(config.CleanCacheType, 1000),
 		log:        utils.NewNopZapLogger(),
 	}
 }
 
 func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
+	fmt.Println("insert", bucket, owner, path, hash, isLeaf)
 	_, found := d.dirtyCache.Get(key)
 	if found {
 		return
 	}
 	d.dirtyCache.Set(key, cachedNode{
-		blob:    blob,
-		parents: 0,
+		blob: blob,
 	})
-	d.dirtyCacheSize += len(blob) + d.hashLen()
+	d.dirtyCacheSize += len(blob)
 }
 
 func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
@@ -99,7 +100,7 @@ func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, 
 func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
 	d.dirtyCache.Remove(key)
-	d.dirtyCacheSize -= len(blob) + d.hashLen()
+	d.dirtyCacheSize -= len(blob)
 }
 
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
@@ -132,7 +133,7 @@ func (d *Database) Cap(limit uint64) error {
 			batch.Reset()
 		}
 
-		d.dirtyCacheSize -= (len(node.blob) + d.hashLen())
+		d.dirtyCacheSize -= len(node.blob)
 		ok := d.dirtyCache.RemoveOldest()
 		if !ok {
 			return fmt.Errorf("oldest element in dirty cache not found")
@@ -157,17 +158,34 @@ func (d *Database) Cap(limit uint64) error {
 	return nil
 }
 
-func (d *Database) Commit(root felt.Felt) error {
+func (d *Database) Commit(stateComm felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	classRoot, contractRoot, err := d.getRootsForStateCommitment(stateComm)
+	if err != nil {
+		return fmt.Errorf("failed to get roots for state commitment: %w", err)
+	}
+
+	if err := d.commitDirtyTrie(*classRoot, db.ClassTrie); err != nil {
+		return err
+	}
+
+	if err := d.commitDirtyTrie(*contractRoot, db.ContractTrieContract); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Database) commitDirtyTrie(root felt.Felt, bucket db.Bucket) error {
 	start := time.Now()
 	batch := d.disk.NewBatch()
 
 	nodes := d.dirtyCache.Len()
 	size := d.dirtyCacheSize
 
-	if err := d.commit(root, batch); err != nil {
+	if err := d.commit(batch, bucket, trieutils.Path{}, root, false); err != nil {
 		d.log.Errorw("Failed to commit trie", "err", err)
 		return err
 	}
@@ -190,47 +208,33 @@ func (d *Database) Commit(root felt.Felt) error {
 	return nil
 }
 
-func (d *Database) commit(root felt.Felt, batch db.Batch) error {
-	// TODO: Fetch the class and contract trie roots from the state	(cache/db)
-	buckets := []db.Bucket{db.ClassTrie, db.ContractTrieContract, db.ContractTrieStorage}
-	var node cachedNode
-	var key []byte
-	var found bool
-
-	fmt.Printf("Looking for root: %x\n", root.Bytes())
-
-	for _, b := range buckets {
-		key = trieutils.NodeKeyByHash(b, felt.Zero, trieutils.Path{}, root, false)
-		fmt.Printf("Trying bucket %v, key: %x\n", b, key)
-		if node, found = d.dirtyCache.Get(key); found {
-			fmt.Printf("Found node in bucket %v\n", b)
-			break
-		}
-	}
-
+func (d *Database) commit(batch db.Batch, bucket db.Bucket, path trieutils.Path, rootHash felt.Felt, isLeaf bool) error {
+	// If the node does not exist, it's a previously committed node
+	key := trieutils.NodeKeyByHash(bucket, felt.Zero, path, rootHash, isLeaf)
+	root, found := d.dirtyCache.Get(key)
 	if !found {
-		fmt.Println("Node not found in any bucket")
 		return nil
 	}
-
-	children, err := d.getNodeChildren(node.blob)
-	if err != nil {
-		return fmt.Errorf("failed to get node children: %w", err)
-	}
-
-	for _, childKey := range children {
-		if err := d.commit(childKey, batch); err != nil {
-			return err
+	if !isLeaf {
+		children, err := d.getNodeChildren(root.blob)
+		if err != nil {
+			return fmt.Errorf("failed to get node children: %w", err)
+		}
+		for i, childKey := range children {
+			childPath := new(trieutils.Path).AppendBit(&path, uint8(i))
+			if err := d.commit(batch, bucket, *childPath, childKey, true); err != nil {
+				return err
+			}
 		}
 	}
 
-	if err := batch.Put(key, node.blob); err != nil {
+	if err := batch.Put(key, root.blob); err != nil {
 		return err
 	}
 
 	d.dirtyCache.Remove(key)
-	d.cleanCache.Set(key, node.blob)
-	d.dirtyCacheSize -= len(node.blob)
+	d.cleanCache.Set(key, root.blob)
+	d.dirtyCacheSize -= len(root.blob)
 
 	if batch.Size() >= idealBatchSize {
 		if err := batch.Write(); err != nil {
@@ -295,6 +299,42 @@ func (d *Database) getNodeChildren(blob []byte) ([]felt.Felt, error) {
 	return children, nil
 }
 
+func (d *Database) getRootsForStateCommitment(stateComm felt.Felt) (*felt.Felt, *felt.Felt, error) {
+	bytes := stateComm.Bytes()
+	key := db.StateHashToRoots.Key(bytes[:])
+
+	if d.rootsCache != nil {
+		if val, found := d.rootsCache.Get(key); found {
+			return decodeRoots(val)
+		}
+	}
+
+	var rootsData []byte
+	err := d.disk.Get(key, func(val []byte) error {
+		rootsData = val
+		return nil
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get roots for state hash %v: %w", stateComm, err)
+	}
+
+	if d.rootsCache != nil {
+		d.rootsCache.Set(key, rootsData)
+	}
+
+	return decodeRoots(rootsData)
+}
+
+func decodeRoots(val []byte) (*felt.Felt, *felt.Felt, error) {
+	if len(val) != 2*felt.Bytes {
+		return nil, nil, fmt.Errorf("invalid value length: got %d, want %d", len(val), 2*felt.Bytes)
+	}
+	var classRoot, contractRoot felt.Felt
+	classRoot.SetBytes(val[:felt.Bytes])
+	contractRoot.SetBytes(val[felt.Bytes:])
+	return &classRoot, &contractRoot, nil
+}
+
 func (d *Database) Update(
 	root,
 	parent felt.Felt,
@@ -323,17 +363,6 @@ func (d *Database) Update(
 				d.insert(bucket, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
 			}
 		}
-	}
-}
-
-func (d *Database) hashLen() int {
-	switch d.bucket {
-	case db.ContractStorage:
-		return storageKeySize
-	case db.ContractTrieContract, db.ClassTrie:
-		return contractClassKeySize
-	default:
-		return 0
 	}
 }
 
