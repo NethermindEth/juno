@@ -23,7 +23,7 @@ type Config struct {
 	DirtyCacheType CacheType
 	CleanCacheType CacheType
 
-	//TODO: This is a temporary solution, need to find a better way to handle this
+	// TODO: This is a temporary solution, need to find a better way to handle this
 	maxPathLen uint8
 }
 
