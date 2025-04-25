@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -240,21 +239,13 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	var l1Head *core.L1Head
-	err := b.database.Get(db.L1Height.Key(), func(data []byte) error {
-		return encoder.Unmarshal(data, &l1Head)
-	})
-	return l1Head, err
+	l1Head, err := core.GetL1Head(b.database)
+	return &l1Head, err // TODO: this should return a value
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
-	data, err := encoder.Marshal(update)
-	if err != nil {
-		return err
-	}
-
 	b.l1HeadFeed.Send(update)
-	return b.database.Put(db.L1Height.Key(), data)
+	return core.WriteL1Head(b.database, update)
 }
 
 // Store takes a block and state update and performs sanity checks before putting in the database.
@@ -352,7 +343,7 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 
 type StateCloser = func() error
 
-var noopStateCloser = func() error { return nil }
+var noopStateCloser = func() error { return nil } // TODO: remove this once we refactor the state
 
 // HeadState returns a StateReader that provides a stable view to the latest state
 func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {

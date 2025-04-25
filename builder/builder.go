@@ -111,6 +111,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
+	// TODO: remove the state closer once we refactor the state
 	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), func() error { return nil }, nil
 }
 

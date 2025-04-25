@@ -27,9 +27,9 @@ type Batcher interface {
 
 // Same as Batch, but allows for reads from the batch and the disk.
 // Use this only if you need to read from both the in-memory and on-disk data.
-// Write operations will be slower.
-// Ideally, IndexedBatch should not be used at all, because it's better to write using regular batch
-// and read directly from the database.
+// Write operations will be slower compared to a regular Batch.
+// Ideally, IndexedBatch should not be used at all. Write operations should be done using a regular Batch,
+// and read operations should be done by accessing the database directly.
 type IndexedBatch interface {
 	Batch
 	KeyValueReader

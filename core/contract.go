@@ -120,7 +120,7 @@ func ContractNonce(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nonce, nil
+	return &nonce, nil // TODO: this should return a value
 }
 
 // UpdateNonce updates the nonce value in the database.
@@ -177,7 +177,7 @@ func ContractClassHash(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error)
 	if err != nil {
 		return nil, err
 	}
-	return &classHash, nil
+	return &classHash, nil // TODO: this should return a value
 }
 
 func setClassHash(txn db.IndexedBatch, addr, classHash *felt.Felt) error {
