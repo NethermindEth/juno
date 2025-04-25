@@ -16,6 +16,27 @@ import (
 
 var ErrCallEmptyDatabase = errors.New("call to empty database")
 
+type Config struct {
+	DirtyCacheSize int
+	CleanCacheSize int
+
+	DirtyCacheType CacheType
+	CleanCacheType CacheType
+
+	//TODO: This is a temporary solution, need to find a better way to handle this
+	maxPathLen uint8
+}
+
+var DefaultConfig = &Config{
+	DirtyCacheSize: 1024 * 1024 * 64,
+	CleanCacheSize: 1024 * 1024 * 64,
+
+	DirtyCacheType: CacheTypeLRU,
+	CleanCacheType: CacheTypeFastCache,
+
+	maxPathLen: contractClassTrieHeight,
+}
+
 type Database struct {
 	disk   db.KeyValueStore
 	config *Config
@@ -31,12 +52,13 @@ type Database struct {
 }
 
 const (
-	maxCacheSize         = 100 * 1024 * 1024
-	idealBatchSize       = 100 * 1024
-	rootsCacheSize       = 100
-	flushInterval        = 5 * time.Minute
-	storageKeySize       = 75
-	contractClassKeySize = 44
+	maxCacheSize            = 100 * 1024 * 1024
+	idealBatchSize          = 100 * 1024
+	rootsCacheSize          = 100
+	flushInterval           = 5 * time.Minute
+	storageKeySize          = 75
+	contractClassKeySize    = 44
+	contractClassTrieHeight = 251
 )
 
 func New(disk db.KeyValueStore, config *Config) *Database {
@@ -55,7 +77,6 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 
 func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-	fmt.Println("insert", bucket, owner, path, hash, isLeaf)
 	_, found := d.dirtyCache.Get(key)
 	if found {
 		return
@@ -186,7 +207,7 @@ func (d *Database) commitDirtyTrie(root felt.Felt, bucket db.Bucket) error {
 	nodes := d.dirtyCache.Len()
 	size := d.dirtyCacheSize
 
-	if err := d.commit(batch, bucket, trieutils.Path{}, root, false); err != nil {
+	if err := d.commit(batch, bucket, trieutils.Path{}, root); err != nil {
 		d.log.Errorw("Failed to commit trie", "err", err)
 		return err
 	}
@@ -209,8 +230,10 @@ func (d *Database) commitDirtyTrie(root felt.Felt, bucket db.Bucket) error {
 	return nil
 }
 
-func (d *Database) commit(batch db.Batch, bucket db.Bucket, path trieutils.Path, rootHash felt.Felt, isLeaf bool) error {
+func (d *Database) commit(batch db.Batch, bucket db.Bucket, path trieutils.Path, rootHash felt.Felt) error {
 	// If the node does not exist, it's a previously committed node
+	// TODO: This is a temporary solution, need to find a better way to handle this
+	isLeaf := path.Len() == d.config.maxPathLen
 	key := trieutils.NodeKeyByHash(bucket, felt.Zero, path, rootHash, isLeaf)
 	root, found := d.dirtyCache.Get(key)
 	if !found {
@@ -223,7 +246,7 @@ func (d *Database) commit(batch db.Batch, bucket db.Bucket, path trieutils.Path,
 		}
 		for i, childKey := range children {
 			childPath := new(trieutils.Path).AppendBit(&path, uint8(i))
-			if err := d.commit(batch, bucket, *childPath, childKey, true); err != nil {
+			if err := d.commit(batch, bucket, *childPath, childKey); err != nil {
 				return err
 			}
 		}
