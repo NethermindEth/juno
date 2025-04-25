@@ -84,6 +84,7 @@ type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
 	Equivocation(msgs ...M)
 }
 
+//go:generate mockgen -destination=./mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V Hashable[H], H Hash, A Addr] interface {
 	ProcessStart(Round) []Action[V, H, A]
 	ProcessTimeout(Timeout) []Action[V, H, A]
