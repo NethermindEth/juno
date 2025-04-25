@@ -105,7 +105,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit basic trie structure", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 1,
+		})
 
 		leaf1Hash := *new(felt.Felt).SetUint64(201)
 		leaf1Path := trieutils.NewBitArray(1, 0x00)
@@ -145,7 +147,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 2,
+		})
 
 		leaf1Hash := *new(felt.Felt).SetUint64(301)
 		leaf2Hash := *new(felt.Felt).SetUint64(302)
@@ -199,7 +203,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with contract nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 1,
+		})
 
 		classHash := *new(felt.Felt).SetUint64(200)
 		classPath := trieutils.NewBitArray(1, 0x00)
@@ -238,7 +244,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure with edge nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 2,
+		})
 
 		leafHash := *new(felt.Felt).SetUint64(301)
 		edgeHash := *new(felt.Felt).SetUint64(201)
@@ -348,7 +356,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with deleted nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 1,
+		})
 
 		leaf1Hash := *new(felt.Felt).SetUint64(201)
 		leaf2Hash := *new(felt.Felt).SetUint64(202)
@@ -400,7 +410,9 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("getRootsForStateHash returns correct roots", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, &Config{
+			maxPathLen: 1,
+		})
 
 		classRoot := *new(felt.Felt).SetUint64(201)
 		contractRoot := *new(felt.Felt).SetUint64(202)

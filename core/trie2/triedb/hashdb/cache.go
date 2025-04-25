@@ -31,22 +31,6 @@ type DirtyCache interface {
 	RemoveOldest() bool
 }
 
-type Config struct {
-	DirtyCacheSize int
-	CleanCacheSize int
-
-	DirtyCacheType CacheType
-	CleanCacheType CacheType
-}
-
-var DefaultConfig = &Config{
-	DirtyCacheSize: 1024 * 1024 * 64,
-	CleanCacheSize: 1024 * 1024 * 64,
-
-	DirtyCacheType: CacheTypeLRU,
-	CleanCacheType: CacheTypeFastCache,
-}
-
 func NewDirtyCache(cacheType CacheType, size int) DirtyCache {
 	switch cacheType {
 	case CacheTypeLRU:
