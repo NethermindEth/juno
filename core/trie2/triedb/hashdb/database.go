@@ -33,6 +33,7 @@ type Database struct {
 const (
 	maxCacheSize         = 100 * 1024 * 1024
 	idealBatchSize       = 100 * 1024
+	rootsCacheSize       = 100
 	flushInterval        = 5 * time.Minute
 	storageKeySize       = 75
 	contractClassKeySize = 44
@@ -47,7 +48,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		config:     config,
 		cleanCache: NewCleanCache(config.CleanCacheType, config.CleanCacheSize),
 		dirtyCache: NewDirtyCache(config.DirtyCacheType, config.DirtyCacheSize),
-		rootsCache: NewCleanCache(config.CleanCacheType, 1000),
+		rootsCache: NewCleanCache(config.CleanCacheType, rootsCacheSize),
 		log:        utils.NewNopZapLogger(),
 	}
 }
