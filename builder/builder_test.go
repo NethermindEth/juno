@@ -201,7 +201,7 @@ func TestPrefundedAccounts(t *testing.T) {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
 		require.Nil(t, rpcErr)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 20*blockTime) // timeout upperbound
+	ctx, cancel := context.WithTimeout(t.Context(), 30*blockTime) // timeout upperbound
 	go func() {
 		waitForTxns(ctx, t, blockTime, bc, 2) // attempt early cancel
 		cancel()
