@@ -450,7 +450,7 @@ func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (Transaction, error) {
 	var tx Transaction
 	err := r.Get(db.TxByBlockNumIndexKey(blockNum, index), func(data []byte) error {
-		return encoder.Unmarshal(data, tx)
+		return encoder.Unmarshal(data, &tx)
 	})
 	if err != nil {
 		return nil, err
