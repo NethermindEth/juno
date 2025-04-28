@@ -15,6 +15,8 @@ var errDBClosed = errors.New("memory database closed")
 
 var _ db.KeyValueStore = (*Database)(nil)
 
+// Represents an in-memory key-value store.
+// It is thread-safe.
 type Database struct {
 	db   map[string][]byte
 	lock sync.RWMutex
