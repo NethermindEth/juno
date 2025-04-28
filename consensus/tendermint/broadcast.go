@@ -31,7 +31,7 @@ func (t *Tendermint[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
 	t.messages.addPrevote(vote)
 	t.state.step = prevote
 
-	return utils.HeapPtr(BroadcastPrevote[V, H, A](vote))
+	return utils.HeapPtr(BroadcastPrevote[H, A](vote))
 }
 
 func (t *Tendermint[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
@@ -47,5 +47,5 @@ func (t *Tendermint[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
 	t.messages.addPrecommit(vote)
 	t.state.step = precommit
 
-	return utils.HeapPtr(BroadcastPrecommit[V, H, A](vote))
+	return utils.HeapPtr(BroadcastPrecommit[H, A](vote))
 }

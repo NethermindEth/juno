@@ -233,6 +233,37 @@ func (d *Driver[V, H, A]) Start() {
 	}()
 }
 
+func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
+	for _, action := range actions {
+		switch action := action.(type) {
+		case *BroadcastProposal[V, H, A]:
+			d.broadcasters.ProposalBroadcaster.Broadcast(Proposal[V, H, A](*action))
+		case *BroadcastPrevote[H, A]:
+			d.broadcasters.PrevoteBroadcaster.Broadcast(Prevote[H, A](*action))
+		case *BroadcastPrecommit[H, A]:
+			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
+		case *ScheduleTimeout:
+			var duration time.Duration
+			switch action.s {
+			case propose:
+				duration = d.timeoutPropose(action.r)
+			case prevote:
+				duration = d.timeoutPrevote(action.r)
+			case precommit:
+				duration = d.timeoutPrecommit(action.r)
+			default:
+				return
+			}
+			d.scheduledTms[timeout(*action)] = time.AfterFunc(duration, func() {
+				select {
+				case <-d.quit:
+				case d.timeoutsCh <- timeout(*action):
+				}
+			})
+		}
+	}
+}
+
 func (d *Driver[V, H, A]) Stop() {
 	close(d.quit)
 	d.wg.Wait()
@@ -270,7 +301,7 @@ type timeout struct {
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(
-		ScheduleTimeout[V, H, A]{
+		ScheduleTimeout{
 			s: s,
 			h: t.state.height,
 			r: t.state.round,
