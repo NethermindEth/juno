@@ -2,10 +2,12 @@ package tendermint
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/cockroachdb/pebble"
+	"github.com/fxamacker/cbor/v2"
 )
 
 // Todo: just placing the DB logic here. Will likely restructure
@@ -42,11 +44,11 @@ import (
 // Todo: write a set of getters and setters around this.
 
 type State struct { // Todo: move this elsewhere. Currently just a placeholder
-	db    *db.DB
+	db    db.DB
 	batch *pebble.Batch
 }
 
-func NewState(db *db.DB) State {
+func NewState(db db.DB) State {
 	return State{db: db}
 }
 
@@ -54,20 +56,64 @@ func (s *State) CommitBatch() error { // Todo: figure out when to call this to b
 	return s.batch.Commit(pebble.Sync)
 }
 
-// Todo
-func (s *State) SetWalSeqNum(height height) []byte {
-	return []byte{}
+// Todo: push to utils?
+func heightToBytes(height height) []byte {
+	heightBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(heightBytes, uint32(height))
+	return heightBytes
 }
 
-// Todo: after we commit a block, we can delete old wal-msgs.
+func (s *State) GetNumMsgsAtHeight(height height) (uint32, error) {
+	heightBytes := heightToBytes(height)
+	key := db.NumMsgsAtHeight.Key(heightBytes)
+
+	// 1. Try batch first
+	val, closer, err := s.batch.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			// 2. Fallback to DB using View
+			var value []byte
+			err = s.db.View(func(txn db.Transaction) error {
+				return txn.Get(key, func(v []byte) error {
+					value = append([]byte(nil), v...)
+					return nil
+				})
+			})
+			if err != nil {
+				if errors.Is(err, pebble.ErrNotFound) {
+					return 0, nil
+				}
+				return 0, fmt.Errorf("GetNumMsgsAtHeight: db.View error: %w", err)
+			}
+
+			if len(value) != 4 {
+				return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
+			}
+
+			return binary.BigEndian.Uint32(value), nil
+		} else {
+			return 0, fmt.Errorf("GetNumMsgsAtHeight: batch.Get error: %w", err)
+		}
+	}
+	defer closer.Close()
+
+	if len(val) != 4 {
+		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(val))
+	}
+
+	return binary.BigEndian.Uint32(val), nil
+}
+
+// Todo:
 func (s *State) DeleteMsgsAtHeight(height height) error {
-	// Delete both `MsgsAtHeight` and `NumMsgsAtHeight`
 	return nil
 }
 
-// Todo
-func (s *State) GetNumMsgsAtHeight(h height) []byte {
-	return []byte{}
+func (s *State) SetWalSeqNum(height height, walIter uint32) error {
+	key := db.NumMsgsAtHeight.Key([]byte{byte(uint(height))})
+	val := make([]byte, 4)
+	binary.BigEndian.PutUint32(val, walIter)
+	return s.batch.Set(key, val, nil)
 }
 
 // Todo: methods + generics don't play well together
@@ -99,16 +145,135 @@ func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, msg 
 		return fmt.Errorf("StoreWALMsg: marshal error: %w", err)
 	}
 
-	key_bytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(key_bytes, uint32(height))
-	numMsgsAtHeight := s.GetNumMsgsAtHeight(height)
+	// Get number of msgs written so far, and incremenet.
+	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
+	if err != nil {
+		return err
+	}
+	numMsgsAtHeight++
+	numMsgsAtHeightBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, numMsgsAtHeight)
 
-	key := db.MsgsAtHeight.Key(key_bytes, numMsgsAtHeight)
+	heightBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(heightBytes, uint32(height))
+	key := db.MsgsAtHeight.Key(heightBytes, numMsgsAtHeightBytes)
 
 	return s.batch.Set(key, valBytes, pebble.Sync) // Note: Set() doesn't actually use `pebble.Sync` here
 }
 
+func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, height height) ([]M, error) {
+	heightBytes := heightToBytes(height)
+
+	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
+	if err != nil {
+		return nil, fmt.Errorf("GetWALMsgs: failed to get number of messages: %w", err)
+	}
+	if numMsgsAtHeight == 0 {
+		return nil, nil
+	}
+
+	msgs := make([]M, 0, numMsgsAtHeight)
+
+	for i := uint32(0); i < numMsgsAtHeight; i++ {
+		iterBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(iterBytes, i)
+
+		key := db.MsgsAtHeight.Key(heightBytes, iterBytes)
+
+		// 2. Fallback to DB using View
+		var value []byte
+		err = s.db.View(func(txn db.Transaction) error {
+			return txn.Get(key, func(v []byte) error {
+				value = append([]byte(nil), v...)
+				return nil
+			})
+		})
+		if err != nil {
+			if errors.Is(err, pebble.ErrNotFound) {
+				return nil, fmt.Errorf("GetWALMsgs: missing message %d at height %d", i, height)
+			}
+			return nil, fmt.Errorf("GetWALMsgs: db.Get error: %w", err)
+		}
+		msg, err := UnmarshalMsg[V, H, A, M](value)
+		if err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
 // Todo
-func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, height height) error {
-	return nil
+func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byte) (M, error) {
+	var wrapper struct {
+		Type string          `json:"type"`
+		Data cbor.RawMessage `json:"data"`
+	}
+
+	var zero M
+
+	if err := cbor.Unmarshal(value, &wrapper); err != nil {
+		return zero, fmt.Errorf("UnmarshalMsg: failed to unmarshal wrapper: %w", err)
+	}
+
+	switch wrapper.Type {
+	case "proposal":
+		var proposal Proposal[V, H, A]
+		if err := proposal.UnmarshalCBOR(wrapper.Data); err != nil {
+			return zero, fmt.Errorf("UnmarshalMsg: Proposal.UnmarshalCBOR failed: %w", err)
+		}
+		return any(proposal).(M), nil
+
+	case "prevote", "precommit": // Todo: we treat both identically here..
+		var vote Vote[H, A]
+		if err := vote.UnmarshalCBOR(wrapper.Data); err != nil {
+			return zero, fmt.Errorf("UnmarshalMsg: Vote.UnmarshalCBOR failed for %q: %w", wrapper.Type, err)
+		}
+		return any(vote).(M), nil
+
+	default:
+		return zero, fmt.Errorf("UnmarshalMsg: unknown type %q", wrapper.Type)
+	}
+}
+
+func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) ([]byte, error) {
+	var (
+		typeName string
+		data     []byte
+		err      error
+	)
+
+	switch m := any(msg).(type) {
+	case Proposal[V, H, A]:
+		typeName = "proposal"
+		data, err = m.MarshalCBOR()
+
+	case Prevote[H, A]:
+		typeName = "prevote"
+		vote := Vote[H, A](m)
+		data, err = vote.MarshalCBOR()
+
+	case Precommit[H, A]:
+		typeName = "precommit"
+		vote := Vote[H, A](m)
+		data, err = vote.MarshalCBOR()
+
+	default:
+		return nil, fmt.Errorf("MarshalMsg: unknown message type")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("MarshalMsg: marshal inner data failed: %w", err)
+	}
+
+	// Wrap the type tag + the serialized data together
+	wrapped := struct {
+		Type string `json:"type"`
+		Data []byte `json:"data"`
+	}{
+		Type: typeName,
+		Data: data,
+	}
+
+	return cbor.Marshal(wrapped)
 }

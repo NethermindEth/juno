@@ -10,7 +10,7 @@ import (
 
 type (
 	step        uint8
-	height      uint
+	height      uint32
 	round       int
 	votingPower uint
 )
