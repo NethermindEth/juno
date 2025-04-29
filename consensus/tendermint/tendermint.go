@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/fxamacker/cbor/v2"
 )
 
 type (
@@ -254,6 +255,33 @@ type timeout struct {
 	s step
 	h height
 	r round
+}
+
+func (t timeout) MarshalCBOR() (cbor.RawMessage, error) {
+	return cbor.Marshal(struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{
+		S: t.s,
+		H: t.h,
+		R: t.r,
+	})
+}
+
+func (t *timeout) UnmarshalCBOR(data []byte) error {
+	aux := struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{}
+	if err := cbor.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	t.s = aux.S
+	t.h = aux.H
+	t.r = aux.R
+	return nil
 }
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h height, r round) {

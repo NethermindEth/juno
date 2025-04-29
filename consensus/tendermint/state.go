@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -42,21 +43,25 @@ import (
 // to ensure durability guarantees are met.
 
 // Todo: write a set of getters and setters around this.
+type WALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]] struct {
+	Msg     *M
+	Timeout *timeout
+}
 
-type State struct { // Todo: move this elsewhere. Currently just a placeholder
+type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
 	db    db.DB
 	batch *pebble.Batch
 }
 
-func NewState(db db.DB) State {
-	return State{db: db}
+func NewState(db db.DB) TMDB {
+	return TMDB{db: db}
 }
 
-func (s *State) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
+func (s *TMDB) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
 	return s.batch.Commit(pebble.Sync)
 }
 
-func (s *State) GetNumMsgsAtHeight(height height) (uint32, error) {
+func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 
@@ -95,81 +100,146 @@ func (s *State) GetNumMsgsAtHeight(height height) (uint32, error) {
 }
 
 // Todo:
-func (s *State) DeleteMsgsAtHeight(height height) error {
+func (s *TMDB) DeleteMsgsAtHeight(height height) error {
 	return nil
 }
 
-func (s *State) SetNumMsgsAtHeight(height height, walIter uint32) error {
+func (s *TMDB) SetNumMsgsAtHeight(height height, walIter uint32) error {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 	val := encodeNumMsgsAtHeight(walIter)
 	return s.batch.Set(key, val, nil)
 }
 
-// Todo: methods + generics don't play well together
-func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, msg M) error {
+func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, to *timeout, height height) error {
+	var (
+		dataType string
+		data     []byte
+		err      error
+	)
 
-	msgData, err := MarshalMsg[V, H, A](msg)
-	if err != nil {
-		return err
+	if to != nil {
+		data, err = to.MarshalCBOR()
+		if err != nil {
+			return fmt.Errorf("SetWAL: marshal inner timeout failed: %w", err)
+		}
+		dataType = "timeout"
+	} else {
+		dataType, err = msgType[V, H, A](msg)
+		if err != nil {
+			return fmt.Errorf("SetWAL: failed to get msg type: %w", err)
+		}
+		data, err = MarshalMsg[V, H, A](msg)
+		if err != nil {
+			return fmt.Errorf("SetWAL: marshal message failed: %w", err)
+		}
 	}
 
-	msgheight, err := getHeight[V, H, A](msg)
-	if err != nil {
-		return err
+	// Wrap type + data
+	wrapper := struct {
+		Type string `cbor:"type"`
+		Data []byte `cbor:"data"`
+	}{
+		Type: dataType,
+		Data: data,
 	}
 
-	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(msgheight)
+	msgData, err := cbor.Marshal(wrapper)
 	if err != nil {
-		return err
+		return fmt.Errorf("SetWAL: marshal wrapper failed: %w", err)
 	}
-	numMsgsAtHeight++
-	numMsgsAtHeightBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
-
-	key := db.MsgsAtHeight.Key(heightToBytes(msgheight), numMsgsAtHeightBytes)
-	return s.batch.Set(key, msgData, pebble.Sync)
-}
-
-func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, height height) ([]M, error) {
-	heightBytes := heightToBytes(height)
 
 	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
 	if err != nil {
-		return nil, fmt.Errorf("GetWALMsgs: failed to get number of messages: %w", err)
+		return fmt.Errorf("SetWAL: failed to get numMsgsAtHeight: %w", err)
 	}
-	if numMsgsAtHeight == 0 {
+	numMsgsAtHeight++
+	numMsgsAtHeightInc := encodeNumMsgsAtHeight(numMsgsAtHeight)
+
+	key := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightInc)
+
+	return s.batch.Set(key, msgData, pebble.Sync)
+}
+
+func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, height height) ([]WALMsg[V, H, A, M], error) {
+	rawEntries, err := scanWALRaw(s, height)
+	if err != nil {
+		return nil, err
+	}
+	if len(rawEntries) == 0 {
 		return nil, nil
 	}
 
-	msgs := make([]M, 0, numMsgsAtHeight)
+	walMsgs := make([]WALMsg[V, H, A, M], 0, len(rawEntries))
 
-	for i := uint32(0); i < numMsgsAtHeight; i++ {
-		iterBytes := make([]byte, 4)
-		binary.BigEndian.PutUint32(iterBytes, i)
+	for _, value := range rawEntries {
+		var wrapper struct {
+			Type string `cbor:"type"`
+			Data []byte `cbor:"data"`
+		}
+		if err := cbor.Unmarshal(value, &wrapper); err != nil {
+			return nil, fmt.Errorf("GetWALMsgs: failed to decode wrapper: %w", err)
+		}
 
-		key := db.MsgsAtHeight.Key(heightBytes, iterBytes)
-
-		// 2. Fallback to DB using View
-		var value []byte
-		err = s.db.View(func(txn db.Transaction) error {
-			return txn.Get(key, func(v []byte) error {
-				value = append([]byte(nil), v...)
-				return nil
-			})
-		})
-		if err != nil {
-			if errors.Is(err, pebble.ErrNotFound) {
-				return nil, fmt.Errorf("GetWALMsgs: missing message %d at height %d", i, height)
+		switch wrapper.Type {
+		case "timeout":
+			var to timeout
+			if err := to.UnmarshalCBOR(wrapper.Data); err != nil {
+				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout: %w", err)
 			}
-			return nil, fmt.Errorf("GetWALMsgs: db.Get error: %w", err)
+			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Timeout: &to})
+
+		default:
+			msg, err := UnmarshalMsg[V, H, A, M](wrapper.Data)
+			if err != nil {
+				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal message: %w", err)
+			}
+			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Msg: &msg})
 		}
-		msg, err := UnmarshalMsg[V, H, A, M](value)
-		if err != nil {
-			return nil, err
-		}
-		msgs = append(msgs, msg)
 	}
-	return msgs, nil
+
+	return walMsgs, nil
+}
+
+func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
+	prefix := db.MsgsAtHeight.Key(encodeNumMsgsAtHeight(uint32(height)))
+	startKey := db.MsgsAtHeight.Key(encodeNumMsgsAtHeight(uint32(height)), encodeNumMsgsAtHeight(0))
+
+	rawEntries := [][]byte{}
+
+	err := s.db.View(func(txn db.Transaction) error {
+		iter, err := txn.NewIterator(nil, false)
+		if err != nil {
+			return fmt.Errorf("scanWALRaw: failed to create iterator: %w", err)
+		}
+		defer iter.Close()
+
+		if !iter.Seek(startKey) {
+			// No entries at or after this key
+			return nil
+		}
+
+		for ; iter.Valid(); iter.Next() {
+			k := iter.Key()
+			if !bytes.HasPrefix(k, prefix) {
+				break // Done scanning this height
+			}
+
+			v, err := iter.Value()
+			if err != nil {
+				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
+			}
+
+			rawEntries = append(rawEntries, append([]byte(nil), v...))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rawEntries, nil
 }
 
 func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byte) (M, error) {
@@ -204,45 +274,31 @@ func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byt
 	}
 }
 
-func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) ([]byte, error) {
+func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (cbor.RawMessage, error) {
 	var (
-		typeName string
-		data     []byte
-		err      error
+		data []byte
+		err  error
 	)
 
 	switch m := any(msg).(type) {
 	case Proposal[V, H, A]:
-		typeName = "proposal"
 		data, err = m.MarshalCBOR()
 
 	case Prevote[H, A]:
-		typeName = "prevote"
 		vote := Vote[H, A](m)
 		data, err = vote.MarshalCBOR()
 
 	case Precommit[H, A]:
-		typeName = "precommit"
 		vote := Vote[H, A](m)
 		data, err = vote.MarshalCBOR()
 	default:
 		return nil, fmt.Errorf("MarshalMsg: unknown message type")
 	}
-
 	if err != nil {
 		return nil, fmt.Errorf("MarshalMsg: marshal inner data failed: %w", err)
 	}
 
-	// Wrap the type tag + the serialized data together
-	wrapped := struct {
-		Type string `json:"type"`
-		Data []byte `json:"data"`
-	}{
-		Type: typeName,
-		Data: data,
-	}
-
-	return cbor.Marshal(wrapped)
+	return data, nil
 }
 
 // todo: push to msg method??
@@ -269,4 +325,20 @@ func encodeNumMsgsAtHeight(numMsgsAtHeight uint32) []byte {
 	numMsgsAtHeightBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, numMsgsAtHeight)
 	return numMsgsAtHeightBytes
+}
+
+// Todo: consider enum
+func msgType[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (string, error) {
+	switch any(msg).(type) {
+	case Proposal[V, H, A]:
+		return "proposal", nil
+
+	case Prevote[H, A]:
+		return "prevote", nil
+
+	case Precommit[H, A]:
+		return "precommit", nil
+
+	}
+	return "", fmt.Errorf("MarshalMsg: unknown message type")
 }
