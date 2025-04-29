@@ -122,6 +122,7 @@ type (
 	Prevote[H Hash, A Addr]   Vote[H, A]
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
+
 type Vote[H Hash, A Addr] struct {
 	MessageHeader[A] `cbor:"message_header"`
 	ID               *H `cbor:"id"`

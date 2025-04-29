@@ -53,50 +53,41 @@ type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
 	batch *pebble.Batch
 }
 
-func NewState(db db.DB) TMDB {
-	return TMDB{db: db}
+func NewTMState(db db.DB) TMDB {
+	// Todo: use Hans Batch logic
+	return TMDB{db: db, batch: &pebble.Batch{}}
 }
 
 func (s *TMDB) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
 	return s.batch.Commit(pebble.Sync)
 }
 
+// GetNumMsgsAtHeight can onl read from the db. This is because we use batch transactions
+// which don't allow reading from the batch. This is okay because we will only call this function
+// once we (re)start the node, to get the WAL msgs and replay them.
 func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 
-	// 1. Try batch first
-	val, closer, err := s.batch.Get(key)
+	var value []byte
+	err := s.db.View(func(txn db.Transaction) error {
+		return txn.Get(key, func(v []byte) error {
+			value = append([]byte(nil), v...)
+			return nil
+		})
+	})
 	if err != nil {
 		if errors.Is(err, pebble.ErrNotFound) {
-			// 2. Fallback to DB using View
-			var value []byte
-			err = s.db.View(func(txn db.Transaction) error {
-				return txn.Get(key, func(v []byte) error {
-					value = append([]byte(nil), v...)
-					return nil
-				})
-			})
-			if err != nil {
-				if errors.Is(err, pebble.ErrNotFound) {
-					return 0, nil
-				}
-				return 0, fmt.Errorf("GetNumMsgsAtHeight: db.View error: %w", err)
-			}
-
-			if len(value) != 4 {
-				return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
-			}
-			return binary.BigEndian.Uint32(value), nil
-		} else {
-			return 0, fmt.Errorf("GetNumMsgsAtHeight: batch.Get error: %w", err)
+			return 0, nil // No messages yet at this height
 		}
+		return 0, fmt.Errorf("GetNumMsgsAtHeight: db.View error: %w", err)
 	}
-	defer closer.Close()
-	if len(val) != 4 {
-		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(val))
+
+	if len(value) != 4 {
+		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
 	}
-	return binary.BigEndian.Uint32(val), nil
+
+	return binary.BigEndian.Uint32(value), nil
 }
 
 // Todo:
@@ -108,7 +99,7 @@ func (s *TMDB) SetNumMsgsAtHeight(height height, walIter uint32) error {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 	val := encodeNumMsgsAtHeight(walIter)
-	return s.batch.Set(key, val, nil)
+	return s.batch.Set(key, val, pebble.Sync)
 }
 
 func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, to *timeout, height height) error {
