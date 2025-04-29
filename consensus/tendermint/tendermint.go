@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -116,6 +117,8 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
+	db TMDB
+
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
@@ -158,8 +161,10 @@ type state[V Hashable[H], H Hash] struct {
 
 func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
 	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+	db TMDB,
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
+		db:       db,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -188,6 +193,12 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (t *Tendermint[V, H, A]) Start() {
+
+	err := t.replayWAL()
+	if err != nil {
+		panic(err) // Panic because failure to replay WAL msgs could result in slashing
+	}
+
 	t.wg.Add(1)
 	go func() {
 		defer t.wg.Done()
@@ -215,6 +226,29 @@ func (t *Tendermint[V, H, A]) Start() {
 			}
 		}
 	}()
+}
+func (t *Tendermint[V, H, A]) replayWAL() error {
+
+	height := t.blockchain.Height()
+
+	msgs, err := GetWALMsgs[V, H, A, Message[V, H, A]](&t.db, height)
+	if err != nil {
+		return err
+	}
+
+	// Todo: Note: it is important that we don't submit msgs to the network. Timeouts trigger manually??
+	for _, msg := range msgs {
+		switch msg.(type) {
+		case timeout:
+		case Proposal:
+		case Prevote:
+		case Precommit:
+		default:
+			return fmt.Errorf("found unexpected WAl msg") // Todo
+		}
+	}
+
+	return nil
 }
 
 func (t *Tendermint[V, H, A]) Stop() {
