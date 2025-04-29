@@ -56,13 +56,6 @@ func (s *State) CommitBatch() error { // Todo: figure out when to call this to b
 	return s.batch.Commit(pebble.Sync)
 }
 
-// Todo: push to utils?
-func heightToBytes(height height) []byte {
-	heightBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(heightBytes, uint32(height))
-	return heightBytes
-}
-
 func (s *State) GetNumMsgsAtHeight(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
@@ -89,18 +82,15 @@ func (s *State) GetNumMsgsAtHeight(height height) (uint32, error) {
 			if len(value) != 4 {
 				return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
 			}
-
 			return binary.BigEndian.Uint32(value), nil
 		} else {
 			return 0, fmt.Errorf("GetNumMsgsAtHeight: batch.Get error: %w", err)
 		}
 	}
 	defer closer.Close()
-
 	if len(val) != 4 {
 		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(val))
 	}
-
 	return binary.BigEndian.Uint32(val), nil
 }
 
@@ -109,56 +99,35 @@ func (s *State) DeleteMsgsAtHeight(height height) error {
 	return nil
 }
 
-func (s *State) SetWalSeqNum(height height, walIter uint32) error {
-	key := db.NumMsgsAtHeight.Key([]byte{byte(uint(height))})
-	val := make([]byte, 4)
-	binary.BigEndian.PutUint32(val, walIter)
+func (s *State) SetNumMsgsAtHeight(height height, walIter uint32) error {
+	heightBytes := heightToBytes(height)
+	key := db.NumMsgsAtHeight.Key(heightBytes)
+	val := encodeNumMsgsAtHeight(walIter)
 	return s.batch.Set(key, val, nil)
 }
 
 // Todo: methods + generics don't play well together
 func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, msg M) error {
-	var (
-		height   height
-		valBytes []byte
-		err      error
-	)
-	switch m := any(msg).(type) {
-	case Proposal[V, H, A]:
-		height = m.Height
-		valBytes, err = m.MarshalCBOR()
 
-	case Prevote[H, A]:
-		height = m.Height
-		vote := Vote[H, A](m) // Free cast
-		valBytes, err = vote.MarshalCBOR()
-
-	case Precommit[H, A]:
-		height = m.Height
-		vote := Vote[H, A](m) // Free cast
-		valBytes, err = vote.MarshalCBOR()
-	default:
-		panic("unexpected type in StoreWALMsg") // Todo: handle
-	}
-
+	msgData, err := MarshalMsg[V, H, A](msg)
 	if err != nil {
-		return fmt.Errorf("StoreWALMsg: marshal error: %w", err)
+		return err
 	}
 
-	// Get number of msgs written so far, and incremenet.
-	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
+	msgheight, err := getHeight[V, H, A](msg)
+	if err != nil {
+		return err
+	}
+
+	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(msgheight)
 	if err != nil {
 		return err
 	}
 	numMsgsAtHeight++
-	numMsgsAtHeightBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, numMsgsAtHeight)
+	numMsgsAtHeightBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
 
-	heightBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(heightBytes, uint32(height))
-	key := db.MsgsAtHeight.Key(heightBytes, numMsgsAtHeightBytes)
-
-	return s.batch.Set(key, valBytes, pebble.Sync) // Note: Set() doesn't actually use `pebble.Sync` here
+	key := db.MsgsAtHeight.Key(heightToBytes(msgheight), numMsgsAtHeightBytes)
+	return s.batch.Set(key, msgData, pebble.Sync)
 }
 
 func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, height height) ([]M, error) {
@@ -203,7 +172,6 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *State, hei
 	return msgs, nil
 }
 
-// Todo
 func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byte) (M, error) {
 	var wrapper struct {
 		Type string          `json:"type"`
@@ -257,7 +225,6 @@ func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) ([]byt
 		typeName = "precommit"
 		vote := Vote[H, A](m)
 		data, err = vote.MarshalCBOR()
-
 	default:
 		return nil, fmt.Errorf("MarshalMsg: unknown message type")
 	}
@@ -276,4 +243,30 @@ func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) ([]byt
 	}
 
 	return cbor.Marshal(wrapped)
+}
+
+// todo: push to msg method??
+func getHeight[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (height, error) {
+	switch m := any(msg).(type) {
+	case Proposal[V, H, A]:
+		return m.Height, nil
+	case Prevote[H, A]:
+		return m.Height, nil
+	case Precommit[H, A]:
+		return m.Height, nil
+	}
+	return height(0), fmt.Errorf("failed to get message height")
+}
+
+// Todo: push to utils?
+func heightToBytes(height height) []byte {
+	heightBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(heightBytes, uint32(height))
+	return heightBytes
+}
+
+func encodeNumMsgsAtHeight(numMsgsAtHeight uint32) []byte {
+	numMsgsAtHeightBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, numMsgsAtHeight)
+	return numMsgsAtHeightBytes
 }
