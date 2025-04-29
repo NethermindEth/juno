@@ -16,7 +16,7 @@ func (t *Tendermint[V, H, A]) uponFirstProposal(cachedProposal *CachedProposal[V
 	return cachedProposal.ValidRound == -1 && t.state.step == propose
 }
 
-func (t *Tendermint[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) {
+func (t *Tendermint[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound == -1 ||
 			t.state.lockedValue != nil && (*t.state.lockedValue).Hash() == *cachedProposal.ID)
@@ -25,5 +25,5 @@ func (t *Tendermint[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, 
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}
-	t.sendPrevote(votedID)
+	return t.setStepAndSendPrevote(votedID)
 }

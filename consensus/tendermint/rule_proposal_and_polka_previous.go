@@ -20,7 +20,7 @@ func (t *Tendermint[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cache
 		vr < t.state.round
 }
 
-func (t *Tendermint[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) {
+func (t *Tendermint[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound <= cachedProposal.ValidRound ||
@@ -28,5 +28,5 @@ func (t *Tendermint[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedP
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}
-	t.sendPrevote(votedID)
+	return t.setStepAndSendPrevote(votedID)
 }

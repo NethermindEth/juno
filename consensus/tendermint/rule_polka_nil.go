@@ -25,6 +25,6 @@ func (t *Tendermint[V, H, A]) uponPolkaNil() bool {
 	return hasQuorum && t.state.step == prevote
 }
 
-func (t *Tendermint[V, H, A]) doPolkaNil() {
-	t.sendPrecommit(nil)
+func (t *Tendermint[V, H, A]) doPolkaNil() Action[V, H, A] {
+	return t.setStepAndSendPrecommit(nil)
 }

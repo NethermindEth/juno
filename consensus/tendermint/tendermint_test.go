@@ -137,7 +137,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val3)
 		vals.addValidator(*val4)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedProposalMsg := Proposal[value, felt.Felt, felt.Felt]{
@@ -159,12 +159,12 @@ func TestStartRound(t *testing.T) {
 		proposal := <-proposalBroadcaster.mCh
 
 		assert.Equal(t, expectedProposalMsg, proposal)
-		assert.Contains(t, algo.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
-		assert.Equal(t, expectedProposalMsg, algo.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
+		assert.Contains(t, algo.stateMachine.messages.proposals[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedProposalMsg, algo.stateMachine.messages.proposals[expectedHeight][expectedRound][*nodeAddr])
 
-		assert.Equal(t, prevote, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, expectedRound, algo.state.round)
+		assert.Equal(t, prevote, algo.stateMachine.state.step)
+		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
+		assert.Equal(t, expectedRound, algo.stateMachine.state.round)
 	})
 
 	t.Run("node is not the proposer: schedule timeoutPropose", func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		algo.Start()
 		algo.Stop()
@@ -185,9 +185,9 @@ func TestStartRound(t *testing.T) {
 
 		assert.Contains(t, algo.scheduledTms, timeout{s: propose, h: 0, r: 0})
 
-		assert.Equal(t, propose, algo.state.step)
-		assert.Equal(t, height(0), algo.state.height)
-		assert.Equal(t, round(0), algo.state.round)
+		assert.Equal(t, propose, algo.stateMachine.state.step)
+		assert.Equal(t, height(0), algo.stateMachine.state.height)
+		assert.Equal(t, round(0), algo.stateMachine.state.round)
 	})
 
 	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
@@ -207,7 +207,7 @@ func TestStartRound(t *testing.T) {
 		vals.addValidator(*val4)
 		vals.addValidator(*nodeAddr)
 
-		algo := New(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
+		algo := NewDriver(*nodeAddr, app, chain, vals, listeners, broadcasters, tm, tm, tm)
 
 		expectedHeight, expectedRound := height(0), round(0)
 		expectedPrevoteMsg := Prevote[felt.Felt, felt.Felt]{
@@ -229,12 +229,12 @@ func TestStartRound(t *testing.T) {
 		prevoteMsg := <-prevoteBroadcaster.mCh
 
 		assert.Equal(t, expectedPrevoteMsg, prevoteMsg)
-		assert.Contains(t, algo.messages.prevotes[expectedHeight][expectedRound], *nodeAddr)
-		assert.Equal(t, expectedPrevoteMsg, algo.messages.prevotes[expectedHeight][expectedRound][*nodeAddr])
+		assert.Contains(t, algo.stateMachine.messages.prevotes[expectedHeight][expectedRound], *nodeAddr)
+		assert.Equal(t, expectedPrevoteMsg, algo.stateMachine.messages.prevotes[expectedHeight][expectedRound][*nodeAddr])
 
-		assert.Equal(t, prevote, algo.state.step)
-		assert.Equal(t, expectedHeight, algo.state.height)
-		assert.Equal(t, expectedRound, algo.state.round)
+		assert.Equal(t, prevote, algo.stateMachine.state.step)
+		assert.Equal(t, expectedHeight, algo.stateMachine.state.height)
+		assert.Equal(t, expectedRound, algo.stateMachine.state.round)
 	})
 }
 
