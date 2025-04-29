@@ -119,7 +119,7 @@ func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, t
 	)
 
 	if to != nil {
-		data, err = to.MarshalCBOR()
+		data, err = cbor.Marshal(to)
 		if err != nil {
 			return fmt.Errorf("SetWAL: marshal inner timeout failed: %w", err)
 		}
@@ -129,7 +129,7 @@ func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, t
 		if err != nil {
 			return fmt.Errorf("SetWAL: failed to get msg type: %w", err)
 		}
-		data, err = MarshalMsg[V, H, A](msg)
+		data, err = cbor.Marshal(msg)
 		if err != nil {
 			return fmt.Errorf("SetWAL: marshal message failed: %w", err)
 		}
@@ -184,7 +184,7 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, heig
 		switch wrapper.Type {
 		case "timeout":
 			var to timeout
-			if err := to.UnmarshalCBOR(wrapper.Data); err != nil {
+			if err := cbor.Unmarshal(wrapper.Data, to); err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout: %w", err)
 			}
 			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Timeout: &to})
@@ -257,14 +257,14 @@ func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byt
 	switch wrapper.Type {
 	case "proposal":
 		var proposal Proposal[V, H, A]
-		if err := proposal.UnmarshalCBOR(wrapper.Data); err != nil {
+		if err := cbor.Unmarshal(wrapper.Data, proposal); err != nil {
 			return zero, fmt.Errorf("UnmarshalMsg: Proposal.UnmarshalCBOR failed: %w", err)
 		}
 		return any(proposal).(M), nil
 
-	case "prevote", "precommit": // Todo: we treat both identically here..
+	case "prevote", "precommit":
 		var vote Vote[H, A]
-		if err := vote.UnmarshalCBOR(wrapper.Data); err != nil {
+		if err := cbor.Unmarshal(wrapper.Data, vote); err != nil {
 			return zero, fmt.Errorf("UnmarshalMsg: Vote.UnmarshalCBOR failed for %q: %w", wrapper.Type, err)
 		}
 		return any(vote).(M), nil
@@ -274,32 +274,32 @@ func UnmarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](value []byt
 	}
 }
 
-func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (cbor.RawMessage, error) {
-	var (
-		data []byte
-		err  error
-	)
+// func MarshalMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (cbor.RawMessage, error) {
+// 	var (
+// 		data []byte
+// 		err  error
+// 	)
 
-	switch m := any(msg).(type) {
-	case Proposal[V, H, A]:
-		data, err = m.MarshalCBOR()
+// 	switch m := any(msg).(type) {
+// 	case Proposal[V, H, A]:
+// 		data, err = m.MarshalCBOR()
 
-	case Prevote[H, A]:
-		vote := Vote[H, A](m)
-		data, err = vote.MarshalCBOR()
+// 	case Prevote[H, A]:
+// 		vote := Vote[H, A](m)
+// 		data, err = vote.MarshalCBOR()
 
-	case Precommit[H, A]:
-		vote := Vote[H, A](m)
-		data, err = vote.MarshalCBOR()
-	default:
-		return nil, fmt.Errorf("MarshalMsg: unknown message type")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("MarshalMsg: marshal inner data failed: %w", err)
-	}
+// 	case Precommit[H, A]:
+// 		vote := Vote[H, A](m)
+// 		data, err = vote.MarshalCBOR()
+// 	default:
+// 		return nil, fmt.Errorf("MarshalMsg: unknown message type")
+// 	}
+// 	if err != nil {
+// 		return nil, fmt.Errorf("MarshalMsg: marshal inner data failed: %w", err)
+// 	}
 
-	return data, nil
-}
+// 	return data, nil
+// }
 
 // todo: push to msg method??
 func getHeight[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (height, error) {
