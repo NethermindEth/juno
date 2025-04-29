@@ -20,18 +20,18 @@ import (
 //
 // | Key                                  | Value                         | Meaning                                |
 // |--------------------------------------|-------------------------------|----------------------------------------|
-// | db/WalIter/000003E8                  | 0000002A                      | Last wal_iter=42 at height=1000        |
+// | db/WalIter/000003E8                  | 0000002B                      | Last wal_iter=43 at height=1000        |
 // | db/Msg/000003E8/00000000             | (CBOR-encoded Proposal)       | Proposal at height=1000, iter=0        |
 // | db/Msg/000003E8/00000001             | (CBOR-encoded Prevote)        | Prevote at height=1000, iter=1         |
 // | db/Msg/000003E8/00000002             | (CBOR-encoded Precommit)      | Precommit at height=1000, iter=2       |
-// ....
+// ...
+// | db/Msg/000003E8/00000029             | (CBOR-encoded Timeout)        | Timeout event at height=1000, iter=41  |
 // | db/Msg/000003E8/0000002A             | (CBOR-encoded Proposal)       | Proposal at height=1000, iter=42       |
 // | db/WalIter/000003E9                  | 00000010                      | Last wal_iter=16 at height=1001        |
-// | db/Msg/000003E9/00000000             | (CBOR-encoded Proposal)       | Proposal at height=1001, iter=0        |
-// | db/Msg/000003E9/00000001             | (CBOR-encoded Prevote)        | Prevote at height=1001, iter=1         |
-// ....
-// | db/Msg/000003E9/00000010             | (CBOR-encoded Precommit)      | Precommit at height=1001, iter=16      |
-//
+// | db/Msg/000003E9/00000000             | (CBOR-encoded Timeout)        | Timeout at height=1001, iter=0         |
+// | db/Msg/000003E9/00000001             | (CBOR-encoded Proposal)       | Proposal at height=1001, iter=1        |
+// ...
+
 // We use a Batch to accumulate writes before committing them to the DB.
 // This reduces expensive disk I/O by batching multiple writes together.
 //
