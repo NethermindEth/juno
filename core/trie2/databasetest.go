@@ -57,7 +57,15 @@ func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path tri
 	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: hash}
 }
 
-func writeNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash felt.Felt, isLeaf bool, node []byte) error {
+func writeNode(
+	r db.KeyValueStore,
+	id trieutils.TrieID,
+	scheme dbScheme,
+	path trieutils.Path,
+	hash felt.Felt, //nolint:unparam // probably will be used by hash scheme
+	isLeaf bool,
+	node []byte,
+) error {
 	switch scheme {
 	case PathScheme:
 		return trieutils.WriteNodeByPath(r, id.Bucket(), id.Owner(), path, isLeaf, node)
