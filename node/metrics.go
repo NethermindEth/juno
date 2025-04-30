@@ -208,7 +208,7 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 	}
 }
 
-func makeSyncMetric2(syncReader sync.Reader2, bcReader blockchain.Reader2) sync.EventListener {
+func makeSyncMetric2(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
 	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "sync",
 		Name:      "timers",
