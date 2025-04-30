@@ -208,52 +208,6 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 	}
 }
 
-func makeSyncMetric2(syncReader sync.Reader, bcReader blockchain.Reader) sync.EventListener {
-	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "sync",
-		Name:      "timers",
-	}, []string{"op"})
-	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "sync",
-		Name:      "blocks",
-	})
-	reorgCount := prometheus.NewCounter(prometheus.CounterOpts{
-		Namespace: "sync",
-		Name:      "reorganisations",
-	})
-	chainHeightGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "sync",
-		Name:      "blockchain_height",
-	}, func() float64 {
-		height, _ := bcReader.Height()
-		return float64(height)
-	})
-	bestBlockGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "sync",
-		Name:      "best_known_block_number",
-	}, func() float64 {
-		bestHeader := syncReader.HighestBlockHeader()
-		if bestHeader != nil {
-			return float64(bestHeader.Number)
-		}
-		return 0
-	})
-
-	prometheus.MustRegister(opTimerHistogram, blockCount, chainHeightGauge, bestBlockGauge, reorgCount)
-
-	return &sync.SelectiveListener{
-		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
-			opTimerHistogram.WithLabelValues(op).Observe(took.Seconds())
-			if op == sync.OpStore {
-				blockCount.Inc()
-			}
-		},
-		OnReorgCb: func(blockNum uint64) {
-			reorgCount.Inc()
-		},
-	}
-}
-
 func makeJunoMetrics(version string) {
 	prometheus.MustRegister(prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace:   "juno",
@@ -331,45 +285,6 @@ func makeGatewayMetrics() gateway.EventListener {
 }
 
 func makePebbleMetrics(nodeDB db.KeyValueStore) {
-	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
-	if !ok {
-		return
-	}
-
-	blockCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "block_cache",
-		Name:      "size",
-	}, func() float64 {
-		return float64(pebbleDB.Metrics().BlockCache.Size)
-	})
-	blockHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "block_cache",
-		Name:      "hit_rate",
-	}, func() float64 {
-		metrics := pebbleDB.Metrics()
-		return float64(metrics.BlockCache.Hits) / float64(metrics.BlockCache.Hits+metrics.BlockCache.Misses)
-	})
-	tableCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "table_cache",
-		Name:      "size",
-	}, func() float64 {
-		return float64(pebbleDB.Metrics().TableCache.Size)
-	})
-	tableHitRate := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Namespace: "pebble",
-		Subsystem: "table_cache",
-		Name:      "hit_rate",
-	}, func() float64 {
-		metrics := pebbleDB.Metrics()
-		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
-	})
-	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
-}
-
-func makePebbleMetrics2(nodeDB db.KeyValueStore) {
 	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
 	if !ok {
 		return

@@ -289,7 +289,7 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 		}
 
 		if logChanges {
-			if err = s.history.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
+			if err = s.LogContractClassHash(&addr, oldClassHash, blockNumber); err != nil {
 				return err
 			}
 		}
