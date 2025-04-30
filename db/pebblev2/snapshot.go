@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
-	pebble "github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2"
 )
 
 var _ db.Snapshot = (*snapshot)(nil)

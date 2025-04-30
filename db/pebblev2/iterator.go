@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/db"
-	pebble "github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2"
 )
 
 var _ db.Iterator = (*iterator)(nil)

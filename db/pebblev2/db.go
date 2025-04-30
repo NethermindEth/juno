@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/NethermindEth/juno/utils"
-	pebble "github.com/cockroachdb/pebble/v2"
+	"github.com/cockroachdb/pebble/v2"
 )
 
 const (
