@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -54,7 +54,7 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
@@ -66,7 +66,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
@@ -143,7 +143,7 @@ func TestReorg(t *testing.T) {
 	sepoliaClient := feeder.NewTestClient(t, &utils.Sepolia)
 	sepoliaGw := adaptfeeder.New(sepoliaClient)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	// sync to Sepolia for 2 blocks
 	bc := blockchain.New(testDB, &utils.Sepolia)
@@ -190,7 +190,7 @@ func TestPending(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	var synchronizer *sync.Synchronizer
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	chain := blockchain.New(testDB, &utils.Mainnet)
 	chain = chain.WithPendingBlockFn(synchronizer.PendingBlock)
 	synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
@@ -265,7 +265,7 @@ func TestPending(t *testing.T) {
 
 func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	chain := blockchain.New(testDB, &network)
@@ -294,7 +294,7 @@ func TestSubscribePending(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, &utils.Mainnet)
 	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)

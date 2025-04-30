@@ -20,7 +20,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func setupDatabase(dbPath string, dltExisting bool) (db.DB, func(), error) {
+func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), error) {
 	if _, err := os.Stat(dbPath); err == nil {
 		if dltExisting {
 			if err := os.RemoveAll(dbPath); err != nil {

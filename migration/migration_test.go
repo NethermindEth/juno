@@ -4,14 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMigrateIfNeeded(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()

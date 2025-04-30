@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -30,7 +30,7 @@ func TestPlugin(t *testing.T) {
 	integClient := feeder.NewTestClient(t, &utils.Integration)
 	integGw := adaptfeeder.New(integClient)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	// sync to integration for 2 blocks
 	for i := range 2 {

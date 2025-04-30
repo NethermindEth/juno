@@ -201,7 +201,7 @@ func (g *grpcService) Run(ctx context.Context) error {
 	}
 }
 
-func makeGRPC(host string, port uint16, database db.DB, version string) *grpcService {
+func makeGRPC(host string, port uint16, database db.KeyValueStore, version string) *grpcService {
 	srv := grpc.NewServer()
 	gen.RegisterKVServer(srv, junogrpc.New(database, version))
 	return &grpcService{
@@ -223,6 +223,7 @@ func makePPROF(host string, port uint16) *httpService {
 
 const SyncBlockRange = 6
 
+// TODO: remember to delete this
 type readinessHandlers struct {
 	bcReader   blockchain.Reader
 	syncReader sync.Reader

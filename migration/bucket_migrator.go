@@ -15,7 +15,7 @@ import (
 var _ Migration = (*BucketMigrator)(nil)
 
 type (
-	BucketMigratorDoFunc    func(t db.Transaction, b1, b2 []byte, n *utils.Network) error
+	BucketMigratorDoFunc    func(t db.KeyValueWriter, b1, b2 []byte, n *utils.Network) error
 	BucketMigratorKeyFilter func([]byte) (bool, error)
 )
 
@@ -45,14 +45,14 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.Transaction, key, value []byte, n *utils.Network) error {
+	return NewBucketMigrator(source, func(txn db.KeyValueWriter, key, value []byte, n *utils.Network) error {
 		err := txn.Delete(key)
 		if err != nil {
 			return err
 		}
 
 		key[0] = byte(destination)
-		return txn.Set(key, value)
+		return txn.Put(key, value)
 	})
 }
 
@@ -76,9 +76,14 @@ func (m *BucketMigrator) Before(_ []byte) error {
 	return nil
 }
 
-func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, network *utils.Network, log utils.SimpleLogger) ([]byte, error) {
+func (m *BucketMigrator) Migrate(
+	ctx context.Context,
+	database db.KeyValueStore,
+	network *utils.Network,
+	log utils.SimpleLogger,
+) ([]byte, error) {
 	remainingInBatch := m.batchSize
-	iterator, err := txn.NewIterator(nil, false)
+	iterator, err := database.NewIterator(nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +137,7 @@ func (m *BucketMigrator) Migrate(ctx context.Context, txn db.Transaction, networ
 				return nil, utils.RunAndWrapOnError(iterator.Close, err)
 			}
 
-			if err = m.do(txn, key, value, network); err != nil {
+			if err = m.do(database, key, value, network); err != nil {
 				return nil, utils.RunAndWrapOnError(iterator.Close, err)
 			}
 		}

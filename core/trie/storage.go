@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 )
 
 // bufferPool caches unused buffer objects for later reuse.
@@ -29,11 +30,11 @@ func getBuffer() *bytes.Buffer {
 
 // Storage is a database transaction on a trie.
 type Storage struct {
-	txn    db.Transaction
+	txn    db.IndexedBatch
 	prefix []byte
 }
 
-func NewStorage(txn db.Transaction, prefix []byte) *Storage {
+func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
 	return &Storage{
 		txn:    txn,
 		prefix: prefix,
@@ -66,7 +67,7 @@ func (t *Storage) Put(key *BitArray, value *Node) error {
 	}
 
 	encodedBytes := buffer.Bytes()
-	return t.txn.Set(encodedBytes[:keyLen], encodedBytes[keyLen:])
+	return t.txn.Put(encodedBytes[:keyLen], encodedBytes[keyLen:])
 }
 
 func (t *Storage) Get(key *BitArray) (*Node, error) {
@@ -78,12 +79,11 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
-	if err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
+	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = nodePool.Get().(*Node)
 		return node.UnmarshalBinary(val)
-	}); err != nil {
-		return nil, err
-	}
+	})
+
 	return node, err
 }
 
@@ -99,13 +99,11 @@ func (t *Storage) Delete(key *BitArray) error {
 
 func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
-	if err := t.txn.Get(t.prefix, func(val []byte) error {
+	err := t.txn.Get(t.prefix, func(val []byte) error {
 		rootKey = new(BitArray)
 		return rootKey.UnmarshalBinary(val)
-	}); err != nil {
-		return nil, err
-	}
-	return rootKey, nil
+	})
+	return rootKey, err
 }
 
 func (t *Storage) PutRootKey(newRootKey *BitArray) error {
@@ -115,7 +113,7 @@ func (t *Storage) PutRootKey(newRootKey *BitArray) error {
 	if err != nil {
 		return err
 	}
-	return t.txn.Set(t.prefix, buffer.Bytes())
+	return t.txn.Put(t.prefix, buffer.Bytes())
 }
 
 func (t *Storage) DeleteRootKey() error {
@@ -124,11 +122,12 @@ func (t *Storage) DeleteRootKey() error {
 
 func (t *Storage) SyncedStorage() *Storage {
 	return &Storage{
-		txn:    db.NewSyncTransaction(t.txn),
+		txn:    db.NewSyncBatch(t.txn),
 		prefix: t.prefix,
 	}
 }
 
 func newMemStorage() *Storage {
-	return NewStorage(db.NewMemTransaction(), nil)
+	memoryDB := memory.New()
+	return NewStorage(memoryDB.NewIndexedBatch(), nil)
 }
