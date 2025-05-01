@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/crypto"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
 
 // A tool for hashing nodes in the trie. It supports both sequential and parallel
@@ -24,42 +25,42 @@ func newHasher(hash crypto.HashFn, parallel bool) hasher {
 // Computes the hash of a node and returns both the hash node and a cached
 // version of the original node. If the node already has a cached hash, returns
 // that instead of recomputing.
-func (h *hasher) hash(n Node) (Node, Node) {
-	if hash, _ := n.cache(); hash != nil {
+func (h *hasher) hash(n trienode.Node) (trienode.Node, trienode.Node) {
+	if hash, _ := n.Cache(); hash != nil {
 		return hash, n
 	}
 
 	switch n := n.(type) {
-	case *EdgeNode:
+	case *trienode.EdgeNode:
 		collapsed, cached := h.hashEdgeChild(n)
-		hn := &HashNode{Felt: collapsed.Hash(h.hashFn)}
-		cached.flags.hash = hn
+		hn := &trienode.HashNode{Felt: collapsed.Hash(h.hashFn)}
+		cached.Flags.Hash = hn
 		return hn, cached
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		collapsed, cached := h.hashBinaryChildren(n)
-		hn := &HashNode{Felt: collapsed.Hash(h.hashFn)}
-		cached.flags.hash = hn
+		hn := &trienode.HashNode{Felt: collapsed.Hash(h.hashFn)}
+		cached.Flags.Hash = hn
 		return hn, cached
-	case *ValueNode, *HashNode:
+	case *trienode.ValueNode, *trienode.HashNode:
 		return n, n
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
 }
 
-func (h *hasher) hashEdgeChild(n *EdgeNode) (collapsed, cached *EdgeNode) {
-	collapsed, cached = n.copy(), n.copy()
+func (h *hasher) hashEdgeChild(n *trienode.EdgeNode) (collapsed, cached *trienode.EdgeNode) {
+	collapsed, cached = n.Copy(), n.Copy()
 
 	switch n.Child.(type) {
-	case *EdgeNode, *BinaryNode:
+	case *trienode.EdgeNode, *trienode.BinaryNode:
 		collapsed.Child, cached.Child = h.hash(n.Child)
 	}
 
 	return collapsed, cached
 }
 
-func (h *hasher) hashBinaryChildren(n *BinaryNode) (collapsed, cached *BinaryNode) {
-	collapsed, cached = n.copy(), n.copy()
+func (h *hasher) hashBinaryChildren(n *trienode.BinaryNode) (collapsed, cached *trienode.BinaryNode) {
+	collapsed, cached = n.Copy(), n.Copy()
 
 	if h.parallel { // TODO(weiihann): double check this parallel strategy
 		var wg sync.WaitGroup
@@ -70,7 +71,7 @@ func (h *hasher) hashBinaryChildren(n *BinaryNode) (collapsed, cached *BinaryNod
 			if n.Children[0] != nil {
 				collapsed.Children[0], cached.Children[0] = h.hash(n.Children[0])
 			} else {
-				collapsed.Children[0], cached.Children[0] = nilValueNode, nilValueNode
+				collapsed.Children[0], cached.Children[0] = trienode.NilValueNode, trienode.NilValueNode
 			}
 		}()
 
@@ -79,7 +80,7 @@ func (h *hasher) hashBinaryChildren(n *BinaryNode) (collapsed, cached *BinaryNod
 			if n.Children[1] != nil {
 				collapsed.Children[1], cached.Children[1] = h.hash(n.Children[1])
 			} else {
-				collapsed.Children[1], cached.Children[1] = nilValueNode, nilValueNode
+				collapsed.Children[1], cached.Children[1] = trienode.NilValueNode, trienode.NilValueNode
 			}
 		}()
 
@@ -88,13 +89,13 @@ func (h *hasher) hashBinaryChildren(n *BinaryNode) (collapsed, cached *BinaryNod
 		if n.Children[0] != nil {
 			collapsed.Children[0], cached.Children[0] = h.hash(n.Children[0])
 		} else {
-			collapsed.Children[0], cached.Children[0] = nilValueNode, nilValueNode
+			collapsed.Children[0], cached.Children[0] = trienode.NilValueNode, trienode.NilValueNode
 		}
 
 		if n.Children[1] != nil {
 			collapsed.Children[1], cached.Children[1] = h.hash(n.Children[1])
 		} else {
-			collapsed.Children[1], cached.Children[1] = nilValueNode, nilValueNode
+			collapsed.Children[1], cached.Children[1] = trienode.NilValueNode, trienode.NilValueNode
 		}
 	}
 
@@ -103,14 +104,14 @@ func (h *hasher) hashBinaryChildren(n *BinaryNode) (collapsed, cached *BinaryNod
 
 // Construct trie proofs and returns the collapsed node (i.e. nodes with hash children)
 // and the hashed node.
-func (h *hasher) proofHash(original Node) (collapsed, hashed Node) {
+func (h *hasher) proofHash(original trienode.Node) (collapsed, hashed trienode.Node) {
 	switch n := original.(type) {
-	case *EdgeNode:
+	case *trienode.EdgeNode:
 		en, _ := h.hashEdgeChild(n)
-		return en, &HashNode{Felt: en.Hash(h.hashFn)}
-	case *BinaryNode:
+		return en, &trienode.HashNode{Felt: en.Hash(h.hashFn)}
+	case *trienode.BinaryNode:
 		bn, _ := h.hashBinaryChildren(n)
-		return bn, &HashNode{Felt: bn.Hash(h.hashFn)}
+		return bn, &trienode.HashNode{Felt: bn.Hash(h.hashFn)}
 	default:
 		return n, n
 	}

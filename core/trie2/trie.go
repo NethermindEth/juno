@@ -25,7 +25,7 @@ type Trie struct {
 	owner felt.Felt
 
 	// The root node of the trie
-	root Node
+	root trienode.Node
 
 	// Hash function used to hash the trie nodes
 	hashFn crypto.HashFn
@@ -150,7 +150,7 @@ func (t *Trie) Delete(key *felt.Felt) error {
 func (t *Trie) Hash() felt.Felt {
 	hash, cached := t.hashRoot()
 	t.root = cached
-	return hash.(*HashNode).Felt
+	return hash.(*trienode.HashNode).Felt
 }
 
 // Collapses the trie into a single hash node and flush the node changes to the database.
@@ -177,7 +177,7 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 
 	// If the root node is not dirty, that means we don't actually need to commit
 	rootHash := t.Hash()
-	if hashedNode, dirty := t.root.cache(); !dirty {
+	if hashedNode, dirty := t.root.Cache(); !dirty {
 		t.root = hashedNode
 		return rootHash, nil
 	}
@@ -221,34 +221,34 @@ func (t *Trie) HashFn() crypto.HashFn {
 // The method returns four values: the found value (or nil), the possibly updated node,
 // a flag indicating if node resolution occurred, and any error encountered.
 // When nodes are resolved from the database, the trie structure is updated to cache the resolved nodes.
-func (t *Trie) get(n Node, prefix, key *Path) (*felt.Felt, Node, bool, error) {
+func (t *Trie) get(n trienode.Node, prefix, key *Path) (*felt.Felt, trienode.Node, bool, error) {
 	switch n := n.(type) {
-	case *EdgeNode:
-		if !n.pathMatches(key) {
+	case *trienode.EdgeNode:
+		if !n.PathMatches(key) {
 			return nil, n, false, nil
 		}
 		val, child, didResolve, err := t.get(n.Child, new(Path).Append(prefix, n.Path), key.LSBs(key, n.Path.Len()))
 		if err == nil && didResolve {
-			n = n.copy()
+			n = n.Copy()
 			n.Child = child
 		}
 		return val, n, didResolve, err
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		bit := key.MSB()
 		val, child, didResolve, err := t.get(n.Children[bit], new(Path).AppendBit(prefix, bit), key.LSBs(key, 1))
 		if err == nil && didResolve {
-			n = n.copy()
+			n = n.Copy()
 			n.Children[bit] = child
 		}
 		return val, n, didResolve, err
-	case *HashNode:
+	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return nil, nil, false, err
 		}
 		value, newNode, _, err := t.get(child, prefix, key)
 		return value, newNode, true, err
-	case *ValueNode:
+	case *trienode.ValueNode:
 		return &n.Felt, n, false, nil
 	case nil:
 		return nil, nil, false, nil
@@ -268,7 +268,7 @@ func (t *Trie) update(key, value *felt.Felt) error {
 		}
 		t.root = n
 	} else {
-		_, n, err := t.insert(t.root, new(Path), &k, &ValueNode{Felt: *value})
+		_, n, err := t.insert(t.root, new(Path), &k, &trienode.ValueNode{Felt: *value})
 		if err != nil {
 			return err
 		}
@@ -285,33 +285,33 @@ func (t *Trie) update(key, value *felt.Felt) error {
 // Returns whether the trie was modified, the new/updated node, and any error.
 //
 //nolint:gocyclo,funlen
-func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error) {
+func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (bool, trienode.Node, error) {
 	// We reach the end of the key
 	if key.Len() == 0 {
-		if v, ok := n.(*ValueNode); ok {
-			vFelt := value.(*ValueNode).Felt
+		if v, ok := n.(*trienode.ValueNode); ok {
+			vFelt := value.(*trienode.ValueNode).Felt
 			return !v.Equal(&vFelt), value, nil
 		}
 		return true, value, nil
 	}
 
 	switch n := n.(type) {
-	case *EdgeNode:
-		match := n.commonPath(key) // get the matching bits between the current node and the key
+	case *trienode.EdgeNode:
+		match := n.CommonPath(key) // get the matching bits between the current node and the key
 		// If the match is the same as the Path, just keep this edge node as it is and update the value
 		if match.Len() == n.Path.Len() {
 			dirty, newNode, err := t.insert(n.Child, new(Path).Append(prefix, n.Path), key.LSBs(key, match.Len()), value)
 			if !dirty || err != nil {
 				return false, n, err
 			}
-			return true, &EdgeNode{
+			return true, &trienode.EdgeNode{
 				Path:  n.Path,
 				Child: newNode,
-				flags: newFlag(),
+				Flags: trienode.NewNodeFlag(),
 			}, nil
 		}
 		// Otherwise branch out at the bit position where they differ
-		branch := &BinaryNode{flags: newFlag()}
+		branch := &trienode.BinaryNode{Flags: trienode.NewNodeFlag()}
 		var err error
 		pathPrefix := new(Path).MSBs(n.Path, match.Len()+1)
 		_, branch.Children[n.Path.Bit(match.Len())], err = t.insert(
@@ -337,9 +337,9 @@ func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error)
 		t.nodeTracer.onInsert(new(Path).Append(prefix, matchPrefix))
 
 		// Otherwise, create a new edge node with the Path being the common Path and the branch as the child
-		return true, &EdgeNode{Path: matchPrefix, Child: branch, flags: newFlag()}, nil
+		return true, &trienode.EdgeNode{Path: matchPrefix, Child: branch, Flags: trienode.NewNodeFlag()}, nil
 
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		// Go to the child node based on the MSB of the key
 		bit := key.MSB()
 		dirty, newNode, err := t.insert(
@@ -349,8 +349,8 @@ func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error)
 			return false, n, err
 		}
 		// Replace the child node with the new node
-		n = n.copy()
-		n.flags = newFlag()
+		n = n.Copy()
+		n.Flags = trienode.NewNodeFlag()
 		n.Children[bit] = newNode
 		return true, n, nil
 	case nil:
@@ -360,8 +360,8 @@ func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error)
 			return true, value, nil
 		}
 		// Otherwise, return a new edge node with the Path being the key and the value as the child
-		return true, &EdgeNode{Path: key, Child: value, flags: newFlag()}, nil
-	case *HashNode:
+		return true, &trienode.EdgeNode{Path: key, Child: value, Flags: trienode.NewNodeFlag()}, nil
+	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return false, n, err
@@ -385,10 +385,10 @@ func (t *Trie) insert(n Node, prefix, key *Path, value Node) (bool, Node, error)
 // Returns whether the trie was modified, the new/updated node, and any error.
 //
 //nolint:gocyclo,funlen
-func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
+func (t *Trie) delete(n trienode.Node, prefix, key *Path) (bool, trienode.Node, error) {
 	switch n := n.(type) {
-	case *EdgeNode:
-		match := n.commonPath(key)
+	case *trienode.EdgeNode:
+		match := n.CommonPath(key)
 		// Mismatched, don't do anything
 		if match.Len() < n.Path.Len() {
 			return false, n, nil
@@ -408,21 +408,21 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 			return false, n, err
 		}
 		switch child := child.(type) {
-		case *EdgeNode:
+		case *trienode.EdgeNode:
 			t.nodeTracer.onDelete(new(Path).Append(prefix, n.Path))
-			return true, &EdgeNode{Path: new(Path).Append(n.Path, child.Path), Child: child.Child, flags: newFlag()}, nil
+			return true, &trienode.EdgeNode{Path: new(Path).Append(n.Path, child.Path), Child: child.Child, Flags: trienode.NewNodeFlag()}, nil
 		default:
-			return true, &EdgeNode{Path: new(Path).Set(n.Path), Child: child, flags: newFlag()}, nil
+			return true, &trienode.EdgeNode{Path: new(Path).Set(n.Path), Child: child, Flags: trienode.NewNodeFlag()}, nil
 		}
-	case *BinaryNode:
+	case *trienode.BinaryNode:
 		bit := key.MSB()
 		keyPrefix := new(Path).MSBs(key, 1)
 		dirty, newNode, err := t.delete(n.Children[bit], new(Path).Append(prefix, keyPrefix), key.LSBs(key, 1))
 		if !dirty || err != nil {
 			return false, n, err
 		}
-		n = n.copy()
-		n.flags = newFlag()
+		n = n.Copy()
+		n.Flags = trienode.NewNodeFlag()
 		n.Children[bit] = newNode
 
 		// If the child node is not nil, that means we still have 2 children in this binary node
@@ -436,7 +436,7 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 		other := bit ^ 1
 		bitPrefix := new(Path).SetBit(other)
 
-		if hn, ok := n.Children[other].(*HashNode); ok {
+		if hn, ok := n.Children[other].(*trienode.HashNode); ok {
 			var cPath Path
 			cPath.Append(prefix, bitPrefix)
 			cNode, err := t.resolveNode(hn, cPath)
@@ -446,24 +446,24 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 			n.Children[other] = cNode
 		}
 
-		if cn, ok := n.Children[other].(*EdgeNode); ok {
+		if cn, ok := n.Children[other].(*trienode.EdgeNode); ok {
 			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix))
-			return true, &EdgeNode{
+			return true, &trienode.EdgeNode{
 				Path:  new(Path).Append(bitPrefix, cn.Path),
 				Child: cn.Child,
-				flags: newFlag(),
+				Flags: trienode.NewNodeFlag(),
 			}, nil
 		}
 
 		// other child is not an edge node, create a new edge node with the bit prefix as the Path
 		// containing the other child as the child
-		return true, &EdgeNode{Path: bitPrefix, Child: n.Children[other], flags: newFlag()}, nil
-	case *ValueNode:
+		return true, &trienode.EdgeNode{Path: bitPrefix, Child: n.Children[other], Flags: trienode.NewNodeFlag()}, nil
+	case *trienode.ValueNode:
 		t.nodeTracer.onDelete(key)
 		return true, nil, nil
 	case nil:
 		return false, nil, nil
-	case *HashNode:
+	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
 			return false, nil, err
@@ -480,7 +480,7 @@ func (t *Trie) delete(n Node, prefix, key *Path) (bool, Node, error) {
 }
 
 // Resolves the node at the given path from the database
-func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
+func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
 	var hash felt.Felt
 	if hn != nil {
 		hash = hn.Felt
@@ -491,13 +491,13 @@ func (t *Trie) resolveNode(hn *HashNode, path Path) (Node, error) {
 		return nil, err
 	}
 
-	return decodeNode(blob, hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node
-func (t *Trie) hashRoot() (Node, Node) {
+func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	if t.root == nil {
-		return &HashNode{Felt: felt.Zero}, nil
+		return &trienode.HashNode{Felt: felt.Zero}, nil
 	}
 	h := newHasher(t.hashFn, t.pendingHashes > 100) //nolint:mnd //TODO(weiihann): 100 is arbitrary
 	hashed, cached := h.hash(t.root)
