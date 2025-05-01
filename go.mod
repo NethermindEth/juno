@@ -13,6 +13,7 @@ require (
 	github.com/coder/websocket v1.8.13
 	github.com/consensys/gnark-crypto v0.17.0
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.25.0
