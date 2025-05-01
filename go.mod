@@ -202,4 +202,7 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
+// TODO: Remove the replacement once there is a newer release.
+// The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24. 
+// So it is replaced with the commit that supports go1.24.
 replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
