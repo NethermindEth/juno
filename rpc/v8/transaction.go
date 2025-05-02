@@ -19,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -342,15 +341,9 @@ type BroadcastedTransaction struct {
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	// Copy doesn't covert the struct to enum correctly, so we need to adapt it
-	feederTxn.ResourceBounds = adaptToFeederResourceBounds(broadcastedTxn.ResourceBounds)
-
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
