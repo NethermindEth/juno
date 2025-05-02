@@ -45,7 +45,9 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 			currentRound.action().broadcastPrevote(nil),
 		)
 		currentRound.validator(2).prevote(&committedValue)
-		currentRound.validator(3).prevote(&committedValue)
+		currentRound.validator(3).prevote(&committedValue).expectActions(
+			currentRound.action().scheduleTimeout(prevote),
+		)
 
 		currentRound.processTimeout(prevote).expectActions(
 			currentRound.action().broadcastPrecommit(nil),
@@ -53,7 +55,9 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Receives proposal and prevote from validator 0, record valid value and round
 		currentRound.validator(0).proposal(committedValue, -1)
-		currentRound.validator(0).prevote(&committedValue)
+
+		// Line 36 is triggered, record valid value and round but don't broadcast precommit
+		currentRound.validator(0).prevote(&committedValue).expectActions()
 		assertState(t, stateMachine, height(0), round(0), precommit)
 		assert.Equal(t, &committedValue, stateMachine.state.validValue)
 		assert.Equal(t, round(0), stateMachine.state.validRound)
@@ -67,6 +71,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 			nextRound.action().broadcastProposal(committedValue, 0),
 			nextRound.action().broadcastPrevote(&committedValue),
 		)
+		assertState(t, stateMachine, height(0), round(1), prevote)
 	})
 
 	t.Run("Line 36: not trigger if not first time", func(t *testing.T) {
@@ -78,10 +83,13 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		// Initialise the round
 		currentRound.start()
 
-		// 2 prevotes are collected
+		// Receive proposal and broadcast prevote
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
 		)
+		assertState(t, stateMachine, height(0), round(0), prevote)
+
+		// 2 prevotes are collected
 		currentRound.validator(0).prevote(&committedValue)
 		currentRound.validator(1).prevote(&committedValue).expectActions(
 			currentRound.action().scheduleTimeout(prevote),
