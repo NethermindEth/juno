@@ -158,7 +158,7 @@ type ResourceBounds struct {
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty" copier:"must,nopanic"`
+	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
 	Version               *felt.Felt                   `json:"version,omitempty"`
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`

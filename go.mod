@@ -16,7 +16,6 @@ require (
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.25.0
-	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.41.0
 	github.com/libp2p/go-libp2p-kad-dht v0.30.2
 	github.com/libp2p/go-libp2p-pubsub v0.13.1
@@ -203,6 +202,6 @@ require (
 )
 
 // TODO: Remove the replacement once there is a newer release.
-// The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24. 
+// The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24.
 // So it is replaced with the commit that supports go1.24.
 replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
