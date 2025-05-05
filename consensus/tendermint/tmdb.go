@@ -36,7 +36,7 @@ import (
 
 type wrappedMsg struct {
 	Type string          `cbor:"type"`
-	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or timeout
+	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
 // MessageType represents the type of message stored in the WAL.
@@ -71,8 +71,11 @@ type WALMsg[V Hashable[H], H Hash, A Addr] struct {
 	Timeout *timeout
 }
 
-type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
-	db    db.KeyValueStore
+type TMDB struct {
+	db db.KeyValueStore
+	// batch accumulates WAL writes (Put/Delete). Getters check the batch first
+	// for the latest state (e.g., NumMsgsAtHeight) before checking the DB.
+	// WAL message readers (GetWALMsgs) should only read committed state from the DB snapshot.
 	batch db.IndexedBatch
 }
 
@@ -88,7 +91,7 @@ func (s *TMDB) CommitBatch() error {
 // It reads from the batch first, then the main db if not found in batch.
 func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
-	key := db.NumMsgsAtHeight.Key(heightBytes)
+	key := db.WALEntryCount.Key(heightBytes)
 
 	var value []byte
 	foundInBatch := false
@@ -134,7 +137,6 @@ func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 // It iterates through the expected message keys based on the stored count.
 // Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
 func (s *TMDB) DeleteMsgsAtHeight(height height) error {
-
 	numMsgs, err := s.GetNumMsgsAtHeight(height)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -148,14 +150,14 @@ func (s *TMDB) DeleteMsgsAtHeight(height height) error {
 	// Delete individual message keys. Message iterators are 1-based.
 	for i := uint32(1); i <= numMsgs; i++ {
 		iterBytes := encodeNumMsgsAtHeight(i) // Get the bytes for the iterator number
-		msgKey := db.MsgsAtHeight.Key(heightBytes, iterBytes)
+		msgKey := db.WALEntry.Key(heightBytes, iterBytes)
 		if err := s.batch.Delete(msgKey); err != nil {
 			return fmt.Errorf("DeleteMsgsAtHeight: failed to add deletion for message key %d/%d to batch: %w", height, i, err)
 		}
 	}
 
 	// Delete the count key itself
-	numMsgsKey := db.NumMsgsAtHeight.Key(heightBytes)
+	numMsgsKey := db.WALEntryCount.Key(heightBytes)
 	if err := s.batch.Delete(numMsgsKey); err != nil {
 		// If adding the count key deletion fails, return the error.
 		return fmt.Errorf("DeleteMsgsAtHeight: failed to add count key deletion for height %d to batch: %w", height, err)
@@ -167,14 +169,13 @@ func (s *TMDB) DeleteMsgsAtHeight(height height) error {
 
 func (s *TMDB) setNumMsgsAtHeight(height height, walIter uint32) error {
 	heightBytes := heightToBytes(height)
-	key := db.NumMsgsAtHeight.Key(heightBytes)
+	key := db.WALEntryCount.Key(heightBytes)
 	val := encodeNumMsgsAtHeight(walIter)
 	return s.batch.Put(key, val)
 }
 
 // SetWALMsg stores a consensus message (Proposal, Prevote, Precommit) in the WAL batch.
 func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, height height) error {
-
 	var msgType MessageType
 	switch any(msg).(type) {
 	case Proposal[V, H, A]:
@@ -231,7 +232,7 @@ func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.Raw
 	numMsgsAtHeightBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
 
 	// Set the WAL msg/timeout, and the new iterator
-	msgKey := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightBytes)
+	msgKey := db.WALEntry.Key(heightToBytes(height), numMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, msgData); err != nil {
 		return fmt.Errorf("setWALEntry: failed to set MsgsAtHeight: %w", err)
 	}
@@ -275,7 +276,7 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg
 }
 
 func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
-	startKey := db.MsgsAtHeight.Key(encodeNumMsgsAtHeight(uint32(height)))
+	startKey := db.WALEntry.Key(encodeNumMsgsAtHeight(uint32(height)))
 	rawEntries := [][]byte{}
 
 	err := s.db.View(func(snap db.Snapshot) error {

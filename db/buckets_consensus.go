@@ -11,8 +11,8 @@ type BucketConsensus byte
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
 const (
-	MsgsAtHeight    BucketConsensus = iota // key: WAL_prefix + Height + NumMsgsAtHeight. Val: Tendermint Msg
-	NumMsgsAtHeight                        // Key: WAL_iter_prefix + Height. Val: Counter (number of msgs stored at this height)
+	WALEntry      BucketConsensus = iota // key: WAL_prefix + Height + MsgIndex. Val: Encoded Tendermint consensus message.
+	WALEntryCount                        // Key: WAL_count_prefix + Height. Val: Counter (number of WAL entries stored at this height)
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

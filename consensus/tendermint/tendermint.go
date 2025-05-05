@@ -206,11 +206,7 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (d *Driver[V, H, A]) Start() {
-	// Todo
-	// err := d.stateMachine.replayWAL()
-	// if err != nil {
-	// 	panic(err) // Panic because failure to replay WAL msgs could result in slashing
-	// }
+	// Todo: replay WAL msgs
 
 	d.wg.Add(1)
 	go func() {
@@ -241,30 +237,6 @@ func (d *Driver[V, H, A]) Start() {
 		}
 	}()
 }
-
-// Todo
-// func (t *Tendermint[V, H, A]) replayWAL() error {
-// 	height := t.blockchain.Height()
-
-// 	msgs, err := GetWALMsgs[V, H, A, Message[V, H, A]](&t.db, height)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	// Todo: Note: it is important that we don't submit msgs to the network. Timeouts trigger manually??
-// 	for _, msg := range msgs {
-// 		switch msg.(type) {
-// 		case timeout:
-// 		case Proposal:
-// 		case Prevote:
-// 		case Precommit:
-// 		default:
-// 			return fmt.Errorf("found unexpected WAl msg") // Todo
-// 		}
-// 	}
-
-// 	return nil
-// }
 
 func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 	for _, action := range actions {
