@@ -59,12 +59,8 @@ core-rust:
 compiler:
 	$(MAKE) -C starknet/compiler/rust $(VM_TARGET)
 
-generate-buf: ## Generate protobuf files
-	@buf generate
-
 generate: ## Generate mocks and code
 	mkdir -p mocks
-	generate-buf
 	go generate ./...
 
 clean-testcache: ## Clean Go test cache
