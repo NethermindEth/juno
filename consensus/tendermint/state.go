@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,6 +9,11 @@ import (
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/fxamacker/cbor/v2"
 )
+
+type wrappedMsg struct {
+	Type string          `cbor:"type"`
+	Data cbor.RawMessage `cbor:"data"`
+}
 
 // MessageType represents the type of message stored in the WAL.
 type MessageType uint8
@@ -70,43 +74,63 @@ func (m MessageType) String() string {
 // to ensure durability guarantees are met.
 
 // Todo: write a set of getters and setters around this.
-type WALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]] struct {
-	Msg     *M
+type WALMsg[V Hashable[H], H Hash, A Addr] struct {
+	Msg     any
 	Timeout *timeout
 }
 
 type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
 	db    db.KeyValueStore
-	batch db.Batch // Tendermint never needs to read wal messages from the batch
+	batch db.IndexedBatch // Tendermint never needs to read wal messages from the batch
 }
 
 func NewTMState(db db.KeyValueStore) TMDB {
-	return TMDB{db: db, batch: db.NewBatch()}
+	return TMDB{db: db, batch: db.NewIndexedBatch()}
 }
 
 func (s *TMDB) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
 	return s.batch.Write()
 }
 
-// GetNumMsgsAtHeight can onl read from the db. This is because we use batch transactions
-// which don't allow reading from the batch. This is okay because we will only call this function
-// once we (re)start the node, to get the WAL msgs and replay them.
+// GetNumMsgsAtHeight reads the number of messages stored at a given height.
+// It reads from the batch first, then the main db if not found in batch.
 func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 
 	var value []byte
-	err := s.db.Get(key, func(val []byte) error {
+	foundInBatch := false
+
+	// Try reading from the batch first
+	err := s.batch.Get(key, func(val []byte) error {
 		value = append([]byte(nil), val...)
+		foundInBatch = true
 		return nil
 	})
-	if err != nil {
+
+	// If not found in batch or another error occurred (excluding ErrNotFound)
+	if err != nil && !errors.Is(err, pebble.ErrNotFound) {
+		return 0, fmt.Errorf("GetNumMsgsAtHeight: batch.Get error: %w", err)
+	}
+
+	// If not found in the batch, try reading from the main db
+	if !foundInBatch {
+		err = s.db.Get(key, func(val []byte) error {
+			value = append([]byte(nil), val...)
+			return nil
+		})
+
+		// If not found in db either, return ErrKeyNotFound
 		if errors.Is(err, pebble.ErrNotFound) {
 			return 0, db.ErrKeyNotFound
 		}
-		return 0, fmt.Errorf("GetNumMsgsAtHeight: db.View error: %w", err)
+		// Handle other potential errors from s.db.Get
+		if err != nil {
+			return 0, fmt.Errorf("GetNumMsgsAtHeight: db.Get error: %w", err)
+		}
 	}
 
+	// At this point, 'value' holds the data either from batch or db
 	if len(value) != 4 {
 		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
 	}
@@ -128,35 +152,26 @@ func (s *TMDB) setNumMsgsAtHeight(height height, walIter uint32) error {
 
 func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, to *timeout, height height) error {
 	var (
-		dataType MessageType
-		data     []byte
-		err      error
+		msgType      MessageType
+		msgDataInner cbor.RawMessage
+		err          error
 	)
 
 	if to != nil {
-		data, err = cbor.Marshal(to)
-		if err != nil {
-			return fmt.Errorf("SetWAL: marshal inner timeout failed: %w", err)
-		}
-		dataType = MessageTypeTimeout
+		// No need to pre-marshal, assign the object directly
+		msgDataInner, err = cbor.Marshal(to)
+		msgType = MessageTypeTimeout
 	} else {
-		dataType, err = msgType[V, H, A](msg)
+		msgDataInner, err = cbor.Marshal(msg)
+		msgType, err = getMsgType[V, H, A, M](msg)
 		if err != nil {
 			return fmt.Errorf("SetWAL: failed to get msg type: %w", err)
 		}
-		data, err = cbor.Marshal(msg)
-		if err != nil {
-			return fmt.Errorf("SetWAL: marshal message failed: %w", err)
-		}
 	}
 
-	// Wrap type + data
-	wrapper := struct {
-		Type string `cbor:"type"`
-		Data []byte `cbor:"data"`
-	}{
-		Type: dataType.String(),
-		Data: data,
+	wrapper := wrappedMsg{
+		Type: msgType.String(),
+		Data: msgDataInner,
 	}
 
 	msgData, err := cbor.Marshal(wrapper)
@@ -164,116 +179,84 @@ func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, t
 		return fmt.Errorf("SetWAL: marshal wrapper failed: %w", err)
 	}
 
+	// get NumMsgsAtHeight and increment
 	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			numMsgsAtHeight = 0 // first time storing a msg at this height, count starts at 0
+			numMsgsAtHeight = 0 // first time storing a msg
 		} else {
 			return fmt.Errorf("SetWAL: failed to get numMsgsAtHeight: %w", err)
 		}
 	}
-	// numMsgsAtHeight now holds the current count of messages (0 if none exist)
-
-	// Use the *current* count as the iterator index for the new message key
-	currentIterBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
-	key := db.MsgsAtHeight.Key(heightToBytes(height), currentIterBytes)
-	fmt.Println("MsgsAtHeight key", key) // Keep for debugging if needed
-	err = s.batch.Put(key, msgData)
-	if err != nil {
-		return fmt.Errorf("SetWAL: failed to set MsgsAtHeight with key %q: %w", key, err)
-	}
-
-	// Now, increment the count for the *next* message
 	numMsgsAtHeight++
-	// Update the counter in the DB batch with the new count
-	err = s.setNumMsgsAtHeight(height, numMsgsAtHeight)
-	if err != nil {
-		return fmt.Errorf("SetWAL: failed to set NumMsgsAtHeight to %d: %w", numMsgsAtHeight, err)
+	numMsgsAtHeightValue := encodeNumMsgsAtHeight(numMsgsAtHeight)
+
+	// Set the new key-value pairs
+	msgKey := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightValue)
+	if err := s.batch.Put(msgKey, msgData); err != nil {
+		return fmt.Errorf("SetWAL: failed to set MsgsAtHeight: %w", err)
+	}
+	if err := s.setNumMsgsAtHeight(height, numMsgsAtHeight); err != nil {
+		return fmt.Errorf("SetWAL: failed to set NumMsgsAtHeight: %w", err)
 	}
 	return nil
 }
 
-func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, height height) ([]WALMsg[V, H, A, M], error) {
+func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg[V, H, A], error) {
 	rawEntries, err := scanWALRaw(s, height)
 	if err != nil {
-		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw entries: %w", err)
-	}
-	if len(rawEntries) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
 	}
 
-	walMsgs := make([]WALMsg[V, H, A, M], 0, len(rawEntries))
+	walMsgs := make([]WALMsg[V, H, A], 0, len(rawEntries))
 
 	for i, value := range rawEntries {
-		var wrapper struct {
-			Type string          `cbor:"type"`
-			Data cbor.RawMessage `cbor:"data"`
-		}
+		var wrapper wrappedMsg
 		if err := cbor.Unmarshal(value, &wrapper); err != nil {
-			var simplerWrapper struct {
-				Type string `cbor:"type"`
-			}
-			if errSimple := cbor.Unmarshal(value, &simplerWrapper); errSimple == nil {
-				return nil, fmt.Errorf("GetWALMsgs: entry %d: failed to decode wrapper data for type %q: %w", i, simplerWrapper.Type, err)
-			}
-			return nil, fmt.Errorf("GetWALMsgs: entry %d: failed to decode wrapper: %w", i, err)
+			return nil, fmt.Errorf("GetWALMsgs: failed to decode CBOR wrapper for entry %d at height %d: %w", i, height, err)
 		}
 
 		switch wrapper.Type {
 		case MessageTypeTimeout.String():
 			var to timeout
 			if err := cbor.Unmarshal(wrapper.Data, &to); err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: entry %d: failed to unmarshal timeout data: %w", i, err)
+				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
 			}
-			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Timeout: &to})
-
-		case MessageTypeProposal.String():
-			var proposal Proposal[V, H, A]
-			if err := cbor.Unmarshal(wrapper.Data, &proposal); err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: entry %d: Proposal unmarshal failed: %w", i, err)
-			}
-			msg := any(proposal).(M)
-			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Msg: &msg})
-
-		case MessageTypePrevote.String(), MessageTypePrecommit.String():
-			var vote Vote[H, A]
-			if err := cbor.Unmarshal(wrapper.Data, &vote); err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: entry %d: Vote unmarshal failed for type %q: %w", i, wrapper.Type, err)
-			}
-			msg := any(vote).(M)
-			walMsgs = append(walMsgs, WALMsg[V, H, A, M]{Msg: &msg})
+			walMsgs = append(walMsgs, WALMsg[V, H, A]{Timeout: &to})
 
 		default:
-			return nil, fmt.Errorf("GetWALMsgs: entry %d: encountered unknown message type string %q", i, wrapper.Type)
+			msg, err := decodeWALMessageData[V, H, A](wrapper.Type, wrapper.Data)
+			if err != nil {
+				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapper.Type, i, height, err)
+			}
+			walMsgs = append(walMsgs, WALMsg[V, H, A]{Msg: msg})
 		}
 	}
 	return walMsgs, nil
 }
 
 func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
-	prefix := db.MsgsAtHeight.Key(heightToBytes(height))
+	startKey := db.MsgsAtHeight.Key(encodeNumMsgsAtHeight(uint32(height)))
 	rawEntries := [][]byte{}
 
 	err := s.db.View(func(snap db.Snapshot) error {
-		iter, err := snap.NewIterator(prefix, false)
+		iter, err := snap.NewIterator(startKey, false)
 		if err != nil {
-			return fmt.Errorf("failed to create iterator with prefix %q: %w", prefix, err)
+			return err
 		}
 		defer iter.Close()
 
-		if !iter.Seek(prefix) {
-			if !iter.Valid() {
-				return nil
-			}
-			if !bytes.HasPrefix(iter.Key(), prefix) {
-				return nil
-			}
+		if !iter.Seek(startKey) {
+			return fmt.Errorf("failed to set the iterator when scanning for WAL msgs")
+		}
+		if !iter.Valid() {
+			return fmt.Errorf("invalid iterator when scanning for WAL msgs")
 		}
 
-		for ; iter.Valid() && bytes.HasPrefix(iter.Key(), prefix); iter.Next() {
+		for ; iter.Valid(); iter.Next() {
 			v, err := iter.Value()
 			if err != nil {
-				return fmt.Errorf("failed to get value for key %q: %w", iter.Key(), err)
+				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
 			}
 			valueCopy := make([]byte, len(v))
 			copy(valueCopy, v)
@@ -285,6 +268,35 @@ func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
 		return nil, fmt.Errorf("scanWALRaw: db view error: %w", err)
 	}
 	return rawEntries, nil
+}
+
+// decodeWALMessageData decodes the inner CBOR message data based on the provided type string.
+// It assumes the outer wrapper has already been decoded.
+func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgTypeStr string, data cbor.RawMessage) (any, error) {
+	switch msgTypeStr {
+	case MessageTypeProposal.String():
+		var proposal Proposal[V, H, A]
+		if err := cbor.Unmarshal(data, &proposal); err != nil {
+			return nil, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
+		}
+		return proposal, nil
+
+	case MessageTypePrevote.String():
+		var vote Prevote[H, A]
+		if err := cbor.Unmarshal(data, &vote); err != nil {
+			return nil, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
+		}
+		return vote, nil
+
+	case MessageTypePrecommit.String():
+		var vote Precommit[H, A]
+		if err := cbor.Unmarshal(data, &vote); err != nil {
+			return nil, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
+		}
+		return vote, nil
+	default:
+		return nil, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgTypeStr)
+	}
 }
 
 // todo: push to msg method??
@@ -314,7 +326,7 @@ func encodeNumMsgsAtHeight(numMsgsAtHeight uint32) []byte {
 }
 
 // msgType determines the MessageType enum for a given message.
-func msgType[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (MessageType, error) {
+func getMsgType[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (MessageType, error) {
 	switch any(msg).(type) {
 	case Proposal[V, H, A]:
 		return MessageTypeProposal, nil
