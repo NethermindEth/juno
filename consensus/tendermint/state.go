@@ -6,8 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/db"
-	"github.com/cockroachdb/pebble"
+	db "github.com/NethermindEth/juno/db"
 	"github.com/fxamacker/cbor/v2"
 )
 
@@ -49,17 +48,16 @@ type WALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]] struct {
 }
 
 type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
-	db    db.DB
-	batch *pebble.Batch
+	db    db.KeyValueStore
+	batch db.Batch
 }
 
-func NewTMState(db db.DB) TMDB {
-	// Todo: use Hans Batch logic
-	return TMDB{db: db, batch: &pebble.Batch{}}
+func NewTMState(db db.KeyValueStore) TMDB {
+	return TMDB{db: db, batch: db.NewBatch()}
 }
 
 func (s *TMDB) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
-	return s.batch.Commit(pebble.Sync)
+	return s.batch.Write()
 }
 
 // GetNumMsgsAtHeight can onl read from the db. This is because we use batch transactions
@@ -70,14 +68,12 @@ func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 
 	var value []byte
-	err := s.db.View(func(txn db.Transaction) error {
-		return txn.Get(key, func(v []byte) error {
-			value = append([]byte(nil), v...)
-			return nil
-		})
+	err := s.db.Get(key, func(val []byte) error {
+		value = append([]byte(nil), val...)
+		return nil
 	})
 	if err != nil {
-		if errors.Is(err, pebble.ErrNotFound) {
+		if errors.Is(err, db.ErrKeyNotFound) {
 			return 0, nil // No messages yet at this height
 		}
 		return 0, fmt.Errorf("GetNumMsgsAtHeight: db.View error: %w", err)
@@ -99,7 +95,7 @@ func (s *TMDB) SetNumMsgsAtHeight(height height, walIter uint32) error {
 	heightBytes := heightToBytes(height)
 	key := db.NumMsgsAtHeight.Key(heightBytes)
 	val := encodeNumMsgsAtHeight(walIter)
-	return s.batch.Set(key, val, pebble.Sync)
+	return s.batch.Put(key, val)
 }
 
 func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, to *timeout, height height) error {
@@ -149,7 +145,7 @@ func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, t
 
 	key := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightInc)
 
-	return s.batch.Set(key, msgData, pebble.Sync)
+	return s.batch.Put(key, msgData)
 }
 
 func GetWALMsgs[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, height height) ([]WALMsg[V, H, A, M], error) {
@@ -198,18 +194,11 @@ func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
 
 	rawEntries := [][]byte{}
 
-	err := s.db.View(func(txn db.Transaction) error {
-		iter, err := txn.NewIterator(nil, false)
+	err := s.db.View(func(snap db.Snapshot) error {
+		iter, err := snap.NewIterator(startKey, false)
 		if err != nil {
-			return fmt.Errorf("scanWALRaw: failed to create iterator: %w", err)
+			return err
 		}
-		defer iter.Close()
-
-		if !iter.Seek(startKey) {
-			// No entries at or after this key
-			return nil
-		}
-
 		for ; iter.Valid(); iter.Next() {
 			k := iter.Key()
 			if !bytes.HasPrefix(k, prefix) {

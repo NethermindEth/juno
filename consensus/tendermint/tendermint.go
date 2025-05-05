@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -168,7 +167,6 @@ func New[V Hashable[H], H Hash, A Addr](
 	vals Validators[A],
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
-		db:       db,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -205,11 +203,11 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (d *Driver[V, H, A]) Start() {
-
-	err := d.stateMachine.replayWAL()
-	if err != nil {
-		panic(err) // Panic because failure to replay WAL msgs could result in slashing
-	}
+	// Todo
+	// err := d.stateMachine.replayWAL()
+	// if err != nil {
+	// 	panic(err) // Panic because failure to replay WAL msgs could result in slashing
+	// }
 
 	d.wg.Add(1)
 	go func() {
@@ -240,29 +238,30 @@ func (d *Driver[V, H, A]) Start() {
 		}
 	}()
 }
-func (t *Tendermint[V, H, A]) replayWAL() error {
 
-	height := t.blockchain.Height()
+// Todo
+// func (t *Tendermint[V, H, A]) replayWAL() error {
+// 	height := t.blockchain.Height()
 
-	msgs, err := GetWALMsgs[V, H, A, Message[V, H, A]](&t.db, height)
-	if err != nil {
-		return err
-	}
+// 	msgs, err := GetWALMsgs[V, H, A, Message[V, H, A]](&t.db, height)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// Todo: Note: it is important that we don't submit msgs to the network. Timeouts trigger manually??
-	for _, msg := range msgs {
-		switch msg.(type) {
-		case timeout:
-		case Proposal:
-		case Prevote:
-		case Precommit:
-		default:
-			return fmt.Errorf("found unexpected WAl msg") // Todo
-		}
-	}
+// 	// Todo: Note: it is important that we don't submit msgs to the network. Timeouts trigger manually??
+// 	for _, msg := range msgs {
+// 		switch msg.(type) {
+// 		case timeout:
+// 		case Proposal:
+// 		case Prevote:
+// 		case Precommit:
+// 		default:
+// 			return fmt.Errorf("found unexpected WAl msg") // Todo
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 	for _, action := range actions {

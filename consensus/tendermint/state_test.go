@@ -5,19 +5,19 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCommitBatch(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	tmState := NewTMState(testDB)
 	require.NoError(t, tmState.CommitBatch())
 }
 
 func TestGetNumMsgsAtHeight(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	tmState := NewTMState(testDB)
 
 	height := height(1000)
@@ -46,7 +46,7 @@ func TestGetNumMsgsAtHeight(t *testing.T) {
 }
 
 func TestSetAndGetWAL(t *testing.T) {
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	tmState := NewTMState(testDB)
 
 	app := newApp()
