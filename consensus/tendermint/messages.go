@@ -1,11 +1,5 @@
 package tendermint
 
-import (
-	"fmt"
-
-	"github.com/fxamacker/cbor/v2"
-)
-
 // Todo: Signature over the messages needs to be handled somewhere. There are 2 options:
 //	1. Add the signature to each message and extend the Validator Set interface to include VerifyMessageSignature
 //	method.
@@ -39,50 +33,6 @@ type MessageHeader[A Addr] struct {
 	Height height `cbor:"height"`
 	Round  round  `cbor:"round"`
 	Sender A      `cbor:"sender"`
-}
-
-func (v *Vote[H, A]) MarshalCBOR() ([]byte, error) {
-	return cbor.Marshal([]interface{}{
-		v.Height,
-		v.Round,
-		v.Sender,
-		*v.ID,
-	})
-}
-
-func (v *Vote[H, A]) UnmarshalCBOR(data []byte) error {
-	var arr []interface{}
-	if err := cbor.Unmarshal(data, &arr); err != nil {
-		return err
-	}
-	if len(arr) != NumBytesForHeight {
-		return fmt.Errorf("expected 4 fields, got %d", len(arr))
-	}
-
-	var ok bool
-
-	if v.Height, ok = arr[0].(height); !ok {
-		return fmt.Errorf("invalid height")
-	}
-	if v.Round, ok = arr[1].(round); !ok {
-		return fmt.Errorf("invalid round")
-	}
-	if v.Sender, ok = arr[2].(A); !ok {
-		return fmt.Errorf("invalid sender")
-	}
-
-	// decode H value → assign to *v.ID
-	tmp := new(H)
-	b, err := cbor.Marshal(arr[3])
-	if err != nil {
-		return fmt.Errorf("re-marshal id: %w", err)
-	}
-	if err := cbor.Unmarshal(b, tmp); err != nil {
-		return fmt.Errorf("unmarshal id: %w", err)
-	}
-	v.ID = tmp
-
-	return nil
 }
 
 // messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:
