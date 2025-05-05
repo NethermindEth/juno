@@ -301,9 +301,10 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 }
 
 type timeout struct {
-	S step   `cbor:"s"`
-	H height `cbor:"h"`
-	R round  `cbor:"r"`
+	S step     `cbor:"s"`
+	H height   `cbor:"h"`
+	R round    `cbor:"r"`
+	_ struct{} `cbor:",toarray"`
 }
 
 func (t timeout) isWALMsg() {}
