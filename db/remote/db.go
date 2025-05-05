@@ -2,7 +2,9 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/NethermindEth/juno/db"
@@ -11,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-var _ db.DB = (*DB)(nil)
+var _ db.KeyValueStore = (*DB)(nil)
 
 type DB struct {
 	ctx        context.Context
@@ -41,7 +43,7 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 	}, nil
 }
 
-func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
+func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	start := time.Now()
 
 	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
@@ -54,23 +56,34 @@ func (d *DB) NewTransaction(write bool) (db.Transaction, error) {
 	return &transaction{client: txClient, log: d.log}, nil
 }
 
-func (d *DB) View(fn func(txn db.Transaction) error) error {
-	return db.View(d, fn)
+func (d *DB) View(fn func(txn db.Snapshot) error) error {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return err
+	}
+
+	defer discardTxnOnPanic(txn)
+	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
-func (d *DB) Update(fn func(txn db.Transaction) error) error {
+func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
 	start := time.Now()
 
 	defer func() {
 		d.listener.OnCommit(time.Since(start))
 	}()
 
-	return db.Update(d, fn)
-}
+	txn, err := d.NewTransaction(true)
+	if err != nil {
+		return err
+	}
 
-func (d *DB) WithListener(listener db.EventListener) db.DB {
-	d.listener = listener
-	return d
+	defer discardTxnOnPanic(txn)
+	if err := fn(txn); err != nil {
+		return utils.RunAndWrapOnError(txn.Discard, err)
+	}
+
+	return utils.RunAndWrapOnError(txn.Discard, txn.Commit())
 }
 
 func (d *DB) Close() error {
@@ -79,4 +92,105 @@ func (d *DB) Close() error {
 
 func (d *DB) Impl() any {
 	return d.kvClient
+}
+
+func (d *DB) Delete(key []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) DeleteRange(start, end []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) Get(key []byte, cb func(value []byte) error) error {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return err
+	}
+
+	return txn.Get(key, cb)
+}
+
+func (d *DB) Has(key []byte) (bool, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return false, err
+	}
+
+	return txn.Has(key)
+}
+
+func (d *DB) Put(key, val []byte) error {
+	return errNotSupported
+}
+
+func (d *DB) NewBatch() db.Batch {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(false, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) NewBatchWithSize(size int) db.Batch {
+	return d.NewBatch()
+}
+
+func (d *DB) NewIndexedBatch() db.IndexedBatch {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(true, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
+	return d.NewIndexedBatch()
+}
+
+func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error) {
+	txn, err := d.NewTransaction(false)
+	if err != nil {
+		return nil, err
+	}
+
+	return txn.NewIterator(start, withUpperBound)
+}
+
+func (d *DB) NewSnapshot() db.Snapshot {
+	start := time.Now()
+
+	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	if err != nil {
+		panic(err)
+	}
+
+	d.listener.OnIO(false, time.Since(start))
+
+	return &transaction{client: txClient, log: d.log}
+}
+
+func (d *DB) WithListener(listener db.EventListener) db.KeyValueStore {
+	d.listener = listener
+	return d
+}
+
+func discardTxnOnPanic(txn *transaction) {
+	p := recover()
+	if p != nil {
+		if err := txn.Discard(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed discarding panicing txn err: %s", err)
+		}
+		panic(p)
+	}
 }

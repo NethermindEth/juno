@@ -18,7 +18,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -319,11 +318,6 @@ type BroadcastedTransaction struct {
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
-
 	// RPCv6 requests must set l2_gas to zero
 	if broadcastedTxn.ResourceBounds != nil {
 		broadcastedTxn.ResourceBounds = &ResourceBoundsMap{
@@ -333,11 +327,10 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(0),
 			},
 		}
-		// Copy doesn't covert the struct to enum correctly, so we need to adapt it
-		feederTxn.ResourceBounds = adaptToFeederResourceBounds(broadcastedTxn.ResourceBounds)
 	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}

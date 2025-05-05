@@ -38,7 +38,7 @@ type Builder struct {
 	disableFees bool
 
 	bc              *blockchain.Blockchain
-	db              db.DB
+	db              db.KeyValueStore
 	vm              vm.VM
 	log             utils.Logger
 	subNewHeads     *feed.Feed[*core.Block]
@@ -55,7 +55,7 @@ type Builder struct {
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
-	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.DB,
+	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.KeyValueStore,
 ) Builder {
 	return Builder{
 		ownAddress: *ownAddr,
@@ -106,17 +106,13 @@ func (b *Builder) PendingBlock() *core.Block {
 }
 
 func (b *Builder) PendingState() (core.StateReader, func() error, error) {
-	txn, err := b.db.NewTransaction(false)
+	pending, err := b.Pending()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pending, err := b.Pending()
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), txn.Discard, nil
+	// TODO: remove the state closer once we refactor the state
+	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), func() error { return nil }, nil
 }
 
 func (b *Builder) Run(ctx context.Context) error {

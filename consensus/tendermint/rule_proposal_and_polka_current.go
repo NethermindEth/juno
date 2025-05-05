@@ -22,14 +22,17 @@ func (t *Tendermint[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *Cached
 		firstTime
 }
 
-func (t *Tendermint[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) {
+func (t *Tendermint[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
+	var action Action[V, H, A]
 	if t.state.step == prevote {
 		t.state.lockedValue = cachedProposal.Value
 		t.state.lockedRound = t.state.round
-		t.sendPrecommit(cachedProposal.ID)
+		action = t.setStepAndSendPrecommit(cachedProposal.ID)
 	}
 
 	t.state.validValue = cachedProposal.Value
 	t.state.validRound = t.state.round
 	t.state.lockedValueAndOrValidValueSet = true
+
+	return action
 }

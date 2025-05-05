@@ -7,7 +7,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -21,7 +21,7 @@ func TestEvents(t *testing.T) {
 	pendingBlockFn := func() *core.Block {
 		return pendingB
 	}
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	n := &utils.Sepolia
 	chain := blockchain.New(testDB, n)
 	chain = chain.WithPendingBlockFn(pendingBlockFn)

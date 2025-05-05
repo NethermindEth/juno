@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -568,7 +568,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	log := utils.NewNopZapLogger()
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	bc := blockchain.New(testDB, &utils.Mainnet)
 	synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -740,9 +740,8 @@ func verifyIf(
 }
 
 func emptyTrie(t *testing.T) *trie.Trie {
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)

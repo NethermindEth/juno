@@ -17,7 +17,6 @@ import (
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -259,11 +258,6 @@ type BroadcastedTransaction struct {
 func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
-
 	// RPCv7 requests must set l2_gas to zero
 	if broadcastedTxn.ResourceBounds != nil {
 		broadcastedTxn.ResourceBounds = &rpcv6.ResourceBoundsMap{
@@ -273,11 +267,10 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(0),
 			},
 		}
-		// Copy doesn't covert the struct to enum correctly, so we need to adapt it
-		feederTxn.ResourceBounds = adaptToFeederResourceBounds(broadcastedTxn.ResourceBounds)
 	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -353,6 +346,40 @@ func adaptToFeederResourceBounds(rb *rpcv6.ResourceBoundsMap) *map[starknet.Reso
 	}
 
 	return &feederResourceBounds
+}
+
+// Both adaptToFeederDAMode and adaptToFeederResourceBounds are the same across RPCv6 and RPCv7.
+// TODO: we might be able to reuse these, given we start reusing some of the rpcv6 structs
+func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+	if mode == nil {
+		return nil
+	}
+	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
+}
+
+func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
+	return &starknet.Transaction{
+		Hash:                  rpcTx.Hash,
+		Version:               rpcTx.Version,
+		ContractAddress:       rpcTx.ContractAddress,
+		ContractAddressSalt:   rpcTx.ContractAddressSalt,
+		ClassHash:             rpcTx.ClassHash,
+		ConstructorCallData:   rpcTx.ConstructorCallData,
+		Type:                  starknet.TransactionType(rpcTx.Type),
+		SenderAddress:         rpcTx.SenderAddress,
+		MaxFee:                rpcTx.MaxFee,
+		Signature:             rpcTx.Signature,
+		CallData:              rpcTx.CallData,
+		EntryPointSelector:    rpcTx.EntryPointSelector,
+		Nonce:                 rpcTx.Nonce,
+		CompiledClassHash:     rpcTx.CompiledClassHash,
+		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		Tip:                   rpcTx.Tip,
+		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
+		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		AccountDeploymentData: rpcTx.AccountDeploymentData,
+		PaymasterData:         rpcTx.PaymasterData,
+	}
 }
 
 /****************************************************

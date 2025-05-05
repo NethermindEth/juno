@@ -115,7 +115,7 @@ func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
 type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
-	db                  db.DB
+	db                  db.KeyValueStore
 	readOnlyBlockchain  bool
 	starknetData        starknetdata.StarknetData
 	startingBlockNumber *uint64
@@ -136,7 +136,7 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
-	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.DB,
+	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.KeyValueStore,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
@@ -660,19 +660,18 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pending.Block
 }
 
+var noop = func() error { return nil }
+
 // PendingState returns the state resulting from execution of the pending block
 func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	txn, err := s.db.NewTransaction(false)
+	txn := s.db.NewIndexedBatch()
+
+	pending, err := s.Pending()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pending, err := s.Pending()
-	if err != nil {
-		return nil, nil, utils.RunAndWrapOnError(txn.Discard, err)
-	}
-
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), txn.Discard, nil
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), noop, nil
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {

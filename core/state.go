@@ -51,10 +51,10 @@ type StateReader interface {
 
 type State struct {
 	*history
-	txn db.Transaction
+	txn db.IndexedBatch
 }
 
-func NewState(txn db.Transaction) *State {
+func NewState(txn db.IndexedBatch) *State {
 	return &State{
 		history: &history{txn: txn},
 		txn:     txn,
@@ -62,7 +62,7 @@ func NewState(txn db.Transaction) *State {
 }
 
 func (s *State) ChainHeight() (uint64, error) {
-	return ChainHeight(s.txn)
+	return GetChainHeight(s.txn)
 }
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
@@ -74,7 +74,7 @@ func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt,
 	}
 
 	numBytes := MarshalBlockNumber(blockNumber)
-	if err = s.txn.Set(db.ContractDeploymentHeight.Key(addr.Marshal()), numBytes); err != nil {
+	if err = s.txn.Put(db.ContractDeploymentHeightKey(addr), numBytes); err != nil {
 		return err
 	}
 
@@ -198,7 +198,7 @@ func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Tr
 				return marshalErr
 			}
 
-			return s.txn.Set(rootKeyDBKey, rootKeyBytes.Bytes())
+			return s.txn.Put(rootKeyDBKey, rootKeyBytes.Bytes())
 		}
 		return s.txn.Delete(rootKeyDBKey)
 	}
@@ -342,12 +342,9 @@ type DeclaredClass struct {
 }
 
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
-	classKey := db.Class.Key(classHash.Marshal())
+	classKey := db.ClassKey(classHash)
 
-	err := s.txn.Get(classKey, func(val []byte) error {
-		return nil
-	})
-
+	err := s.txn.Get(classKey, func(data []byte) error { return nil })
 	if errors.Is(err, db.ErrKeyNotFound) {
 		classEncoded, encErr := encoder.Marshal(DeclaredClass{
 			At:    declaredAt,
@@ -357,30 +354,25 @@ func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) e
 			return encErr
 		}
 
-		return s.txn.Set(classKey, classEncoded)
+		return s.txn.Put(classKey, classEncoded)
 	}
 	return err
 }
 
 // Class returns the class object corresponding to the given classHash
 func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
-	classKey := db.Class.Key(classHash.Marshal())
-
-	var class DeclaredClass
-	err := s.txn.Get(classKey, func(val []byte) error {
-		return encoder.Unmarshal(val, &class)
+	var class *DeclaredClass
+	err := s.txn.Get(db.ClassKey(classHash), func(data []byte) error {
+		return encoder.Unmarshal(data, &class)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &class, nil
+	return class, err
 }
 
 func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
-	*db.BufferedTransaction, error,
+	*db.BufferBatch, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
-	bufferedTxn := db.NewBufferedTransaction(s.txn)
+	bufferedTxn := db.NewBufferBatch(s.txn)
 	bufferedState := NewState(bufferedTxn)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
@@ -407,7 +399,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	blockNumber uint64, logChanges bool,
 ) error {
 	type bufferedTransactionWithAddress struct {
-		txn  *db.BufferedTransaction
+		txn  *db.BufferBatch
 		addr *felt.Felt
 	}
 
@@ -552,15 +544,18 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 // ContractIsAlreadyDeployedAt returns if contract at given addr was deployed at blockNumber
 func (s *State) ContractIsAlreadyDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
 	var deployedAt uint64
-	if err := s.txn.Get(db.ContractDeploymentHeight.Key(addr.Marshal()), func(bytes []byte) error {
-		deployedAt = binary.BigEndian.Uint64(bytes)
+
+	err := s.txn.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
+		deployedAt = binary.BigEndian.Uint64(data)
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
+
 	return deployedAt <= blockNumber, nil
 }
 
@@ -659,7 +654,7 @@ func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt
 			continue
 		}
 
-		if err = s.txn.Delete(db.Class.Key(cHash.Marshal())); err != nil {
+		if err = s.txn.Delete(db.ClassKey(cHash)); err != nil {
 			return fmt.Errorf("delete class: %v", err)
 		}
 
@@ -684,7 +679,7 @@ func (s *State) purgeContract(addr *felt.Felt) error {
 		return err
 	}
 
-	if err = s.txn.Delete(db.ContractDeploymentHeight.Key(addr.Marshal())); err != nil {
+	if err = s.txn.Delete(db.ContractDeploymentHeightKey(addr)); err != nil {
 		return err
 	}
 

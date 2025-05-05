@@ -284,7 +284,7 @@ func makeGatewayMetrics() gateway.EventListener {
 	}
 }
 
-func makePebbleMetrics(nodeDB db.DB) {
+func makePebbleMetrics(nodeDB db.KeyValueStore) {
 	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
 	if !ok {
 		return

@@ -24,7 +24,7 @@ type EventFilterer interface {
 }
 
 type EventFilter struct {
-	txn            db.Transaction
+	txn            db.KeyValueStore
 	fromBlock      uint64
 	toBlock        uint64
 	matcher        EventMatcher
@@ -39,7 +39,7 @@ const (
 	EventFilterTo
 )
 
-func newEventFilter(txn db.Transaction, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64,
+func newEventFilter(txn db.KeyValueStore, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64,
 	pendingBlockFn func() *core.Block,
 ) *EventFilter {
 	return &EventFilter{
@@ -72,7 +72,7 @@ func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blo
 
 // SetRangeEndBlockByHash sets an end of the block range by block hash
 func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error {
-	header, err := blockHeaderByHash(e.txn, blockHash)
+	header, err := core.GetBlockHeaderByHash(e.txn, blockHash)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, block
 
 // Close closes the underlying database transaction that provides the blockchain snapshot
 func (e *EventFilter) Close() error {
-	return e.txn.Discard()
+	return nil // no-op
 }
 
 type ContinuationToken struct {
@@ -109,7 +109,7 @@ type FilteredEvent struct {
 //nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
-	latest, err := core.ChainHeight(e.txn)
+	latest, err := core.GetChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -139,7 +139,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	for ; curBlock <= e.toBlock && remainingScannedBlocks > 0; curBlock, remainingScannedBlocks = curBlock+1, remainingScannedBlocks-1 {
 		var header *core.Header
 		if curBlock != latest+1 {
-			header, err = blockHeaderByNumber(e.txn, curBlock)
+			header, err = core.GetBlockHeaderByNumber(e.txn, curBlock)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -154,7 +154,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 
 		var receipts []*core.TransactionReceipt
 		if curBlock != latest+1 {
-			receipts, err = receiptsByBlockNumber(e.txn, header.Number)
+			receipts, err = core.GetReceiptsByBlockNum(e.txn, header.Number)
 			if err != nil {
 				return nil, nil, err
 			}
