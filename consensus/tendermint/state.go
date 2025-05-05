@@ -10,9 +10,33 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+// Example DB layout for storing Tendermint WAL messages per height:
+//
+// We store a counter for the number of messages (including proposals, votes, and timeouts)
+// written to the DB at a given height. This counter (`NumMsgsAtHeight`) acts as a 1-based index
+// for the individual message keys.
+//
+// - Height is encoded as a 4-byte big-endian uint32.
+// - The message index (iterator) is also encoded as a 4-byte big-endian uint32.
+//
+// | Key Prefix            | Key Suffixes                         | Value                          	| Meaning                                     |
+// |-----------------------|--------------------------------------|---------------------------------|---------------------------------------------|
+// | db.NumMsgsAtHeight    | <heightBytes>                        | <countBytes>                    | Stores the total count (e.g., 43) for height |
+// | db.MsgsAtHeight       | <heightBytes>/<iterBytes=1>          | (CBOR-encoded wrapped Msg/T.O.) | First message at height                     |
+// | db.MsgsAtHeight       | <heightBytes>/<iterBytes=2>          | (CBOR-encoded wrapped Msg/T.O.) | Second message at height                    |
+// | ...                   | ...                                  | ...                             | ...                                         |
+// | db.MsgsAtHeight       | <heightBytes>/<iterBytes=countBytes> | (CBOR-encoded wrapped Msg/T.O.) | Last message at height                      |
+//
+// We use a Batch to accumulate writes before committing them to the DB.
+// This reduces expensive disk I/O by batching multiple writes together.
+//
+// However, because the Batch contents are only stored in memory until Commit() is called,
+// if the process crashes before committing, the buffered messages are lost.
+// This loss risks serious issues like equivocation (e.g., missing votes, double-signing, etc.).
+
 type wrappedMsg struct {
 	Type string          `cbor:"type"`
-	Data cbor.RawMessage `cbor:"data"`
+	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or timeout
 }
 
 // MessageType represents the type of message stored in the WAL.
@@ -42,38 +66,6 @@ func (m MessageType) String() string {
 	}
 }
 
-// Todo: just placing the DB logic here. Will likely restructure
-
-// Todo: remove this description?
-// Example db layout for the NumMsgsAtHeight and Msgs format.
-// Basically we store a sequence number (`NumMsgsAtHeight`) for the number of messages written to the db at a given height.
-// The NumMsgsAtHeight is used to divide and locate the message keys efficiently.
-//
-// | Key                                  | Value                         | Meaning                                |
-// |--------------------------------------|-------------------------------|----------------------------------------|
-// | db/WalIter/000003E8                  | 0000002B                      | Last wal_iter=43 at height=1000        |
-// | db/Msg/000003E8/00000000             | (CBOR-encoded Proposal)       | Proposal at height=1000, iter=0        |
-// | db/Msg/000003E8/00000001             | (CBOR-encoded Prevote)        | Prevote at height=1000, iter=1         |
-// | db/Msg/000003E8/00000002             | (CBOR-encoded Precommit)      | Precommit at height=1000, iter=2       |
-// ...
-// | db/Msg/000003E8/00000029             | (CBOR-encoded Timeout)        | Timeout event at height=1000, iter=41  |
-// | db/Msg/000003E8/0000002A             | (CBOR-encoded Proposal)       | Proposal at height=1000, iter=42       |
-// | db/WalIter/000003E9                  | 00000010                      | Last wal_iter=16 at height=1001        |
-// | db/Msg/000003E9/00000000             | (CBOR-encoded Timeout)        | Timeout at height=1001, iter=0         |
-// | db/Msg/000003E9/00000001             | (CBOR-encoded Proposal)       | Proposal at height=1001, iter=1        |
-// ...
-
-// We use a Batch to accumulate writes before committing them to the DB.
-// This reduces expensive disk I/O by batching multiple writes together.
-//
-// However, because the Batch contents are only stored in memory until Commit() is called,
-// if the process crashes before committing, the buffered messages are lost.
-// This loss risks serious issues like equivocation (e.g., missing votes, double-signing, etc.).
-//
-// Therefore, it is critical to commit the Batch frequently and with Sync enabled (pebble.Sync)
-// to ensure durability guarantees are met.
-
-// Todo: write a set of getters and setters around this.
 type WALMsg[V Hashable[H], H Hash, A Addr] struct {
 	Msg     any
 	Timeout *timeout
@@ -81,14 +73,14 @@ type WALMsg[V Hashable[H], H Hash, A Addr] struct {
 
 type TMDB struct { // Todo: move this elsewhere. Currently just a placeholder
 	db    db.KeyValueStore
-	batch db.IndexedBatch // Tendermint never needs to read wal messages from the batch
+	batch db.IndexedBatch
 }
 
 func NewTMState(db db.KeyValueStore) TMDB {
 	return TMDB{db: db, batch: db.NewIndexedBatch()}
 }
 
-func (s *TMDB) CommitBatch() error { // Todo: figure out when to call this to balance safety and performance
+func (s *TMDB) CommitBatch() error {
 	return s.batch.Write()
 }
 
@@ -138,8 +130,38 @@ func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 	return binary.BigEndian.Uint32(value), nil
 }
 
-// Todo:
+// DeleteMsgsAtHeight removes all WAL messages and the message count associated with a specific height from the batch.
+// It iterates through the expected message keys based on the stored count.
+// Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
 func (s *TMDB) DeleteMsgsAtHeight(height height) error {
+
+	numMsgs, err := s.GetNumMsgsAtHeight(height)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			return nil
+		}
+		return fmt.Errorf("DeleteMsgsAtHeight: failed to get message count for height %d: %w", height, err)
+	}
+
+	heightBytes := heightToBytes(height)
+
+	// Delete individual message keys. Message iterators are 1-based.
+	for i := uint32(1); i <= numMsgs; i++ {
+		iterBytes := encodeNumMsgsAtHeight(i) // Get the bytes for the iterator number
+		msgKey := db.MsgsAtHeight.Key(heightBytes, iterBytes)
+		if err := s.batch.Delete(msgKey); err != nil {
+			return fmt.Errorf("DeleteMsgsAtHeight: failed to add deletion for message key %d/%d to batch: %w", height, i, err)
+		}
+	}
+
+	// Delete the count key itself
+	numMsgsKey := db.NumMsgsAtHeight.Key(heightBytes)
+	if err := s.batch.Delete(numMsgsKey); err != nil {
+		// If adding the count key deletion fails, return the error.
+		return fmt.Errorf("DeleteMsgsAtHeight: failed to add count key deletion for height %d to batch: %w", height, err)
+	}
+
+	// All delete operations successfully added to the batch.
 	return nil
 }
 
@@ -152,9 +174,17 @@ func (s *TMDB) setNumMsgsAtHeight(height height, walIter uint32) error {
 
 // SetWALMsg stores a consensus message (Proposal, Prevote, Precommit) in the WAL batch.
 func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, height height) error {
-	msgType, err := getMsgType[V, H, A, M](msg)
-	if err != nil {
-		return fmt.Errorf("SetWALMsg: failed to get msg type: %w", err)
+
+	var msgType MessageType
+	switch any(msg).(type) {
+	case Proposal[V, H, A]:
+		msgType = MessageTypeProposal
+	case Prevote[H, A]:
+		msgType = MessageTypePrevote
+	case Precommit[H, A]:
+		msgType = MessageTypePrecommit
+	default:
+		return fmt.Errorf("SetWALMsg: unknown message type %T", msg)
 	}
 
 	msgDataInner, err := cbor.Marshal(msg)
@@ -173,7 +203,6 @@ func SetWALTimeout(s *TMDB, to *timeout, height height) error {
 	if err != nil {
 		return fmt.Errorf("SetWALTimeout: marshal timeout failed: %w", err)
 	}
-	fmt.Println("msgDataInner", msgDataInner, to)
 	return setWALEntry(s, height, msgType, msgDataInner)
 }
 
@@ -225,7 +254,6 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg
 		if err := cbor.Unmarshal(value, &wrapper); err != nil {
 			return nil, fmt.Errorf("GetWALMsgs: failed to decode CBOR wrapper for entry %d at height %d: %w", i, height, err)
 		}
-		fmt.Println(" -- ", wrapper.Data)
 		switch wrapper.Type {
 		case MessageTypeTimeout.String():
 			var to timeout
@@ -310,20 +338,6 @@ func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgTypeStr string, data
 	}
 }
 
-// todo: push to msg method??
-func getHeight[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (height, error) {
-	switch m := any(msg).(type) {
-	case Proposal[V, H, A]:
-		return m.Height, nil
-	case Prevote[H, A]:
-		return m.Height, nil
-	case Precommit[H, A]:
-		return m.Height, nil
-	}
-	return height(0), fmt.Errorf("failed to get message height")
-}
-
-// Todo: push to utils?
 func heightToBytes(height height) []byte {
 	heightBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(heightBytes, uint32(height))
@@ -334,17 +348,4 @@ func encodeNumMsgsAtHeight(numMsgsAtHeight uint32) []byte {
 	numMsgsAtHeightBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, numMsgsAtHeight)
 	return numMsgsAtHeightBytes
-}
-
-// msgType determines the MessageType enum for a given message.
-func getMsgType[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](msg M) (MessageType, error) {
-	switch any(msg).(type) {
-	case Proposal[V, H, A]:
-		return MessageTypeProposal, nil
-	case Prevote[H, A]:
-		return MessageTypePrevote, nil
-	case Precommit[H, A]:
-		return MessageTypePrecommit, nil
-	}
-	return MessageTypeUnknown, fmt.Errorf("msgType: unknown message type %T", msg)
 }

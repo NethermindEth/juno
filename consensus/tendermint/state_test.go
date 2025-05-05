@@ -105,12 +105,12 @@ func TestSetAndGetWAL(t *testing.T) {
 	// 4. Verify Number of Messages
 	numMsgs, err := tmState.GetNumMsgsAtHeight(testHeight)
 	require.NoError(t, err)
-	require.Equal(t, uint32(4), numMsgs, "Expected 4 messages stored at height") // Updated count
+	require.Equal(t, uint32(4), numMsgs, "Expected 4 messages stored at height")
 
 	// 5. Retrieve all WAL messages
-	retrievedMsgs, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight) // Call once without M
+	retrievedMsgs, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
 	require.NoError(t, err, "Error getting WAL messages")
-	require.Len(t, retrievedMsgs, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)") // Updated count
+	require.Len(t, retrievedMsgs, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)")
 
 	// 6. Assert Messages by Type
 	var (
@@ -154,4 +154,59 @@ func TestSetAndGetWAL(t *testing.T) {
 
 	require.NotNil(t, timeoutFound, "Timeout message not found")
 	assert.Equal(t, *timeoutEvent, *timeoutFound, "Retrieved timeout mismatch")
+}
+
+func TestDeleteMsgsAtHeight(t *testing.T) {
+	testDB := memory.New()
+	tmState := NewTMState(testDB)
+	testHeight := height(2000)
+	testRound := round(5)
+	sender1 := *new(felt.Felt).SetUint64(101)
+	var val1 value = 99
+	valHash1 := val1.Hash()
+
+	// 1. Add some messages for the test height
+	proposal := Proposal[value, felt.Felt, felt.Felt]{
+		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
+		Value:         utils.HeapPtr(val1),
+	}
+	prevote := Prevote[felt.Felt, felt.Felt]{
+		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
+		ID:            &valHash1,
+	}
+	timeout := &timeout{h: testHeight, r: testRound, s: propose}
+
+	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, proposal, testHeight))
+	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, prevote, testHeight))
+	require.NoError(t, SetWALTimeout(&tmState, timeout, testHeight))
+
+	// 2. Commit the initial messages
+	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")
+
+	// 3. Verify messages exist before deletion
+	numMsgsBefore, err := tmState.GetNumMsgsAtHeight(testHeight)
+	require.NoError(t, err, "Failed to get num messages before delete")
+	require.Equal(t, uint32(3), numMsgsBefore, "Incorrect number of messages before delete")
+
+	retrievedBefore, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
+	require.NoError(t, err, "Failed to get WAL messages before delete")
+	require.Len(t, retrievedBefore, 3, "Incorrect number of WAL messages retrieved before delete")
+
+	// 4. Call DeleteMsgsAtHeight
+	require.NoError(t, tmState.DeleteMsgsAtHeight(testHeight), "Failed to call DeleteMsgsAtHeight")
+
+	// 5. Verify deletion is staged in batch (optional check, GetNumMsgsAtHeight reads batch first)
+	_, err = tmState.GetNumMsgsAtHeight(testHeight)
+	require.ErrorIs(t, err, db.ErrKeyNotFound, "Count key should not be found in batch after DeleteMsgsAtHeight")
+
+	// 6. Commit the deletion batch
+	require.NoError(t, tmState.CommitBatch(), "Failed to commit deletion batch")
+
+	// 7. Verify messages are gone from the DB
+	numMsgsAfter, err := tmState.GetNumMsgsAtHeight(testHeight)
+	require.ErrorIs(t, err, db.ErrKeyNotFound, "NumMsgsAtHeight should return ErrKeyNotFound after delete and commit")
+	require.Equal(t, uint32(0), numMsgsAfter) // Check zero value on error
+
+	_, err = GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
+	require.Error(t, err)
 }
