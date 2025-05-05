@@ -237,7 +237,7 @@ func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.Raw
 	if err := s.batch.Put(msgKey, msgData); err != nil {
 		return fmt.Errorf("setWALEntry: failed to set MsgsAtHeight: %w", err)
 	}
-	if err := s.setNumMsgsAtHeight(height, numMsgsAtHeight); err != nil {
+	if err := s.setNumMsgsAtHeight(height, nextNumMsgsAtHeight); err != nil {
 		return fmt.Errorf("setWALEntry: failed to set NumMsgsAtHeight: %w", err)
 	}
 	return nil
