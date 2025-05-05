@@ -11,9 +11,9 @@ import (
 )
 
 const (
+	hashOrValueNodeSize = felt.Bytes
 	binaryNodeSize      = 2 * hashOrValueNodeSize                         // LeftHash + RightHash
 	edgeNodeMaxSize     = trieutils.MaxBitArraySize + hashOrValueNodeSize // Path + Child Hash
-	hashOrValueNodeSize = felt.Bytes
 )
 
 var bufferPool = sync.Pool{
