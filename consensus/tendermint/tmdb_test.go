@@ -73,9 +73,9 @@ func TestSetAndGetWAL(t *testing.T) {
 		ID:            &valHash1,
 	}
 	timeoutEvent := &timeout{
-		h: testHeight,
-		r: testRound,
-		s: testStep,
+		H: testHeight,
+		R: testRound,
+		S: testStep,
 	}
 
 	// 2. Store Messages using SetWALMsg and SetWALTimeout
@@ -165,7 +165,7 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
 		ID:            &valHash1,
 	}
-	timeout := &timeout{h: testHeight, r: testRound, s: propose}
+	timeout := &timeout{H: testHeight, R: testRound, S: propose}
 
 	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, proposal, testHeight))
 	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, prevote, testHeight))

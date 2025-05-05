@@ -43,8 +43,8 @@ func (t actionBuilder) broadcastPrecommit(val *value) Action[value, felt.Felt, f
 // scheduleTimeout builds and returns a ScheduleTimeout action.
 func (t actionBuilder) scheduleTimeout(s step) Action[value, felt.Felt, felt.Felt] {
 	return &ScheduleTimeout{
-		s: s,
-		h: t.actionHeight,
-		r: t.actionRound,
+		S: s,
+		H: t.actionHeight,
+		R: t.actionRound,
 	}
 }

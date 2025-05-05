@@ -55,7 +55,7 @@ func (t stateMachineContext) processTimeout(s step) actionAsserter[any] {
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
 		inputMessage: nil,
-		actions:      t.stateMachine.processTimeout(timeout{s: s, h: t.builderHeight, r: t.builderRound}),
+		actions:      t.stateMachine.processTimeout(timeout{S: s, H: t.builderHeight, R: t.builderRound}),
 	}
 }
 

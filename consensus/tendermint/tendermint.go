@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	db "github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/fxamacker/cbor/v2"
 )
 
 type (
@@ -252,13 +251,13 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 		case *ScheduleTimeout:
 			// Schedule the timeout
 			var duration time.Duration
-			switch action.s {
+			switch action.S {
 			case propose:
-				duration = d.timeoutPropose(action.r)
+				duration = d.timeoutPropose(action.R)
 			case prevote:
-				duration = d.timeoutPrevote(action.r)
+				duration = d.timeoutPrevote(action.R)
 			case precommit:
-				duration = d.timeoutPrecommit(action.r)
+				duration = d.timeoutPrecommit(action.R)
 			default:
 				return
 			}
@@ -302,49 +301,17 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 }
 
 type timeout struct {
-	s step
-	h height
-	r round
-}
-
-// MarshalCBOR implements the cbor.Marshaler interface.
-func (t timeout) MarshalCBOR() ([]byte, error) {
-	tmp := &struct {
-		S step   `cbor:"s"`
-		H height `cbor:"h"`
-		R round  `cbor:"r"`
-	}{
-		S: t.s,
-		H: t.h,
-		R: t.r,
-	}
-	return cbor.Marshal(tmp)
-}
-
-// UnmarshalCBOR implements the cbor.Unmarshaler interface.
-func (t *timeout) UnmarshalCBOR(data []byte) error {
-	tmp := &struct {
-		S step   `cbor:"s"`
-		H height `cbor:"h"`
-		R round  `cbor:"r"`
-	}{}
-
-	if err := cbor.Unmarshal(data, tmp); err != nil {
-		return err
-	}
-
-	t.s = tmp.S
-	t.h = tmp.H
-	t.r = tmp.R
-	return nil
+	S step   `cbor:"s"`
+	H height `cbor:"h"`
+	R round  `cbor:"r"`
 }
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{
-			s: s,
-			h: t.state.height,
-			r: t.state.round,
+			S: s,
+			H: t.state.height,
+			R: t.state.round,
 		},
 	)
 }
