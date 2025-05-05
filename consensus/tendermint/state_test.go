@@ -59,6 +59,8 @@ func TestSetAndGetWAL(t *testing.T) {
 	testDB := memory.New()
 	tmState := NewTMState(testDB)
 	testHeight := height(1000)
+	testRound := round(1)
+	testStep := prevote
 	sender1 := *new(felt.Felt).SetUint64(1)
 	sender2 := *new(felt.Felt).SetUint64(2)
 	sender3 := *new(felt.Felt).SetUint64(3)
@@ -67,25 +69,34 @@ func TestSetAndGetWAL(t *testing.T) {
 
 	// 1. Create Messages
 	proposalMessage := Proposal[value, felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: round(0), Sender: sender1},
-		ValidRound:    round(0),
+		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
+		ValidRound:    testRound,
 		Value:         utils.HeapPtr(val1),
 	}
 	prevoteMessage := Prevote[felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: round(0), Sender: sender2},
+		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender2},
 		ID:            &valHash1,
 	}
 	precommitMessage := Precommit[felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: round(0), Sender: sender3},
+		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender3},
 		ID:            &valHash1,
 	}
+	timeoutEvent := &timeout{
+		h: testHeight,
+		r: testRound,
+		s: testStep,
+	}
 
-	// 2. Store Messages using SetWAL
-	err := SetWAL[value, felt.Felt, felt.Felt](&tmState, proposalMessage, nil, testHeight)
+	// 2. Store Messages using SetWALMsg and SetWALTimeout
+	err := SetWALMsg[value, felt.Felt, felt.Felt](&tmState, proposalMessage, testHeight)
 	require.NoError(t, err)
-	err = SetWAL[value, felt.Felt, felt.Felt](&tmState, prevoteMessage, nil, testHeight)
+	err = SetWALMsg[value, felt.Felt, felt.Felt](&tmState, prevoteMessage, testHeight)
 	require.NoError(t, err)
-	err = SetWAL[value, felt.Felt, felt.Felt](&tmState, precommitMessage, nil, testHeight)
+	err = SetWALMsg[value, felt.Felt, felt.Felt](&tmState, precommitMessage, testHeight)
+	require.NoError(t, err)
+
+	// Store the timeout directly using SetWALTimeout
+	err = SetWALTimeout(&tmState, timeoutEvent, testHeight)
 	require.NoError(t, err)
 
 	// 3. Commit the Batch
@@ -94,12 +105,12 @@ func TestSetAndGetWAL(t *testing.T) {
 	// 4. Verify Number of Messages
 	numMsgs, err := tmState.GetNumMsgsAtHeight(testHeight)
 	require.NoError(t, err)
-	require.Equal(t, uint32(3), numMsgs, "Expected 3 messages stored at height")
+	require.Equal(t, uint32(4), numMsgs, "Expected 4 messages stored at height") // Updated count
 
 	// 5. Retrieve all WAL messages
 	retrievedMsgs, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight) // Call once without M
 	require.NoError(t, err, "Error getting WAL messages")
-	require.Len(t, retrievedMsgs, 3, "Expected 3 total entries (1 proposal, 1 prevote, 1 precommit)")
+	require.Len(t, retrievedMsgs, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)") // Updated count
 
 	// 6. Assert Messages by Type
 	var (
@@ -141,5 +152,6 @@ func TestSetAndGetWAL(t *testing.T) {
 	require.NotNil(t, precommitFound, "Precommit message not found")
 	assert.Equal(t, precommitMessage, *precommitFound, "Retrieved precommit mismatch")
 
-	require.Nil(t, timeoutFound, "Unexpected timeout found") // Ensure no timeouts were found in this test case
+	require.NotNil(t, timeoutFound, "Timeout message not found")
+	assert.Equal(t, *timeoutEvent, *timeoutFound, "Retrieved timeout mismatch")
 }

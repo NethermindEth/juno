@@ -150,54 +150,64 @@ func (s *TMDB) setNumMsgsAtHeight(height height, walIter uint32) error {
 	return s.batch.Put(key, val)
 }
 
-func SetWAL[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, to *timeout, height height) error {
-	var (
-		msgType      MessageType
-		msgDataInner cbor.RawMessage
-		err          error
-	)
-
-	if to != nil {
-		// No need to pre-marshal, assign the object directly
-		msgDataInner, err = cbor.Marshal(to)
-		msgType = MessageTypeTimeout
-	} else {
-		msgDataInner, err = cbor.Marshal(msg)
-		msgType, err = getMsgType[V, H, A, M](msg)
-		if err != nil {
-			return fmt.Errorf("SetWAL: failed to get msg type: %w", err)
-		}
+// SetWALMsg stores a consensus message (Proposal, Prevote, Precommit) in the WAL batch.
+func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, height height) error {
+	msgType, err := getMsgType[V, H, A, M](msg)
+	if err != nil {
+		return fmt.Errorf("SetWALMsg: failed to get msg type: %w", err)
 	}
 
+	msgDataInner, err := cbor.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("SetWALMsg: marshal message failed: %w", err)
+	}
+
+	return setWALEntry(s, height, msgType, msgDataInner)
+}
+
+// SetWALTimeout stores a timeout event in the WAL batch.
+func SetWALTimeout(s *TMDB, to *timeout, height height) error {
+	msgType := MessageTypeTimeout
+
+	msgDataInner, err := cbor.Marshal(to)
+	if err != nil {
+		return fmt.Errorf("SetWALTimeout: marshal timeout failed: %w", err)
+	}
+	fmt.Println("msgDataInner", msgDataInner, to)
+	return setWALEntry(s, height, msgType, msgDataInner)
+}
+
+// internal helper to set a WAL entry in the batch
+func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.RawMessage) error {
 	wrapper := wrappedMsg{
 		Type: msgType.String(),
-		Data: msgDataInner,
+		Data: innerData,
 	}
 
 	msgData, err := cbor.Marshal(wrapper)
 	if err != nil {
-		return fmt.Errorf("SetWAL: marshal wrapper failed: %w", err)
+		return fmt.Errorf("setWALEntry: marshal wrapper failed: %w", err)
 	}
 
-	// get NumMsgsAtHeight and increment
+	// Get NumMsgsAtHeight and increment
 	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			numMsgsAtHeight = 0 // first time storing a msg
 		} else {
-			return fmt.Errorf("SetWAL: failed to get numMsgsAtHeight: %w", err)
+			return fmt.Errorf("setWALEntry: failed to get numMsgsAtHeight: %w", err)
 		}
 	}
 	numMsgsAtHeight++
-	numMsgsAtHeightValue := encodeNumMsgsAtHeight(numMsgsAtHeight)
+	numMsgsAtHeightBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
 
-	// Set the new key-value pairs
-	msgKey := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightValue)
+	// Set the WAL msg/timeout, and the new iterator
+	msgKey := db.MsgsAtHeight.Key(heightToBytes(height), numMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, msgData); err != nil {
-		return fmt.Errorf("SetWAL: failed to set MsgsAtHeight: %w", err)
+		return fmt.Errorf("setWALEntry: failed to set MsgsAtHeight: %w", err)
 	}
 	if err := s.setNumMsgsAtHeight(height, numMsgsAtHeight); err != nil {
-		return fmt.Errorf("SetWAL: failed to set NumMsgsAtHeight: %w", err)
+		return fmt.Errorf("setWALEntry: failed to set NumMsgsAtHeight: %w", err)
 	}
 	return nil
 }
@@ -215,13 +225,14 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg
 		if err := cbor.Unmarshal(value, &wrapper); err != nil {
 			return nil, fmt.Errorf("GetWALMsgs: failed to decode CBOR wrapper for entry %d at height %d: %w", i, height, err)
 		}
-
+		fmt.Println(" -- ", wrapper.Data)
 		switch wrapper.Type {
 		case MessageTypeTimeout.String():
 			var to timeout
 			if err := cbor.Unmarshal(wrapper.Data, &to); err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
 			}
+
 			walMsgs = append(walMsgs, WALMsg[V, H, A]{Timeout: &to})
 
 		default:

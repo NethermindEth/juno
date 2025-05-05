@@ -1,11 +1,14 @@
 package tendermint
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
+
+	"github.com/fxamacker/cbor/v2"
 )
 
 type (
@@ -273,6 +276,9 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 		case *BroadcastPrecommit[H, A]:
 			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
 		case *ScheduleTimeout:
+			// Todo: remove this if not needed
+			fmt.Printf("Scheduling timeout %s %d:%d\n", action.s, action.h, action.r)
+			// Schedule the timeout
 			var duration time.Duration
 			switch action.s {
 			case propose:
@@ -281,8 +287,6 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 				duration = d.timeoutPrevote(action.r)
 			case precommit:
 				duration = d.timeoutPrecommit(action.r)
-			default:
-				return
 			}
 			d.scheduledTms[timeout(*action)] = time.AfterFunc(duration, func() {
 				select {
@@ -327,6 +331,38 @@ type timeout struct {
 	s step   `cbor:"s"`
 	h height `cbor:"h"`
 	r round  `cbor:"r"`
+}
+
+// MarshalCBOR implements the cbor.Marshaler interface.
+func (t timeout) MarshalCBOR() ([]byte, error) {
+	tmp := &struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{
+		S: t.s,
+		H: t.h,
+		R: t.r,
+	}
+	return cbor.Marshal(tmp)
+}
+
+// UnmarshalCBOR implements the cbor.Unmarshaler interface.
+func (t *timeout) UnmarshalCBOR(data []byte) error {
+	tmp := &struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{}
+
+	if err := cbor.Unmarshal(data, tmp); err != nil {
+		return err
+	}
+
+	t.s = tmp.S
+	t.h = tmp.H
+	t.r = tmp.R
+	return nil
 }
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
