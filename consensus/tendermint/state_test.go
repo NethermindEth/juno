@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -28,18 +29,11 @@ func TestGetNumMsgsAtHeight(t *testing.T) {
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	require.Equal(t, uint32(0), numMsgs)
 
-	// set data
-	tmState.SetNumMsgsAtHeight(height, expectedNumMsgs)
+	// set NumMsgsAtHeight
+	require.NoError(t, tmState.setNumMsgsAtHeight(height, expectedNumMsgs))
 	require.NoError(t, tmState.CommitBatch())
 
-	// get data from batch
-	numMsgs, err = tmState.GetNumMsgsAtHeight(height)
-	require.NoError(t, err)
-	require.Equal(t, expectedNumMsgs, numMsgs)
-
-	require.NoError(t, tmState.CommitBatch())
-
-	// get data from db
+	// get NumMsgsAtHeight
 	numMsgs, err = tmState.GetNumMsgsAtHeight(height)
 	require.NoError(t, err)
 	require.Equal(t, expectedNumMsgs, numMsgs)
@@ -51,6 +45,7 @@ func TestSetAndGetWAL(t *testing.T) {
 
 	app := newApp()
 
+	// set msg
 	proposalMessage := Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{
 			Height: height(10),
@@ -62,7 +57,18 @@ func TestSetAndGetWAL(t *testing.T) {
 	}
 	height := height(1000)
 	require.NoError(t, SetWAL[value, felt.Felt, felt.Felt](&tmState, proposalMessage, nil, height))
+
+	// commit
+	require.NoError(t, tmState.CommitBatch())
+
+	// get NumMsgsAtHeight
+	numMsgs, err := tmState.GetNumMsgsAtHeight(height)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), numMsgs)
+
+	// get msg
 	msgs, err := GetWALMsgs[value, felt.Felt, felt.Felt, Proposal[value, felt.Felt, felt.Felt]](&tmState, height)
 	require.NoError(t, err)
+	fmt.Println("msgs", msgs)
 	require.NotNil(t, msgs)
 }

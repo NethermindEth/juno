@@ -20,9 +20,9 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
-	MessageHeader[A] `cbor:"message_header"`
-	ValidRound       round `cbor:"valid_round"`
-	Value            *V    `cbor:"value"`
+	MessageHeader[A]
+	ValidRound round `cbor:"valid_round"`
+	Value      *V    `cbor:"value"`
 }
 
 // Todo: fix
