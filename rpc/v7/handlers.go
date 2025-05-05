@@ -41,7 +41,6 @@ type Handler struct {
 	vm            vm.VM
 	log           utils.Logger
 
-	version  string
 	newHeads *feed.Feed[*core.Block]
 
 	idgen         func() uint64
@@ -59,7 +58,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -73,7 +72,6 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:  version,
 		newHeads: feed.New[*core.Block](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](traceCacheSize),
@@ -105,10 +103,6 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.gatewayClient = gatewayClient
 	return h
-}
-
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
