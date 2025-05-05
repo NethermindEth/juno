@@ -11,29 +11,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCommitBatch(t *testing.T) {
+// Test helper to get a TMDBInterface instance
+func newTestTMDB(t *testing.T) TMDBInterface[value, felt.Felt, felt.Felt] {
 	testDB := memory.New()
-	tmState := NewTMDB(testDB)
+	tmState := NewTMDB[value, felt.Felt, felt.Felt](testDB)
+	require.NotNil(t, tmState)
+	return tmState
+}
+
+func TestCommitBatch(t *testing.T) {
+	tmState := newTestTMDB(t)
 	require.NoError(t, tmState.CommitBatch())
 }
 
-func TestGetNumMsgsAtHeight(t *testing.T) {
-	testDB := memory.New()
-	tmState := NewTMDB(testDB)
+func TestGetWALCount(t *testing.T) {
+	tmState := newTestTMDB(t)
 
 	height := height(1000)
 	expectedNumMsgs := uint32(42)
 
 	// call get function when no data has been set
-	numMsgs, err := tmState.GetNumMsgsAtHeight(height)
+	numMsgs, err := tmState.GetWALCount(height)
 	require.ErrorIs(t, err, db.ErrKeyNotFound)
 	require.Equal(t, uint32(0), numMsgs)
 
-	// set NumMsgsAtHeight
-	require.NoError(t, tmState.setNumMsgsAtHeight(height, expectedNumMsgs))
+	// Cast to underlying *TMDB to access internal method (only for testing)
+	tmdbImpl, ok := tmState.(*TMDB[value, felt.Felt, felt.Felt])
+	require.True(t, ok, "Failed to cast TMDBInterface to *TMDB")
+	require.NoError(t, tmdbImpl.setNumMsgsAtHeight(height, expectedNumMsgs))
 
 	// get NumMsgsAtHeight - from batch
-	numMsgs, err = tmState.GetNumMsgsAtHeight(height)
+	numMsgs, err = tmState.GetWALCount(height)
 	require.NoError(t, err)
 	require.Equal(t, expectedNumMsgs, numMsgs)
 
@@ -41,14 +49,13 @@ func TestGetNumMsgsAtHeight(t *testing.T) {
 	require.NoError(t, tmState.CommitBatch())
 
 	// get NumMsgsAtHeight - from db
-	numMsgs, err = tmState.GetNumMsgsAtHeight(height)
+	numMsgs, err = tmState.GetWALCount(height)
 	require.NoError(t, err)
 	require.Equal(t, expectedNumMsgs, numMsgs)
 }
 
 func TestSetAndGetWAL(t *testing.T) {
-	testDB := memory.New()
-	tmState := NewTMDB(testDB)
+	tmState := newTestTMDB(t)
 	testHeight := height(1000)
 	testRound := round(1)
 	testStep := prevote
@@ -78,30 +85,24 @@ func TestSetAndGetWAL(t *testing.T) {
 		S: testStep,
 	}
 
-	// 2. Store Messages using SetWALMsg and SetWALTimeout
-	err := SetWALMsg[value, felt.Felt, felt.Felt](&tmState, proposalMessage, testHeight)
-	require.NoError(t, err)
-	err = SetWALMsg[value, felt.Felt, felt.Felt](&tmState, prevoteMessage, testHeight)
-	require.NoError(t, err)
-	err = SetWALMsg[value, felt.Felt, felt.Felt](&tmState, precommitMessage, testHeight)
-	require.NoError(t, err)
-
-	// Store the timeout directly using SetWALTimeout
-	err = SetWALTimeout(&tmState, timeoutEvent, testHeight)
-	require.NoError(t, err)
+	// 2. Store Messages using SetWALEntry
+	require.NoError(t, tmState.SetWALEntry(proposalMessage, testHeight))
+	require.NoError(t, tmState.SetWALEntry(prevoteMessage, testHeight))
+	require.NoError(t, tmState.SetWALEntry(precommitMessage, testHeight))
+	require.NoError(t, tmState.SetWALEntry(timeoutEvent, testHeight))
 
 	// 3. Commit the Batch
 	require.NoError(t, tmState.CommitBatch())
 
 	// 4. Verify Number of Messages
-	numMsgs, err := tmState.GetNumMsgsAtHeight(testHeight)
+	numMsgs, err := tmState.GetWALCount(testHeight)
 	require.NoError(t, err)
 	require.Equal(t, uint32(4), numMsgs, "Expected 4 messages stored at height")
 
 	// 5. Retrieve all WAL messages
-	retrievedMsgs, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
+	retrievedEntries, err := tmState.GetWALMsgs(testHeight)
 	require.NoError(t, err, "Error getting WAL messages")
-	require.Len(t, retrievedMsgs, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)")
+	require.Len(t, retrievedEntries, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)")
 
 	// 6. Assert Messages by Type
 	var (
@@ -111,25 +112,26 @@ func TestSetAndGetWAL(t *testing.T) {
 		timeoutFound   *timeout
 	)
 
-	for _, retrieved := range retrievedMsgs {
-		if retrieved.Timeout != nil {
-			require.Nil(t, timeoutFound, "Found multiple timeouts")
-			timeoutFound = retrieved.Timeout
-			continue
-		}
-
-		switch msg := retrieved.Msg.(type) {
+	for _, entry := range retrievedEntries {
+		switch msg := entry.(type) {
 		case Proposal[value, felt.Felt, felt.Felt]:
 			require.Nil(t, proposalFound, "Found multiple proposals")
-			proposalFound = &msg // Store pointer to the message
+			// Need to copy msg because the loop variable 'msg' will be reused
+			found := msg
+			proposalFound = &found
 		case Prevote[felt.Felt, felt.Felt]:
 			require.Nil(t, prevoteFound, "Found multiple prevotes")
-			prevoteFound = &msg
+			found := msg
+			prevoteFound = &found
 		case Precommit[felt.Felt, felt.Felt]:
 			require.Nil(t, precommitFound, "Found multiple precommits")
-			precommitFound = &msg
+			found := msg
+			precommitFound = &found
+		case *timeout:
+			require.Nil(t, timeoutFound, "Found multiple timeouts")
+			timeoutFound = msg // msg is already a pointer here
 		default:
-			t.Fatalf("Found unexpected message type in WAL: %T", retrieved.Msg)
+			t.Fatalf("Found unexpected message type in WAL: %T", entry)
 		}
 	}
 
@@ -148,15 +150,14 @@ func TestSetAndGetWAL(t *testing.T) {
 }
 
 func TestDeleteMsgsAtHeight(t *testing.T) {
-	testDB := memory.New()
-	tmState := NewTMDB(testDB)
+	tmState := newTestTMDB(t)
 	testHeight := height(2000)
 	testRound := round(5)
 	sender1 := *new(felt.Felt).SetUint64(101)
 	var val1 value = 99
 	valHash1 := val1.Hash()
 
-	// 1. Add some messages for the test height
+	// 1. Add some messages for the test height using SetWALEntry
 	proposal := Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
 		Value:         utils.HeapPtr(val1),
@@ -167,37 +168,37 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	}
 	timeout := &timeout{H: testHeight, R: testRound, S: propose}
 
-	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, proposal, testHeight))
-	require.NoError(t, SetWALMsg[value, felt.Felt, felt.Felt](&tmState, prevote, testHeight))
-	require.NoError(t, SetWALTimeout(&tmState, timeout, testHeight))
+	require.NoError(t, tmState.SetWALEntry(proposal, testHeight))
+	require.NoError(t, tmState.SetWALEntry(prevote, testHeight))
+	require.NoError(t, tmState.SetWALEntry(timeout, testHeight))
 
 	// 2. Commit the initial messages
 	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")
 
 	// 3. Verify messages exist before deletion
-	numMsgsBefore, err := tmState.GetNumMsgsAtHeight(testHeight)
+	numMsgsBefore, err := tmState.GetWALCount(testHeight)
 	require.NoError(t, err, "Failed to get num messages before delete")
 	require.Equal(t, uint32(3), numMsgsBefore, "Incorrect number of messages before delete")
 
-	retrievedBefore, err := GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
+	retrievedBefore, err := tmState.GetWALMsgs(testHeight)
 	require.NoError(t, err, "Failed to get WAL messages before delete")
 	require.Len(t, retrievedBefore, 3, "Incorrect number of WAL messages retrieved before delete")
 
 	// 4. Call DeleteMsgsAtHeight
-	require.NoError(t, tmState.DeleteMsgsAtHeight(testHeight), "Failed to call DeleteMsgsAtHeight")
+	require.NoError(t, tmState.DeleteWALMsgs(testHeight), "Failed to call DeleteMsgsAtHeight")
 
 	// 5. Verify deletion is staged in batch (optional check, GetNumMsgsAtHeight reads batch first)
-	_, err = tmState.GetNumMsgsAtHeight(testHeight)
+	_, err = tmState.GetWALCount(testHeight)
 	require.ErrorIs(t, err, db.ErrKeyNotFound, "Count key should not be found in batch after DeleteMsgsAtHeight")
 
 	// 6. Commit the deletion batch
 	require.NoError(t, tmState.CommitBatch(), "Failed to commit deletion batch")
 
 	// 7. Verify messages are gone from the DB
-	numMsgsAfter, err := tmState.GetNumMsgsAtHeight(testHeight)
+	numMsgsAfter, err := tmState.GetWALCount(testHeight)
 	require.ErrorIs(t, err, db.ErrKeyNotFound, "NumMsgsAtHeight should return ErrKeyNotFound after delete and commit")
 	require.Equal(t, uint32(0), numMsgsAfter) // Check zero value on error
 
-	_, err = GetWALMsgs[value, felt.Felt, felt.Felt](&tmState, testHeight)
+	_, err = tmState.GetWALMsgs(testHeight)
 	require.Error(t, err)
 }

@@ -117,7 +117,7 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Driver[V Hashable[H], H Hash, A Addr] struct {
-	tmdb TMDB
+	tmdb TMDBInterface[V, H, A]
 
 	stateMachine *Tendermint[V, H, A]
 
@@ -187,7 +187,7 @@ func NewDriver[V Hashable[H], H Hash, A Addr](database db.KeyValueStore, nodeAdd
 	vals Validators[A], listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
-		tmdb:             NewTMDB(database),
+		tmdb:             NewTMDB[V, H, A](database),
 		stateMachine:     New(nodeAddr, app, chain, vals),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
@@ -305,6 +305,8 @@ type timeout struct {
 	H height `cbor:"h"`
 	R round  `cbor:"r"`
 }
+
+func (t timeout) isWALMsg() {}
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(

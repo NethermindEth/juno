@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -67,30 +68,39 @@ func (m MessageType) String() string {
 	}
 }
 
-type WALMsg[V Hashable[H], H Hash, A Addr] struct {
-	Msg     any
-	Timeout *timeout
+// TMDBInterface defines the methods for interacting with the Tendermint WAL database.
+type TMDBInterface[V Hashable[H], H Hash, A Addr] interface {
+	// CommitBatch writes the accumulated batch operations to the underlying database.
+	CommitBatch() error
+	// GetWALCount retrieves the number of WAL messages stored for a given height.
+	GetWALCount(height height) (uint32, error)
+	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
+	GetWALMsgs(height height) ([]IsWALMsg, error)
+	// SetWALEntry schedules the storage of a WAL message in the batch.
+	SetWALEntry(entry IsWALMsg, height height) error
+	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
+	DeleteWALMsgs(height height) error
 }
 
-type TMDB struct {
-	db db.KeyValueStore
-	// batch accumulates WAL writes (Put/Delete). Getters check the batch first
-	// for the latest state (e.g., NumMsgsAtHeight) before checking the DB.
-	// WAL message readers (GetWALMsgs) should only read committed state from the DB snapshot.
+// TMDB provides database access for Tendermint consensus state.
+type TMDB[V Hashable[H], H Hash, A Addr] struct {
+	db    db.KeyValueStore
 	batch db.IndexedBatch
 }
 
-func NewTMDB(db db.KeyValueStore) TMDB {
-	return TMDB{db: db, batch: db.NewIndexedBatch()}
+// NewTMDB creates a new TMDB instance implementing the TMDBInterface.
+func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore) TMDBInterface[V, H, A] {
+	return &TMDB[V, H, A]{db: db, batch: db.NewIndexedBatch()}
 }
 
-func (s *TMDB) CommitBatch() error {
+// CommitBatch implements TMDBInterface.
+func (s *TMDB[V, H, A]) CommitBatch() error {
 	return s.batch.Write()
 }
 
-// GetNumMsgsAtHeight reads the number of messages stored at a given height.
+// GetWALCount implements TMDBInterface.
 // It reads from the batch first, then the main db if not found in batch.
-func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
+func (s *TMDB[V, H, A]) GetWALCount(height height) (uint32, error) {
 	heightBytes := heightToBytes(height)
 	key := db.WALEntryCount.Key(heightBytes)
 
@@ -106,7 +116,7 @@ func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 
 	// If not found in batch or another error occurred (excluding ErrNotFound)
 	if err != nil && !errors.Is(err, pebble.ErrNotFound) {
-		return 0, fmt.Errorf("GetNumMsgsAtHeight: batch.Get error: %w", err)
+		return 0, fmt.Errorf("GetWALCount: batch.Get error: %w", err)
 	}
 
 	// If not found in the batch, try reading from the main db
@@ -122,28 +132,27 @@ func (s *TMDB) GetNumMsgsAtHeight(height height) (uint32, error) {
 		}
 		// Handle other potential errors from s.db.Get
 		if err != nil {
-			return 0, fmt.Errorf("GetNumMsgsAtHeight: db.Get error: %w", err)
+			return 0, fmt.Errorf("GetWALCount: db.Get error: %w", err)
 		}
 	}
 
 	// At this point, 'value' holds the data either from batch or db
 	if len(value) != NumBytesForHeight {
-		return 0, fmt.Errorf("GetNumMsgsAtHeight: unexpected value size %d", len(value))
+		return 0, fmt.Errorf("GetWALCount: unexpected value size %d", len(value))
 	}
 
 	return binary.BigEndian.Uint32(value), nil
 }
 
-// DeleteMsgsAtHeight removes all WAL messages and the message count associated with a specific height from the batch.
-// It iterates through the expected message keys based on the stored count.
+// DeleteWALMsgs iterates through the expected message keys based on the stored count.
 // Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
-func (s *TMDB) DeleteMsgsAtHeight(height height) error {
-	numMsgs, err := s.GetNumMsgsAtHeight(height)
+func (s *TMDB[V, H, A]) DeleteWALMsgs(height height) error {
+	numMsgs, err := s.GetWALCount(height) // Call the method receiver
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil
 		}
-		return fmt.Errorf("DeleteMsgsAtHeight: failed to get message count for height %d: %w", height, err)
+		return fmt.Errorf("DeleteWALMsgs: failed to get message count for height %d: %w", height, err)
 	}
 
 	heightBytes := heightToBytes(height)
@@ -153,7 +162,7 @@ func (s *TMDB) DeleteMsgsAtHeight(height height) error {
 		iterBytes := encodeNumMsgsAtHeight(i) // Get the bytes for the iterator number
 		msgKey := db.WALEntry.Key(heightBytes, iterBytes)
 		if err := s.batch.Delete(msgKey); err != nil {
-			return fmt.Errorf("DeleteMsgsAtHeight: failed to add deletion for message key %d/%d to batch: %w", height, i, err)
+			return fmt.Errorf("DeleteWALMsgs: failed to add deletion for message key %d/%d to batch: %w", height, i, err)
 		}
 	}
 
@@ -161,55 +170,72 @@ func (s *TMDB) DeleteMsgsAtHeight(height height) error {
 	numMsgsKey := db.WALEntryCount.Key(heightBytes)
 	if err := s.batch.Delete(numMsgsKey); err != nil {
 		// If adding the count key deletion fails, return the error.
-		return fmt.Errorf("DeleteMsgsAtHeight: failed to add count key deletion for height %d to batch: %w", height, err)
+		return fmt.Errorf("DeleteWALMsgs: failed to add count key deletion for height %d to batch: %w", height, err)
 	}
 
 	// All delete operations successfully added to the batch.
 	return nil
 }
 
-func (s *TMDB) setNumMsgsAtHeight(height height, walIter uint32) error {
+// setNumMsgsAtHeight stores the total message count for a height in the batch.
+func (s *TMDB[V, H, A]) setNumMsgsAtHeight(height height, walIter uint32) error {
 	heightBytes := heightToBytes(height)
 	key := db.WALEntryCount.Key(heightBytes)
 	val := encodeNumMsgsAtHeight(walIter)
 	return s.batch.Put(key, val)
 }
 
-// SetWALMsg stores a consensus message (Proposal, Prevote, Precommit) in the WAL batch.
-func SetWALMsg[V Hashable[H], H Hash, A Addr, M Message[V, H, A]](s *TMDB, msg M, height height) error {
+// SetWALEntry implements TMDBInterface.
+func (s *TMDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
 	var msgType MessageType
-	switch any(msg).(type) {
+	var msgDataInner []byte
+	var err error
+
+	switch m := entry.(type) {
 	case Proposal[V, H, A]:
 		msgType = MessageTypeProposal
+		msgDataInner, err = cbor.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("SetWALEntry: marshal Proposal failed: %w", err)
+		}
 	case Prevote[H, A]:
 		msgType = MessageTypePrevote
+		msgDataInner, err = cbor.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("SetWALEntry: marshal Prevote failed: %w", err)
+		}
 	case Precommit[H, A]:
 		msgType = MessageTypePrecommit
+		msgDataInner, err = cbor.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("SetWALEntry: marshal Precommit failed: %w", err)
+		}
+	case *timeout:
+		// Handle pointer to timeout, as SetWALTimeout took *timeout
+		msgType = MessageTypeTimeout
+		msgDataInner, err = cbor.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("SetWALEntry: marshal Timeout failed: %w", err)
+		}
+	case timeout:
+		// Also handle timeout by value if necessary, though pointer is expected
+		msgType = MessageTypeTimeout
+		msgDataInner, err = cbor.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("SetWALEntry: marshal Timeout failed: %w", err)
+		}
 	default:
-		return fmt.Errorf("SetWALMsg: unknown message type %T", msg)
+		// This case should ideally not be reached if only valid WAL types are passed.
+		return fmt.Errorf("SetWALEntry: unknown type implementing IsWALMsg: %T", entry)
 	}
 
-	msgDataInner, err := cbor.Marshal(msg)
-	if err != nil {
-		return fmt.Errorf("SetWALMsg: marshal message failed: %w", err)
-	}
-
-	return setWALEntry(s, height, msgType, msgDataInner)
+	// Call the renamed internal helper
+	return s.writeWALEntryToBatch(height, msgType, msgDataInner)
 }
 
-// SetWALTimeout stores a timeout event in the WAL batch.
-func SetWALTimeout(s *TMDB, to *timeout, height height) error {
-	msgType := MessageTypeTimeout
-
-	msgDataInner, err := cbor.Marshal(to)
-	if err != nil {
-		return fmt.Errorf("SetWALTimeout: marshal timeout failed: %w", err)
-	}
-	return setWALEntry(s, height, msgType, msgDataInner)
-}
-
-// internal helper to set a WAL entry in the batch
-func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.RawMessage) error {
+// writeWALEntryToBatch is an internal helper to schedule a WAL entry write in the batch.
+// Renamed from setWALEntry to avoid conflict with the public SetWALEntry method.
+func (s *TMDB[V, H, A]) writeWALEntryToBatch(height height, msgType MessageType, innerData cbor.RawMessage) error {
 	wrapper := wrappedMsg{
 		Type: msgType.String(),
 		Data: innerData,
@@ -217,16 +243,16 @@ func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.Raw
 
 	msgData, err := cbor.Marshal(wrapper)
 	if err != nil {
-		return fmt.Errorf("setWALEntry: marshal wrapper failed: %w", err)
+		return fmt.Errorf("writeWALEntryToBatch: marshal wrapper failed: %w", err)
 	}
 
 	// Get NumMsgsAtHeight and increment
-	numMsgsAtHeight, err := s.GetNumMsgsAtHeight(height)
+	numMsgsAtHeight, err := s.GetWALCount(height)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			numMsgsAtHeight = 0 // first time storing a msg
 		} else {
-			return fmt.Errorf("setWALEntry: failed to get numMsgsAtHeight: %w", err)
+			return fmt.Errorf("writeWALEntryToBatch: failed to get numMsgsAtHeight: %w", err)
 		}
 	}
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
@@ -235,21 +261,22 @@ func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.Raw
 	// Set the WAL msg/timeout, and the new iterator
 	msgKey := db.WALEntry.Key(heightToBytes(height), nextNumMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, msgData); err != nil {
-		return fmt.Errorf("setWALEntry: failed to set MsgsAtHeight: %w", err)
+		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
 	if err := s.setNumMsgsAtHeight(height, nextNumMsgsAtHeight); err != nil {
-		return fmt.Errorf("setWALEntry: failed to set NumMsgsAtHeight: %w", err)
+		return fmt.Errorf("writeWALEntryToBatch: failed to set NumMsgsAtHeight: %w", err)
 	}
 	return nil
 }
 
-func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg[V, H, A], error) {
-	rawEntries, err := scanWALRaw(s, height)
+// GetWALMsgs implements TMDBInterface.
+func (s *TMDB[V, H, A]) GetWALMsgs(height height) ([]IsWALMsg, error) {
+	rawEntries, err := s.scanWALRaw(height)
 	if err != nil {
 		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
 	}
 
-	walMsgs := make([]WALMsg[V, H, A], 0, len(rawEntries))
+	walMsgs := make([]IsWALMsg, 0, len(rawEntries))
 
 	for i, value := range rawEntries {
 		var wrapper wrappedMsg
@@ -262,21 +289,28 @@ func GetWALMsgs[V Hashable[H], H Hash, A Addr](s *TMDB, height height) ([]WALMsg
 			if err := cbor.Unmarshal(wrapper.Data, &to); err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
 			}
-
-			walMsgs = append(walMsgs, WALMsg[V, H, A]{Timeout: &to})
+			// Append pointer to timeout directly
+			walMsgs = append(walMsgs, &to)
 
 		default:
 			msg, err := decodeWALMessageData[V, H, A](wrapper.Type, wrapper.Data)
 			if err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapper.Type, i, height, err)
 			}
-			walMsgs = append(walMsgs, WALMsg[V, H, A]{Msg: msg})
+
+			walEntry, ok := msg.(IsWALMsg)
+			if !ok {
+				return nil, fmt.Errorf("GetWALMsgs: decoded message type %T does not implement IsWALMsg", msg)
+			}
+			// Append the message (which implements IsWALMsg) directly
+			walMsgs = append(walMsgs, walEntry)
 		}
 	}
 	return walMsgs, nil
 }
 
-func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
+// scanWALRaw iterates over raw WAL entries in the database for a given height.
+func (s *TMDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 	startKey := db.WALEntry.Key(encodeNumMsgsAtHeight(uint32(height)))
 	rawEntries := [][]byte{}
 
@@ -288,13 +322,20 @@ func scanWALRaw(s *TMDB, height height) ([][]byte, error) {
 		defer iter.Close()
 
 		if !iter.Seek(startKey) {
-			return fmt.Errorf("failed to set the iterator when scanning for WAL msgs")
+			// Changed error message slightly for clarity
+			return fmt.Errorf("failed to seek to start key when scanning WAL msgs")
 		}
 		if !iter.Valid() {
-			return fmt.Errorf("invalid iterator when scanning for WAL msgs")
+			// It's possible there are no entries, return empty slice and no error
+			return nil
 		}
 
 		for ; iter.Valid(); iter.Next() {
+			// Check if the key still has the correct prefix (height)
+			key := iter.Key()
+			if !bytes.HasPrefix(key, startKey) {
+				break // Stop if we moved past keys for this height
+			}
 			v, err := iter.Value()
 			if err != nil {
 				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
