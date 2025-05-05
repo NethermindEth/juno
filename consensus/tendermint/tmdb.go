@@ -229,11 +229,11 @@ func setWALEntry(s *TMDB, height height, msgType MessageType, innerData cbor.Raw
 			return fmt.Errorf("setWALEntry: failed to get numMsgsAtHeight: %w", err)
 		}
 	}
-	numMsgsAtHeight++
-	numMsgsAtHeightBytes := encodeNumMsgsAtHeight(numMsgsAtHeight)
+	nextNumMsgsAtHeight := numMsgsAtHeight + 1
+	nextNumMsgsAtHeightBytes := encodeNumMsgsAtHeight(nextNumMsgsAtHeight)
 
 	// Set the WAL msg/timeout, and the new iterator
-	msgKey := db.WALEntry.Key(heightToBytes(height), numMsgsAtHeightBytes)
+	msgKey := db.WALEntry.Key(heightToBytes(height), nextNumMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, msgData); err != nil {
 		return fmt.Errorf("setWALEntry: failed to set MsgsAtHeight: %w", err)
 	}
