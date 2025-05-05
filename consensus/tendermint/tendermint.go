@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	db "github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/fxamacker/cbor/v2"
 )
 
 type (
 	step        uint8
-	height      uint
+	height      uint32
 	round       int
 	votingPower uint
 )
@@ -116,6 +118,8 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Driver[V Hashable[H], H Hash, A Addr] struct {
+	tmdb TMDB
+
 	stateMachine *Tendermint[V, H, A]
 
 	timeoutPropose   timeoutFn
@@ -180,10 +184,11 @@ func New[V Hashable[H], H Hash, A Addr](
 	}
 }
 
-func NewDriver[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
-	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+func NewDriver[V Hashable[H], H Hash, A Addr](database db.KeyValueStore, nodeAddr A, app Application[V, H], chain Blockchain[V, H, A],
+	vals Validators[A], listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
+		tmdb:             NewTMDB(database),
 		stateMachine:     New(nodeAddr, app, chain, vals),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
@@ -203,6 +208,8 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (d *Driver[V, H, A]) Start() {
+	// Todo: replay WAL msgs
+
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
@@ -243,6 +250,7 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 		case *BroadcastPrecommit[H, A]:
 			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
 		case *ScheduleTimeout:
+			// Schedule the timeout
 			var duration time.Duration
 			switch action.s {
 			case propose:
@@ -297,6 +305,38 @@ type timeout struct {
 	s step
 	h height
 	r round
+}
+
+// MarshalCBOR implements the cbor.Marshaler interface.
+func (t timeout) MarshalCBOR() ([]byte, error) {
+	tmp := &struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{
+		S: t.s,
+		H: t.h,
+		R: t.r,
+	}
+	return cbor.Marshal(tmp)
+}
+
+// UnmarshalCBOR implements the cbor.Unmarshaler interface.
+func (t *timeout) UnmarshalCBOR(data []byte) error {
+	tmp := &struct {
+		S step   `cbor:"s"`
+		H height `cbor:"h"`
+		R round  `cbor:"r"`
+	}{}
+
+	if err := cbor.Unmarshal(data, tmp); err != nil {
+		return err
+	}
+
+	t.s = tmp.S
+	t.h = tmp.H
+	t.r = tmp.R
+	return nil
 }
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
