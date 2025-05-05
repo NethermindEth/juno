@@ -55,8 +55,8 @@ type ClassTrieID struct {
 	stateComm felt.Felt
 }
 
-func NewClassTrieID(stateComm felt.Felt) *ClassTrieID {
-	return &ClassTrieID{stateComm: stateComm}
+func NewClassTrieID(stateComm felt.Felt) ClassTrieID {
+	return ClassTrieID{stateComm: stateComm}
 }
 
 func (id ClassTrieID) Type() TrieType       { return Class }
@@ -70,8 +70,8 @@ type ContractTrieID struct {
 	stateComm felt.Felt
 }
 
-func NewContractTrieID(stateComm felt.Felt) *ContractTrieID {
-	return &ContractTrieID{stateComm: stateComm}
+func NewContractTrieID(stateComm felt.Felt) ContractTrieID {
+	return ContractTrieID{stateComm: stateComm}
 }
 
 func (id ContractTrieID) Type() TrieType       { return Contract }
@@ -86,8 +86,8 @@ type ContractStorageTrieID struct {
 	owner     felt.Felt
 }
 
-func NewContractStorageTrieID(stateComm, owner felt.Felt) *ContractStorageTrieID {
-	return &ContractStorageTrieID{stateComm: stateComm, owner: owner}
+func NewContractStorageTrieID(stateComm, owner felt.Felt) ContractStorageTrieID {
+	return ContractStorageTrieID{stateComm: stateComm, owner: owner}
 }
 
 func (id ContractStorageTrieID) Type() TrieType       { return ContractStorage }
@@ -101,8 +101,8 @@ type EmptyTrieID struct {
 	stateComm felt.Felt
 }
 
-func NewEmptyTrieID(stateComm felt.Felt) *EmptyTrieID {
-	return &EmptyTrieID{stateComm: stateComm}
+func NewEmptyTrieID(stateComm felt.Felt) EmptyTrieID {
+	return EmptyTrieID{stateComm: stateComm}
 }
 
 func (id EmptyTrieID) Type() TrieType       { return Empty }
