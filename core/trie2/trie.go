@@ -31,13 +31,13 @@ type Trie struct {
 	hashFn crypto.HashFn
 
 	// The underlying reader to retrieve trie nodes
-	nodeReader *nodeReader
+	nodeReader nodeReader
 
 	// Check if the trie has been committed. Trie is unusable once committed.
 	committed bool
 
 	// Maintains the records of trie changes, ensuring all nodes are modified or garbage collected properly
-	nodeTracer *nodeTracer
+	nodeTracer nodeTracer
 
 	// Tracks the number of leaves inserted since the last hashing operation
 	pendingHashes int
@@ -67,11 +67,10 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 	}
 
 	root, err := tr.resolveNode(nil, Path{}) // TODO: handle hash-based, need to somehow retrieve the root hash
-	if err == nil {
-		tr.root = root
-	} else if !errors.Is(err, db.ErrKeyNotFound) {
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
+	tr.root = root
 
 	return tr, nil
 }
@@ -136,7 +135,7 @@ func (t *Trie) Delete(key *felt.Felt) error {
 	}
 
 	k := t.FeltToPath(key)
-	_, n, err := t.delete(t.root, new(Path), &k)
+	n, _, err := t.delete(t.root, new(Path), &k)
 	if err != nil {
 		return err
 	}
@@ -262,13 +261,13 @@ func (t *Trie) get(n trienode.Node, prefix, key *Path) (*felt.Felt, trienode.Nod
 func (t *Trie) update(key, value *felt.Felt) error {
 	k := t.FeltToPath(key)
 	if value.IsZero() {
-		_, n, err := t.delete(t.root, new(Path), &k)
+		n, _, err := t.delete(t.root, new(Path), &k)
 		if err != nil {
 			return err
 		}
 		t.root = n
 	} else {
-		_, n, err := t.insert(t.root, new(Path), &k, &trienode.ValueNode{Felt: *value})
+		n, _, err := t.insert(t.root, new(Path), &k, &trienode.ValueNode{Felt: *value})
 		if err != nil {
 			return err
 		}
@@ -285,92 +284,92 @@ func (t *Trie) update(key, value *felt.Felt) error {
 // Returns whether the trie was modified, the new/updated node, and any error.
 //
 //nolint:gocyclo,funlen
-func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (bool, trienode.Node, error) {
+func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (trienode.Node, bool, error) {
 	// We reach the end of the key
 	if key.Len() == 0 {
 		if v, ok := n.(*trienode.ValueNode); ok {
 			vFelt := value.(*trienode.ValueNode).Felt
-			return !v.Equal(&vFelt), value, nil
+			return value, !v.Equal(&vFelt), nil
 		}
-		return true, value, nil
+		return value, true, nil
 	}
 
 	switch n := n.(type) {
+	case nil:
+		t.nodeTracer.onInsert(prefix)
+		// We reach the end of the key, return the value node
+		if key.IsEmpty() {
+			return value, true, nil
+		}
+		// Otherwise, return a new edge node with the Path being the key and the value as the child
+		return &trienode.EdgeNode{Path: key, Child: value, Flags: trienode.NewNodeFlag()}, true, nil
 	case *trienode.EdgeNode:
 		match := n.CommonPath(key) // get the matching bits between the current node and the key
 		// If the match is the same as the Path, just keep this edge node as it is and update the value
 		if match.Len() == n.Path.Len() {
-			dirty, newNode, err := t.insert(n.Child, new(Path).Append(prefix, n.Path), key.LSBs(key, match.Len()), value)
+			newNode, dirty, err := t.insert(n.Child, new(Path).Append(prefix, n.Path), key.LSBs(key, match.Len()), value)
 			if !dirty || err != nil {
-				return false, n, err
+				return n, false, err
 			}
-			return true, &trienode.EdgeNode{
+			return &trienode.EdgeNode{
 				Path:  n.Path,
 				Child: newNode,
 				Flags: trienode.NewNodeFlag(),
-			}, nil
+			}, true, nil
 		}
 		// Otherwise branch out at the bit position where they differ
 		branch := &trienode.BinaryNode{Flags: trienode.NewNodeFlag()}
 		var err error
 		pathPrefix := new(Path).MSBs(n.Path, match.Len()+1)
-		_, branch.Children[n.Path.Bit(match.Len())], err = t.insert(
+		branch.Children[n.Path.Bit(match.Len())], _, err = t.insert(
 			nil, new(Path).Append(prefix, pathPrefix), new(Path).LSBs(n.Path, match.Len()+1), n.Child,
 		)
 		if err != nil {
-			return false, n, err
+			return n, false, err
 		}
 
 		keyPrefix := new(Path).MSBs(key, match.Len()+1)
-		_, branch.Children[key.Bit(match.Len())], err = t.insert(
+		branch.Children[key.Bit(match.Len())], _, err = t.insert(
 			nil, new(Path).Append(prefix, keyPrefix), new(Path).LSBs(key, match.Len()+1), value,
 		)
 		if err != nil {
-			return false, n, err
+			return n, false, err
 		}
 
 		// Replace this edge node with the new binary node if it occurs at the current MSB
 		if match.IsEmpty() {
-			return true, branch, nil
+			return branch, true, nil
 		}
 		matchPrefix := new(Path).MSBs(key, match.Len())
 		t.nodeTracer.onInsert(new(Path).Append(prefix, matchPrefix))
 
 		// Otherwise, create a new edge node with the Path being the common Path and the branch as the child
-		return true, &trienode.EdgeNode{Path: matchPrefix, Child: branch, Flags: trienode.NewNodeFlag()}, nil
+		return &trienode.EdgeNode{Path: matchPrefix, Child: branch, Flags: trienode.NewNodeFlag()}, true, nil
 
 	case *trienode.BinaryNode:
 		// Go to the child node based on the MSB of the key
 		bit := key.MSB()
-		dirty, newNode, err := t.insert(
+		newNode, dirty, err := t.insert(
 			n.Children[bit], new(Path).AppendBit(prefix, bit), new(Path).LSBs(key, 1), value,
 		)
 		if !dirty || err != nil {
-			return false, n, err
+			return n, false, err
 		}
 		// Replace the child node with the new node
 		n = n.Copy()
 		n.Flags = trienode.NewNodeFlag()
 		n.Children[bit] = newNode
-		return true, n, nil
-	case nil:
-		t.nodeTracer.onInsert(prefix)
-		// We reach the end of the key, return the value node
-		if key.IsEmpty() {
-			return true, value, nil
-		}
-		// Otherwise, return a new edge node with the Path being the key and the value as the child
-		return true, &trienode.EdgeNode{Path: key, Child: value, Flags: trienode.NewNodeFlag()}, nil
+		return n, true, nil
 	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
-			return false, n, err
+			return n, false, err
 		}
-		dirty, newNode, err := t.insert(child, prefix, key, value)
+		newNode, dirty, err := t.insert(child, prefix, key, value)
 		if !dirty || err != nil {
-			return false, child, err
+			return child, false, err
 		}
-		return true, newNode, nil
+		return newNode, true, nil
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}
@@ -385,41 +384,43 @@ func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (
 // Returns whether the trie was modified, the new/updated node, and any error.
 //
 //nolint:gocyclo,funlen
-func (t *Trie) delete(n trienode.Node, prefix, key *Path) (bool, trienode.Node, error) {
+func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, error) {
 	switch n := n.(type) {
+	case nil:
+		return nil, false, nil
 	case *trienode.EdgeNode:
 		match := n.CommonPath(key)
 		// Mismatched, don't do anything
 		if match.Len() < n.Path.Len() {
-			return false, n, nil
+			return n, false, nil
 		}
 		// If the whole key matches, remove the entire edge node and its child
 		if match.Len() == key.Len() {
 			t.nodeTracer.onDelete(prefix)                        // delete edge node
 			t.nodeTracer.onDelete(new(Path).Append(prefix, key)) // delete value node
-			return true, nil, nil
+			return nil, true, nil
 		}
 
 		// Otherwise, key is longer than current node path, so we need to delete the child.
 		// Child can never be nil because it's guaranteed that we have at least 2 other values in the subtrie.
 		keyPrefix := new(Path).MSBs(key, n.Path.Len())
-		dirty, child, err := t.delete(n.Child, new(Path).Append(prefix, keyPrefix), new(Path).LSBs(key, n.Path.Len()))
+		child, dirty, err := t.delete(n.Child, new(Path).Append(prefix, keyPrefix), new(Path).LSBs(key, n.Path.Len()))
 		if !dirty || err != nil {
-			return false, n, err
+			return n, false, err
 		}
 		switch child := child.(type) {
 		case *trienode.EdgeNode:
 			t.nodeTracer.onDelete(new(Path).Append(prefix, n.Path))
-			return true, &trienode.EdgeNode{Path: new(Path).Append(n.Path, child.Path), Child: child.Child, Flags: trienode.NewNodeFlag()}, nil
+			return &trienode.EdgeNode{Path: new(Path).Append(n.Path, child.Path), Child: child.Child, Flags: trienode.NewNodeFlag()}, true, nil
 		default:
-			return true, &trienode.EdgeNode{Path: new(Path).Set(n.Path), Child: child, Flags: trienode.NewNodeFlag()}, nil
+			return &trienode.EdgeNode{Path: new(Path).Set(n.Path), Child: child, Flags: trienode.NewNodeFlag()}, true, nil
 		}
 	case *trienode.BinaryNode:
 		bit := key.MSB()
 		keyPrefix := new(Path).MSBs(key, 1)
-		dirty, newNode, err := t.delete(n.Children[bit], new(Path).Append(prefix, keyPrefix), key.LSBs(key, 1))
+		newNode, dirty, err := t.delete(n.Children[bit], new(Path).Append(prefix, keyPrefix), key.LSBs(key, 1))
 		if !dirty || err != nil {
-			return false, n, err
+			return n, false, err
 		}
 		n = n.Copy()
 		n.Flags = trienode.NewNodeFlag()
@@ -427,7 +428,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (bool, trienode.Node, 
 
 		// If the child node is not nil, that means we still have 2 children in this binary node
 		if newNode != nil {
-			return true, n, nil
+			return n, true, nil
 		}
 
 		// Otherwise, we need to combine this binary node with the other child
@@ -441,39 +442,37 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (bool, trienode.Node, 
 			cPath.Append(prefix, bitPrefix)
 			cNode, err := t.resolveNode(hn, cPath)
 			if err != nil {
-				return false, nil, err
+				return nil, false, err
 			}
 			n.Children[other] = cNode
 		}
 
 		if cn, ok := n.Children[other].(*trienode.EdgeNode); ok {
 			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix))
-			return true, &trienode.EdgeNode{
+			return &trienode.EdgeNode{
 				Path:  new(Path).Append(bitPrefix, cn.Path),
 				Child: cn.Child,
 				Flags: trienode.NewNodeFlag(),
-			}, nil
+			}, true, nil
 		}
 
 		// other child is not an edge node, create a new edge node with the bit prefix as the Path
 		// containing the other child as the child
-		return true, &trienode.EdgeNode{Path: bitPrefix, Child: n.Children[other], Flags: trienode.NewNodeFlag()}, nil
+		return &trienode.EdgeNode{Path: bitPrefix, Child: n.Children[other], Flags: trienode.NewNodeFlag()}, true, nil
 	case *trienode.ValueNode:
 		t.nodeTracer.onDelete(key)
-		return true, nil, nil
-	case nil:
-		return false, nil, nil
+		return nil, true, nil
 	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
 		if err != nil {
-			return false, nil, err
+			return nil, false, err
 		}
 
-		dirty, newNode, err := t.delete(child, prefix, key)
+		newNode, dirty, err := t.delete(child, prefix, key)
 		if !dirty || err != nil {
-			return false, child, err
+			return child, false, err
 		}
-		return true, newNode, nil
+		return newNode, true, nil
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
 	}

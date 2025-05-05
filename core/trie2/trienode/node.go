@@ -47,15 +47,16 @@ type (
 var NilValueNode = &ValueNode{felt.Felt{}}
 
 type NodeFlag struct {
-	Hash  *HashNode
-	Dirty bool
+	Hash  *HashNode // The cached hash of the node
+	Dirty bool      // Whether the node has been modified
 }
 
+// Creates a new node flag and marks the node as dirty
 func NewNodeFlag() NodeFlag { return NodeFlag{Dirty: true} }
 
 func (n *BinaryNode) Hash(hf crypto.HashFn) felt.Felt {
-	leftHash := n.Children[0].Hash(hf)
-	rightHash := n.Children[1].Hash(hf)
+	leftHash := n.Left().Hash(hf)
+	rightHash := n.Right().Hash(hf)
 	res := hf(&leftHash, &rightHash)
 	return *res
 }
@@ -84,11 +85,11 @@ func (n *ValueNode) Cache() (*HashNode, bool)  { return nil, true }
 
 func (n *BinaryNode) String() string {
 	var left, right string
-	if n.Children[0] != nil {
-		left = n.Children[0].String()
+	if n.Left() != nil {
+		left = n.Left().String()
 	}
-	if n.Children[1] != nil {
-		right = n.Children[1].String()
+	if n.Right() != nil {
+		right = n.Right().String()
 	}
 	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
 		indent(left),
@@ -126,6 +127,9 @@ func (n *EdgeNode) CommonPath(key *trieutils.Path) trieutils.Path {
 	commonPath.CommonMSBs(n.Path, key)
 	return commonPath
 }
+
+func (n *BinaryNode) Left() Node  { return n.Children[0] }
+func (n *BinaryNode) Right() Node { return n.Children[1] }
 
 // Helper function to indent each line of a string
 func indent(s string) string {

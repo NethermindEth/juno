@@ -68,8 +68,8 @@ func (h *hasher) hashBinaryChildren(n *trienode.BinaryNode) (collapsed, cached *
 
 		go func() {
 			defer wg.Done()
-			if n.Children[0] != nil {
-				collapsed.Children[0], cached.Children[0] = h.hash(n.Children[0])
+			if n.Left() != nil {
+				collapsed.Children[0], cached.Children[0] = h.hash(n.Left())
 			} else {
 				collapsed.Children[0], cached.Children[0] = trienode.NilValueNode, trienode.NilValueNode
 			}
@@ -77,8 +77,8 @@ func (h *hasher) hashBinaryChildren(n *trienode.BinaryNode) (collapsed, cached *
 
 		go func() {
 			defer wg.Done()
-			if n.Children[1] != nil {
-				collapsed.Children[1], cached.Children[1] = h.hash(n.Children[1])
+			if n.Right() != nil {
+				collapsed.Children[1], cached.Children[1] = h.hash(n.Right())
 			} else {
 				collapsed.Children[1], cached.Children[1] = trienode.NilValueNode, trienode.NilValueNode
 			}
@@ -86,14 +86,14 @@ func (h *hasher) hashBinaryChildren(n *trienode.BinaryNode) (collapsed, cached *
 
 		wg.Wait()
 	} else {
-		if n.Children[0] != nil {
-			collapsed.Children[0], cached.Children[0] = h.hash(n.Children[0])
+		if n.Left() != nil {
+			collapsed.Children[0], cached.Children[0] = h.hash(n.Left())
 		} else {
 			collapsed.Children[0], cached.Children[0] = trienode.NilValueNode, trienode.NilValueNode
 		}
 
-		if n.Children[1] != nil {
-			collapsed.Children[1], cached.Children[1] = h.hash(n.Children[1])
+		if n.Right() != nil {
+			collapsed.Children[1], cached.Children[1] = h.hash(n.Right())
 		} else {
 			collapsed.Children[1], cached.Children[1] = trienode.NilValueNode, trienode.NilValueNode
 		}

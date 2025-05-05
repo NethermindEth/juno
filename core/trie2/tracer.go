@@ -10,8 +10,8 @@ type nodeTracer struct {
 	deletes map[Path]struct{}
 }
 
-func newTracer() *nodeTracer {
-	return &nodeTracer{
+func newTracer() nodeTracer {
+	return nodeTracer{
 		inserts: make(map[Path]struct{}),
 		deletes: make(map[Path]struct{}),
 	}
@@ -39,8 +39,8 @@ func (t *nodeTracer) onDelete(key *Path) {
 	t.deletes[k] = struct{}{}
 }
 
-func (t *nodeTracer) copy() *nodeTracer {
-	return &nodeTracer{
+func (t *nodeTracer) copy() nodeTracer {
+	return nodeTracer{
 		inserts: maps.Clone(t.inserts),
 		deletes: maps.Clone(t.deletes),
 	}

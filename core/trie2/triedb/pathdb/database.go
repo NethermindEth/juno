@@ -10,7 +10,7 @@ import (
 
 var _ database.TrieDB = (*Database)(nil)
 
-type Config struct{} // TODO(weiihann): handle this
+type Config struct{} // TODO(weiihann): add the config for pathdb and hashdb here
 
 type Database struct {
 	disk db.KeyValueStore
@@ -30,7 +30,7 @@ func (d *Database) Commit(stateComm felt.Felt) error {
 	panic("TODO(weiihann): implement me")
 }
 
-// TODO(weiihann): how to deal with state comm and the layer tree?
+// TODO(weiihann): incomplete implementation
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	var (
 		idBytes    = id.Bucket().Key()
@@ -64,10 +64,8 @@ func (d *Database) Update(
 			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf()); err != nil {
 				return err
 			}
-		} else {
-			if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf(), node.Blob()); err != nil {
-				return err
-			}
+		} else if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf(), node.Blob()); err != nil {
+			return err
 		}
 	}
 
@@ -82,10 +80,8 @@ func (d *Database) Update(
 				if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, node.IsLeaf()); err != nil {
 					return err
 				}
-			} else {
-				if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, node.IsLeaf(), node.Blob()); err != nil {
-					return err
-				}
+			} else if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, node.IsLeaf(), node.Blob()); err != nil {
+				return err
 			}
 		}
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
+	"github.com/sourcegraph/conc"
 )
 
 const (
@@ -94,7 +95,9 @@ func (c *collector) collectChildren(path *Path, n *trienode.BinaryNode, parallel
 		// Merge the child set into the parent set
 		// Must be done under the mutex because node set is not thread safe
 		mu.Lock()
-		c.nodes.MergeSet(childSet) //nolint:errcheck // guaranteed to succeed because same owner
+		if err := c.nodes.MergeSet(childSet); err != nil {
+			panic(fmt.Errorf("failed to merge child set into parent set: %w", err))
+		}
 		mu.Unlock()
 	}
 
@@ -106,13 +109,11 @@ func (c *collector) collectChildren(path *Path, n *trienode.BinaryNode, parallel
 	}
 
 	// Parallel processing
-	var wg sync.WaitGroup
+	var wg conc.WaitGroup
 	for i := range 2 {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			processChild(idx)
-		}(i)
+		wg.Go(func() {
+			processChild(i)
+		})
 	}
 	wg.Wait()
 
@@ -121,16 +122,16 @@ func (c *collector) collectChildren(path *Path, n *trienode.BinaryNode, parallel
 
 // Stores the node in the node set and returns the hash node
 func (c *collector) store(path *Path, n trienode.Node) trienode.Node {
-	hash, _ := n.Cache()
+	hashNode, _ := n.Cache()
 
 	blob := trienode.EncodeNode(n)
-	if hash == nil { // this is a value node
+	if hashNode == nil { // this is a value node
 		var h felt.Felt
 		h.SetBytes(blob)
 		c.nodes.Add(*path, trienode.NewLeaf(h, blob))
 		return n
 	}
 
-	c.nodes.Add(*path, trienode.NewNonLeaf(hash.Felt, blob))
-	return hash
+	c.nodes.Add(*path, trienode.NewNonLeaf(hashNode.Felt, blob))
+	return hashNode
 }

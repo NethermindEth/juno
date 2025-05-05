@@ -62,8 +62,6 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		}
 	}
 
-	// TODO: ideally Hash() should be called before Prove() so that the hashes are cached
-	// There should be a better way to do this
 	hasher := newHasher(t.hashFn, false)
 	for i, n := range nodes {
 		var hn trienode.Node
@@ -148,105 +146,76 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 	}
 }
 
-// VerifyRangeProof checks the validity of given key-value pairs and range proof against a provided root hash.
-// The key-value pairs should be consecutive (no gaps) and monotonically increasing.
-// The range proof contains two edge proofs: one for the first key and another for the last key.
-// Both edge proofs can be for existent or non-existent keys.
-// This function handles the following special cases:
-//
-//   - All elements proof: The proof can be nil if the range includes all leaves in the trie.
-//   - Single element proof: Both left and right edge proofs are identical, and the range contains only one element.
-//   - Zero element proof: A single edge proof suffices for verification. The proof is invalid if there are additional elements.
-//
-// The function returns a boolean indicating if there are more elements and an error if the range proof is invalid.
-func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) { //nolint:funlen,gocyclo
-	// Ensure the number of keys and values are the same
+// verifyProofData validates the consistency of keys and values
+func verifyProofData(keys, values []*felt.Felt) error {
 	if len(keys) != len(values) {
-		return false, fmt.Errorf("inconsistent length of proof data, keys: %d, values: %d", len(keys), len(values))
+		return fmt.Errorf("inconsistent length of proof data, keys: %d, values: %d", len(keys), len(values))
 	}
 
-	// Ensure all keys are monotonically increasing and values contain no deletions
 	for i := range keys {
 		if i < len(keys)-1 && keys[i].Cmp(keys[i+1]) > 0 {
-			return false, errors.New("keys are not monotonic increasing")
+			return errors.New("keys are not monotonic increasing")
 		}
 
 		if values[i] == nil || values[i].Equal(&felt.Zero) {
-			return false, errors.New("range contains empty leaf")
+			return errors.New("range contains empty leaf")
 		}
 	}
+	return nil
+}
 
-	// Special case: no edge proof provided; the given range contains all leaves in the trie
-	if proof == nil {
-		tr := NewEmpty(contractClassTrieHeight, crypto.Pedersen)
-		for i, key := range keys {
-			if err := tr.Update(key, values[i]); err != nil {
-				return false, err
-			}
-		}
-
-		recomputedRoot := tr.Hash()
-		if !recomputedRoot.Equal(rootHash) {
-			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), recomputedRoot.String())
-		}
-
-		return false, nil // no more elements available
-	}
-
+// verifyEmptyRangeProof handles the case when there are no key-value pairs
+func verifyEmptyRangeProof(rootHash, first *felt.Felt, proof *ProofNodeSet) (bool, error) {
 	var firstKey Path
 	firstKey.SetFelt(contractClassTrieHeight, first)
 
-	// Special case: there is a provided proof but no key-value pairs, make sure regenerated trie has no more values
-	// Empty range proof with more elements on the right is not accepted in this function.
-	// This is due to snap sync specification detail, where the responder must send an existing key (if any) if the requested range is empty.
-	if len(keys) == 0 {
-		rootKey, val, err := proofToPath(rootHash, nil, firstKey, proof, true)
-		if err != nil {
-			return false, err
-		}
-
-		if val != nil || hasRightElement(rootKey, firstKey) {
-			return false, errors.New("more entries available")
-		}
-
-		return false, nil
+	rootKey, val, err := proofToPath(rootHash, nil, firstKey, proof, true)
+	if err != nil {
+		return false, err
 	}
 
-	last := keys[len(keys)-1]
+	if val != nil || hasRightElement(rootKey, firstKey) {
+		return false, errors.New("more entries available")
+	}
 
-	var lastKey Path
+	return false, nil
+}
+
+// verifySingleElementProof handles the case when there is only one element
+func verifySingleElementProof(rootHash, key, value *felt.Felt, proof *ProofNodeSet) (bool, error) {
+	var keyPath Path
+	keyPath.SetFelt(contractClassTrieHeight, key)
+
+	root, val, err := proofToPath(rootHash, nil, keyPath, proof, false)
+	if err != nil {
+		return false, err
+	}
+
+	itemKey := new(Path).SetFelt(contractClassTrieHeight, key)
+	if !keyPath.Equal(itemKey) {
+		return false, errors.New("correct proof but invalid key")
+	}
+
+	if val == nil || !value.Equal(val) {
+		return false, errors.New("correct proof but invalid value")
+	}
+
+	return hasRightElement(root, keyPath), nil
+}
+
+// verifyRangeWithProof handles the general case with multiple elements
+func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
+	var firstKey, lastKey Path
+	firstKey.SetFelt(contractClassTrieHeight, first)
 	lastKey.SetFelt(contractClassTrieHeight, last)
 
-	// Special case: there is only one element and two edge keys are the same
-	if len(keys) == 1 && firstKey.Equal(&lastKey) {
-		root, val, err := proofToPath(rootHash, nil, firstKey, proof, false)
-		if err != nil {
-			return false, err
-		}
-
-		firstItemKey := new(Path).SetFelt(contractClassTrieHeight, keys[0])
-		if !firstKey.Equal(firstItemKey) {
-			return false, errors.New("correct proof but invalid key")
-		}
-
-		if val == nil || !values[0].Equal(val) {
-			return false, errors.New("correct proof but invalid value")
-		}
-
-		return hasRightElement(root, firstKey), nil
-	}
-
-	// In all other cases, we require two edge paths available.
-	// First, ensure that the last key is greater than the first key
-	if last.Cmp(first) <= 0 {
-		return false, errors.New("last key is less than first key")
-	}
-
+	// Build the trie with the left edge proof
 	root, _, err := proofToPath(rootHash, nil, firstKey, proof, true)
 	if err != nil {
 		return false, err
 	}
 
+	// Add the right edge proof to the existing trie built with the left edge proof
 	root, _, err = proofToPath(rootHash, root, lastKey, proof, true)
 	if err != nil {
 		return false, err
@@ -269,13 +238,53 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 	}
 
 	newRoot := tr.Hash()
-
-	// Verify that the recomputed root hash matches the provided root hash
 	if !newRoot.Equal(rootHash) {
 		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), newRoot.String())
 	}
 
 	return hasRightElement(root, lastKey), nil
+}
+
+func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
+	if err := verifyProofData(keys, values); err != nil {
+		return false, err
+	}
+
+	// Special case: no edge proof provided
+	if proof == nil {
+		tr := NewEmpty(contractClassTrieHeight, crypto.Pedersen)
+		for i, key := range keys {
+			if err := tr.Update(key, values[i]); err != nil {
+				return false, err
+			}
+		}
+
+		recomputedRoot := tr.Hash()
+		if !recomputedRoot.Equal(rootHash) {
+			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), recomputedRoot.String())
+		}
+
+		return false, nil
+	}
+
+	// Special case: empty range
+	if len(keys) == 0 {
+		return verifyEmptyRangeProof(rootHash, first, proof)
+	}
+
+	last := keys[len(keys)-1]
+
+	// Special case: single element
+	if len(keys) == 1 && first.Equal(last) {
+		return verifySingleElementProof(rootHash, keys[0], values[0], proof)
+	}
+
+	// General case: multiple elements
+	if last.Cmp(first) <= 0 {
+		return false, errors.New("last key is less than first key")
+	}
+
+	return verifyRangeWithProof(rootHash, first, last, keys, values, proof)
 }
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
@@ -363,8 +372,6 @@ func proofToPath(
 //
 // Note we have the assumption here the given boundary keys are different
 // and right is larger than left.
-//
-//nolint:gocyclo
 func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
 	// Step down to the fork point. There are two scenarios that can happen:
 	// - the fork point is an EdgeNode: either the key of left proof or
@@ -379,7 +386,6 @@ func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
 		edgeForkLeft, edgeForkRight int
 	)
 
-findFork:
 	for {
 		switch rn := n.(type) {
 		case *trienode.EdgeNode:
@@ -400,7 +406,7 @@ findFork:
 			}
 
 			if edgeForkLeft != 0 || edgeForkRight != 0 {
-				break findFork
+				return handleEdgeFork(rn, parent, left, right, pos, edgeForkLeft, edgeForkRight)
 			}
 
 			parent = n
@@ -411,7 +417,7 @@ findFork:
 
 			leftnode, rightnode := rn.Children[left.Bit(pos)], rn.Children[right.Bit(pos)]
 			if leftnode == nil || rightnode == nil || leftnode != rightnode {
-				break findFork
+				return handleBinaryFork(rn, left, right, pos)
 			}
 			parent = n
 			n = rn.Children[left.Bit(pos)]
@@ -420,22 +426,39 @@ findFork:
 			panic(fmt.Sprintf("%T: invalid node: %v", n, n))
 		}
 	}
+}
 
-	switch rn := n.(type) {
-	case *trienode.EdgeNode:
-		// There can have these five scenarios:
-		// - both proofs are less than the trie path => no valid range
-		// - both proofs are greater than the trie path => no valid range
-		// - left proof is less and right proof is greater => valid range, unset the shortnode entirely
-		// - left proof points to the shortnode, but right proof is greater
-		// - right proof points to the shortnode, but left proof is less
-		if edgeForkLeft == -1 && edgeForkRight == -1 {
-			return false, ErrEmptyRange
+// handleEdgeFork processes the fork point when it's an EdgeNode
+func handleEdgeFork(
+	n *trienode.EdgeNode,
+	parent trienode.Node,
+	left, right Path,
+	pos uint8,
+	edgeForkLeft, edgeForkRight int,
+) (bool, error) {
+	// There can have these five scenarios:
+	// - both proofs are less than the trie path => no valid range
+	// - both proofs are greater than the trie path => no valid range
+	// - left proof is less and right proof is greater => valid range, unset the shortnode entirely
+	// - left proof points to the shortnode, but right proof is greater
+	// - right proof points to the shortnode, but left proof is less
+	if edgeForkLeft == -1 && edgeForkRight == -1 {
+		return false, ErrEmptyRange
+	}
+	if edgeForkLeft == 1 && edgeForkRight == 1 {
+		return false, ErrEmptyRange
+	}
+	if edgeForkLeft != 0 && edgeForkRight != 0 {
+		// The fork point is root node, unset the entire trie
+		if parent == nil {
+			return true, nil
 		}
-		if edgeForkLeft == 1 && edgeForkRight == 1 {
-			return false, ErrEmptyRange
-		}
-		if edgeForkLeft != 0 && edgeForkRight != 0 {
+		parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
+		return false, nil
+	}
+	// Only one proof points to non-existent key
+	if edgeForkRight != 0 {
+		if _, ok := n.Child.(*trienode.ValueNode); ok {
 			// The fork point is root node, unset the entire trie
 			if parent == nil {
 				return true, nil
@@ -443,49 +466,39 @@ findFork:
 			parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
 			return false, nil
 		}
-		// Only one proof points to non-existent key
-		if edgeForkRight != 0 {
-			if _, ok := rn.Child.(*trienode.ValueNode); ok {
-				// The fork point is root node, unset the entire trie
-				if parent == nil {
-					return true, nil
-				}
-				parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
-				return false, nil
-			}
-			return false, unset(rn, rn.Child, new(Path).LSBs(&left, pos), rn.Path.Len(), false)
-		}
-		if edgeForkLeft != 0 {
-			if _, ok := rn.Child.(*trienode.ValueNode); ok {
-				// The fork point is root node, unset the entire trie
-				if parent == nil {
-					return true, nil
-				}
-				parent.(*trienode.BinaryNode).Children[right.Bit(pos-1)] = nil
-				return false, nil
-			}
-			return false, unset(rn, rn.Child, new(Path).LSBs(&right, pos), rn.Path.Len(), true)
-		}
-		return false, nil
-	case *trienode.BinaryNode:
-		leftBit := left.Bit(pos)
-		rightBit := right.Bit(pos)
-		if leftBit == 0 && rightBit == 0 {
-			rn.Children[1] = nil
-		}
-		if leftBit == 1 && rightBit == 1 {
-			rn.Children[0] = nil
-		}
-		if err := unset(rn, rn.Children[leftBit], new(Path).LSBs(&left, pos), 1, false); err != nil {
-			return false, err
-		}
-		if err := unset(rn, rn.Children[rightBit], new(Path).LSBs(&right, pos), 1, true); err != nil {
-			return false, err
-		}
-		return false, nil
-	default:
-		panic(fmt.Sprintf("%T: invalid node: %v", n, n))
+		return false, unset(n, n.Child, new(Path).LSBs(&left, pos), n.Path.Len(), false)
 	}
+	if edgeForkLeft != 0 {
+		if _, ok := n.Child.(*trienode.ValueNode); ok {
+			// The fork point is root node, unset the entire trie
+			if parent == nil {
+				return true, nil
+			}
+			parent.(*trienode.BinaryNode).Children[right.Bit(pos-1)] = nil
+			return false, nil
+		}
+		return false, unset(n, n.Child, new(Path).LSBs(&right, pos), n.Path.Len(), true)
+	}
+	return false, nil
+}
+
+// handleBinaryFork processes the fork point when it's a BinaryNode
+func handleBinaryFork(n *trienode.BinaryNode, left, right Path, pos uint8) (bool, error) {
+	leftBit := left.Bit(pos)
+	rightBit := right.Bit(pos)
+	if leftBit == 0 && rightBit == 0 {
+		n.Children[1] = nil
+	}
+	if leftBit == 1 && rightBit == 1 {
+		n.Children[0] = nil
+	}
+	if err := unset(n, n.Children[leftBit], new(Path).LSBs(&left, pos), 1, false); err != nil {
+		return false, err
+	}
+	if err := unset(n, n.Children[rightBit], new(Path).LSBs(&right, pos), 1, true); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // unset removes all internal node references either the left most or right most.
@@ -549,7 +562,7 @@ func hasRightElement(node trienode.Node, key Path) bool {
 		switch n := node.(type) {
 		case *trienode.BinaryNode:
 			bit := key.MSB()
-			if bit == 0 && n.Children[1] != nil {
+			if bit == 0 && n.Right() != nil {
 				// right sibling exists
 				return true
 			}

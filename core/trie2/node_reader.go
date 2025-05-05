@@ -11,12 +11,12 @@ type nodeReader struct {
 	reader database.NodeReader
 }
 
-func newNodeReader(id trieutils.TrieID, nodeDB database.NodeDatabase) (*nodeReader, error) {
+func newNodeReader(id trieutils.TrieID, nodeDB database.NodeDatabase) (nodeReader, error) {
 	reader, err := nodeDB.NodeReader(id)
 	if err != nil {
-		return nil, err
+		return nodeReader{}, err
 	}
-	return &nodeReader{id: id, reader: reader}, nil
+	return nodeReader{id: id, reader: reader}, nil
 }
 
 func (r *nodeReader) node(path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
@@ -26,6 +26,6 @@ func (r *nodeReader) node(path trieutils.Path, hash felt.Felt, isLeaf bool) ([]b
 	return r.reader.Node(r.id.Owner(), path, hash, isLeaf)
 }
 
-func NewEmptyNodeReader() *nodeReader {
-	return &nodeReader{id: trieutils.NewEmptyTrieID(felt.Zero), reader: nil}
+func NewEmptyNodeReader() nodeReader {
+	return nodeReader{id: trieutils.NewEmptyTrieID(felt.Zero), reader: nil}
 }

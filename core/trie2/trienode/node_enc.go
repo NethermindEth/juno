@@ -37,11 +37,11 @@ func (n *BinaryNode) Write(buf *bytes.Buffer) error {
 		return err
 	}
 
-	if err := n.Children[0].Write(buf); err != nil {
+	if err := n.Left().Write(buf); err != nil {
 		return err
 	}
 
-	if err := n.Children[1].Write(buf); err != nil {
+	if err := n.Right().Write(buf); err != nil {
 		return err
 	}
 

@@ -33,7 +33,7 @@ func (t TrieType) String() string {
 	case ContractStorage:
 		return "ContractStorage"
 	default:
-		return "Unknown"
+		panic("unknown trie type")
 	}
 }
 
