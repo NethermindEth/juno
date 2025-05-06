@@ -15,7 +15,7 @@ type reader struct {
 }
 
 func (r *reader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
-	return trieutils.GetNodeByPath(r.db.disk, r.id.Bucket(), owner, path, isLeaf)
+	return trieutils.GetNodeByPath(r.db.disk, r.id.Bucket(), &owner, &path, isLeaf)
 }
 
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {

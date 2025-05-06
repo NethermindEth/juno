@@ -114,7 +114,7 @@ func TestNodeEncodingDecoding(t *testing.T) {
 
 			// Try to decode
 			hash := tt.node.Hash(crypto.Pedersen)
-			decoded, err := DecodeNode(encoded, hash, tt.pathLen, tt.maxPath)
+			decoded, err := DecodeNode(encoded, &hash, tt.pathLen, tt.maxPath)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -158,13 +158,13 @@ func TestNodeEncodingDecodingBoundary(t *testing.T) {
 	// Test with invalid path lengths
 	t.Run("invalid path lengths", func(t *testing.T) {
 		blob := make([]byte, hashOrValueNodeSize)
-		_, err := DecodeNode(blob, felt.Zero, 255, 8) // pathLen > maxPath
+		_, err := DecodeNode(blob, &felt.Zero, 255, 8) // pathLen > maxPath
 		require.Error(t, err)
 	})
 
 	// Test with empty buffer
 	t.Run("empty buffer", func(t *testing.T) {
-		_, err := DecodeNode([]byte{}, felt.Zero, 0, 8)
+		_, err := DecodeNode([]byte{}, &felt.Zero, 0, 8)
 		require.Error(t, err)
 	})
 }
