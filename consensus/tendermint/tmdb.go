@@ -42,6 +42,18 @@ type wrappedMsg struct {
 	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
+// MarshalCBOR implements custom CBOR marshalling for wrappedMsg.
+func (w wrappedMsg) MarshalCBOR() ([]byte, error) {
+	type Alias wrappedMsg
+	return cbor.Marshal(Alias(w))
+}
+
+// UnmarshalCBOR implements custom CBOR unmarshalling for wrappedMsg.
+func (w *wrappedMsg) UnmarshalCBOR(data []byte) error {
+	type Alias wrappedMsg
+	return cbor.Unmarshal(data, (*Alias)(w))
+}
+
 // MessageType represents the type of message stored in the WAL.
 type MessageType uint8
 
@@ -130,7 +142,7 @@ func (s *TendermintDB[V, H, A]) getWALCount(height height) walIter {
 		return nil
 	})
 	if err != nil {
-		// Failing to retrieve the WAL msgs can result in slashing
+		// Failing to retrieve the WAL msgs can result in a loss of funds (consensus slashing)
 		panic(fmt.Sprintf("getWALCount: failed to scan WAL entries for height %d: %v", height, err))
 	}
 	return count
@@ -171,72 +183,48 @@ func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 	case Proposal[V, H, A]:
 		msgType = MessageTypeProposal
 		msgDataInner, err = cbor.Marshal(m)
-		if err != nil {
-			return fmt.Errorf("SetWALEntry: marshal Proposal failed: %w", err)
-		}
 	case Prevote[H, A]:
 		msgType = MessageTypePrevote
 		msgDataInner, err = cbor.Marshal(m)
-		if err != nil {
-			return fmt.Errorf("SetWALEntry: marshal Prevote failed: %w", err)
-		}
 	case Precommit[H, A]:
 		msgType = MessageTypePrecommit
 		msgDataInner, err = cbor.Marshal(m)
-		if err != nil {
-			return fmt.Errorf("SetWALEntry: marshal Precommit failed: %w", err)
-		}
-	case *timeout:
-		// Handle pointer to timeout, as SetWALTimeout took *timeout
+	case *timeout, timeout:
 		msgType = MessageTypeTimeout
 		msgDataInner, err = cbor.Marshal(m)
-		if err != nil {
-			return fmt.Errorf("SetWALEntry: marshal Timeout failed: %w", err)
-		}
-	case timeout:
-		// Also handle timeout by value if necessary, though pointer is expected
-		msgType = MessageTypeTimeout
-		msgDataInner, err = cbor.Marshal(m)
-		if err != nil {
-			return fmt.Errorf("SetWALEntry: marshal Timeout failed: %w", err)
-		}
 	default:
-		// This case should ideally not be reached if only valid WAL types are passed.
 		return fmt.Errorf("SetWALEntry: unknown type implementing IsWALMsg: %T", entry)
 	}
+	if err != nil {
+		return fmt.Errorf("SetWALEntry: marshal failed: %w", err)
+	}
 
-	// Call the renamed internal helper
 	return s.writeWALEntryToBatch(height, msgType, msgDataInner)
 }
 
 // writeWALEntryToBatch is an internal helper to schedule a WAL entry write in the batch.
-// Renamed from setWALEntry to avoid conflict with the public SetWALEntry method.
-func (s *TendermintDB[V, H, A]) writeWALEntryToBatch(height height, msgType MessageType, innerData cbor.RawMessage) error {
+func (s *TendermintDB[V, H, A]) writeWALEntryToBatch(height height, msgType MessageType, msgDataInner cbor.RawMessage) error {
 	wrapper := wrappedMsg{
 		Type: msgType.String(),
-		Data: innerData,
+		Data: msgDataInner,
 	}
-
 	msgData, err := cbor.Marshal(wrapper)
 	if err != nil {
-		return fmt.Errorf("writeWALEntryToBatch: marshal wrapper failed: %w", err)
+		return fmt.Errorf("SetWALEntry: marshal wrapper failed: %w", err)
 	}
 
-	// Get NumMsgsAtHeight and increment
 	numMsgsAtHeight, ok := s.walCount[height]
 	if !ok {
-		numMsgsAtHeight = 0 // First time storing a message
+		numMsgsAtHeight = 0
 	}
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
 	nextNumMsgsAtHeightBytes := encodeNumMsgsAtHeight(nextNumMsgsAtHeight)
 
-	// Set the WAL msg/timeout, and the new iterator
 	msgKey := tmdb.WALEntry.Key(heightToBytes(height), nextNumMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, msgData); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
 
-	// Update count
 	s.walCount[height] = nextNumMsgsAtHeight
 	return nil
 }
@@ -261,7 +249,6 @@ func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]IsWALMsg, error) {
 			if err := cbor.Unmarshal(wrapper.Data, &to); err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
 			}
-			// Append pointer to timeout directly
 			walMsgs = append(walMsgs, &to)
 
 		default:
@@ -274,7 +261,6 @@ func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]IsWALMsg, error) {
 			if !ok {
 				return nil, fmt.Errorf("GetWALMsgs: decoded message type %T does not implement IsWALMsg", msg)
 			}
-			// Append the message (which implements IsWALMsg) directly
 			walMsgs = append(walMsgs, walEntry)
 		}
 	}
