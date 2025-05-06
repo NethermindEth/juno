@@ -1,5 +1,5 @@
 package tendermint
 
 type IsWALMsg interface {
-	isWALMsg()
+	msgType() MessageType
 }

@@ -19,16 +19,22 @@ type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	Value      *V    `cbor:"value"`
 }
 
-func (p Proposal[V, H, A]) isWALMsg() {}
+func (p Proposal[V, H, A]) msgType() MessageType {
+	return MessageTypeProposal
+}
 
 type (
 	Prevote[H Hash, A Addr]   Vote[H, A]
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
 
-func (p Prevote[H, A]) isWALMsg() {}
+func (p Prevote[H, A]) msgType() MessageType {
+	return MessageTypePrevote
+}
 
-func (p Precommit[H, A]) isWALMsg() {}
+func (p Precommit[H, A]) msgType() MessageType {
+	return MessageTypePrecommit
+}
 
 type Vote[H Hash, A Addr] struct {
 	MessageHeader[A]

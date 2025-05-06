@@ -42,18 +42,6 @@ type wrappedMsg struct {
 	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
-// MarshalCBOR implements custom CBOR marshalling for wrappedMsg.
-func (w wrappedMsg) MarshalCBOR() ([]byte, error) {
-	type Alias wrappedMsg
-	return cbor.Marshal(Alias(w))
-}
-
-// UnmarshalCBOR implements custom CBOR unmarshalling for wrappedMsg.
-func (w *wrappedMsg) UnmarshalCBOR(data []byte) error {
-	type Alias wrappedMsg
-	return cbor.Unmarshal(data, (*Alias)(w))
-}
-
 // MessageType represents the type of message stored in the WAL.
 type MessageType uint8
 
@@ -175,30 +163,11 @@ func (s *TendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 
 // SetWALEntry implements TMDBInterface.
 func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
-	var msgType MessageType
-	var msgDataInner []byte
-	var err error
-
-	switch m := entry.(type) {
-	case Proposal[V, H, A]:
-		msgType = MessageTypeProposal
-		msgDataInner, err = cbor.Marshal(m)
-	case Prevote[H, A]:
-		msgType = MessageTypePrevote
-		msgDataInner, err = cbor.Marshal(m)
-	case Precommit[H, A]:
-		msgType = MessageTypePrecommit
-		msgDataInner, err = cbor.Marshal(m)
-	case *timeout, timeout:
-		msgType = MessageTypeTimeout
-		msgDataInner, err = cbor.Marshal(m)
-	default:
-		return fmt.Errorf("SetWALEntry: unknown type implementing IsWALMsg: %T", entry)
-	}
+	msgType := entry.msgType()
+	msgDataInner, err := cbor.Marshal(entry)
 	if err != nil {
 		return fmt.Errorf("SetWALEntry: marshal failed: %w", err)
 	}
-
 	return s.writeWALEntryToBatch(height, msgType, msgDataInner)
 }
 

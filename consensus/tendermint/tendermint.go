@@ -307,7 +307,9 @@ type timeout struct {
 	_ struct{} `cbor:",toarray"`
 }
 
-func (t timeout) isWALMsg() {}
+func (t timeout) msgType() MessageType {
+	return MessageTypeTimeout
+}
 
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(
