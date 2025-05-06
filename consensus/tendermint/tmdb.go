@@ -101,7 +101,12 @@ func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TMDBI
 
 // CommitBatch implements TMDBInterface.
 func (s *TendermintDB[V, H, A]) CommitBatch() error {
-	return s.batch.Write()
+	if err := s.batch.Write(); err != nil {
+		return err
+	}
+	// A batch must not be used after it has been committed. Reusing a batch after commit will result in a panic.
+	s.batch = s.db.NewBatch()
+	return nil
 }
 
 // getWALCount scans the DB for the number of WAL messages at a given height.
@@ -146,18 +151,16 @@ func (s *TendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 
 	heightBytes := heightToBytes(height)
 
-	// Delete individual message keys. Message iterators are 1-based.
-	for i := uint32(1); i <= uint32(numMsgs); i++ {
-		iterBytes := encodeNumMsgsAtHeight(walIter(i)) // Get the bytes for the iterator number
-		msgKey := tmdb.WALEntry.Key(heightBytes, iterBytes)
-		if err := s.batch.Delete(msgKey); err != nil {
-			return fmt.Errorf("DeleteWALMsgs: failed to add deletion for message key %d/%d to batch: %w", height, i, err)
-		}
+	startIterBytes := encodeNumMsgsAtHeight(walIter(1))
+	endIterBytes := encodeNumMsgsAtHeight(walIter(uint32(numMsgs + 1)))
+
+	startKey := tmdb.WALEntry.Key(heightBytes, startIterBytes)
+	endKey := tmdb.WALEntry.Key(heightBytes, endIterBytes)
+	if err := s.batch.DeleteRange(startKey, endKey); err != nil {
+		return fmt.Errorf("DeleteWALMsgs: failed to add delete range [%x, %x) to batch: %w", startKey, endKey, err)
 	}
 
-	// Delete the count entry
 	delete(s.walCount, height)
-
 	return nil
 }
 

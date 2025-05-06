@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +12,9 @@ import (
 
 // Test helper to get a TMDBInterface instance
 func newTestTMDB(t *testing.T) TMDBInterface[value, felt.Felt, felt.Felt] {
-	testDB := memory.New()
+	dbPath := t.TempDir()
+	testDB, err := pebble.New(dbPath)
+	require.NoError(t, err)
 	tmState := NewTMDB[value, felt.Felt, felt.Felt](testDB, height(0))
 	require.NotNil(t, tmState)
 	return tmState
