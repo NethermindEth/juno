@@ -77,23 +77,24 @@ func TestSetAndGetWAL(t *testing.T) {
 	)
 
 	for _, entry := range retrievedEntries {
-		switch msg := entry.(type) {
-		case Proposal[value, felt.Felt, felt.Felt]:
+		switch entry.Type {
+		case MessageTypeProposal:
 			require.Nil(t, proposalFound, "Found multiple proposals")
 			// Need to copy msg because the loop variable 'msg' will be reused
-			found := msg
+			found := (entry.Entry).(Proposal[value, felt.Felt, felt.Felt])
 			proposalFound = &found
-		case Prevote[felt.Felt, felt.Felt]:
+		case MessageTypePrevote:
 			require.Nil(t, prevoteFound, "Found multiple prevotes")
-			found := msg
+			found := (entry.Entry).(Prevote[felt.Felt, felt.Felt])
 			prevoteFound = &found
-		case Precommit[felt.Felt, felt.Felt]:
+		case MessageTypePrecommit:
 			require.Nil(t, precommitFound, "Found multiple precommits")
-			found := msg
+			found := (entry.Entry).(Precommit[felt.Felt, felt.Felt])
 			precommitFound = &found
-		case *timeout:
+		case MessageTypeTimeout:
 			require.Nil(t, timeoutFound, "Found multiple timeouts")
-			timeoutFound = msg // msg is already a pointer here
+			msg := (entry.Entry).(timeout)
+			timeoutFound = &msg
 		default:
 			t.Fatalf("Found unexpected message type in WAL: %T", entry)
 		}

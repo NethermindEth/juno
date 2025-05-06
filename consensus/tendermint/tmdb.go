@@ -37,9 +37,9 @@ const NumBytesForHeight = 4
 
 type walIter uint32
 
-type wrappedMsg struct {
-	Type string          `cbor:"type"`
-	Data cbor.RawMessage `cbor:"data"` // cbor serialised Msg or Timeout
+type WALEntry struct {
+	Type  MessageType `cbor:"type"`
+	Entry IsWALMsg    `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
 // MessageType represents the type of message stored in the WAL.
@@ -74,7 +74,7 @@ type TMDBInterface[V Hashable[H], H Hash, A Addr] interface {
 	// CommitBatch writes the accumulated batch operations to the underlying database.
 	CommitBatch() error
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
-	GetWALMsgs(height height) ([]IsWALMsg, error)
+	GetWALMsgs(height height) ([]WALEntry, error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
 	SetWALEntry(entry IsWALMsg, height height) error
 	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
@@ -163,15 +163,9 @@ func (s *TendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 
 // SetWALEntry implements TMDBInterface.
 func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
-	msgType := entry.msgType()
-	msgDataInner, err := cbor.Marshal(entry)
-	if err != nil {
-		return fmt.Errorf("SetWALEntry: marshal failed: %w", err)
-	}
-
-	wrapper := wrappedMsg{
-		Type: msgType.String(),
-		Data: msgDataInner,
+	wrapper := WALEntry{
+		Type:  entry.msgType(),
+		Entry: entry,
 	}
 	wrappedEntry, err := cbor.Marshal(wrapper)
 	if err != nil {
@@ -195,38 +189,37 @@ func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 }
 
 // GetWALMsgs implements TMDBInterface.
-func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]IsWALMsg, error) {
+func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]WALEntry, error) {
 	rawEntries, err := s.scanWALRaw(height)
 	if err != nil {
 		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
 	}
 
-	walMsgs := make([]IsWALMsg, 0, len(rawEntries))
+	walMsgs := make([]WALEntry, len(rawEntries))
 
-	for i, value := range rawEntries {
-		var wrapper wrappedMsg
-		if err := cbor.Unmarshal(value, &wrapper); err != nil {
+	for i, rawEntry := range rawEntries {
+		var wrapperType struct {
+			Type    MessageType     `cbor:"type"`
+			RawData cbor.RawMessage `cbor:"data"` // Golang can't unmarshal to an interface
+		}
+		if err := cbor.Unmarshal(rawEntry, &wrapperType); err != nil {
 			return nil, fmt.Errorf("GetWALMsgs: failed to decode CBOR wrapper for entry %d at height %d: %w", i, height, err)
 		}
-		switch wrapper.Type {
-		case MessageTypeTimeout.String():
+		switch wrapperType.Type {
+		case MessageTypeTimeout:
 			var to timeout
-			if err := cbor.Unmarshal(wrapper.Data, &to); err != nil {
+			if err := cbor.Unmarshal(wrapperType.RawData, &to); err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
 			}
-			walMsgs = append(walMsgs, &to)
-
-		default:
-			msg, err := decodeWALMessageData[V, H, A](wrapper.Type, wrapper.Data)
+			walMsgs[i] = WALEntry{Type: MessageTypeTimeout, Entry: to}
+		case MessageTypeProposal, MessageTypePrevote, MessageTypePrecommit:
+			walEntry, err := decodeWALMessageData[V, H, A](wrapperType.Type, wrapperType.RawData)
 			if err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapper.Type, i, height, err)
+				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapperType.Type, i, height, err)
 			}
-
-			walEntry, ok := msg.(IsWALMsg)
-			if !ok {
-				return nil, fmt.Errorf("GetWALMsgs: decoded message type %T does not implement IsWALMsg", msg)
-			}
-			walMsgs = append(walMsgs, walEntry)
+			walMsgs[i] = walEntry
+		default:
+			return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapperType.Type, i, height, err)
 		}
 	}
 	return walMsgs, nil
@@ -277,30 +270,28 @@ func (s *TendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 
 // decodeWALMessageData decodes the inner CBOR message data based on the provided type string.
 // It assumes the outer wrapper has already been decoded.
-func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgTypeStr string, data cbor.RawMessage) (any, error) {
-	switch msgTypeStr {
-	case MessageTypeProposal.String():
+func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (WALEntry, error) {
+	switch msgType {
+	case MessageTypeProposal:
 		var proposal Proposal[V, H, A]
 		if err := cbor.Unmarshal(data, &proposal); err != nil {
-			return nil, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
+			return WALEntry{}, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
 		}
-		return proposal, nil
-
-	case MessageTypePrevote.String():
+		return WALEntry{Type: MessageTypeProposal, Entry: proposal}, nil
+	case MessageTypePrevote:
 		var vote Prevote[H, A]
 		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return nil, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
+			return WALEntry{}, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
 		}
-		return vote, nil
-
-	case MessageTypePrecommit.String():
+		return WALEntry{Type: MessageTypePrevote, Entry: vote}, nil
+	case MessageTypePrecommit:
 		var vote Precommit[H, A]
 		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return nil, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
+			return WALEntry{}, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
 		}
-		return vote, nil
+		return WALEntry{Type: MessageTypePrecommit, Entry: vote}, nil
 	default:
-		return nil, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgTypeStr)
+		return WALEntry{}, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgType.String())
 	}
 }
 

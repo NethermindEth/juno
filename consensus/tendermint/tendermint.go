@@ -301,10 +301,9 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 }
 
 type timeout struct {
-	S step     `cbor:"s"`
-	H height   `cbor:"h"`
-	R round    `cbor:"r"`
-	_ struct{} `cbor:",toarray"`
+	S step   `cbor:"s"`
+	H height `cbor:"h"`
+	R round  `cbor:"r"`
 }
 
 func (t timeout) msgType() MessageType {
