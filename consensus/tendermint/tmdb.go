@@ -168,16 +168,12 @@ func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 	if err != nil {
 		return fmt.Errorf("SetWALEntry: marshal failed: %w", err)
 	}
-	return s.writeWALEntryToBatch(height, msgType, msgDataInner)
-}
 
-// writeWALEntryToBatch is an internal helper to schedule a WAL entry write in the batch.
-func (s *TendermintDB[V, H, A]) writeWALEntryToBatch(height height, msgType MessageType, msgDataInner cbor.RawMessage) error {
 	wrapper := wrappedMsg{
 		Type: msgType.String(),
 		Data: msgDataInner,
 	}
-	msgData, err := cbor.Marshal(wrapper)
+	wrappedEntry, err := cbor.Marshal(wrapper)
 	if err != nil {
 		return fmt.Errorf("SetWALEntry: marshal wrapper failed: %w", err)
 	}
@@ -190,7 +186,7 @@ func (s *TendermintDB[V, H, A]) writeWALEntryToBatch(height height, msgType Mess
 	nextNumMsgsAtHeightBytes := encodeNumMsgsAtHeight(nextNumMsgsAtHeight)
 
 	msgKey := tmdb.WALEntry.Key(heightToBytes(height), nextNumMsgsAtHeightBytes)
-	if err := s.batch.Put(msgKey, msgData); err != nil {
+	if err := s.batch.Put(msgKey, wrappedEntry); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
 
