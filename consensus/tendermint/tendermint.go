@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	db "github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -117,8 +116,6 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Driver[V Hashable[H], H Hash, A Addr] struct {
-	db TendermintDB[V, H, A]
-
 	stateMachine *Tendermint[V, H, A]
 
 	timeoutPropose   timeoutFn
@@ -136,6 +133,9 @@ type Driver[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
+	db  TendermintDB[V, H, A]
+	log utils.Logger
+
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
@@ -164,12 +164,16 @@ type state[V Hashable[H], H Hash] struct {
 }
 
 func New[V Hashable[H], H Hash, A Addr](
+	db TendermintDB[V, H, A],
+	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
 	chain Blockchain[V, H, A],
 	vals Validators[A],
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
+		db:       db,
+		log:      log,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -183,12 +187,12 @@ func New[V Hashable[H], H Hash, A Addr](
 	}
 }
 
-func NewDriver[V Hashable[H], H Hash, A Addr](database db.KeyValueStore, nodeAddr A, app Application[V, H], chain Blockchain[V, H, A],
-	vals Validators[A], listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
+func NewDriver[V Hashable[H], H Hash, A Addr](db TendermintDB[V, H, A], log utils.Logger, nodeAddr A, app Application[V, H],
+	chain Blockchain[V, H, A], vals Validators[A], listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A],
+	tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
-		db:               NewTMDB[V, H, A](database, chain.Height()),
-		stateMachine:     New(nodeAddr, app, chain, vals),
+		stateMachine:     New(db, log, nodeAddr, app, chain, vals),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,
 		timeoutPrecommit: tmPrecommit,

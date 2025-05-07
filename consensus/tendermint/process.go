@@ -5,15 +5,36 @@ func (t *Tendermint[V, H, A]) processStart(round round) []Action[V, H, A] {
 }
 
 func (t *Tendermint[V, H, A]) processProposal(p Proposal[V, H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addProposal(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addProposal(p) {
+			// Store proposal if its the first time we see it
+			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *Tendermint[V, H, A]) processPrevote(p Prevote[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrevote(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addPrevote(p) {
+			// Store prevote if its the first time we see it
+			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *Tendermint[V, H, A]) processPrecommit(p Precommit[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addPrecommit(p) {
+			// Store precommit if its the first time we see it
+			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage func()) []Action[V, H, A] {
@@ -25,6 +46,10 @@ func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage
 }
 
 func (t *Tendermint[V, H, A]) processTimeout(tm timeout) []Action[V, H, A] {
+	// We store a WAL Entry when a timeout gets triggered
+	if err := t.db.SetWALEntry(tm, t.state.height); err != nil {
+		t.log.Errorw("Failed to store timeout trigger in WAL") // Todo: consider log level
+	}
 	switch tm.Step {
 	case propose:
 		return t.processLoop(t.onTimeoutPropose(tm.Height, tm.Round), nil)

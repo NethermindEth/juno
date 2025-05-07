@@ -88,8 +88,8 @@ type tendermintDB[V Hashable[H], H Hash, A Addr] struct {
 	walCount map[height]walIter
 }
 
-// NewTMDB creates a new TMDB instance implementing the TMDBInterface.
-func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TendermintDB[V, H, A] {
+// NewTendermintDB creates a new TMDB instance implementing the TMDBInterface.
+func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) *tendermintDB[V, H, A] {
 	tmdb := tendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
 
 	walCount := make(map[height]walIter)
