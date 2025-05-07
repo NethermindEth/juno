@@ -15,13 +15,13 @@ Juno can be configured using several methods, with the following order of preced
 Juno can be configured directly on the command line by prefixing `--` to each option name:
 
 ```bash
-./build/juno --http --http-port 6060 --http-host 0.0.0.0
+./build/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
 
 When using Docker, append the command line parameters after the image name to configure Juno:
 
 ```bash
-docker run nethermind/juno --http --http-port 6060 --http-host 0.0.0.0
+docker run nethermind/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
 
 :::tip
@@ -35,14 +35,14 @@ Juno can be configured through environment variables by prefixing the variable n
 To set the `http`, `http-port`, and `http-host` configurations, Juno should be run in this format:
 
 ```bash
-JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 ./build/juno
+JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 JUNO_ETH_NODE=<YOUR-ETH-NODE> ./build/juno
 ```
 
 When using Docker, start Juno using the `-e` command option:
 
 ```bash
 docker run \
-  -e "JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0" \
+  -e "JUNO_HTTP=true JUNO_HTTP_PORT=6060 JUNO_HTTP_HOST=0.0.0.0 JUNO_ETH_NODE=<YOUR-ETH-NODE>" \
   nethermind/juno
 ```
 
@@ -61,6 +61,7 @@ http: true
 http-port: 6060
 metrics: true
 metrics-port: 9090
+eth-node: <YOUR-ETH-NODE>
 ```
 
 To run Juno with a configuration file, use the `config` option to specify the path of the configuration file:
