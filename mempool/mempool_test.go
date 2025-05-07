@@ -176,7 +176,7 @@ func TestRestoreMempool(t *testing.T) {
 	restoredTransactions, err := poolRestored.PopBatch(lenRestored)
 	require.NoError(t, err)
 	for i, txn := range restoredTransactions {
-		require.Equal(t, txn.Transaction.Hash(), expectedTxs[i].Transaction.Hash())
+		require.Equal(t, expectedTxs[i].Transaction.Hash(), txn.Transaction.Hash())
 	}
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
