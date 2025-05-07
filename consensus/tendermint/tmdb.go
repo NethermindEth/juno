@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	tmdb "github.com/NethermindEth/juno/consensus/db"
 	db "github.com/NethermindEth/juno/db"
-	tmdb "github.com/NethermindEth/juno/db/consensus"
 	"github.com/fxamacker/cbor/v2"
 )
 
@@ -69,8 +69,8 @@ func (m MessageType) String() string {
 	}
 }
 
-// TMDBInterface defines the methods for interacting with the Tendermint WAL database.
-type TMDBInterface[V Hashable[H], H Hash, A Addr] interface {
+// TendermintDB defines the methods for interacting with the Tendermint WAL database.
+type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
 	// CommitBatch writes the accumulated batch operations to the underlying database.
 	CommitBatch() error
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
@@ -81,16 +81,16 @@ type TMDBInterface[V Hashable[H], H Hash, A Addr] interface {
 	DeleteWALMsgs(height height) error
 }
 
-// TendermintDB provides database access for Tendermint consensus state.
-type TendermintDB[V Hashable[H], H Hash, A Addr] struct {
+// tendermintDB provides database access for Tendermint consensus state.
+type tendermintDB[V Hashable[H], H Hash, A Addr] struct {
 	db       db.KeyValueStore
 	batch    db.Batch
 	walCount map[height]walIter
 }
 
 // NewTMDB creates a new TMDB instance implementing the TMDBInterface.
-func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TMDBInterface[V, H, A] {
-	tmdb := TendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
+func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TendermintDB[V, H, A] {
+	tmdb := tendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
 
 	walCount := make(map[height]walIter)
 	walCount[h] = tmdb.getWALCount(h)
@@ -100,7 +100,7 @@ func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TMDBI
 }
 
 // CommitBatch implements TMDBInterface.
-func (s *TendermintDB[V, H, A]) CommitBatch() error {
+func (s *tendermintDB[V, H, A]) CommitBatch() error {
 	if err := s.batch.Write(); err != nil {
 		return err
 	}
@@ -111,7 +111,7 @@ func (s *TendermintDB[V, H, A]) CommitBatch() error {
 
 // getWALCount scans the DB for the number of WAL messages at a given height.
 // It panics if the DB scan fails.
-func (s *TendermintDB[V, H, A]) getWALCount(height height) walIter {
+func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
 	prefix := tmdb.WALEntry.Key(heightToBytes(height))
 	count := walIter(0)
 
@@ -143,7 +143,7 @@ func (s *TendermintDB[V, H, A]) getWALCount(height height) walIter {
 
 // DeleteWALMsgs iterates through the expected message keys based on the stored count.
 // Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
-func (s *TendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
+func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 	numMsgs, ok := s.walCount[height]
 	if !ok {
 		return nil
@@ -165,7 +165,7 @@ func (s *TendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 }
 
 // SetWALEntry implements TMDBInterface.
-func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
+func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
 	wrapper := walEntry{
 		Type:  entry.msgType(),
 		Entry: entry,
@@ -192,7 +192,7 @@ func (s *TendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 }
 
 // GetWALMsgs implements TMDBInterface.
-func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry, error) {
+func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry, error) {
 	rawEntries, err := s.scanWALRaw(height)
 	if err != nil {
 		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
@@ -229,7 +229,7 @@ func (s *TendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry, error) {
 }
 
 // scanWALRaw iterates over raw WAL entries in the database for a given height.
-func (s *TendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
+func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 	startKey := tmdb.WALEntry.Key(encodeNumMsgsAtHeight(walIter(height)))
 	rawEntries := [][]byte{}
 

@@ -1,4 +1,4 @@
-package tmbdb
+package db
 
 import "slices"
 

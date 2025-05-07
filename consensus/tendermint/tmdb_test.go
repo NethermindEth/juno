@@ -11,7 +11,7 @@ import (
 )
 
 // Test helper to get a TMDBInterface instance
-func newTestTMDB(t *testing.T) TMDBInterface[value, felt.Felt, felt.Felt] {
+func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
@@ -51,9 +51,9 @@ func TestSetAndGetWAL(t *testing.T) {
 		ID:            &valHash1,
 	}
 	timeoutEvent := &timeout{
-		H: testHeight,
-		R: testRound,
-		S: testStep,
+		Height: testHeight,
+		Round:  testRound,
+		Step:   testStep,
 	}
 
 	// Store Messages using SetWALEntry
@@ -133,7 +133,7 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
 		ID:            &valHash1,
 	}
-	timeout := &timeout{H: testHeight, R: testRound, S: propose}
+	timeout := &timeout{Height: testHeight, Round: testRound, Step: propose}
 
 	require.NoError(t, tmState.SetWALEntry(proposal, testHeight))
 	require.NoError(t, tmState.SetWALEntry(prevote, testHeight))

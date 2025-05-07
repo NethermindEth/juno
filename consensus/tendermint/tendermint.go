@@ -117,7 +117,7 @@ type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Driver[V Hashable[H], H Hash, A Addr] struct {
-	db TMDBInterface[V, H, A]
+	db TendermintDB[V, H, A]
 
 	stateMachine *Tendermint[V, H, A]
 
@@ -251,13 +251,13 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 		case *ScheduleTimeout:
 			// Schedule the timeout
 			var duration time.Duration
-			switch action.S {
+			switch action.Step {
 			case propose:
-				duration = d.timeoutPropose(action.R)
+				duration = d.timeoutPropose(action.Round)
 			case prevote:
-				duration = d.timeoutPrevote(action.R)
+				duration = d.timeoutPrevote(action.Round)
 			case precommit:
-				duration = d.timeoutPrecommit(action.R)
+				duration = d.timeoutPrecommit(action.Round)
 			default:
 				return
 			}
@@ -301,9 +301,9 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 }
 
 type timeout struct {
-	S step   `cbor:"s"`
-	H height `cbor:"h"`
-	R round  `cbor:"r"`
+	Step   step   `cbor:"s"`
+	Height height `cbor:"h"`
+	Round  round  `cbor:"r"`
 }
 
 func (t timeout) msgType() MessageType {
@@ -313,9 +313,9 @@ func (t timeout) msgType() MessageType {
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{
-			S: s,
-			H: t.state.height,
-			R: t.state.round,
+			Step:   s,
+			Height: t.state.height,
+			Round:  t.state.round,
 		},
 	)
 }

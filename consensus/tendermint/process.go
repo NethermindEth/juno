@@ -25,13 +25,13 @@ func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage
 }
 
 func (t *Tendermint[V, H, A]) processTimeout(tm timeout) []Action[V, H, A] {
-	switch tm.S {
+	switch tm.Step {
 	case propose:
-		return t.processLoop(t.onTimeoutPropose(tm.H, tm.R), nil)
+		return t.processLoop(t.onTimeoutPropose(tm.Height, tm.Round), nil)
 	case prevote:
-		return t.processLoop(t.onTimeoutPrevote(tm.H, tm.R), nil)
+		return t.processLoop(t.onTimeoutPrevote(tm.Height, tm.Round), nil)
 	case precommit:
-		return t.processLoop(t.onTimeoutPrecommit(tm.H, tm.R), nil)
+		return t.processLoop(t.onTimeoutPrecommit(tm.Height, tm.Round), nil)
 	}
 
 	return nil
