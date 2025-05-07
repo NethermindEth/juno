@@ -300,16 +300,6 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 	}
 }
 
-type timeout struct {
-	Step   step   `cbor:"s"`
-	Height height `cbor:"h"`
-	Round  round  `cbor:"r"`
-}
-
-func (t timeout) msgType() MessageType {
-	return MessageTypeTimeout
-}
-
 func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{

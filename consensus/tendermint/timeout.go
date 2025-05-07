@@ -1,5 +1,16 @@
 package tendermint
 
+type timeout struct {
+	Step   step     `cbor:"s"`
+	Height height   `cbor:"h"`
+	Round  round    `cbor:"r"`
+	_      struct{} `cbor:",toarray"`
+}
+
+func (t timeout) msgType() MessageType {
+	return MessageTypeTimeout
+}
+
 func (t *Tendermint[V, H, A]) onTimeoutPropose(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == propose {
 		return t.setStepAndSendPrevote(nil)
