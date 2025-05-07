@@ -15,7 +15,7 @@ func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
-	tmState := NewTMDB[value, felt.Felt, felt.Felt](testDB, height(0))
+	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, height(0))
 	require.NotNil(t, tmState)
 	return tmState
 }

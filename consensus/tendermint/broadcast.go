@@ -13,6 +13,11 @@ func (t *Tendermint[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 		Value:      value,
 	}
 
+	// Store the proposal in the WAL
+	if err := t.db.SetWALEntry(proposalMessage, t.state.height); err != nil {
+		t.log.Errorw("Failed to store propsal in WAL") // Todo: consider log level
+	}
+
 	t.messages.addProposal(proposalMessage)
 
 	return utils.HeapPtr(BroadcastProposal[V, H, A](proposalMessage))

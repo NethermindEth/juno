@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -97,8 +98,8 @@ func setupStateMachine(
 	}
 
 	thisNodeAddr := getVal(thisValidator)
-
-	return New(*thisNodeAddr, app, chain, vals)
+	testDB := newTestTMDB(t)
+	return New(testDB, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals) // Todo: pass in a non-nil DB
 }
 
 func TestThresholds(t *testing.T) {
