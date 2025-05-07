@@ -211,7 +211,7 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (d *Driver[V, H, A]) Start() {
-	// Todo: replay WAL msgs
+	d.stateMachine.replayWAL()
 
 	d.wg.Add(1)
 	go func() {
@@ -407,5 +407,44 @@ func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
 		Proposal: v,
 		Valid:    t.application.Valid(*v.Value),
 		ID:       utils.HeapPtr((*v.Value).Hash()),
+	}
+}
+
+// Todo: complete
+func (t *Tendermint[V, H, A]) replayWAL() {
+	height := t.blockchain.Height()
+	walEntries, err := t.db.GetWALMsgs(height)
+	if err != nil {
+		panic(err) // Todo: improve panic message
+	}
+	for _, walEntry := range walEntries {
+		switch walEntry.Type {
+		case MessageTypeProposal:
+			proposal, ok := (walEntry.Entry).(Proposal[V, H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to proposal") // Todo: return to this
+			}
+			t.processProposal(proposal) // We ignore actions when replaying WAL msgs
+		case MessageTypePrevote:
+			prevote, ok := (walEntry.Entry).(Prevote[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to prevote") // Todo: return to this
+			}
+			t.processPrevote(prevote) // We ignore actions when replaying WAL msgs
+		case MessageTypePrecommit:
+			precommit, ok := (walEntry.Entry).(Precommit[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			t.processPrecommit(precommit) // We ignore actions when replaying WAL msgs
+		case MessageTypeTimeout:
+			timeout, ok := (walEntry.Entry).(timeout)
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			t.processTimeout(timeout) // We ignore actions when replaying WAL msgs
+		default:
+			panic("Failed to replay WAL messages unknown entry") // Todo: improve message
+		}
 	}
 }
