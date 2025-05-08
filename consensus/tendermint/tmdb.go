@@ -197,7 +197,7 @@ func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry, error) {
 			}
 			walMsgs[i] = walEntry{Type: MessageTypeTimeout, Entry: to}
 		case MessageTypeProposal, MessageTypePrevote, MessageTypePrecommit:
-			walEntry, err := decodeWALMessageData[V, H, A](wrapperType.Type, wrapperType.RawData)
+			walEntry, err := cborUnmarshalMsg[V, H, A](wrapperType.Type, wrapperType.RawData)
 			if err != nil {
 				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapperType.Type, i, height, err)
 			}
@@ -225,10 +225,6 @@ func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 			// Changed error message slightly for clarity
 			return fmt.Errorf("failed to seek to start key when scanning WAL msgs")
 		}
-		if !iter.Valid() {
-			// It's possible there are no entries, return empty slice and no error
-			return nil
-		}
 
 		for ; iter.Valid(); iter.Next() {
 			// Check if the key still has the correct prefix (height)
@@ -252,9 +248,9 @@ func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 	return rawEntries, nil
 }
 
-// decodeWALMessageData decodes the inner CBOR message data based on the provided type string.
+// cborUnmarshalMsg decodes the inner CBOR message data based on the provided type string.
 // It assumes the outer wrapper has already been decoded.
-func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (walEntry, error) {
+func cborUnmarshalMsg[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (walEntry, error) {
 	switch msgType {
 	case MessageTypeProposal:
 		var proposal Proposal[V, H, A]
