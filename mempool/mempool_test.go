@@ -135,18 +135,21 @@ func TestRestoreMempool(t *testing.T) {
 	require.Equal(t, 0, pool.Len())
 
 	// push multiple transactions to empty mempool (1,2,3)
+	expectedTxs := [3]mempool.BroadcastedTransaction{}
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
 		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
-		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
+		tx := mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
 				Version:         new(core.TransactionVersion).SetUint64(1),
 				SenderAddress:   senderAddress,
 				Nonce:           new(felt.Felt).SetUint64(0),
 			},
-		}))
+		}
+		require.NoError(t, pool.Push(&tx))
+		expectedTxs[i-1] = tx
 		require.Equal(t, int(i), pool.Len())
 	}
 	// check the db has stored the transactions
@@ -166,17 +169,19 @@ func TestRestoreMempool(t *testing.T) {
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
-	require.Equal(t, 3, poolRestored.Len())
+	lenRestored := poolRestored.Len()
+	require.Equal(t, len(expectedTxs), lenRestored)
 
-	// Remove transactions
-	_, err = poolRestored.Pop()
+	// Pop transactions
+	restoredTransactions, err := poolRestored.PopBatch(lenRestored)
 	require.NoError(t, err)
-	_, err = poolRestored.Pop()
-	require.NoError(t, err)
+	for i, txn := range restoredTransactions {
+		require.Equal(t, expectedTxs[i].Transaction.Hash(), txn.Transaction.Hash())
+	}
 	lenDB, err = poolRestored.LenDB()
 	require.NoError(t, err)
 	require.Equal(t, 3, lenDB)
-	require.Equal(t, 1, poolRestored.Len())
+	require.Equal(t, 0, poolRestored.Len())
 	poolRestored.Close()
 }
 
