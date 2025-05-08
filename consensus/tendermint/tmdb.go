@@ -165,18 +165,11 @@ func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
 // DeleteWALMsgs iterates through the expected message keys based on the stored count.
 // Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
 func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
-	numMsgs, ok := s.walCount[height]
-	if !ok {
-		return nil
-	}
-
 	heightBytes := encodeHeight(height)
-
 	startIterBytes := encodeNumMsgsAtHeight(walIter(1))
-	endIterBytes := encodeNumMsgsAtHeight(walIter(uint32(numMsgs + 1)))
 
 	startKey := tmdb.WALEntry.Key(heightBytes, startIterBytes)
-	endKey := tmdb.WALEntry.Key(heightBytes, endIterBytes)
+	endKey := tmdb.WALEntry.Key(encodeHeight(height + 1))
 	if err := s.batch.DeleteRange(startKey, endKey); err != nil {
 		return fmt.Errorf("DeleteWALMsgs: failed to add delete range [%x, %x) to batch: %w", startKey, endKey, err)
 	}
@@ -201,9 +194,8 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 		numMsgsAtHeight = 0
 	}
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
-	nextNumMsgsAtHeightBytes := encodeNumMsgsAtHeight(nextNumMsgsAtHeight)
 
-	msgKey := tmdb.WALEntry.Key(encodeHeight(height), nextNumMsgsAtHeightBytes)
+	msgKey := tmdb.WALEntry.Key(encodeHeight(height), encodeNumMsgsAtHeight(nextNumMsgsAtHeight))
 	if err := s.batch.Put(msgKey, wrappedEntry); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
@@ -222,22 +214,20 @@ func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry[V, H, A], 
 	walMsgs := make([]walEntry[V, H, A], len(rawEntries))
 
 	for i, rawEntry := range rawEntries {
-		var walMsg walEntry[V, H, A]
-		if err := cbor.Unmarshal(rawEntry, &walMsg); err != nil {
+		if err := cbor.Unmarshal(rawEntry, &walMsgs[i]); err != nil {
 			return nil, err
 		}
-		walMsgs[i] = walMsg
 	}
 	return walMsgs, nil
 }
 
 // scanWALRaw iterates over raw WAL entries in the database for a given height.
 func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
-	startKey := tmdb.WALEntry.Key(encodeNumMsgsAtHeight(walIter(height)))
+	startKey := tmdb.WALEntry.Key(encodeHeight(height))
 	rawEntries := [][]byte{}
 
 	err := s.db.View(func(snap db.Snapshot) error {
-		iter, err := snap.NewIterator(startKey, false)
+		iter, err := snap.NewIterator(startKey, true)
 		if err != nil {
 			return err
 		}
@@ -249,11 +239,6 @@ func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 		}
 
 		for ; iter.Valid(); iter.Next() {
-			// Check if the key still has the correct prefix (height)
-			key := iter.Key()
-			if !bytes.HasPrefix(key, startKey) {
-				break // Stop if we moved past keys for this height
-			}
 			v, err := iter.Value()
 			if err != nil {
 				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
