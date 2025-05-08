@@ -219,17 +219,16 @@ func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry[V, H, A], 
 			// Changed error message slightly for clarity
 			return fmt.Errorf("failed to seek to start key when scanning WAL msgs")
 		}
-		msgId := 0
+		msgID := 0
 		for ; iter.Valid(); iter.Next() {
-			fmt.Println(len(s.walCount), msgId)
 			v, err := iter.Value()
 			if err != nil {
 				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
 			}
-			if err := cbor.Unmarshal(v, &walMsgs[msgId]); err != nil {
+			if err := cbor.Unmarshal(v, &walMsgs[msgID]); err != nil {
 				return err
 			}
-			msgId++
+			msgID++
 		}
 		return nil
 	})
