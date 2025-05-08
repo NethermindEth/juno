@@ -133,8 +133,9 @@ type Driver[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type Tendermint[V Hashable[H], H Hash, A Addr] struct {
-	db  TendermintDB[V, H, A]
-	log utils.Logger
+	db         TendermintDB[V, H, A]
+	log        utils.Logger
+	replayMode bool
 
 	nodeAddr A
 
@@ -172,9 +173,10 @@ func New[V Hashable[H], H Hash, A Addr](
 	vals Validators[A],
 ) *Tendermint[V, H, A] {
 	return &Tendermint[V, H, A]{
-		db:       db,
-		log:      log,
-		nodeAddr: nodeAddr,
+		db:         db,
+		log:        log,
+		replayMode: false,
+		nodeAddr:   nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
 			lockedRound: -1,
@@ -211,7 +213,7 @@ type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 }
 
 func (d *Driver[V, H, A]) Start() {
-	d.stateMachine.replayWAL()
+	d.replayWAL()
 
 	d.wg.Add(1)
 	go func() {
@@ -247,10 +249,21 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *BroadcastProposal[V, H, A]:
+			// Todo: Malachite flush on 1) before broadcasting, 2) start new round 3) when a new block has been decided on.
+			// Todo: Revisit if the Batch is useful at all...
+			if err := d.stateMachine.db.FlushWAL(); err != nil {
+				d.stateMachine.log.Errorw("Failed to commit WaL to disk") // Todo
+			}
 			d.broadcasters.ProposalBroadcaster.Broadcast(Proposal[V, H, A](*action))
 		case *BroadcastPrevote[H, A]:
+			if err := d.stateMachine.db.FlushWAL(); err != nil {
+				d.stateMachine.log.Errorw("Failed to commit WaL to disk") // Todo
+			}
 			d.broadcasters.PrevoteBroadcaster.Broadcast(Prevote[H, A](*action))
 		case *BroadcastPrecommit[H, A]:
+			if err := d.stateMachine.db.FlushWAL(); err != nil {
+				d.stateMachine.log.Errorw("Failed to commit WaL to disk") // Todo
+			}
 			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
 		case *ScheduleTimeout:
 			// Schedule the timeout
@@ -281,6 +294,49 @@ func (d *Driver[V, H, A]) Stop() {
 	for _, tm := range d.scheduledTms {
 		tm.Stop()
 	}
+}
+
+// Note: replayWAL() should not cause the Driver to take any actions. Replaying messages
+// should not result in messages being broadcast, or new timeouts being scheduled. It
+// should only result in state changes.
+func (d *Driver[V, H, A]) replayWAL() {
+	height := d.stateMachine.blockchain.Height()
+	walEntries, err := d.stateMachine.db.GetWALMsgs(height)
+	if err != nil {
+		panic(err) // Todo: improve panic message
+	}
+	d.stateMachine.replayMode = true
+	for _, walEntry := range walEntries {
+		switch walEntry.Type {
+		case MessageTypeProposal:
+			proposal, ok := (walEntry.Entry).(Proposal[V, H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to proposal") // Todo: return to this
+			}
+			d.stateMachine.processProposal(proposal) // We ignore actions when replaying WAL msgs
+		case MessageTypePrevote:
+			prevote, ok := (walEntry.Entry).(Prevote[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to prevote") // Todo: return to this
+			}
+			d.stateMachine.processPrevote(prevote) // We ignore actions when replaying WAL msgs
+		case MessageTypePrecommit:
+			precommit, ok := (walEntry.Entry).(Precommit[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			d.stateMachine.processPrecommit(precommit) // We ignore actions when replaying WAL msgs
+		case MessageTypeTimeout:
+			timeout, ok := (walEntry.Entry).(timeout)
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			d.stateMachine.processTimeout(timeout) // We ignore actions when replaying WAL msgs
+		default:
+			panic("Failed to replay WAL messages unknown entry") // Todo: improve message
+		}
+	}
+	d.stateMachine.replayMode = false
 }
 
 func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
@@ -407,44 +463,5 @@ func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
 		Proposal: v,
 		Valid:    t.application.Valid(*v.Value),
 		ID:       utils.HeapPtr((*v.Value).Hash()),
-	}
-}
-
-// Todo: complete
-func (t *Tendermint[V, H, A]) replayWAL() {
-	height := t.blockchain.Height()
-	walEntries, err := t.db.GetWALMsgs(height)
-	if err != nil {
-		panic(err) // Todo: improve panic message
-	}
-	for _, walEntry := range walEntries {
-		switch walEntry.Type {
-		case MessageTypeProposal:
-			proposal, ok := (walEntry.Entry).(Proposal[V, H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to proposal") // Todo: return to this
-			}
-			t.processProposal(proposal) // We ignore actions when replaying WAL msgs
-		case MessageTypePrevote:
-			prevote, ok := (walEntry.Entry).(Prevote[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to prevote") // Todo: return to this
-			}
-			t.processPrevote(prevote) // We ignore actions when replaying WAL msgs
-		case MessageTypePrecommit:
-			precommit, ok := (walEntry.Entry).(Precommit[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
-			}
-			t.processPrecommit(precommit) // We ignore actions when replaying WAL msgs
-		case MessageTypeTimeout:
-			timeout, ok := (walEntry.Entry).(timeout)
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
-			}
-			t.processTimeout(timeout) // We ignore actions when replaying WAL msgs
-		default:
-			panic("Failed to replay WAL messages unknown entry") // Todo: improve message
-		}
 	}
 }

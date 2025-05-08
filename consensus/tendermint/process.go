@@ -6,7 +6,7 @@ func (t *Tendermint[V, H, A]) processStart(round round) []Action[V, H, A] {
 
 func (t *Tendermint[V, H, A]) processProposal(p Proposal[V, H, A]) []Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.addProposal(p) {
+		if t.messages.addProposal(p) && !t.replayMode {
 			// Store proposal if its the first time we see it
 			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
 				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
@@ -17,7 +17,7 @@ func (t *Tendermint[V, H, A]) processProposal(p Proposal[V, H, A]) []Action[V, H
 
 func (t *Tendermint[V, H, A]) processPrevote(p Prevote[H, A]) []Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.addPrevote(p) {
+		if t.messages.addPrevote(p) && !t.replayMode {
 			// Store prevote if its the first time we see it
 			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
 				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
@@ -28,7 +28,7 @@ func (t *Tendermint[V, H, A]) processPrevote(p Prevote[H, A]) []Action[V, H, A] 
 
 func (t *Tendermint[V, H, A]) processPrecommit(p Precommit[H, A]) []Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.addPrecommit(p) {
+		if t.messages.addPrecommit(p) && !t.replayMode {
 			// Store precommit if its the first time we see it
 			if err := t.db.SetWALEntry(p, t.state.height); err != nil {
 				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
@@ -47,7 +47,7 @@ func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage
 
 func (t *Tendermint[V, H, A]) processTimeout(tm timeout) []Action[V, H, A] {
 	// We store a WAL Entry when a timeout gets triggered
-	if err := t.db.SetWALEntry(tm, t.state.height); err != nil {
+	if err := t.db.SetWALEntry(tm, t.state.height); err != nil && !t.replayMode {
 		t.log.Errorw("Failed to store timeout trigger in WAL") // Todo: consider log level
 	}
 	switch tm.Step {

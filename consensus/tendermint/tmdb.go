@@ -71,8 +71,8 @@ func (m MessageType) String() string {
 
 // TendermintDB defines the methods for interacting with the Tendermint WAL database.
 type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
-	// CommitBatch writes the accumulated batch operations to the underlying database.
-	CommitBatch() error
+	// FlushWAL writes the accumulated batch operations to the underlying database.
+	FlushWAL() error
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
 	GetWALMsgs(height height) ([]walEntry, error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
@@ -99,8 +99,8 @@ func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h heigh
 	return &tmdb
 }
 
-// CommitBatch implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) CommitBatch() error {
+// FlushWAL implements TMDBInterface.
+func (s *tendermintDB[V, H, A]) FlushWAL() error {
 	if err := s.batch.Write(); err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
 }
 
 // DeleteWALMsgs iterates through the expected message keys based on the stored count.
-// Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
+// Note: This operates on the batch. Changes are only persisted after FlushWAL() is called.
 func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 	numMsgs, ok := s.walCount[height]
 	if !ok {

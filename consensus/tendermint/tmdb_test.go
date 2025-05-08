@@ -20,9 +20,9 @@ func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
 	return tmState
 }
 
-func TestCommitBatch(t *testing.T) {
+func TestFlushWAL(t *testing.T) {
 	tmState := newTestTMDB(t)
-	require.NoError(t, tmState.CommitBatch())
+	require.NoError(t, tmState.FlushWAL())
 }
 
 func TestSetAndGetWAL(t *testing.T) {
@@ -63,7 +63,7 @@ func TestSetAndGetWAL(t *testing.T) {
 	require.NoError(t, tmState.SetWALEntry(timeoutEvent, testHeight))
 
 	// Commit the Batch
-	require.NoError(t, tmState.CommitBatch())
+	require.NoError(t, tmState.FlushWAL())
 
 	// Retrieve all WAL messages
 	retrievedEntries, err := tmState.GetWALMsgs(testHeight)
@@ -140,7 +140,7 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	require.NoError(t, tmState.SetWALEntry(timeout, testHeight))
 
 	// Commit the initial messages
-	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")
+	require.NoError(t, tmState.FlushWAL(), "Failed to commit initial messages")
 
 	retrievedBefore, err := tmState.GetWALMsgs(testHeight)
 	require.NoError(t, err, "Failed to get WAL messages before delete")
@@ -150,7 +150,7 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	require.NoError(t, tmState.DeleteWALMsgs(testHeight), "Failed to call DeleteMsgsAtHeight")
 
 	// Commit the deletion batch
-	require.NoError(t, tmState.CommitBatch(), "Failed to commit deletion batch")
+	require.NoError(t, tmState.FlushWAL(), "Failed to commit deletion batch")
 
 	_, err = tmState.GetWALMsgs(testHeight)
 	require.Error(t, err)

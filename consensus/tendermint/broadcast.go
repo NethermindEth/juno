@@ -14,7 +14,7 @@ func (t *Tendermint[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 	}
 
 	// Store the proposal in the WAL
-	if err := t.db.SetWALEntry(proposalMessage, t.state.height); err != nil {
+	if err := t.db.SetWALEntry(proposalMessage, t.state.height); err != nil && !t.replayMode {
 		t.log.Errorw("Failed to store propsal in WAL") // Todo: consider log level
 	}
 
