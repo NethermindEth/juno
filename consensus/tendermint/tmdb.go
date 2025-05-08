@@ -14,9 +14,65 @@ const NumBytesForHeight = 4
 
 type walIter uint32
 
-type walEntry struct {
+type walEntry[V Hashable[H], H Hash, A Addr] struct {
 	Type  MessageType `cbor:"type"`
 	Entry IsWALMsg    `cbor:"data"` // cbor serialised Msg or Timeout
+}
+
+func (w *walEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
+	var wrapperType struct {
+		Type    MessageType     `cbor:"type"`
+		RawData cbor.RawMessage `cbor:"data"` // Golang can't unmarshal to an interface
+	}
+	if err := cbor.Unmarshal(data, &wrapperType); err != nil {
+		return err
+	}
+	switch wrapperType.Type {
+	case MessageTypeTimeout:
+		var to timeout
+		if err := cbor.Unmarshal(wrapperType.RawData, &to); err != nil {
+			return err
+		}
+		w.Type = MessageTypeTimeout
+		w.Entry = to
+	case MessageTypeProposal, MessageTypePrevote, MessageTypePrecommit:
+		walEntry, err := cborUnmarshalMsg[V, H, A](wrapperType.Type, wrapperType.RawData)
+		if err != nil {
+			return err
+		}
+		w.Type = walEntry.Type
+		w.Entry = walEntry.Entry
+	default:
+		return fmt.Errorf("failed to unmarshal walEntry, unknown type")
+	}
+	return nil
+}
+
+// cborUnmarshalMsg decodes the inner CBOR message data based on the provided type string.
+// It assumes the outer wrapper has already been decoded.
+func cborUnmarshalMsg[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (walEntry[V, H, A], error) {
+	switch msgType {
+	case MessageTypeProposal:
+		var proposal Proposal[V, H, A]
+		if err := cbor.Unmarshal(data, &proposal); err != nil {
+			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
+		}
+		return walEntry[V, H, A]{Type: MessageTypeProposal, Entry: proposal}, nil
+	case MessageTypePrevote:
+		var vote Prevote[H, A]
+		if err := cbor.Unmarshal(data, &vote); err != nil {
+			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
+		}
+		return walEntry[V, H, A]{Type: MessageTypePrevote, Entry: vote}, nil
+	case MessageTypePrecommit:
+		var vote Precommit[H, A]
+		if err := cbor.Unmarshal(data, &vote); err != nil {
+			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
+		}
+		return walEntry[V, H, A]{Type: MessageTypePrecommit, Entry: vote}, nil
+	default:
+		return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgType.String())
+	}
 }
 
 // MessageType represents the type of message stored in the WAL.
@@ -51,7 +107,7 @@ type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
 	// CommitBatch writes the accumulated batch operations to the underlying database.
 	CommitBatch() error
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
-	GetWALMsgs(height height) ([]walEntry, error)
+	GetWALMsgs(height height) ([]walEntry[V, H, A], error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
 	SetWALEntry(entry IsWALMsg, height height) error
 	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
@@ -147,7 +203,7 @@ func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 
 // SetWALEntry implements TMDBInterface.
 func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
-	wrapper := walEntry{
+	wrapper := walEntry[V, H, A]{
 		Type:  entry.msgType(),
 		Entry: entry,
 	}
@@ -173,38 +229,20 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 }
 
 // GetWALMsgs implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry, error) {
+func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry[V, H, A], error) {
 	rawEntries, err := s.scanWALRaw(height)
 	if err != nil {
 		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
 	}
 
-	walMsgs := make([]walEntry, len(rawEntries))
+	walMsgs := make([]walEntry[V, H, A], len(rawEntries))
 
 	for i, rawEntry := range rawEntries {
-		var wrapperType struct {
-			Type    MessageType     `cbor:"type"`
-			RawData cbor.RawMessage `cbor:"data"` // Golang can't unmarshal to an interface
+		var walMsg walEntry[V, H, A]
+		if err := cbor.Unmarshal(rawEntry, &walMsg); err != nil {
+			return nil, err
 		}
-		if err := cbor.Unmarshal(rawEntry, &wrapperType); err != nil {
-			return nil, fmt.Errorf("GetWALMsgs: failed to decode CBOR wrapper for entry %d at height %d: %w", i, height, err)
-		}
-		switch wrapperType.Type {
-		case MessageTypeTimeout:
-			var to timeout
-			if err := cbor.Unmarshal(wrapperType.RawData, &to); err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: failed to unmarshal timeout data for entry %d at height %d: %w", i, height, err)
-			}
-			walMsgs[i] = walEntry{Type: MessageTypeTimeout, Entry: to}
-		case MessageTypeProposal, MessageTypePrevote, MessageTypePrecommit:
-			walEntry, err := cborUnmarshalMsg[V, H, A](wrapperType.Type, wrapperType.RawData)
-			if err != nil {
-				return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapperType.Type, i, height, err)
-			}
-			walMsgs[i] = walEntry
-		default:
-			return nil, fmt.Errorf("GetWALMsgs: failed to decode message type %q for entry %d at height %d: %w", wrapperType.Type, i, height, err)
-		}
+		walMsgs[i] = walMsg
 	}
 	return walMsgs, nil
 }
@@ -246,33 +284,6 @@ func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 		return nil, fmt.Errorf("scanWALRaw: db view error: %w", err)
 	}
 	return rawEntries, nil
-}
-
-// cborUnmarshalMsg decodes the inner CBOR message data based on the provided type string.
-// It assumes the outer wrapper has already been decoded.
-func cborUnmarshalMsg[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (walEntry, error) {
-	switch msgType {
-	case MessageTypeProposal:
-		var proposal Proposal[V, H, A]
-		if err := cbor.Unmarshal(data, &proposal); err != nil {
-			return walEntry{}, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
-		}
-		return walEntry{Type: MessageTypeProposal, Entry: proposal}, nil
-	case MessageTypePrevote:
-		var vote Prevote[H, A]
-		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return walEntry{}, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
-		}
-		return walEntry{Type: MessageTypePrevote, Entry: vote}, nil
-	case MessageTypePrecommit:
-		var vote Precommit[H, A]
-		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return walEntry{}, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
-		}
-		return walEntry{Type: MessageTypePrecommit, Entry: vote}, nil
-	default:
-		return walEntry{}, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgType.String())
-	}
 }
 
 func encodeHeight(height height) []byte {

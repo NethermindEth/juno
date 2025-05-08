@@ -1,6 +1,7 @@
 package tendermint
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -79,6 +80,7 @@ func TestSetAndGetWAL(t *testing.T) {
 	)
 
 	for _, entry := range retrievedEntries {
+		fmt.Println(entry)
 		switch entry.Type {
 		case MessageTypeProposal:
 			require.Nil(t, proposalFound, "Found multiple proposals")
