@@ -187,7 +187,7 @@ func NewDriver[V Hashable[H], H Hash, A Addr](database db.KeyValueStore, nodeAdd
 	vals Validators[A], listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
-		db:               NewTMDB[V, H, A](database, chain.Height()),
+		db:               NewTendermintDB[V, H, A](database, chain.Height()),
 		stateMachine:     New(nodeAddr, app, chain, vals),
 		timeoutPropose:   tmPropose,
 		timeoutPrevote:   tmPrevote,

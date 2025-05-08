@@ -10,29 +10,6 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// Example DB layout for storing Tendermint WAL messages per height:
-//
-// We use two primary key prefixes based on db.BucketConsensus:
-//
-// 1. db.WALEntryCount: Stores the total number of messages (proposals, votes, timeouts)
-//    for a given height.
-//    - Key: db.WALEntryCount + <heightBytes>
-//    - Value: <countBytes>
-//    - Acts as a 1-based index for the individual message keys.
-//
-// 2. db.WALEntry: Stores the actual CBOR-encoded wrapped messages or timeouts.
-//    - Key: db.WALEntry + <heightBytes> + <iterBytes>
-//    - Value: CBOR-encoded wrapped Msg/Timeout
-//    - <iterBytes> ranges from 1 to the count stored under db.WALEntryCount.
-//
-// Both <heightBytes> and <iterBytes> are 4-byte big-endian uint32 representations.
-//
-// Batching:
-// We use a Batch (db.IndexedBatch) to accumulate writes before committing them to the DB.
-// This reduces expensive disk I/O. Reads check the batch first.
-// WARNING: If the process crashes before Commit(), buffered messages are lost,
-// risking consensus issues like equivocation (missing votes, double-signing).
-
 const NumBytesForHeight = 4
 
 type walIter uint32
@@ -82,14 +59,18 @@ type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
 }
 
 // tendermintDB provides database access for Tendermint consensus state.
+// We use a Batch to accumulate writes before committing them to the DB.
+// This reduces expensive disk I/O. Reads check the batch first.
+// WARNING: If the process crashes before Commit(), buffered messages are lost,
+// risking consensus issues like equivocation (missing votes, double-signing).
 type tendermintDB[V Hashable[H], H Hash, A Addr] struct {
 	db       db.KeyValueStore
 	batch    db.Batch
 	walCount map[height]walIter
 }
 
-// NewTMDB creates a new TMDB instance implementing the TMDBInterface.
-func NewTMDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TendermintDB[V, H, A] {
+// NewTendermintDB creates a new TMDB instance implementing the TMDBInterface.
+func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TendermintDB[V, H, A] {
 	tmdb := tendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
 
 	walCount := make(map[height]walIter)
@@ -112,7 +93,7 @@ func (s *tendermintDB[V, H, A]) CommitBatch() error {
 // getWALCount scans the DB for the number of WAL messages at a given height.
 // It panics if the DB scan fails.
 func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
-	prefix := tmdb.WALEntry.Key(heightToBytes(height))
+	prefix := tmdb.WALEntry.Key(encodeHeight(height))
 	count := walIter(0)
 
 	err := s.db.View(func(snap db.Snapshot) error {
@@ -149,7 +130,7 @@ func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 		return nil
 	}
 
-	heightBytes := heightToBytes(height)
+	heightBytes := encodeHeight(height)
 
 	startIterBytes := encodeNumMsgsAtHeight(walIter(1))
 	endIterBytes := encodeNumMsgsAtHeight(walIter(uint32(numMsgs + 1)))
@@ -182,7 +163,7 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
 	nextNumMsgsAtHeightBytes := encodeNumMsgsAtHeight(nextNumMsgsAtHeight)
 
-	msgKey := tmdb.WALEntry.Key(heightToBytes(height), nextNumMsgsAtHeightBytes)
+	msgKey := tmdb.WALEntry.Key(encodeHeight(height), nextNumMsgsAtHeightBytes)
 	if err := s.batch.Put(msgKey, wrappedEntry); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
@@ -298,7 +279,7 @@ func decodeWALMessageData[V Hashable[H], H Hash, A Addr](msgType MessageType, da
 	}
 }
 
-func heightToBytes(height height) []byte {
+func encodeHeight(height height) []byte {
 	heightBytes := make([]byte, NumBytesForHeight)
 	binary.BigEndian.PutUint32(heightBytes, uint32(height))
 	return heightBytes
