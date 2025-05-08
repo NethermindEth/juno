@@ -27,52 +27,36 @@ func (w *walEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
 	if err := cbor.Unmarshal(data, &wrapperType); err != nil {
 		return err
 	}
+	w.Type = wrapperType.Type
 	switch wrapperType.Type {
 	case MessageTypeTimeout:
 		var to timeout
 		if err := cbor.Unmarshal(wrapperType.RawData, &to); err != nil {
 			return err
 		}
-		w.Type = MessageTypeTimeout
 		w.Entry = to
-	case MessageTypeProposal, MessageTypePrevote, MessageTypePrecommit:
-		walEntry, err := cborUnmarshalMsg[V, H, A](wrapperType.Type, wrapperType.RawData)
-		if err != nil {
+	case MessageTypeProposal:
+		var proposal Proposal[V, H, A]
+		if err := cbor.Unmarshal(wrapperType.RawData, &proposal); err != nil {
 			return err
 		}
-		w.Type = walEntry.Type
-		w.Entry = walEntry.Entry
+		w.Entry = proposal
+	case MessageTypePrevote:
+		var vote Prevote[H, A]
+		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
+			return err
+		}
+		w.Entry = vote
+	case MessageTypePrecommit:
+		var vote Precommit[H, A]
+		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
+			return err
+		}
+		w.Entry = vote
 	default:
 		return fmt.Errorf("failed to unmarshal walEntry, unknown type")
 	}
 	return nil
-}
-
-// cborUnmarshalMsg decodes the inner CBOR message data based on the provided type string.
-// It assumes the outer wrapper has already been decoded.
-func cborUnmarshalMsg[V Hashable[H], H Hash, A Addr](msgType MessageType, data cbor.RawMessage) (walEntry[V, H, A], error) {
-	switch msgType {
-	case MessageTypeProposal:
-		var proposal Proposal[V, H, A]
-		if err := cbor.Unmarshal(data, &proposal); err != nil {
-			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Proposal unmarshal failed: %w", err)
-		}
-		return walEntry[V, H, A]{Type: MessageTypeProposal, Entry: proposal}, nil
-	case MessageTypePrevote:
-		var vote Prevote[H, A]
-		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Prevote unmarshal failed: %w", err)
-		}
-		return walEntry[V, H, A]{Type: MessageTypePrevote, Entry: vote}, nil
-	case MessageTypePrecommit:
-		var vote Precommit[H, A]
-		if err := cbor.Unmarshal(data, &vote); err != nil {
-			return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: Precommit unmarshal failed: %w", err)
-		}
-		return walEntry[V, H, A]{Type: MessageTypePrecommit, Entry: vote}, nil
-	default:
-		return walEntry[V, H, A]{}, fmt.Errorf("decodeWALMessageData: unknown message type string %q", msgType.String())
-	}
 }
 
 // MessageType represents the type of message stored in the WAL.
