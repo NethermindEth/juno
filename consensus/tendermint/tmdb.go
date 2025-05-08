@@ -206,26 +206,8 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 
 // GetWALMsgs implements TMDBInterface.
 func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry[V, H, A], error) {
-	rawEntries, err := s.scanWALRaw(height)
-	if err != nil {
-		return nil, fmt.Errorf("GetWALMsgs: failed to scan raw WAL entries for height %d: %w", height, err)
-	}
-
-	walMsgs := make([]walEntry[V, H, A], len(rawEntries))
-
-	for i, rawEntry := range rawEntries {
-		if err := cbor.Unmarshal(rawEntry, &walMsgs[i]); err != nil {
-			return nil, err
-		}
-	}
-	return walMsgs, nil
-}
-
-// scanWALRaw iterates over raw WAL entries in the database for a given height.
-func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
+	walMsgs := make([]walEntry[V, H, A], s.walCount[height])
 	startKey := tmdb.WALEntry.Key(encodeHeight(height))
-	rawEntries := [][]byte{}
-
 	err := s.db.View(func(snap db.Snapshot) error {
 		iter, err := snap.NewIterator(startKey, true)
 		if err != nil {
@@ -237,22 +219,24 @@ func (s *tendermintDB[V, H, A]) scanWALRaw(height height) ([][]byte, error) {
 			// Changed error message slightly for clarity
 			return fmt.Errorf("failed to seek to start key when scanning WAL msgs")
 		}
-
+		msgId := 0
 		for ; iter.Valid(); iter.Next() {
+			fmt.Println(len(s.walCount), msgId)
 			v, err := iter.Value()
 			if err != nil {
 				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
 			}
-			valueCopy := make([]byte, len(v))
-			copy(valueCopy, v)
-			rawEntries = append(rawEntries, valueCopy)
+			if err := cbor.Unmarshal(v, &walMsgs[msgId]); err != nil {
+				return err
+			}
+			msgId++
 		}
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scanWALRaw: db view error: %w", err)
 	}
-	return rawEntries, nil
+	return walMsgs, nil
 }
 
 func encodeHeight(height height) []byte {
