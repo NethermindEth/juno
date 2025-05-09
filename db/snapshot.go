@@ -5,6 +5,7 @@ package db
 type Snapshot interface {
 	KeyValueReader
 	Iterable
+	Close() error
 }
 
 // Produces a read-only snapshot of the database

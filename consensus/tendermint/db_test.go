@@ -1,142 +1,101 @@
 package tendermint
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
 // Test helper to get a TMDBInterface instance
-func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
+func newTestTMDB(t *testing.T) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore, string) {
 	t.Helper()
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, height(0))
 	require.NotNil(t, tmState)
-	return tmState
+	return tmState, testDB, dbPath
 }
 
-func TestSetAndGetWAL(t *testing.T) {
-	tmState := newTestTMDB(t)
+func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore) {
+	t.Helper()
+	require.NoError(t, oldDB.Close())
+
+	newDB, err := pebble.New(dbPath)
+	require.NoError(t, err)
+
+	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](newDB, height(0))
+	return tmState, newDB
+}
+
+func TestWALLifecycle(t *testing.T) {
 	testHeight := height(1000)
 	testRound := round(1)
 	testStep := prevote
+
 	sender1 := *new(felt.Felt).SetUint64(1)
 	sender2 := *new(felt.Felt).SetUint64(2)
 	sender3 := *new(felt.Felt).SetUint64(3)
 	var val1 value = 10
 	valHash1 := val1.Hash()
 
-	// Create Messages
-	proposalMessage := Proposal[value, felt.Felt, felt.Felt]{
+	proposal := Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
 		ValidRound:    testRound,
 		Value:         utils.HeapPtr(val1),
 	}
-	prevoteMessage := Prevote[felt.Felt, felt.Felt]{
+	prevote := Prevote[felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender2},
 		ID:            &valHash1,
 	}
-	precommitMessage := Precommit[felt.Felt, felt.Felt]{
+	precommit := Precommit[felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender3},
 		ID:            &valHash1,
 	}
-	timeoutEvent := &timeout{
-		Height: testHeight,
-		Round:  testRound,
-		Step:   testStep,
-	}
+	timeoutMsg := timeout{Height: testHeight, Round: testRound, Step: testStep}
 
 	expectedEntries := []walEntry[value, felt.Felt, felt.Felt]{
-		{
-			Type:  MessageTypeProposal,
-			Entry: proposalMessage,
-		},
-		{
-			Type:  MessageTypePrevote,
-			Entry: prevoteMessage,
-		},
-		{
-			Type:  MessageTypePrecommit,
-			Entry: precommitMessage,
-		},
-		{
-			Type:  MessageTypeTimeout,
-			Entry: *timeoutEvent,
-		},
+		{Type: MessageTypeProposal, Entry: proposal},
+		{Type: MessageTypePrevote, Entry: prevote},
+		{Type: MessageTypePrecommit, Entry: precommit},
+		{Type: MessageTypeTimeout, Entry: timeoutMsg},
 	}
 
-	for _, entry := range expectedEntries {
-		require.NoError(t, tmState.SetWALEntry(entry.Entry))
-	}
+	tmState, db, dbPath := newTestTMDB(t)
 
-	// Commit the Batch
-	require.NoError(t, tmState.CommitBatch())
+	t.Run("Write entries", func(t *testing.T) {
+		for _, entry := range expectedEntries {
+			require.NoError(t, tmState.SetWALEntry(entry.Entry))
+		}
+	})
 
-	// Retrieve all WAL messages
-	retrievedEntries, err := tmState.GetWALMsgs(testHeight)
-	require.NoError(t, err, "Error getting WAL messages")
-	require.Len(t, retrievedEntries, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)")
+	t.Run("Commit batch and get entries", func(t *testing.T) {
+		require.NoError(t, tmState.CommitBatch())
+		retrieved, err := tmState.GetWALMsgs(testHeight)
+		require.NoError(t, err)
+		require.ElementsMatch(t, expectedEntries, retrieved)
+	})
 
-	require.ElementsMatch(t, expectedEntries, retrievedEntries, "Mismatch between expected and retrieved WAL entries")
-}
+	t.Run("Reload the db and get entries", func(t *testing.T) {
+		tmState, _ = reopenTestTMDB(t, db, dbPath)
+		retrieved, err := tmState.GetWALMsgs(testHeight)
+		fmt.Println("retrieved", retrieved)
+		require.NoError(t, err)
+		require.ElementsMatch(t, expectedEntries, retrieved)
+	})
 
-func TestDeleteMsgsAtHeight(t *testing.T) {
-	tmState := newTestTMDB(t)
-	testHeight := height(2000)
-	testRound := round(5)
-	sender1 := *new(felt.Felt).SetUint64(101)
-	var val1 value = 99
-	valHash1 := val1.Hash()
+	t.Run("Delete entries", func(t *testing.T) {
+		require.NoError(t, tmState.DeleteWALMsgs(testHeight))
+	})
 
-	// Add some messages for the test height using SetWALEntry
-	proposal := Proposal[value, felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
-		Value:         &val1,
-	}
-	prevote := Prevote[felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
-		ID:            &valHash1,
-	}
-	timeout := &timeout{Height: testHeight, Round: testRound, Step: propose}
-
-	expectedEntries := []walEntry[value, felt.Felt, felt.Felt]{
-		{
-			Type:  MessageTypeProposal,
-			Entry: proposal,
-		},
-		{
-			Type:  MessageTypePrevote,
-			Entry: prevote,
-		},
-		{
-			Type:  MessageTypeTimeout,
-			Entry: *timeout,
-		},
-	}
-
-	// Set the msgs
-	for _, entry := range expectedEntries {
-		require.NoError(t, tmState.SetWALEntry(entry.Entry))
-	}
-
-	// Commit the initial messages
-	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")
-
-	retrievedBefore, err := tmState.GetWALMsgs(testHeight)
-	require.NoError(t, err, "Failed to get WAL messages before delete")
-	require.ElementsMatch(t, expectedEntries, retrievedBefore, "Mismatch between expected and retrieved WAL entries")
-
-	// Call DeleteMsgsAtHeight
-	require.NoError(t, tmState.DeleteWALMsgs(testHeight), "Failed to call DeleteMsgsAtHeight")
-
-	// Commit the deletion batch
-	require.NoError(t, tmState.CommitBatch(), "Failed to commit deletion batch")
-
-	_, err = tmState.GetWALMsgs(testHeight)
-	require.Error(t, err)
+	t.Run("Commit batch and get entries (after deletion)", func(t *testing.T) {
+		require.NoError(t, tmState.CommitBatch())
+		_, err := tmState.GetWALMsgs(testHeight)
+		require.Error(t, err)
+	})
 }

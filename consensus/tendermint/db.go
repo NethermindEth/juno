@@ -117,7 +117,7 @@ func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h heigh
 	walCount := make(map[height]walMsgCount)
 	walCount[h] = tmdb.getWALCount(h)
 	tmdb.walCount = walCount
-
+	fmt.Println("walCount[h]", walCount[h])
 	return &tmdb
 }
 
@@ -136,15 +136,15 @@ func (s *tendermintDB[V, H, A]) CommitBatch() error {
 func (s *tendermintDB[V, H, A]) getWALCount(height height) walMsgCount {
 	prefix := tmdb.WALEntry.Key(encodeHeight(height))
 	count := walMsgCount(0)
-
 	err := s.db.View(func(snap db.Snapshot) error {
-		iter, err := snap.NewIterator(prefix, false)
+		defer snap.Close()
+		iter, err := snap.NewIterator(prefix, true)
 		if err != nil {
 			return err
 		}
-		defer iter.Close()
 
-		for ; iter.Valid(); iter.Next() {
+		defer iter.Close()
+		for iter.Seek(prefix); iter.Valid(); iter.Next() {
 			key := iter.Key()
 			if !bytes.HasPrefix(key, prefix) {
 				break
@@ -204,9 +204,14 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg) error {
 
 // GetWALMsgs implements TMDBInterface.
 func (s *tendermintDB[V, H, A]) GetWALMsgs(height height) ([]walEntry[V, H, A], error) {
-	walMsgs := make([]walEntry[V, H, A], s.walCount[height])
+	numEntries := s.walCount[height]
+	walMsgs := make([]walEntry[V, H, A], numEntries)
+	if numEntries == 0 {
+		return walMsgs, nil
+	}
 	startKey := tmdb.WALEntry.Key(encodeHeight(height))
 	err := s.db.View(func(snap db.Snapshot) error {
+		defer snap.Close()
 		iter, err := snap.NewIterator(startKey, true)
 		if err != nil {
 			return err

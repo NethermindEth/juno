@@ -61,7 +61,6 @@ func (s *snapshot) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator,
 	if err != nil {
 		return nil, err
 	}
-
 	return &iterator{iter: it}, nil
 }
 
