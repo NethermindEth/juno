@@ -144,9 +144,6 @@ func (s *tendermintDB[V, H, A]) getWALCount(height height) walMsgCount {
 		}
 		defer iter.Close()
 
-		if !iter.Seek(prefix) {
-			return nil // No entries for this height
-		}
 		for ; iter.Valid(); iter.Next() {
 			key := iter.Key()
 			if !bytes.HasPrefix(key, prefix) {

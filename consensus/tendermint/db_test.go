@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -13,6 +12,7 @@ import (
 
 // Test helper to get a TMDBInterface instance
 func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
+	t.Helper()
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
@@ -80,7 +80,6 @@ func TestSetAndGetWAL(t *testing.T) {
 	)
 
 	for _, entry := range retrievedEntries {
-		fmt.Println(entry)
 		switch entry.Type {
 		case MessageTypeProposal:
 			require.Nil(t, proposalFound, "Found multiple proposals")
