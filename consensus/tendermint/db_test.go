@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,11 +18,6 @@ func newTestTMDB(t *testing.T) TendermintDB[value, felt.Felt, felt.Felt] {
 	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, height(0))
 	require.NotNil(t, tmState)
 	return tmState
-}
-
-func TestCommitBatch(t *testing.T) {
-	tmState := newTestTMDB(t)
-	require.NoError(t, tmState.CommitBatch())
 }
 
 func TestSetAndGetWAL(t *testing.T) {
@@ -57,11 +51,28 @@ func TestSetAndGetWAL(t *testing.T) {
 		Step:   testStep,
 	}
 
-	// Store Messages using SetWALEntry
-	require.NoError(t, tmState.SetWALEntry(proposalMessage))
-	require.NoError(t, tmState.SetWALEntry(prevoteMessage))
-	require.NoError(t, tmState.SetWALEntry(precommitMessage))
-	require.NoError(t, tmState.SetWALEntry(timeoutEvent))
+	expectedEntries := []walEntry[value, felt.Felt, felt.Felt]{
+		{
+			Type:  MessageTypeProposal,
+			Entry: proposalMessage,
+		},
+		{
+			Type:  MessageTypePrevote,
+			Entry: prevoteMessage,
+		},
+		{
+			Type:  MessageTypePrecommit,
+			Entry: precommitMessage,
+		},
+		{
+			Type:  MessageTypeTimeout,
+			Entry: *timeoutEvent,
+		},
+	}
+
+	for _, entry := range expectedEntries {
+		require.NoError(t, tmState.SetWALEntry(entry.Entry))
+	}
 
 	// Commit the Batch
 	require.NoError(t, tmState.CommitBatch())
@@ -71,50 +82,7 @@ func TestSetAndGetWAL(t *testing.T) {
 	require.NoError(t, err, "Error getting WAL messages")
 	require.Len(t, retrievedEntries, 4, "Expected 4 total entries (1 proposal, 1 prevote, 1 precommit, 1 timeout)")
 
-	// Assert Messages by Type
-	var (
-		proposalFound  *Proposal[value, felt.Felt, felt.Felt]
-		prevoteFound   *Prevote[felt.Felt, felt.Felt]
-		precommitFound *Precommit[felt.Felt, felt.Felt]
-		timeoutFound   *timeout
-	)
-
-	for _, entry := range retrievedEntries {
-		switch entry.Type {
-		case MessageTypeProposal:
-			require.Nil(t, proposalFound, "Found multiple proposals")
-			// Need to copy msg because the loop variable 'msg' will be reused
-			found := (entry.Entry).(Proposal[value, felt.Felt, felt.Felt])
-			proposalFound = &found
-		case MessageTypePrevote:
-			require.Nil(t, prevoteFound, "Found multiple prevotes")
-			found := (entry.Entry).(Prevote[felt.Felt, felt.Felt])
-			prevoteFound = &found
-		case MessageTypePrecommit:
-			require.Nil(t, precommitFound, "Found multiple precommits")
-			found := (entry.Entry).(Precommit[felt.Felt, felt.Felt])
-			precommitFound = &found
-		case MessageTypeTimeout:
-			require.Nil(t, timeoutFound, "Found multiple timeouts")
-			msg := (entry.Entry).(timeout)
-			timeoutFound = &msg
-		default:
-			t.Fatalf("Found unexpected message type in WAL: %T", entry)
-		}
-	}
-
-	// Assert that each expected message type was found exactly once
-	require.NotNil(t, proposalFound, "Proposal message not found")
-	assert.Equal(t, proposalMessage, *proposalFound, "Retrieved proposal mismatch")
-
-	require.NotNil(t, prevoteFound, "Prevote message not found")
-	assert.Equal(t, prevoteMessage, *prevoteFound, "Retrieved prevote mismatch")
-
-	require.NotNil(t, precommitFound, "Precommit message not found")
-	assert.Equal(t, precommitMessage, *precommitFound, "Retrieved precommit mismatch")
-
-	require.NotNil(t, timeoutFound, "Timeout message not found")
-	assert.Equal(t, *timeoutEvent, *timeoutFound, "Retrieved timeout mismatch")
+	require.ElementsMatch(t, expectedEntries, retrievedEntries, "Mismatch between expected and retrieved WAL entries")
 }
 
 func TestDeleteMsgsAtHeight(t *testing.T) {
@@ -136,16 +104,32 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	}
 	timeout := &timeout{Height: testHeight, Round: testRound, Step: propose}
 
-	require.NoError(t, tmState.SetWALEntry(proposal))
-	require.NoError(t, tmState.SetWALEntry(prevote))
-	require.NoError(t, tmState.SetWALEntry(timeout))
+	expectedEntries := []walEntry[value, felt.Felt, felt.Felt]{
+		{
+			Type:  MessageTypeProposal,
+			Entry: proposal,
+		},
+		{
+			Type:  MessageTypePrevote,
+			Entry: prevote,
+		},
+		{
+			Type:  MessageTypeTimeout,
+			Entry: *timeout,
+		},
+	}
+
+	// Set the msgs
+	for _, entry := range expectedEntries {
+		require.NoError(t, tmState.SetWALEntry(entry.Entry))
+	}
 
 	// Commit the initial messages
 	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")
 
 	retrievedBefore, err := tmState.GetWALMsgs(testHeight)
 	require.NoError(t, err, "Failed to get WAL messages before delete")
-	require.Len(t, retrievedBefore, 3, "Incorrect number of WAL messages retrieved before delete")
+	require.ElementsMatch(t, expectedEntries, retrievedBefore, "Mismatch between expected and retrieved WAL entries")
 
 	// Call DeleteMsgsAtHeight
 	require.NoError(t, tmState.DeleteWALMsgs(testHeight), "Failed to call DeleteMsgsAtHeight")

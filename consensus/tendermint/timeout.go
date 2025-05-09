@@ -14,6 +14,7 @@ func (t timeout) msgType() MessageType {
 func (t timeout) height() height {
 	return t.Height
 }
+
 func (t *Tendermint[V, H, A]) onTimeoutPropose(h height, r round) Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == propose {
 		return t.setStepAndSendPrevote(nil)

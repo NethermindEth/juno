@@ -39,6 +39,7 @@ func (p Prevote[H, A]) msgType() MessageType {
 func (p Prevote[H, A]) height() height {
 	return p.Height
 }
+
 func (p Precommit[H, A]) msgType() MessageType {
 	return MessageTypePrecommit
 }
