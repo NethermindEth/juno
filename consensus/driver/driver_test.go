@@ -15,6 +15,11 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+const (
+	seed        = 20250509 // The day we write this test
+	actionCount = 10
+)
+
 type expectedBroadcast struct {
 	proposals  []tendermint.Proposal[value, felt.Felt, felt.Felt]
 	prevotes   []tendermint.Prevote[felt.Felt, felt.Felt]
@@ -54,9 +59,6 @@ func (m *mockBroadcaster[M]) Broadcast(msg M) {
 	m.wg.Done()
 }
 
-func (m *mockBroadcaster[M]) SendMsg(addr felt.Felt, msg M) {
-}
-
 func mockListeners(
 	proposalCh chan tendermint.Proposal[value, felt.Felt, felt.Felt],
 	prevoteCh chan tendermint.Prevote[felt.Felt, felt.Felt],
@@ -81,62 +83,64 @@ func mockTimeoutFn(step tendermint.Step, round tendermint.Round) time.Duration {
 	return 1 * time.Millisecond
 }
 
-func getRandMessageHeader() tendermint.MessageHeader[felt.Felt] {
+func getRandMessageHeader(random *rand.Rand) tendermint.MessageHeader[felt.Felt] {
 	return tendermint.MessageHeader[felt.Felt]{
-		Height: tendermint.Height(rand.Uint32()),
-		Round:  tendermint.Round(rand.Int()),
-		Sender: felt.FromUint64(rand.Uint64()),
+		Height: tendermint.Height(random.Uint32()),
+		Round:  tendermint.Round(random.Int()),
+		Sender: felt.FromUint64(random.Uint64()),
 	}
 }
 
-func getRandProposal() tendermint.Proposal[value, felt.Felt, felt.Felt] {
+func getRandProposal(random *rand.Rand) tendermint.Proposal[value, felt.Felt, felt.Felt] {
 	return tendermint.Proposal[value, felt.Felt, felt.Felt]{
-		MessageHeader: getRandMessageHeader(),
-		Value:         utils.HeapPtr(value(rand.Uint64())),
-		ValidRound:    tendermint.Round(rand.Int()),
+		MessageHeader: getRandMessageHeader(random),
+		Value:         utils.HeapPtr(value(random.Uint64())),
+		ValidRound:    tendermint.Round(random.Int()),
 	}
 }
 
-func getRandPrevote() tendermint.Prevote[felt.Felt, felt.Felt] {
+func getRandPrevote(random *rand.Rand) tendermint.Prevote[felt.Felt, felt.Felt] {
 	return tendermint.Prevote[felt.Felt, felt.Felt]{
-		MessageHeader: getRandMessageHeader(),
-		ID:            utils.HeapPtr(felt.FromUint64(rand.Uint64())),
+		MessageHeader: getRandMessageHeader(random),
+		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
 	}
 }
 
-func getRandPrecommit() tendermint.Precommit[felt.Felt, felt.Felt] {
+func getRandPrecommit(random *rand.Rand) tendermint.Precommit[felt.Felt, felt.Felt] {
 	return tendermint.Precommit[felt.Felt, felt.Felt]{
-		MessageHeader: getRandMessageHeader(),
-		ID:            utils.HeapPtr(felt.FromUint64(rand.Uint64())),
+		MessageHeader: getRandMessageHeader(random),
+		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
 	}
 }
 
-func getRandTimeout(step tendermint.Step) tendermint.Timeout {
+func getRandTimeout(random *rand.Rand, step tendermint.Step) tendermint.Timeout {
 	return tendermint.Timeout{
-		Height: tendermint.Height(rand.Uint32()),
+		Height: tendermint.Height(random.Uint32()),
 		Step:   step,
-		Round:  tendermint.Round(rand.Int()),
+		Round:  tendermint.Round(random.Int()),
 	}
 }
 
-const (
-	actionCount = 10
-)
-
-func registerActions(expectedBroadcast *expectedBroadcast) []tendermint.Action[value, felt.Felt, felt.Felt] {
+// generateAndRegisterRandomActions generates a fixed number of randomised Tendermint actions.
+// Each action is a broadcast proposal, prevote, or precommit, and is also
+// recorded in the corresponding field of expectedBroadcast.
+func generateAndRegisterRandomActions(
+	random *rand.Rand,
+	expectedBroadcast *expectedBroadcast,
+) []tendermint.Action[value, felt.Felt, felt.Felt] {
 	actions := make([]tendermint.Action[value, felt.Felt, felt.Felt], actionCount)
 	for i := range actionCount {
-		switch rand.Int() % 3 {
+		switch random.Int() % 3 {
 		case 0:
-			proposal := getRandProposal()
+			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, proposal)
 			actions[i] = utils.HeapPtr(tendermint.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
 		case 1:
-			prevote := getRandPrevote()
+			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
 			actions[i] = utils.HeapPtr(tendermint.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
 		case 2:
-			precommit := getRandPrecommit()
+			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
 			actions[i] = utils.HeapPtr(tendermint.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
 		}
@@ -148,14 +152,14 @@ func toAction(timeout tendermint.Timeout) tendermint.Action[value, felt.Felt, fe
 	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
 }
 
-func requireBroadcast[M tendermint.Message[value, felt.Felt, felt.Felt]](
+func increaseBroadcasterWaitGroup[M tendermint.Message[value, felt.Felt, felt.Felt]](
 	expectedBroadcast []M,
 	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
 ) {
 	broadcaster.(*mockBroadcaster[M]).wg.Add(len(expectedBroadcast))
 }
 
-func assertBroadcast[M tendermint.Message[value, felt.Felt, felt.Felt]](
+func waitAndAssertBroadcaster[M tendermint.Message[value, felt.Felt, felt.Felt]](
 	t *testing.T,
 	expectedBroadcast []M,
 	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
@@ -170,6 +174,7 @@ func assertBroadcast[M tendermint.Message[value, felt.Felt, felt.Felt]](
 }
 
 func TestDriver(t *testing.T) {
+	random := rand.New(rand.NewSource(seed))
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -183,25 +188,36 @@ func TestDriver(t *testing.T) {
 	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
 	driver := driver.New(stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
-	inputTimeoutProposal := getRandTimeout(tendermint.StepPropose)
-	inputTimeoutPrevote := getRandTimeout(tendermint.StepPrevote)
-	inputTimeoutPrecommit := getRandTimeout(tendermint.StepPrecommit)
+	inputTimeoutProposal := getRandTimeout(random, tendermint.StepPropose)
+	inputTimeoutPrevote := getRandTimeout(random, tendermint.StepPrevote)
+	inputTimeoutPrecommit := getRandTimeout(random, tendermint.StepPrecommit)
 
-	inputProposalMsg := getRandProposal()
-	inputPrevoteMsg := getRandPrevote()
-	inputPrecommitMsg := getRandPrecommit()
+	inputProposalMsg := getRandProposal(random)
+	inputPrevoteMsg := getRandPrevote(random)
+	inputPrecommitMsg := getRandPrecommit(random)
 
-	stateMachine.EXPECT().ProcessStart(tendermint.Round(0)).Return(append(registerActions(expectedBroadcast), toAction(inputTimeoutProposal)))
-	stateMachine.EXPECT().ProcessProposal(inputProposalMsg).Return(append(registerActions(expectedBroadcast), toAction(inputTimeoutPrevote)))
-	stateMachine.EXPECT().ProcessPrevote(inputPrevoteMsg).Return(append(registerActions(expectedBroadcast), toAction(inputTimeoutPrecommit)))
+	// The driver receives messages with random heights and rounds from the network [inputProposalMsg, inputPrevoteMsg, inputPrecommitMsg].
+	// These will trigger `ProcessProposal`, `ProcessPrevote` and `ProcessPrecommit` in the stateMachine, which will cause
+	// timeouts to be scheduled (`toAction`). These timeouts will then be triggered (`ProcessTimeout`).
+	// We force the stateMachine to return a random set of actions (`generateAndRegisterRandomActions`) here just to test that
+	// the driver will actually receive them.
+	stateMachine.EXPECT().ProcessStart(tendermint.Round(0)).Return(
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutProposal)),
+	)
+	stateMachine.EXPECT().ProcessProposal(inputProposalMsg).Return(
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrevote)),
+	)
+	stateMachine.EXPECT().ProcessPrevote(inputPrevoteMsg).Return(
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit)),
+	)
 	stateMachine.EXPECT().ProcessPrecommit(inputPrecommitMsg).Return(nil)
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutProposal).Return(registerActions(expectedBroadcast))
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(registerActions(expectedBroadcast))
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(registerActions(expectedBroadcast))
+	stateMachine.EXPECT().ProcessTimeout(inputTimeoutProposal).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
+	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
+	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 
-	requireBroadcast(expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
-	requireBroadcast(expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
-	requireBroadcast(expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
 
 	driver.Start()
 
@@ -215,9 +231,9 @@ func TestDriver(t *testing.T) {
 		precommitCh <- inputPrecommitMsg
 	}()
 
-	assertBroadcast(t, expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
-	assertBroadcast(t, expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
-	assertBroadcast(t, expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
 
 	driver.Stop()
 }

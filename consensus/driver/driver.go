@@ -17,10 +17,6 @@ type Listener[M tendermint.Message[V, H, A], V tendermint.Hashable[H], H tenderm
 type Broadcaster[M tendermint.Message[V, H, A], V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] interface {
 	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
 	Broadcast(M)
-
-	// SendMsg would send a message to a specific validator. This would be required for helping send resquest and
-	// response message to help a specifc validator to catch up.
-	SendMsg(A, M)
 }
 
 type Listeners[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
@@ -67,6 +63,11 @@ func New[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr](
 	}
 }
 
+// The Driver is responsible for listening to messages from the network
+// and passing them into the stateMachine. The stateMachine processes
+// these messages and returns a set of actions to be executed by the Driver.
+// The Driver executes these actions (namely broadcasting messages
+// and triggering scheduled timeouts).
 func (d *Driver[V, H, A]) Start() {
 	d.wg.Add(1)
 	go func() {
