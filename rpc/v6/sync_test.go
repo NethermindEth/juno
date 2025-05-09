@@ -20,7 +20,7 @@ func TestSyncing(t *testing.T) {
 	n := &utils.Mainnet
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, synchronizer, nil, "", n, nil)
+	handler := rpc.New(mockReader, synchronizer, nil, n, nil)
 	defaultSyncState := false
 
 	startingBlock := uint64(0)
