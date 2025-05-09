@@ -23,6 +23,10 @@ func (p Proposal[V, H, A]) msgType() MessageType {
 	return MessageTypeProposal
 }
 
+func (p Proposal[V, H, A]) height() height {
+	return p.Height
+}
+
 type (
 	Prevote[H Hash, A Addr]   Vote[H, A]
 	Precommit[H Hash, A Addr] Vote[H, A]
@@ -32,8 +36,15 @@ func (p Prevote[H, A]) msgType() MessageType {
 	return MessageTypePrevote
 }
 
+func (p Prevote[H, A]) height() height {
+	return p.Height
+}
 func (p Precommit[H, A]) msgType() MessageType {
 	return MessageTypePrecommit
+}
+
+func (p Precommit[H, A]) height() height {
+	return p.Height
 }
 
 type Vote[H Hash, A Addr] struct {

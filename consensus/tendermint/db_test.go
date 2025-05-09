@@ -58,10 +58,10 @@ func TestSetAndGetWAL(t *testing.T) {
 	}
 
 	// Store Messages using SetWALEntry
-	require.NoError(t, tmState.SetWALEntry(proposalMessage, testHeight))
-	require.NoError(t, tmState.SetWALEntry(prevoteMessage, testHeight))
-	require.NoError(t, tmState.SetWALEntry(precommitMessage, testHeight))
-	require.NoError(t, tmState.SetWALEntry(timeoutEvent, testHeight))
+	require.NoError(t, tmState.SetWALEntry(proposalMessage))
+	require.NoError(t, tmState.SetWALEntry(prevoteMessage))
+	require.NoError(t, tmState.SetWALEntry(precommitMessage))
+	require.NoError(t, tmState.SetWALEntry(timeoutEvent))
 
 	// Commit the Batch
 	require.NoError(t, tmState.CommitBatch())
@@ -136,9 +136,9 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	}
 	timeout := &timeout{Height: testHeight, Round: testRound, Step: propose}
 
-	require.NoError(t, tmState.SetWALEntry(proposal, testHeight))
-	require.NoError(t, tmState.SetWALEntry(prevote, testHeight))
-	require.NoError(t, tmState.SetWALEntry(timeout, testHeight))
+	require.NoError(t, tmState.SetWALEntry(proposal))
+	require.NoError(t, tmState.SetWALEntry(prevote))
+	require.NoError(t, tmState.SetWALEntry(timeout))
 
 	// Commit the initial messages
 	require.NoError(t, tmState.CommitBatch(), "Failed to commit initial messages")

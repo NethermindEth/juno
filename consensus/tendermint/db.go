@@ -94,7 +94,7 @@ type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
 	GetWALMsgs(height height) ([]walEntry[V, H, A], error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
-	SetWALEntry(entry IsWALMsg, height height) error
+	SetWALEntry(entry IsWALMsg) error
 	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
 	DeleteWALMsgs(height height) error
 }
@@ -177,7 +177,7 @@ func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 }
 
 // SetWALEntry implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error {
+func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg) error {
 	wrapper := walEntry[V, H, A]{
 		Type:  entry.msgType(),
 		Entry: entry,
@@ -186,7 +186,7 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry IsWALMsg, height height) error
 	if err != nil {
 		return fmt.Errorf("SetWALEntry: marshal wrapper failed: %w", err)
 	}
-
+	height := entry.height()
 	numMsgsAtHeight, ok := s.walCount[height]
 	if !ok {
 		numMsgsAtHeight = 0
