@@ -12,7 +12,8 @@ import (
 
 const NumBytesForHeight = 4
 
-type walIter uint32
+// walMsgCount tracks the number of wal entries at the current height
+type walMsgCount uint32
 
 type walEntry[V Hashable[H], H Hash, A Addr] struct {
 	Type  MessageType `cbor:"type"`
@@ -106,14 +107,14 @@ type TendermintDB[V Hashable[H], H Hash, A Addr] interface {
 type tendermintDB[V Hashable[H], H Hash, A Addr] struct {
 	db       db.KeyValueStore
 	batch    db.Batch
-	walCount map[height]walIter
+	walCount map[height]walMsgCount
 }
 
 // NewTendermintDB creates a new TMDB instance implementing the TMDBInterface.
 func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h height) TendermintDB[V, H, A] {
 	tmdb := tendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
 
-	walCount := make(map[height]walIter)
+	walCount := make(map[height]walMsgCount)
 	walCount[h] = tmdb.getWALCount(h)
 	tmdb.walCount = walCount
 
@@ -132,9 +133,9 @@ func (s *tendermintDB[V, H, A]) CommitBatch() error {
 
 // getWALCount scans the DB for the number of WAL messages at a given height.
 // It panics if the DB scan fails.
-func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
+func (s *tendermintDB[V, H, A]) getWALCount(height height) walMsgCount {
 	prefix := tmdb.WALEntry.Key(encodeHeight(height))
-	count := walIter(0)
+	count := walMsgCount(0)
 
 	err := s.db.View(func(snap db.Snapshot) error {
 		iter, err := snap.NewIterator(prefix, false)
@@ -166,7 +167,7 @@ func (s *tendermintDB[V, H, A]) getWALCount(height height) walIter {
 // Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
 func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height height) error {
 	heightBytes := encodeHeight(height)
-	startIterBytes := encodeNumMsgsAtHeight(walIter(1))
+	startIterBytes := encodeNumMsgsAtHeight(walMsgCount(1))
 
 	startKey := tmdb.WALEntry.Key(heightBytes, startIterBytes)
 	endKey := tmdb.WALEntry.Key(encodeHeight(height + 1))
@@ -244,7 +245,7 @@ func encodeHeight(height height) []byte {
 	return heightBytes
 }
 
-func encodeNumMsgsAtHeight(numMsgsAtHeight walIter) []byte {
+func encodeNumMsgsAtHeight(numMsgsAtHeight walMsgCount) []byte {
 	numMsgsAtHeightBytes := make([]byte, NumBytesForHeight)
 	binary.BigEndian.PutUint32(numMsgsAtHeightBytes, uint32(numMsgsAtHeight))
 	return numMsgsAtHeightBytes

@@ -1,9 +1,9 @@
 package tendermint
 
 type timeout struct {
-	Step   step     `cbor:"s"`
-	Height height   `cbor:"h"`
-	Round  round    `cbor:"r"`
+	Step   step
+	Height height
+	Round  round
 	_      struct{} `cbor:",toarray"`
 }
 

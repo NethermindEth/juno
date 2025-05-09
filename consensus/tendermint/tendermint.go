@@ -249,7 +249,6 @@ func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
 		case *BroadcastPrecommit[H, A]:
 			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
 		case *ScheduleTimeout:
-			// Schedule the timeout
 			var duration time.Duration
 			switch action.Step {
 			case propose:

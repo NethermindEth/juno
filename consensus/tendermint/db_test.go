@@ -129,7 +129,7 @@ func TestDeleteMsgsAtHeight(t *testing.T) {
 	// Add some messages for the test height using SetWALEntry
 	proposal := Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
-		Value:         utils.HeapPtr(val1),
+		Value:         &val1,
 	}
 	prevote := Prevote[felt.Felt, felt.Felt]{
 		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
