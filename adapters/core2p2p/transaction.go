@@ -86,17 +86,19 @@ func AdaptTransaction(transaction core.Transaction) *gen.Transaction {
 		case tx.Version.Is(3):
 			specTx.Txn = &gen.Transaction_DeclareV3_{
 				DeclareV3: &gen.Transaction_DeclareV3{
-					Sender:                    AdaptAddress(tx.SenderAddress),
-					Signature:                 AdaptAccountSignature(tx.Signature()),
-					ClassHash:                 AdaptHash(tx.ClassHash),
-					Nonce:                     AdaptFelt(tx.Nonce),
-					CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
-					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
-					Tip:                       tx.Tip,
-					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-					AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
-					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
-					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+					Common: &gen.DeclareV3Common{
+						Sender:                    AdaptAddress(tx.SenderAddress),
+						Signature:                 AdaptAccountSignature(tx.Signature()),
+						Nonce:                     AdaptFelt(tx.Nonce),
+						CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
+						ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+						Tip:                       tx.Tip,
+						PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+						AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+						NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+						FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+					},
+					ClassHash: AdaptHash(tx.ClassHash),
 				},
 			}
 		default:
