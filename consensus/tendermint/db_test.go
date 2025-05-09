@@ -85,7 +85,7 @@ func TestWALLifecycle(t *testing.T) {
 		tmState, _ = reopenTestTMDB(t, db, dbPath, testHeight)
 		retrieved, err := tmState.GetWALMsgs(testHeight)
 		require.NoError(t, err)
-		require.ElementsMatch(t, expectedEntries, retrieved)
+		require.Equal(t, expectedEntries, retrieved)
 	})
 
 	t.Run("Delete entries", func(t *testing.T) {
