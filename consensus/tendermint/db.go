@@ -117,7 +117,6 @@ func NewTendermintDB[V Hashable[H], H Hash, A Addr](db db.KeyValueStore, h heigh
 	walCount := make(map[height]walMsgCount)
 	walCount[h] = tmdb.getWALCount(h)
 	tmdb.walCount = walCount
-	fmt.Println("walCount[h]", walCount[h])
 	return &tmdb
 }
 

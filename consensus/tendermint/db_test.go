@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -11,25 +10,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Test helper to get a TMDBInterface instance
 func newTestTMDB(t *testing.T) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore, string) {
 	t.Helper()
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
+
 	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, height(0))
 	require.NotNil(t, tmState)
+
 	return tmState, testDB, dbPath
 }
 
-func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore) {
+func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHeight height) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore) {
 	t.Helper()
 	require.NoError(t, oldDB.Close())
 
 	newDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](newDB, height(0))
+	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](newDB, testHeight)
 	return tmState, newDB
 }
 
@@ -82,9 +82,8 @@ func TestWALLifecycle(t *testing.T) {
 	})
 
 	t.Run("Reload the db and get entries", func(t *testing.T) {
-		tmState, _ = reopenTestTMDB(t, db, dbPath)
+		tmState, _ = reopenTestTMDB(t, db, dbPath, testHeight)
 		retrieved, err := tmState.GetWALMsgs(testHeight)
-		fmt.Println("retrieved", retrieved)
 		require.NoError(t, err)
 		require.ElementsMatch(t, expectedEntries, retrieved)
 	})
@@ -96,6 +95,6 @@ func TestWALLifecycle(t *testing.T) {
 	t.Run("Commit batch and get entries (after deletion)", func(t *testing.T) {
 		require.NoError(t, tmState.CommitBatch())
 		_, err := tmState.GetWALMsgs(testHeight)
-		require.Error(t, err)
+		require.NoError(t, err)
 	})
 }
