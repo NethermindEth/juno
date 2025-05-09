@@ -15,8 +15,16 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	MessageHeader[A]
-	ValidRound Round
-	Value      *V
+	ValidRound Round `cbor:"valid_round"`
+	Value      *V    `cbor:"value"`
+}
+
+func (p Proposal[V, H, A]) msgType() MessageType {
+	return MessageTypeProposal
+}
+
+func (p Proposal[V, H, A]) height() Height {
+	return p.Height
 }
 
 type (
@@ -24,15 +32,31 @@ type (
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
 
+func (p Prevote[H, A]) msgType() MessageType {
+	return MessageTypePrevote
+}
+
+func (p Prevote[H, A]) height() Height {
+	return p.Height
+}
+
+func (p Precommit[H, A]) msgType() MessageType {
+	return MessageTypePrecommit
+}
+
+func (p Precommit[H, A]) height() Height {
+	return p.Height
+}
+
 type Vote[H Hash, A Addr] struct {
 	MessageHeader[A]
-	ID *H
+	ID *H `cbor:"id"`
 }
 
 type MessageHeader[A Addr] struct {
-	Height Height
-	Round  Round
-	Sender A
+	Height Height `cbor:"height"`
+	Round  Round  `cbor:"round"`
+	Sender A      `cbor:"sender"`
 }
 
 // messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:

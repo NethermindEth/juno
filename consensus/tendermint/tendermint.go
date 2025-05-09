@@ -168,12 +168,6 @@ func (t *stateMachine[V, H, A]) startRound(r Round) Action[V, H, A] {
 	}
 }
 
-type Timeout struct {
-	Step   Step
-	Height Height
-	Round  Round
-}
-
 func (t *stateMachine[V, H, A]) scheduleTimeout(s Step) Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{

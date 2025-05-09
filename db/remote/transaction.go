@@ -101,3 +101,4 @@ func (t *transaction) Put(key, val []byte) error {
 func (t *transaction) Size() int    { return 0 }
 func (t *transaction) Reset()       {}
 func (t *transaction) Write() error { return nil }
+func (t *transaction) Close() error { return t.client.CloseSend() }
