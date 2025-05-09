@@ -13,7 +13,7 @@ Check the upon condition on line 55:
 
 If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
-func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
+func (t *stateMachine[V, H, A]) uponSkipRound(futureR Round) bool {
 	vals := make(map[A]struct{})
 	proposals, prevotes, precommits := t.messages.allMessages(t.state.height, futureR)
 
@@ -37,6 +37,6 @@ func (t *Tendermint[V, H, A]) uponSkipRound(futureR round) bool {
 	return isNewerRound && hasQuorum
 }
 
-func (t *Tendermint[V, H, A]) doSkipRound(futureR round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doSkipRound(futureR Round) Action[V, H, A] {
 	return t.startRound(futureR)
 }

@@ -13,7 +13,7 @@ import (
 // actions is the list of actions that were produced by the state machine after processing the input message.
 type actionAsserter[T any] struct {
 	testing      *testing.T
-	stateMachine *Tendermint[value, felt.Felt, felt.Felt]
+	stateMachine *stateMachine[value, felt.Felt, felt.Felt]
 	inputMessage T
 	actions      []Action[value, felt.Felt, felt.Felt]
 }

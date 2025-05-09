@@ -22,13 +22,13 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Receives proposal, go straight to precommit
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(StepPrevote),
 			currentRound.action().broadcastPrevote(&committedValue),
 			currentRound.action().broadcastPrecommit(&committedValue),
 		)
 
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 	})
 
 	t.Run("Line 36: record valid value even if we don't prevote it", func(t *testing.T) {
@@ -41,15 +41,15 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		currentRound.start()
 
 		// Prevotes are collected but not proposal
-		currentRound.processTimeout(propose).expectActions(
+		currentRound.processTimeout(StepPropose).expectActions(
 			currentRound.action().broadcastPrevote(nil),
 		)
 		currentRound.validator(2).prevote(&committedValue)
 		currentRound.validator(3).prevote(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(StepPrevote),
 		)
 
-		currentRound.processTimeout(prevote).expectActions(
+		currentRound.processTimeout(StepPrevote).expectActions(
 			currentRound.action().broadcastPrecommit(nil),
 		)
 
@@ -58,20 +58,20 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Line 36 is triggered, record valid value and round but don't broadcast precommit
 		currentRound.validator(0).prevote(&committedValue).expectActions()
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 		assert.Equal(t, &committedValue, stateMachine.state.validValue)
-		assert.Equal(t, round(0), stateMachine.state.validRound)
+		assert.Equal(t, Round(0), stateMachine.state.validRound)
 
 		// Use valid value on next round
 		currentRound.validator(2).precommit(&committedValue)
 		currentRound.validator(3).precommit(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(precommit),
+			currentRound.action().scheduleTimeout(StepPrecommit),
 		)
-		currentRound.processTimeout(precommit).expectActions(
+		currentRound.processTimeout(StepPrecommit).expectActions(
 			nextRound.action().broadcastProposal(committedValue, 0),
 			nextRound.action().broadcastPrevote(&committedValue),
 		)
-		assertState(t, stateMachine, height(0), round(1), prevote)
+		assertState(t, stateMachine, Height(0), Round(1), StepPrevote)
 	})
 
 	t.Run("Line 36: not trigger if not first time", func(t *testing.T) {
@@ -87,20 +87,20 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
 		)
-		assertState(t, stateMachine, height(0), round(0), prevote)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
 
 		// 2 prevotes are collected
 		currentRound.validator(0).prevote(&committedValue)
 		currentRound.validator(1).prevote(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(StepPrevote),
 			currentRound.action().broadcastPrecommit(&committedValue),
 		)
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 
 		// Last prevote collected doesn't trigger the rule
 		currentRound.validator(2).prevote(&committedValue).expectActions()
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
 	})
 }
