@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -186,7 +187,7 @@ func TestDriver(t *testing.T) {
 	broadcasters := mockBroadcasters()
 
 	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
-	driver := driver.New(stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
+	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
 	inputTimeoutProposal := getRandTimeout(random, tendermint.StepPropose)
 	inputTimeoutPrevote := getRandTimeout(random, tendermint.StepPrevote)
