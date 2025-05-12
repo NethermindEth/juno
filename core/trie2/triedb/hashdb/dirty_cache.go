@@ -29,7 +29,7 @@ func NewDirtyCache(capacity int) *DirtyCache {
 }
 
 // Add adds a value to the cache. Returns true if an item was evicted to store the new item.
-func (c *DirtyCache) Set(key []byte, value []byte, trieType trieutils.TrieType, owner felt.Felt) {
+func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner felt.Felt) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -106,7 +106,7 @@ func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner felt.
 	case trieutils.ContractStorage:
 		ownerNodes, ok := c.contractStorageNodes[owner]
 		if !ok {
-			return fmt.Errorf("owner %s not found", owner)
+			return fmt.Errorf("owner %x not found", owner.Bytes())
 		}
 		delete(ownerNodes, string(key))
 		if len(ownerNodes) == 0 {

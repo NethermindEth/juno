@@ -43,15 +43,11 @@ func (d *Database) Update(
 	root,
 	parent felt.Felt,
 	blockNum uint64,
-	classNodes map[trieutils.Path]trienode.TrieNode,
-	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	switch td := d.triedb.(type) {
-	case *pathdb.Database:
-		return td.Update(root, parent, blockNum, classNodes, contractNodes)
 	case *hashdb.Database:
-		td.Update(root, parent, blockNum, classNodes, contractNodes)
-		return nil
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
@@ -59,21 +55,8 @@ func (d *Database) Update(
 
 func (d *Database) Commit(stateComm felt.Felt) error {
 	switch td := d.triedb.(type) {
-	case *pathdb.Database:
-		return td.Commit(stateComm)
 	case *hashdb.Database:
 		return td.Commit(stateComm)
-	default:
-		return fmt.Errorf("unsupported trie db type: %T", td)
-	}
-}
-
-func (d *Database) Cap(limit uint64) error {
-	switch td := d.triedb.(type) {
-	case *pathdb.Database:
-		return fmt.Errorf("pathdb does not support cap")
-	case *hashdb.Database:
-		return td.Cap(limit)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}

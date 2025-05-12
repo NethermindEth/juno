@@ -69,7 +69,7 @@ func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path
 
 func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-	if blob := d.cleanCache.Get(nil, key[:]); blob != nil {
+	if blob := d.cleanCache.Get(nil, key); blob != nil {
 		return blob, nil
 	}
 
@@ -87,15 +87,23 @@ func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, 
 		return nil, err
 	}
 
+	if blob == nil {
+		return nil, db.ErrKeyNotFound
+	}
+
 	d.cleanCache.Set(key, blob)
 
 	return blob, nil
 }
 
-func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
+func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-	d.dirtyCache.Remove(key, bucketToTrieType(bucket), owner)
+	if err := d.dirtyCache.Remove(key, bucketToTrieType(bucket), owner); err != nil {
+		d.log.Errorw("Failed to remove node from dirty cache", "error", err)
+		return err
+	}
 	d.dirtyCacheSize -= nodeSize(key, blob)
+	return nil
 }
 
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
@@ -109,14 +117,14 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit() error {
+func (d *Database) Commit(root felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
 	nodes, dirtyCacheSize, startTime := d.dirtyCache.Len(), d.dirtyCacheSize, time.Now()
 
 	for key, nodeBlob := range d.dirtyCache.classNodes {
-		if err := d.writeNodeToBatch(batch, key, nodeBlob); err != nil {
+		if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.Class, felt.Zero); err != nil {
 			return err
 		}
 	}
@@ -126,7 +134,7 @@ func (d *Database) Commit() error {
 	}
 
 	for key, nodeBlob := range d.dirtyCache.contractNodes {
-		if err := d.writeNodeToBatch(batch, key, nodeBlob); err != nil {
+		if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.Contract, felt.Zero); err != nil {
 			return err
 		}
 	}
@@ -135,9 +143,9 @@ func (d *Database) Commit() error {
 		return err
 	}
 
-	for _, nodes := range d.dirtyCache.contractStorageNodes {
+	for owner, nodes := range d.dirtyCache.contractStorageNodes {
 		for key, nodeBlob := range nodes {
-			if err := d.writeNodeToBatch(batch, key, nodeBlob); err != nil {
+			if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.ContractStorage, owner); err != nil {
 				return err
 			}
 		}
@@ -157,7 +165,7 @@ func (d *Database) Commit() error {
 	return nil
 }
 
-func (d *Database) writeNodeToBatch(batch db.Batch, key string, nodeBlob []byte) error {
+func (d *Database) writeNodeToBatch(batch db.Batch, key string, nodeBlob []byte, trieType trieutils.TrieType, owner felt.Felt) error {
 	if err := batch.Put([]byte(key), nodeBlob); err != nil {
 		d.log.Errorw("Failed to write flush list to disk", "error", err)
 		return err
@@ -172,7 +180,10 @@ func (d *Database) writeNodeToBatch(batch db.Batch, key string, nodeBlob []byte)
 	}
 
 	d.dirtyCacheSize -= nodeSize([]byte(key), nodeBlob)
-	delete(d.dirtyCache.classNodes, key)
+	if err := d.dirtyCache.Remove([]byte(key), trieType, owner); err != nil {
+		d.log.Errorw("Failed to remove node from dirty cache", "error", err)
+		return err
+	}
 	return nil
 }
 
@@ -190,14 +201,17 @@ func (d *Database) Update(
 	root,
 	parent felt.Felt,
 	blockNum uint64,
-	mergedClassNodes trienode.MergeNodeSet,
-	mergedContractNodes trienode.MergeNodeSet,
-) {
+	mergedClassNodes *trienode.MergeNodeSet,
+	mergedContractNodes *trienode.MergeNodeSet,
+) error {
 	classNodes, _ := mergedClassNodes.Flatten()
 	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
+
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			d.remove(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			if err := d.remove(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
+				return err
+			}
 		} else {
 			d.insert(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		}
@@ -205,7 +219,9 @@ func (d *Database) Update(
 
 	for path, node := range contractNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			d.remove(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			if err := d.remove(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
+				return err
+			}
 		} else {
 			d.insert(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		}
@@ -214,12 +230,15 @@ func (d *Database) Update(
 	for owner, nodes := range contractStorageNodes {
 		for path, node := range nodes {
 			if _, ok := node.(*trienode.DeletedNode); ok {
-				d.remove(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
+				if err := d.remove(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
+					return err
+				}
 			} else {
 				d.insert(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
 			}
 		}
 	}
+	return nil
 }
 
 func bucketToTrieType(bucket db.Bucket) trieutils.TrieType {

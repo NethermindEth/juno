@@ -111,9 +111,8 @@ func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt,
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
 		nodeType    []byte
-		//TODO(maksym): handle padding <8 bytes
-		pathBytes = path.ActiveBytes()
-		hashBytes = hash.Bytes()
+		pathBytes   = path.ActiveBytes()
+		hashBytes   = hash.Bytes()
 	)
 
 	if !owner.IsZero() {
@@ -127,11 +126,22 @@ func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt,
 		nodeType = nonLeaf.Bytes()
 	}
 
-	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+len(pathBytes))
+	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+pathSignificantBytes+len(hashBytes))
 	key = append(key, prefixBytes...)
 	key = append(key, ownerBytes...)
 	key = append(key, nodeType...)
-	key = append(key, pathBytes[0:pathSignificantBytes]...)
+
+	if len(pathBytes) > 0 {
+		if len(pathBytes) >= pathSignificantBytes {
+			key = append(key, pathBytes[0:pathSignificantBytes]...)
+		} else {
+			key = append(key, pathBytes...)
+			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
+		}
+	} else {
+		key = append(key, make([]byte, pathSignificantBytes)...)
+	}
+
 	key = append(key, hashBytes[:]...)
 
 	return key
