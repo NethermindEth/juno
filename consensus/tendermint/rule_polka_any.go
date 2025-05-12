@@ -3,6 +3,8 @@ package tendermint
 import (
 	"maps"
 	"slices"
+
+	"github.com/NethermindEth/juno/consensus/types"
 )
 
 /*
@@ -12,19 +14,19 @@ Check the upon condition on line 34:
 	35: schedule OnTimeoutPrevote(h_p, round_p) to be executed after timeoutPrevote(round_p)
 */
 func (t *stateMachine[V, H, A]) uponPolkaAny() bool {
-	prevotes := t.messages.prevotes[t.state.height][t.state.round]
+	prevotes := t.messages.Prevotes[t.state.height][t.state.round]
 	vals := slices.Collect(maps.Keys(prevotes))
 
 	isFirstTime := !t.state.timeoutPrevoteScheduled
 
 	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 
-	return t.state.step == StepPrevote &&
+	return t.state.step == types.StepPrevote &&
 		hasQuorum &&
 		isFirstTime
 }
 
 func (t *stateMachine[V, H, A]) doPolkaAny() Action[V, H, A] {
 	t.state.timeoutPrevoteScheduled = true
-	return t.scheduleTimeout(StepPrevote)
+	return t.scheduleTimeout(types.StepPrevote)
 }

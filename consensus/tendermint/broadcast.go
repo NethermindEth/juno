@@ -1,10 +1,13 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/utils"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/utils"
+)
 
 func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
-	proposalMessage := Proposal[V, H, A]{
-		MessageHeader: MessageHeader[A]{
+	proposalMessage := types.Proposal[V, H, A]{
+		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -13,14 +16,14 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 		Value:      value,
 	}
 
-	t.messages.addProposal(proposalMessage)
+	t.messages.AddProposal(proposalMessage)
 
 	return utils.HeapPtr(BroadcastProposal[V, H, A](proposalMessage))
 }
 
 func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
-	vote := Prevote[H, A]{
-		MessageHeader: MessageHeader[A]{
+	vote := types.Prevote[H, A]{
+		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -28,15 +31,15 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
 		ID: id,
 	}
 
-	t.messages.addPrevote(vote)
-	t.state.step = StepPrevote
+	t.messages.AddPrevote(vote)
+	t.state.step = types.StepPrevote
 
 	return utils.HeapPtr(BroadcastPrevote[H, A](vote))
 }
 
 func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
-	vote := Precommit[H, A]{
-		MessageHeader: MessageHeader[A]{
+	vote := types.Precommit[H, A]{
+		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -44,8 +47,8 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
 		ID: id,
 	}
 
-	t.messages.addPrecommit(vote)
-	t.state.step = StepPrecommit
+	t.messages.AddPrecommit(vote)
+	t.state.step = types.StepPrecommit
 
 	return utils.HeapPtr(BroadcastPrecommit[H, A](vote))
 }
