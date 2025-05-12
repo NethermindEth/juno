@@ -490,7 +490,7 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node

@@ -102,7 +102,7 @@ func EncodeNode(n Node) []byte {
 }
 
 // Decodes the encoded bytes and returns the corresponding node
-func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, error) {
+func DecodeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (Node, error) {
 	if len(blob) == 0 {
 		return nil, errors.New("cannot decode empty blob")
 	}
@@ -139,14 +139,14 @@ func decodeHashOrValueNode(blob []byte, pathLen, maxPathLen uint8) (Node, bool) 
 	return nil, false
 }
 
-func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*BinaryNode, error) {
+func decodeBinaryNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (*BinaryNode, error) {
 	if len(blob) < 2*hashOrValueNodeSize {
 		return nil, fmt.Errorf("invalid binary node size: %d", len(blob))
 	}
 
 	binary := &BinaryNode{}
 	if !hash.IsZero() {
-		binary.Flags.Hash = &HashNode{Felt: *hash}
+		binary.Flags.Hash = &HashNode{Felt: hash}
 	}
 
 	var err error
@@ -159,18 +159,18 @@ func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (
 	return binary, nil
 }
 
-func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*EdgeNode, error) {
+func decodeEdgeNode(blob []byte, hash felt.Felt, pathLen, maxPathLen uint8) (*EdgeNode, error) {
 	if len(blob) > edgeNodeMaxSize || len(blob) < hashOrValueNodeSize {
 		return nil, fmt.Errorf("invalid edge node size: %d", len(blob))
 	}
 
 	edge := &EdgeNode{Path: &trieutils.Path{}}
 	if !hash.IsZero() {
-		edge.Flags.Hash = &HashNode{Felt: *hash}
+		edge.Flags.Hash = &HashNode{Felt: hash}
 	}
 
 	var err error
-	if edge.Child, err = DecodeNode(blob[:hashOrValueNodeSize], &felt.Zero, pathLen, maxPathLen); err != nil {
+	if edge.Child, err = DecodeNode(blob[:hashOrValueNodeSize], felt.Zero, pathLen, maxPathLen); err != nil {
 		return nil, err
 	}
 	if err := edge.Path.UnmarshalBinary(blob[hashOrValueNodeSize:]); err != nil {

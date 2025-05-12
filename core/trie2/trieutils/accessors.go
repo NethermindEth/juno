@@ -1,12 +1,14 @@
 package trieutils
 
 import (
+	"encoding/binary"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) ([]byte, error) {
+func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
@@ -19,17 +21,73 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool, blob []byte) error {
+func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool, blob []byte) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) error {
+func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
 func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner felt.Felt) error {
 	prefix := db.ContractTrieStorage.Key(owner.Marshal())
 	return w.DeleteRange(prefix, dbutils.UpperBound(prefix))
+}
+
+func WriteStateID(w db.KeyValueWriter, root felt.Felt, id uint64) error {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], id)
+	return w.Put(db.StateIDKey(root), buf[:])
+}
+
+func ReadStateID(r db.KeyValueReader, root felt.Felt) (uint64, error) {
+	key := db.StateIDKey(root)
+
+	var id uint64
+	if err := r.Get(key, func(value []byte) error {
+		id = binary.BigEndian.Uint64(value)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
+func DeleteStateID(w db.KeyValueWriter, root felt.Felt) error {
+	return w.Delete(db.StateIDKey(root))
+}
+
+func ReadPersistedStateID(r db.KeyValueReader) (uint64, error) {
+	var id uint64
+	if err := r.Get(db.PersistedStateID.Key(), func(value []byte) error {
+		id = binary.BigEndian.Uint64(value)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
+	var buf [8]byte
+	binary.BigEndian.PutUint64(buf[:], id)
+	return w.Put(db.PersistedStateID.Key(), buf[:])
+}
+
+func ReadTrieJournal(r db.KeyValueReader) ([]byte, error) {
+	var journal []byte
+	if err := r.Get(db.TrieJournal.Key(), func(value []byte) error {
+		journal = value
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return journal, nil
+}
+
+func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
+	return w.Put(db.TrieJournal.Key(), journal)
 }
 
 // Construct key bytes to insert a trie node. The format is as follows:
@@ -39,7 +97,7 @@ func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner felt.Felt) error 
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) []byte {
+func nodeKeyByPath(prefix db.Bucket, owner felt.Felt, path Path, isLeaf bool) []byte {
 	var (
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
@@ -47,7 +105,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 		pathBytes   = path.EncodedBytes()
 	)
 
-	if !owner.IsZero() {
+	if !owner.Equal(&felt.Zero) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}

@@ -61,7 +61,7 @@ func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path tri
 	switch scheme {
 	case PathScheme:
 		owner := id.Owner()
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), owner, path, isLeaf)
 	case HashScheme:
 		// TODO: implement hash scheme
 	}
