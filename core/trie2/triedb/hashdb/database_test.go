@@ -41,7 +41,7 @@ func verifyNode(t *testing.T, database *Database, id trieutils.TrieID, path trie
 	assert.Equal(t, node.Blob(), blob)
 
 	key := trieutils.NodeKeyByHash(id.Bucket(), id.Owner(), path, node.Hash(), node.IsLeaf())
-	_, found := database.dirtyCache.Get(key)
+	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), id.Owner())
 	assert.False(t, found)
 }
 
@@ -96,8 +96,6 @@ func TestDatabase(t *testing.T) {
 		config := &Config{
 			DirtyCacheSize: 1024,
 			CleanCacheSize: 1024,
-			DirtyCacheType: CacheTypeLRU,
-			CleanCacheType: CacheTypeFastCache,
 		}
 		database := New(memDB, config)
 		assert.NotNil(t, database)
@@ -105,9 +103,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit basic trie structure", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 1,
-		})
+		database := New(memDB, DefaultConfig)
 
 		leaf1Hash := *new(felt.Felt).SetUint64(201)
 		leaf1Path := trieutils.NewBitArray(1, 0x00)
@@ -137,7 +133,7 @@ func TestDatabase(t *testing.T) {
 		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
 		require.NoError(t, err)
 
-		err = database.Commit(stateCommitment)
+		err = database.Commit()
 		require.NoError(t, err)
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -147,9 +143,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 2,
-		})
+		database := New(memDB, DefaultConfig)
 
 		leaf1Hash := *new(felt.Felt).SetUint64(301)
 		leaf2Hash := *new(felt.Felt).SetUint64(302)
@@ -191,7 +185,7 @@ func TestDatabase(t *testing.T) {
 		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
 		require.NoError(t, err)
 
-		err = database.Commit(stateCommitment)
+		err = database.Commit()
 		require.NoError(t, err)
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -203,9 +197,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with contract nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 1,
-		})
+		database := New(memDB, DefaultConfig)
 
 		classHash := *new(felt.Felt).SetUint64(200)
 		classPath := trieutils.NewBitArray(1, 0x00)
@@ -235,7 +227,7 @@ func TestDatabase(t *testing.T) {
 		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
 		require.NoError(t, err)
 
-		err = database.Commit(stateCommitment)
+		err = database.Commit()
 		require.NoError(t, err)
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), classPath, classNode)
@@ -244,9 +236,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure with edge nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 2,
-		})
+		database := New(memDB, DefaultConfig)
 
 		leafHash := *new(felt.Felt).SetUint64(301)
 		edgeHash := *new(felt.Felt).SetUint64(201)
@@ -279,7 +269,7 @@ func TestDatabase(t *testing.T) {
 		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
 		require.NoError(t, err)
 
-		err = database.Commit(stateCommitment)
+		err = database.Commit()
 		require.NoError(t, err)
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -289,7 +279,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Commit handles concurrent operations", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, nil)
+		database := New(memDB, DefaultConfig)
 
 		numTries := 5
 		tries := make([]struct {
@@ -341,7 +331,7 @@ func TestDatabase(t *testing.T) {
 		for i := range numTries {
 			go func(i int) {
 				defer wg.Done()
-				err := database.Commit(tries[i].stateComm)
+				err := database.Commit()
 				require.NoError(t, err)
 			}(i)
 		}
@@ -356,9 +346,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with deleted nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 1,
-		})
+		database := New(memDB, DefaultConfig)
 
 		leaf1Hash := *new(felt.Felt).SetUint64(201)
 		leaf2Hash := *new(felt.Felt).SetUint64(202)
@@ -396,7 +384,7 @@ func TestDatabase(t *testing.T) {
 		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
 		require.NoError(t, err)
 
-		err = database.Commit(stateCommitment)
+		err = database.Commit()
 		require.NoError(t, err)
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -408,126 +396,4 @@ func TestDatabase(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("getRootsForStateHash returns correct roots", func(t *testing.T) {
-		memDB := memory.New()
-		database := New(memDB, &Config{
-			maxPathLen: 1,
-		})
-
-		classRoot := *new(felt.Felt).SetUint64(201)
-		contractRoot := *new(felt.Felt).SetUint64(202)
-		stateCommitment := *new(felt.Felt).SetUint64(203)
-
-		err := mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
-		require.NoError(t, err)
-
-		gotClassRoot, gotContractRoot, err := database.getRootsForStateCommitment(stateCommitment)
-		require.NoError(t, err)
-
-		assert.Equal(t, classRoot, *gotClassRoot)
-		assert.Equal(t, contractRoot, *gotContractRoot)
-
-		modifiedClassRoot := *new(felt.Felt).SetUint64(301)
-		modifiedContractRoot := *new(felt.Felt).SetUint64(302)
-
-		err = mockStoreRootsForStateComm(memDB, stateCommitment, modifiedClassRoot, modifiedContractRoot)
-		require.NoError(t, err)
-
-		gotClassRoot, gotContractRoot, err = database.getRootsForStateCommitment(stateCommitment)
-		require.NoError(t, err)
-
-		assert.Equal(t, classRoot, *gotClassRoot)
-		assert.Equal(t, contractRoot, *gotContractRoot)
-	})
-
-	t.Run("Cap empty cache", func(t *testing.T) {
-		memDB := memory.New()
-		database := New(memDB, nil)
-
-		err := database.Cap(1000)
-		require.NoError(t, err)
-	})
-
-	t.Run("Cap cache with nodes", func(t *testing.T) {
-		memDB := memory.New()
-		database := New(memDB, nil)
-
-		leaf1Hash := *new(felt.Felt).SetUint64(201)
-		leaf2Hash := *new(felt.Felt).SetUint64(202)
-		rootHash := *new(felt.Felt).SetUint64(100)
-
-		leaf1Path := trieutils.NewBitArray(1, 0x00)
-		leaf1Node := NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
-
-		leaf2Path := trieutils.NewBitArray(1, 0x01)
-		leaf2Node := NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
-
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			rootPath:  rootNode,
-			leaf1Path: leaf1Node,
-			leaf2Path: leaf2Node,
-		}
-
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		database.Update(felt.Zero, felt.Zero, 42, classNodes, contractNodes)
-
-		initialSize := database.dirtyCacheSize
-		err := database.Cap(uint64(initialSize / 2))
-		require.NoError(t, err)
-
-		assert.Less(t, database.dirtyCacheSize, initialSize)
-
-		classRoot := rootHash
-		contractRoot := *new(felt.Felt).SetUint64(402)
-		stateCommitment := *new(felt.Felt).SetUint64(403)
-
-		err = mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
-		require.NoError(t, err)
-
-		err = database.Commit(stateCommitment)
-		require.NoError(t, err)
-
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
-	})
-
-	t.Run("Cap to size larger than cache", func(t *testing.T) {
-		memDB := memory.New()
-		database := New(memDB, nil)
-
-		rootHash := *new(felt.Felt).SetUint64(100)
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createEdgeNodeBlob(felt.Zero))
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			rootPath: rootNode,
-		}
-
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		database.Update(felt.Zero, felt.Zero, 42, classNodes, contractNodes)
-
-		initialSize := database.dirtyCacheSize
-		err := database.Cap(uint64(initialSize * 2))
-		require.NoError(t, err)
-
-		assert.Equal(t, initialSize, database.dirtyCacheSize)
-
-		classRoot := rootHash
-		contractRoot := *new(felt.Felt).SetUint64(502)
-		stateCommitment := *new(felt.Felt).SetUint64(503)
-
-		err = mockStoreRootsForStateComm(memDB, stateCommitment, classRoot, contractRoot)
-		require.NoError(t, err)
-
-		err = database.Commit(stateCommitment)
-		require.NoError(t, err)
-
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-	})
 }

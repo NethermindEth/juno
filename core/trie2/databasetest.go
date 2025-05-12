@@ -61,23 +61,12 @@ func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path tri
 	switch scheme {
 	case PathScheme:
 		owner := id.Owner()
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), owner, path, isLeaf)
 	case HashScheme:
 		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf)
 	}
 
 	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: hash}
-}
-
-func writeNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash felt.Felt, isLeaf bool, node []byte) error { //nolint:lll
-	switch scheme {
-	case PathScheme:
-		return trieutils.WriteNodeByPath(r, id.Bucket(), id.Owner(), path, isLeaf, node)
-	case HashScheme:
-		return trieutils.WriteNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf, node)
-	}
-
-	return nil
 }
 
 type TestNodeDatabase struct {

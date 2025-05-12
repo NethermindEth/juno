@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) ([]byte, error) {
+func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
@@ -19,11 +19,11 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool, blob []byte) error {
+func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool, blob []byte) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) error {
+func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
@@ -39,7 +39,7 @@ func DeleteStorageNodesByPath(w db.KeyValueRangeDeleter, owner felt.Felt) error 
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) []byte {
+func nodeKeyByPath(prefix db.Bucket, owner felt.Felt, path Path, isLeaf bool) []byte {
 	var (
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
@@ -92,18 +92,13 @@ func DeleteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, pa
 // Construct key bytes to insert a trie node. The format is as follows:
 //
 // ClassTrie :
-// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
 //
 // ContractTrie :
-// [1 byte prefix][1 section byte][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
 //
 // StorageTrie of a Contract :
-// [1 byte prefix][1 section byte][32 bytes owner][1 byte node-type][8 byte from path][1 path length byte][32 byte hash]
-//
-// Section:
-// 0 if state and path length is <= 5.
-// 1 if state and path length is > 5.
-// 2 if storage.
+// [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
@@ -116,22 +111,12 @@ func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt,
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
 		nodeType    []byte
-		pathBytes   = path.EncodedBytes()
-		hashBytes   = hash.Bytes()
-		section     byte
+		//TODO(maksym): handle padding <8 bytes
+		pathBytes = path.ActiveBytes()
+		hashBytes = hash.Bytes()
 	)
 
-	if prefix == db.ContractTrieStorage {
-		section = 2
-	} else {
-		if path.Len() <= shortPathLength {
-			section = 0
-		} else {
-			section = 1
-		}
-	}
-
-	if !owner.Equal(&felt.Zero) {
+	if !owner.IsZero() {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}
@@ -144,11 +129,9 @@ func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt,
 
 	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+len(pathBytes))
 	key = append(key, prefixBytes...)
-	key = append(key, section)
 	key = append(key, ownerBytes...)
 	key = append(key, nodeType...)
 	key = append(key, pathBytes[0:pathSignificantBytes]...)
-	key = append(key, byte(len(pathBytes)))
 	key = append(key, hashBytes[:]...)
 
 	return key
