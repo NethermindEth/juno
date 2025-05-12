@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: xJonathanLEI/starknet-rs
-          ref: starknet/v0.14.0
+          ref: starknet/v0.15.0
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
