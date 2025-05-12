@@ -120,7 +120,6 @@ func TestMerge(t *testing.T) {
 	)
 
 	baseSet.merge(mergeSet)
-
 	assert.Equal(t, 2, len(baseSet.classNodes))
 	assert.Equal(t, []byte(updated), baseSet.classNodes[path1].Blob())
 	assert.Equal(t, []byte(added), baseSet.classNodes[pathff].Blob())
@@ -128,14 +127,15 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, 1, len(baseSet.contractNodes))
 	assert.Equal(t, []byte(updated), baseSet.contractNodes[path2].Blob())
 
-	assert.Equal(t, 2, len(baseSet.contractStorageNodes))
+	assert.Equal(t, 1, len(baseSet.contractStorageNodes))
+	assert.Equal(t, 2, len(baseSet.contractStorageNodes[feltff]))
 	assert.Equal(t, []byte(updated), baseSet.contractStorageNodes[feltff][path3].Blob())
 	assert.Equal(t, []byte(added), baseSet.contractStorageNodes[feltff][path5].Blob())
 
 	expectedSize := uint64(
-		(len("new") + trieutils.PathSize) + (len("added") + trieutils.PathSize) +
+		(len("updated") + trieutils.PathSize) + (len("added") + trieutils.PathSize) +
 			(len("updated") + trieutils.PathSize) +
-			ownerSize + (len("updated-storage") + trieutils.PathSize) + (len("new-storage") + trieutils.PathSize),
+			ownerSize + (len("updated") + trieutils.PathSize) + ownerSize + (len("added") + trieutils.PathSize),
 	)
 	require.Equal(t, expectedSize, baseSet.size)
 }

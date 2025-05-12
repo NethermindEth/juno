@@ -5,22 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"bytes"
-	"fmt"
-	"strings"
-
-	"github.com/NethermindEth/juno/core/crypto"
-
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
 var (
-	_ Node = (*BinaryNode)(nil)
-	_ Node = (*EdgeNode)(nil)
-	_ Node = (*HashNode)(nil)
-	_ Node = (*ValueNode)(nil)
 	_ Node = (*BinaryNode)(nil)
 	_ Node = (*EdgeNode)(nil)
 	_ Node = (*HashNode)(nil)

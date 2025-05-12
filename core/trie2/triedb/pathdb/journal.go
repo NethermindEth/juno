@@ -47,6 +47,8 @@ type DBJournal struct {
 	EncLayers []byte // encoded bytes of layers
 }
 
+const encSize = 8
+
 func (dl *diffLayer) journal(w io.Writer) error {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
@@ -78,7 +80,7 @@ func (dl *diffLayer) journal(w io.Writer) error {
 	}
 
 	// Then write the length of the encoded journal
-	encLen := make([]byte, 8)
+	encLen := make([]byte, encSize)
 	binary.BigEndian.PutUint64(encLen, uint64(len(enc)))
 	_, err = w.Write(encLen)
 	if err != nil {
@@ -119,7 +121,7 @@ func (dl *diskLayer) journal(w io.Writer) error {
 		return err
 	}
 
-	encLen := make([]byte, 8)
+	encLen := make([]byte, encSize)
 	binary.BigEndian.PutUint64(encLen, uint64(len(enc)))
 	_, err = w.Write(encLen)
 	if err != nil {
@@ -285,13 +287,13 @@ func (d *Database) getStateRoot() felt.Felt {
 		return felt.Zero
 	}
 
-	contractRootNode, err := trienode.DecodeNode(encContractRoot, felt.Zero, 0, 251)
+	contractRootNode, err := trienode.DecodeNode(encContractRoot, felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return felt.Zero
 	}
 	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
 
-	classRootNode, err := trienode.DecodeNode(encStorageRoot, felt.Zero, 0, 251)
+	classRootNode, err := trienode.DecodeNode(encStorageRoot, felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return felt.Zero
 	}

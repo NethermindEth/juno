@@ -43,10 +43,6 @@ func (b *buffer) reset() {
 	b.nodes.reset()
 }
 
-func (b *buffer) size() uint64 {
-	return b.nodes.size
-}
-
 func (b *buffer) isFull() bool {
 	return b.nodes.size > b.limit
 }

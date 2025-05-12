@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
-
 	"github.com/stretchr/testify/assert"
 )
 

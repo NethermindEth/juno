@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) ([]byte, error) {
+func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
@@ -21,11 +21,11 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool, blob []byte) error {
+func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool, blob []byte) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) error {
+func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, isLeaf bool) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
@@ -97,7 +97,7 @@ func WriteTrieJournal(w db.KeyValueWriter, journal []byte) error {
 //
 // StorageTrie of a Contract :
 // [1 byte prefix][32 bytes owner][1 byte node-type][path]
-func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) []byte {
+func nodeKeyByPath(prefix db.Bucket, owner felt.Felt, path Path, isLeaf bool) []byte {
 	var (
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
@@ -105,7 +105,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 		pathBytes   = path.EncodedBytes()
 	)
 
-	if !owner.IsZero() {
+	if !owner.Equal(&felt.Zero) {
 		ob := owner.Bytes()
 		ownerBytes = ob[:]
 	}

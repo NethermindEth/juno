@@ -302,7 +302,7 @@ func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bo
 	}
 
 	startIdx := (layerIndex * nodesPerLayer) % nodeCount
-	for i := 0; i < nodesPerLayer; i++ {
+	for i := range nodesPerLayer {
 		idx := (startIdx + i) % nodeCount
 		path := paths[idx]
 		node := generateRandomNode(r)
@@ -371,7 +371,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 	tracker.trackNodes(parent, parent, flatClass, flatContract, flatStorage)
 
 	// Create additional layers with controlled overlap
-	for i := 0; i < numDiffs+1; i++ {
+	for i := 1; i < numDiffs+1; i++ {
 		layerRoot := *new(felt.Felt).SetUint64(uint64(i))
 
 		// Generate nodes for this layer with controlled overlap
@@ -397,6 +397,8 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 }
 
 // verifyClassNodes verifies all class nodes in a layer against expected values
+//
+//nolint:dupl
 func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.classPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, true)
@@ -419,6 +421,8 @@ func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error 
 }
 
 // verifyContractNodes verifies all contract nodes in a layer against expected values
+//
+//nolint:dupl
 func verifyContractNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, false)
@@ -489,6 +493,8 @@ func verifyLayer(tree *layerTree, root felt.Felt, tracker *layerTracker) error {
 	return nil
 }
 
+// TODO(maksym): debugging feature, remove later
+// nolint
 func (t *layerTracker) print() {
 	fmt.Println("\n=== Layer Tracker Summary ===")
 

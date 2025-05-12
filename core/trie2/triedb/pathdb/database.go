@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	maxDiffLayers = 128 // TODO(weiihann): might want to make this configurable
+	maxDiffLayers           = 128 // TODO(weiihann): might want to make this configurable
+	contractClassTrieHeight = 251
 )
 
 var _ database.TrieDB = (*Database)(nil)

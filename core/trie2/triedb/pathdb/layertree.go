@@ -72,6 +72,8 @@ func (tree *layerTree) add(root, parentRoot felt.Felt, block uint64, mergeClassN
 
 // Traverses the layer tree and check if the number of diffs exceeds the given number of layers.
 // If it does, the bottom-most layer will be merged to the disk layer.
+//
+//nolint:gocyclo
 func (tree *layerTree) cap(root felt.Felt, layers int) error {
 	l := tree.get(root)
 	if l == nil {
@@ -99,7 +101,7 @@ func (tree *layerTree) cap(root felt.Felt, layers int) error {
 	// Traverse the layer tree until we reach the desired number of layers
 	// If we reach the disk layer, it means that the layer tree is still shallow
 	// and can allow for further growing. So we return early.
-	for i := 0; i < layers-1; i++ {
+	for range layers - 1 {
 		if parent, ok := diff.parentLayer().(*diffLayer); ok {
 			diff = parent
 		} else {
