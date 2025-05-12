@@ -94,6 +94,10 @@ type StateMachine[V Hashable[H], H Hash, A Addr] interface {
 }
 
 type stateMachine[V Hashable[H], H Hash, A Addr] struct {
+	db         TendermintDB[V, H, A]
+	log        utils.Logger
+	replayMode bool
+
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
@@ -122,12 +126,14 @@ type state[V Hashable[H], H Hash] struct {
 }
 
 func New[V Hashable[H], H Hash, A Addr](
+	db TendermintDB[V, H, A],
 	nodeAddr A,
 	app Application[V, H],
 	chain Blockchain[V, H, A],
 	vals Validators[A],
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
+		db:       db,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -272,4 +278,47 @@ func (t *stateMachine[V, H, A]) findProposal(r Round) *CachedProposal[V, H, A] {
 		Valid:    t.application.Valid(*v.Value),
 		ID:       utils.HeapPtr((*v.Value).Hash()),
 	}
+}
+
+// Note: replayWAL() should not cause the Driver to take any actions. Replaying messages
+// should not result in messages being broadcast, or new timeouts being scheduled. It
+// should only result in state changes.
+func (t *stateMachine[V, H, A]) replayWAL() {
+	height := t.blockchain.Height()
+	walEntries, err := t.db.GetWALMsgs(height)
+	if err != nil {
+		panic(err) // Todo: improve panic message
+	}
+	t.replayMode = true
+	for _, walEntry := range walEntries {
+		switch walEntry.Type {
+		case MessageTypeProposal:
+			proposal, ok := (walEntry.Entry).(Proposal[V, H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to proposal") // Todo: return to this
+			}
+			t.ProcessProposal(proposal) // We ignore actions when replaying WAL msgs
+		case MessageTypePrevote:
+			prevote, ok := (walEntry.Entry).(Prevote[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to prevote") // Todo: return to this
+			}
+			t.ProcessPrevote(prevote) // We ignore actions when replaying WAL msgs
+		case MessageTypePrecommit:
+			precommit, ok := (walEntry.Entry).(Precommit[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			t.ProcessPrecommit(precommit) // We ignore actions when replaying WAL msgs
+		case MessageTypeTimeout:
+			timeout, ok := (walEntry.Entry).(Timeout)
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit") // Todo: return to this
+			}
+			t.ProcessTimeout(timeout) // We ignore actions when replaying WAL msgs
+		default:
+			panic("Failed to replay WAL messages unknown entry") // Todo: improve message
+		}
+	}
+	t.replayMode = false
 }

@@ -98,7 +98,7 @@ func setupStateMachine(
 
 	thisNodeAddr := getVal(thisValidator)
 
-	return New(*thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
+	return New(nil, *thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 }
 
 func TestThresholds(t *testing.T) {

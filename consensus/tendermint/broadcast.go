@@ -13,6 +13,10 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 		Value:      value,
 	}
 
+	if err := t.db.SetWALEntry(proposalMessage); err != nil && !t.replayMode {
+		t.log.Errorw("Failed to store propsal in WAL") // Todo: consider log level
+	}
+
 	t.messages.addProposal(proposalMessage)
 
 	return utils.HeapPtr(BroadcastProposal[V, H, A](proposalMessage))

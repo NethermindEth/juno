@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/tendermint"
-	"github.com/NethermindEth/juno/db"
 )
 
 type timeoutFn func(step tendermint.Step, round tendermint.Round) time.Duration
@@ -33,8 +32,6 @@ type Broadcasters[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr
 }
 
 type Driver[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
-	db db.KeyValueStore
-
 	stateMachine tendermint.StateMachine[V, H, A]
 
 	getTimeout timeoutFn
@@ -50,14 +47,12 @@ type Driver[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] stru
 }
 
 func New[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr](
-	db db.KeyValueStore,
 	stateMachine tendermint.StateMachine[V, H, A],
 	listeners Listeners[V, H, A],
 	broadcasters Broadcasters[V, H, A],
 	getTimeout timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
-		db:           db,
 		stateMachine: stateMachine,
 		getTimeout:   getTimeout,
 		listeners:    listeners,

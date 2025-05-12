@@ -5,15 +5,36 @@ func (t *stateMachine[V, H, A]) ProcessStart(round Round) []Action[V, H, A] {
 }
 
 func (t *stateMachine[V, H, A]) ProcessProposal(p Proposal[V, H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addProposal(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addProposal(p) && !t.replayMode {
+			// Store proposal if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *stateMachine[V, H, A]) ProcessPrevote(p Prevote[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrevote(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addPrevote(p) && !t.replayMode {
+			// Store prevote if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *stateMachine[V, H, A]) ProcessPrecommit(p Precommit[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) })
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.addPrecommit(p) && !t.replayMode {
+			// Store precommit if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Errorw("Failed to store prevote in WAL") // Todo: consider log level
+			}
+		}
+	})
 }
 
 func (t *stateMachine[V, H, A]) processMessage(header MessageHeader[A], addMessage func()) []Action[V, H, A] {
@@ -25,6 +46,9 @@ func (t *stateMachine[V, H, A]) processMessage(header MessageHeader[A], addMessa
 }
 
 func (t *stateMachine[V, H, A]) ProcessTimeout(tm Timeout) []Action[V, H, A] {
+	if err := t.db.SetWALEntry(tm); err != nil && !t.replayMode {
+		t.log.Errorw("Failed to store timeout trigger in WAL") // Todo: consider log level
+	}
 	switch tm.Step {
 	case StepPropose:
 		return t.processLoop(t.onTimeoutPropose(tm.Height, tm.Round), nil)
