@@ -17,22 +17,22 @@ func TestCommitValue(t *testing.T) {
 		committedValue := value(10)
 
 		currentRound.start().expectActions(
-			currentRound.action().scheduleTimeout(propose),
+			currentRound.action().scheduleTimeout(StepPropose),
 		)
 		val0Precommit := currentRound.validator(0).precommit(&committedValue).inputMessage
 		val1Precommit := currentRound.validator(1).precommit(&committedValue).inputMessage
 		val2Precommit := currentRound.validator(2).precommit(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(precommit),
+			currentRound.action().scheduleTimeout(StepPrecommit),
 		).inputMessage
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
-			nextRound.action().scheduleTimeout(propose),
+			nextRound.action().scheduleTimeout(StepPropose),
 		)
 		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
 
-		assertState(t, stateMachine, height(1), round(0), propose)
+		assertState(t, stateMachine, Height(1), Round(0), StepPropose)
 
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)
@@ -55,18 +55,18 @@ func TestCommitValue(t *testing.T) {
 		committedValue := value(10)
 
 		currentRound.start().expectActions(
-			currentRound.action().scheduleTimeout(propose),
+			currentRound.action().scheduleTimeout(StepPropose),
 		)
 
 		val0Precommit := currentRound.validator(0).precommit(&committedValue).inputMessage
 		currentRound.validator(0).proposal(committedValue, -1)
 		val1Precommit := currentRound.validator(1).precommit(&committedValue).inputMessage
 		val2Precommit := currentRound.validator(2).precommit(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(precommit),
-			nextRound.action().scheduleTimeout(propose),
+			currentRound.action().scheduleTimeout(StepPrecommit),
+			nextRound.action().scheduleTimeout(StepPropose),
 		).inputMessage
 
-		assertState(t, stateMachine, height(1), round(0), propose)
+		assertState(t, stateMachine, Height(1), Round(0), StepPropose)
 
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)

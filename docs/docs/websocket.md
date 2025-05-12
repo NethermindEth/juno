@@ -4,7 +4,7 @@ title: WebSocket Interface
 
 # WebSocket Interface :globe_with_meridians:
 
-Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.7.0/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
+Juno provides a WebSocket RPC interface that supports all of [Starknet's JSON-RPC API](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) endpoints and allows you to [subscribe to newly created blocks](#subscribe-to-newly-created-blocks).
 
 ## Enable the WebSocket server
 
@@ -22,10 +22,11 @@ docker run -d \
   nethermind/juno \
   --ws \
   --ws-port 6061 \
-  --ws-host 0.0.0.0
+  --ws-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE>
 
 # Standalone binary
-./build/juno --ws --ws-port 6061 --ws-host 0.0.0.0
+./build/juno --ws --ws-port 6061 --ws-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
 
 ## Making WebSocket requests
@@ -55,7 +56,7 @@ import TabItem from "@theme/TabItem";
 ```json
 {
   "jsonrpc": "2.0",
-  "result": "v0.11.7",
+  "result": "v0.14.3",
   "id": 1
 }
 ```
@@ -114,9 +115,9 @@ The WebSocket server provides a `starknet_subscribeNewHeads` method that emits a
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "result": 16570962336122680234,
-  "id": 1
+    "jsonrpc": "2.0",
+    "result": 6178305545967232212,
+    "id": 1
 }
 ```
 
@@ -127,49 +128,51 @@ When a new block is added, you will receive a message like this:
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "method": "starknet_subscriptionNewHeads",
-  "params": {
-    "result": {
-      "block_hash": "0x840660a07a17ae6a55d39fb6d366698ecda11e02280ca3e9ca4b4f1bad741c",
-      "parent_hash": "0x529ca67a127e4f40f3ae637fc54c7a56c853b2e085011c64364911af74c9a5c",
-      "block_number": 65644,
-      "new_root": "0x4e88ddf34b52091611b34d72849e230d329902888eb57c8e3c1b9cc180a426c",
-      "timestamp": 1715451809,
-      "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
-      "l1_gas_price": {
-        "price_in_fri": "0x3727bcc63f1",
-        "price_in_wei": "0x5f438c77"
-      },
-      "l1_data_gas_price": {
-        "price_in_fri": "0x230e40e8866c6e",
-        "price_in_wei": "0x3c8c4a9ea51"
-      },
-      "l1_da_mode": "BLOB",
-      "starknet_version": "0.13.1.1"
-    },
-    "subscription_id": 16570962336122680234
-  }
+    "jsonrpc": "2.0",
+    "method": "starknet_subscriptionNewHeads",
+    "params": {
+        "result": {
+            "block_hash": "0x662757cbae602a3146cd96e5b661e92cf5d120ccc1d9ac6e78bee200afddfd5",
+            "parent_hash": "0x348c37f50bf689c7fbf9ee971bf4378cf9232882e7a61eb2117486ee61236b1",
+            "block_number": 69061,
+            "new_root": "0x128eabdfcabc8043d1a7f30faed9fdc077e57fdce7aeb072c514b132e99c499",
+            "timestamp": 1739977268,
+            "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+            "l1_gas_price": {
+                "price_in_fri": "0xd177c25056f4",
+                "price_in_wei": "0x4769a28dd"
+            },
+            "l1_data_gas_price": {
+                "price_in_fri": "0x963",
+                "price_in_wei": "0x1"
+            },
+            "l1_da_mode": "BLOB",
+            "starknet_version": "0.13.4",
+            "l2_gas_price": {
+                "price_in_fri": "0x157312ab4",
+                "price_in_wei": "0x7500b"
+            }
+        },
+        "subscription_id": 6178305545967232212
+    }
 }
 ```
 
-## Subscribe to transaction status changes
+## Subscribe to events
 
-The WebSocket server provides a `starknet_subscribeTransactionStatus` method that emits an event when a transaction status changes:
+You can subscribe to events using the `starknet_subscribeEvents` method:
 
 <Tabs>
 <TabItem value="request" label="Request">
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "method": "starknet_subscribeTransactionStatus",
-  "params": [
-    {
-      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df"
-    }
-  ],
-  "id": 1
+    "jsonrpc": "2.0",
+    "method": "starknet_subscribeEvents",
+    "params": {
+        "block_id": "latest"
+    },
+    "id": 1
 }
 ```
 
@@ -178,37 +181,56 @@ The WebSocket server provides a `starknet_subscribeTransactionStatus` method tha
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "result": 16570962336122680234,
-  "id": 1
+    "jsonrpc": "2.0",
+    "result": 12301735893776740437,
+    "id": 1
 }
 ```
 
 </TabItem>
 </Tabs>
 
-When a transaction get a new status, you will receive a message like this:
+## Subscribe to transaction status
+
+You can track the status of transactions using the `starknet_subscribeTransactionStatus` method:
+
+<Tabs>
+<TabItem value="request" label="Request">
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "method": "starknet_subscriptionTransactionsStatus",
-  "params": {
-    "result": {
-      "transaction_hash": "0x631333277e88053336d8c302630b4420dc3ff24018a1c464da37d5e36ea19df",
-      "status": {
-        "finality_status": "ACCEPTED_ON_L2",
-        "execution_status": "SUCCEEDED"
-      }
+    "jsonrpc": "2.0",
+    "method": "starknet_subscribeTransactionStatus",
+    "params": {
+        "transaction_hash": "0x22a6cd68819aa4813fed5db5cbaa0f396936b7bd53e4de51ef19ab57317de7c"
     },
-    "subscription_id": 16570962336122680234
-  }
+    "id": 1
+}
+```
+</TabItem>
+</Tabs>
+
+## Subscribe to pending transactions
+
+You can subscribe to pending transactions using the `starknet_subscribePendingTransactions` method:
+
+<Tabs>
+<TabItem value="request" label="Request">
+
+```json
+{
+	"jsonrpc":"2.0",
+	"method":"starknet_subscribePendingTransactions",
+	"id":1
 }
 ```
 
-## Unsubscribe from previous subscription
+</TabItem>
+</Tabs>
 
-Use the `starknet_unsubscribe` method with the `result` value from the subscription response or the `subscription` field from any new block event to stop receiving updates for new blocks:
+## Unsubscribe
+
+Use the `starknet_unsubscribe` with subscription_id method to stop receiving updates for any of the subscribed events:
 
 <Tabs>
 <TabItem value="request" label="Request">
@@ -218,7 +240,7 @@ Use the `starknet_unsubscribe` method with the `result` value from the subscript
   "jsonrpc": "2.0",
   "method": "starknet_unsubscribe",
   "params": {
-    "id": 16570962336122680234
+    "subscription_id": 14754861534419680325
   },
   "id": 1
 }
@@ -246,7 +268,7 @@ You can test your WebSocket connection using tools like [wscat](https://github.c
 # wscat
 $ wscat -c ws://localhost:6061
     > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    < {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
 
 # websocat
 $ websocat -v ws://localhost:6061
@@ -255,5 +277,5 @@ $ websocat -v ws://localhost:6061
     [INFO  websocat::ws_client_peer] get_ws_client_peer
     [INFO  websocat::ws_client_peer] Connected to ws
     {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
-    {"jsonrpc": "2.0", "result": "v0.11.7", "id": 1}
+    {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
 ```
