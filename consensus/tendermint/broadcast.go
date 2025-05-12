@@ -5,7 +5,23 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
+type BroadcastProposal[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
+
+type BroadcastPrevote[H types.Hash, A types.Addr] types.Prevote[H, A]
+
+type BroadcastPrecommit[H types.Hash, A types.Addr] types.Precommit[H, A]
+
+type ScheduleTimeout types.Timeout
+
+func (a *BroadcastProposal[V, H, A]) IsTendermintAction() {}
+
+func (a *BroadcastPrevote[H, A]) IsTendermintAction() {}
+
+func (a *BroadcastPrecommit[H, A]) IsTendermintAction() {}
+
+func (a *ScheduleTimeout) IsTendermintAction() {}
+
+func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
 	proposalMessage := types.Proposal[V, H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
@@ -25,7 +41,7 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 	return utils.HeapPtr(BroadcastProposal[V, H, A](proposalMessage))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, A] {
 	vote := types.Prevote[H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
@@ -41,7 +57,7 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
 	return utils.HeapPtr(BroadcastPrevote[H, A](vote))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H, A] {
 	vote := types.Precommit[H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,

@@ -16,12 +16,12 @@ type actionAsserter[T any] struct {
 	testing      *testing.T
 	stateMachine *stateMachine[value, felt.Felt, felt.Felt]
 	inputMessage T
-	actions      []Action[value, felt.Felt, felt.Felt]
+	actions      []types.Action[value, felt.Felt, felt.Felt]
 }
 
 // expectActions asserts the expected actions are in the result actions.
 // It also asserts additional conditions for each of the expected actions.
-func (a actionAsserter[T]) expectActions(expected ...Action[value, felt.Felt, felt.Felt]) actionAsserter[T] {
+func (a actionAsserter[T]) expectActions(expected ...types.Action[value, felt.Felt, felt.Felt]) actionAsserter[T] {
 	a.testing.Helper()
 	assert.ElementsMatch(a.testing, expected, a.actions)
 	for _, action := range expected {

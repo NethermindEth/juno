@@ -8,7 +8,7 @@ import (
 
 func TestSkipRound(t *testing.T) {
 	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		expectedHeight := types.Height(0)
 		rPrime, rPrimeVal := types.Round(4), value(10)
 		futureRound := newTestRound(t, stateMachine, expectedHeight, rPrime)
@@ -23,7 +23,7 @@ func TestSkipRound(t *testing.T) {
 	})
 
 	t.Run("Line 55 (Prevote): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		expectedHeight := types.Height(0)
 		rPrime, rPrimeVal := types.Round(4), value(10)
 		futureRound := newTestRound(t, stateMachine, expectedHeight, rPrime)
@@ -38,7 +38,7 @@ func TestSkipRound(t *testing.T) {
 	})
 
 	t.Run("Line 55 (Precommit): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		expectedHeight := types.Height(0)
 		rPrime := types.Round(4)
 		round4Value := value(10)

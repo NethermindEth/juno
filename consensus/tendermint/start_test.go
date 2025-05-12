@@ -9,7 +9,7 @@ import (
 
 func TestStartRound(t *testing.T) {
 	t.Run("node is the proposer", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 0)
+		stateMachine := setupStateMachine(t, 4, 0, true)
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
@@ -23,7 +23,7 @@ func TestStartRound(t *testing.T) {
 	})
 
 	t.Run("node is not the proposer: schedule timeoutPropose", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		currentRound.start().expectActions(currentRound.action().scheduleTimeout(types.StepPropose))

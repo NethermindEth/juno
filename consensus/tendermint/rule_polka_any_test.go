@@ -10,7 +10,7 @@ import (
 
 func TestPolkaAny(t *testing.T) {
 	t.Run("Line 34: upon 2f + 1 {PREVOTE, h_p, round_p, *} while step_p = prevote schedule timeout", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -29,7 +29,7 @@ func TestPolkaAny(t *testing.T) {
 	})
 
 	t.Run("Line 34: not enough prevotes (less than 2f + 1)", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -46,7 +46,7 @@ func TestPolkaAny(t *testing.T) {
 	})
 
 	t.Run("Line 34: enough prevotes but not in prevote step", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state (don't move to prevote step)
@@ -62,7 +62,7 @@ func TestPolkaAny(t *testing.T) {
 	})
 
 	t.Run("Line 34: only schedule timeout the first time", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state

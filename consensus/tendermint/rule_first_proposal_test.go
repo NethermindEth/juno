@@ -10,7 +10,7 @@ import (
 
 func TestFirstProposal(t *testing.T) {
 	t.Run("Line 22: valid proposal with lockedRound = -1 should prevote for proposal", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state (already in propose step)
@@ -25,7 +25,7 @@ func TestFirstProposal(t *testing.T) {
 	})
 
 	t.Run("Line 22: valid proposal with lockedValue matching proposal should prevote for proposal", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		previousRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
@@ -57,7 +57,7 @@ func TestFirstProposal(t *testing.T) {
 	})
 
 	t.Run("Line 22: valid proposal with lockedValue not matching proposal should prevote nil", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		previousRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
@@ -88,7 +88,7 @@ func TestFirstProposal(t *testing.T) {
 	})
 
 	t.Run("Line 22: invalid proposal should prevote nil", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -102,7 +102,7 @@ func TestFirstProposal(t *testing.T) {
 	})
 
 	t.Run("Line 22: proposal received when not in propose step should do nothing", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state and move to prevote step to avoid being in propose step

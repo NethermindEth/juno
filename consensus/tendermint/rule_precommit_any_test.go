@@ -10,7 +10,7 @@ import (
 
 func TestPrecommitAny(t *testing.T) {
 	t.Run("Line 47: upon 2f + 1 {PRECOMMIT, h_p, round_p, *} for the first time schedule timeout", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -31,7 +31,7 @@ func TestPrecommitAny(t *testing.T) {
 	})
 
 	t.Run("Line 47: upon 2f + 1 {PRECOMMIT, h_p, round_p, *} without receiving proposal", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -47,7 +47,7 @@ func TestPrecommitAny(t *testing.T) {
 	})
 
 	t.Run("Line 47: not enough precommits (less than 2f + 1)", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -67,7 +67,7 @@ func TestPrecommitAny(t *testing.T) {
 	})
 
 	t.Run("Line 47: only schedule timeout the first time", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state

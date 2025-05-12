@@ -10,7 +10,7 @@ import (
 
 func TestTimeout(t *testing.T) {
 	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		currentRound.start().expectActions(currentRound.action().scheduleTimeout(types.StepPropose))
@@ -20,7 +20,7 @@ func TestTimeout(t *testing.T) {
 	})
 
 	t.Run("OnTimeoutPrevote: move to next round", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
@@ -36,7 +36,7 @@ func TestTimeout(t *testing.T) {
 	})
 
 	t.Run("OnTimeoutPrecommit: move to next round", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
@@ -61,7 +61,7 @@ func TestTimeout(t *testing.T) {
 	})
 
 	t.Run("Ignore old timeout on new height", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 

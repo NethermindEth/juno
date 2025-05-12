@@ -8,7 +8,7 @@ import (
 
 func TestPolkaNil(t *testing.T) {
 	t.Run("Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} broadcast nil precommit", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -27,7 +27,7 @@ func TestPolkaNil(t *testing.T) {
 	})
 
 	t.Run("Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} from other nodes broadcast nil precommit", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -48,7 +48,7 @@ func TestPolkaNil(t *testing.T) {
 	})
 
 	t.Run("Line 44: not enough nil prevotes (less than 2f + 1)", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -67,7 +67,7 @@ func TestPolkaNil(t *testing.T) {
 	})
 
 	t.Run("Line 44: enough nil prevotes but not in prevote step", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state
@@ -83,7 +83,7 @@ func TestPolkaNil(t *testing.T) {
 	})
 
 	t.Run("Line 44: mixed prevotes (some nil, some with value)", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		// Initialise state

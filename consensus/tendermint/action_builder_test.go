@@ -17,7 +17,7 @@ func (t actionBuilder) buildMessageHeader() types.MessageHeader[felt.Felt] {
 }
 
 // broadcastProposal builds and returns a BroadcastProposal action.
-func (t actionBuilder) broadcastProposal(val value, validRound types.Round) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) broadcastProposal(val value, validRound types.Round) types.Action[value, felt.Felt, felt.Felt] {
 	return &BroadcastProposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: t.buildMessageHeader(),
 		ValidRound:    validRound,
@@ -26,7 +26,7 @@ func (t actionBuilder) broadcastProposal(val value, validRound types.Round) Acti
 }
 
 // broadcastPrevote builds and returns a BroadcastPrevote action.
-func (t actionBuilder) broadcastPrevote(val *value) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) broadcastPrevote(val *value) types.Action[value, felt.Felt, felt.Felt] {
 	return &BroadcastPrevote[felt.Felt, felt.Felt]{
 		MessageHeader: t.buildMessageHeader(),
 		ID:            getHash(val),
@@ -34,7 +34,7 @@ func (t actionBuilder) broadcastPrevote(val *value) Action[value, felt.Felt, fel
 }
 
 // broadcastPrecommit builds and returns a BroadcastPrecommit action.
-func (t actionBuilder) broadcastPrecommit(val *value) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) broadcastPrecommit(val *value) types.Action[value, felt.Felt, felt.Felt] {
 	return &BroadcastPrecommit[felt.Felt, felt.Felt]{
 		MessageHeader: t.buildMessageHeader(),
 		ID:            getHash(val),
@@ -42,7 +42,7 @@ func (t actionBuilder) broadcastPrecommit(val *value) Action[value, felt.Felt, f
 }
 
 // scheduleTimeout builds and returns a ScheduleTimeout action.
-func (t actionBuilder) scheduleTimeout(s types.Step) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) scheduleTimeout(s types.Step) types.Action[value, felt.Felt, felt.Felt] {
 	return &ScheduleTimeout{
 		Step:   s,
 		Height: t.actionHeight,

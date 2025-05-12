@@ -108,7 +108,7 @@ func (d *Driver[V, H, A]) Stop() {
 	}
 }
 
-func (d *Driver[V, H, A]) execute(actions []tendermint.Action[V, H, A]) {
+func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *tendermint.BroadcastProposal[V, H, A]:

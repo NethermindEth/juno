@@ -48,11 +48,11 @@ type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A type
 //go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ReplayWAL()
-	ProcessStart(types.Round) []Action[V, H, A]
-	ProcessTimeout(types.Timeout) []Action[V, H, A]
-	ProcessProposal(types.Proposal[V, H, A]) []Action[V, H, A]
-	ProcessPrevote(types.Prevote[H, A]) []Action[V, H, A]
-	ProcessPrecommit(types.Precommit[H, A]) []Action[V, H, A]
+	ProcessStart(types.Round) []types.Action[V, H, A]
+	ProcessTimeout(types.Timeout) []types.Action[V, H, A]
+	ProcessProposal(types.Proposal[V, H, A]) []types.Action[V, H, A]
+	ProcessPrevote(types.Prevote[H, A]) []types.Action[V, H, A]
+	ProcessPrecommit(types.Precommit[H, A]) []types.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
@@ -115,7 +115,7 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	ID    *H
 }
 
-func (t *stateMachine[V, H, A]) startRound(r types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
 	t.state.round = r
 	t.state.step = types.StepPropose
 
@@ -136,7 +136,7 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) Action[V, H, A] {
 	}
 }
 
-func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{
 			Step:   s,
@@ -242,21 +242,21 @@ func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 	}
 }
 
-func (t *stateMachine[V, H, A]) onTimeoutPropose(h types.Height, r types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) onTimeoutPropose(h types.Height, r types.Round) types.Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == types.StepPropose {
 		return t.setStepAndSendPrevote(nil)
 	}
 	return nil
 }
 
-func (t *stateMachine[V, H, A]) onTimeoutPrevote(h types.Height, r types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) onTimeoutPrevote(h types.Height, r types.Round) types.Action[V, H, A] {
 	if t.state.height == h && t.state.round == r && t.state.step == types.StepPrevote {
 		return t.setStepAndSendPrecommit(nil)
 	}
 	return nil
 }
 
-func (t *stateMachine[V, H, A]) onTimeoutPrecommit(h types.Height, r types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) onTimeoutPrecommit(h types.Height, r types.Round) types.Action[V, H, A] {
 	if t.state.height == h && t.state.round == r {
 		return t.startRound(r + 1)
 	}

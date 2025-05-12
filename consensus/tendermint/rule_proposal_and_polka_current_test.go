@@ -9,7 +9,7 @@ import (
 
 func TestProposalAndPolkaCurrent(t *testing.T) {
 	t.Run("Line 36: lock and broadcast precommit when step is prevote", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		committedValue := value(42)
@@ -33,7 +33,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 	})
 
 	t.Run("Line 36: record valid value even if we don't prevote it", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 1)
+		stateMachine := setupStateMachine(t, 4, 1, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 		committedValue := value(42)
@@ -76,7 +76,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 	})
 
 	t.Run("Line 36: not trigger if not first time", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		committedValue := value(42)

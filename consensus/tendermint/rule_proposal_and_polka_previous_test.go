@@ -10,7 +10,7 @@ import (
 func TestProposalAndPolkaPrevious(t *testing.T) {
 	t.Run("Line 28: locked value is unchanged", func(t *testing.T) {
 		// In this test, we're validator 1. Validator 0 is faulty.
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 
 		firstRound := newTestRound(t, stateMachine, 0, 0)
 		secondRound := newTestRound(t, stateMachine, 0, 1)
@@ -60,7 +60,7 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// - Validator 2 proposes `secondValue`, because it locked to `secondValue` in the 2nd round. Valid round is set to the 2nd round.
 		// - We saw prevotes in the 2nd round (proposal's valid round) from validator 0 (delayed), 1 and 2.
 		// - We accept it even if it doesn't match the locked value.
-		stateMachine := setupStateMachine(t, 4, 3)
+		stateMachine := setupStateMachine(t, 4, 3, true)
 
 		firstRound := newTestRound(t, stateMachine, 0, 0)
 		secondRound := newTestRound(t, stateMachine, 0, 1)

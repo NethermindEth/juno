@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 /*
 Check the upon condition on line 49:
 
@@ -26,7 +28,7 @@ func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 	return hasQuorum && isValid
 }
 
-func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
 	// TODO: Optimise this
 	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)

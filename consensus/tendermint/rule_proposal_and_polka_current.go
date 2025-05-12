@@ -24,8 +24,8 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *Cach
 		firstTime
 }
 
-func (t *stateMachine[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
-	var action Action[V, H, A]
+func (t *stateMachine[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+	var action types.Action[V, H, A]
 	if t.state.step == types.StepPrevote {
 		t.state.lockedValue = cachedProposal.Value
 		t.state.lockedRound = t.state.round

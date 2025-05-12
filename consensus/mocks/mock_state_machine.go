@@ -12,7 +12,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	tendermint "github.com/NethermindEth/juno/consensus/tendermint"
 	types "github.com/NethermindEth/juno/consensus/types"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,10 +41,10 @@ func (m *MockStateMachine[V, H, A]) EXPECT() *MockStateMachineMockRecorder[V, H,
 }
 
 // ProcessPrecommit mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessPrecommit(arg0 types.Precommit[H, A]) []tendermint.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessPrecommit(arg0 types.Precommit[H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessPrecommit", arg0)
-	ret0, _ := ret[0].([]tendermint.Action[V, H, A])
+	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
@@ -56,10 +55,10 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessPrecommit(arg0 any) *gom
 }
 
 // ProcessPrevote mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessPrevote(arg0 types.Prevote[H, A]) []tendermint.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessPrevote(arg0 types.Prevote[H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessPrevote", arg0)
-	ret0, _ := ret[0].([]tendermint.Action[V, H, A])
+	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
@@ -70,10 +69,10 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessPrevote(arg0 any) *gomoc
 }
 
 // ProcessProposal mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessProposal(arg0 types.Proposal[V, H, A]) []tendermint.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessProposal(arg0 types.Proposal[V, H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessProposal", arg0)
-	ret0, _ := ret[0].([]tendermint.Action[V, H, A])
+	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
@@ -84,10 +83,10 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessProposal(arg0 any) *gomo
 }
 
 // ProcessStart mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessStart(arg0 types.Round) []tendermint.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessStart(arg0 types.Round) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessStart", arg0)
-	ret0, _ := ret[0].([]tendermint.Action[V, H, A])
+	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
@@ -98,10 +97,10 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessStart(arg0 any) *gomock.
 }
 
 // ProcessTimeout mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessTimeout(arg0 types.Timeout) []tendermint.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessTimeout(arg0 types.Timeout) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessTimeout", arg0)
-	ret0, _ := ret[0].([]tendermint.Action[V, H, A])
+	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
