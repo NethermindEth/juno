@@ -1,33 +1,30 @@
 package tendermint
 
 import (
-	"sync"
-	"time"
-
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type (
-	step        uint8
-	height      uint
-	round       int
-	votingPower uint
+	Step        uint8
+	Height      uint
+	Round       int
+	VotingPower uint
 )
 
 const (
-	propose step = iota
-	prevote
-	precommit
+	StepPropose Step = iota
+	StepPrevote
+	StepPrecommit
 )
 
-func (s step) String() string {
+func (s Step) String() string {
 	switch s {
-	case propose:
+	case StepPropose:
 		return "propose"
-	case prevote:
+	case StepPrevote:
 		return "prevote"
-	case precommit:
+	case StepPrecommit:
 		return "precommit"
 	default:
 		return "unknown"
@@ -35,11 +32,9 @@ func (s step) String() string {
 }
 
 const (
-	maxFutureHeight = height(5)
-	maxFutureRound  = round(5)
+	maxFutureHeight = Height(5)
+	maxFutureRound  = Round(5)
 )
-
-type timeoutFn func(r round) time.Duration
 
 type Addr interface {
 	// Ethereum Addresses are 20 bytes
@@ -65,22 +60,22 @@ type Application[V Hashable[H], H Hash] interface {
 
 type Blockchain[V Hashable[H], H Hash, A Addr] interface {
 	// Height return the current blockchain height
-	Height() height
+	Height() Height
 
 	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(height, V, []Precommit[H, A])
+	Commit(Height, V, []Precommit[H, A])
 }
 
 type Validators[A Addr] interface {
 	// TotalVotingPower represents N which is required to calculate the thresholds.
-	TotalVotingPower(height) votingPower
+	TotalVotingPower(Height) VotingPower
 
 	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
 	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(A) votingPower
+	ValidatorVotingPower(A) VotingPower
 
 	// Proposer returns the proposer of the current round and height.
-	Proposer(height, round) A
+	Proposer(Height, Round) A
 }
 
 type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
@@ -89,50 +84,16 @@ type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
 	Equivocation(msgs ...M)
 }
 
-type Listener[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
-	// Listen would return consensus messages to Tendermint which are set by the validator set.
-	Listen() <-chan M
+//go:generate mockgen -destination=./mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
+type StateMachine[V Hashable[H], H Hash, A Addr] interface {
+	ProcessStart(Round) []Action[V, H, A]
+	ProcessTimeout(Timeout) []Action[V, H, A]
+	ProcessProposal(Proposal[V, H, A]) []Action[V, H, A]
+	ProcessPrevote(Prevote[H, A]) []Action[V, H, A]
+	ProcessPrecommit(Precommit[H, A]) []Action[V, H, A]
 }
 
-type Broadcaster[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
-	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
-	Broadcast(M)
-
-	// SendMsg would send a message to a specific validator. This would be required for helping send resquest and
-	// response message to help a specifc validator to catch up.
-	SendMsg(A, M)
-}
-
-type Listeners[V Hashable[H], H Hash, A Addr] struct {
-	ProposalListener  Listener[Proposal[V, H, A], V, H, A]
-	PrevoteListener   Listener[Prevote[H, A], V, H, A]
-	PrecommitListener Listener[Precommit[H, A], V, H, A]
-}
-
-type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
-	ProposalBroadcaster  Broadcaster[Proposal[V, H, A], V, H, A]
-	PrevoteBroadcaster   Broadcaster[Prevote[H, A], V, H, A]
-	PrecommitBroadcaster Broadcaster[Precommit[H, A], V, H, A]
-}
-
-type Driver[V Hashable[H], H Hash, A Addr] struct {
-	stateMachine *Tendermint[V, H, A]
-
-	timeoutPropose   timeoutFn
-	timeoutPrevote   timeoutFn
-	timeoutPrecommit timeoutFn
-
-	listeners    Listeners[V, H, A]
-	broadcasters Broadcasters[V, H, A]
-
-	scheduledTms map[timeout]*time.Timer
-	timeoutsCh   chan timeout
-
-	wg   sync.WaitGroup
-	quit chan struct{}
-}
-
-type Tendermint[V Hashable[H], H Hash, A Addr] struct {
+type stateMachine[V Hashable[H], H Hash, A Addr] struct {
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
@@ -145,14 +106,14 @@ type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 }
 
 type state[V Hashable[H], H Hash] struct {
-	height height
-	round  round
-	step   step
+	height Height
+	round  Round
+	step   Step
 
 	lockedValue *V
-	lockedRound round
+	lockedRound Round
 	validValue  *V
-	validRound  round
+	validRound  Round
 
 	// The following are round level variable therefore when a round changes they must be reset.
 	timeoutPrevoteScheduled       bool // line34 for the first time condition
@@ -165,8 +126,8 @@ func New[V Hashable[H], H Hash, A Addr](
 	app Application[V, H],
 	chain Blockchain[V, H, A],
 	vals Validators[A],
-) *Tendermint[V, H, A] {
-	return &Tendermint[V, H, A]{
+) StateMachine[V, H, A] {
+	return &stateMachine[V, H, A]{
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -180,101 +141,15 @@ func New[V Hashable[H], H Hash, A Addr](
 	}
 }
 
-func NewDriver[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
-	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
-) *Driver[V, H, A] {
-	return &Driver[V, H, A]{
-		stateMachine:     New(nodeAddr, app, chain, vals),
-		timeoutPropose:   tmPropose,
-		timeoutPrevote:   tmPrevote,
-		timeoutPrecommit: tmPrecommit,
-		listeners:        listeners,
-		broadcasters:     broadcasters,
-		scheduledTms:     make(map[timeout]*time.Timer),
-		timeoutsCh:       make(chan timeout),
-		quit:             make(chan struct{}),
-	}
-}
-
 type CachedProposal[V Hashable[H], H Hash, A Addr] struct {
 	Proposal[V, H, A]
 	Valid bool
 	ID    *H
 }
 
-func (d *Driver[V, H, A]) Start() {
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
-
-		actions := d.stateMachine.processStart(0)
-		d.execute(actions)
-
-		// Todo: check message signature everytime a message is received.
-		// For the time being it can be assumed the signature is correct.
-
-		for {
-			select {
-			case <-d.quit:
-				return
-			case tm := <-d.timeoutsCh:
-				// Handling of timeouts is priorities over messages
-				actions = d.stateMachine.processTimeout(tm)
-				delete(d.scheduledTms, tm)
-			case p := <-d.listeners.ProposalListener.Listen():
-				actions = d.stateMachine.processProposal(p)
-			case p := <-d.listeners.PrevoteListener.Listen():
-				actions = d.stateMachine.processPrevote(p)
-			case p := <-d.listeners.PrecommitListener.Listen():
-				actions = d.stateMachine.processPrecommit(p)
-			}
-			d.execute(actions)
-		}
-	}()
-}
-
-func (d *Driver[V, H, A]) execute(actions []Action[V, H, A]) {
-	for _, action := range actions {
-		switch action := action.(type) {
-		case *BroadcastProposal[V, H, A]:
-			d.broadcasters.ProposalBroadcaster.Broadcast(Proposal[V, H, A](*action))
-		case *BroadcastPrevote[H, A]:
-			d.broadcasters.PrevoteBroadcaster.Broadcast(Prevote[H, A](*action))
-		case *BroadcastPrecommit[H, A]:
-			d.broadcasters.PrecommitBroadcaster.Broadcast(Precommit[H, A](*action))
-		case *ScheduleTimeout:
-			var duration time.Duration
-			switch action.s {
-			case propose:
-				duration = d.timeoutPropose(action.r)
-			case prevote:
-				duration = d.timeoutPrevote(action.r)
-			case precommit:
-				duration = d.timeoutPrecommit(action.r)
-			default:
-				return
-			}
-			d.scheduledTms[timeout(*action)] = time.AfterFunc(duration, func() {
-				select {
-				case <-d.quit:
-				case d.timeoutsCh <- timeout(*action):
-				}
-			})
-		}
-	}
-}
-
-func (d *Driver[V, H, A]) Stop() {
-	close(d.quit)
-	d.wg.Wait()
-	for _, tm := range d.scheduledTms {
-		tm.Stop()
-	}
-}
-
-func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) startRound(r Round) Action[V, H, A] {
 	t.state.round = r
-	t.state.step = propose
+	t.state.step = StepPropose
 
 	t.state.timeoutPrevoteScheduled = false
 	t.state.lockedValueAndOrValidValueSet = false
@@ -289,28 +164,22 @@ func (t *Tendermint[V, H, A]) startRound(r round) Action[V, H, A] {
 		}
 		return t.sendProposal(proposalValue)
 	} else {
-		return t.scheduleTimeout(propose)
+		return t.scheduleTimeout(StepPropose)
 	}
 }
 
-type timeout struct {
-	s step
-	h height
-	r round
-}
-
-func (t *Tendermint[V, H, A]) scheduleTimeout(s step) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) scheduleTimeout(s Step) Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{
-			s: s,
-			h: t.state.height,
-			r: t.state.round,
+			Step:   s,
+			Height: t.state.height,
+			Round:  t.state.round,
 		},
 	)
 }
 
-func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
-	var totalVotingPower votingPower
+func (t *stateMachine[V, H, A]) validatorSetVotingPower(vals []A) VotingPower {
+	var totalVotingPower VotingPower
 	for _, v := range vals {
 		totalVotingPower += t.validators.ValidatorVotingPower(v)
 	}
@@ -318,12 +187,12 @@ func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
 }
 
 // Todo: add separate unit tests to check f and q thresholds.
-func f(totalVotingPower votingPower) votingPower {
+func f(totalVotingPower VotingPower) VotingPower {
 	// note: integer division automatically floors the result as it return the quotient.
 	return (totalVotingPower - 1) / 3
 }
 
-func q(totalVotingPower votingPower) votingPower {
+func q(totalVotingPower VotingPower) VotingPower {
 	// Unfortunately there is no ceiling function for integers in go.
 	d := totalVotingPower * 2
 	q := d / 3
@@ -339,10 +208,10 @@ func q(totalVotingPower votingPower) votingPower {
 // - if height is the current height, round is within [0, current round + maxFutureRound]
 // - if height is a future height, round is within [0, maxFutureRound]
 // The message is processed immediately if all the conditions above are met plus height is the current height.
-func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
+func (t *stateMachine[V, H, A]) preprocessMessage(header MessageHeader[A], addMessage func()) bool {
 	isCurrentHeight := header.Height == t.state.height
 
-	var currentRoundOfHeaderHeight round
+	var currentRoundOfHeaderHeight Round
 	// If the height is a future height, the round is considered to be 0, as the height hasn't started yet.
 	if isCurrentHeight {
 		currentRoundOfHeaderHeight = t.state.round
@@ -360,7 +229,7 @@ func (t *Tendermint[V, H, A]) preprocessMessage(header MessageHeader[A], addMess
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingPrecommits []Precommit[H, A], hasQuorum bool) {
+func (t *stateMachine[V, H, A]) checkForQuorumPrecommit(r Round, vID H) (matchingPrecommits []Precommit[H, A], hasQuorum bool) {
 	precommits, ok := t.messages.precommits[t.state.height][r]
 	if !ok {
 		return nil, false
@@ -377,7 +246,7 @@ func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingP
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H) (hasQuorum bool) {
+func (t *stateMachine[V, H, A]) checkQuorumPrevotesGivenProposalVID(r Round, vID H) (hasQuorum bool) {
 	prevotes, ok := t.messages.prevotes[t.state.height][r]
 	if !ok {
 		return false
@@ -392,7 +261,7 @@ func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H
 	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
-func (t *Tendermint[V, H, A]) findProposal(r round) *CachedProposal[V, H, A] {
+func (t *stateMachine[V, H, A]) findProposal(r Round) *CachedProposal[V, H, A] {
 	v, ok := t.messages.proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
 	if !ok {
 		return nil

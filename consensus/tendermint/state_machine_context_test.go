@@ -24,12 +24,12 @@ import (
 // but the height and round of the test construct that is being built.
 type stateMachineContext struct {
 	testing       *testing.T
-	stateMachine  *Tendermint[value, felt.Felt, felt.Felt]
-	builderHeight height
-	builderRound  round
+	stateMachine  *stateMachine[value, felt.Felt, felt.Felt]
+	builderHeight Height
+	builderRound  Round
 }
 
-func newTestRound(t *testing.T, stateMachine *Tendermint[value, felt.Felt, felt.Felt], h height, r round) stateMachineContext {
+func newTestRound(t *testing.T, stateMachine *stateMachine[value, felt.Felt, felt.Felt], h Height, r Round) stateMachineContext {
 	return stateMachineContext{
 		testing:       t,
 		stateMachine:  stateMachine,
@@ -45,17 +45,17 @@ func (t stateMachineContext) start() actionAsserter[any] {
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
 		inputMessage: nil,
-		actions:      t.stateMachine.processStart(t.builderRound),
+		actions:      t.stateMachine.ProcessStart(t.builderRound),
 	}
 }
 
 // processTimeout triggers a timeout and returns an actionAsserter to assert the result actions.
-func (t stateMachineContext) processTimeout(s step) actionAsserter[any] {
+func (t stateMachineContext) processTimeout(s Step) actionAsserter[any] {
 	return actionAsserter[any]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
 		inputMessage: nil,
-		actions:      t.stateMachine.processTimeout(timeout{s: s, h: t.builderHeight, r: t.builderRound}),
+		actions:      t.stateMachine.ProcessTimeout(Timeout{Step: s, Height: t.builderHeight, Round: t.builderRound}),
 	}
 }
 

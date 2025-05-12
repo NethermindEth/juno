@@ -7,8 +7,8 @@ import (
 // actionBuilder is a helper struct to build expected actions as the result of processing messages and timeouts for the state machine.
 type actionBuilder struct {
 	thisNodeAddr felt.Felt
-	actionHeight height
-	actionRound  round
+	actionHeight Height
+	actionRound  Round
 }
 
 func (t actionBuilder) buildMessageHeader() MessageHeader[felt.Felt] {
@@ -16,7 +16,7 @@ func (t actionBuilder) buildMessageHeader() MessageHeader[felt.Felt] {
 }
 
 // broadcastProposal builds and returns a BroadcastProposal action.
-func (t actionBuilder) broadcastProposal(val value, validRound round) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) broadcastProposal(val value, validRound Round) Action[value, felt.Felt, felt.Felt] {
 	return &BroadcastProposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: t.buildMessageHeader(),
 		ValidRound:    validRound,
@@ -41,10 +41,10 @@ func (t actionBuilder) broadcastPrecommit(val *value) Action[value, felt.Felt, f
 }
 
 // scheduleTimeout builds and returns a ScheduleTimeout action.
-func (t actionBuilder) scheduleTimeout(s step) Action[value, felt.Felt, felt.Felt] {
+func (t actionBuilder) scheduleTimeout(s Step) Action[value, felt.Felt, felt.Felt] {
 	return &ScheduleTimeout{
-		s: s,
-		h: t.actionHeight,
-		r: t.actionRound,
+		Step:   s,
+		Height: t.actionHeight,
+		Round:  t.actionRound,
 	}
 }

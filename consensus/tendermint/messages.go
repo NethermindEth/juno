@@ -15,8 +15,16 @@ type Message[V Hashable[H], H Hash, A Addr] interface {
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	MessageHeader[A]
-	ValidRound round
-	Value      *V
+	ValidRound Round `cbor:"valid_round"`
+	Value      *V    `cbor:"value"`
+}
+
+func (p Proposal[V, H, A]) msgType() MessageType {
+	return MessageTypeProposal
+}
+
+func (p Proposal[V, H, A]) height() Height {
+	return p.Height
 }
 
 type (
@@ -24,15 +32,31 @@ type (
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
 
+func (p Prevote[H, A]) msgType() MessageType {
+	return MessageTypePrevote
+}
+
+func (p Prevote[H, A]) height() Height {
+	return p.Height
+}
+
+func (p Precommit[H, A]) msgType() MessageType {
+	return MessageTypePrecommit
+}
+
+func (p Precommit[H, A]) height() Height {
+	return p.Height
+}
+
 type Vote[H Hash, A Addr] struct {
 	MessageHeader[A]
-	ID *H
+	ID *H `cbor:"id"`
 }
 
 type MessageHeader[A Addr] struct {
-	Height height
-	Round  round
-	Sender A
+	Height Height `cbor:"height"`
+	Round  Round  `cbor:"round"`
+	Sender A      `cbor:"sender"`
 }
 
 // messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:
@@ -44,22 +68,22 @@ type MessageHeader[A Addr] struct {
 //	How would we keep track of nil votes? In golan map key cannot be nil.
 //	It is not easy to calculate a zero value when dealing with generics.
 type messages[V Hashable[H], H Hash, A Addr] struct {
-	proposals  map[height]map[round]map[A]Proposal[V, H, A]
-	prevotes   map[height]map[round]map[A]Prevote[H, A]
-	precommits map[height]map[round]map[A]Precommit[H, A]
+	proposals  map[Height]map[Round]map[A]Proposal[V, H, A]
+	prevotes   map[Height]map[Round]map[A]Prevote[H, A]
+	precommits map[Height]map[Round]map[A]Precommit[H, A]
 }
 
 func newMessages[V Hashable[H], H Hash, A Addr]() messages[V, H, A] {
 	return messages[V, H, A]{
-		proposals:  make(map[height]map[round]map[A]Proposal[V, H, A]),
-		prevotes:   make(map[height]map[round]map[A]Prevote[H, A]),
-		precommits: make(map[height]map[round]map[A]Precommit[H, A]),
+		proposals:  make(map[Height]map[Round]map[A]Proposal[V, H, A]),
+		prevotes:   make(map[Height]map[Round]map[A]Prevote[H, A]),
+		precommits: make(map[Height]map[Round]map[A]Precommit[H, A]),
 	}
 }
 
-func addMessages[T any, A Addr](storage map[height]map[round]map[A]T, msg T, a A, h height, r round) {
+func addMessages[T any, A Addr](storage map[Height]map[Round]map[A]T, msg T, a A, h Height, r Round) {
 	if _, ok := storage[h]; !ok {
-		storage[h] = make(map[round]map[A]T)
+		storage[h] = make(map[Round]map[A]T)
 	}
 
 	if _, ok := storage[h][r]; !ok {
@@ -84,14 +108,14 @@ func (m *messages[V, H, A]) addPrecommit(p Precommit[H, A]) {
 	addMessages(m.precommits, p, p.Sender, p.Height, p.Round)
 }
 
-func (m *messages[V, H, A]) allMessages(h height, r round) (map[A]Proposal[V, H, A], map[A]Prevote[H, A],
+func (m *messages[V, H, A]) allMessages(h Height, r Round) (map[A]Proposal[V, H, A], map[A]Prevote[H, A],
 	map[A]Precommit[H, A],
 ) {
 	// Todo: Should they be copied?
 	return m.proposals[h][r], m.prevotes[h][r], m.precommits[h][r]
 }
 
-func (m *messages[V, H, A]) deleteHeightMessages(h height) {
+func (m *messages[V, H, A]) deleteHeightMessages(h Height) {
 	delete(m.proposals, h)
 	delete(m.prevotes, h)
 	delete(m.precommits, h)

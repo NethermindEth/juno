@@ -22,10 +22,12 @@ docker run -d \
   nethermind/juno \
   --metrics \
   --metrics-port 9090 \
-  --metrics-host 0.0.0.0
+  --metrics-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE>
+
 
 # Standalone binary
-./build/juno --metrics --metrics-port 9090 --metrics-host=0.0.0.0
+./build/juno --metrics --metrics-port 9090 --metrics-host=0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
 
 ## Configure Grafana dashboard

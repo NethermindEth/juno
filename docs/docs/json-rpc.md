@@ -4,7 +4,7 @@ title: JSON-RPC Interface
 
 # JSON-RPC Interface :globe_with_meridians:
 
-Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.7.0/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) over HTTP and [WebSocket](websocket).
+Interacting with Juno requires sending requests to specific JSON-RPC API methods. Juno supports all of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) over HTTP and [WebSocket](websocket).
 
 ## Enable the JSON-RPC server
 
@@ -22,15 +22,16 @@ docker run -d \
   nethermind/juno \
   --http \
   --http-port 6060 \
+  --eth-node <YOUR-ETH-NODE> \
   --http-host 0.0.0.0
 
 # Standalone binary
-./build/juno --http --http-port 6060 --http-host 0.0.0.0
+./build/juno --http --http-port 6060 --http-host 0.0.0.0 --eth-node <YOUR-ETH-NODE>
 ```
 
 ## Making JSON-RPC requests
 
-You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.7.0/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
+You can use any of [Starknet's Node API Endpoints](https://playground.open-rpc.org/?uiSchema%5BappBar%5D%5Bui:splitView%5D=false&schemaUrl=https://raw.githubusercontent.com/starkware-libs/starknet-specs/v0.8.1/api/starknet_api_openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false&uiSchema%5BappBar%5D%5Bui:darkMode%5D=true&uiSchema%5BappBar%5D%5Bui:examplesDropdown%5D=false) with Juno. Check the availability of Juno with the `juno_version` method:
 
 ```mdx-code-block
 import Tabs from "@theme/Tabs";

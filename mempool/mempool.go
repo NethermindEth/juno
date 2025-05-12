@@ -167,15 +167,7 @@ func (p *Pool) LoadFromDB() error {
 		if err != nil {
 			return err
 		}
-		newMemPoolTxn := &memPoolTxn{Txn: curTxn.Txn}
-		if curTxn.NextHash != nil {
-			nextDBTxn, err := GetTxn(p.db, curTxn.NextHash)
-			if err != nil {
-				return err
-			}
-			newMemPoolTxn = &memPoolTxn{Txn: nextDBTxn.Txn}
-		}
-		p.memTxnList.push(newMemPoolTxn)
+		p.memTxnList.push(&memPoolTxn{Txn: curTxn.Txn})
 		currentHash = curTxn.NextHash
 	}
 

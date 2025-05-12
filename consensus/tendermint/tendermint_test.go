@@ -32,23 +32,23 @@ func (a *app) Valid(v value) bool {
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
-	curHeight            height
-	decision             map[height]value
-	decisionCertificates map[height][]Precommit[felt.Felt, felt.Felt]
+	curHeight            Height
+	decision             map[Height]value
+	decisionCertificates map[Height][]Precommit[felt.Felt, felt.Felt]
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[height]value),
-		decisionCertificates: make(map[height][]Precommit[felt.Felt, felt.Felt]),
+		decision:             make(map[Height]value),
+		decisionCertificates: make(map[Height][]Precommit[felt.Felt, felt.Felt]),
 	}
 }
 
-func (c *chain) Height() height {
+func (c *chain) Height() Height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
+func (c *chain) Commit(h Height, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
 	c.decision[c.curHeight] = v
 	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
@@ -56,22 +56,22 @@ func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt
 
 // Implements Validators[felt.Felt] interface
 type validators struct {
-	totalVotingPower votingPower
+	totalVotingPower VotingPower
 	vals             []felt.Felt
 }
 
 func newVals() *validators { return &validators{} }
 
-func (v *validators) TotalVotingPower(h height) votingPower {
+func (v *validators) TotalVotingPower(h Height) VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) votingPower {
+func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) VotingPower {
 	return 1
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h height, r round) felt.Felt {
+func (v *validators) Proposer(h Height, r Round) felt.Felt {
 	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
@@ -88,7 +88,7 @@ func getVal(idx int) *felt.Felt {
 func setupStateMachine(
 	t *testing.T,
 	numValidators, thisValidator int, //nolint:unparam // This is because in all current tests numValidators is always 4.
-) *Tendermint[value, felt.Felt, felt.Felt] {
+) *stateMachine[value, felt.Felt, felt.Felt] {
 	t.Helper()
 	app, chain, vals := newApp(), newChain(), newVals()
 
@@ -98,14 +98,14 @@ func setupStateMachine(
 
 	thisNodeAddr := getVal(thisValidator)
 
-	return New(*thisNodeAddr, app, chain, vals)
+	return New(*thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 }
 
 func TestThresholds(t *testing.T) {
 	tests := []struct {
-		n votingPower
-		q votingPower
-		f votingPower
+		n VotingPower
+		q VotingPower
+		f VotingPower
 	}{
 		{1, 1, 0},
 		{2, 2, 0},

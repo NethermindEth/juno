@@ -51,6 +51,7 @@ docker run -d \
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
   --db-path /snapshots/juno_mainnet
 ```
 
@@ -73,6 +74,7 @@ mkdir -p $HOME/snapshots
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
+  --eth-node <YOUR-ETH-NODE> \
   --db-path $HOME/snapshots/juno_mainnet
 ```
 
@@ -145,7 +147,8 @@ mkdir -p $HOME/snapshots
   --http \
   --http-port 6060 \
   --http-host 0.0.0.0 \
-  --db-path $HOME/snapshots/juno_mainnet
+  --db-path $HOME/snapshots/juno_mainnet \
+  --eth-node <YOUR-ETH-NODE>
 ```
 
 :::tip
