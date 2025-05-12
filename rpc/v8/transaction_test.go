@@ -372,6 +372,10 @@ func TestTransactionByHash(t *testing.T) {
 						"max_amount": "0x60",
 						"max_price_per_unit": "0x13ac02cbe617"
 					},
+					"l1_data_gas": {
+						"max_amount": "0x0",
+						"max_price_per_unit": "0x0"
+					},
 					"l2_gas": { "max_amount": "0x0", "max_price_per_unit": "0x0" }
 				},
 				"tip": "0x0",
@@ -1793,6 +1797,10 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 				"l2_gas": {
 					"max_amount": "0xc8",
 					"max_price_per_unit": "0x14"
+				},
+				"l1_data_gas": {
+					"max_amount": "0x0",
+					"max_price_per_unit": "0x0"
 				}
 			}`,
 		},
