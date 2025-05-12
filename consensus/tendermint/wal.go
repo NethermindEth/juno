@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 // Todo: add doc on WAL msgs
 // The purpose of the WAL is to record any event that may result in a state change.
 // These events fall into the following categories:
@@ -12,6 +14,6 @@ package tendermint
 // no messages should be broadcast, and no side effects should occur during replay.
 
 type IsWALMsg interface {
-	msgType() MessageType
-	height() Height
+	msgType() types.MessageType
+	height() types.Height
 }

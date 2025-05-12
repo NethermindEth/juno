@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 /*
 Check the upon condition on line 28:
 
@@ -15,7 +17,7 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cac
 	vr := cachedProposal.ValidRound
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
 	return hasQuorum &&
-		t.state.step == StepPropose &&
+		t.state.step == types.StepPropose &&
 		vr >= 0 &&
 		vr < t.state.round
 }

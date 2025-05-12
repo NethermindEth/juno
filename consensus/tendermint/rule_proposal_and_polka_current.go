@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 /*
 Check upon condition on line 36:
 
@@ -18,13 +20,13 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *Cach
 	firstTime := !t.state.lockedValueAndOrValidValueSet
 	return hasQuorum &&
 		cachedProposal.Valid &&
-		t.state.step >= StepPrevote &&
+		t.state.step >= types.StepPrevote &&
 		firstTime
 }
 
 func (t *stateMachine[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
 	var action Action[V, H, A]
-	if t.state.step == StepPrevote {
+	if t.state.step == types.StepPrevote {
 		t.state.lockedValue = cachedProposal.Value
 		t.state.lockedRound = t.state.round
 		action = t.setStepAndSendPrecommit(cachedProposal.ID)

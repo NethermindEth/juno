@@ -1,16 +1,18 @@
 package tendermint
 
-type Action[V Hashable[H], H Hash, A Addr] interface {
+import "github.com/NethermindEth/juno/consensus/types"
+
+type Action[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	isTendermintAction()
 }
 
-type BroadcastProposal[V Hashable[H], H Hash, A Addr] Proposal[V, H, A]
+type BroadcastProposal[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
 
-type BroadcastPrevote[H Hash, A Addr] Prevote[H, A]
+type BroadcastPrevote[H types.Hash, A types.Addr] types.Prevote[H, A]
 
-type BroadcastPrecommit[H Hash, A Addr] Precommit[H, A]
+type BroadcastPrecommit[H types.Hash, A types.Addr] types.Precommit[H, A]
 
-type ScheduleTimeout Timeout
+type ScheduleTimeout types.Timeout
 
 func (a *BroadcastProposal[V, H, A]) isTendermintAction() {}
 

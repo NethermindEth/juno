@@ -1,8 +1,9 @@
-package tendermint
+package db
 
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -10,19 +11,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type value uint64
+
+func (v value) Hash() felt.Felt {
+	return *new(felt.Felt).SetUint64(uint64(v))
+}
+
 func newTestTMDB(t *testing.T) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore, string) {
 	t.Helper()
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, Height(0))
+	tmState := NewTendermintDB[value, felt.Felt, felt.Felt](testDB, types.Height(0))
 	require.NotNil(t, tmState)
 
 	return tmState, testDB, dbPath
 }
 
-func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHeight Height) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore) {
+func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHeight types.Height) (TendermintDB[value, felt.Felt, felt.Felt], db.KeyValueStore) {
 	t.Helper()
 	require.NoError(t, oldDB.Close())
 
@@ -34,9 +41,9 @@ func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHei
 }
 
 func TestWALLifecycle(t *testing.T) {
-	testHeight := Height(1000)
-	testRound := Round(1)
-	testStep := StepPrevote
+	testHeight := types.Height(1000)
+	testRound := types.Round(1)
+	testStep := types.StepPrevote
 
 	sender1 := *new(felt.Felt).SetUint64(1)
 	sender2 := *new(felt.Felt).SetUint64(2)
@@ -44,26 +51,26 @@ func TestWALLifecycle(t *testing.T) {
 	var val1 value = 10
 	valHash1 := val1.Hash()
 
-	proposal := Proposal[value, felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
+	proposal := types.Proposal[value, felt.Felt, felt.Felt]{
+		MessageHeader: types.MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender1},
 		ValidRound:    testRound,
 		Value:         utils.HeapPtr(val1),
 	}
-	prevote := Prevote[felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender2},
+	prevote := types.Prevote[felt.Felt, felt.Felt]{
+		MessageHeader: types.MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender2},
 		ID:            &valHash1,
 	}
-	precommit := Precommit[felt.Felt, felt.Felt]{
-		MessageHeader: MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender3},
+	precommit := types.Precommit[felt.Felt, felt.Felt]{
+		MessageHeader: types.MessageHeader[felt.Felt]{Height: testHeight, Round: testRound, Sender: sender3},
 		ID:            &valHash1,
 	}
-	timeoutMsg := Timeout{Height: testHeight, Round: testRound, Step: testStep}
+	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
 
 	expectedEntries := []WalEntry[value, felt.Felt, felt.Felt]{
-		{Type: MessageTypeProposal, Entry: proposal},
-		{Type: MessageTypePrevote, Entry: prevote},
-		{Type: MessageTypePrecommit, Entry: precommit},
-		{Type: MessageTypeTimeout, Entry: timeoutMsg},
+		{Type: types.MessageTypeProposal, Entry: proposal},
+		{Type: types.MessageTypePrevote, Entry: prevote},
+		{Type: types.MessageTypePrecommit, Entry: precommit},
+		{Type: types.MessageTypeTimeout, Entry: timeoutMsg},
 	}
 
 	tmState, db, dbPath := newTestTMDB(t)
