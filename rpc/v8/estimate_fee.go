@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type FeeUnit byte
@@ -259,20 +258,27 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 }
 */
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
+func (h *Handler) EstimateFee(
+	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv6.SkipFeeChargeFlag), true)
+	txnResults, httpHeader, err := h.simulateTransactions(
+		id,
+		broadcastedTxns,
+		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, err
 	}
 
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimation
-	}), httpHeader, nil
+	feeEstimates := make([]FeeEstimate, len(txnResults))
+	for i := range feeEstimates {
+		feeEstimates[i] = txnResults[i].FeeEstimation
+	}
+
+	return feeEstimates, httpHeader, nil
 }
 
-//nolint:gocritic
 func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) {
 	return estimateMessageFee(msg, id, h.EstimateFee)
 }
