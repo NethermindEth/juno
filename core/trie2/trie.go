@@ -485,7 +485,7 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 		hash = hn.Felt
 	}
 
-	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
