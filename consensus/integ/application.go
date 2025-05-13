@@ -14,10 +14,10 @@ func (v value) Hash() felt.Felt {
 
 type application struct{}
 
-func (a *application) Value() value {
+func (a application) Value() value {
 	return value(rand.Int()) //nolint:gosec // The whole package is for testing purpose only, so it's safe to use weak random.
 }
 
-func (a *application) Valid(v value) bool {
+func (a application) Valid(v value) bool {
 	return v >= 0
 }

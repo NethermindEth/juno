@@ -7,17 +7,17 @@ import (
 
 type blockchain struct {
 	height   types.Height
-	nodeAddr felt.Felt
+	nodeAddr *felt.Felt
 	commits  chan commit
 }
 
 type commit struct {
-	nodeAddr felt.Felt
+	nodeAddr *felt.Felt
 	height   types.Height
 	value    value
 }
 
-func newBlockchain(commits chan commit, nodeAddr felt.Felt) *blockchain {
+func newBlockchain(commits chan commit, nodeAddr *felt.Felt) *blockchain {
 	return &blockchain{
 		height:   0,
 		nodeAddr: nodeAddr,

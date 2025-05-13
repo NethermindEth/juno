@@ -12,7 +12,7 @@ type network struct {
 	precommits map[felt.Felt]listener[types.Precommit[felt.Felt, felt.Felt]]
 }
 
-func newNetwork(allNodes nodes, buffer int) *network {
+func newNetwork(allNodes nodes, buffer int) network {
 	n := network{
 		proposals:  make(map[felt.Felt]listener[types.Proposal[value, felt.Felt, felt.Felt]]),
 		prevotes:   make(map[felt.Felt]listener[types.Prevote[felt.Felt, felt.Felt]]),
@@ -25,18 +25,18 @@ func newNetwork(allNodes nodes, buffer int) *network {
 		n.precommits[addr] = newListener[types.Precommit[felt.Felt, felt.Felt]](buffer)
 	}
 
-	return &n
+	return n
 }
 
-func (n network) getListeners(addr felt.Felt) driver.Listeners[value, felt.Felt, felt.Felt] {
+func (n network) getListeners(addr *felt.Felt) driver.Listeners[value, felt.Felt, felt.Felt] {
 	return driver.Listeners[value, felt.Felt, felt.Felt]{
-		ProposalListener:  n.proposals[addr],
-		PrevoteListener:   n.prevotes[addr],
-		PrecommitListener: n.precommits[addr],
+		ProposalListener:  n.proposals[*addr],
+		PrevoteListener:   n.prevotes[*addr],
+		PrecommitListener: n.precommits[*addr],
 	}
 }
 
-func (n network) getBroadcasters(addr felt.Felt) driver.Broadcasters[value, felt.Felt, felt.Felt] {
+func (n network) getBroadcasters(addr *felt.Felt) driver.Broadcasters[value, felt.Felt, felt.Felt] {
 	return driver.Broadcasters[value, felt.Felt, felt.Felt]{
 		ProposalBroadcaster:  newBroadcaster(addr, n.proposals),
 		PrevoteBroadcaster:   newBroadcaster(addr, n.prevotes),

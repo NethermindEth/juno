@@ -43,10 +43,10 @@ func runTest(t *testing.T, cfg testConfig) {
 		testDB, err := pebble.New(dbPath)
 		require.NoError(t, err)
 
-		nodeAddr := allNodes.addr[i]
+		nodeAddr := &allNodes.addr[i]
 
 		stateMachine := tendermint.New(
-			nodeAddr,
+			*nodeAddr,
 			&application{},
 			newBlockchain(commits, nodeAddr),
 			validators,
@@ -75,7 +75,7 @@ func runTest(t *testing.T, cfg testConfig) {
 			continue
 		}
 
-		nodeIdx, ok := allNodes.index[commit.nodeAddr]
+		nodeIdx, ok := allNodes.index[*commit.nodeAddr]
 		assert.True(t, ok)
 
 		// Ignore faulty nodes
