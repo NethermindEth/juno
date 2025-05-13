@@ -28,14 +28,14 @@ type (
 	// Represents a binary branch node in the trie with two children
 	BinaryNode struct {
 		Children [2]Node // 0 = left, 1 = right
-		Flags    NodeFlag
+		Flags    nodeFlag
 	}
 	// Represents a path-compressed node that stores a path segment
 	// and a single child node
 	EdgeNode struct {
 		Child Node            // The child node at the end of the path
 		Path  *trieutils.Path // The compressed path segment
-		Flags NodeFlag
+		Flags nodeFlag
 	}
 	// Represents a node that only contains a hash reference to another node
 	HashNode struct{ felt.Felt }
@@ -46,13 +46,13 @@ type (
 // Used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
 var NilValueNode = &ValueNode{felt.Felt{}}
 
-type NodeFlag struct {
+type nodeFlag struct {
 	Hash  *HashNode // The cached hash of the node
 	Dirty bool      // Whether the node has been modified
 }
 
 // Creates a new node flag and marks the node as dirty
-func NewNodeFlag() NodeFlag { return NodeFlag{Dirty: true} }
+func NewNodeFlag() nodeFlag { return nodeFlag{Dirty: true} }
 
 func (n *BinaryNode) Hash(hf crypto.HashFn) felt.Felt {
 	leftHash := n.Left().Hash(hf)

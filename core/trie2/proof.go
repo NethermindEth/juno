@@ -26,37 +26,36 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	}
 
 	path := t.FeltToPath(key)
-	k := &path
 
 	var (
-		nodes  []trienode.Node
-		prefix = new(Path)
-		rn     = t.root
+		nodes    []trienode.Node
+		prefix   = new(Path)
+		rootNode = t.root
 	)
 
-	for k.Len() > 0 && rn != nil {
-		switch n := rn.(type) {
+	for path.Len() > 0 && rootNode != nil {
+		switch n := rootNode.(type) {
 		case *trienode.EdgeNode:
-			if !n.PathMatches(k) {
-				rn = nil // Trie doesn't contain the key
+			if !n.PathMatches(&path) {
+				rootNode = nil // Trie doesn't contain the key
 			} else {
-				rn = n.Child
+				rootNode = n.Child
 				prefix.Append(prefix, n.Path)
-				k.LSBs(k, n.Path.Len())
+				(&path).LSBs(&path, n.Path.Len())
 			}
 			nodes = append(nodes, n)
 		case *trienode.BinaryNode:
-			bit := k.MSB()
-			rn = n.Children[bit]
+			bit := (&path).MSB()
+			rootNode = n.Children[bit]
 			prefix.AppendBit(prefix, bit)
-			k.LSBs(k, 1)
+			(&path).LSBs(&path, 1)
 			nodes = append(nodes, n)
 		case *trienode.HashNode:
 			resolved, err := t.resolveNode(n, *prefix)
 			if err != nil {
 				return err
 			}
-			rn = resolved
+			rootNode = resolved
 		default:
 			panic(fmt.Sprintf("key: %s, unknown node type: %T", key.String(), n))
 		}
