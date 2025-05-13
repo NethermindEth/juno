@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
 
+  
 jobs:
   build:
     # Skip for PRs from forks as they don't have access to secrets
@@ -52,3 +53,4 @@ jobs:
       WS_RPC_URL: ${{ secrets.DEV_WS_SEPOLIA_URL }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+      AUTH_TOKEN: ${{ secrets.DEV_AUTH_TOKEN }}
