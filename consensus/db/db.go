@@ -1,7 +1,6 @@
 package db
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -116,11 +115,7 @@ func (s *tendermintDB[V, H, A]) getWALCount(height types.Height) walMsgCount {
 		}
 
 		defer iter.Close()
-		for iter.Seek(prefix); iter.Valid(); iter.Next() {
-			key := iter.Key()
-			if !bytes.HasPrefix(key, prefix) {
-				break
-			}
+		for iter.First(); iter.Valid(); iter.Next() {
 			count++
 		}
 		return nil
@@ -190,12 +185,8 @@ func (s *tendermintDB[V, H, A]) GetWALMsgs(height types.Height) ([]walEntry[V, H
 		}
 		defer iter.Close()
 
-		if !iter.Seek(startKey) {
-			// Changed error message slightly for clarity
-			return fmt.Errorf("failed to seek to start key when scanning WAL msgs")
-		}
 		msgID := 0
-		for ; iter.Valid(); iter.Next() {
+		for iter.First(); iter.Valid(); iter.Next() {
 			v, err := iter.Value()
 			if err != nil {
 				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
