@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -26,9 +27,9 @@ func (a actionAsserter[T]) expectActions(expected ...Action[value, felt.Felt, fe
 	for _, action := range expected {
 		switch action := action.(type) {
 		case *BroadcastProposal[value, felt.Felt, felt.Felt]:
-			assertProposal(a.testing, a.stateMachine, Proposal[value, felt.Felt, felt.Felt](*action))
+			assertProposal(a.testing, a.stateMachine, types.Proposal[value, felt.Felt, felt.Felt](*action))
 		case *BroadcastPrevote[felt.Felt, felt.Felt]:
-			assertPrevote(a.testing, a.stateMachine, Prevote[felt.Felt, felt.Felt](*action))
+			assertPrevote(a.testing, a.stateMachine, types.Prevote[felt.Felt, felt.Felt](*action))
 		case *BroadcastPrecommit[felt.Felt, felt.Felt]:
 			// If the post state is not in new height and a value is committed, assert the valid and locked tuples.
 			if a.stateMachine.state.height == action.Height && action.ID != nil {
@@ -37,7 +38,7 @@ func (a actionAsserter[T]) expectActions(expected ...Action[value, felt.Felt, fe
 				assert.Equal(a.testing, a.stateMachine.state.validRound, action.Round)
 				assert.Equal(a.testing, getHash(a.stateMachine.state.validValue), action.ID)
 			}
-			assertPrecommit(a.testing, a.stateMachine, Precommit[felt.Felt, felt.Felt](*action))
+			assertPrecommit(a.testing, a.stateMachine, types.Precommit[felt.Felt, felt.Felt](*action))
 		case *ScheduleTimeout:
 			// ScheduleTimeout doesn't come with any state change, so there's nothing to assert here.
 		}

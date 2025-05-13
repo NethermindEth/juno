@@ -31,7 +31,7 @@ func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)
 
-	t.messages.deleteHeightMessages(t.state.height)
+	t.messages.DeleteHeightMessages(t.state.height)
 	t.state.height++
 	return t.startRound(0)
 }
