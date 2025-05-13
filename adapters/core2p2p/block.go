@@ -5,95 +5,98 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 )
 
-func AdaptBlockID(header *core.Header) *gen.BlockID {
+func AdaptBlockID(header *core.Header) *common.BlockID {
 	if header == nil {
 		return nil
 	}
 
-	return &gen.BlockID{
+	return &common.BlockID{
 		Number: header.Number,
 		Header: AdaptHash(header.Hash),
 	}
 }
 
-func adaptSignature(sig []*felt.Felt) *gen.ConsensusSignature {
-	return &gen.ConsensusSignature{
+func adaptSignature(sig []*felt.Felt) *common.ConsensusSignature {
+	return &common.ConsensusSignature{
 		R: AdaptFelt(sig[0]),
 		S: AdaptFelt(sig[1]),
 	}
 }
 
-func AdaptHeader(header *core.Header, commitments *core.BlockCommitments,
+func AdaptHeader(blockHeader *core.Header, commitments *core.BlockCommitments,
 	stateDiffCommitment *felt.Felt, stateDiffLength uint64,
-) *gen.SignedBlockHeader {
+) *header.SignedBlockHeader {
 	var l1DataGasPriceFri, l1DataGasPriceWei, l2GasPriceFri, l2GasPriceWei *felt.Felt
-	if l1DataGasPrice := header.L1DataGasPrice; l1DataGasPrice != nil {
+	if l1DataGasPrice := blockHeader.L1DataGasPrice; l1DataGasPrice != nil {
 		l1DataGasPriceFri = l1DataGasPrice.PriceInFri
 		l1DataGasPriceWei = l1DataGasPrice.PriceInWei
 	} else {
 		l1DataGasPriceFri = &felt.Zero
 		l1DataGasPriceWei = &felt.Zero
 	}
-	if l2GasPrice := header.L2GasPrice; l2GasPrice != nil {
+	if l2GasPrice := blockHeader.L2GasPrice; l2GasPrice != nil {
 		l2GasPriceFri = l2GasPrice.PriceInFri
 		l2GasPriceWei = l2GasPrice.PriceInWei
 	} else {
 		l2GasPriceFri = &felt.Zero
 		l2GasPriceWei = &felt.Zero
 	}
-	return &gen.SignedBlockHeader{
-		BlockHash:        AdaptHash(header.Hash),
-		ParentHash:       AdaptHash(header.ParentHash),
-		Number:           header.Number,
-		Time:             header.Timestamp,
-		SequencerAddress: AdaptAddress(header.SequencerAddress),
-		StateRoot:        AdaptHash(header.GlobalStateRoot),
-		Transactions: &gen.Patricia{
-			NLeaves: header.TransactionCount,
+	return &header.SignedBlockHeader{
+		BlockHash:        AdaptHash(blockHeader.Hash),
+		ParentHash:       AdaptHash(blockHeader.ParentHash),
+		Number:           blockHeader.Number,
+		Time:             blockHeader.Timestamp,
+		SequencerAddress: AdaptAddress(blockHeader.SequencerAddress),
+		StateRoot:        AdaptHash(blockHeader.GlobalStateRoot),
+		Transactions: &common.Patricia{
+			NLeaves: blockHeader.TransactionCount,
 			Root:    AdaptHash(commitments.TransactionCommitment),
 		},
-		Events: &gen.Patricia{
-			NLeaves: header.EventCount,
+		Events: &common.Patricia{
+			NLeaves: blockHeader.EventCount,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
 		Receipts:        AdaptHash(commitments.ReceiptCommitment),
-		ProtocolVersion: header.ProtocolVersion,
-		L1GasPriceFri:   AdaptUint128(header.L1GasPriceSTRK),
-		Signatures:      utils.Map(header.Signatures, adaptSignature),
-		StateDiffCommitment: &gen.StateDiffCommitment{
+		ProtocolVersion: blockHeader.ProtocolVersion,
+		L1GasPriceFri:   AdaptUint128(blockHeader.L1GasPriceSTRK),
+		Signatures:      utils.Map(blockHeader.Signatures, adaptSignature),
+		StateDiffCommitment: &synccommon.StateDiffCommitment{
 			StateDiffLength: stateDiffLength,
 			Root:            AdaptHash(stateDiffCommitment),
 		},
-		L1GasPriceWei:          AdaptUint128(header.L1GasPriceETH),
+		L1GasPriceWei:          AdaptUint128(blockHeader.L1GasPriceETH),
 		L1DataGasPriceFri:      AdaptUint128(l1DataGasPriceFri),
 		L1DataGasPriceWei:      AdaptUint128(l1DataGasPriceWei),
-		L1DataAvailabilityMode: adaptL1DA(header.L1DAMode),
+		L1DataAvailabilityMode: adaptL1DA(blockHeader.L1DAMode),
 		L2GasPriceFri:          AdaptUint128(l2GasPriceFri),
 		L2GasPriceWei:          AdaptUint128(l2GasPriceWei),
 	}
 }
 
-func adaptL1DA(da core.L1DAMode) gen.L1DataAvailabilityMode {
+func adaptL1DA(da core.L1DAMode) common.L1DataAvailabilityMode {
 	switch da {
 	case core.Calldata:
-		return gen.L1DataAvailabilityMode_Calldata
+		return common.L1DataAvailabilityMode_Calldata
 	case core.Blob:
-		return gen.L1DataAvailabilityMode_Blob
+		return common.L1DataAvailabilityMode_Blob
 	default:
 		panic(fmt.Errorf("unknown L1DAMode %v", da))
 	}
 }
 
-func AdaptEvent(e *core.Event, txH *felt.Felt) *gen.Event {
+func AdaptEvent(e *core.Event, txH *felt.Felt) *event.Event {
 	if e == nil {
 		return nil
 	}
 
-	return &gen.Event{
+	return &event.Event{
 		TransactionHash: AdaptHash(txH),
 		FromAddress:     AdaptFelt(e.From),
 		Keys:            utils.Map(e.Keys, AdaptFelt),
