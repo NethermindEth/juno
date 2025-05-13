@@ -2,12 +2,12 @@ package core2p2p
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptContractDiff(addr, nonce, classHash *felt.Felt, storageDiff map[felt.Felt]*felt.Felt) *gen.ContractDiff {
-	return &gen.ContractDiff{
+func AdaptContractDiff(addr, nonce, classHash *felt.Felt, storageDiff map[felt.Felt]*felt.Felt) *state.ContractDiff {
+	return &state.ContractDiff{
 		Address:   AdaptAddress(addr),
 		Nonce:     AdaptFelt(nonce),
 		ClassHash: AdaptHash(classHash), // This will need to be set if deployed_contracts and replaced_classes are removed from StateDiff
@@ -16,9 +16,9 @@ func AdaptContractDiff(addr, nonce, classHash *felt.Felt, storageDiff map[felt.F
 	}
 }
 
-func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*gen.ContractStoredValue {
-	return utils.ToSlice(diff, func(key felt.Felt, value *felt.Felt) *gen.ContractStoredValue {
-		return &gen.ContractStoredValue{
+func AdaptStorageDiff(diff map[felt.Felt]*felt.Felt) []*state.ContractStoredValue {
+	return utils.ToSlice(diff, func(key felt.Felt, value *felt.Felt) *state.ContractStoredValue {
+		return &state.ContractStoredValue{
 			Key:   AdaptFelt(&key),
 			Value: AdaptFelt(value),
 		}

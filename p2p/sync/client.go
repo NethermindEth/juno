@@ -7,10 +7,14 @@ import (
 	"iter"
 	"time"
 
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	syncclass "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/class"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
+	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
@@ -103,25 +107,28 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 }
 
 func (c *Client) RequestBlockHeaders(
-	ctx context.Context, req *gen.BlockHeadersRequest,
-) (iter.Seq[*gen.BlockHeadersResponse], error) {
-	return requestAndReceiveStream[*gen.BlockHeadersRequest, *gen.BlockHeadersResponse](
+	ctx context.Context, req *header.BlockHeadersRequest,
+) (iter.Seq[*header.BlockHeadersResponse], error) {
+	return requestAndReceiveStream[*header.BlockHeadersRequest, *header.BlockHeadersResponse](
 		ctx, c.newStream, HeadersPID(), req, c.log)
 }
 
-func (c *Client) RequestEvents(ctx context.Context, req *gen.EventsRequest) (iter.Seq[*gen.EventsResponse], error) {
-	return requestAndReceiveStream[*gen.EventsRequest, *gen.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
+func (c *Client) RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error) {
+	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
 }
 
-func (c *Client) RequestClasses(ctx context.Context, req *gen.ClassesRequest) (iter.Seq[*gen.ClassesResponse], error) {
-	return requestAndReceiveStream[*gen.ClassesRequest, *gen.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
+func (c *Client) RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error) {
+	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
 }
 
-func (c *Client) RequestStateDiffs(ctx context.Context, req *gen.StateDiffsRequest) (iter.Seq[*gen.StateDiffsResponse], error) {
-	return requestAndReceiveStream[*gen.StateDiffsRequest, *gen.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
+func (c *Client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error) {
+	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
 }
 
-func (c *Client) RequestTransactions(ctx context.Context, req *gen.TransactionsRequest) (iter.Seq[*gen.TransactionsResponse], error) {
-	return requestAndReceiveStream[*gen.TransactionsRequest, *gen.TransactionsResponse](
+func (c *Client) RequestTransactions(
+	ctx context.Context,
+	req *synctransaction.TransactionsRequest,
+) (iter.Seq[*synctransaction.TransactionsResponse], error) {
+	return requestAndReceiveStream[*synctransaction.TransactionsRequest, *synctransaction.TransactionsResponse](
 		ctx, c.newStream, TransactionsPID(), req, c.log)
 }
