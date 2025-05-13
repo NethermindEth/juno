@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/tendermint"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
@@ -22,9 +23,9 @@ const (
 )
 
 type expectedBroadcast struct {
-	proposals  []tendermint.Proposal[value, felt.Felt, felt.Felt]
-	prevotes   []tendermint.Prevote[felt.Felt, felt.Felt]
-	precommits []tendermint.Precommit[felt.Felt, felt.Felt]
+	proposals  []types.Proposal[value, felt.Felt, felt.Felt]
+	prevotes   []types.Prevote[felt.Felt, felt.Felt]
+	precommits []types.Precommit[felt.Felt, felt.Felt]
 }
 
 type value uint64
@@ -33,11 +34,11 @@ func (v value) Hash() felt.Felt {
 	return *new(felt.Felt).SetUint64(uint64(v))
 }
 
-type mockListener[M tendermint.Message[value, felt.Felt, felt.Felt]] struct {
+type mockListener[M types.Message[value, felt.Felt, felt.Felt]] struct {
 	ch chan M
 }
 
-func newMockListener[M tendermint.Message[value, felt.Felt, felt.Felt]](ch chan M) *mockListener[M] {
+func newMockListener[M types.Message[value, felt.Felt, felt.Felt]](ch chan M) *mockListener[M] {
 	return &mockListener[M]{
 		ch: ch,
 	}
@@ -47,7 +48,7 @@ func (m *mockListener[M]) Listen() <-chan M {
 	return m.ch
 }
 
-type mockBroadcaster[M tendermint.Message[value, felt.Felt, felt.Felt]] struct {
+type mockBroadcaster[M types.Message[value, felt.Felt, felt.Felt]] struct {
 	wg                  sync.WaitGroup
 	mu                  sync.Mutex
 	broadcastedMessages []M
@@ -61,9 +62,9 @@ func (m *mockBroadcaster[M]) Broadcast(msg M) {
 }
 
 func mockListeners(
-	proposalCh chan tendermint.Proposal[value, felt.Felt, felt.Felt],
-	prevoteCh chan tendermint.Prevote[felt.Felt, felt.Felt],
-	precommitCh chan tendermint.Precommit[felt.Felt, felt.Felt],
+	proposalCh chan types.Proposal[value, felt.Felt, felt.Felt],
+	prevoteCh chan types.Prevote[felt.Felt, felt.Felt],
+	precommitCh chan types.Precommit[felt.Felt, felt.Felt],
 ) driver.Listeners[value, felt.Felt, felt.Felt] {
 	return driver.Listeners[value, felt.Felt, felt.Felt]{
 		ProposalListener:  newMockListener(proposalCh),
@@ -74,51 +75,51 @@ func mockListeners(
 
 func mockBroadcasters() driver.Broadcasters[value, felt.Felt, felt.Felt] {
 	return driver.Broadcasters[value, felt.Felt, felt.Felt]{
-		ProposalBroadcaster:  &mockBroadcaster[tendermint.Proposal[value, felt.Felt, felt.Felt]]{},
-		PrevoteBroadcaster:   &mockBroadcaster[tendermint.Prevote[felt.Felt, felt.Felt]]{},
-		PrecommitBroadcaster: &mockBroadcaster[tendermint.Precommit[felt.Felt, felt.Felt]]{},
+		ProposalBroadcaster:  &mockBroadcaster[types.Proposal[value, felt.Felt, felt.Felt]]{},
+		PrevoteBroadcaster:   &mockBroadcaster[types.Prevote[felt.Felt, felt.Felt]]{},
+		PrecommitBroadcaster: &mockBroadcaster[types.Precommit[felt.Felt, felt.Felt]]{},
 	}
 }
 
-func mockTimeoutFn(step tendermint.Step, round tendermint.Round) time.Duration {
+func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
 	return 1 * time.Millisecond
 }
 
-func getRandMessageHeader(random *rand.Rand) tendermint.MessageHeader[felt.Felt] {
-	return tendermint.MessageHeader[felt.Felt]{
-		Height: tendermint.Height(random.Uint32()),
-		Round:  tendermint.Round(random.Int()),
+func getRandMessageHeader(random *rand.Rand) types.MessageHeader[felt.Felt] {
+	return types.MessageHeader[felt.Felt]{
+		Height: types.Height(random.Uint32()),
+		Round:  types.Round(random.Int()),
 		Sender: felt.FromUint64(random.Uint64()),
 	}
 }
 
-func getRandProposal(random *rand.Rand) tendermint.Proposal[value, felt.Felt, felt.Felt] {
-	return tendermint.Proposal[value, felt.Felt, felt.Felt]{
+func getRandProposal(random *rand.Rand) types.Proposal[value, felt.Felt, felt.Felt] {
+	return types.Proposal[value, felt.Felt, felt.Felt]{
 		MessageHeader: getRandMessageHeader(random),
 		Value:         utils.HeapPtr(value(random.Uint64())),
-		ValidRound:    tendermint.Round(random.Int()),
+		ValidRound:    types.Round(random.Int()),
 	}
 }
 
-func getRandPrevote(random *rand.Rand) tendermint.Prevote[felt.Felt, felt.Felt] {
-	return tendermint.Prevote[felt.Felt, felt.Felt]{
+func getRandPrevote(random *rand.Rand) types.Prevote[felt.Felt, felt.Felt] {
+	return types.Prevote[felt.Felt, felt.Felt]{
 		MessageHeader: getRandMessageHeader(random),
 		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
 	}
 }
 
-func getRandPrecommit(random *rand.Rand) tendermint.Precommit[felt.Felt, felt.Felt] {
-	return tendermint.Precommit[felt.Felt, felt.Felt]{
+func getRandPrecommit(random *rand.Rand) types.Precommit[felt.Felt, felt.Felt] {
+	return types.Precommit[felt.Felt, felt.Felt]{
 		MessageHeader: getRandMessageHeader(random),
 		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
 	}
 }
 
-func getRandTimeout(random *rand.Rand, step tendermint.Step) tendermint.Timeout {
-	return tendermint.Timeout{
-		Height: tendermint.Height(random.Uint32()),
+func getRandTimeout(random *rand.Rand, step types.Step) types.Timeout {
+	return types.Timeout{
+		Height: types.Height(random.Uint32()),
 		Step:   step,
-		Round:  tendermint.Round(random.Int()),
+		Round:  types.Round(random.Int()),
 	}
 }
 
@@ -149,18 +150,18 @@ func generateAndRegisterRandomActions(
 	return actions
 }
 
-func toAction(timeout tendermint.Timeout) tendermint.Action[value, felt.Felt, felt.Felt] {
+func toAction(timeout types.Timeout) tendermint.Action[value, felt.Felt, felt.Felt] {
 	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
 }
 
-func increaseBroadcasterWaitGroup[M tendermint.Message[value, felt.Felt, felt.Felt]](
+func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](
 	expectedBroadcast []M,
 	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
 ) {
 	broadcaster.(*mockBroadcaster[M]).wg.Add(len(expectedBroadcast))
 }
 
-func waitAndAssertBroadcaster[M tendermint.Message[value, felt.Felt, felt.Felt]](
+func waitAndAssertBroadcaster[M types.Message[value, felt.Felt, felt.Felt]](
 	t *testing.T,
 	expectedBroadcast []M,
 	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
@@ -181,17 +182,17 @@ func TestDriver(t *testing.T) {
 
 	expectedBroadcast := &expectedBroadcast{}
 
-	proposalCh := make(chan tendermint.Proposal[value, felt.Felt, felt.Felt])
-	prevoteCh := make(chan tendermint.Prevote[felt.Felt, felt.Felt])
-	precommitCh := make(chan tendermint.Precommit[felt.Felt, felt.Felt])
+	proposalCh := make(chan types.Proposal[value, felt.Felt, felt.Felt])
+	prevoteCh := make(chan types.Prevote[felt.Felt, felt.Felt])
+	precommitCh := make(chan types.Precommit[felt.Felt, felt.Felt])
 	broadcasters := mockBroadcasters()
 
 	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
 	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
-	inputTimeoutProposal := getRandTimeout(random, tendermint.StepPropose)
-	inputTimeoutPrevote := getRandTimeout(random, tendermint.StepPrevote)
-	inputTimeoutPrecommit := getRandTimeout(random, tendermint.StepPrecommit)
+	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)
+	inputTimeoutPrevote := getRandTimeout(random, types.StepPrevote)
+	inputTimeoutPrecommit := getRandTimeout(random, types.StepPrecommit)
 
 	inputProposalMsg := getRandProposal(random)
 	inputPrevoteMsg := getRandPrevote(random)
@@ -202,7 +203,7 @@ func TestDriver(t *testing.T) {
 	// timeouts to be scheduled (`toAction`). These timeouts will then be triggered (`ProcessTimeout`).
 	// We force the stateMachine to return a random set of actions (`generateAndRegisterRandomActions`) here just to test that
 	// the driver will actually receive them.
-	stateMachine.EXPECT().ProcessStart(tendermint.Round(0)).Return(
+	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return(
 		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutProposal)),
 	)
 	stateMachine.EXPECT().ProcessProposal(inputProposalMsg).Return(

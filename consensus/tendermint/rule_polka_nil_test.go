@@ -2,6 +2,8 @@ package tendermint
 
 import (
 	"testing"
+
+	"github.com/NethermindEth/juno/consensus/types"
 )
 
 func TestPolkaNil(t *testing.T) {
@@ -21,7 +23,7 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.validator(2).prevote(nil).expectActions(currentRound.action().broadcastPrecommit(nil))
 
 		// Assertions - We should be in precommit step
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 
 	t.Run("Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} from other nodes broadcast nil precommit", func(t *testing.T) {
@@ -32,17 +34,17 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.start()
 
 		// Timeout proposal
-		currentRound.processTimeout(StepPropose)
+		currentRound.processTimeout(types.StepPropose)
 
 		// Receive 2 prevotes, combined with our own prevote due to proposal timeout
 		currentRound.validator(0).prevote(nil)
 		currentRound.validator(1).prevote(nil).expectActions(
-			currentRound.action().scheduleTimeout(StepPrevote),
+			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(nil),
 		)
 
 		// Assertions - We should be in precommit step
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 
 	t.Run("Line 44: not enough nil prevotes (less than 2f + 1)", func(t *testing.T) {
@@ -57,11 +59,11 @@ func TestPolkaNil(t *testing.T) {
 
 		// Receive 2 prevotes
 		currentRound.validator(0).prevote(nil)
-		currentRound.validator(1).prevote(nil).expectActions(currentRound.action().scheduleTimeout(StepPrevote))
+		currentRound.validator(1).prevote(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 
 		// Assertions - Only 2 validators prevote nil (not enough for 2f+1 where f=1)
 		// No expected precommit action should occur
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 
 	t.Run("Line 44: enough nil prevotes but not in prevote step", func(t *testing.T) {
@@ -77,7 +79,7 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.validator(2).prevote(nil)
 
 		// Assertions - we should still be in propose step
-		assertState(t, stateMachine, Height(0), Round(0), StepPropose)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPropose)
 	})
 
 	t.Run("Line 44: mixed prevotes (some nil, some with value)", func(t *testing.T) {
@@ -99,6 +101,6 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.validator(2).prevote(&val)
 
 		// No precommit action should occur with mixed votes
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 }

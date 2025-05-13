@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +21,7 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.validator(0).proposal(proposalValue, -1).expectActions(currentRound.action().broadcastPrevote(&proposalValue))
 
 		// Assertions - We should be in prevote step
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 
 	t.Run("Line 22: valid proposal with lockedValue matching proposal should prevote for proposal", func(t *testing.T) {
@@ -37,22 +38,22 @@ func TestFirstProposal(t *testing.T) {
 		previousRound.validator(0).prevote(utils.HeapPtr(expectedValue))
 		previousRound.validator(1).prevote(nil)
 		previousRound.validator(2).prevote(utils.HeapPtr(expectedValue))
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Validator 0 stays silent in the precommit step
 		previousRound.validator(1).precommit(nil)
 		previousRound.validator(2).precommit(utils.HeapPtr(expectedValue))
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &expectedValue, stateMachine.state.lockedValue)
-		assert.Equal(t, Round(0), stateMachine.state.lockedRound)
+		assert.Equal(t, types.Round(0), stateMachine.state.lockedRound)
 
 		// Precommit timeout
-		previousRound.processTimeout(StepPrecommit)
+		previousRound.processTimeout(types.StepPrecommit)
 
 		// Validator 1 coincidentally proposes the same expected value with lockedRound = -1,
 		// even if it hasn't received a proposal in the previous round.
 		nextRound.validator(1).proposal(expectedValue, -1).expectActions(nextRound.action().broadcastPrevote(&expectedValue))
-		assertState(t, stateMachine, Height(0), Round(1), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
 	t.Run("Line 22: valid proposal with lockedValue not matching proposal should prevote nil", func(t *testing.T) {
@@ -69,21 +70,21 @@ func TestFirstProposal(t *testing.T) {
 		previousRound.validator(0).prevote(utils.HeapPtr(expectedValue))
 		previousRound.validator(1).prevote(nil)
 		previousRound.validator(2).prevote(utils.HeapPtr(expectedValue))
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Validator 0 stays silent in the precommit step
 		previousRound.validator(1).precommit(nil)
 		previousRound.validator(2).precommit(utils.HeapPtr(expectedValue))
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &expectedValue, stateMachine.state.lockedValue)
-		assert.Equal(t, Round(0), stateMachine.state.lockedRound)
+		assert.Equal(t, types.Round(0), stateMachine.state.lockedRound)
 
 		// Precommit timeout
-		previousRound.processTimeout(StepPrecommit)
+		previousRound.processTimeout(types.StepPrecommit)
 
 		// Validator 1 proposes an unexpected value, because it hasn't received a proposal in the previous round.
 		nextRound.validator(1).proposal(value(43), -1).expectActions(nextRound.action().broadcastPrevote(nil))
-		assertState(t, stateMachine, Height(0), Round(1), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
 	t.Run("Line 22: invalid proposal should prevote nil", func(t *testing.T) {
@@ -97,7 +98,7 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.validator(0).proposal(value(1e9), -1).expectActions(currentRound.action().broadcastPrevote(nil))
 
 		// Assertions - We should be in prevote step
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 
 	t.Run("Line 22: proposal received when not in propose step should do nothing", func(t *testing.T) {
@@ -108,17 +109,17 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.start()
 
 		// Proposal timeout
-		currentRound.processTimeout(StepPropose)
+		currentRound.processTimeout(types.StepPropose)
 
 		// Receive 2 more prevotes, move to precommit step
 		currentRound.validator(1).prevote(nil)
 		currentRound.validator(2).prevote(nil)
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Receive a proposal while not in propose step
 		currentRound.validator(0).proposal(value(42), -1).expectActions()
 
 		// Assertions - We should still be in precommit step, nothing changed
-		assertState(t, stateMachine, Height(0), Round(0), StepPrecommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 }

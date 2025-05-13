@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,11 +21,11 @@ func TestPolkaAny(t *testing.T) {
 
 		// Receive 2 more prevotes combined with our own prevote, all in mixed value
 		currentRound.validator(1).prevote(nil)
-		currentRound.validator(2).prevote(utils.HeapPtr(value(44))).expectActions(currentRound.action().scheduleTimeout(StepPrevote))
+		currentRound.validator(2).prevote(utils.HeapPtr(value(44))).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 
 		// Assertions - We should still be in prevote step, but timeout should be scheduled
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 
 	t.Run("Line 34: not enough prevotes (less than 2f + 1)", func(t *testing.T) {
@@ -41,7 +42,7 @@ func TestPolkaAny(t *testing.T) {
 		currentRound.validator(0).prevote(utils.HeapPtr(value(42)))
 
 		// No action should be taken
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 
 	t.Run("Line 34: enough prevotes but not in prevote step", func(t *testing.T) {
@@ -57,7 +58,7 @@ func TestPolkaAny(t *testing.T) {
 		currentRound.validator(2).prevote(utils.HeapPtr(value(44))).expectActions()
 
 		// Assertions - still in propose step, no timeout should be scheduled
-		assertState(t, stateMachine, Height(0), Round(0), StepPropose)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPropose)
 	})
 
 	t.Run("Line 34: only schedule timeout the first time", func(t *testing.T) {
@@ -72,7 +73,7 @@ func TestPolkaAny(t *testing.T) {
 
 		// Receive 2 prevotes, combined with our own prevote and schedule timeout for prevote
 		currentRound.validator(0).prevote(nil).expectActions()
-		currentRound.validator(1).prevote(utils.HeapPtr(value(43))).expectActions(currentRound.action().scheduleTimeout(StepPrevote))
+		currentRound.validator(1).prevote(utils.HeapPtr(value(43))).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 
 		// Receive 1 more prevote, no timeout should be scheduled
@@ -80,6 +81,6 @@ func TestPolkaAny(t *testing.T) {
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 
 		// Assertions - We should still be in prevote step
-		assertState(t, stateMachine, Height(0), Round(0), StepPrevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
 }

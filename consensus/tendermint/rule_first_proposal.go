@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 /*
 Check the upon condition on line 22:
 
@@ -13,7 +15,7 @@ Check the upon condition on line 22:
 Since the value's id is expected to be unique the id can be used to compare the values.
 */
 func (t *stateMachine[V, H, A]) uponFirstProposal(cachedProposal *CachedProposal[V, H, A]) bool {
-	return cachedProposal.ValidRound == -1 && t.state.step == StepPropose
+	return cachedProposal.ValidRound == -1 && t.state.step == types.StepPropose
 }
 
 func (t *stateMachine[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
