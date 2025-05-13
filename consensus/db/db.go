@@ -15,8 +15,8 @@ const NumBytesForHeight = 4
 type walMsgCount uint32
 
 type walEntry[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	Type  types.MessageType `cbor:"type"`
-	Entry types.IsWALMsg    `cbor:"data"` // cbor serialised Msg or Timeout
+	Type  types.MessageType      `cbor:"type"`
+	Entry types.Message[V, H, A] `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
 func (w *walEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
@@ -66,7 +66,7 @@ type TendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
 	GetWALMsgs(height types.Height) ([]walEntry[V, H, A], error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
-	SetWALEntry(entry types.IsWALMsg) error
+	SetWALEntry(entry types.Message[V, H, A]) error
 	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
 	DeleteWALMsgs(height types.Height) error
 }
@@ -144,7 +144,7 @@ func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height types.Height) error {
 }
 
 // SetWALEntry implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.IsWALMsg) error {
+func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error {
 	wrapper := walEntry[V, H, A]{
 		Type:  entry.MsgType(),
 		Entry: entry,
