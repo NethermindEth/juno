@@ -17,7 +17,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		// Initialise the round
 		currentRound.start()
 
-		// types.Prevotes are collected
+		// Prevotes are collected
 		currentRound.validator(0).prevote(&committedValue)
 		currentRound.validator(1).prevote(&committedValue)
 
