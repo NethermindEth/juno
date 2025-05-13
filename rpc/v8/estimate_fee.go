@@ -259,10 +259,10 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 */
 
 func (h *Handler) EstimateFee(
-	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id BlockID,
+	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
-		id,
+		*id,
 		broadcastedTxns,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
 		true,
@@ -279,21 +279,14 @@ func (h *Handler) EstimateFee(
 	return feeEstimates, httpHeader, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) {
-	return estimateMessageFee(msg, id, h.EstimateFee)
-}
-
-type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
-) ([]FeeEstimate, http.Header, *jsonrpc.Error)
-
-//nolint:gocritic
-func estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, http.Header, *jsonrpc.Error) {
-	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
-	// The order of the calldata parameters matters. msg.From must be prepended.
-	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
-	for payloadIdx := range msg.Payload {
-		calldata = append(calldata, &msg.Payload[payloadIdx])
+func (h *Handler) EstimateMessageFee(
+	msg *rpcv6.MsgFromL1, id *BlockID,
+) (FeeEstimate, http.Header, *jsonrpc.Error) {
+	calldata := make([]*felt.Felt, len(msg.Payload)+1)
+	// msg.From needs to be the first element
+	calldata[0] = new(felt.Felt).SetBytes(msg.From.Bytes())
+	for i := range msg.Payload {
+		calldata[i+1] = &msg.Payload[i]
 	}
 	tx := BroadcastedTransaction{
 		Transaction: Transaction{
@@ -308,15 +301,17 @@ func estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, httpHeader, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
-	if rpcErr != nil {
-		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
-			data := rpcErr.Data.(TransactionExecutionErrorData)
-			return nil, httpHeader, MakeContractError(data.ExecutionError)
+
+	bcTxn := [1]BroadcastedTransaction{tx}
+	estimates, httpHeader, err := h.EstimateFee(bcTxn[:], nil, id)
+	if err != nil {
+		if err.Code == rpccore.ErrTransactionExecutionError.Code {
+			data := err.Data.(TransactionExecutionErrorData)
+			return FeeEstimate{}, httpHeader, MakeContractError(data.ExecutionError)
 		}
-		return nil, httpHeader, rpcErr
+		return FeeEstimate{}, httpHeader, err
 	}
-	return &estimates[0], httpHeader, nil
+	return estimates[0], httpHeader, nil
 }
 
 type ContractErrorData struct {
