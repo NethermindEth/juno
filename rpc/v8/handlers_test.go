@@ -57,14 +57,18 @@ func TestThrottledVMError(t *testing.T) {
 				new(felt.Felt),
 			},
 		}}, nil)
-		_, rpcErr := handler.Call(rpcv8.FunctionCall{}, rpcv8.BlockID{Latest: true})
+
+		blockID := blockIDLatest(t)
+		_, rpcErr := handler.Call(&rpcv8.FunctionCall{}, &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv8.BlockID{Latest: true}, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+
+		blockID := blockIDLatest(t)
+		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})
@@ -100,7 +104,9 @@ func TestThrottledVMError(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv8.BlockID{Hash: blockHash})
+
+		blockID := blockIDHash(t, blockHash)
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})

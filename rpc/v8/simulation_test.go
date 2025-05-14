@@ -140,8 +140,9 @@ func TestSimulateTransactions(t *testing.T) {
 			test.mockBehavior(mockReader, mockVM, mockState)
 			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
+			blockID := blockIDLatest(t)
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
-				rpc.BlockID{Latest: true},
+				&blockID,
 				[]rpc.BroadcastedTransaction{},
 				test.simulationFlags,
 			)
@@ -266,8 +267,9 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
 
+			blockID := blockIDLatest(t)
 			_, _, err := handler.SimulateTransactions(
-				rpc.BlockID{Latest: true},
+				&blockID,
 				test.transactions,
 				[]rpcv6.SimulationFlag{},
 			)

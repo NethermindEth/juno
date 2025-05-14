@@ -25,25 +25,28 @@ func (h *Handler) unsubscribe(sub *subscription, id string) {
 	h.subscriptions.Delete(id)
 }
 
-func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID, latestHeight uint64) error {
-	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
-		if id == nil {
+func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
+	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
+		if blockID == nil {
 			return nil
 		}
 
-		switch {
-		case id.Latest:
-			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
-		case id.Hash != nil:
-			return filter.SetRangeEndBlockByHash(filterRange, id.Hash)
-		case id.Pending:
+		switch blockID.Type() {
+		case pending:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
+		case latest:
+			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
+		case hash:
+			return filter.SetRangeEndBlockByHash(filterRange, blockID.GetHash())
+		case number:
+			return filter.SetRangeEndBlockByNumber(filterRange, blockID.GetNumber())
 		default:
-			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
+			panic("Unknown block id type")
 		}
 	}
-	if err := set(blockchain.EventFilterFrom, fromID); err != nil {
+
+	if err := set(blockchain.EventFilterFrom, from); err != nil {
 		return err
 	}
-	return set(blockchain.EventFilterTo, toID)
+	return set(blockchain.EventFilterTo, to)
 }

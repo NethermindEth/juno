@@ -3,6 +3,7 @@ package rpcv8
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -10,49 +11,117 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
-type BlockID struct {
-	Pending bool
-	Latest  bool
-	Hash    *felt.Felt
-	Number  uint64
+var _ BlockIdentifier = (*BlockID)(nil)
+
+type BlockIdentifier interface {
+	Type() blockIDType
+	IsLatest() bool
+	IsPending() bool
+	IsHash() bool
+	IsNumber() bool
+	GetHash() *felt.Felt
+	GetNumber() uint64
+	UnmarshalJSON(data []byte) error
 }
 
-func (b *BlockID) IsLatest() bool {
-	return b.Latest
+type blockIDType uint8
+
+const (
+	pending blockIDType = iota
+	latest
+	hash
+	number
+)
+
+func (b *blockIDType) String() string {
+	switch *b {
+	case pending:
+		return "pending"
+	case latest:
+		return "latest"
+	case hash:
+		return "hash"
+	case number:
+		return "number"
+	default:
+		panic(fmt.Sprintf("Unknown blockIdType: %d", b))
+	}
+}
+
+// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
+type BlockID struct {
+	typeId blockIDType
+	data   felt.Felt
+}
+
+func BlockIDFromNumber(num uint64) BlockID {
+	return BlockID{
+		typeId: number,
+		data:   (felt.Felt)([4]uint64{num, 0, 0, 0}),
+	}
+}
+
+func BlockIDFromHash(blockHash *felt.Felt) BlockID {
+	return BlockID{
+		typeId: hash,
+		data:   *blockHash,
+	}
+}
+
+func (b *BlockID) Type() blockIDType {
+	return b.typeId
 }
 
 func (b *BlockID) IsPending() bool {
-	return b.Pending
+	return b.typeId == pending
+}
+
+func (b *BlockID) IsLatest() bool {
+	return b.typeId == latest
+}
+
+func (b *BlockID) IsHash() bool {
+	return b.typeId == hash
+}
+
+func (b *BlockID) IsNumber() bool {
+	return b.typeId == number
 }
 
 func (b *BlockID) GetHash() *felt.Felt {
-	return b.Hash
+	if b.typeId != hash {
+		panic(fmt.Sprintf("Trying to get hash from block id with type %s", b.typeId.String()))
+	}
+	return &b.data
 }
 
 func (b *BlockID) GetNumber() uint64 {
-	return b.Number
+	if b.typeId != number {
+		panic(fmt.Sprintf("Trying to get number from block id with type %s", b.typeId.String()))
+	}
+	return b.data[0]
 }
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
 	if string(data) == `"latest"` {
-		b.Latest = true
+		b.typeId = latest
 	} else if string(data) == `"pending"` {
-		b.Pending = true
+		b.typeId = pending
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {
 			return err
 		}
-		hash, ok := jsonObject["block_hash"]
+		blockHash, ok := jsonObject["block_hash"]
 		if ok {
-			b.Hash = new(felt.Felt)
-			return json.Unmarshal(hash, b.Hash)
+			b.typeId = hash
+			return json.Unmarshal(blockHash, &b.data)
 		}
 
-		number, ok := jsonObject["block_number"]
+		blockNumber, ok := jsonObject["block_number"]
 		if ok {
-			return json.Unmarshal(number, &b.Number)
+			b.typeId = number
+			return json.Unmarshal(blockNumber, &b.data[0])
 		}
 
 		return errors.New("cannot unmarshal block id")
@@ -99,8 +168,8 @@ type BlockWithReceipts struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
-func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
+func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -122,8 +191,8 @@ func (h *Handler) BlockWithTxHashes(id BlockID) (*BlockWithTxHashes, *jsonrpc.Er
 	}, nil
 }
 
-func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
+func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -162,8 +231,8 @@ func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Er
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
-func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
+func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -173,7 +242,7 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 		txs[index] = AdaptTransaction(txn)
 	}
 
-	status, rpcErr := h.blockStatus(id, block)
+	status, rpcErr := h.blockStatus(blockID, block)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -185,14 +254,14 @@ func (h *Handler) BlockWithTxs(id BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) blockStatus(id BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
 	status := rpcv6.BlockAcceptedL2
-	if id.Pending {
+	if id.IsPending() {
 		status = rpcv6.BlockPending
 	} else if isL1Verified(block.Number, l1H) {
 		status = rpcv6.BlockAcceptedL1

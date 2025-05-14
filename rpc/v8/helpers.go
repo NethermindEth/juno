@@ -31,22 +31,23 @@ func isL1Verified(n uint64, l1 *core.L1Head) bool {
 	return false
 }
 
-func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
+func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	var block *core.Block
 	var err error
-	switch {
-	case id.Latest:
-		block, err = h.bcReader.Head()
-	case id.Hash != nil:
-		block, err = h.bcReader.BlockByHash(id.Hash)
-	case id.Pending:
+
+	switch blockID.Type() {
+	case pending:
 		var pending *sync.Pending
 		pending, err = h.syncReader.Pending()
 		if err == nil {
 			block = pending.Block
 		}
+	case latest:
+		block, err = h.bcReader.Head()
+	case hash:
+		block, err = h.bcReader.BlockByHash(blockID.GetHash())
 	default:
-		block, err = h.bcReader.BlockByNumber(id.Number)
+		block, err = h.bcReader.BlockByNumber(blockID.GetNumber())
 	}
 
 	if err != nil {
@@ -61,22 +62,24 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(id BlockIdentifier) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(blockID BlockIdentifier) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
-	switch {
-	case id.IsLatest():
-		header, err = h.bcReader.HeadsHeader()
-	case id.GetHash() != nil:
-		header, err = h.bcReader.BlockHeaderByHash(id.GetHash())
-	case id.IsPending():
+	switch blockID.Type() {
+	case pending:
 		var pending *sync.Pending
 		pending, err = h.syncReader.Pending()
 		if err == nil {
 			header = pending.Block.Header
 		}
+	case latest:
+		header, err = h.bcReader.HeadsHeader()
+	case hash:
+		header, err = h.bcReader.BlockHeaderByHash(blockID.GetHash())
+	case number:
+		header, err = h.bcReader.BlockHeaderByNumber(blockID.GetNumber())
 	default:
-		header, err = h.bcReader.BlockHeaderByNumber(id.GetNumber())
+		panic("unknwon block type id")
 	}
 
 	if err != nil {
@@ -134,19 +137,21 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
+func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
 	var reader core.StateReader
 	var closer blockchain.StateCloser
 	var err error
-	switch {
-	case id.Latest:
-		reader, closer, err = h.bcReader.HeadState()
-	case id.Hash != nil:
-		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
-	case id.Pending:
+	switch blockID.Type() {
+	case pending:
 		reader, closer, err = h.syncReader.PendingState()
+	case latest:
+		reader, closer, err = h.bcReader.HeadState()
+	case hash:
+		reader, closer, err = h.bcReader.StateAtBlockHash(blockID.GetHash())
+	case number:
+		reader, closer, err = h.bcReader.StateAtBlockNumber(blockID.GetNumber())
 	default:
-		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
+		panic("unknown block id type")
 	}
 
 	if err != nil {

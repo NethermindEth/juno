@@ -2,6 +2,7 @@ package rpcv8
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -25,8 +26,8 @@ const (
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
-func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *jsonrpc.Error) {
+	stateReader, stateCloser, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -34,7 +35,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 
 	// This checks if the contract exists because if a key doesn't exist in contract storage,
 	// the returned value is always zero and error is nil.
-	_, err := stateReader.ContractClassHash(&address)
+	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
 			return nil, rpccore.ErrContractNotFound
@@ -43,7 +44,7 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 		return nil, rpccore.ErrInternal
 	}
 
-	value, err := stateReader.ContractStorage(&address, &key)
+	value, err := stateReader.ContractStorage(address, key)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -58,8 +59,8 @@ type StorageProofResult struct {
 	GlobalRoots            *GlobalRoots    `json:"global_roots"`
 }
 
-func (h *Handler) StorageProof(id BlockID,
-	classes, contracts []felt.Felt, storageKeys []StorageKeys,
+func (h *Handler) StorageProof(
+	id *BlockID, classes, contracts []felt.Felt, storageKeys []StorageKeys,
 ) (*StorageProofResult, *jsonrpc.Error) {
 	state, closer, err := h.bcReader.HeadState()
 	if err != nil {
@@ -82,7 +83,7 @@ func (h *Handler) StorageProof(id BlockID,
 
 	// We do not support historical storage proofs for now
 	// Ensure that the block requested is the head block
-	if rpcErr := h.isBlockSupported(&id, chainHeight); rpcErr != nil {
+	if rpcErr := h.isBlockSupported(id, chainHeight); rpcErr != nil {
 		return nil, rpcErr
 	}
 
@@ -173,16 +174,16 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 
 // isBlockSupported checks if the block ID requested is supported for storage proofs
 // Currently returns true only if the block ID requested matches the head block
-func (h *Handler) isBlockSupported(id *BlockID, chainHeight uint64) *jsonrpc.Error {
+func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrpc.Error {
 	var blockNumber uint64
 	switch {
-	case id.IsLatest():
+	case blockID.IsLatest():
 		return nil
-	case id.IsPending():
+	case blockID.IsPending():
 		// TODO: Remove this case when specs replaced BLOCK_ID by another type.
 		return rpccore.ErrCallOnPending
-	case id.GetHash() != nil:
-		header, err := h.bcReader.BlockHeaderByHash(id.GetHash())
+	case blockID.IsHash():
+		header, err := h.bcReader.BlockHeaderByHash(blockID.GetHash())
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return rpccore.ErrBlockNotFound
@@ -190,8 +191,10 @@ func (h *Handler) isBlockSupported(id *BlockID, chainHeight uint64) *jsonrpc.Err
 			return rpccore.ErrInternal.CloneWithData(err)
 		}
 		blockNumber = header.Number
+	case blockID.IsNumber():
+		blockNumber = blockID.GetNumber()
 	default:
-		blockNumber = id.GetNumber()
+		panic(fmt.Sprintf("invalid block id type %d", blockID.Type()))
 	}
 
 	switch {
