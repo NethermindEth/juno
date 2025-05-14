@@ -10,7 +10,8 @@ package types
 //  of the validator set and would need access to the blockchain which may not be a good idea.
 
 type Message[V Hashable[H], H Hash, A Addr] interface {
-	Proposal[V, H, A] | Prevote[H, A] | Precommit[H, A]
+	MsgType() MessageType
+	GetHeight() Height
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
