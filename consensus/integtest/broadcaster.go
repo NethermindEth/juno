@@ -1,10 +1,12 @@
-package integ
+package integtest
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// Mock broadcaster for testing purposes. It has the map of all listeners and the node's own address
+// to which it will not broadcast.
 type broadcaster[M types.Message[value, felt.Felt, felt.Felt]] struct {
 	addr      *felt.Felt
 	listeners map[felt.Felt]listener[M]

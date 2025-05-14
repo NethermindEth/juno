@@ -1,7 +1,7 @@
-package integ
+package integtest
 
 import (
-	"github.com/NethermindEth/juno/consensus/driver"
+	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -28,16 +28,16 @@ func newNetwork(allNodes nodes, buffer int) network {
 	return n
 }
 
-func (n network) getListeners(addr *felt.Felt) driver.Listeners[value, felt.Felt, felt.Felt] {
-	return driver.Listeners[value, felt.Felt, felt.Felt]{
+func (n network) getListeners(addr *felt.Felt) p2p.Listeners[value, felt.Felt, felt.Felt] {
+	return p2p.Listeners[value, felt.Felt, felt.Felt]{
 		ProposalListener:  n.proposals[*addr],
 		PrevoteListener:   n.prevotes[*addr],
 		PrecommitListener: n.precommits[*addr],
 	}
 }
 
-func (n network) getBroadcasters(addr *felt.Felt) driver.Broadcasters[value, felt.Felt, felt.Felt] {
-	return driver.Broadcasters[value, felt.Felt, felt.Felt]{
+func (n network) getBroadcasters(addr *felt.Felt) p2p.Broadcasters[value, felt.Felt, felt.Felt] {
+	return p2p.Broadcasters[value, felt.Felt, felt.Felt]{
 		ProposalBroadcaster:  newBroadcaster(addr, n.proposals),
 		PrevoteBroadcaster:   newBroadcaster(addr, n.prevotes),
 		PrecommitBroadcaster: newBroadcaster(addr, n.precommits),

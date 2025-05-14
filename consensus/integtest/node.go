@@ -1,4 +1,4 @@
-package integ
+package integtest
 
 import (
 	"github.com/NethermindEth/juno/core/felt"

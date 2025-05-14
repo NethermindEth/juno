@@ -1,4 +1,4 @@
-package integ
+package integtest
 
 import (
 	"testing"
@@ -13,13 +13,20 @@ import (
 )
 
 type testConfig struct {
-	nodeCount          int
-	silentFaultyNodes  bool
-	buffer             int
-	timeoutBase        time.Duration
-	timeoutStepFactor  time.Duration
+	// Number of nodes in the network
+	nodeCount int
+	// Number of faulty nodes in the network
+	faultyNodeCount int
+	// Buffer size for channels
+	buffer int
+	// Constant term of timeout function
+	timeoutBase time.Duration
+	// Step coefficient of timeout function
+	timeoutStepFactor time.Duration
+	// Round coefficient of timeout function
 	timeoutRoundFactor time.Duration
-	targetHeight       types.Height
+	// Number of blocks to run the test for
+	targetHeight types.Height
 }
 
 func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
@@ -30,14 +37,14 @@ func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
-	faultyNodeCount := (cfg.nodeCount - 1) / 3
-	honestNodeCount := cfg.nodeCount - faultyNodeCount
+	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
 
 	allNodes := getNodes(cfg.nodeCount)
 	network := newNetwork(allNodes, cfg.buffer)
 	commits := make(chan commit, cfg.buffer)
 	validators := newValidators(allNodes)
 
+	// Spawn a network of honest nodes
 	for i := range honestNodeCount {
 		dbPath := t.TempDir()
 		testDB, err := pebble.New(dbPath)
@@ -108,13 +115,13 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 	t.Helper()
 	t.Run("all honest", func(t *testing.T) {
 		cfg := cfg
-		cfg.silentFaultyNodes = false
+		cfg.faultyNodeCount = 0
 		runTest(t, cfg)
 	})
 
 	t.Run("silent faulty nodes", func(t *testing.T) {
 		cfg := cfg
-		cfg.silentFaultyNodes = true
+		cfg.faultyNodeCount = (cfg.nodeCount - 1) / 3
 		runTest(t, cfg)
 	})
 }

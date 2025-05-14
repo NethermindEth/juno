@@ -1,4 +1,4 @@
-package integ
+package integtest
 
 import (
 	"math/rand"
@@ -8,29 +8,26 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-type validators struct {
-	allocations []felt.Felt
-}
+type validators []felt.Felt
 
 func newValidators(allNodes nodes) validators {
-	allocations := slices.Clone(allNodes.addr)
-	rand.Shuffle(len(allocations), func(i, j int) {
-		allocations[i], allocations[j] = allocations[j], allocations[i]
+	addresses := slices.Clone(allNodes.addr)
+	rand.Shuffle(len(addresses), func(i, j int) {
+		addresses[i], addresses[j] = addresses[j], addresses[i]
 	})
-	return validators{
-		allocations: allocations,
-	}
+	return validators(addresses)
 }
 
 func (v validators) TotalVotingPower(height types.Height) types.VotingPower {
-	return types.VotingPower(len(v.allocations))
+	return types.VotingPower(len(v))
 }
 
 func (v validators) ValidatorVotingPower(addr felt.Felt) types.VotingPower {
 	return types.VotingPower(1)
 }
 
+// Randomised proposer selection, with prime coefficients so that for each height, the order of proposers is different.
 func (v validators) Proposer(height types.Height, round types.Round) felt.Felt {
-	idx := (int(height)*31 + int(round)*17) % len(v.allocations)
-	return v.allocations[idx]
+	idx := (int(height)*31 + int(round)*17) % len(v)
+	return v[idx]
 }
