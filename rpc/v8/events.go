@@ -37,9 +37,9 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 		case latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
 		case hash:
-			return filter.SetRangeEndBlockByHash(filterRange, blockID.GetHash())
+			return filter.SetRangeEndBlockByHash(filterRange, blockID.Hash())
 		case number:
-			return filter.SetRangeEndBlockByNumber(filterRange, blockID.GetNumber())
+			return filter.SetRangeEndBlockByNumber(filterRange, blockID.Number())
 		default:
 			panic("Unknown block id type")
 		}

@@ -183,7 +183,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 		// TODO: Remove this case when specs replaced BLOCK_ID by another type.
 		return rpccore.ErrCallOnPending
 	case blockID.IsHash():
-		header, err := h.bcReader.BlockHeaderByHash(blockID.GetHash())
+		header, err := h.bcReader.BlockHeaderByHash(blockID.Hash())
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return rpccore.ErrBlockNotFound
@@ -192,7 +192,7 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 		}
 		blockNumber = header.Number
 	case blockID.IsNumber():
-		blockNumber = blockID.GetNumber()
+		blockNumber = blockID.Number()
 	default:
 		panic(fmt.Sprintf("invalid block id type %d", blockID.Type()))
 	}

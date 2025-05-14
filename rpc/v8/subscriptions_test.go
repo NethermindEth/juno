@@ -99,7 +99,7 @@ func TestSubscribeEvents(t *testing.T) {
 		// tested in various other tests, and we don't need to test it here again.
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.GetNumber()).
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
@@ -109,7 +109,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		t.Run("head is more than 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.GetNumber()).
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
 			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
@@ -419,7 +419,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.GetNumber()).
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
@@ -429,7 +429,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		t.Run("head is more than 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.GetNumber()).
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
 			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)

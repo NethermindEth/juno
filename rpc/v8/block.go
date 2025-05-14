@@ -19,15 +19,15 @@ type BlockIdentifier interface {
 	IsPending() bool
 	IsHash() bool
 	IsNumber() bool
-	GetHash() *felt.Felt
-	GetNumber() uint64
+	Hash() *felt.Felt
+	Number() uint64
 	UnmarshalJSON(data []byte) error
 }
 
 type blockIDType uint8
 
 const (
-	pending blockIDType = iota
+	pending blockIDType = iota + 1
 	latest
 	hash
 	number
@@ -57,7 +57,7 @@ type BlockID struct {
 func BlockIDFromNumber(num uint64) BlockID {
 	return BlockID{
 		typeId: number,
-		data:   (felt.Felt)([4]uint64{num, 0, 0, 0}),
+		data:   felt.Felt([4]uint64{num, 0, 0, 0}),
 	}
 }
 
@@ -88,14 +88,14 @@ func (b *BlockID) IsNumber() bool {
 	return b.typeId == number
 }
 
-func (b *BlockID) GetHash() *felt.Felt {
+func (b *BlockID) Hash() *felt.Felt {
 	if b.typeId != hash {
 		panic(fmt.Sprintf("Trying to get hash from block id with type %s", b.typeId.String()))
 	}
 	return &b.data
 }
 
-func (b *BlockID) GetNumber() uint64 {
+func (b *BlockID) Number() uint64 {
 	if b.typeId != number {
 		panic(fmt.Sprintf("Trying to get number from block id with type %s", b.typeId.String()))
 	}

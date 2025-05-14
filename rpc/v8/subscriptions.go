@@ -65,12 +65,12 @@ func (b *SubscriptionBlockID) IsNumber() bool {
 	return b.typeId == number
 }
 
-func (b *SubscriptionBlockID) GetHash() *felt.Felt {
-	return (*BlockID)(b).GetHash()
+func (b *SubscriptionBlockID) Hash() *felt.Felt {
+	return (*BlockID)(b).Hash()
 }
 
-func (b *SubscriptionBlockID) GetNumber() uint64 {
-	return (*BlockID)(b).GetNumber()
+func (b *SubscriptionBlockID) Number() uint64 {
+	return (*BlockID)(b).Number()
 }
 
 func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {

@@ -3,7 +3,6 @@ package rpcv8_test
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -45,13 +44,13 @@ func TestBlockIDMarshalling(t *testing.T) {
 		"number": {
 			blockIDJSON: `{ "block_number" : 123123 }`,
 			checkFunc: func(blockID *rpcv8.BlockID) bool {
-				return blockID.IsNumber() && blockID.GetNumber() == 123123
+				return blockID.IsNumber() && blockID.Number() == 123123
 			},
 		},
 		"hash": {
 			blockIDJSON: `{ "block_hash" : "0x123" }`,
 			checkFunc: func(blockID *rpcv8.BlockID) bool {
-				return blockID.IsHash() && *blockID.GetHash() == felt.FromUint64(0x123)
+				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64(0x123)
 			},
 		},
 	}
@@ -96,7 +95,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpcv8.BlockID{
 		"latest":  blockIDLatest(t),
 		"pending": blockIDPending(t),
-		"hash":    blockIDHash(t, 1),
+		"hash":    blockIDHash(t, &felt.One),
 		"number":  blockIDNumber(t, 2),
 	}
 	mockCtrl := gomock.NewController(t)
@@ -227,7 +226,7 @@ func TestBlockWithTxs(t *testing.T) {
 	errTests := map[string]rpcv8.BlockID{
 		"latest":  blockIDLatest(t),
 		"pending": blockIDPending(t),
-		"hash":    blockIDHash(t, 1),
+		"hash":    blockIDHash(t, &felt.One),
 		"number":  blockIDNumber(t, 1),
 	}
 
@@ -470,7 +469,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := blockIDNumber(t, 777)
 
-		mockReader.EXPECT().BlockByNumber(blockID.GetNumber()).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(nil, db.ErrKeyNotFound)
 
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		assert.Nil(t, resp)
@@ -483,7 +482,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		}
 
 		err := errors.New("l1 failure")
-		mockReader.EXPECT().BlockByNumber(blockID.GetNumber()).Return(block, nil)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(nil, err)
 
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
@@ -545,7 +544,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		blockID := blockIDNumber(t, block1.Number)
 
-		mockReader.EXPECT().BlockByNumber(blockID.GetNumber()).Return(block1, nil)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block1, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
 			BlockNumber: block1.Number + 1,
 		}, nil)
@@ -634,25 +633,14 @@ func blockIDLatest(t *testing.T) rpcv8.BlockID {
 	return blockID
 }
 
-func blockIDHash[T interface{ ~int | *felt.Felt }](t *testing.T, val T) rpcv8.BlockID {
+func blockIDHash(t *testing.T, val *felt.Felt) rpcv8.BlockID {
 	t.Helper()
-
-	var valStr string
-	// adding any to do type switch, not beatiful, but good enough
-	switch v := any(val).(type) {
-	case int:
-		valStr = strconv.FormatInt(int64(v), 16)
-	case *felt.Felt:
-		valStr = v.String()
-	default:
-		panic("this should never happen")
-	}
 
 	blockID := rpcv8.BlockID{}
 	require.NoError(
 		t,
 		blockID.UnmarshalJSON(
-			[]byte(fmt.Sprintf(`{ "block_hash" : "%s" }`, valStr)),
+			[]byte(fmt.Sprintf(`{ "block_hash" : %q }`, val.String())),
 		),
 	)
 	return blockID
