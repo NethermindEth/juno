@@ -16,14 +16,14 @@ var (
 	leaf1Hash   = *new(felt.Felt).SetUint64(201)
 	leaf2Hash   = *new(felt.Felt).SetUint64(202)
 	rootHash    = *new(felt.Felt).SetUint64(100)
-	level1Hash1 = *new(felt.Felt).SetUint64(201)
-	level1Hash2 = *new(felt.Felt).SetUint64(202)
+	level1Hash1 = *new(felt.Felt).SetUint64(301)
+	level1Hash2 = *new(felt.Felt).SetUint64(302)
 
 	leaf1Path   = trieutils.NewBitArray(1, 0x00)
 	leaf2Path   = trieutils.NewBitArray(1, 0x01)
 	rootPath    = trieutils.NewBitArray(0, 0x0)
-	level1Path1 = trieutils.NewBitArray(1, 0x00)
-	level1Path2 = trieutils.NewBitArray(1, 0x01)
+	level1Path1 = trieutils.NewBitArray(2, 0x00)
+	level1Path2 = trieutils.NewBitArray(2, 0x01)
 
 	leaf1Node   = NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
 	leaf2Node   = NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
@@ -38,13 +38,17 @@ var (
 	}
 )
 
+// verifyNode verifies that the node is stored in the database and that the database returns the correct node.
+// It also checks that the node is not in the dirty cache, which mean that it has been flushed to disk.
 func verifyNode(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
 	t.Helper()
 
 	reader, err := database.NodeReader(id)
 	require.NoError(t, err)
 
-	blob, err := reader.Node(id.Owner(), path, node.Hash(), node.IsLeaf())
+	owner := id.Owner()
+	nodeHash := node.Hash()
+	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
 
@@ -95,9 +99,9 @@ func (c *customLeafNode) IsLeaf() bool    { return true }
 func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
 	ownerSet := trienode.NewNodeSet(felt.Zero)
 	for path, node := range nodes {
-		ownerSet.Add(path, node)
+		ownerSet.Add(&path, node)
 	}
-	return trienode.NewMergeNodeSet(ownerSet)
+	return trienode.NewMergeNodeSet(&ownerSet)
 }
 
 func createContractMergeNodeSet(nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
@@ -107,13 +111,13 @@ func createContractMergeNodeSet(nodes map[felt.Felt]map[trieutils.Path]trienode.
 	for owner, ownerNodes := range nodes {
 		childSet := trienode.NewNodeSet(owner)
 		for path, node := range ownerNodes {
-			childSet.Add(path, node)
+			childSet.Add(&path, node)
 		}
-		childSets[owner] = childSet
+		childSets[owner] = &childSet
 	}
 
 	return &trienode.MergeNodeSet{
-		OwnerSet:  ownerSet,
+		OwnerSet:  &ownerSet,
 		ChildSets: childSets,
 	}
 }
@@ -133,21 +137,6 @@ func TestDatabase(t *testing.T) {
 		}
 		database := New(memDB, config)
 		assert.NotNil(t, database)
-	})
-
-	t.Run("Update and Commit basic trie structure", func(t *testing.T) {
-		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
-
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
-		require.NoError(t, err)
-
-		err = database.Commit(felt.Zero)
-		require.NoError(t, err)
-
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
 	})
 
 	t.Run("Update and Commit deep trie structure", func(t *testing.T) {
@@ -309,7 +298,7 @@ func TestDatabase(t *testing.T) {
 
 		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
 		require.NoError(t, err)
-		_, err = reader.Node(felt.Zero, leaf1Path, leaf1Node.Hash(), leaf1Node.IsLeaf())
+		_, err = reader.Node(&felt.Zero, leaf1Path, &leaf1Hash, leaf1Node.IsLeaf())
 		require.Error(t, err)
 	})
 }

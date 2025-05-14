@@ -50,11 +50,10 @@ func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path tri
 		owner := id.Owner()
 		return trieutils.GetNodeByPath(r, id.Bucket(), owner, path, isLeaf)
 	case HashScheme:
-		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf)
+		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, *hash, isLeaf)
 	}
 
-	owner := id.Owner()
-	return nil, &MissingNodeError{owner: owner, path: path, hash: *hash}
+	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: *hash}
 }
 
 type TestNodeDatabase struct {

@@ -67,13 +67,13 @@ func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path
 	d.dirtyCacheSize += nodeSize(key, blob)
 }
 
-func (d *Database) node(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
-	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
+func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	key := trieutils.NodeKeyByHash(bucket, *owner, path, *hash, isLeaf)
 	if blob := d.cleanCache.Get(nil, key); blob != nil {
 		return blob, nil
 	}
 
-	nodeBlob, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), owner)
+	nodeBlob, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), *owner)
 	if found {
 		return nodeBlob, nil
 	}
@@ -259,7 +259,7 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	return r.d.node(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
