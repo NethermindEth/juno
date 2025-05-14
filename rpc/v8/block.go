@@ -50,63 +50,63 @@ func (b *blockIDType) String() string {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L814
 type BlockID struct {
-	typeId blockIDType
+	typeID blockIDType
 	data   felt.Felt
 }
 
 func BlockIDFromNumber(num uint64) BlockID {
 	return BlockID{
-		typeId: number,
+		typeID: number,
 		data:   felt.Felt([4]uint64{num, 0, 0, 0}),
 	}
 }
 
 func BlockIDFromHash(blockHash *felt.Felt) BlockID {
 	return BlockID{
-		typeId: hash,
+		typeID: hash,
 		data:   *blockHash,
 	}
 }
 
 func (b *BlockID) Type() blockIDType {
-	return b.typeId
+	return b.typeID
 }
 
 func (b *BlockID) IsPending() bool {
-	return b.typeId == pending
+	return b.typeID == pending
 }
 
 func (b *BlockID) IsLatest() bool {
-	return b.typeId == latest
+	return b.typeID == latest
 }
 
 func (b *BlockID) IsHash() bool {
-	return b.typeId == hash
+	return b.typeID == hash
 }
 
 func (b *BlockID) IsNumber() bool {
-	return b.typeId == number
+	return b.typeID == number
 }
 
 func (b *BlockID) Hash() *felt.Felt {
-	if b.typeId != hash {
-		panic(fmt.Sprintf("Trying to get hash from block id with type %s", b.typeId.String()))
+	if b.typeID != hash {
+		panic(fmt.Sprintf("Trying to get hash from block id with type %s", b.typeID.String()))
 	}
 	return &b.data
 }
 
 func (b *BlockID) Number() uint64 {
-	if b.typeId != number {
-		panic(fmt.Sprintf("Trying to get number from block id with type %s", b.typeId.String()))
+	if b.typeID != number {
+		panic(fmt.Sprintf("Trying to get number from block id with type %s", b.typeID.String()))
 	}
 	return b.data[0]
 }
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
 	if string(data) == `"latest"` {
-		b.typeId = latest
+		b.typeID = latest
 	} else if string(data) == `"pending"` {
-		b.typeId = pending
+		b.typeID = pending
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {
@@ -114,13 +114,13 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 		}
 		blockHash, ok := jsonObject["block_hash"]
 		if ok {
-			b.typeId = hash
+			b.typeID = hash
 			return json.Unmarshal(blockHash, &b.data)
 		}
 
 		blockNumber, ok := jsonObject["block_number"]
 		if ok {
-			b.typeId = number
+			b.typeID = number
 			return json.Unmarshal(blockNumber, &b.data[0])
 		}
 

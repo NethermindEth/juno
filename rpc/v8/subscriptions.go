@@ -46,11 +46,11 @@ func (e errorTxnHashNotFound) Error() string {
 type SubscriptionBlockID BlockID
 
 func (b *SubscriptionBlockID) Type() blockIDType {
-	return b.typeId
+	return b.typeID
 }
 
 func (b *SubscriptionBlockID) IsLatest() bool {
-	return b.typeId == latest
+	return b.typeID == latest
 }
 
 func (b *SubscriptionBlockID) IsPending() bool {
@@ -58,11 +58,11 @@ func (b *SubscriptionBlockID) IsPending() bool {
 }
 
 func (b *SubscriptionBlockID) IsHash() bool {
-	return b.typeId == hash
+	return b.typeID == hash
 }
 
 func (b *SubscriptionBlockID) IsNumber() bool {
-	return b.typeId == number
+	return b.typeID == number
 }
 
 func (b *SubscriptionBlockID) Hash() *felt.Felt {
