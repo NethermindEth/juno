@@ -27,7 +27,7 @@ func TestSimulateTransactions(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -220,7 +220,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 			_, err := handler.SimulateTransactions(
 				rpc.BlockID{Latest: true},
