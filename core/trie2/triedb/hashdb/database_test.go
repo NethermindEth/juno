@@ -12,6 +12,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	leaf1Hash   = *new(felt.Felt).SetUint64(201)
+	leaf2Hash   = *new(felt.Felt).SetUint64(202)
+	rootHash    = *new(felt.Felt).SetUint64(100)
+	level1Hash1 = *new(felt.Felt).SetUint64(201)
+	level1Hash2 = *new(felt.Felt).SetUint64(202)
+
+	leaf1Path   = trieutils.NewBitArray(1, 0x00)
+	leaf2Path   = trieutils.NewBitArray(1, 0x01)
+	rootPath    = trieutils.NewBitArray(0, 0x0)
+	level1Path1 = trieutils.NewBitArray(1, 0x00)
+	level1Path2 = trieutils.NewBitArray(1, 0x01)
+
+	leaf1Node   = NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
+	leaf2Node   = NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
+	rootNode    = trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
+	level1Node1 = trienode.NewNonLeaf(level1Hash1, createEdgeNodeBlob(leaf1Hash))
+	level1Node2 = trienode.NewNonLeaf(level1Hash2, createEdgeNodeBlob(leaf2Hash))
+
+	basicClassNodes = map[trieutils.Path]trienode.TrieNode{
+		rootPath:  rootNode,
+		leaf1Path: leaf1Node,
+		leaf2Path: leaf2Node,
+	}
+)
+
 func verifyNode(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
 	t.Helper()
 
@@ -113,26 +139,7 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, DefaultConfig)
 
-		leaf1Hash := *new(felt.Felt).SetUint64(201)
-		leaf1Path := trieutils.NewBitArray(1, 0x00)
-		leaf1Node := NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
-
-		leaf2Hash := *new(felt.Felt).SetUint64(202)
-		leaf2Path := trieutils.NewBitArray(1, 0x01)
-		leaf2Node := NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
-
-		rootHash := *new(felt.Felt).SetUint64(100)
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			rootPath:  rootNode,
-			leaf1Path: leaf1Node,
-			leaf2Path: leaf2Node,
-		}
-
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		err = database.Commit(felt.Zero)
@@ -147,28 +154,7 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, DefaultConfig)
 
-		leaf1Hash := *new(felt.Felt).SetUint64(301)
-		leaf2Hash := *new(felt.Felt).SetUint64(302)
-		level1Hash1 := *new(felt.Felt).SetUint64(201)
-		level1Hash2 := *new(felt.Felt).SetUint64(202)
-		rootHash := *new(felt.Felt).SetUint64(100)
-
-		leaf1Path := trieutils.NewBitArray(2, 0x00)
-		leaf1Node := NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
-
-		leaf2Path := trieutils.NewBitArray(2, 0x03)
-		leaf2Node := NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
-
-		level1Path1 := trieutils.NewBitArray(1, 0x00)
-		level1Node1 := trienode.NewNonLeaf(level1Hash1, createEdgeNodeBlob(leaf1Hash))
-
-		level1Path2 := trieutils.NewBitArray(1, 0x01)
-		level1Node2 := trienode.NewNonLeaf(level1Hash2, createEdgeNodeBlob(leaf2Hash))
-
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(level1Hash1, level1Hash2))
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
+		deepClassNodes := map[trieutils.Path]trienode.TrieNode{
 			rootPath:    rootNode,
 			level1Path1: level1Node1,
 			level1Path2: level1Node2,
@@ -176,9 +162,7 @@ func TestDatabase(t *testing.T) {
 			leaf2Path:   leaf2Node,
 		}
 
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(deepClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		err = database.Commit(felt.Zero)
@@ -195,18 +179,10 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, DefaultConfig)
 
-		classHash := *new(felt.Felt).SetUint64(200)
-		classPath := trieutils.NewBitArray(1, 0x00)
-		classNode := NewLeafWithHash([]byte{1, 2, 3}, classHash)
-
 		contractHash := *new(felt.Felt).SetUint64(210)
 		contractOwner := *new(felt.Felt).SetUint64(123)
 		contractPath := trieutils.NewBitArray(1, 0x01)
 		contractNode := NewLeafWithHash([]byte{4, 5, 6}, contractHash)
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			classPath: classNode,
-		}
 
 		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
 			contractOwner: {
@@ -214,13 +190,13 @@ func TestDatabase(t *testing.T) {
 			},
 		}
 
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(contractNodes))
 		require.NoError(t, err)
 
 		err = database.Commit(felt.Zero)
 		require.NoError(t, err)
 
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), classPath, classNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
 		verifyNode(t, database, trieutils.NewContractStorageTrieID(felt.Zero, contractOwner), contractPath, contractNode)
 	})
 
@@ -228,29 +204,17 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, DefaultConfig)
 
-		leafHash := *new(felt.Felt).SetUint64(301)
 		edgeHash := *new(felt.Felt).SetUint64(201)
-		rootHash := *new(felt.Felt).SetUint64(100)
-
-		leafPath := trieutils.NewBitArray(2, 0x01)
-		leafNode := NewLeafWithHash([]byte{1, 2, 3}, leafHash)
-
 		edgePath := trieutils.NewBitArray(1, 0x01)
+		edgeNode := trienode.NewNonLeaf(edgeHash, createEdgeNodeBlob(leaf1Hash))
 
-		edgeNode := trienode.NewNonLeaf(edgeHash, createEdgeNodeBlob(leafHash))
-
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createEdgeNodeBlob(edgeHash))
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			rootPath: rootNode,
-			edgePath: edgeNode,
-			leafPath: leafNode,
+		edgeClassNodes := map[trieutils.Path]trienode.TrieNode{
+			rootPath:  rootNode,
+			edgePath:  edgeNode,
+			leaf1Path: leaf1Node,
 		}
 
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(edgeClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		err = database.Commit(felt.Zero)
@@ -258,7 +222,7 @@ func TestDatabase(t *testing.T) {
 
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
 		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), edgePath, edgeNode)
-		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leafPath, leafNode)
+		verifyNode(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
 	})
 
 	t.Run("Commit handles concurrent operations", func(t *testing.T) {
@@ -327,35 +291,14 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, DefaultConfig)
 
-		leaf1Hash := *new(felt.Felt).SetUint64(201)
-		leaf2Hash := *new(felt.Felt).SetUint64(202)
-		rootHash := *new(felt.Felt).SetUint64(100)
-
-		leaf1Path := trieutils.NewBitArray(1, 0x00)
-		leaf1Node := NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
-
-		leaf2Path := trieutils.NewBitArray(1, 0x01)
-		leaf2Node := NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
-
-		rootPath := trieutils.NewBitArray(0, 0x0)
-		rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
-
-		classNodes := map[trieutils.Path]trienode.TrieNode{
-			rootPath:  rootNode,
-			leaf1Path: leaf1Node,
-			leaf2Path: leaf2Node,
-		}
-
-		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{}
-
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		classNodes = map[trieutils.Path]trienode.TrieNode{
+		deletedNodes := map[trieutils.Path]trienode.TrieNode{
 			leaf1Path: trienode.NewDeleted(true),
 		}
 
-		err = database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(classNodes), createContractMergeNodeSet(contractNodes))
+		err = database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(deletedNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		err = database.Commit(felt.Zero)

@@ -7,10 +7,8 @@ import (
 )
 
 type FastCache struct {
-	cache  *fastcache.Cache
-	mu     sync.RWMutex
-	hits   uint64
-	misses uint64
+	cache *fastcache.Cache
+	mu    sync.RWMutex
 }
 
 func NewFastCache(size int) *FastCache {
@@ -18,10 +16,8 @@ func NewFastCache(size int) *FastCache {
 		return nil
 	}
 	return &FastCache{
-		cache:  fastcache.New(size),
-		mu:     sync.RWMutex{},
-		hits:   0,
-		misses: 0,
+		cache: fastcache.New(size),
+		mu:    sync.RWMutex{},
 	}
 }
 
@@ -38,11 +34,9 @@ func (c *FastCache) Get(key []byte) ([]byte, bool) {
 
 	value := c.cache.Get(nil, key)
 	if value == nil {
-		c.misses++
 		return nil, false
 	}
 
-	c.hits++
 	return value, true
 }
 
@@ -70,22 +64,4 @@ func (c *FastCache) Remove(key []byte) bool {
 
 	c.cache.Del(key)
 	return true
-}
-
-func (c *FastCache) Hits() uint64 {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.hits
-}
-
-func (c *FastCache) HitRate() float64 {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	if c.hits+c.misses == 0 {
-		return 0
-	}
-
-	return float64(c.hits) / float64(c.hits+c.misses)
 }
