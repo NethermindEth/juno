@@ -4,34 +4,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/db"
 )
 
 type timeoutFn func(step types.Step, round types.Round) time.Duration
-
-type Listener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	// Listen would return consensus messages to Tendermint which are set by the validator set.
-	Listen() <-chan M
-}
-
-type Broadcaster[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
-	Broadcast(M)
-}
-
-type Listeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	ProposalListener  Listener[types.Proposal[V, H, A], V, H, A]
-	PrevoteListener   Listener[types.Prevote[H, A], V, H, A]
-	PrecommitListener Listener[types.Precommit[H, A], V, H, A]
-}
-
-type Broadcasters[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	ProposalBroadcaster  Broadcaster[types.Proposal[V, H, A], V, H, A]
-	PrevoteBroadcaster   Broadcaster[types.Prevote[H, A], V, H, A]
-	PrecommitBroadcaster Broadcaster[types.Precommit[H, A], V, H, A]
-}
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	db db.KeyValueStore
@@ -40,8 +19,8 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 	getTimeout timeoutFn
 
-	listeners    Listeners[V, H, A]
-	broadcasters Broadcasters[V, H, A]
+	listeners    p2p.Listeners[V, H, A]
+	broadcasters p2p.Broadcasters[V, H, A]
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
@@ -53,8 +32,8 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	db db.KeyValueStore,
 	stateMachine tendermint.StateMachine[V, H, A],
-	listeners Listeners[V, H, A],
-	broadcasters Broadcasters[V, H, A],
+	listeners p2p.Listeners[V, H, A],
+	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
