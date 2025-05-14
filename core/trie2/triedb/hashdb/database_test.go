@@ -25,8 +25,8 @@ var (
 	level1Path1 = trieutils.NewBitArray(2, 0x00)
 	level1Path2 = trieutils.NewBitArray(2, 0x01)
 
-	leaf1Node   = NewLeafWithHash([]byte{1, 2, 3}, leaf1Hash)
-	leaf2Node   = NewLeafWithHash([]byte{4, 5, 6}, leaf2Hash)
+	leaf1Node   = trienode.NewLeaf(leaf1Hash, []byte{1, 2, 3})
+	leaf2Node   = trienode.NewLeaf(leaf2Hash, []byte{4, 5, 6})
 	rootNode    = trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
 	level1Node1 = trienode.NewNonLeaf(level1Hash1, createEdgeNodeBlob(leaf1Hash))
 	level1Node2 = trienode.NewNonLeaf(level1Hash2, createEdgeNodeBlob(leaf2Hash))
@@ -78,13 +78,6 @@ func createEdgeNodeBlob(childHash felt.Felt) []byte {
 	copy(edgeBlob[1:felt.Bytes+1], childBytes[:])
 
 	return edgeBlob
-}
-
-func NewLeafWithHash(blob []byte, hash felt.Felt) trienode.TrieNode {
-	return &customLeafNode{
-		blob: blob,
-		hash: hash,
-	}
 }
 
 type customLeafNode struct {
@@ -171,7 +164,7 @@ func TestDatabase(t *testing.T) {
 		contractHash := *new(felt.Felt).SetUint64(210)
 		contractOwner := *new(felt.Felt).SetUint64(123)
 		contractPath := trieutils.NewBitArray(1, 0x01)
-		contractNode := NewLeafWithHash([]byte{4, 5, 6}, contractHash)
+		contractNode := trienode.NewLeaf(contractHash, []byte{4, 5, 6})
 
 		contractNodes := map[felt.Felt]map[trieutils.Path]trienode.TrieNode{
 			contractOwner: {
@@ -232,7 +225,7 @@ func TestDatabase(t *testing.T) {
 			rootHash := *new(felt.Felt).SetUint64(uint64(i * 100))
 
 			leafPath := trieutils.NewBitArray(1, 0x00)
-			leafNode := NewLeafWithHash([]byte{byte(i), byte(i + 1), byte(i + 2)}, leafHash)
+			leafNode := trienode.NewLeaf(leafHash, []byte{byte(i), byte(i + 1), byte(i + 2)})
 
 			rootPath := trieutils.NewBitArray(0, 0x0)
 			rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leafHash, felt.Zero))
@@ -284,7 +277,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 
 		deletedNodes := map[trieutils.Path]trienode.TrieNode{
-			leaf1Path: trienode.NewDeleted(true),
+			leaf1Path: trienode.NewDeletedWithHash(true, leaf1Hash),
 		}
 
 		err = database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(deletedNodes), createContractMergeNodeSet(nil))
@@ -298,7 +291,7 @@ func TestDatabase(t *testing.T) {
 
 		reader, err := database.NodeReader(trieutils.NewClassTrieID(felt.Zero))
 		require.NoError(t, err)
-		_, err = reader.Node(&felt.Zero, leaf1Path, &leaf1Hash, leaf1Node.IsLeaf())
+		_, err = reader.Node(&felt.Zero, leaf1Path, &leaf1Hash, true)
 		require.Error(t, err)
 	})
 }

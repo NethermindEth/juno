@@ -27,16 +27,17 @@ func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner f
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	keyStr := string(key)
 	switch trieType {
 	case trieutils.Class:
-		c.classNodes[string(key)] = value
+		c.classNodes[keyStr] = value
 	case trieutils.Contract:
-		c.contractNodes[string(key)] = value
+		c.contractNodes[keyStr] = value
 	case trieutils.ContractStorage:
 		if _, ok := c.contractStorageNodes[owner]; !ok {
 			c.contractStorageNodes[owner] = make(map[string][]byte)
 		}
-		c.contractStorageNodes[owner][string(key)] = value
+		c.contractStorageNodes[owner][keyStr] = value
 	}
 }
 
@@ -44,15 +45,16 @@ func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner felt.Fel
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	keyStr := string(key)
 	switch trieType {
 	case trieutils.Class:
-		cachedValue, hit := c.classNodes[string(key)]
+		cachedValue, hit := c.classNodes[keyStr]
 		if !hit {
 			return nil, false
 		}
 		return cachedValue, true
 	case trieutils.Contract:
-		cachedValue, hit := c.contractNodes[string(key)]
+		cachedValue, hit := c.contractNodes[keyStr]
 		if !hit {
 			return nil, false
 		}
@@ -62,7 +64,7 @@ func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner felt.Fel
 		if !ok {
 			return nil, false
 		}
-		cachedValue, hit := ownerNodes[string(key)]
+		cachedValue, hit := ownerNodes[keyStr]
 		if !hit {
 			return nil, false
 		}
@@ -82,20 +84,33 @@ func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner felt.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	keyStr := string(key)
 	switch trieType {
 	case trieutils.Class:
-		delete(c.classNodes, string(key))
+		if _, ok := c.classNodes[keyStr]; ok {
+			delete(c.classNodes, keyStr)
+			return nil
+		}
+		return fmt.Errorf("key %x not found", key)
 	case trieutils.Contract:
-		delete(c.contractNodes, string(key))
+		if _, ok := c.contractNodes[keyStr]; ok {
+			delete(c.contractNodes, keyStr)
+			return nil
+		}
+		return fmt.Errorf("key %x not found", key)
 	case trieutils.ContractStorage:
 		ownerNodes, ok := c.contractStorageNodes[owner]
 		if !ok {
 			return fmt.Errorf("owner %x not found", owner.Bytes())
 		}
-		delete(ownerNodes, string(key))
-		if len(ownerNodes) == 0 {
-			delete(c.contractStorageNodes, owner)
+		if _, ok := ownerNodes[keyStr]; ok {
+			delete(ownerNodes, keyStr)
+			if len(ownerNodes) == 0 {
+				delete(c.contractStorageNodes, owner)
+			}
+			return nil
 		}
+		return fmt.Errorf("key %x not found", key)
 	}
-	return nil
+	return fmt.Errorf("unknown trie type")
 }

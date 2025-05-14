@@ -86,7 +86,6 @@ func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path,
 	if err != nil {
 		return nil, err
 	}
-
 	if blob == nil {
 		return nil, db.ErrKeyNotFound
 	}
@@ -117,7 +116,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(root felt.Felt) error {
+func (d *Database) Commit(_ felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
@@ -208,8 +207,8 @@ func (d *Database) Update(
 	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
 
 	for path, node := range classNodes {
-		if _, ok := node.(*trienode.DeletedNode); ok {
-			if err := d.remove(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
+		if deletedNode, ok := node.(*trienode.DeletedNode); ok {
+			if err := d.remove(db.ClassTrie, felt.Zero, path, deletedNode.Hash(), deletedNode.Blob(), deletedNode.IsLeaf()); err != nil {
 				return err
 			}
 		} else {

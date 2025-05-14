@@ -45,12 +45,17 @@ func (r *LeafNode) IsLeaf() bool    { return true }
 
 type DeletedNode struct {
 	isLeaf bool
+	hash   felt.Felt
 }
 
 func NewDeleted(isLeaf bool) *DeletedNode {
 	return &DeletedNode{isLeaf: isLeaf}
 }
 
+func NewDeletedWithHash(isLeaf bool, hash felt.Felt) *DeletedNode {
+	return &DeletedNode{isLeaf: isLeaf, hash: hash}
+}
+
 func (r *DeletedNode) Blob() []byte    { return nil }
-func (r *DeletedNode) Hash() felt.Felt { return felt.Zero }
+func (r *DeletedNode) Hash() felt.Felt { return r.hash }
 func (r *DeletedNode) IsLeaf() bool    { return r.isLeaf }
