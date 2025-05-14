@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,23 +33,23 @@ func (a *app) Valid(v value) bool {
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
-	curHeight            Height
-	decision             map[Height]value
-	decisionCertificates map[Height][]Precommit[felt.Felt, felt.Felt]
+	curHeight            types.Height
+	decision             map[types.Height]value
+	decisionCertificates map[types.Height][]types.Precommit[felt.Felt, felt.Felt]
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[Height]value),
-		decisionCertificates: make(map[Height][]Precommit[felt.Felt, felt.Felt]),
+		decision:             make(map[types.Height]value),
+		decisionCertificates: make(map[types.Height][]types.Precommit[felt.Felt, felt.Felt]),
 	}
 }
 
-func (c *chain) Height() Height {
+func (c *chain) Height() types.Height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h Height, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
+func (c *chain) Commit(h types.Height, v value, precommits []types.Precommit[felt.Felt, felt.Felt]) {
 	c.decision[c.curHeight] = v
 	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
@@ -56,22 +57,22 @@ func (c *chain) Commit(h Height, v value, precommits []Precommit[felt.Felt, felt
 
 // Implements Validators[felt.Felt] interface
 type validators struct {
-	totalVotingPower VotingPower
+	totalVotingPower types.VotingPower
 	vals             []felt.Felt
 }
 
 func newVals() *validators { return &validators{} }
 
-func (v *validators) TotalVotingPower(h Height) VotingPower {
+func (v *validators) TotalVotingPower(h types.Height) types.VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) VotingPower {
+func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) types.VotingPower {
 	return 1
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h Height, r Round) felt.Felt {
+func (v *validators) Proposer(h types.Height, r types.Round) felt.Felt {
 	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
@@ -103,9 +104,9 @@ func setupStateMachine(
 
 func TestThresholds(t *testing.T) {
 	tests := []struct {
-		n VotingPower
-		q VotingPower
-		f VotingPower
+		n types.VotingPower
+		q types.VotingPower
+		f types.VotingPower
 	}{
 		{1, 1, 0},
 		{2, 2, 0},

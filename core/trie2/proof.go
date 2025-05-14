@@ -26,37 +26,36 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 	}
 
 	path := t.FeltToPath(key)
-	k := &path
 
 	var (
-		nodes  []trienode.Node
-		prefix = new(Path)
-		rn     = t.root
+		nodes    []trienode.Node
+		prefix   = new(Path)
+		rootNode = t.root
 	)
 
-	for k.Len() > 0 && rn != nil {
-		switch n := rn.(type) {
+	for path.Len() > 0 && rootNode != nil {
+		switch n := rootNode.(type) {
 		case *trienode.EdgeNode:
-			if !n.PathMatches(k) {
-				rn = nil // Trie doesn't contain the key
+			if !n.PathMatches(&path) {
+				rootNode = nil // Trie doesn't contain the key
 			} else {
-				rn = n.Child
+				rootNode = n.Child
 				prefix.Append(prefix, n.Path)
-				k.LSBs(k, n.Path.Len())
+				(&path).LSBs(&path, n.Path.Len())
 			}
 			nodes = append(nodes, n)
 		case *trienode.BinaryNode:
-			bit := k.MSB()
-			rn = n.Children[bit]
+			bit := (&path).MSB()
+			rootNode = n.Children[bit]
 			prefix.AppendBit(prefix, bit)
-			k.LSBs(k, 1)
+			(&path).LSBs(&path, 1)
 			nodes = append(nodes, n)
 		case *trienode.HashNode:
 			resolved, err := t.resolveNode(n, *prefix)
 			if err != nil {
 				return err
 			}
-			rn = resolved
+			rootNode = resolved
 		default:
 			panic(fmt.Sprintf("key: %s, unknown node type: %T", key.String(), n))
 		}
@@ -174,7 +173,7 @@ func verifyEmptyRangeProof(rootHash, first *felt.Felt, proof *ProofNodeSet) (boo
 		return false, err
 	}
 
-	if val != nil || hasRightElement(rootKey, firstKey) {
+	if val != nil || hasRightElement(rootKey, &firstKey) {
 		return false, errors.New("more entries available")
 	}
 
@@ -200,7 +199,7 @@ func verifySingleElementProof(rootHash, key, value *felt.Felt, proof *ProofNodeS
 		return false, errors.New("correct proof but invalid value")
 	}
 
-	return hasRightElement(root, keyPath), nil
+	return hasRightElement(root, &keyPath), nil
 }
 
 // verifyRangeWithProof handles the general case with multiple elements
@@ -221,7 +220,7 @@ func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt
 		return false, err
 	}
 
-	empty, err := unsetInternal(root, firstKey, lastKey)
+	empty, err := unsetInternal(root, &firstKey, &lastKey)
 	if err != nil {
 		return false, err
 	}
@@ -242,7 +241,7 @@ func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt
 		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), newRoot.String())
 	}
 
-	return hasRightElement(root, lastKey), nil
+	return hasRightElement(root, &lastKey), nil
 }
 
 func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
@@ -297,8 +296,8 @@ func proofToPath(
 	allowNonExistent bool,
 ) (trienode.Node, *felt.Felt, error) {
 	// Retrieves the node from the proof node set given the node hash
-	retrieveNode := func(hash felt.Felt) (trienode.Node, error) {
-		n, _ := proof.Get(hash)
+	retrieveNode := func(hash *felt.Felt) (trienode.Node, error) {
+		n, _ := proof.Get(*hash)
 		if n == nil {
 			return nil, fmt.Errorf("proof node not found, expected hash: %s", hash.String())
 		}
@@ -307,21 +306,20 @@ func proofToPath(
 
 	// Must resolve the root node first if it's not provided
 	if root == nil {
-		n, err := retrieveNode(*rootHash)
+		n, err := retrieveNode(rootHash)
 		if err != nil {
 			return nil, nil, err
 		}
 		root = n
 	}
 
-	var (
-		err           error
-		child, parent trienode.Node
-		val           *felt.Felt
-	)
-
-	parent = root
+	parent := root
 	for {
+		var (
+			err   error
+			child trienode.Node
+			val   *felt.Felt
+		)
 		msb := keyBits.MSB() // key gets modified in get(), we need the current msb to get the correct child during linking
 		child = get(parent, &keyBits, false)
 		switch n := child.(type) {
@@ -337,7 +335,7 @@ func proofToPath(
 			parent = child
 			continue
 		case *trienode.HashNode:
-			child, err = retrieveNode(n.Felt)
+			child, err = retrieveNode(&n.Felt)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -372,7 +370,7 @@ func proofToPath(
 //
 // Note we have the assumption here the given boundary keys are different
 // and right is larger than left.
-func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
+func unsetInternal(n trienode.Node, left, right *Path) (bool, error) {
 	// Step down to the fork point. There are two scenarios that can happen:
 	// - the fork point is an EdgeNode: either the key of left proof or
 	//   right proof doesn't match with the edge node's path
@@ -392,16 +390,16 @@ func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
 			rn.Flags = trienode.NewNodeFlag()
 
 			if left.Len()-pos < rn.Path.Len() {
-				edgeForkLeft = new(Path).LSBs(&left, pos).Cmp(rn.Path)
+				edgeForkLeft = new(Path).LSBs(left, pos).Cmp(rn.Path)
 			} else {
-				subKey := new(Path).Subset(&left, pos, pos+rn.Path.Len())
+				subKey := new(Path).Subset(left, pos, pos+rn.Path.Len())
 				edgeForkLeft = subKey.Cmp(rn.Path)
 			}
 
 			if right.Len()-pos < rn.Path.Len() {
-				edgeForkRight = new(Path).LSBs(&right, pos).Cmp(rn.Path)
+				edgeForkRight = new(Path).LSBs(right, pos).Cmp(rn.Path)
 			} else {
-				subKey := new(Path).Subset(&right, pos, pos+rn.Path.Len())
+				subKey := new(Path).Subset(right, pos, pos+rn.Path.Len())
 				edgeForkRight = subKey.Cmp(rn.Path)
 			}
 
@@ -432,7 +430,7 @@ func unsetInternal(n trienode.Node, left, right Path) (bool, error) {
 func handleEdgeFork(
 	n *trienode.EdgeNode,
 	parent trienode.Node,
-	left, right Path,
+	left, right *Path,
 	pos uint8,
 	edgeForkLeft, edgeForkRight int,
 ) (bool, error) {
@@ -466,7 +464,7 @@ func handleEdgeFork(
 			parent.(*trienode.BinaryNode).Children[left.Bit(pos-1)] = nil
 			return false, nil
 		}
-		return false, unset(n, n.Child, new(Path).LSBs(&left, pos), n.Path.Len(), false)
+		return false, unset(n, n.Child, new(Path).LSBs(left, pos), n.Path.Len(), false)
 	}
 	if edgeForkLeft != 0 {
 		if _, ok := n.Child.(*trienode.ValueNode); ok {
@@ -477,13 +475,13 @@ func handleEdgeFork(
 			parent.(*trienode.BinaryNode).Children[right.Bit(pos-1)] = nil
 			return false, nil
 		}
-		return false, unset(n, n.Child, new(Path).LSBs(&right, pos), n.Path.Len(), true)
+		return false, unset(n, n.Child, new(Path).LSBs(right, pos), n.Path.Len(), true)
 	}
 	return false, nil
 }
 
 // handleBinaryFork processes the fork point when it's a BinaryNode
-func handleBinaryFork(n *trienode.BinaryNode, left, right Path, pos uint8) (bool, error) {
+func handleBinaryFork(n *trienode.BinaryNode, left, right *Path, pos uint8) (bool, error) {
 	leftBit := left.Bit(pos)
 	rightBit := right.Bit(pos)
 	if leftBit == 0 && rightBit == 0 {
@@ -492,10 +490,10 @@ func handleBinaryFork(n *trienode.BinaryNode, left, right Path, pos uint8) (bool
 	if leftBit == 1 && rightBit == 1 {
 		n.Children[0] = nil
 	}
-	if err := unset(n, n.Children[leftBit], new(Path).LSBs(&left, pos), 1, false); err != nil {
+	if err := unset(n, n.Children[leftBit], new(Path).LSBs(left, pos), 1, false); err != nil {
 		return false, err
 	}
-	if err := unset(n, n.Children[rightBit], new(Path).LSBs(&right, pos), 1, true); err != nil {
+	if err := unset(n, n.Children[rightBit], new(Path).LSBs(right, pos), 1, true); err != nil {
 		return false, err
 	}
 	return false, nil
@@ -557,7 +555,7 @@ func unset(parent, child trienode.Node, key *Path, pos uint8, removeLeft bool) e
 
 // hasRightElement checks if there is a right sibling for the given key in the trie.
 // This function assumes that the entire path has been resolved.
-func hasRightElement(node trienode.Node, key Path) bool {
+func hasRightElement(node trienode.Node, key *Path) bool {
 	for node != nil {
 		switch n := node.(type) {
 		case *trienode.BinaryNode:
@@ -567,9 +565,9 @@ func hasRightElement(node trienode.Node, key Path) bool {
 				return true
 			}
 			node = n.Children[bit]
-			key.LSBs(&key, 1)
+			key.LSBs(key, 1)
 		case *trienode.EdgeNode:
-			if !n.PathMatches(&key) {
+			if !n.PathMatches(key) {
 				// There's a divergence in the path, check if the node path is greater than the key
 				// If so, that means that this node comes after the search key, which indicates that
 				// there are elements with larger values
@@ -579,10 +577,10 @@ func hasRightElement(node trienode.Node, key Path) bool {
 				} else {
 					edgePath = n.Path
 				}
-				return edgePath.Cmp(&key) > 0
+				return edgePath.Cmp(key) > 0
 			}
 			node = n.Child
-			key.LSBs(&key, n.Path.Len())
+			key.LSBs(key, n.Path.Len())
 		case *trienode.ValueNode:
 			return false // resolved the whole path
 		default:

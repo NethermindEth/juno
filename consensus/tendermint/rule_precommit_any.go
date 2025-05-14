@@ -3,6 +3,8 @@ package tendermint
 import (
 	"maps"
 	"slices"
+
+	"github.com/NethermindEth/juno/consensus/types"
 )
 
 /*
@@ -12,7 +14,7 @@ Check the upon condition on line 47:
 	48: schedule OnTimeoutPrecommit(h_p , round_p) to be executed after timeoutPrecommit(round_p)
 */
 func (t *stateMachine[V, H, A]) uponPrecommitAny() bool {
-	precommits := t.messages.precommits[t.state.height][t.state.round]
+	precommits := t.messages.Precommits[t.state.height][t.state.round]
 	vals := slices.Collect(maps.Keys(precommits))
 
 	isFirstTime := !t.state.timeoutPrecommitScheduled
@@ -24,5 +26,5 @@ func (t *stateMachine[V, H, A]) uponPrecommitAny() bool {
 
 func (t *stateMachine[V, H, A]) doPrecommitAny() Action[V, H, A] {
 	t.state.timeoutPrecommitScheduled = true
-	return t.scheduleTimeout(StepPrecommit)
+	return t.scheduleTimeout(types.StepPrecommit)
 }

@@ -1,22 +1,24 @@
 package tendermint
 
-func (t *stateMachine[V, H, A]) ProcessStart(round Round) []Action[V, H, A] {
+import "github.com/NethermindEth/juno/consensus/types"
+
+func (t *stateMachine[V, H, A]) ProcessStart(round types.Round) []Action[V, H, A] {
 	return t.processLoop(t.startRound(round), nil)
 }
 
-func (t *stateMachine[V, H, A]) ProcessProposal(p Proposal[V, H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addProposal(p) })
+func (t *stateMachine[V, H, A]) ProcessProposal(p types.Proposal[V, H, A]) []Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() { t.messages.AddProposal(p) })
 }
 
-func (t *stateMachine[V, H, A]) ProcessPrevote(p Prevote[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrevote(p) })
+func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() { t.messages.AddPrevote(p) })
 }
 
-func (t *stateMachine[V, H, A]) ProcessPrecommit(p Precommit[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) })
+func (t *stateMachine[V, H, A]) ProcessPrecommit(p types.Precommit[H, A]) []Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() { t.messages.AddPrecommit(p) })
 }
 
-func (t *stateMachine[V, H, A]) processMessage(header MessageHeader[A], addMessage func()) []Action[V, H, A] {
+func (t *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []Action[V, H, A] {
 	if !t.preprocessMessage(header, addMessage) {
 		return nil
 	}
@@ -24,20 +26,20 @@ func (t *stateMachine[V, H, A]) processMessage(header MessageHeader[A], addMessa
 	return t.processLoop(nil, &header.Round)
 }
 
-func (t *stateMachine[V, H, A]) ProcessTimeout(tm Timeout) []Action[V, H, A] {
+func (t *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []Action[V, H, A] {
 	switch tm.Step {
-	case StepPropose:
+	case types.StepPropose:
 		return t.processLoop(t.onTimeoutPropose(tm.Height, tm.Round), nil)
-	case StepPrevote:
+	case types.StepPrevote:
 		return t.processLoop(t.onTimeoutPrevote(tm.Height, tm.Round), nil)
-	case StepPrecommit:
+	case types.StepPrecommit:
 		return t.processLoop(t.onTimeoutPrecommit(tm.Height, tm.Round), nil)
 	}
 
 	return nil
 }
 
-func (t *stateMachine[V, H, A]) processLoop(action Action[V, H, A], recentlyReceivedRound *Round) []Action[V, H, A] {
+func (t *stateMachine[V, H, A]) processLoop(action Action[V, H, A], recentlyReceivedRound *types.Round) []Action[V, H, A] {
 	actions := []Action[V, H, A]{}
 	if action != nil {
 		actions = append(actions, action)
@@ -52,7 +54,7 @@ func (t *stateMachine[V, H, A]) processLoop(action Action[V, H, A], recentlyRece
 	return actions
 }
 
-func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) Action[V, H, A] {
 	cachedProposal := t.findProposal(t.state.round)
 
 	var roundCachedProposal *CachedProposal[V, H, A]

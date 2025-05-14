@@ -4,56 +4,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/db"
 )
 
-type timeoutFn func(step tendermint.Step, round tendermint.Round) time.Duration
+type timeoutFn func(step types.Step, round types.Round) time.Duration
 
-type Listener[M tendermint.Message[V, H, A], V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] interface {
-	// Listen would return consensus messages to Tendermint which are set by the validator set.
-	Listen() <-chan M
-}
-
-type Broadcaster[M tendermint.Message[V, H, A], V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] interface {
-	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
-	Broadcast(M)
-}
-
-type Listeners[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
-	ProposalListener  Listener[tendermint.Proposal[V, H, A], V, H, A]
-	PrevoteListener   Listener[tendermint.Prevote[H, A], V, H, A]
-	PrecommitListener Listener[tendermint.Precommit[H, A], V, H, A]
-}
-
-type Broadcasters[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
-	ProposalBroadcaster  Broadcaster[tendermint.Proposal[V, H, A], V, H, A]
-	PrevoteBroadcaster   Broadcaster[tendermint.Prevote[H, A], V, H, A]
-	PrecommitBroadcaster Broadcaster[tendermint.Precommit[H, A], V, H, A]
-}
-
-type Driver[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr] struct {
+type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	db db.KeyValueStore
 
 	stateMachine tendermint.StateMachine[V, H, A]
 
 	getTimeout timeoutFn
 
-	listeners    Listeners[V, H, A]
-	broadcasters Broadcasters[V, H, A]
+	listeners    p2p.Listeners[V, H, A]
+	broadcasters p2p.Broadcasters[V, H, A]
 
-	scheduledTms map[tendermint.Timeout]*time.Timer
-	timeoutsCh   chan tendermint.Timeout
+	scheduledTms map[types.Timeout]*time.Timer
+	timeoutsCh   chan types.Timeout
 
 	wg   sync.WaitGroup
 	quit chan struct{}
 }
 
-func New[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr](
+func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	db db.KeyValueStore,
 	stateMachine tendermint.StateMachine[V, H, A],
-	listeners Listeners[V, H, A],
-	broadcasters Broadcasters[V, H, A],
+	listeners p2p.Listeners[V, H, A],
+	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
@@ -62,8 +42,8 @@ func New[V tendermint.Hashable[H], H tendermint.Hash, A tendermint.Addr](
 		getTimeout:   getTimeout,
 		listeners:    listeners,
 		broadcasters: broadcasters,
-		scheduledTms: make(map[tendermint.Timeout]*time.Timer),
-		timeoutsCh:   make(chan tendermint.Timeout),
+		scheduledTms: make(map[types.Timeout]*time.Timer),
+		timeoutsCh:   make(chan types.Timeout),
 		quit:         make(chan struct{}),
 	}
 }
@@ -116,16 +96,16 @@ func (d *Driver[V, H, A]) execute(actions []tendermint.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *tendermint.BroadcastProposal[V, H, A]:
-			d.broadcasters.ProposalBroadcaster.Broadcast(tendermint.Proposal[V, H, A](*action))
+			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
 		case *tendermint.BroadcastPrevote[H, A]:
-			d.broadcasters.PrevoteBroadcaster.Broadcast(tendermint.Prevote[H, A](*action))
+			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
 		case *tendermint.BroadcastPrecommit[H, A]:
-			d.broadcasters.PrecommitBroadcaster.Broadcast(tendermint.Precommit[H, A](*action))
+			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
 		case *tendermint.ScheduleTimeout:
-			d.scheduledTms[tendermint.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
+			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
 				case <-d.quit:
-				case d.timeoutsCh <- tendermint.Timeout(*action):
+				case d.timeoutsCh <- types.Timeout(*action):
 				}
 			})
 		}

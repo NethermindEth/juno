@@ -26,38 +26,25 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner felt.Felt, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
-	var (
-		node trienode.TrieNode
-		set  *trienode.NodeSet
-		ok   bool
-	)
+func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	for _, nodes := range n.nodes {
-		if nodes.OwnerSet.Owner.IsZero() {
-			node, ok = nodes.OwnerSet.Nodes[path]
-			if !ok {
-				continue
-			}
-		} else {
-			set, ok = nodes.ChildSets[owner]
-			if !ok {
-				continue
-			}
-			node, ok = set.Nodes[path]
-			if !ok {
-				continue
-			}
+		var (
+			node trienode.TrieNode
+			ok   bool
+		)
+		node, ok = nodes.OwnerSet.Nodes[path]
+		if !ok {
+			continue
 		}
-		nHash := node.Hash()
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: owner, path: path, hash: nHash}
+			return nil, &MissingNodeError{owner: *owner, path: path, hash: node.Hash()}
 		}
 		return node.Blob(), nil
 	}
 	return readNode(n.db, n.id, n.scheme, path, hash, isLeaf)
 }
 
-func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	switch scheme {
 	case PathScheme:
 		owner := id.Owner()
@@ -66,7 +53,8 @@ func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path tri
 		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, hash, isLeaf)
 	}
 
-	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: hash}
+	owner := id.Owner()
+	return nil, &MissingNodeError{owner: owner, path: path, hash: *hash}
 }
 
 type TestNodeDatabase struct {
@@ -87,51 +75,57 @@ func NewTestNodeDatabase(disk db.KeyValueStore, scheme dbScheme) TestNodeDatabas
 	}
 }
 
-func (d *TestNodeDatabase) Update(root, parent felt.Felt, nodes *trienode.MergeNodeSet) error {
+func (d *TestNodeDatabase) Update(root, parent *felt.Felt, nodes *trienode.MergeNodeSet) error {
 	if root == parent {
 		return nil
 	}
 
-	if _, ok := d.nodes[root]; ok { // already exists
+	rootVal := *root
+	parentVal := *parent
+
+	if _, ok := d.nodes[rootVal]; ok { // already exists
 		return nil
 	}
 
-	d.nodes[root] = nodes
-	d.rootLinks[root] = parent
+	d.nodes[rootVal] = nodes
+	d.rootLinks[rootVal] = parentVal
 
 	return nil
 }
 
 func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
-	nodes, _ := d.dirties(id.StateComm(), true)
+	root := id.StateComm()
+	nodes, _ := d.dirties(&root, true)
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 
-func (d *TestNodeDatabase) dirties(root felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
+func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
 	var (
 		pending []*trienode.MergeNodeSet
 		roots   []felt.Felt
 	)
 
+	rootVal := *root
+
 	for {
-		if root == d.root {
+		if rootVal == d.root {
 			break
 		}
 
-		nodes, ok := d.nodes[root]
+		nodes, ok := d.nodes[rootVal]
 		if !ok {
 			break
 		}
 
 		if newerFirst {
 			pending = append(pending, nodes)
-			roots = append(roots, root)
+			roots = append(roots, rootVal)
 		} else {
 			pending = append([]*trienode.MergeNodeSet{nodes}, pending...)
-			roots = append([]felt.Felt{root}, roots...)
+			roots = append([]felt.Felt{rootVal}, roots...)
 		}
 
-		root = d.rootLinks[root]
+		rootVal = d.rootLinks[rootVal]
 	}
 
 	return pending, roots

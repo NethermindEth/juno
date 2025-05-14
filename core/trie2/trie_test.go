@@ -337,7 +337,7 @@ func runRandTest(rt randTest) error {
 		case opCommit:
 			root, nodes := tr.Commit()
 			if nodes != nil {
-				if err := trieDB.Update(root, curRoot, trienode.NewMergeNodeSet(nodes)); err != nil {
+				if err := trieDB.Update(&root, &curRoot, trienode.NewMergeNodeSet(nodes)); err != nil {
 					rt[i].err = fmt.Errorf("update failed: %w", err)
 				}
 			}
