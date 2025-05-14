@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
@@ -65,16 +66,16 @@ func mockListeners(
 	proposalCh chan types.Proposal[value, felt.Felt, felt.Felt],
 	prevoteCh chan types.Prevote[felt.Felt, felt.Felt],
 	precommitCh chan types.Precommit[felt.Felt, felt.Felt],
-) driver.Listeners[value, felt.Felt, felt.Felt] {
-	return driver.Listeners[value, felt.Felt, felt.Felt]{
+) p2p.Listeners[value, felt.Felt, felt.Felt] {
+	return p2p.Listeners[value, felt.Felt, felt.Felt]{
 		ProposalListener:  newMockListener(proposalCh),
 		PrevoteListener:   newMockListener(prevoteCh),
 		PrecommitListener: newMockListener(precommitCh),
 	}
 }
 
-func mockBroadcasters() driver.Broadcasters[value, felt.Felt, felt.Felt] {
-	return driver.Broadcasters[value, felt.Felt, felt.Felt]{
+func mockBroadcasters() p2p.Broadcasters[value, felt.Felt, felt.Felt] {
+	return p2p.Broadcasters[value, felt.Felt, felt.Felt]{
 		ProposalBroadcaster:  &mockBroadcaster[types.Proposal[value, felt.Felt, felt.Felt]]{},
 		PrevoteBroadcaster:   &mockBroadcaster[types.Prevote[felt.Felt, felt.Felt]]{},
 		PrecommitBroadcaster: &mockBroadcaster[types.Precommit[felt.Felt, felt.Felt]]{},
@@ -156,7 +157,7 @@ func toAction(timeout types.Timeout) tendermint.Action[value, felt.Felt, felt.Fe
 
 func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](
 	expectedBroadcast []M,
-	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
+	broadcaster p2p.Broadcaster[M, value, felt.Felt, felt.Felt],
 ) {
 	broadcaster.(*mockBroadcaster[M]).wg.Add(len(expectedBroadcast))
 }
@@ -164,7 +165,7 @@ func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](
 func waitAndAssertBroadcaster[M types.Message[value, felt.Felt, felt.Felt]](
 	t *testing.T,
 	expectedBroadcast []M,
-	broadcaster driver.Broadcaster[M, value, felt.Felt, felt.Felt],
+	broadcaster p2p.Broadcaster[M, value, felt.Felt, felt.Felt],
 ) {
 	mockBroadcaster := broadcaster.(*mockBroadcaster[M])
 	mockBroadcaster.wg.Wait()
