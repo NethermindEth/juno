@@ -32,11 +32,9 @@ func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.
 			node trienode.TrieNode
 			ok   bool
 		)
-		if nodes.OwnerSet.Owner.IsZero() {
-			node, ok = nodes.OwnerSet.Nodes[path]
-			if !ok {
-				continue
-			}
+		node, ok = nodes.OwnerSet.Nodes[path]
+		if !ok {
+			continue
 		}
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			return nil, &MissingNodeError{owner: *owner, path: path, hash: node.Hash()}

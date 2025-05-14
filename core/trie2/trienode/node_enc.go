@@ -110,8 +110,14 @@ func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, 
 		return nil, fmt.Errorf("node path length (%d) > max (%d)", pathLen, maxPathLen)
 	}
 
-	if n, ok := decodeHashOrValueNode(blob, pathLen, maxPathLen); ok {
-		return n, nil
+	if pathLen == maxPathLen {
+		if n, ok := decodeValueNode(blob); ok {
+			return n, nil
+		}
+	} else {
+		if n, ok := decodeHashNode(blob); ok {
+			return n, nil
+		}
 	}
 
 	nodeType := blob[0]
@@ -127,14 +133,20 @@ func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, 
 	}
 }
 
-func decodeHashOrValueNode(blob []byte, pathLen, maxPathLen uint8) (Node, bool) {
+func decodeHashNode(blob []byte) (Node, bool) {
 	if len(blob) == hashOrValueNodeSize {
 		var f felt.Felt
 		f.SetBytes(blob)
-		if pathLen == maxPathLen {
-			return &ValueNode{Felt: f}, true
-		}
 		return &HashNode{Felt: f}, true
+	}
+	return nil, false
+}
+
+func decodeValueNode(blob []byte) (Node, bool) {
+	if len(blob) == hashOrValueNodeSize {
+		var f felt.Felt
+		f.SetBytes(blob)
+		return &ValueNode{Felt: f}, true
 	}
 	return nil, false
 }

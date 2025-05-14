@@ -18,17 +18,17 @@ type NodeSet struct {
 	deletes int // the count of deleted nodes
 }
 
-func NewNodeSet(owner felt.Felt) *NodeSet {
-	return &NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
+func NewNodeSet(owner felt.Felt) NodeSet {
+	return NodeSet{Owner: owner, Nodes: make(map[trieutils.Path]TrieNode)}
 }
 
-func (ns *NodeSet) Add(key trieutils.Path, node TrieNode) {
+func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
 	if _, ok := node.(*DeletedNode); ok {
 		ns.deletes += 1
 	} else {
 		ns.updates += 1
 	}
-	ns.Nodes[key] = node
+	ns.Nodes[*key] = node
 }
 
 // Iterates over the nodes in a sorted order and calls the callback for each node.

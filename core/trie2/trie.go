@@ -169,9 +169,9 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 		// case (b)
 		nodes := trienode.NewNodeSet(t.owner)
 		for _, path := range paths {
-			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
+			nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		return felt.Zero, nodes
+		return felt.Zero, &nodes
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
@@ -183,12 +183,12 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 
 	nodes := trienode.NewNodeSet(t.owner)
 	for _, path := range t.nodeTracer.deletedNodes() {
-		nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
+		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 	}
 
-	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
+	t.root = newCollector(&nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
-	return rootHash, nodes
+	return rootHash, &nodes
 }
 
 func (t *Trie) Copy() *Trie {

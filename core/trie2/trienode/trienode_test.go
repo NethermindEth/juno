@@ -23,14 +23,14 @@ func TestNodeSet(t *testing.T) {
 		// Add a regular node
 		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewLeaf(felt.Zero, []byte{1, 2, 3})
-		ns.Add(key1, node1)
+		ns.Add(&key1, node1)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 0, ns.deletes)
 
 		// Add a deleted node
 		key2 := trieutils.NewBitArray(8, 0xAA)
 		node2 := NewDeleted(false)
-		ns.Add(key2, node2)
+		ns.Add(&key2, node2)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 1, ns.deletes)
 
@@ -46,15 +46,15 @@ func TestNodeSet(t *testing.T) {
 		// Add nodes to first set
 		key1 := trieutils.NewBitArray(8, 0xFF)
 		node1 := NewLeaf(felt.Zero, []byte{1, 2, 3})
-		ns1.Add(key1, node1)
+		ns1.Add(&key1, node1)
 
 		// Add nodes to second set
 		key2 := trieutils.NewBitArray(8, 0xAA)
 		node2 := NewDeleted(false)
-		ns2.Add(key2, node2)
+		ns2.Add(&key2, node2)
 
 		// Merge sets
-		err := ns1.MergeSet(ns2)
+		err := ns1.MergeSet(&ns2)
 		require.NoError(t, err)
 
 		// Verify merged state
@@ -71,7 +71,7 @@ func TestNodeSet(t *testing.T) {
 		ns1 := NewNodeSet(*owner1)
 		ns2 := NewNodeSet(*owner2)
 
-		err := ns1.MergeSet(ns2)
+		err := ns1.MergeSet(&ns2)
 		require.Error(t, err)
 	})
 
@@ -106,7 +106,7 @@ func TestNodeSet(t *testing.T) {
 			trieutils.NewBitArray(8, 0x55),
 		}
 		for _, key := range keys {
-			ns.Add(key, NewLeaf(felt.Zero, []byte{1}))
+			ns.Add(&key, NewLeaf(felt.Zero, []byte{1}))
 		}
 
 		t.Run("ascending order", func(t *testing.T) {
