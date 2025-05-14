@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type FeeUnit byte
@@ -259,35 +258,35 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 }
 */
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
+func (h *Handler) EstimateFee(
+	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv6.SkipFeeChargeFlag), true)
+	txnResults, httpHeader, err := h.simulateTransactions(
+		*id,
+		broadcastedTxns,
+		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, err
 	}
 
-	return utils.Map(result, func(tx SimulatedTransaction) FeeEstimate {
-		return tx.FeeEstimation
-	}), httpHeader, nil
+	feeEstimates := make([]FeeEstimate, len(txnResults))
+	for i := range feeEstimates {
+		feeEstimates[i] = txnResults[i].FeeEstimation
+	}
+
+	return feeEstimates, httpHeader, nil
 }
 
-//nolint:gocritic
-func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) {
-	return estimateMessageFee(msg, id, h.EstimateFee)
-}
-
-type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
-) ([]FeeEstimate, http.Header, *jsonrpc.Error)
-
-//nolint:gocritic
-func estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate, http.Header, *jsonrpc.Error) {
-	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)
-	// The order of the calldata parameters matters. msg.From must be prepended.
-	calldata = append(calldata, new(felt.Felt).SetBytes(msg.From.Bytes()))
-	for payloadIdx := range msg.Payload {
-		calldata = append(calldata, &msg.Payload[payloadIdx])
+func (h *Handler) EstimateMessageFee(
+	msg *rpcv6.MsgFromL1, id *BlockID,
+) (FeeEstimate, http.Header, *jsonrpc.Error) {
+	calldata := make([]*felt.Felt, len(msg.Payload)+1)
+	// msg.From needs to be the first element
+	calldata[0] = new(felt.Felt).SetBytes(msg.From.Bytes())
+	for i := range msg.Payload {
+		calldata[i+1] = &msg.Payload[i]
 	}
 	tx := BroadcastedTransaction{
 		Transaction: Transaction{
@@ -302,15 +301,17 @@ func estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, httpHeader, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
-	if rpcErr != nil {
-		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
-			data := rpcErr.Data.(TransactionExecutionErrorData)
-			return nil, httpHeader, MakeContractError(data.ExecutionError)
+
+	bcTxn := [1]BroadcastedTransaction{tx}
+	estimates, httpHeader, err := h.EstimateFee(bcTxn[:], nil, id)
+	if err != nil {
+		if err.Code == rpccore.ErrTransactionExecutionError.Code {
+			data := err.Data.(TransactionExecutionErrorData)
+			return FeeEstimate{}, httpHeader, MakeContractError(data.ExecutionError)
 		}
-		return nil, httpHeader, rpcErr
+		return FeeEstimate{}, httpHeader, err
 	}
-	return &estimates[0], httpHeader, nil
+	return estimates[0], httpHeader, nil
 }
 
 type ContractErrorData struct {
