@@ -80,15 +80,6 @@ func createEdgeNodeBlob(childHash felt.Felt) []byte {
 	return edgeBlob
 }
 
-type customLeafNode struct {
-	blob []byte
-	hash felt.Felt
-}
-
-func (c *customLeafNode) Blob() []byte    { return c.blob }
-func (c *customLeafNode) Hash() felt.Felt { return c.hash }
-func (c *customLeafNode) IsLeaf() bool    { return true }
-
 func createMergeNodeSet(nodes map[trieutils.Path]trienode.TrieNode) *trienode.MergeNodeSet {
 	ownerSet := trienode.NewNodeSet(felt.Zero)
 	for path, node := range nodes {
