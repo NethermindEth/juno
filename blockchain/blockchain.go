@@ -488,28 +488,36 @@ func (b *Blockchain) Finalise(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 	sign BlockSignFunc,
+	writeToDB bool,
 ) error {
-	return b.database.Update(func(txn db.IndexedBatch) error {
+	finaliseFn := func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
-
 		commitments, err := b.calculateBlockHash(block, stateUpdate)
 		if err != nil {
 			return err
 		}
-
 		if err := b.signBlock(block, stateUpdate, sign); err != nil {
 			return err
 		}
-
 		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
 			return err
 		}
-
-		// Update chain height
 		return core.WriteChainHeight(txn, block.Number)
-	})
+	}
+
+	if writeToDB {
+		return b.database.Update(finaliseFn)
+	}
+
+	// Simulate without commit
+	txn := b.database.NewIndexedBatch()
+	if err := finaliseFn(txn); err != nil {
+		return err
+	}
+	txn.Reset()
+	return nil
 }
 
 // updateStateRoots computes and updates state roots in the block and state update
@@ -636,5 +644,5 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 
 	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
-	})
+	}, true)
 }

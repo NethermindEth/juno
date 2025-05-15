@@ -80,6 +80,10 @@ func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
 	return b
 }
 
+func (b *Builder) Height() (uint64, error) {
+	return b.bc.Height()
+}
+
 func (b *Builder) Pending() (*sync.Pending, error) {
 	p := b.pendingBlock.Load()
 	if p == nil {
@@ -145,7 +149,7 @@ func (b *Builder) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(b.blockTime):
-			err := b.Finalise(b.Sign)
+			err := b.Finalise(b.Sign, true)
 			b.log.Infof("Finalised new block")
 			if err != nil {
 				return err
@@ -204,7 +208,7 @@ func (b *Builder) InitPendingBlock() error {
 }
 
 // Finalise the pending block and initialise the next one
-func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
+func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc, writeToDB bool) error {
 	b.finaliseMutex.Lock()
 	defer b.finaliseMutex.Unlock()
 
@@ -212,7 +216,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	if err != nil {
 		return err
 	}
-	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign); err != nil {
+	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign, writeToDB); err != nil {
 		return err
 	}
 	b.log.Infow("Finalised block", "number", pending.Block.Number, "hash",
@@ -263,7 +267,7 @@ func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt,
 // executes them one by one until the mempool is empty.
 func (b *Builder) listenPool(ctx context.Context) error {
 	for {
-		if err := b.depletePool(ctx); err != nil {
+		if err := b.DepletePool(ctx); err != nil {
 			if !errors.Is(err, mempool.ErrTxnPoolEmpty) {
 				return err
 			}
@@ -284,7 +288,7 @@ func (b *Builder) listenPool(ctx context.Context) error {
 // depletePool pops all available transactions from the mempool,
 // and executes them in sequence, applying the state changes
 // to the pending state
-func (b *Builder) depletePool(ctx context.Context) error {
+func (b *Builder) DepletePool(ctx context.Context) error {
 	blockHashToBeRevealed, err := b.getRevealedBlockHash()
 	if err != nil {
 		return err
@@ -297,7 +301,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			return err
 		}
 		b.log.Debugw("running txns", userTxns)
-		if err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
+		if err = b.RunTxns(userTxns, blockHashToBeRevealed); err != nil {
 			b.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
@@ -313,6 +317,25 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		default:
 		}
 	}
+}
+
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
+	b.finaliseMutex.RLock()
+	defer b.finaliseMutex.RUnlock()
+	b.log.Debugw("calling ExecuteTxns")
+	blockHashToBeRevealed, err := b.getRevealedBlockHash()
+	if err != nil {
+		return err
+	}
+	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
+		b.log.Debugw("failed running txn", "err", err.Error())
+		var txnExecutionError vm.TransactionExecutionError
+		if !errors.As(err, &txnExecutionError) {
+			return err
+		}
+	}
+	b.log.Debugw("running txns success")
+	return nil
 }
 
 func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
@@ -332,9 +355,9 @@ func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-// runTxns executes the provided transaction and applies the state changes
+// RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
