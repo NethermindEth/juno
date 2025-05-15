@@ -8,8 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -32,10 +34,11 @@ var (
 )
 
 type Builder struct {
-	ownAddress  felt.Felt
-	privKey     *ecdsa.PrivateKey
-	blockTime   time.Duration
-	disableFees bool
+	ownAddress      felt.Felt
+	privKey         *ecdsa.PrivateKey
+	blockTime       time.Duration
+	disableFees     bool
+	protocolVersion semver.Version
 
 	bc              *blockchain.Blockchain
 	db              db.KeyValueStore
@@ -54,14 +57,24 @@ type Builder struct {
 	finaliseMutex musync.RWMutex
 }
 
-func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
-	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.KeyValueStore,
+func New(
+	privKey *ecdsa.PrivateKey,
+	ownAddr *felt.Felt,
+	bc *blockchain.Blockchain,
+	vm vm.VM,
+	blockTime time.Duration,
+	mempool *mempool.Pool,
+	log utils.Logger,
+	disableFees bool,
+	database db.KeyValueStore,
+	protocolVersion semver.Version,
 ) Builder {
 	return Builder{
-		ownAddress: *ownAddr,
-		privKey:    privKey,
-		blockTime:  blockTime,
-		log:        log,
+		ownAddress:      *ownAddr,
+		privKey:         privKey,
+		blockTime:       blockTime,
+		log:             log,
+		protocolVersion: protocolVersion,
 
 		disableFees:     disableFees,
 		bc:              bc,
@@ -78,6 +91,10 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
 	b.plugin = junoPlugin
 	return b
+}
+
+func (b *Builder) Network() *utils.Network {
+	return b.bc.Network()
 }
 
 func (b *Builder) Pending() (*sync.Pending, error) {
@@ -150,6 +167,12 @@ func (b *Builder) Run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			if err := b.ClearPending(); err != nil {
+				return err
+			}
+			if err := b.InitPendingBlock(); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -177,6 +200,7 @@ func (b *Builder) InitPendingBlock() error {
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: &b.ownAddress,
+			ProtocolVersion:  b.protocolVersion.String(),
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
@@ -203,7 +227,7 @@ func (b *Builder) InitPendingBlock() error {
 	return err
 }
 
-// Finalise the pending block and initialise the next one
+// Finalise writes the pending block to the DB.
 func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	b.finaliseMutex.Lock()
 	defer b.finaliseMutex.Unlock()
@@ -217,7 +241,7 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 	}
 	b.log.Infow("Finalised block", "number", pending.Block.Number, "hash",
 		pending.Block.Hash.ShortString(), "state", pending.Block.GlobalStateRoot.ShortString())
-
+	// Update subscribers
 	if b.plugin != nil {
 		err := b.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
 		if err != nil {
@@ -225,11 +249,10 @@ func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
 		}
 	}
 	// push the new block head to the feed
-	b.subNewHeads.Send(b.PendingBlock())
-	if err := b.ClearPending(); err != nil {
-		return err
+	if b.subNewHeads != nil {
+		b.subNewHeads.Send(b.PendingBlock())
 	}
-	return b.InitPendingBlock()
+	return nil
 }
 
 func (b *Builder) StartingBlockNumber() (uint64, error) {
@@ -238,6 +261,22 @@ func (b *Builder) StartingBlockNumber() (uint64, error) {
 
 func (b *Builder) HighestBlockHeader() *core.Header {
 	return nil
+}
+
+func (b *Builder) HeadBlockAndStateUpdate() (*core.Block, *core.StateUpdate, error) {
+	height, err := b.bc.Height()
+	if err != nil {
+		return nil, nil, err
+	}
+	su, err := b.bc.StateUpdateByNumber(height)
+	if err != nil {
+		return nil, nil, err
+	}
+	block, err := b.bc.BlockByNumber(height)
+	if err != nil {
+		return nil, nil, err
+	}
+	return block, su, nil
 }
 
 // Sign returns the builder's signature over data.
@@ -295,6 +334,9 @@ func (b *Builder) depletePool(ctx context.Context) error {
 		if err != nil {
 			b.finaliseMutex.RUnlock()
 			return err
+		}
+		if len(userTxns) == 0 {
+			return nil
 		}
 		b.log.Debugw("running txns", userTxns)
 		if err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
@@ -396,7 +438,6 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
-
 	return b.StorePending(pending)
 }
 
@@ -462,4 +503,86 @@ func (b *Builder) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (b *Builder) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: b.subPendingBlock.Subscribe()}
+}
+
+func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
+	header, err := b.bc.HeadsHeader()
+	if err != nil {
+		return err
+	}
+	if header.Number+1 != pInit.BlockNum {
+		return fmt.Errorf("proposed block number is not head.Number +1")
+	}
+
+	pendingBlock := core.Block{
+		Header: &core.Header{
+			Number:           pInit.BlockNum,
+			SequencerAddress: &pInit.Proposer,
+			ParentHash:       header.Hash,
+			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
+			// Todo: once the spec is finalised, handle these fields (if they still exist)
+			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
+			L1GasPriceETH: header.L1GasPriceETH,
+		},
+		Transactions: []core.Transaction{},
+		Receipts:     []*core.TransactionReceipt{},
+	}
+
+	newClasses := make(map[felt.Felt]core.Class)
+	emptyStateDiff := core.EmptyStateDiff()
+	su := core.StateUpdate{
+		StateDiff: &emptyStateDiff,
+	}
+	pending := sync.Pending{
+		Block:       &pendingBlock,
+		StateUpdate: &su,
+		NewClasses:  newClasses,
+	}
+	b.pendingBlock.Store(&pending)
+	b.headState, b.headCloser, err = b.bc.HeadState()
+	return err
+}
+
+func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
+	pending := b.pendingBlock.Load()
+	pending.Block.Header.Number = blockInfo.BlockNumber
+	pending.Block.Header.SequencerAddress = &blockInfo.Builder
+	pending.Block.Header.Timestamp = blockInfo.Timestamp
+	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
+	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
+	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
+	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
+	b.pendingBlock.Store(pending)
+}
+
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
+	b.finaliseMutex.RLock()
+	defer b.finaliseMutex.RUnlock()
+	b.log.Debugw("calling ExecuteTxns")
+	blockHashToBeRevealed, err := b.getRevealedBlockHash()
+	if err != nil {
+		return err
+	}
+	if err := b.runTxns(txns, blockHashToBeRevealed); err != nil {
+		b.log.Debugw("failed running txn", "err", err.Error())
+		var txnExecutionError vm.TransactionExecutionError
+		if !errors.As(err, &txnExecutionError) {
+			return err
+		}
+	}
+	b.log.Debugw("running txns success")
+	return nil
+}
+
+// ExecutePending updates the pending block and state-update
+func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
+	pending, err := b.Pending()
+	if err != nil {
+		return nil, nil, err
+	}
+	newBlock, newSU, commitments, concatCommitment, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	pending.Block = newBlock
+	pending.StateUpdate = newSU
+	b.pendingBlock.Store(pending)
+	return commitments, concatCommitment, err
 }

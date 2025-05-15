@@ -481,22 +481,50 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	return core.WriteChainHeight(txn, blockNumber-1)
 }
 
-// Finalise will calculate the state commitment and block hash for the given pending block and append it to the
-// blockchain.
-func (b *Blockchain) Finalise(
+// Simulate returns what the new completed header and state update would be if the
+// provided block was added to the chain.
+func (b *Blockchain) Simulate(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 	sign BlockSignFunc,
-) error {
-	return b.database.Update(func(txn db.IndexedBatch) error {
+) (*core.Block, *core.StateUpdate, *core.BlockCommitments, *felt.Felt, error) {
+	var newBlock *core.Block
+	var newSU *core.StateUpdate
+	var newCommitments *core.BlockCommitments
+	var concatCount *felt.Felt
+
+	simulate := func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
-
-		commitments, err := b.calculateBlockHash(block, stateUpdate)
+		blockHash, commitments, err := core.BlockHash(
+			block,
+			stateUpdate.StateDiff,
+			b.network,
+			block.SequencerAddress)
 		if err != nil {
 			return err
+		}
+		block.Hash = blockHash
+		stateUpdate.BlockHash = blockHash
+
+		// Starknet consensus requires zero values for empty blocks
+		if block.TransactionCount == 0 {
+			newCommitments = &core.BlockCommitments{
+				TransactionCommitment: new(felt.Felt).SetUint64(0),
+				EventCommitment:       new(felt.Felt).SetUint64(0),
+				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
+				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
+			}
+			concatCount = new(felt.Felt).SetUint64(0)
+		} else {
+			newCommitments = commitments
+			concatCount = core.ConcatCounts(
+				block.TransactionCount,
+				block.EventCount,
+				stateUpdate.StateDiff.Length(),
+				block.L1DAMode)
 		}
 
 		if err := b.signBlock(block, stateUpdate, sign); err != nil {
@@ -507,9 +535,53 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 
-		// Update chain height
+		block, err := core.GetBlockByNumber(txn, block.Number)
+		if err != nil {
+			return err
+		}
+		su, err := core.GetStateUpdateByBlockNum(txn, block.Number)
+		if err != nil {
+			return err
+		}
+		newBlock = block
+		newSU = su
+		return nil
+	}
+
+	// Simulate without commit
+	txn := b.database.NewIndexedBatch()
+	if err := simulate(txn); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	txn.Reset()
+	return newBlock, newSU, newCommitments, concatCount, nil
+}
+
+// Finalise checks the block correctness and appends it to the chain
+func (b *Blockchain) Finalise(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign BlockSignFunc,
+) error {
+	finaliseFn := func(txn db.IndexedBatch) error {
+		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+			return err
+		}
+		commitments, err := b.calculateBlockHash(block, stateUpdate)
+		if err != nil {
+			return err
+		}
+		if err := b.signBlock(block, stateUpdate, sign); err != nil {
+			return err
+		}
+		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+			return err
+		}
 		return core.WriteChainHeight(txn, block.Number)
-	})
+	}
+
+	return b.database.Update(finaliseFn)
 }
 
 // updateStateRoots computes and updates state roots in the block and state update
