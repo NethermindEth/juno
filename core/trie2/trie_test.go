@@ -285,73 +285,75 @@ func runRandTestBool(rt randTest) bool {
 
 //nolint:gocyclo
 func runRandTest(rt randTest) error {
-	db := memory.New()
-	curRoot := felt.Zero
-	trieDB := NewTestNodeDatabase(db, PathScheme) // TODO: handle hash scheme later
-	tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, &trieDB)
-	if err != nil {
-		return err
-	}
-
-	values := make(map[felt.Felt]felt.Felt) // keeps track of the content of the trie
-
-	for i, step := range rt {
-		switch step.op {
-		case opUpdate:
-			err := tr.Update(step.key, step.value)
-			if err != nil {
-				rt[i].err = fmt.Errorf("update failed: key %s, %w", step.key.String(), err)
-			}
-			values[*step.key] = *step.value
-		case opDelete:
-			err := tr.Delete(step.key)
-			if err != nil {
-				rt[i].err = fmt.Errorf("delete failed: key %s, %w", step.key.String(), err)
-			}
-			delete(values, *step.key)
-		case opGet:
-			got, err := tr.Get(step.key)
-			if err != nil {
-				rt[i].err = fmt.Errorf("get failed: key %s, %w", step.key.String(), err)
-			}
-			want := values[*step.key]
-			if !got.Equal(&want) {
-				rt[i].err = fmt.Errorf("mismatch in get: key %s, expected %v, got %v", step.key.String(), want.String(), got.String())
-			}
-		case opProve:
-			hash := tr.Hash()
-			if hash.Equal(&felt.Zero) {
-				continue
-			}
-			proof := NewProofNodeSet()
-			err := tr.Prove(step.key, proof)
-			if err != nil {
-				rt[i].err = fmt.Errorf("prove failed for key %s: %w", step.key.String(), err)
-			}
-			_, err = VerifyProof(&hash, step.key, proof, crypto.Pedersen)
-			if err != nil {
-				rt[i].err = fmt.Errorf("verify proof failed for key %s: %w", step.key.String(), err)
-			}
-		case opHash:
-			tr.Hash()
-		case opCommit:
-			root, nodes := tr.Commit()
-			if nodes != nil {
-				if err := trieDB.Update(&root, &curRoot, trienode.NewMergeNodeSet(nodes)); err != nil {
-					rt[i].err = fmt.Errorf("update failed: %w", err)
-				}
-			}
-
-			newtr, err := New(trieutils.NewContractTrieID(root), contractClassTrieHeight, crypto.Pedersen, &trieDB)
-			if err != nil {
-				rt[i].err = fmt.Errorf("new trie failed: %w", err)
-			}
-			tr = newtr
-			curRoot = root
+	for _, scheme := range []dbScheme{PathScheme, HashScheme} {
+		db := memory.New()
+		curRoot := felt.Zero
+		trieDB := NewTestNodeDatabase(db, scheme) // TODO: handle hash scheme later
+		tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, &trieDB, nil)
+		if err != nil {
+			return err
 		}
 
-		if rt[i].err != nil {
-			return rt[i].err
+		values := make(map[felt.Felt]felt.Felt) // keeps track of the content of the trie
+
+		for i, step := range rt {
+			switch step.op {
+			case opUpdate:
+				err := tr.Update(step.key, step.value)
+				if err != nil {
+					rt[i].err = fmt.Errorf("update failed: key %s, %w", step.key.String(), err)
+				}
+				values[*step.key] = *step.value
+			case opDelete:
+				err := tr.Delete(step.key)
+				if err != nil {
+					rt[i].err = fmt.Errorf("delete failed: key %s, %w", step.key.String(), err)
+				}
+				delete(values, *step.key)
+			case opGet:
+				got, err := tr.Get(step.key)
+				if err != nil {
+					rt[i].err = fmt.Errorf("get failed: key %s, %w", step.key.String(), err)
+				}
+				want := values[*step.key]
+				if !got.Equal(&want) {
+					rt[i].err = fmt.Errorf("mismatch in get: key %s, expected %v, got %v", step.key.String(), want.String(), got.String())
+				}
+			case opProve:
+				hash := tr.Hash()
+				if hash.Equal(&felt.Zero) {
+					continue
+				}
+				proof := NewProofNodeSet()
+				err := tr.Prove(step.key, proof)
+				if err != nil {
+					rt[i].err = fmt.Errorf("prove failed for key %s: %w", step.key.String(), err)
+				}
+				_, err = VerifyProof(&hash, step.key, proof, crypto.Pedersen)
+				if err != nil {
+					rt[i].err = fmt.Errorf("verify proof failed for key %s: %w", step.key.String(), err)
+				}
+			case opHash:
+				tr.Hash()
+			case opCommit:
+				root, nodes := tr.Commit()
+				if nodes != nil {
+					if err := trieDB.Update(&root, &curRoot, trienode.NewMergeNodeSet(nodes)); err != nil {
+						rt[i].err = fmt.Errorf("update failed: %w", err)
+					}
+				}
+
+				newtr, err := New(trieutils.NewContractTrieID(root), contractClassTrieHeight, crypto.Pedersen, &trieDB, nil)
+				if err != nil {
+					rt[i].err = fmt.Errorf("new trie failed: %w", err)
+				}
+				tr = newtr
+				curRoot = root
+			}
+
+			if rt[i].err != nil {
+				return rt[i].err
+			}
 		}
 	}
 	return nil
