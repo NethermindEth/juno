@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
@@ -137,22 +136,22 @@ func generateAndRegisterRandomActions(
 		case 0:
 			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, proposal)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
+			actions[i] = utils.HeapPtr(types.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
+			actions[i] = utils.HeapPtr(types.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
+			actions[i] = utils.HeapPtr(types.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
 		}
 	}
 	return actions
 }
 
 func toAction(timeout types.Timeout) types.Action[value, felt.Felt, felt.Felt] {
-	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
+	return utils.HeapPtr(types.ScheduleTimeout(timeout))
 }
 
 func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](

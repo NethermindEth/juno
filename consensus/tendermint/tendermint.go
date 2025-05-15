@@ -120,7 +120,7 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
-	if err := t.db.FlushWAL(); err != nil {
+	if err := t.db.Flush(); err != nil {
 		t.log.Fatalf("failed to flush WAL at start of round", "round", r, "height", t.blockchain.Height(), "err", err)
 	}
 
@@ -139,7 +139,7 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 			proposalValue = utils.HeapPtr(t.application.Value())
 		}
 		actions := t.sendProposal(proposalValue)
-		if err := t.db.FlushWAL(); err != nil {
+		if err := t.db.Flush(); err != nil {
 			t.log.Fatalf("failed to flush WAL when propsing a new block", "round", r, "height", t.blockchain.Height(), "err", err)
 		}
 		return actions
@@ -150,7 +150,7 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 
 func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H, A] {
 	return utils.HeapPtr(
-		ScheduleTimeout{
+		types.ScheduleTimeout{
 			Step:   s,
 			Height: t.state.height,
 			Round:  t.state.round,
@@ -264,7 +264,7 @@ func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 // Panics if the replaying the messages fails for whatever reason.
 func (t *stateMachine[V, H, A]) ReplayWAL() {
 	height := t.blockchain.Height()
-	walEntries, err := t.db.GetWALMsgs(height)
+	walEntries, err := t.db.GetWALEntries(height)
 	if err != nil {
 		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", height, err))
 	}

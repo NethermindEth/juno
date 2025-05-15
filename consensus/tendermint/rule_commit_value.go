@@ -29,7 +29,7 @@ func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 }
 
 func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
-	if err := t.db.FlushWAL(); err != nil {
+	if err := t.db.Flush(); err != nil {
 		t.log.Fatalf("failed to flush WAL during commit", "height", cachedProposal.Height, "round", cachedProposal.Round, "err", err)
 	}
 
@@ -37,7 +37,7 @@ func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)
 
-	if err := t.db.DeleteWALMsgs(t.state.height); err != nil {
+	if err := t.db.DeleteWALEntries(t.state.height); err != nil {
 		t.log.Errorw("failed to delete WAL messages during commit", "height", cachedProposal.Height, "round", cachedProposal.Round, "err", err)
 	}
 

@@ -105,8 +105,8 @@ func setupStateMachine(
 	// Ignore WAL for tests that use this
 	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
-	db.EXPECT().FlushWAL().AnyTimes()
-	db.EXPECT().DeleteWALMsgs(gomock.Any()).AnyTimes()
+	db.EXPECT().Flush().AnyTimes()
+	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
 	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 }
 

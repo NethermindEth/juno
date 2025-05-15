@@ -57,7 +57,7 @@ func TestReplayWAL(t *testing.T) {
 		mockDB := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
 		stateMachine := New(mockDB, utils.NewNopZapLogger(), *getVal(0), app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 		emptyList := []db.WalEntry[value, felt.Felt, felt.Felt]{}
-		mockDB.EXPECT().GetWALMsgs(types.Height(0)).Return(emptyList, nil)
+		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(emptyList, nil)
 		stateMachine.ReplayWAL() // ReplayWAL will panic if anything goes wrong
 	})
 
@@ -66,7 +66,7 @@ func TestReplayWAL(t *testing.T) {
 		sMachine := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 
 		// Start, Propose a block, Progress to Prevote step, assert state
-		mockDB.EXPECT().FlushWAL().Return(nil).Times(2)
+		mockDB.EXPECT().Flush().Return(nil).Times(2)
 		mockDB.EXPECT().SetWALEntry(proposalMessage).Return(nil)
 		sMachine.ProcessStart(0)
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -75,7 +75,7 @@ func TestReplayWAL(t *testing.T) {
 		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := []db.WalEntry[value, felt.Felt, felt.Felt]{{Entry: proposalMessage, Type: types.MessageTypeProposal}}
-		mockDB.EXPECT().GetWALMsgs(types.Height(0)).Return(walEntries, nil)
+		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries, nil)
 		sMachineRecoverd.ReplayWAL() // Should not panic
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
@@ -92,7 +92,7 @@ func TestReplayWAL(t *testing.T) {
 		precommit1 := getPrecommit(1)
 
 		// Start
-		mockDB.EXPECT().FlushWAL().Return(nil)
+		mockDB.EXPECT().Flush().Return(nil)
 		sMachine.ProcessStart(0)
 
 		// Receive proposal
@@ -123,19 +123,19 @@ func TestReplayWAL(t *testing.T) {
 			{Entry: prevote2, Type: types.MessageTypePrevote},
 			{Entry: precommit0, Type: types.MessageTypePrecommit},
 		}
-		mockDB.EXPECT().GetWALMsgs(types.Height(0)).Return(walEntries, nil)
+		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries, nil)
 		sMachineRecoverd.ReplayWAL()
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Start
-		mockDB.EXPECT().FlushWAL().Return(nil).Times(1)
+		mockDB.EXPECT().Flush().Return(nil).Times(1)
 		sMachineRecoverd.ProcessStart(0)
 
 		// Todo: why do we only need two precommits for quorum.....
 		// Receive final precommit, now we reach quorum
 		mockDB.EXPECT().SetWALEntry(precommit1).Return(nil)
-		mockDB.EXPECT().FlushWAL().Return(nil).Times(2) // Once in doCommitValue, once in t.startRound(0)
-		mockDB.EXPECT().DeleteWALMsgs(types.Height(0)).Return(nil)
+		mockDB.EXPECT().Flush().Return(nil).Times(2) // Once in doCommitValue, once in t.startRound(0)
+		mockDB.EXPECT().DeleteWALEntries(types.Height(0)).Return(nil)
 		sMachineRecoverd.ProcessPrecommit(precommit1)
 
 		// Progress to new height
@@ -167,7 +167,7 @@ func TestReplayWAL(t *testing.T) {
 		}
 
 		// Start
-		mockDB.EXPECT().FlushWAL().Return(nil)
+		mockDB.EXPECT().Flush().Return(nil)
 		sMachine.ProcessStart(0) // scheduleTimeout
 		mockDB.EXPECT().SetWALEntry(timeout).Return(nil)
 		sMachine.ProcessTimeout(timeout) // trigger timeout, and cast vote (!)
@@ -179,7 +179,7 @@ func TestReplayWAL(t *testing.T) {
 		walEntries := []db.WalEntry[value, felt.Felt, felt.Felt]{
 			{Entry: timeout, Type: types.MessageTypeTimeout},
 		}
-		mockDB.EXPECT().GetWALMsgs(types.Height(0)).Return(walEntries, nil)
+		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries, nil)
 		sMachineRecoverd.ReplayWAL()
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrevote)
 	})

@@ -26,11 +26,11 @@ func (a actionAsserter[T]) expectActions(expected ...types.Action[value, felt.Fe
 	assert.ElementsMatch(a.testing, expected, a.actions)
 	for _, action := range expected {
 		switch action := action.(type) {
-		case *BroadcastProposal[value, felt.Felt, felt.Felt]:
+		case *types.BroadcastProposal[value, felt.Felt, felt.Felt]:
 			assertProposal(a.testing, a.stateMachine, types.Proposal[value, felt.Felt, felt.Felt](*action))
-		case *BroadcastPrevote[felt.Felt, felt.Felt]:
+		case *types.BroadcastPrevote[felt.Felt, felt.Felt]:
 			assertPrevote(a.testing, a.stateMachine, types.Prevote[felt.Felt, felt.Felt](*action))
-		case *BroadcastPrecommit[felt.Felt, felt.Felt]:
+		case *types.BroadcastPrecommit[felt.Felt, felt.Felt]:
 			// If the post state is not in new height and a value is committed, assert the valid and locked tuples.
 			if a.stateMachine.state.height == action.Height && action.ID != nil {
 				assert.Equal(a.testing, a.stateMachine.state.lockedRound, action.Round)
@@ -39,7 +39,7 @@ func (a actionAsserter[T]) expectActions(expected ...types.Action[value, felt.Fe
 				assert.Equal(a.testing, getHash(a.stateMachine.state.validValue), action.ID)
 			}
 			assertPrecommit(a.testing, a.stateMachine, types.Precommit[felt.Felt, felt.Felt](*action))
-		case *ScheduleTimeout:
+		case *types.ScheduleTimeout:
 			// ScheduleTimeout doesn't come with any state change, so there's nothing to assert here.
 		}
 	}
