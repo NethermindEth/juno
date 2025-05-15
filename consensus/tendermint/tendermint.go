@@ -1,6 +1,9 @@
 package tendermint
 
 import (
+	"fmt"
+
+	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -46,14 +49,19 @@ type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A type
 
 //go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	ProcessStart(types.Round) []Action[V, H, A]
-	ProcessTimeout(types.Timeout) []Action[V, H, A]
-	ProcessProposal(types.Proposal[V, H, A]) []Action[V, H, A]
-	ProcessPrevote(types.Prevote[H, A]) []Action[V, H, A]
-	ProcessPrecommit(types.Precommit[H, A]) []Action[V, H, A]
+	ReplayWAL()
+	ProcessStart(types.Round) []types.Action[V, H, A]
+	ProcessTimeout(types.Timeout) []types.Action[V, H, A]
+	ProcessProposal(types.Proposal[V, H, A]) []types.Action[V, H, A]
+	ProcessPrevote(types.Prevote[H, A]) []types.Action[V, H, A]
+	ProcessPrecommit(types.Precommit[H, A]) []types.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	db         db.TendermintDB[V, H, A]
+	log        utils.Logger
+	replayMode bool
+
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
@@ -82,12 +90,16 @@ type state[V types.Hashable[H], H types.Hash] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
+	db db.TendermintDB[V, H, A],
+	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
 	chain Blockchain[V, H, A],
 	vals Validators[A],
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
+		db:       db,
+		log:      log,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
 			height:      chain.Height(),
@@ -107,7 +119,11 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	ID    *H
 }
 
-func (t *stateMachine[V, H, A]) startRound(r types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
+	if err := t.db.FlushWAL(); err != nil {
+		t.log.Fatalf("failed to flush WAL at start of round", "round", r, "height", t.blockchain.Height(), "err", err)
+	}
+
 	t.state.round = r
 	t.state.step = types.StepPropose
 
@@ -122,13 +138,17 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) Action[V, H, A] {
 		} else {
 			proposalValue = utils.HeapPtr(t.application.Value())
 		}
-		return t.sendProposal(proposalValue)
+		actions := t.sendProposal(proposalValue)
+		if err := t.db.FlushWAL(); err != nil {
+			t.log.Fatalf("failed to flush WAL when propsing a new block", "round", r, "height", t.blockchain.Height(), "err", err)
+		}
+		return actions
 	} else {
 		return t.scheduleTimeout(types.StepPropose)
 	}
 }
 
-func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H, A] {
 	return utils.HeapPtr(
 		ScheduleTimeout{
 			Step:   s,
@@ -232,4 +252,52 @@ func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 		Valid:    t.application.Valid(*v.Value),
 		ID:       utils.HeapPtr((*v.Value).Hash()),
 	}
+}
+
+// ReplayWAL replays all WAL (Write-Ahead Log) messages for the current block height
+// from persistent storage and applies them to the internal state. This is used for
+// recovering consensus state after a crash or restart.
+//
+// ReplayWAL must not trigger any external effects such as broadcasting messages or
+// scheduling timeouts. It is strictly a state recovery mechanism.
+//
+// Panics if the replaying the messages fails for whatever reason.
+func (t *stateMachine[V, H, A]) ReplayWAL() {
+	height := t.blockchain.Height()
+	walEntries, err := t.db.GetWALMsgs(height)
+	if err != nil {
+		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", height, err))
+	}
+	t.replayMode = true
+	for _, walEntry := range walEntries {
+		switch walEntry.Type {
+		case types.MessageTypeProposal:
+			proposal, ok := (walEntry.Entry).(types.Proposal[V, H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
+			}
+			t.ProcessProposal(proposal)
+		case types.MessageTypePrevote:
+			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
+			}
+			t.ProcessPrevote(prevote)
+		case types.MessageTypePrecommit:
+			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
+			}
+			t.ProcessPrecommit(precommit)
+		case types.MessageTypeTimeout:
+			timeout, ok := (walEntry.Entry).(types.Timeout)
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
+			}
+			t.ProcessTimeout(timeout)
+		default:
+			panic("Failed to replay WAL messages, unknown WAL Entry type")
+		}
+	}
+	t.replayMode = false
 }

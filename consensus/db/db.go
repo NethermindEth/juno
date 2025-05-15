@@ -14,12 +14,12 @@ const NumBytesForHeight = 4
 // walMsgCount tracks the number of wal entries at the current height
 type walMsgCount uint32
 
-type walEntry[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+type WalEntry[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	Type  types.MessageType      `cbor:"type"`
 	Entry types.Message[V, H, A] `cbor:"data"` // cbor serialised Msg or Timeout
 }
 
-func (w *walEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
+func (w *WalEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
 	var wrapperType struct {
 		Type    types.MessageType `cbor:"type"`
 		RawData cbor.RawMessage   `cbor:"data"` // Golang can't unmarshal to an interface
@@ -60,11 +60,28 @@ func (w *walEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
 }
 
 // TendermintDB defines the methods for interacting with the Tendermint WAL database.
+//
+// The purpose of the WAL is to record any event that may result in a state change.
+// These events fall into the following categories:
+// 1. Incoming messages. We do not need to store outgoing messages.
+// 2. When we propose a value.
+// 3. When a timeout is triggered (not when it is scheduled).
+// The purpose of the WAL is to allow the node to recover the state it was in before the crash.
+// No new messages should be broadcast during replay.
+//
+// We commit the WAL to disk when:
+// 1. We start a new round
+// 2. Right before we propose a block
+// 3. When consensus is reached
+//
+// We call Delete when we start a new height and commit a block
+//
+//go:generate mockgen -destination=../mocks/mock_db.go -package=mocks github.com/NethermindEth/juno/consensus/db TendermintDB
 type TendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	// CommitBatch writes the accumulated batch operations to the underlying database.
-	CommitBatch() error
+	// FlushWAL writes the accumulated batch operations to the underlying database.
+	FlushWAL() error
 	// GetWALMsgs retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
-	GetWALMsgs(height types.Height) ([]walEntry[V, H, A], error)
+	GetWALMsgs(height types.Height) ([]WalEntry[V, H, A], error)
 	// SetWALEntry schedules the storage of a WAL message in the batch.
 	SetWALEntry(entry types.Message[V, H, A]) error
 	// DeleteWALMsgs schedules the deletion of all WAL messages for a specific height in the batch.
@@ -92,8 +109,8 @@ func NewTendermintDB[V types.Hashable[H], H types.Hash, A types.Addr](db db.KeyV
 	return &tmdb
 }
 
-// CommitBatch implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) CommitBatch() error {
+// FlushWAL implements TMDBInterface.
+func (s *tendermintDB[V, H, A]) FlushWAL() error {
 	if err := s.batch.Write(); err != nil {
 		return err
 	}
@@ -105,7 +122,7 @@ func (s *tendermintDB[V, H, A]) CommitBatch() error {
 // getWALCount scans the DB for the number of WAL messages at a given height.
 // It panics if the DB scan fails.
 func (s *tendermintDB[V, H, A]) getWALCount(height types.Height) walMsgCount {
-	prefix := WALEntry.Key(encodeHeight(height))
+	prefix := WALEntryBucket.Key(encodeHeight(height))
 	count := walMsgCount(0)
 	err := s.db.View(func(snap db.Snapshot) error {
 		defer snap.Close()
@@ -128,13 +145,13 @@ func (s *tendermintDB[V, H, A]) getWALCount(height types.Height) walMsgCount {
 }
 
 // DeleteWALMsgs iterates through the expected message keys based on the stored count.
-// Note: This operates on the batch. Changes are only persisted after CommitBatch() is called.
+// Note: This operates on the batch. Changes are only persisted after FlushWAL() is called.
 func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height types.Height) error {
 	heightBytes := encodeHeight(height)
 	startIterBytes := encodeNumMsgsAtHeight(walMsgCount(1))
 
-	startKey := WALEntry.Key(heightBytes, startIterBytes)
-	endKey := WALEntry.Key(encodeHeight(height + 1))
+	startKey := WALEntryBucket.Key(heightBytes, startIterBytes)
+	endKey := WALEntryBucket.Key(encodeHeight(height + 1))
 	if err := s.batch.DeleteRange(startKey, endKey); err != nil {
 		return fmt.Errorf("DeleteWALMsgs: failed to add delete range [%x, %x) to batch: %w", startKey, endKey, err)
 	}
@@ -145,7 +162,7 @@ func (s *tendermintDB[V, H, A]) DeleteWALMsgs(height types.Height) error {
 
 // SetWALEntry implements TMDBInterface.
 func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error {
-	wrapper := walEntry[V, H, A]{
+	wrapper := WalEntry[V, H, A]{
 		Type:  entry.MsgType(),
 		Entry: entry,
 	}
@@ -160,7 +177,7 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error 
 	}
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
 
-	msgKey := WALEntry.Key(encodeHeight(height), encodeNumMsgsAtHeight(nextNumMsgsAtHeight))
+	msgKey := WALEntryBucket.Key(encodeHeight(height), encodeNumMsgsAtHeight(nextNumMsgsAtHeight))
 	if err := s.batch.Put(msgKey, wrappedEntry); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
@@ -170,13 +187,13 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error 
 }
 
 // GetWALMsgs implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) GetWALMsgs(height types.Height) ([]walEntry[V, H, A], error) {
+func (s *tendermintDB[V, H, A]) GetWALMsgs(height types.Height) ([]WalEntry[V, H, A], error) {
 	numEntries := s.walCount[height]
-	walMsgs := make([]walEntry[V, H, A], numEntries)
+	walMsgs := make([]WalEntry[V, H, A], numEntries)
 	if numEntries == 0 {
 		return walMsgs, nil
 	}
-	startKey := WALEntry.Key(encodeHeight(height))
+	startKey := WALEntryBucket.Key(encodeHeight(height))
 	err := s.db.View(func(snap db.Snapshot) error {
 		defer snap.Close()
 		iter, err := snap.NewIterator(startKey, true)

@@ -66,7 +66,7 @@ func TestWALLifecycle(t *testing.T) {
 	}
 	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
 
-	expectedEntries := []walEntry[value, felt.Felt, felt.Felt]{
+	expectedEntries := []WalEntry[value, felt.Felt, felt.Felt]{
 		{Type: types.MessageTypeProposal, Entry: proposal},
 		{Type: types.MessageTypePrevote, Entry: prevote},
 		{Type: types.MessageTypePrecommit, Entry: precommit},
@@ -82,7 +82,7 @@ func TestWALLifecycle(t *testing.T) {
 	})
 
 	t.Run("Commit batch and get entries", func(t *testing.T) {
-		require.NoError(t, tmState.CommitBatch())
+		require.NoError(t, tmState.FlushWAL())
 		retrieved, err := tmState.GetWALMsgs(testHeight)
 		require.NoError(t, err)
 		require.ElementsMatch(t, expectedEntries, retrieved)
@@ -100,7 +100,7 @@ func TestWALLifecycle(t *testing.T) {
 	})
 
 	t.Run("Commit batch and get entries (after deletion)", func(t *testing.T) {
-		require.NoError(t, tmState.CommitBatch())
+		require.NoError(t, tmState.FlushWAL())
 		_, err := tmState.GetWALMsgs(testHeight)
 		require.NoError(t, err)
 	})

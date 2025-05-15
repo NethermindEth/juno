@@ -130,8 +130,8 @@ func getRandTimeout(random *rand.Rand, step types.Step) types.Timeout {
 func generateAndRegisterRandomActions(
 	random *rand.Rand,
 	expectedBroadcast *expectedBroadcast,
-) []tendermint.Action[value, felt.Felt, felt.Felt] {
-	actions := make([]tendermint.Action[value, felt.Felt, felt.Felt], actionCount)
+) []types.Action[value, felt.Felt, felt.Felt] {
+	actions := make([]types.Action[value, felt.Felt, felt.Felt], actionCount)
 	for i := range actionCount {
 		switch random.Int() % 3 {
 		case 0:
@@ -151,7 +151,7 @@ func generateAndRegisterRandomActions(
 	return actions
 }
 
-func toAction(timeout types.Timeout) tendermint.Action[value, felt.Felt, felt.Felt] {
+func toAction(timeout types.Timeout) types.Action[value, felt.Felt, felt.Felt] {
 	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
 }
 
@@ -189,6 +189,7 @@ func TestDriver(t *testing.T) {
 	broadcasters := mockBroadcasters()
 
 	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
+	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
 	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)

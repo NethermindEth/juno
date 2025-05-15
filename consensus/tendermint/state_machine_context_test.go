@@ -11,7 +11,7 @@ import (
 // Sample usages:
 //
 //	// Create a new state machine with 4 validators and this node is the validator with index 3 (0-based).
-//	sm := setupStateMachine(t, 4, 3)
+//	sm := setupStateMachine(t, 4, 3,true)
 //	// Create a builder for height 1 and round 0.
 //	currentRound := newTestRound(t, sm, 1, 0)
 //	// Start the new round.

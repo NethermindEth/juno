@@ -5,7 +5,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
 	proposalMessage := types.Proposal[V, H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
@@ -16,12 +16,16 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) Action[V, H, A] {
 		Value:      value,
 	}
 
+	if err := t.db.SetWALEntry(proposalMessage); err != nil && !t.replayMode {
+		t.log.Fatalf("Failed to store propsal in WAL")
+	}
+
 	t.messages.AddProposal(proposalMessage)
 
 	return utils.HeapPtr(BroadcastProposal[V, H, A](proposalMessage))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, A] {
 	vote := types.Prevote[H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
@@ -37,7 +41,7 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) Action[V, H, A] {
 	return utils.HeapPtr(BroadcastPrevote[H, A](vote))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H, A] {
 	vote := types.Precommit[H, A]{
 		MessageHeader: types.MessageHeader[A]{
 			Height: t.state.height,
