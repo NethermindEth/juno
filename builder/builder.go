@@ -84,6 +84,10 @@ func (b *Builder) Height() (uint64, error) {
 	return b.bc.Height()
 }
 
+func (b *Builder) Network() *utils.Network {
+	return b.bc.Network()
+}
+
 func (b *Builder) Pending() (*sync.Pending, error) {
 	p := b.pendingBlock.Load()
 	if p == nil {
@@ -299,6 +303,9 @@ func (b *Builder) DepletePool(ctx context.Context) error {
 		if err != nil {
 			b.finaliseMutex.RUnlock()
 			return err
+		}
+		if len(userTxns) == 0 {
+			return nil
 		}
 		b.log.Debugw("running txns", userTxns)
 		if err = b.RunTxns(userTxns, blockHashToBeRevealed); err != nil {

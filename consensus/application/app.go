@@ -13,11 +13,13 @@ import (
 // Todo: merge the Application and Builder interfaces
 type application[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	builder *builder.Builder
+	pending pending[H]
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) application[V, H, A] {
 	return application[V, H, A]{
 		builder: builder,
+		pending: NewPending[H](builder.Network()),
 	}
 }
 
@@ -42,24 +44,30 @@ func (a *application[V, H, A]) Commit(Height types.Height, block V, precommits [
 	return a.builder.Finalise(nil, true)
 }
 
-// Value executes a set of transactions from the mempool, and returns the resulting block
+// Value executes a set of transactions from the mempool, stores,
+// and then returns the resulting block
 func (a *application[V, H, A]) Value() (V, error) {
+	result := pending[H]{}
+
 	err := a.builder.InitPendingBlock()
 	if err != nil {
-		return nil, err
+		return any(result).(V), err // Todo: this is kind of ugly..
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Second)
 	err = a.builder.DepletePool(ctx)
 	if err != nil {
-		return nil, err
-	}
-	pending, err := a.builder.Pending()
-	if err != nil {
-		return nil, err
+		return any(result).(V), err
 	}
 
-	return pending, nil
+	bPending, err := a.builder.Pending()
+	if err != nil {
+		return any(result).(V), err
+	}
+	result.pending = *bPending
+	result.network = a.pending.network
+
+	return any(result).(V), nil
 }
 
 // Valid rexecutes the transactions in the block, and runs all the checks required
