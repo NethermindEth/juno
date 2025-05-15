@@ -71,8 +71,7 @@ func (w *WalEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
 //
 // We commit the WAL to disk when:
 // 1. We start a new round
-// 2. Right before we propose a block
-// 3. When consensus is reached
+// 2. Right before we broadcast a message
 //
 // We call Delete when we start a new height and commit a block
 //
