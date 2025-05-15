@@ -32,12 +32,12 @@ func TestNetwork(t *testing.T) {
 			feederURL  string
 			gatewayURL string
 		}{
-			{utils.Mainnet, "https://alpha-mainnet.starknet.io/feeder_gateway/", "https://alpha-mainnet.starknet.io/gateway/"},
-			{utils.Goerli, "https://alpha4.starknet.io/feeder_gateway/", "https://alpha4.starknet.io/gateway/"},
-			{utils.Goerli2, "https://alpha4-2.starknet.io/feeder_gateway/", "https://alpha4-2.starknet.io/gateway/"},
-			{utils.Integration, "https://external.integration.starknet.io/feeder_gateway/", "https://external.integration.starknet.io/gateway/"},
-			{utils.Sepolia, "https://alpha-sepolia.starknet.io/feeder_gateway/", "https://alpha-sepolia.starknet.io/gateway/"},
-			{utils.SepoliaIntegration, "https://integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
+			{utils.Mainnet, "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/", "https://alpha-mainnet.starknet.io/gateway/"},
+			{utils.Goerli, "https://feeder.alpha4.starknet.io/feeder_gateway/", "https://alpha4.starknet.io/gateway/"},
+			{utils.Goerli2, "https://feeder.alpha4-2.starknet.io/feeder_gateway/", "https://alpha4-2.starknet.io/gateway/"},
+			{utils.Integration, "https://feeder.external.integration.starknet.io/feeder_gateway/", "https://external.integration.starknet.io/gateway/"},
+			{utils.Sepolia, "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/", "https://alpha-sepolia.starknet.io/gateway/"},
+			{utils.SepoliaIntegration, "https://feeder.integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
 		}
 
 		for _, tc := range testCases {
