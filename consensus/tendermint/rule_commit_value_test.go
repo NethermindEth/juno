@@ -4,8 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,7 +15,7 @@ func TestCommitValue(t *testing.T) {
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 1, 0)
 
-		committedValue := value(10)
+		committedValue := starknet.Value(10)
 
 		currentRound.start().expectActions(
 			currentRound.action().scheduleTimeout(types.StepPropose),
@@ -38,7 +38,7 @@ func TestCommitValue(t *testing.T) {
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)
 
-		precommits := []types.Precommit[felt.Felt, felt.Felt]{val0Precommit, val1Precommit, val2Precommit}
+		precommits := []starknet.Precommit{val0Precommit, val1Precommit, val2Precommit}
 		assert.Equal(t, chain.decision[0], committedValue)
 		for _, p := range chain.decisionCertificates[0] {
 			assert.True(t, slices.Contains(precommits, p))
@@ -53,7 +53,7 @@ func TestCommitValue(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 1, 0)
-		committedValue := value(10)
+		committedValue := starknet.Value(10)
 
 		currentRound.start().expectActions(
 			currentRound.action().scheduleTimeout(types.StepPropose),
@@ -72,7 +72,7 @@ func TestCommitValue(t *testing.T) {
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)
 
-		precommits := []types.Precommit[felt.Felt, felt.Felt]{val0Precommit, val1Precommit, val2Precommit}
+		precommits := []starknet.Precommit{val0Precommit, val1Precommit, val2Precommit}
 		assert.Equal(t, chain.decision[0], committedValue)
 		for _, p := range chain.decisionCertificates[0] {
 			assert.True(t, slices.Contains(precommits, p))
