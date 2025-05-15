@@ -8,11 +8,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-const (
-	maxFutureHeight = types.Height(5)
-	maxFutureRound  = types.Round(5)
-)
-
 type Application[V types.Hashable[H], H types.Hash] interface {
 	// Value returns the value to the Tendermint consensus algorith which can be proposed to other validators.
 	Value() V
@@ -183,29 +178,15 @@ func q(totalVotingPower types.VotingPower) types.VotingPower {
 	return q
 }
 
-// preprocessMessage add message to the message pool if:
-// - height is within [current height, current height + maxFutureHeight]
-// - if height is the current height, round is within [0, current round + maxFutureRound]
-// - if height is a future height, round is within [0, maxFutureRound]
-// The message is processed immediately if all the conditions above are met plus height is the current height.
+// - Messages from past heights are ignored.
+// - All messages from current and future heights are stored, but only processed when the height is the current height.
 func (t *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
-	isCurrentHeight := header.Height == t.state.height
-
-	var currentRoundOfHeaderHeight types.Round
-	// If the height is a future height, the round is considered to be 0, as the height hasn't started yet.
-	if isCurrentHeight {
-		currentRoundOfHeaderHeight = t.state.round
+	if header.Height < t.state.height || header.Round < 0 {
+		return false
 	}
 
-	switch {
-	case header.Height < t.state.height || header.Height > t.state.height+maxFutureHeight:
-		return false
-	case header.Round < 0 || header.Round > currentRoundOfHeaderHeight+maxFutureRound:
-		return false
-	default:
-		addMessage()
-		return isCurrentHeight
-	}
+	addMessage()
+	return header.Height == t.state.height
 }
 
 // TODO: Improve performance. Current complexity is O(n).
