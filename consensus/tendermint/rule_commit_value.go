@@ -33,5 +33,9 @@ func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 
 	t.messages.DeleteHeightMessages(t.state.height)
 	t.state.height++
+	t.state.lockedRound = -1
+	t.state.lockedValue = nil
+	t.state.validRound = -1
+	t.state.validValue = nil
 	return t.startRound(0)
 }
