@@ -10,26 +10,44 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 )
 
+// Todo: account for ProposalInit, BlockInof, TxnBathc,Proposal comit, Proposal Fin
+
+const defaultTxnPoolSize int = 1000
+
 // Todo: merge the Application and Builder interfaces
 type application[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	builder *builder.Builder
-	pending pending[H]
+	builder      *builder.Builder
+	pending      pending[H]
+	txnPool      []transaction // set of transaction we cant execute yet
+	maxExecTxnId int           // ID of the latest executed txn
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) application[V, H, A] {
 	return application[V, H, A]{
 		builder: builder,
 		pending: NewPending[H](builder.Network()),
+		txnPool: make([]transaction, defaultTxnPoolSize),
 	}
 }
 
 // ExecuteTxns executes the provided transactions, and stores the result in the pending state
-func (a *application[V, H, A]) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
-	return a.builder.ExecuteTxns(txns)
+func (a *application[V, H, A]) ExecuteTxn(txn transaction) error {
+	a.txnPool[txn.index] = txn // Todo: handle resizing
+
+	for a.txnPool[a.maxExecTxnId+1].Transaction != nil {
+		txn := a.txnPool[a.maxExecTxnId+1]
+		if err := a.builder.ExecuteTxns([]mempool.BroadcastedTransaction{{Transaction: txn.Transaction}}); err != nil {
+			return err
+		}
+		a.maxExecTxnId++
+	}
+
+	return nil
+
 }
 
 // Commit writes the block and precommits to the db if the checks pass
-func (a *application[V, H, A]) Commit(Height types.Height, block V, precommits []types.Precommit[H, A]) error {
+func (a *application[V, H, A]) Commit(Height types.Height, block block, precommits []types.Precommit[H, A]) error {
 	// Height check
 	curHeight, err := a.Height()
 	if err != nil {
