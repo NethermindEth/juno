@@ -61,7 +61,7 @@ func (d *Driver[V, H, A]) Start() {
 		actions := d.stateMachine.ProcessStart(0)
 		d.execute(actions)
 
-		// Todo: check message signature everytime a message is received.
+		// Todo: check message signature every time a message is received.
 		// For the time being it can be assumed the signature is correct.
 
 		for {
