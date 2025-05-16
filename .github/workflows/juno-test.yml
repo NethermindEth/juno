@@ -28,12 +28,7 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            vm/rust
-            core/rust
-            starknet/compiler/rust
+     
 
       - name: Install deps
         run: make install-deps
