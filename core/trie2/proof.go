@@ -67,9 +67,10 @@ func (t *Trie) Prove(key *felt.Felt, proof *ProofNodeSet) error {
 		n, hn = hasher.proofHash(n)
 		if hash, ok := hn.(*trienode.HashNode); ok || i == 0 {
 			if !ok {
-				hash = &trienode.HashNode{Felt: n.Hash(hasher.hashFn)}
+				hashVal := n.Hash(hasher.hashFn)
+				hash = (*trienode.HashNode)(&hashVal)
 			}
-			proof.Put(hash.Felt, n)
+			proof.Put(felt.Felt(*hash), n)
 		}
 	}
 
@@ -119,7 +120,8 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 		nHash, _ := h.hash(node)
 
 		// Verify the hash matches
-		if !nHash.(*trienode.HashNode).Felt.Equal(&expected) {
+		hashVal := felt.Felt(*nHash.(*trienode.HashNode))
+		if !hashVal.Equal(&expected) {
 			return felt.Zero, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expected.String(), nHash.String())
 		}
 
@@ -132,14 +134,14 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 			// There's a case where the leaf node is defined as a hash node instead of a value node
 			// Ideally, this should not occur.
 			if keyBits.Len() == 0 {
-				return cld.Felt, nil
+				return felt.Felt(*cld), nil
 			}
-			expected = cld.Felt
+			expected = felt.Felt(*cld)
 		case *trienode.ValueNode:
-			return cld.Felt, nil
+			return felt.Felt(*cld), nil
 		case *trienode.EdgeNode, *trienode.BinaryNode:
 			if hash, _ := cld.Cache(); hash != nil {
-				expected = hash.Felt
+				expected = felt.Felt(*hash)
 			}
 		}
 	}
@@ -335,12 +337,12 @@ func proofToPath(
 			parent = child
 			continue
 		case *trienode.HashNode:
-			child, err = retrieveNode(&n.Felt)
+			child, err = retrieveNode((*felt.Felt)(n))
 			if err != nil {
 				return nil, nil, err
 			}
 		case *trienode.ValueNode:
-			val = &n.Felt
+			val = (*felt.Felt)(n)
 		}
 		// Link the parent and child
 		switch p := parent.(type) {
