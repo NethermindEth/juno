@@ -38,8 +38,10 @@ jobs:
       - name: Install deps
         run: make install-deps
 
-      - name: Build Rust (enforce Cargo.lock)
-        run: cargo build --locked --workspace
+      - name: Build Rust in vm/rust/ (enforce Cargo.lock)
+        run: cargo build --locked
+        working-directory: vm/rust
+
 
       - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
