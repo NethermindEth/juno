@@ -297,8 +297,8 @@ func proofToPath(
 ) (trienode.Node, *felt.Felt, error) {
 	// Retrieves the node from the proof node set given the node hash
 	retrieveNode := func(hash *felt.Felt) (trienode.Node, error) {
-		n, _ := proof.Get(*hash)
-		if n == nil {
+		n, ok := proof.Get(*hash)
+		if !ok {
 			return nil, fmt.Errorf("proof node not found, expected hash: %s", hash.String())
 		}
 		return n, nil

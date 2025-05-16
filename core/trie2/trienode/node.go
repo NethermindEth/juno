@@ -24,41 +24,46 @@ type Node interface {
 	String() string
 }
 
-type (
-	// Represents a binary branch node in the trie with two children
-	BinaryNode struct {
-		Children [2]Node // 0 = left, 1 = right
-		Flags    nodeFlag
-	}
-	// Represents a path-compressed node that stores a path segment
-	// and a single child node
-	EdgeNode struct {
-		Child Node            // The child node at the end of the path
-		Path  *trieutils.Path // The compressed path segment
-		Flags nodeFlag
-	}
-	// Represents a node that only contains a hash reference to another node
-	HashNode struct{ felt.Felt }
-	// Represents a leaf node that stores an actual value in the trie
-	ValueNode struct{ felt.Felt }
-)
-
-// Used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
-var NilValueNode = &ValueNode{felt.Felt{}}
-
-type nodeFlag struct {
-	Hash  *HashNode // The cached hash of the node
-	Dirty bool      // Whether the node has been modified
+// Represents a binary branch node in the trie with two children
+type BinaryNode struct {
+	Children [2]Node // 0 = left, 1 = right
+	Flags    nodeFlag
 }
-
-// Creates a new node flag and marks the node as dirty
-func NewNodeFlag() nodeFlag { return nodeFlag{Dirty: true} }
 
 func (n *BinaryNode) Hash(hf crypto.HashFn) felt.Felt {
 	leftHash := n.Left().Hash(hf)
 	rightHash := n.Right().Hash(hf)
 	res := hf(&leftHash, &rightHash)
 	return *res
+}
+
+func (n *BinaryNode) Cache() (*HashNode, bool) { return n.Flags.Hash, n.Flags.Dirty }
+
+func (n *BinaryNode) String() string {
+	var left, right string
+	if n.Left() != nil {
+		left = n.Left().String()
+	}
+	if n.Right() != nil {
+		right = n.Right().String()
+	}
+	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
+		indent(left),
+		indent(right))
+}
+
+func (n *BinaryNode) Copy() *BinaryNode { cpy := *n; return &cpy }
+
+func (n *BinaryNode) Left() Node { return n.Children[0] }
+
+func (n *BinaryNode) Right() Node { return n.Children[1] }
+
+// Represents a path-compressed node that stores a path segment
+// and a single child node
+type EdgeNode struct {
+	Child Node            // The child node at the end of the path
+	Path  *trieutils.Path // The compressed path segment
+	Flags nodeFlag
 }
 
 func (n *EdgeNode) Hash(hf crypto.HashFn) felt.Felt {
@@ -75,26 +80,7 @@ func (n *EdgeNode) Hash(hf crypto.HashFn) felt.Felt {
 	return res
 }
 
-func (n *HashNode) Hash(crypto.HashFn) felt.Felt  { return n.Felt }
-func (n *ValueNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
-
-func (n *BinaryNode) Cache() (*HashNode, bool) { return n.Flags.Hash, n.Flags.Dirty }
-func (n *EdgeNode) Cache() (*HashNode, bool)   { return n.Flags.Hash, n.Flags.Dirty }
-func (n *HashNode) Cache() (*HashNode, bool)   { return nil, true }
-func (n *ValueNode) Cache() (*HashNode, bool)  { return nil, true }
-
-func (n *BinaryNode) String() string {
-	var left, right string
-	if n.Left() != nil {
-		left = n.Left().String()
-	}
-	if n.Right() != nil {
-		right = n.Right().String()
-	}
-	return fmt.Sprintf("Binary[\n  left: %s\n  right: %s\n]",
-		indent(left),
-		indent(right))
-}
+func (n *EdgeNode) Cache() (*HashNode, bool) { return n.Flags.Hash, n.Flags.Dirty }
 
 func (n *EdgeNode) String() string {
 	var child string
@@ -106,16 +92,7 @@ func (n *EdgeNode) String() string {
 		indent(child))
 }
 
-func (n HashNode) String() string {
-	return fmt.Sprintf("Hash(%s)", n.Felt.String())
-}
-
-func (n ValueNode) String() string {
-	return fmt.Sprintf("Value(%s)", n.Felt.String())
-}
-
-func (n *BinaryNode) Copy() *BinaryNode { cpy := *n; return &cpy }
-func (n *EdgeNode) Copy() *EdgeNode     { cpy := *n; return &cpy }
+func (n *EdgeNode) Copy() *EdgeNode { cpy := *n; return &cpy }
 
 func (n *EdgeNode) PathMatches(key *trieutils.Path) bool {
 	return n.Path.EqualMSBs(key)
@@ -128,8 +105,38 @@ func (n *EdgeNode) CommonPath(key *trieutils.Path) trieutils.Path {
 	return commonPath
 }
 
-func (n *BinaryNode) Left() Node  { return n.Children[0] }
-func (n *BinaryNode) Right() Node { return n.Children[1] }
+// Represents a node that only contains a hash reference to another node
+type HashNode struct{ felt.Felt }
+
+func (n *HashNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
+
+func (n *HashNode) Cache() (*HashNode, bool) { return nil, true }
+
+func (n HashNode) String() string {
+	return fmt.Sprintf("Hash(%s)", n.Felt.String())
+}
+
+// Represents a leaf node that stores an actual value in the trie
+type ValueNode struct{ felt.Felt }
+
+func (n *ValueNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
+
+func (n *ValueNode) Cache() (*HashNode, bool) { return nil, true }
+
+func (n ValueNode) String() string {
+	return fmt.Sprintf("Value(%s)", n.Felt.String())
+}
+
+// Used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
+var NilValueNode = &ValueNode{felt.Felt{}}
+
+type nodeFlag struct {
+	Hash  *HashNode // The cached hash of the node
+	Dirty bool      // Whether the node has been modified
+}
+
+// Creates a new node flag and marks the node as dirty
+func NewNodeFlag() nodeFlag { return nodeFlag{Dirty: true} }
 
 // Helper function to indent each line of a string
 func indent(s string) string {
