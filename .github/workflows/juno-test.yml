@@ -10,7 +10,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
+  
 jobs:
   test:
     name: Run Tests
@@ -23,11 +23,15 @@ jobs:
       VM_DEBUG: true
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up go
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Rust 1.86
+        uses: dtolnay/rust-toolchain@1.86.0
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
