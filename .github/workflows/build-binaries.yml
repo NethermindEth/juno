@@ -35,9 +35,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-      
+      - name: Set up Rust 1.86
+        uses: dtolnay/rust-toolchain@1.86.0
+
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
