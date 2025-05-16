@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
@@ -47,7 +48,7 @@ type Trie struct {
 }
 
 // Creates a new trie
-func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase) (*Trie, error) {
+func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase, rootHash *felt.Felt) (*Trie, error) {
 	nodeReader, err := newNodeReader(id, nodeDB)
 	if err != nil {
 		return nil, err
@@ -66,7 +67,7 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 		return tr, nil
 	}
 
-	root, err := tr.resolveNode(nil, Path{}) // TODO: handle hash-based, need to somehow retrieve the root hash
+	root, err := tr.resolveNodeWithHash(nil, Path{}, rootHash) // TODO: handle hash-based, need to somehow retrieve the root hash
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
@@ -480,17 +481,34 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 
 // Resolves the node at the given path from the database
 func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
-	var hash felt.Felt
+	var hash *felt.Felt
 	if hn != nil {
-		hash = hn.Felt
+		hash = &hn.Felt
 	}
 
-	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
+}
+
+// Resolves the node at the given path from the database
+func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *felt.Felt) (trienode.Node, error) {
+	var hash *felt.Felt
+	if nodeHash != nil {
+		hash = nodeHash
+	} else if hn != nil {
+		hash = &hn.Felt
+	}
+
+	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
+	if err != nil {
+		return nil, err
+	}
+
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node
@@ -502,6 +520,21 @@ func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	hashed, cached := h.hash(t.root)
 	t.pendingHashes = 0
 	return hashed, cached
+}
+
+func (t *Trie) GetRootHash(id trieutils.TrieID, r db.KeyValueReader, stateComm *felt.Felt) (felt.Felt, error) {
+	prevClassRoot, prevContractRoot, err := core.GetClassAndContractRootByStateCommitment(r, stateComm)
+	if err != nil {
+		return felt.Zero, err
+	}
+	switch id.Type() {
+	case trieutils.Class:
+		return *prevClassRoot, nil
+	case trieutils.Contract:
+		return *prevContractRoot, nil
+	default:
+		return felt.Zero, fmt.Errorf("unknown trie type: %s", id.Type())
+	}
 }
 
 // Converts a Felt value into a Path representation suitable to
@@ -520,15 +553,15 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase(), nil)
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase(), nil)
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase(), nil)
 	if err != nil {
 		return err
 	}
@@ -536,7 +569,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase(), nil)
 	if err != nil {
 		return err
 	}

@@ -61,10 +61,10 @@ func (d *Database) Update(
 
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, node.IsLeaf()); err != nil {
+			if err := trieutils.DeleteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf()); err != nil {
 				return err
 			}
-		} else if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, &felt.Zero, &path, node.IsLeaf(), node.Blob()); err != nil {
+		} else if err := trieutils.WriteNodeByPath(batch, db.ClassTrie, felt.Zero, path, node.IsLeaf(), node.Blob()); err != nil {
 			return err
 		}
 	}
@@ -77,10 +77,10 @@ func (d *Database) Update(
 
 		for path, node := range nodes {
 			if _, ok := node.(*trienode.DeletedNode); ok {
-				if err := trieutils.DeleteNodeByPath(batch, bucket, &owner, &path, node.IsLeaf()); err != nil {
+				if err := trieutils.DeleteNodeByPath(batch, bucket, owner, path, node.IsLeaf()); err != nil {
 					return err
 				}
-			} else if err := trieutils.WriteNodeByPath(batch, bucket, &owner, &path, node.IsLeaf(), node.Blob()); err != nil {
+			} else if err := trieutils.WriteNodeByPath(batch, bucket, owner, path, node.IsLeaf(), node.Blob()); err != nil {
 				return err
 			}
 		}
