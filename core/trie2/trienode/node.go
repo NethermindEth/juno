@@ -130,6 +130,9 @@ func (n ValueNode) String() string {
 // Used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
 var NilValueNode = &ValueNode{felt.Felt{}}
 
+// nodeFlag tracks a trie node's state by caching its hash and marking if it's been modified.
+// This optimization prevents redundant hash calculations. When node is modified or created, the flag is marked as dirty.
+// When the node is read from the database, the hash is cached and the node is marked as clean.
 type nodeFlag struct {
 	Hash  *HashNode // The cached hash of the node
 	Dirty bool      // Whether the node has been modified
