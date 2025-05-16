@@ -29,6 +29,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.0
+	github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/mock v0.5.0
@@ -207,3 +208,5 @@ require (
 // The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24.
 // So it is replaced with the commit that supports go1.24.
 replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
+
+replace github.com/starknet-io/starknet-p2pspecs => ./

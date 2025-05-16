@@ -66,7 +66,7 @@ func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.Execution
 			L1Gas: feltToUint64(er.TotalL1Gas),
 			L2Gas: feltToUint64(er.L2Gas),
 			// total_l1_data_gas = l1_data_gas, because there's only one place that can generate l1_data_gas costs
-			L1DataGas: feltToUint64(er.TotalL1DataGas),
+			L1DataGas: feltToUint64(er.L1DataGas),
 		},
 	}
 }
