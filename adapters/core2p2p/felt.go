@@ -2,55 +2,56 @@ package core2p2p
 
 import (
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 )
 
-func AdaptHash(f *felt.Felt) *gen.Hash {
+func AdaptHash(f *felt.Felt) *common.Hash {
 	if f == nil {
 		return nil
 	}
 
-	return &gen.Hash{
+	return &common.Hash{
 		Elements: f.Marshal(),
 	}
 }
 
-func AdaptAccountSignature(signature []*felt.Felt) *gen.AccountSignature {
-	return &gen.AccountSignature{
+func AdaptAccountSignature(signature []*felt.Felt) *transaction.AccountSignature {
+	return &transaction.AccountSignature{
 		Parts: utils.Map(signature, AdaptFelt),
 	}
 }
 
-func AdaptFelt(f *felt.Felt) *gen.Felt252 {
+func AdaptFelt(f *felt.Felt) *common.Felt252 {
 	if f == nil {
 		return nil
 	}
 
-	return &gen.Felt252{
+	return &common.Felt252{
 		Elements: f.Marshal(),
 	}
 }
 
-func AdaptFeltSlice(sl []*felt.Felt) []*gen.Felt252 {
+func AdaptFeltSlice(sl []*felt.Felt) []*common.Felt252 {
 	return utils.Map(sl, AdaptFelt)
 }
 
-func AdaptAddress(f *felt.Felt) *gen.Address {
+func AdaptAddress(f *felt.Felt) *common.Address {
 	if f == nil {
 		return nil
 	}
 
-	return &gen.Address{
+	return &common.Address{
 		Elements: f.Marshal(),
 	}
 }
 
-func AdaptUint128(f *felt.Felt) *gen.Uint128 {
+func AdaptUint128(f *felt.Felt) *common.Uint128 {
 	// bits represents value in little endian byte order
 	// i.e. first is least significant byte
 	bits := f.Bits()
-	return &gen.Uint128{
+	return &common.Uint128{
 		Low:  bits[0],
 		High: bits[1],
 	}

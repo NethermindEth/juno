@@ -3,55 +3,56 @@ package core2p2p
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
 )
 
 // Core Transaction receipt does not contain all the information required to create p2p spec Receipt, therefore,
 // we have to pass the transaction as well.
-func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *gen.Receipt {
+func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *receipt.Receipt {
 	if r == nil || txn == nil {
 		return nil
 	}
 	switch t := txn.(type) {
 	case *core.InvokeTransaction:
-		return &gen.Receipt{
-			Type: &gen.Receipt_Invoke_{
-				Invoke: &gen.Receipt_Invoke{
+		return &receipt.Receipt{
+			Type: &receipt.Receipt_Invoke_{
+				Invoke: &receipt.Receipt_Invoke{
 					Common: receiptCommon(r),
 				},
 			},
 		}
 	case *core.L1HandlerTransaction:
-		return &gen.Receipt{
-			Type: &gen.Receipt_L1Handler_{
-				L1Handler: &gen.Receipt_L1Handler{
+		return &receipt.Receipt{
+			Type: &receipt.Receipt_L1Handler_{
+				L1Handler: &receipt.Receipt_L1Handler{
 					Common:  receiptCommon(r),
-					MsgHash: &gen.Hash256{Elements: t.MessageHash()},
+					MsgHash: &common.Hash256{Elements: t.MessageHash()},
 				},
 			},
 		}
 	case *core.DeclareTransaction:
-		return &gen.Receipt{
-			Type: &gen.Receipt_Declare_{
-				Declare: &gen.Receipt_Declare{
+		return &receipt.Receipt{
+			Type: &receipt.Receipt_Declare_{
+				Declare: &receipt.Receipt_Declare{
 					Common: receiptCommon(r),
 				},
 			},
 		}
 	case *core.DeployTransaction:
-		return &gen.Receipt{
-			Type: &gen.Receipt_DeprecatedDeploy{
-				DeprecatedDeploy: &gen.Receipt_Deploy{
+		return &receipt.Receipt{
+			Type: &receipt.Receipt_DeprecatedDeploy{
+				DeprecatedDeploy: &receipt.Receipt_Deploy{
 					Common:          receiptCommon(r),
 					ContractAddress: AdaptFelt(t.ContractAddress),
 				},
 			},
 		}
 	case *core.DeployAccountTransaction:
-		return &gen.Receipt{
-			Type: &gen.Receipt_DeployAccount_{
-				DeployAccount: &gen.Receipt_DeployAccount{
+		return &receipt.Receipt{
+			Type: &receipt.Receipt_DeployAccount_{
+				DeployAccount: &receipt.Receipt_DeployAccount{
 					Common:          receiptCommon(r),
 					ContractAddress: AdaptFelt(t.ContractAddress),
 				},
@@ -62,7 +63,7 @@ func AdaptReceipt(r *core.TransactionReceipt, txn core.Transaction) *gen.Receipt
 	}
 }
 
-func receiptCommon(r *core.TransactionReceipt) *gen.Receipt_Common {
+func receiptCommon(r *core.TransactionReceipt) *receipt.Receipt_Common {
 	var revertReason *string
 	if r.RevertReason != "" {
 		revertReason = &r.RevertReason
@@ -71,7 +72,7 @@ func receiptCommon(r *core.TransactionReceipt) *gen.Receipt_Common {
 		revertReason = utils.HeapPtr("")
 	}
 
-	return &gen.Receipt_Common{
+	return &receipt.Receipt_Common{
 		ActualFee:          AdaptFelt(r.Fee),
 		PriceUnit:          adaptPriceUnit(r.FeeUnit),
 		MessagesSent:       utils.Map(r.L2ToL1Message, AdaptMessageToL1),
@@ -80,26 +81,26 @@ func receiptCommon(r *core.TransactionReceipt) *gen.Receipt_Common {
 	}
 }
 
-func adaptPriceUnit(unit core.FeeUnit) gen.PriceUnit {
+func adaptPriceUnit(unit core.FeeUnit) receipt.PriceUnit {
 	switch unit {
 	case core.WEI:
-		return gen.PriceUnit_Wei
+		return receipt.PriceUnit_Wei
 	case core.STRK:
-		return gen.PriceUnit_Fri // todo(kirill) recheck
+		return receipt.PriceUnit_Fri // todo(kirill) recheck
 	default:
 		panic("unreachable adaptPriceUnit")
 	}
 }
 
-func AdaptMessageToL1(mL1 *core.L2ToL1Message) *gen.MessageToL1 {
-	return &gen.MessageToL1{
+func AdaptMessageToL1(mL1 *core.L2ToL1Message) *receipt.MessageToL1 {
+	return &receipt.MessageToL1{
 		FromAddress: AdaptFelt(mL1.From),
 		Payload:     utils.Map(mL1.Payload, AdaptFelt),
-		ToAddress:   &gen.EthereumAddress{Elements: mL1.To.Bytes()},
+		ToAddress:   &receipt.EthereumAddress{Elements: mL1.To.Bytes()},
 	}
 }
 
-func AdaptExecutionResources(er *core.ExecutionResources) *gen.Receipt_ExecutionResources {
+func AdaptExecutionResources(er *core.ExecutionResources) *receipt.Receipt_ExecutionResources {
 	if er == nil {
 		return nil
 	}
@@ -113,8 +114,8 @@ func AdaptExecutionResources(er *core.ExecutionResources) *gen.Receipt_Execution
 		totalL1Gas = new(felt.Felt).SetUint64(tgs.L1Gas)
 	}
 
-	return &gen.Receipt_ExecutionResources{
-		Builtins: &gen.Receipt_ExecutionResources_BuiltinCounter{
+	return &receipt.Receipt_ExecutionResources{
+		Builtins: &receipt.Receipt_ExecutionResources_BuiltinCounter{
 			Bitwise:      uint32(er.BuiltinInstanceCounter.Bitwise),
 			Ecdsa:        uint32(er.BuiltinInstanceCounter.Ecsda),
 			EcOp:         uint32(er.BuiltinInstanceCounter.EcOp),

@@ -3,24 +3,25 @@ package p2p2core
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
 )
 
 // todo change type of txHash to spec
-func AdaptReceipt(r *gen.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
-	var common *gen.Receipt_Common
+func AdaptReceipt(r *receipt.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
+	var common *receipt.Receipt_Common
 
 	switch r.Type.(type) {
-	case *gen.Receipt_Invoke_:
+	case *receipt.Receipt_Invoke_:
 		common = r.GetInvoke().GetCommon()
-	case *gen.Receipt_Declare_:
+	case *receipt.Receipt_Declare_:
 		common = r.GetDeclare().GetCommon()
-	case *gen.Receipt_DeployAccount_:
+	case *receipt.Receipt_DeployAccount_:
 		common = r.GetDeployAccount().GetCommon()
-	case *gen.Receipt_L1Handler_:
+	case *receipt.Receipt_L1Handler_:
 		common = r.GetL1Handler().GetCommon()
-	case *gen.Receipt_DeprecatedDeploy:
+	case *receipt.Receipt_DeprecatedDeploy:
 		common = r.GetDeprecatedDeploy().GetCommon()
 	}
 
@@ -37,7 +38,7 @@ func AdaptReceipt(r *gen.Receipt, txHash *felt.Felt) *core.TransactionReceipt {
 	}
 }
 
-func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.ExecutionResources {
+func adaptExecutionResources(er *receipt.Receipt_ExecutionResources) *core.ExecutionResources {
 	if er == nil {
 		return nil
 	}
@@ -71,7 +72,7 @@ func adaptExecutionResources(er *gen.Receipt_ExecutionResources) *core.Execution
 	}
 }
 
-func adaptMessageToL1(m *gen.MessageToL1) *core.L2ToL1Message {
+func adaptMessageToL1(m *receipt.MessageToL1) *core.L2ToL1Message {
 	return &core.L2ToL1Message{
 		From:    AdaptFelt(m.FromAddress),
 		To:      AdaptEthAddress(m.ToAddress),
@@ -79,7 +80,7 @@ func adaptMessageToL1(m *gen.MessageToL1) *core.L2ToL1Message {
 	}
 }
 
-func feltToUint64(f *gen.Felt252) uint64 {
+func feltToUint64(f *common.Felt252) uint64 {
 	var result uint64
 	if adapted := AdaptFelt(f); adapted != nil {
 		result = adapted.Uint64()

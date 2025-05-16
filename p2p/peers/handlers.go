@@ -14,9 +14,14 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p/core/network"
+	syncclass "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/class"
+	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
+	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/proto"
 )
@@ -124,25 +129,25 @@ func (h *Handler) StateDiffHandler(stream network.Stream) {
 	streamHandler(h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
 }
 
-func (h *Handler) onHeadersRequest(req *gen.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &gen.BlockHeadersResponse{
-		HeaderMessage: &gen.BlockHeadersResponse_Fin{},
+func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &header.BlockHeadersResponse{
+		HeaderMessage: &header.BlockHeadersResponse_Fin{},
 	}
 
 	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
-		header, err := it.Header()
+		blockHeader, err := it.Header()
 		if err != nil {
 			return nil, err
 		}
 
-		h.log.Debugw("Created Header Iterator", "blockNumber", header.Number)
+		h.log.Debugw("Created Header Iterator", "blockNumber", blockHeader.Number)
 
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(header.Number)
+		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
 		if err != nil {
 			return nil, err
 		}
 
-		blockVer, err := core.ParseBlockVersion(header.ProtocolVersion)
+		blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -158,24 +163,24 @@ func (h *Handler) onHeadersRequest(req *gen.BlockHeadersRequest) (iter.Seq[proto
 				return nil, err
 			}
 		} else {
-			commitments, err = h.bcReader.BlockCommitmentsByNumber(header.Number)
+			commitments, err = h.bcReader.BlockCommitmentsByNumber(blockHeader.Number)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		return &gen.BlockHeadersResponse{
-			HeaderMessage: &gen.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(header, commitments, stateUpdate.StateDiff.Hash(),
+		return &header.BlockHeadersResponse{
+			HeaderMessage: &header.BlockHeadersResponse_Header{
+				Header: core2p2p.AdaptHeader(blockHeader, commitments, stateUpdate.StateDiff.Hash(),
 					stateUpdate.StateDiff.Length()),
 			},
 		}, nil
 	})
 }
 
-func (h *Handler) onEventsRequest(req *gen.EventsRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &gen.EventsResponse{
-		EventMessage: &gen.EventsResponse_Fin{},
+func (h *Handler) onEventsRequest(req *event.EventsRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &event.EventsResponse{
+		EventMessage: &event.EventsResponse_Fin{},
 	}
 	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
@@ -185,10 +190,10 @@ func (h *Handler) onEventsRequest(req *gen.EventsRequest) (iter.Seq[proto.Messag
 
 		responses := make([]proto.Message, 0, len(block.Receipts))
 		for _, receipt := range block.Receipts {
-			for _, event := range receipt.Events {
-				responses = append(responses, &gen.EventsResponse{
-					EventMessage: &gen.EventsResponse_Event{
-						Event: core2p2p.AdaptEvent(event, receipt.TransactionHash),
+			for _, e := range receipt.Events {
+				responses = append(responses, &event.EventsResponse{
+					EventMessage: &event.EventsResponse_Event{
+						Event: core2p2p.AdaptEvent(e, receipt.TransactionHash),
 					},
 				})
 			}
@@ -198,9 +203,9 @@ func (h *Handler) onEventsRequest(req *gen.EventsRequest) (iter.Seq[proto.Messag
 	})
 }
 
-func (h *Handler) onTransactionsRequest(req *gen.TransactionsRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &gen.TransactionsResponse{
-		TransactionMessage: &gen.TransactionsResponse_Fin{},
+func (h *Handler) onTransactionsRequest(req *synctransaction.TransactionsRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &synctransaction.TransactionsResponse{
+		TransactionMessage: &synctransaction.TransactionsResponse_Fin{},
 	}
 	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
@@ -212,9 +217,9 @@ func (h *Handler) onTransactionsRequest(req *gen.TransactionsRequest) (iter.Seq[
 		for i, tx := range block.Transactions {
 			receipt := block.Receipts[i]
 
-			responses[i] = &gen.TransactionsResponse{
-				TransactionMessage: &gen.TransactionsResponse_TransactionWithReceipt{
-					TransactionWithReceipt: &gen.TransactionWithReceipt{
+			responses[i] = &synctransaction.TransactionsResponse{
+				TransactionMessage: &synctransaction.TransactionsResponse_TransactionWithReceipt{
+					TransactionWithReceipt: &synctransaction.TransactionWithReceipt{
 						Transaction: core2p2p.AdaptTransaction(tx),
 						Receipt:     core2p2p.AdaptReceipt(receipt, tx),
 					},
@@ -227,9 +232,9 @@ func (h *Handler) onTransactionsRequest(req *gen.TransactionsRequest) (iter.Seq[
 }
 
 //nolint:gocyclo
-func (h *Handler) onStateDiffRequest(req *gen.StateDiffsRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &gen.StateDiffsResponse{
-		StateDiffMessage: &gen.StateDiffsResponse_Fin{},
+func (h *Handler) onStateDiffRequest(req *state.StateDiffsRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &state.StateDiffsResponse{
+		StateDiffMessage: &state.StateDiffsResponse_Fin{},
 	}
 	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
@@ -309,17 +314,17 @@ func (h *Handler) onStateDiffRequest(req *gen.StateDiffsRequest) (iter.Seq[proto
 
 		var responses []proto.Message
 		for _, c := range modifiedContracts {
-			responses = append(responses, &gen.StateDiffsResponse{
-				StateDiffMessage: &gen.StateDiffsResponse_ContractDiff{
+			responses = append(responses, &state.StateDiffsResponse{
+				StateDiffMessage: &state.StateDiffsResponse_ContractDiff{
 					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.storageDiffs),
 				},
 			})
 		}
 
 		for _, classHash := range diff.DeclaredV0Classes {
-			responses = append(responses, &gen.StateDiffsResponse{
-				StateDiffMessage: &gen.StateDiffsResponse_DeclaredClass{
-					DeclaredClass: &gen.DeclaredClass{
+			responses = append(responses, &state.StateDiffsResponse{
+				StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &state.DeclaredClass{
 						ClassHash:         core2p2p.AdaptHash(classHash),
 						CompiledClassHash: nil, // for cairo0 it's nil
 					},
@@ -327,9 +332,9 @@ func (h *Handler) onStateDiffRequest(req *gen.StateDiffsRequest) (iter.Seq[proto
 			})
 		}
 		for classHash, compiledHash := range diff.DeclaredV1Classes {
-			responses = append(responses, &gen.StateDiffsResponse{
-				StateDiffMessage: &gen.StateDiffsResponse_DeclaredClass{
-					DeclaredClass: &gen.DeclaredClass{
+			responses = append(responses, &state.StateDiffsResponse{
+				StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
+					DeclaredClass: &state.DeclaredClass{
 						ClassHash:         core2p2p.AdaptHash(&classHash),
 						CompiledClassHash: core2p2p.AdaptHash(compiledHash),
 					},
@@ -341,9 +346,9 @@ func (h *Handler) onStateDiffRequest(req *gen.StateDiffsRequest) (iter.Seq[proto
 	})
 }
 
-func (h *Handler) onClassesRequest(req *gen.ClassesRequest) (iter.Seq[proto.Message], error) {
-	finMsg := &gen.ClassesResponse{
-		ClassMessage: &gen.ClassesResponse_Fin{},
+func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[proto.Message], error) {
+	finMsg := &syncclass.ClassesResponse{
+		ClassMessage: &syncclass.ClassesResponse_Fin{},
 	}
 	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
 		block, err := it.Block()
@@ -376,8 +381,8 @@ func (h *Handler) onClassesRequest(req *gen.ClassesRequest) (iter.Seq[proto.Mess
 				return nil, err
 			}
 
-			responses = append(responses, &gen.ClassesResponse{
-				ClassMessage: &gen.ClassesResponse_Class{
+			responses = append(responses, &syncclass.ClassesResponse{
+				ClassMessage: &syncclass.ClassesResponse_Class{
 					Class: core2p2p.AdaptClass(cls.Class),
 				},
 			})
@@ -388,8 +393,8 @@ func (h *Handler) onClassesRequest(req *gen.ClassesRequest) (iter.Seq[proto.Mess
 				return nil, err
 			}
 
-			responses = append(responses, &gen.ClassesResponse{
-				ClassMessage: &gen.ClassesResponse_Class{
+			responses = append(responses, &syncclass.ClassesResponse{
+				ClassMessage: &syncclass.ClassesResponse_Class{
 					Class: core2p2p.AdaptClass(cls.Class),
 				},
 			})
@@ -413,7 +418,7 @@ type iterationProcessor = func(it blockDataAccessor) (proto.Message, error)
 // processIterationRequest is helper function that simplifies data processing for provided spec.Iteration object
 // caller usually passes iteration object from received request, finMsg as final message to a peer
 // and iterationProcessor function that will generate response for each iteration
-func (h *Handler) processIterationRequest(iteration *gen.Iteration, finMsg proto.Message,
+func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMsg proto.Message,
 	getMsg iterationProcessor,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
@@ -452,7 +457,7 @@ func (h *Handler) processIterationRequest(iteration *gen.Iteration, finMsg proto
 
 type iterationProcessorMulti = func(it blockDataAccessor) ([]proto.Message, error)
 
-func (h *Handler) processIterationRequestMulti(iteration *gen.Iteration, finMsg proto.Message,
+func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, finMsg proto.Message,
 	getMsg iterationProcessorMulti,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
@@ -491,13 +496,13 @@ func (h *Handler) processIterationRequestMulti(iteration *gen.Iteration, finMsg 
 	}, nil
 }
 
-func (h *Handler) newIterator(it *gen.Iteration) (*iterator, error) {
-	forward := it.Direction == gen.Iteration_Forward
+func (h *Handler) newIterator(it *synccommon.Iteration) (*iterator, error) {
+	forward := it.Direction == synccommon.Iteration_Forward
 	// todo restrict limit max value ?
 	switch v := it.Start.(type) {
-	case *gen.Iteration_BlockNumber:
+	case *synccommon.Iteration_BlockNumber:
 		return newIteratorByNumber(h.bcReader, v.BlockNumber, it.Limit, it.Step, forward)
-	case *gen.Iteration_Header:
+	case *synccommon.Iteration_Header:
 		return newIteratorByHash(h.bcReader, p2p2core.AdaptHash(v.Header), it.Limit, it.Step, forward)
 	default:
 		return nil, fmt.Errorf("unsupported iteration start type %T", v)

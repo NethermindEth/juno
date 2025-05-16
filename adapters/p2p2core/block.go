@@ -5,12 +5,14 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 )
 
-func AdaptEvent(e *gen.Event) *core.Event {
+func AdaptEvent(e *event.Event) *core.Event {
 	if e == nil {
 		return nil
 	}
@@ -22,7 +24,7 @@ func AdaptEvent(e *gen.Event) *core.Event {
 	}
 }
 
-func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
+func AdaptBlockHeader(h *header.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
 	return &core.Header{
 		Hash:             AdaptHash(h.BlockHash),
 		ParentHash:       AdaptHash(h.ParentHash),
@@ -49,15 +51,15 @@ func AdaptBlockHeader(h *gen.SignedBlockHeader, eventsBloom *bloom.BloomFilter) 
 	}
 }
 
-func adaptSignature(cs *gen.ConsensusSignature) []*felt.Felt {
+func adaptSignature(cs *common.ConsensusSignature) []*felt.Felt {
 	return []*felt.Felt{AdaptFelt(cs.R), AdaptFelt(cs.S)}
 }
 
-func adaptDA(da gen.L1DataAvailabilityMode) core.L1DAMode {
+func adaptDA(da common.L1DataAvailabilityMode) core.L1DAMode {
 	switch da {
-	case gen.L1DataAvailabilityMode_Calldata:
+	case common.L1DataAvailabilityMode_Calldata:
 		return core.Calldata
-	case gen.L1DataAvailabilityMode_Blob:
+	case common.L1DataAvailabilityMode_Blob:
 		return core.Blob
 	default:
 		panic(fmt.Errorf("unsupported DA mode %v", da))
