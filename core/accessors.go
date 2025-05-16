@@ -126,7 +126,8 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(val))
 }
 
-// This is used to get the class and contract roots for a given state commitment, needed to properly initialize the trie, if the nodedb is in hash scheme
+// This is used to get the class and contract roots for a given state commitment,
+// needed to properly initialise the trie, if the nodedb is in hash scheme
 func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitment *felt.Felt) (*felt.Felt, *felt.Felt, error) {
 	var val []byte
 	err := r.Get(db.StateHashToRootsKey(stateCommitment), func(data []byte) error {
