@@ -41,6 +41,7 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:
+          key: rust-toolchain-${{ matrix.os }}
           workspaces: |
             vm/rust
             core/rust

@@ -28,8 +28,10 @@ jobs:
         with:
           go-version-file: go.mod
       - uses: dtolnay/rust-toolchain@stable
+  
       - uses: Swatinem/rust-cache@v2
         with:
+          key: rust-toolchain-${{ matrix.os }}
           workspaces: |
             vm/rust
             core/rust
