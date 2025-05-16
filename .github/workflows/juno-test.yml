@@ -38,6 +38,9 @@ jobs:
       - name: Install deps
         run: make install-deps
 
+      - name: Build Rust (enforce Cargo.lock)
+        run: cargo build --locked --workspace
+
       - name: Install Jemalloc (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
