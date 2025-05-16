@@ -3,9 +3,12 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 // Implements Hashable interface
@@ -98,8 +101,13 @@ func setupStateMachine(
 	}
 
 	thisNodeAddr := getVal(thisValidator)
-
-	return New(*thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
+	ctrl := gomock.NewController(t)
+	// Ignore WAL for tests that use this
+	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
+	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
+	db.EXPECT().Flush().AnyTimes()
+	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
+	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
 }
 
 func TestThresholds(t *testing.T) {

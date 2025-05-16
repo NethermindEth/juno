@@ -82,7 +82,8 @@ func NewMessages[V Hashable[H], H Hash, A Addr]() Messages[V, H, A] {
 	}
 }
 
-func addMessages[T any, A Addr](storage map[Height]map[Round]map[A]T, msg T, a A, h Height, r Round) {
+// addMessages adds the message to the message set if it doesn't already exist. Return if the message was added.
+func addMessages[T any, A Addr](storage map[Height]map[Round]map[A]T, msg T, a A, h Height, r Round) bool {
 	if _, ok := storage[h]; !ok {
 		storage[h] = make(map[Round]map[A]T)
 	}
@@ -93,20 +94,22 @@ func addMessages[T any, A Addr](storage map[Height]map[Round]map[A]T, msg T, a A
 
 	if _, ok := storage[h][r][a]; !ok {
 		storage[h][r][a] = msg
+		return true
 	}
+	return false
 }
 
 // Todo: ensure duplicated messages are ignored.
-func (m *Messages[V, H, A]) AddProposal(p Proposal[V, H, A]) {
-	addMessages(m.Proposals, p, p.Sender, p.Height, p.Round)
+func (m *Messages[V, H, A]) AddProposal(p Proposal[V, H, A]) bool {
+	return addMessages(m.Proposals, p, p.Sender, p.Height, p.Round)
 }
 
-func (m *Messages[V, H, A]) AddPrevote(p Prevote[H, A]) {
-	addMessages(m.Prevotes, p, p.Sender, p.Height, p.Round)
+func (m *Messages[V, H, A]) AddPrevote(p Prevote[H, A]) bool {
+	return addMessages(m.Prevotes, p, p.Sender, p.Height, p.Round)
 }
 
-func (m *Messages[V, H, A]) AddPrecommit(p Precommit[H, A]) {
-	addMessages(m.Precommits, p, p.Sender, p.Height, p.Round)
+func (m *Messages[V, H, A]) AddPrecommit(p Precommit[H, A]) bool {
+	return addMessages(m.Precommits, p, p.Sender, p.Height, p.Round)
 }
 
 func (m *Messages[V, H, A]) AllMessages(h Height, r Round) (map[A]Proposal[V, H, A], map[A]Prevote[H, A],

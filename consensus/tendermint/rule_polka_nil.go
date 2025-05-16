@@ -27,6 +27,6 @@ func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
 	return hasQuorum && t.state.step == types.StepPrevote
 }
 
-func (t *stateMachine[V, H, A]) doPolkaNil() Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
 	return t.setStepAndSendPrecommit(nil)
 }

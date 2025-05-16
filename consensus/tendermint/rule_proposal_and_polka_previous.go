@@ -22,7 +22,7 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cac
 		vr < t.state.round
 }
 
-func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound <= cachedProposal.ValidRound ||

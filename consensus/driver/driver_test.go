@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
@@ -130,29 +129,29 @@ func getRandTimeout(random *rand.Rand, step types.Step) types.Timeout {
 func generateAndRegisterRandomActions(
 	random *rand.Rand,
 	expectedBroadcast *expectedBroadcast,
-) []tendermint.Action[value, felt.Felt, felt.Felt] {
-	actions := make([]tendermint.Action[value, felt.Felt, felt.Felt], actionCount)
+) []types.Action[value, felt.Felt, felt.Felt] {
+	actions := make([]types.Action[value, felt.Felt, felt.Felt], actionCount)
 	for i := range actionCount {
 		switch random.Int() % 3 {
 		case 0:
 			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, proposal)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
+			actions[i] = utils.HeapPtr(types.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
+			actions[i] = utils.HeapPtr(types.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
+			actions[i] = utils.HeapPtr(types.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
 		}
 	}
 	return actions
 }
 
-func toAction(timeout types.Timeout) tendermint.Action[value, felt.Felt, felt.Felt] {
-	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
+func toAction(timeout types.Timeout) types.Action[value, felt.Felt, felt.Felt] {
+	return utils.HeapPtr(types.ScheduleTimeout(timeout))
 }
 
 func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](
@@ -189,6 +188,7 @@ func TestDriver(t *testing.T) {
 	broadcasters := mockBroadcasters()
 
 	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
+	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
 	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)

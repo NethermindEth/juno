@@ -39,6 +39,6 @@ func (t *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
 	return isNewerRound && hasQuorum
 }
 
-func (t *stateMachine[V, H, A]) doSkipRound(futureR types.Round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
 	return t.startRound(futureR)
 }
