@@ -449,7 +449,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	latestBlockNumber := 19199
+	var latestBlockNumber uint64 = 19199
 	latestBlock, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
@@ -459,7 +459,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, rand.Int())
+		blockID := blockIDLatest(t)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -467,8 +468,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
-			rpc.BlockID{Hash: new(felt.Felt).SetBytes([]byte("random"))}, rand.Int())
+		blockID := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -476,23 +477,26 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: rand.Uint64()}, rand.Int())
+		blockID := blockIDNumber(t, rand.Uint64())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("negative index", func(t *testing.T) {
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, -1)
+		blockID := blockIDLatest(t)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, -1)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
 
 	t.Run("invalid index", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			latestBlock.TransactionCount).Return(nil, errors.New("invalid index"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
+		blockID := blockIDLatest(t)
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, len(latestBlock.Transactions))
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -501,7 +505,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
@@ -510,7 +514,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, index)
+		blockID := blockIDLatest(t)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -523,7 +528,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
@@ -532,7 +537,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Hash: latestBlockHash}, index)
+		blockID := blockIDHash(t, latestBlock.Hash)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -544,8 +550,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(latestBlockNumber)).Return(latestBlock.Header, nil)
-		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
@@ -554,7 +560,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
+		blockID := blockIDNumber(t, latestBlockNumber)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -576,7 +583,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Pending: true}, index)
+		blockID := blockIDPending(t)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -1803,7 +1811,7 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			got, err := test.input.MarshalJSON()
 			require.NoError(t, err)
 
-			var gotMap, expectedMap map[string]interface{}
+			var gotMap, expectedMap map[string]any
 			require.NoError(t, json.Unmarshal(got, &gotMap))
 			require.NoError(t, json.Unmarshal([]byte(test.expected), &expectedMap))
 			assert.Equal(t, expectedMap, gotMap)
