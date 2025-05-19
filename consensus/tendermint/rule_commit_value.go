@@ -33,9 +33,7 @@ func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, 
 		t.log.Fatalf("failed to flush WAL during commit", "height", cachedProposal.Height, "round", cachedProposal.Round, "err", err)
 	}
 
-	// TODO: Optimise this
-	precommits, _ := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
-	t.blockchain.Commit(t.state.height, *cachedProposal.Value, precommits)
+	t.blockchain.Commit(t.state.height, *cachedProposal.Value)
 
 	if err := t.db.DeleteWALEntries(t.state.height); err != nil {
 		t.log.Errorw("failed to delete WAL messages during commit", "height", cachedProposal.Height, "round", cachedProposal.Round, "err", err)
