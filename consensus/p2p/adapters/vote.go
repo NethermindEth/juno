@@ -16,8 +16,6 @@ import (
 type VoteAdapter[H types.Hash, A types.Addr] interface {
 	ToVote(*consensus.Vote) (*types.Vote[H, A], error)
 	FromVote(*types.Vote[H, A], consensus.Vote_VoteType) (*consensus.Vote, error)
-	FromPrevote(*types.Prevote[H, A]) (*consensus.Vote, error)
-	FromPrecommit(*types.Precommit[H, A]) (*consensus.Vote, error)
 }
 
 type starknetVoteAdapter struct{}
@@ -55,12 +53,4 @@ func (a starknetVoteAdapter) FromVote(vote *starknet.Vote, voteType consensus.Vo
 		Voter:              &common.Address{Elements: sender[:]},
 		ProposalCommitment: &common.Hash{Elements: id[:]},
 	}, nil
-}
-
-func (a starknetVoteAdapter) FromPrevote(prevote *starknet.Prevote) (*consensus.Vote, error) {
-	return a.FromVote((*starknet.Vote)(prevote), consensus.Vote_Prevote)
-}
-
-func (a starknetVoteAdapter) FromPrecommit(precommit *starknet.Precommit) (*consensus.Vote, error) {
-	return a.FromVote((*starknet.Vote)(precommit), consensus.Vote_Precommit)
 }

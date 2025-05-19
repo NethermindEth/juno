@@ -32,16 +32,15 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	db db.KeyValueStore,
 	stateMachine tendermint.StateMachine[V, H, A],
-	listeners p2p.Listeners[V, H, A],
-	broadcasters p2p.Broadcasters[V, H, A],
+	p2p p2p.P2P[V, H, A],
 	getTimeout timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
 		db:           db,
 		stateMachine: stateMachine,
 		getTimeout:   getTimeout,
-		listeners:    listeners,
-		broadcasters: broadcasters,
+		listeners:    p2p.Listeners(),
+		broadcasters: p2p.Broadcasters(),
 		scheduledTms: make(map[types.Timeout]*time.Timer),
 		timeoutsCh:   make(chan types.Timeout),
 		quit:         make(chan struct{}),
