@@ -5,11 +5,15 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/driver"
+	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 type testConfig struct {
@@ -35,6 +39,18 @@ func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 	}
 }
 
+func newDB(t *testing.T) *mocks.MockTendermintDB[value, felt.Felt, felt.Felt] {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	// Ignore WAL for tests that use this
+	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
+	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
+	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
+	db.EXPECT().Flush().AnyTimes()
+	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
+	return db
+}
+
 func runTest(t *testing.T, cfg testConfig) {
 	t.Helper()
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
@@ -53,6 +69,8 @@ func runTest(t *testing.T, cfg testConfig) {
 		nodeAddr := &allNodes.addr[i]
 
 		stateMachine := tendermint.New(
+			newDB(t),
+			utils.NewNopZapLogger(),
 			*nodeAddr,
 			&application{},
 			newBlockchain(commits, nodeAddr),
