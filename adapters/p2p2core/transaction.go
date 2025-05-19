@@ -85,33 +85,33 @@ func AdaptTransaction(t *gen.Transaction, network *utils.Network) core.Transacti
 	case *gen.Transaction_DeclareV3_:
 		tx := t.GetDeclareV3()
 
-		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
+		nDAMode, err := adaptVolitionDomain(tx.Common.NonceDataAvailabilityMode)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.Common.NonceDataAvailabilityMode))
 		}
 
-		fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
+		fDAMode, err := adaptVolitionDomain(tx.Common.FeeDataAvailabilityMode)
 		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.Common.FeeDataAvailabilityMode))
 		}
 
 		declareTx := &core.DeclareTransaction{
 			TransactionHash:      AdaptHash(t.TransactionHash),
 			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Sender),
+			SenderAddress:        AdaptAddress(tx.Common.Sender),
 			MaxFee:               nil, // in 3 version this field was removed
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Nonce:                AdaptFelt(tx.Nonce),
+			TransactionSignature: adaptAccountSignature(tx.Common.Signature),
+			Nonce:                AdaptFelt(tx.Common.Nonce),
 			Version:              txVersion(3),
-			CompiledClassHash:    AdaptHash(tx.CompiledClassHash),
-			Tip:                  tx.Tip,
+			CompiledClassHash:    AdaptHash(tx.Common.CompiledClassHash),
+			Tip:                  tx.Common.Tip,
 			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-				core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-				core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+				core.ResourceL1Gas:     adaptResourceLimits(tx.Common.ResourceBounds.L1Gas),
+				core.ResourceL2Gas:     adaptResourceLimits(tx.Common.ResourceBounds.L2Gas),
+				core.ResourceL1DataGas: adaptResourceLimits(tx.Common.ResourceBounds.L1DataGas),
 			},
-			PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
-			AccountDeploymentData: utils.Map(tx.AccountDeploymentData, AdaptFelt),
+			PaymasterData:         utils.Map(tx.Common.PaymasterData, AdaptFelt),
+			AccountDeploymentData: utils.Map(tx.Common.AccountDeploymentData, AdaptFelt),
 			NonceDAMode:           nDAMode,
 			FeeDAMode:             fDAMode,
 		}
