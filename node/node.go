@@ -97,6 +97,9 @@ type Config struct {
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
 
+	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
+	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
+
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
 
