@@ -227,10 +227,10 @@ where
     if get_execution_flags(transaction).charge_fee && l2_gas_limit > initial_gas_limit {
         tx_state.abort();
         set_l2_gas_limit(transaction, initial_gas_limit)?;
-        return execute_transaction(&transaction, state, block_context, error_on_revert);
+        return execute_transaction(transaction, state, block_context, error_on_revert);
     }
 
-    let mut exec_info = execute_transaction(&transaction, state, block_context, error_on_revert)?;
+    let mut exec_info = execute_transaction(transaction, state, block_context, error_on_revert)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     exec_info.receipt.gas.l2_gas = l2_gas_limit;

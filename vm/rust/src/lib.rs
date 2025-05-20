@@ -396,7 +396,7 @@ pub extern "C" fn cairoVMExecute(
             Transaction::Account(t) => (
                 Some(gas_usage::estimate_minimal_gas_vector(
                     &block_context,
-                    &t,
+                    t,
                     &gas_vector_computation_mode,
                 )),
                 t.fee_type(),
@@ -836,19 +836,17 @@ pub extern "C" fn setVersionedConstants(json_bytes: *const c_char) -> *const c_c
         match VersionedConstantsMap::from_file(paths) {
             Ok(custom_constants) => unsafe {
                 CUSTOM_VERSIONED_CONSTANTS = Some(custom_constants);
-                return CString::new("").unwrap().into_raw();
+                CString::new("").unwrap().into_raw()
             },
-            Err(e) => {
-                return CString::new(format!(
-                    "Failed to load versioned constants from paths: {}",
-                    e
-                ))
-                .unwrap()
-                .into_raw();
-            }
+            Err(e) => CString::new(format!(
+                "Failed to load versioned constants from paths: {}",
+                e
+            ))
+            .unwrap()
+            .into_raw(),
         }
     } else {
-        return CString::new("Failed to parse JSON").unwrap().into_raw();
+        CString::new("Failed to parse JSON").unwrap().into_raw()
     }
 }
 
