@@ -193,14 +193,16 @@ pub extern "C" fn cairoVMCall(
     let structured_err_stack = err_stack == 1;
     let mut context = EntryPointExecutionContext::new_invoke(
         Arc::new(TransactionContext {
-            block_context: build_block_context(
-                &mut state,
-                &block_info,
-                chain_id_str,
-                Some(max_steps),
-                concurrency_mode,
-            )
-            .unwrap(),
+            block_context: Arc::new(
+                build_block_context(
+                    &mut state,
+                    &block_info,
+                    chain_id_str,
+                    Some(max_steps),
+                    concurrency_mode,
+                )
+                .unwrap(),
+            ),
             tx_info: TransactionInfo::Deprecated(DeprecatedTransactionInfo::default()),
         }),
         false,
@@ -370,6 +372,7 @@ pub extern "C" fn cairoVMExecute(
             only_query: txn_and_query_bit.query_bit,
             charge_fee,
             validate,
+            strict_nonce_check: true,
         };
 
         let txn = transaction_from_api(
