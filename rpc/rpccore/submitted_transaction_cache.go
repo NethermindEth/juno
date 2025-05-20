@@ -48,6 +48,15 @@ func (c *SubmittedTransactionsCache) Contains(txnHash felt.Felt) bool {
 	return true
 }
 
+// Remove deletes the entry for txnHash from the cache if it exists.
+// It returns true if the entry was present and removed, or false otherwise.
+func (c *SubmittedTransactionsCache) Remove(txnHash felt.Felt) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.cache.Remove(txnHash)
+}
+
 // Removes all entries that have exceeded their lifespan.
 func (c *SubmittedTransactionsCache) Flush() {
 	c.mu.Lock()
