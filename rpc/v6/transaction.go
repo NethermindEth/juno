@@ -590,7 +590,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}
 
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	if h.submittedTransactionsCache != nil {
