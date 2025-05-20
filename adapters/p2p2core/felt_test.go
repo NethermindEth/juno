@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +29,7 @@ func TestAdaptUint128(t *testing.T) {
 		}
 
 		for _, c := range cases {
-			result := AdaptUint128(&gen.Uint128{
+			result := AdaptUint128(&common.Uint128{
 				Low:  c.Low,
 				High: c.High,
 			})
