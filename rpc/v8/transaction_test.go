@@ -1441,7 +1441,7 @@ func TestTransactionStatus(t *testing.T) {
 				cacheEntryTimeOut := time.Second
 				submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(5, cacheEntryTimeOut)
 
-				txnToAdd := &core.InvokeTransaction{
+				txnToAdd := &core.InvokeTransaction{ //nolint:dupl
 					Version: new(core.TransactionVersion).SetUint64(3),
 					TransactionSignature: []*felt.Felt{
 						utils.HexToFelt(t, "0x1"),
@@ -1496,7 +1496,7 @@ func TestTransactionStatus(t *testing.T) {
 				cacheEntryTimeOut := time.Second
 				submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(5, cacheEntryTimeOut)
 
-				txnToAdd := &core.InvokeTransaction{
+				txnToAdd := &core.InvokeTransaction{ //nolint:dupl
 					Version: new(core.TransactionVersion).SetUint64(3),
 					TransactionSignature: []*felt.Felt{
 						utils.HexToFelt(t, "0x1"),

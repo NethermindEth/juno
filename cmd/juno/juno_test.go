@@ -84,7 +84,7 @@ func TestConfigPrecedence(t *testing.T) {
 				"--cn-unverifiable-range", "0,10",
 				"--cn-core-contract-address", "0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4",
 			},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:                           "debug",
 				HTTP:                               defaultHTTP,
 				HTTPHost:                           "0.0.0.0",
@@ -134,7 +134,7 @@ cn-l1-chain-id: 0x1
 cn-core-contract-address: 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4
 cn-unverifiable-range: [0,10]
 `,
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:                           "debug",
 				HTTP:                               defaultHTTP,
 				HTTPHost:                           "0.0.0.0",
@@ -171,7 +171,7 @@ cn-unverifiable-range: [0,10]
 		},
 		"default config with no flags": {
 			inputArgs: []string{""},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:                           defaultLogLevel,
 				HTTP:                               defaultHTTP,
 				HTTPHost:                           defaultHost,
@@ -208,7 +208,7 @@ cn-unverifiable-range: [0,10]
 		},
 		"config file path is empty string": {
 			inputArgs: []string{"--config", ""},
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:                           defaultLogLevel,
 				HTTP:                               defaultHTTP,
 				HTTPHost:                           defaultHost,
@@ -250,7 +250,7 @@ cn-unverifiable-range: [0,10]
 		"config file contents are empty": {
 			cfgFile:         true,
 			cfgFileContents: "\n",
-			expectedConfig: &node.Config{
+			expectedConfig: &node.Config{ //nolint:dupl
 				LogLevel:                           defaultLogLevel,
 				HTTP:                               defaultHTTP,
 				HTTPHost:                           defaultHost,

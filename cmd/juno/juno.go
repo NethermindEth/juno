@@ -402,7 +402,11 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)
-	junoCmd.Flags().Duration(submittedTransactionsCacheEntryTTLF, defaultSubmittedTransactionsCacheEntryTTL, submittedTransactionsCacheEntryTTL)
+	junoCmd.Flags().Duration(
+		submittedTransactionsCacheEntryTTLF,
+		defaultSubmittedTransactionsCacheEntryTTL,
+		submittedTransactionsCacheEntryTTL,
+	)
 
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
