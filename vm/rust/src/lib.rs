@@ -13,8 +13,6 @@ use serde_json::json;
 use std::{
     collections::BTreeMap,
     ffi::{c_char, c_longlong, c_uchar, c_ulonglong, c_void, CStr, CString},
-    fs::File,
-    io::Read,
     path::Path,
     slice,
     sync::Arc,
@@ -31,6 +29,7 @@ use blockifier::{
     blockifier::block::pre_process_block, execution::entry_point::SierraGasRevertTracker,
 };
 use blockifier::{
+    blockifier_versioned_constants::VersionedConstants,
     context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
     execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     state::{cached_state::CachedState, state_api::State},
@@ -38,7 +37,6 @@ use blockifier::{
         objects::{DeprecatedTransactionInfo, HasRelatedFeeType, TransactionInfo},
         transaction_execution::Transaction,
     },
-    versioned_constants::VersionedConstants,
 };
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use starknet_api::{
@@ -796,14 +794,7 @@ impl VersionedConstantsMap {
         let mut result = BTreeMap::new();
 
         for (version, path) in version_with_path {
-            let mut file = File::open(Path::new(&path))
-                .with_context(|| format!("Failed to open file: {}", path))?;
-
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)
-                .with_context(|| format!("Failed to read contents of file: {}", path))?;
-
-            let constants: VersionedConstants = serde_json::from_str(&contents)
+            let constants = VersionedConstants::from_path(Path::new(&path))
                 .with_context(|| format!("Failed to parse JSON in file: {}", path))?;
 
             let parsed_version = StarknetVersion::try_from(version.as_str())
