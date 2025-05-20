@@ -456,6 +456,10 @@ pub extern "C" fn cairoVMExecute(
                             l2_gas: l2_gas_consumed,
                         },
                         &fee_type,
+                        match txn {
+                            Transaction::Account(txn) => txn.tip(),
+                            Transaction::L1Handler(_) => starknet_api::transaction::fields::Tip(0),
+                        },
                     )
                 }
 

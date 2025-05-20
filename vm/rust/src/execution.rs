@@ -377,10 +377,6 @@ where
         ..initial_resource_bounds
     };
 
-    // Calculate the maximum possible fee without L2 gas.
-    let max_fee_without_l2_gas =
-        ValidResourceBounds::AllResources(resource_bounds_without_l2_gas).max_possible_fee();
-
     match tx {
         Transaction::Account(account_transaction) => {
             // Retrieve the fee token address.
@@ -393,6 +389,10 @@ where
                 .get_fee_token_balance(account_transaction.sender_address(), fee_token_address)?;
             let balance = (balance.1.to_biguint() << 128) + balance.0.to_biguint();
 
+            // Calculate the maximum possible fee without L2 gas.
+            let max_fee_without_l2_gas =
+                ValidResourceBounds::AllResources(resource_bounds_without_l2_gas)
+                    .max_possible_fee(account_transaction.tip());
             if balance > max_fee_without_l2_gas.0.into() {
                 // Calculate the maximum amount of L2 gas that can be bought with the balance.
                 let max_l2_gas = (balance - max_fee_without_l2_gas.0)
