@@ -28,6 +28,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -247,7 +248,16 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
+
+		submittedTransactionsCache := rpccore.NewSubmittedTransactionsCache(
+			int(cfg.SubmittedTransactionsCacheSize),
+			cfg.SubmittedTransactionsCacheEntryTTL,
+		)
+
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithGateway(gatewayClient).
+			WithFeeder(client).
+			WithSubmittedTransactionsCache(submittedTransactionsCache)
 		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		if synchronizer != nil {
 			services = append(services, synchronizer)

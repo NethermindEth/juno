@@ -606,11 +606,25 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	var (
+		res *AddTxResponse
+		err *jsonrpc.Error
+	)
 	if h.memPool != nil {
-		return h.addToMempool(&tx)
+		res, err = h.addToMempool(&tx)
 	} else {
-		return h.pushToFeederGateway(ctx, tx)
+		res, err = h.pushToFeederGateway(ctx, tx)
 	}
+
+	if err != nil {
+		return res, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add(*tx.Hash)
+	}
+
+	return res, nil
 }
 
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
@@ -721,6 +735,12 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+
+		if txStatus.FinalityStatus == starknet.NotReceived &&
+			h.submittedTransactionsCache != nil &&
+			h.submittedTransactionsCache.Contains(hash) {
+			txStatus.FinalityStatus = starknet.Received
 		}
 
 		status, err := adaptTransactionStatus(txStatus)

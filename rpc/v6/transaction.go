@@ -579,11 +579,25 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	var (
+		res *AddTxResponse
+		err *jsonrpc.Error
+	)
 	if h.memPool != nil {
-		return h.addToMempool(&tx)
+		res, err = h.addToMempool(&tx)
 	} else {
-		return h.pushToFeederGateway(ctx, tx)
+		res, err = h.pushToFeederGateway(ctx, tx)
 	}
+
+	if err != nil {
+		return res, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add(*tx.Hash)
+	}
+
+	return res, nil
 }
 
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
@@ -702,6 +716,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		case starknet.AcceptedOnL2:
 			status.Finality = TxnStatusAcceptedOnL2
 		case starknet.Received:
+			status.Finality = TxnStatusReceived
+		case starknet.NotReceived:
+			if h.submittedTransactionsCache == nil || !h.submittedTransactionsCache.Contains(hash) {
+				return nil, rpccore.ErrTxnHashNotFound
+			}
 			status.Finality = TxnStatusReceived
 		default:
 			return nil, rpccore.ErrTxnHashNotFound
