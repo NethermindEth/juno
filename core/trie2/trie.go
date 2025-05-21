@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
@@ -484,7 +483,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
 	var hash *felt.Felt
 	if hn != nil {
-		hash = felt.Felt(*hn)
+		hash = (*felt.Felt)(hn)
 	}
 
 	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
@@ -501,7 +500,7 @@ func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *f
 	if nodeHash != nil {
 		hash = nodeHash
 	} else if hn != nil {
-		hash = &hn.Felt
+		hash = (*felt.Felt)(hn)
 	}
 
 	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
@@ -522,21 +521,6 @@ func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	hashed, cached := h.hash(t.root)
 	t.pendingHashes = 0
 	return hashed, cached
-}
-
-func (t *Trie) GetRootHash(id trieutils.TrieID, r db.KeyValueReader, stateComm *felt.Felt) (felt.Felt, error) {
-	prevClassRoot, prevContractRoot, err := core.GetClassAndContractRootByStateCommitment(r, stateComm)
-	if err != nil {
-		return felt.Zero, err
-	}
-	switch id.Type() {
-	case trieutils.Class:
-		return *prevClassRoot, nil
-	case trieutils.Contract:
-		return *prevContractRoot, nil
-	default:
-		return felt.Zero, fmt.Errorf("unknown trie type: %s", id.Type())
-	}
 }
 
 // Converts a Felt value into a Path representation suitable to

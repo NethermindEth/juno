@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -124,32 +123,6 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 	}
 
 	return GetStateUpdateByBlockNum(r, binary.BigEndian.Uint64(val))
-}
-
-// This is used to get the class and contract roots for a given state commitment,
-// needed to properly initialise the trie, if the nodedb is in hash scheme
-func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitment *felt.Felt) (*felt.Felt, *felt.Felt, error) {
-	var val []byte
-	err := r.Get(db.StateHashToRootsKey(stateCommitment), func(data []byte) error {
-		val = data
-		return nil
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return decodeTriesRoots(val)
-}
-
-func decodeTriesRoots(val []byte) (*felt.Felt, *felt.Felt, error) {
-	var classRoot, contractRoot felt.Felt
-
-	if len(val) != 2*felt.Bytes {
-		return nil, nil, fmt.Errorf("invalid state hash value length")
-	}
-	classRoot.SetBytes(val[:felt.Bytes])
-	contractRoot.SetBytes(val[felt.Bytes:])
-	return &classRoot, &contractRoot, nil
 }
 
 /**
