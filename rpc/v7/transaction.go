@@ -511,11 +511,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		if h.submittedTransactionsCache != nil {
 			switch txStatus.FinalityStatus {
 			case starknet.NotReceived:
-				if h.submittedTransactionsCache.Contains(hash) {
+				if h.submittedTransactionsCache.Contains(&hash) {
 					txStatus.FinalityStatus = starknet.Received
 				}
 			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
-				h.submittedTransactionsCache.Remove(hash)
+				h.submittedTransactionsCache.Remove(&hash)
 			}
 		}
 
