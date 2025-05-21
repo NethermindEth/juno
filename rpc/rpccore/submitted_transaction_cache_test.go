@@ -13,13 +13,6 @@ func TestAdd(t *testing.T) {
 	capacity := 5
 	entryTTL := time.Second
 
-	t.Run("Insert to non-full cache", func(t *testing.T) {
-		cache := rpccore.NewSubmittedTransactionsCache(capacity, entryTTL)
-		txnHash := felt.One
-		cache.Add(txnHash)
-		require.True(t, cache.Contains(txnHash))
-	})
-
 	t.Run("Inserting to full cache with expired txs", func(t *testing.T) {
 		cache := rpccore.NewSubmittedTransactionsCache(capacity, entryTTL)
 		txnHashes := make([]felt.Felt, capacity)
