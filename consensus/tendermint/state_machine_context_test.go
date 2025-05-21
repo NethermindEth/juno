@@ -3,9 +3,12 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/hash"
 )
+
+type testStateMachine = stateMachine[starknet.Value, hash.Hash, starknet.Address]
 
 // stateMachineContext is a build struct to build test scenarios for the state machine.
 // Sample usages:
@@ -25,12 +28,12 @@ import (
 // but the height and round of the test construct that is being built.
 type stateMachineContext struct {
 	testing       *testing.T
-	stateMachine  *stateMachine[value, felt.Felt, felt.Felt]
+	stateMachine  *testStateMachine
 	builderHeight types.Height
 	builderRound  types.Round
 }
 
-func newTestRound(t *testing.T, stateMachine *stateMachine[value, felt.Felt, felt.Felt], h types.Height, r types.Round) stateMachineContext {
+func newTestRound(t *testing.T, stateMachine *testStateMachine, h types.Height, r types.Round) stateMachineContext {
 	return stateMachineContext{
 		testing:       t,
 		stateMachine:  stateMachine,
@@ -65,7 +68,7 @@ func (t stateMachineContext) validator(idx int) incomingMessageBuilder {
 	return incomingMessageBuilder{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		header:       types.MessageHeader[felt.Felt]{Height: t.builderHeight, Round: t.builderRound, Sender: *getVal(idx)},
+		header:       starknet.MessageHeader{Height: t.builderHeight, Round: t.builderRound, Sender: *getVal(idx)},
 	}
 }
 

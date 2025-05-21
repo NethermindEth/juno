@@ -1,14 +1,11 @@
 package types
 
-import "github.com/NethermindEth/juno/core/felt"
-
 type Addr interface {
-	// Ethereum Addresses are 20 bytes
-	~[20]byte | felt.Felt
+	~[4]uint64
 }
 
 type Hash interface {
-	~[32]byte | felt.Felt
+	~[4]uint64
 }
 
 // Hashable's Hash() is used as ID()
