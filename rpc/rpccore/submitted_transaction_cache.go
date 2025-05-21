@@ -8,6 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/lru"
 )
 
+// SubmittedTransactionsCache is an in-memory cache that tracks transaction hashes
+// recently submitted to the mempool, but not yet included in a block.
+//
+// This allows the system to quickly determine if a transaction was recently received,
+// improving accuracy and user experience for transaction status queries during the
+// period between mempool acceptance and block inclusion.
+//
+// Entries automatically expire after a configurable TTL.
 type SubmittedTransactionsCache struct {
 	cache    lru.BasicLRU[felt.Felt, time.Time]
 	entryTTL time.Duration
