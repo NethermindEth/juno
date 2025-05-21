@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 )
 
@@ -15,7 +16,7 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.start()
 
 		// Receive a proposal and move to prevote step
-		currentRound.validator(0).proposal(value(42), -1)
+		currentRound.validator(0).proposal(starknet.Value(42), -1)
 
 		// Receive 3 prevotes
 		currentRound.validator(0).prevote(nil)
@@ -55,7 +56,7 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.start()
 
 		// Receive a proposal and move to prevote step
-		currentRound.validator(0).proposal(value(42), -1)
+		currentRound.validator(0).proposal(starknet.Value(42), -1)
 
 		// Receive 2 prevotes
 		currentRound.validator(0).prevote(nil)
@@ -90,14 +91,14 @@ func TestPolkaNil(t *testing.T) {
 		currentRound.start()
 
 		// Receive a proposal and move to prevote step
-		currentRound.validator(0).proposal(value(42), -1)
+		currentRound.validator(0).proposal(starknet.Value(42), -1)
 
 		// Receive 2 prevotes
 		currentRound.validator(0).prevote(nil)
 		currentRound.validator(1).prevote(nil)
 
 		// This validator votes for a value instead of nil
-		val := value(42)
+		val := starknet.Value(42)
 		currentRound.validator(2).prevote(&val)
 
 		// No precommit action should occur with mixed votes

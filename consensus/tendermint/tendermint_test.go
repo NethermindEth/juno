@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -12,39 +13,33 @@ import (
 )
 
 // Implements Hashable interface
-type value uint64
-
-func (t value) Hash() felt.Felt {
-	return *new(felt.Felt).SetUint64(uint64(t))
-}
-
 // Implements Application[value, felt.Felt] interface
 type app struct {
-	cur value
+	cur starknet.Value
 }
 
 func newApp() *app { return &app{} }
 
-func (a *app) Value() value {
+func (a *app) Value() starknet.Value {
 	a.cur = (a.cur + 1) % 100
 	return a.cur
 }
 
-func (a *app) Valid(v value) bool {
+func (a *app) Valid(v starknet.Value) bool {
 	return v < 100
 }
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
 	curHeight            types.Height
-	decision             map[types.Height]value
-	decisionCertificates map[types.Height][]types.Precommit[felt.Felt, felt.Felt]
+	decision             map[types.Height]starknet.Value
+	decisionCertificates map[types.Height][]starknet.Precommit
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[types.Height]value),
-		decisionCertificates: make(map[types.Height][]types.Precommit[felt.Felt, felt.Felt]),
+		decision:             make(map[types.Height]starknet.Value),
+		decisionCertificates: make(map[types.Height][]starknet.Precommit),
 	}
 }
 
@@ -52,7 +47,7 @@ func (c *chain) Height() types.Height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h types.Height, v value, precommits []types.Precommit[felt.Felt, felt.Felt]) {
+func (c *chain) Commit(h types.Height, v starknet.Value, precommits []starknet.Precommit) {
 	c.decision[c.curHeight] = v
 	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
@@ -61,7 +56,7 @@ func (c *chain) Commit(h types.Height, v value, precommits []types.Precommit[fel
 // Implements Validators[felt.Felt] interface
 type validators struct {
 	totalVotingPower types.VotingPower
-	vals             []felt.Felt
+	vals             []starknet.Address
 }
 
 func newVals() *validators { return &validators{} }
@@ -70,29 +65,29 @@ func (v *validators) TotalVotingPower(h types.Height) types.VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) types.VotingPower {
+func (v *validators) ValidatorVotingPower(validatorAddr starknet.Address) types.VotingPower {
 	return 1
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h types.Height, r types.Round) felt.Felt {
+func (v *validators) Proposer(h types.Height, r types.Round) starknet.Address {
 	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
 
-func (v *validators) addValidator(addr felt.Felt) {
+func (v *validators) addValidator(addr starknet.Address) {
 	v.vals = append(v.vals, addr)
 	v.totalVotingPower++
 }
 
-func getVal(idx int) *felt.Felt {
-	return new(felt.Felt).SetUint64(uint64(idx))
+func getVal(idx int) *starknet.Address {
+	return (*starknet.Address)(new(felt.Felt).SetUint64(uint64(idx)))
 }
 
 func setupStateMachine(
 	t *testing.T,
 	numValidators, thisValidator int, //nolint:unparam // This is because in all current tests numValidators is always 4.
-) *stateMachine[value, felt.Felt, felt.Felt] {
+) *testStateMachine {
 	t.Helper()
 	app, chain, vals := newApp(), newChain(), newVals()
 
@@ -103,11 +98,11 @@ func setupStateMachine(
 	thisNodeAddr := getVal(thisValidator)
 	ctrl := gomock.NewController(t)
 	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
+	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
 	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*stateMachine[value, felt.Felt, felt.Felt])
+	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*testStateMachine)
 }
 
 func TestThresholds(t *testing.T) {
