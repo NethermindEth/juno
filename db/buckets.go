@@ -41,7 +41,6 @@ const (
 	ClassTrie            // ClassTrie + nodetype + path + pathlength -> Trie Node
 	ContractTrieContract // ContractTrieContract + nodetype + path + pathlength -> Trie Node
 	ContractTrieStorage  // ContractTrieStorage + nodetype + path + pathlength -> Trie Node
-	StateHashToRoots     // state hash to class and contract trie roots
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.
