@@ -44,7 +44,7 @@ var (
 	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
-		FeederURL:           "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/",
+		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
 		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway/",
 		L2ChainID:           "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
@@ -56,7 +56,7 @@ var (
 	}
 	Goerli = Network{
 		Name:       "goerli",
-		FeederURL:  "https://feeder.alpha4.starknet.io/feeder_gateway/",
+		FeederURL:  "https://alpha4.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
@@ -70,7 +70,7 @@ var (
 	}
 	Goerli2 = Network{
 		Name:       "goerli2",
-		FeederURL:  "https://feeder.alpha4-2.starknet.io/feeder_gateway/",
+		FeederURL:  "https://alpha4-2.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha4-2.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI2",
 		//nolint:mnd
@@ -83,7 +83,7 @@ var (
 	}
 	Integration = Network{
 		Name:       "integration",
-		FeederURL:  "https://feeder.external.integration.starknet.io/feeder_gateway/",
+		FeederURL:  "https://external.integration.starknet.io/feeder_gateway/",
 		GatewayURL: "https://external.integration.starknet.io/gateway/",
 		L2ChainID:  "SN_GOERLI",
 		//nolint:mnd
@@ -97,7 +97,7 @@ var (
 	}
 	Sepolia = Network{
 		Name:       "sepolia",
-		FeederURL:  "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/",
+		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_SEPOLIA",
 		//nolint:mnd
