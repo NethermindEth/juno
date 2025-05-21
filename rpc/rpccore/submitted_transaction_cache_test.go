@@ -22,19 +22,20 @@ func TestAdd(t *testing.T) {
 
 	t.Run("Inserting to full cache with expired txs", func(t *testing.T) {
 		cache := rpccore.NewSubmittedTransactionsCache(capacity, entryTTL)
+		txnHashes := make([]felt.Felt, capacity)
 		for i := range capacity {
-			txnHash := new(felt.Felt).SetUint64(uint64(i))
-			cache.Add(*txnHash)
+			txnHashes[i] = *new(felt.Felt).SetUint64(uint64(i))
+			cache.Add(txnHashes[i])
 		}
 		/// Expire all txs in cache.
 		time.Sleep(entryTTL)
 
-		txnHash := new(felt.Felt).SetUint64(uint64(capacity))
+		txnHash := new(felt.Felt).SetUint64(uint64(capacity + 1))
 		cache.Add(*txnHash)
 		require.True(t, cache.Contains(*txnHash))
 
 		for i := range capacity {
-			require.False(t, cache.Contains(*new(felt.Felt).SetUint64(uint64(i))))
+			require.False(t, cache.Contains(txnHashes[i]))
 		}
 	})
 
