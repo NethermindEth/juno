@@ -17,12 +17,10 @@ import (
 var ErrCallEmptyDatabase = errors.New("call to empty database")
 
 type Config struct {
-	DirtyCacheSize int
 	CleanCacheSize int
 }
 
 var DefaultConfig = &Config{
-	DirtyCacheSize: 1024 * 1024 * 64,
 	CleanCacheSize: 1024 * 1024 * 64,
 }
 
@@ -40,7 +38,6 @@ type Database struct {
 }
 
 const (
-	maxCacheSize   = 100 * 1024 * 1024
 	idealBatchSize = 100 * 1024
 )
 
@@ -52,7 +49,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		disk:       disk,
 		config:     config,
 		cleanCache: fastcache.New(config.CleanCacheSize),
-		dirtyCache: NewDirtyCache(config.DirtyCacheSize),
+		dirtyCache: NewDirtyCache(),
 		log:        utils.NewNopZapLogger(),
 	}
 }

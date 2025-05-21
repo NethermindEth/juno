@@ -116,7 +116,6 @@ func TestDatabase(t *testing.T) {
 	t.Run("New creates database with provided config", func(t *testing.T) {
 		memDB := memory.New()
 		config := &Config{
-			DirtyCacheSize: 1024,
 			CleanCacheSize: 1024,
 		}
 		database := New(memDB, config)

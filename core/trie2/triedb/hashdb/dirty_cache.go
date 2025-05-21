@@ -15,7 +15,7 @@ type DirtyCache struct {
 	mu                   sync.Mutex
 }
 
-func NewDirtyCache(capacity int) *DirtyCache {
+func NewDirtyCache() *DirtyCache {
 	return &DirtyCache{
 		classNodes:           make(map[string][]byte),
 		contractNodes:        make(map[string][]byte),
