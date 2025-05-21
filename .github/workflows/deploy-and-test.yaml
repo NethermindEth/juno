@@ -93,11 +93,21 @@ jobs:
         run: |
           bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
 
-  starknet-rs:
+  starknet-rs-rpcv07:
     needs: [deploy]
     uses: ./.github/workflows/starknet-rs-tests.yml
+    with:
+      ref: 'starknet/v0.12.0'
     secrets:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_7?apikey=${{ secrets.AUTH_TOKEN }}
+
+  starknet-rs-rpcv08:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-rs-tests.yml
+    with:
+      ref: 'starknet/v0.15.0'
+    secrets:
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-js:
     needs: [deploy]
