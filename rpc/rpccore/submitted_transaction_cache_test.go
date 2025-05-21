@@ -41,20 +41,20 @@ func TestAdd(t *testing.T) {
 
 	t.Run("Inserting to full cache with non-expired txs", func(t *testing.T) {
 		cache := rpccore.NewSubmittedTransactionsCache(capacity, entryTTL)
-		txnHash := felt.Zero
-		cache.Add(txnHash)
-		require.True(t, cache.Contains(felt.Zero))
+		firstTxnHash := felt.Zero
+		cache.Add(firstTxnHash)
+		require.True(t, cache.Contains(firstTxnHash))
 		// Populates the cache to cap.
 		for i := 1; i < capacity; i++ {
 			txnHash := new(felt.Felt).SetUint64(uint64(i))
 			cache.Add(*txnHash)
 		}
 
-		txnHash = *new(felt.Felt).SetUint64(uint64(capacity))
+		txnHash := *new(felt.Felt).SetUint64(uint64(capacity))
 		// Expected to remove the least-recently-used entry.
 		cache.Add(txnHash)
 		require.True(t, cache.Contains(txnHash))
-		require.False(t, cache.Contains(felt.Zero))
+		require.False(t, cache.Contains(firstTxnHash))
 	})
 }
 
