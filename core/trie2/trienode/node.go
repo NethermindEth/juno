@@ -106,30 +106,35 @@ func (n *EdgeNode) CommonPath(key *trieutils.Path) trieutils.Path {
 }
 
 // Represents a node that only contains a hash reference to another node
-type HashNode struct{ felt.Felt }
+type HashNode felt.Felt
 
-func (n *HashNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
+func (n *HashNode) Hash(crypto.HashFn) felt.Felt { return felt.Felt(*n) }
 
 func (n *HashNode) Cache() (*HashNode, bool) { return nil, true }
 
 func (n HashNode) String() string {
-	return fmt.Sprintf("Hash(%s)", n.Felt.String())
+	f := felt.Felt(n)
+	return fmt.Sprintf("Hash(%s)", f.String())
 }
 
 // Represents a leaf node that stores an actual value in the trie
-type ValueNode struct{ felt.Felt }
+type ValueNode felt.Felt
 
-func (n *ValueNode) Hash(crypto.HashFn) felt.Felt { return n.Felt }
+func (n *ValueNode) Hash(crypto.HashFn) felt.Felt { return felt.Felt(*n) }
 
 func (n *ValueNode) Cache() (*HashNode, bool) { return nil, true }
 
 func (n ValueNode) String() string {
-	return fmt.Sprintf("Value(%s)", n.Felt.String())
+	f := felt.Felt(n)
+	return fmt.Sprintf("Value(%s)", f.String())
 }
 
 // Used when collapsing internal trie nodes for hashing, since unset children need to be hashed correctly
-var NilValueNode = &ValueNode{felt.Felt{}}
+var NilValueNode = (*ValueNode)(&felt.Felt{})
 
+// nodeFlag tracks a trie node's state by caching its hash and marking if it's been modified.
+// This optimization prevents redundant hash calculations. When node is modified or created, the flag is marked as dirty.
+// When the node is read from the database, the hash is cached and the node is marked as clean.
 type nodeFlag struct {
 	Hash  *HashNode // The cached hash of the node
 	Dirty bool      // Whether the node has been modified

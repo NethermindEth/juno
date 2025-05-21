@@ -12,9 +12,9 @@ import (
 )
 
 func TestNodeEncodingDecoding(t *testing.T) {
-	newFelt := func(v uint64) felt.Felt {
+	newFelt := func(val uint64) felt.Felt {
 		var f felt.Felt
-		f.SetUint64(v)
+		f.SetUint64(val)
 		return f
 	}
 
@@ -38,8 +38,11 @@ func TestNodeEncodingDecoding(t *testing.T) {
 		{
 			name: "edge node with value child",
 			node: &EdgeNode{
-				Path:  newPath(1, 0, 1),
-				Child: &ValueNode{Felt: newFelt(123)},
+				Path: newPath(1, 0, 1),
+				Child: func() *ValueNode {
+					f := newFelt(123)
+					return (*ValueNode)(&f)
+				}(),
 			},
 			pathLen: 8,
 			maxPath: 8,
@@ -47,8 +50,11 @@ func TestNodeEncodingDecoding(t *testing.T) {
 		{
 			name: "edge node with hash child",
 			node: &EdgeNode{
-				Path:  newPath(0, 1, 0),
-				Child: &HashNode{Felt: newFelt(456)},
+				Path: newPath(0, 1, 0),
+				Child: func() *HashNode {
+					f := newFelt(456)
+					return (*HashNode)(&f)
+				}(),
 			},
 			pathLen: 3,
 			maxPath: 8,
@@ -57,8 +63,14 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			name: "binary node with two hash children",
 			node: &BinaryNode{
 				Children: [2]Node{
-					&HashNode{Felt: newFelt(111)},
-					&HashNode{Felt: newFelt(222)},
+					func() *HashNode {
+						f := newFelt(111)
+						return (*HashNode)(&f)
+					}(),
+					func() *HashNode {
+						f := newFelt(222)
+						return (*HashNode)(&f)
+					}(),
 				},
 			},
 			pathLen: 0,
@@ -68,30 +80,45 @@ func TestNodeEncodingDecoding(t *testing.T) {
 			name: "binary node with two leaf children",
 			node: &BinaryNode{
 				Children: [2]Node{
-					&ValueNode{Felt: newFelt(555)},
-					&ValueNode{Felt: newFelt(666)},
+					func() *ValueNode {
+						f := newFelt(555)
+						return (*ValueNode)(&f)
+					}(),
+					func() *ValueNode {
+						f := newFelt(666)
+						return (*ValueNode)(&f)
+					}(),
 				},
 			},
 			pathLen: 7,
 			maxPath: 8,
 		},
 		{
-			name:    "value node at max path length",
-			node:    &ValueNode{Felt: newFelt(999)},
+			name: "value node at max path length",
+			node: func() *ValueNode {
+				f := newFelt(999)
+				return (*ValueNode)(&f)
+			}(),
 			pathLen: 8,
 			maxPath: 8,
 		},
 		{
-			name:    "hash node below max path length",
-			node:    &HashNode{Felt: newFelt(1000)},
+			name: "hash node below max path length",
+			node: func() *HashNode {
+				f := newFelt(1000)
+				return (*HashNode)(&f)
+			}(),
 			pathLen: 7,
 			maxPath: 8,
 		},
 		{
 			name: "edge node with empty path",
 			node: &EdgeNode{
-				Path:  newPath(),
-				Child: &HashNode{Felt: newFelt(1111)},
+				Path: newPath(),
+				Child: func() *HashNode {
+					f := newFelt(1111)
+					return (*HashNode)(&f)
+				}(),
 			},
 			pathLen: 0,
 			maxPath: 8,
@@ -99,8 +126,11 @@ func TestNodeEncodingDecoding(t *testing.T) {
 		{
 			name: "edge node with max length path",
 			node: &EdgeNode{
-				Path:  newPath(1, 1, 1, 1, 1, 1, 1, 1),
-				Child: &ValueNode{Felt: newFelt(2222)},
+				Path: newPath(1, 1, 1, 1, 1, 1, 1, 1),
+				Child: func() *ValueNode {
+					f := newFelt(2222)
+					return (*ValueNode)(&f)
+				}(),
 			},
 			pathLen: 0,
 			maxPath: 8,
@@ -140,10 +170,14 @@ func TestNodeEncodingDecoding(t *testing.T) {
 				assert.NotNil(t, n.Children[1], "right child is nil")
 			case *ValueNode:
 				original := tt.node.(*ValueNode)
-				assert.True(t, original.Felt.Equal(&n.Felt), "value node felts don't match")
+				if felt.Felt(*original) != felt.Felt(*n) {
+					t.Errorf("value node mismatch: got %v, want %v", felt.Felt(*n), felt.Felt(*original))
+				}
 			case *HashNode:
 				original := tt.node.(*HashNode)
-				assert.True(t, original.Felt.Equal(&n.Felt), "hash node felts don't match")
+				if felt.Felt(*original) != felt.Felt(*n) {
+					t.Errorf("hash node mismatch: got %v, want %v", felt.Felt(*n), felt.Felt(*original))
+				}
 			}
 		})
 	}

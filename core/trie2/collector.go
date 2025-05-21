@@ -135,6 +135,6 @@ func (c *collector) store(path *Path, n trienode.Node) trienode.Node {
 		return n
 	}
 
-	c.nodes.Add(path, trienode.NewNonLeaf(hashNode.Felt, blob))
+	c.nodes.Add(path, trienode.NewNonLeaf(felt.Felt(*hashNode), blob))
 	return hashNode
 }

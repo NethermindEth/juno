@@ -54,6 +54,8 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 // The Driver executes these actions (namely broadcasting messages
 // and triggering scheduled timeouts).
 func (d *Driver[V, H, A]) Start() {
+	d.stateMachine.ReplayWAL()
+
 	d.wg.Add(1)
 	go func() {
 		defer d.wg.Done()
@@ -92,16 +94,16 @@ func (d *Driver[V, H, A]) Stop() {
 	}
 }
 
-func (d *Driver[V, H, A]) execute(actions []tendermint.Action[V, H, A]) {
+func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
-		case *tendermint.BroadcastProposal[V, H, A]:
+		case *types.BroadcastProposal[V, H, A]:
 			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
-		case *tendermint.BroadcastPrevote[H, A]:
+		case *types.BroadcastPrevote[H, A]:
 			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
-		case *tendermint.BroadcastPrecommit[H, A]:
+		case *types.BroadcastPrecommit[H, A]:
 			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
-		case *tendermint.ScheduleTimeout:
+		case *types.ScheduleTimeout:
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
 				case <-d.quit:

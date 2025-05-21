@@ -26,7 +26,7 @@ func (t *stateMachine[V, H, A]) uponPolkaAny() bool {
 		isFirstTime
 }
 
-func (t *stateMachine[V, H, A]) doPolkaAny() Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doPolkaAny() types.Action[V, H, A] {
 	t.state.timeoutPrevoteScheduled = true
 	return t.scheduleTimeout(types.StepPrevote)
 }

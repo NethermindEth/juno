@@ -67,19 +67,19 @@ func (n *EdgeNode) Write(buf *bytes.Buffer) error {
 
 // Enc(hash) = Felt
 func (n *HashNode) Write(buf *bytes.Buffer) error {
-	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
+	f := felt.Felt(*n)
+	if _, err := buf.Write(f.Marshal()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // Enc(value) = Felt
 func (n *ValueNode) Write(buf *bytes.Buffer) error {
-	if _, err := buf.Write(n.Felt.Marshal()); err != nil {
+	f := felt.Felt(*n)
+	if _, err := buf.Write(f.Marshal()); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -137,7 +137,7 @@ func decodeHashNode(blob []byte) (Node, bool) {
 	if len(blob) == hashOrValueNodeSize {
 		var f felt.Felt
 		f.SetBytes(blob)
-		return &HashNode{Felt: f}, true
+		return (*HashNode)(&f), true
 	}
 	return nil, false
 }
@@ -146,7 +146,7 @@ func decodeValueNode(blob []byte) (Node, bool) {
 	if len(blob) == hashOrValueNodeSize {
 		var f felt.Felt
 		f.SetBytes(blob)
-		return &ValueNode{Felt: f}, true
+		return (*ValueNode)(&f), true
 	}
 	return nil, false
 }
@@ -158,7 +158,7 @@ func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (
 
 	binary := &BinaryNode{}
 	if !hash.IsZero() {
-		binary.Flags.Hash = &HashNode{Felt: *hash}
+		binary.Flags.Hash = (*HashNode)(hash)
 	}
 
 	var err error
@@ -178,7 +178,7 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 
 	edge := &EdgeNode{Path: &trieutils.Path{}}
 	if !hash.IsZero() {
-		edge.Flags.Hash = &HashNode{Felt: *hash}
+		edge.Flags.Hash = (*HashNode)(hash)
 	}
 
 	var err error
@@ -190,7 +190,9 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 	}
 
 	if pathLen+edge.Path.Len() == maxPathLen {
-		edge.Child = &ValueNode{Felt: edge.Child.(*HashNode).Felt}
+		hashNode := edge.Child.(*HashNode)
+		feltVal := felt.Felt(*hashNode)
+		edge.Child = (*ValueNode)(&feltVal)
 	}
 	return edge, nil
 }
