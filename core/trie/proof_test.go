@@ -634,8 +634,7 @@ func BenchmarkVerifyRangeProof(b *testing.B) {
 		values[i-start] = records[i].value
 	}
 
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		_, err := trie.VerifyRangeProof(root, keys[0], keys, values, proof)
 		require.NoError(b, err)
 	}
