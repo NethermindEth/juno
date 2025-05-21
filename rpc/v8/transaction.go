@@ -387,6 +387,11 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
 		}
+	} else {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
 	}
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them
