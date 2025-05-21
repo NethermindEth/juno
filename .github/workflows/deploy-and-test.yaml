@@ -97,7 +97,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-rs-tests.yml
     secrets:
-      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_7?apikey=${{ secrets.AUTH_TOKEN }}
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-js:
     needs: [deploy]
