@@ -45,12 +45,12 @@ func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.
 }
 
 func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	owner := id.Owner()
 	switch scheme {
 	case PathScheme:
-		owner := id.Owner()
-		return trieutils.GetNodeByPath(r, id.Bucket(), owner, path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
 	case HashScheme:
-		return trieutils.GetNodeByHash(r, id.Bucket(), id.Owner(), path, *hash, isLeaf)
+		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, &path, hash, isLeaf)
 	}
 
 	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: *hash}

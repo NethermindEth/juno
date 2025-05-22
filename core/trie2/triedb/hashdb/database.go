@@ -54,7 +54,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) {
+func (d *Database) insert(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, blob []byte, isLeaf bool) {
 	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
 	_, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), owner)
 	if found {
@@ -65,12 +65,12 @@ func (d *Database) insert(bucket db.Bucket, owner felt.Felt, path trieutils.Path
 }
 
 func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
-	key := trieutils.NodeKeyByHash(bucket, *owner, path, *hash, isLeaf)
+	key := trieutils.NodeKeyByHash(bucket, owner, &path, hash, isLeaf)
 	if blob := d.cleanCache.Get(nil, key); blob != nil {
 		return blob, nil
 	}
 
-	nodeBlob, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), *owner)
+	nodeBlob, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), owner)
 	if found {
 		return nodeBlob, nil
 	}
@@ -166,7 +166,7 @@ func (d *Database) writeNodeToBatch(batch db.Batch, key string, nodeBlob []byte,
 	}
 
 	d.dirtyCacheSize -= nodeSize([]byte(key), nodeBlob)
-	if err := d.dirtyCache.Remove([]byte(key), trieType, owner); err != nil {
+	if err := d.dirtyCache.Remove([]byte(key), trieType, &owner); err != nil {
 		d.log.Errorw("Failed to remove node from dirty cache", "error", err)
 		return err
 	}
@@ -197,7 +197,8 @@ func (d *Database) Update(
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
-			d.insert(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			nodeHash := node.Hash()
+			d.insert(db.ClassTrie, &felt.Zero, &path, &nodeHash, node.Blob(), node.IsLeaf())
 		}
 	}
 
@@ -205,7 +206,8 @@ func (d *Database) Update(
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			continue
 		} else {
-			d.insert(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
+			nodeHash := node.Hash()
+			d.insert(db.ContractTrieContract, &felt.Zero, &path, &nodeHash, node.Blob(), node.IsLeaf())
 		}
 	}
 
@@ -214,7 +216,8 @@ func (d *Database) Update(
 			if _, ok := node.(*trienode.DeletedNode); ok {
 				continue
 			} else {
-				d.insert(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
+				nodeHash := node.Hash()
+				d.insert(db.ContractTrieStorage, &owner, &path, &nodeHash, node.Blob(), node.IsLeaf())
 			}
 		}
 	}

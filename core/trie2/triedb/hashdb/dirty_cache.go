@@ -23,7 +23,7 @@ func NewDirtyCache() *DirtyCache {
 	}
 }
 
-func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner felt.Felt) {
+func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner *felt.Felt) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -34,14 +34,14 @@ func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner f
 	case trieutils.Contract:
 		c.contractNodes[keyStr] = value
 	case trieutils.ContractStorage:
-		if _, ok := c.contractStorageNodes[owner]; !ok {
-			c.contractStorageNodes[owner] = make(map[string][]byte)
+		if _, ok := c.contractStorageNodes[*owner]; !ok {
+			c.contractStorageNodes[*owner] = make(map[string][]byte)
 		}
-		c.contractStorageNodes[owner][keyStr] = value
+		c.contractStorageNodes[*owner][keyStr] = value
 	}
 }
 
-func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner felt.Felt) ([]byte, bool) {
+func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner *felt.Felt) ([]byte, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -60,7 +60,7 @@ func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner felt.Fel
 		}
 		return cachedValue, true
 	case trieutils.ContractStorage:
-		ownerNodes, ok := c.contractStorageNodes[owner]
+		ownerNodes, ok := c.contractStorageNodes[*owner]
 		if !ok {
 			return nil, false
 		}
@@ -80,7 +80,7 @@ func (c *DirtyCache) Len() int {
 	return len(c.classNodes) + len(c.contractNodes) + len(c.contractStorageNodes)
 }
 
-func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner felt.Felt) error {
+func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner *felt.Felt) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -99,14 +99,14 @@ func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner felt.
 		}
 		return fmt.Errorf("key %x not found", key)
 	case trieutils.ContractStorage:
-		ownerNodes, ok := c.contractStorageNodes[owner]
+		ownerNodes, ok := c.contractStorageNodes[*owner]
 		if !ok {
 			return fmt.Errorf("owner %x not found", owner.Bytes())
 		}
 		if _, ok := ownerNodes[keyStr]; ok {
 			delete(ownerNodes, keyStr)
 			if len(ownerNodes) == 0 {
-				delete(c.contractStorageNodes, owner)
+				delete(c.contractStorageNodes, *owner)
 			}
 			return nil
 		}

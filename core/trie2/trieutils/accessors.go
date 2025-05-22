@@ -67,7 +67,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 	return key
 }
 
-func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) ([]byte, error) {
+func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	var res []byte
 	if err := r.Get(NodeKeyByHash(bucket, owner, path, hash, isLeaf),
 		func(value []byte) error {
@@ -78,14 +78,6 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner felt.Felt, path 
 		return nil, err
 	}
 	return res, nil
-}
-
-func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool, blob []byte) error {
-	return w.Put(NodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
-}
-
-func DeleteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) error {
-	return w.Delete(NodeKeyByHash(bucket, owner, path, hash, isLeaf))
 }
 
 // References: https://github.com/NethermindEth/nethermind/pull/6331
@@ -102,7 +94,7 @@ func DeleteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner felt.Felt, pa
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func NodeKeyByHash(prefix db.Bucket, owner felt.Felt, path Path, hash felt.Felt, isLeaf bool) []byte {
+func NodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
 	const (
 		pathSignificantBytes = 8
 		shortPathLength      = 5

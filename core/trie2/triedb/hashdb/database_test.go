@@ -52,16 +52,18 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
 
-	key := trieutils.NodeKeyByHash(id.Bucket(), id.Owner(), path, node.Hash(), node.IsLeaf())
-	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), id.Owner())
+	key := trieutils.NodeKeyByHash(id.Bucket(), &owner, &path, &nodeHash, node.IsLeaf())
+	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), &owner)
 	assert.False(t, found)
 }
 
 func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
 	t.Helper()
 
-	key := trieutils.NodeKeyByHash(id.Bucket(), id.Owner(), path, node.Hash(), node.IsLeaf())
-	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), id.Owner())
+	owner := id.Owner()
+	nodeHash := node.Hash()
+	key := trieutils.NodeKeyByHash(id.Bucket(), &owner, &path, &nodeHash, node.IsLeaf())
+	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), &owner)
 	assert.True(t, found)
 }
 
