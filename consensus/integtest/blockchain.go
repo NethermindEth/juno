@@ -29,7 +29,7 @@ func (b *blockchain) Height() types.Height {
 	return b.height
 }
 
-func (b *blockchain) Commit(height types.Height, value value, precommits []types.Precommit[felt.Felt, felt.Felt]) {
+func (b *blockchain) Commit(height types.Height, value value) {
 	b.height = max(b.height, height)
 	b.commits <- commit{
 		nodeAddr: b.nodeAddr,

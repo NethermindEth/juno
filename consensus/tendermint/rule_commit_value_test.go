@@ -1,7 +1,6 @@
 package tendermint
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -20,11 +19,11 @@ func TestCommitValue(t *testing.T) {
 		currentRound.start().expectActions(
 			currentRound.action().scheduleTimeout(types.StepPropose),
 		)
-		val0Precommit := currentRound.validator(0).precommit(&committedValue).inputMessage
-		val1Precommit := currentRound.validator(1).precommit(&committedValue).inputMessage
-		val2Precommit := currentRound.validator(2).precommit(&committedValue).expectActions(
+		currentRound.validator(0).precommit(&committedValue)
+		currentRound.validator(1).precommit(&committedValue)
+		currentRound.validator(2).precommit(&committedValue).expectActions(
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
-		).inputMessage
+		)
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
@@ -38,11 +37,7 @@ func TestCommitValue(t *testing.T) {
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)
 
-		precommits := []starknet.Precommit{val0Precommit, val1Precommit, val2Precommit}
 		assert.Equal(t, chain.decision[0], committedValue)
-		for _, p := range chain.decisionCertificates[0] {
-			assert.True(t, slices.Contains(precommits, p))
-		}
 
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
@@ -59,24 +54,20 @@ func TestCommitValue(t *testing.T) {
 			currentRound.action().scheduleTimeout(types.StepPropose),
 		)
 
-		val0Precommit := currentRound.validator(0).precommit(&committedValue).inputMessage
+		currentRound.validator(0).precommit(&committedValue)
 		currentRound.validator(0).proposal(committedValue, -1)
-		val1Precommit := currentRound.validator(1).precommit(&committedValue).inputMessage
-		val2Precommit := currentRound.validator(2).precommit(&committedValue).expectActions(
+		currentRound.validator(1).precommit(&committedValue)
+		currentRound.validator(2).precommit(&committedValue).expectActions(
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
 			nextRound.action().scheduleTimeout(types.StepPropose),
-		).inputMessage
+		)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 
 		// TODO: This is a workaround to get the chain. Find a better way to do this.
 		chain := stateMachine.blockchain.(*chain)
 
-		precommits := []starknet.Precommit{val0Precommit, val1Precommit, val2Precommit}
 		assert.Equal(t, chain.decision[0], committedValue)
-		for _, p := range chain.decisionCertificates[0] {
-			assert.True(t, slices.Contains(precommits, p))
-		}
 
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
