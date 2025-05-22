@@ -1,5 +1,7 @@
 package tendermint
 
+import "github.com/NethermindEth/juno/consensus/types"
+
 /*
 Check the upon condition on line 44:
 
@@ -9,8 +11,8 @@ Check the upon condition on line 44:
 
 Line 36 and 44 for a round are mutually exclusive.
 */
-func (t *Tendermint[V, H, A]) uponPolkaNil() bool {
-	prevotes := t.messages.prevotes[t.state.height][t.state.round]
+func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
+	prevotes := t.messages.Prevotes[t.state.height][t.state.round]
 
 	var vals []A
 	for addr, v := range prevotes {
@@ -22,9 +24,9 @@ func (t *Tendermint[V, H, A]) uponPolkaNil() bool {
 	// TODO: refactor this
 	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 
-	return hasQuorum && t.state.step == prevote
+	return hasQuorum && t.state.step == types.StepPrevote
 }
 
-func (t *Tendermint[V, H, A]) doPolkaNil() Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
 	return t.setStepAndSendPrecommit(nil)
 }

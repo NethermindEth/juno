@@ -3,6 +3,8 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,8 +16,8 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		firstRound := newTestRound(t, stateMachine, 0, 0)
 		secondRound := newTestRound(t, stateMachine, 0, 1)
 
-		wrongValue := value(42)
-		correctValue := value(43)
+		wrongValue := starknet.Value(42)
+		correctValue := starknet.Value(43)
 
 		// In the first round, validator 0 sent us a different (valid) value from all the other peers
 		firstRound.start()
@@ -27,10 +29,10 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		firstRound.validator(2).prevote(&correctValue)
 		firstRound.validator(1).precommit(&correctValue)
 		firstRound.validator(2).precommit(&correctValue)
-		firstRound.processTimeout(prevote)
-		firstRound.processTimeout(precommit)
+		firstRound.processTimeout(types.StepPrevote)
+		firstRound.processTimeout(types.StepPrecommit)
 
-		assertState(t, stateMachine, height(0), round(1), propose)
+		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPropose)
 
 		// In the 2nd round, validator 1 proposes the correct value with valid round set to the 1st round.
 		// We accept and prevote it because we receive quorum of prevotes in the 1st round.
@@ -65,15 +67,15 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		secondRound := newTestRound(t, stateMachine, 0, 1)
 		thirdRound := newTestRound(t, stateMachine, 0, 2)
 
-		firstValue := value(42)
-		secondValue := value(43)
+		firstValue := starknet.Value(42)
+		secondValue := starknet.Value(43)
 
 		// In the first round, validator 0 "tricked" us to lock to a value but sent a different value to validator 2.
 		firstRound.start()
 		firstRound.validator(0).proposal(firstValue, -1).expectActions(
 			firstRound.action().broadcastPrevote(&firstValue),
 		)
-		assertState(t, stateMachine, height(0), round(0), prevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 		firstRound.validator(0).prevote(&firstValue)
 
 		// Validator 2 receives no proposal
@@ -84,15 +86,15 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 			firstRound.action().broadcastPrecommit(&firstValue),
 		)
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Validator 0 sends prevote nil to validator 1, so validator 1 will precommit nil.
 		firstRound.validator(1).precommit(nil)
 		firstRound.validator(2).precommit(nil)
-		firstRound.processTimeout(precommit)
+		firstRound.processTimeout(types.StepPrecommit)
 
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(1), propose)
+		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPropose)
 
 		// In the second round, validator 1 proposes a different value, because it didn't lock to the previous value.
 		// We reject it because we locked to the previous value.
@@ -101,9 +103,9 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		)
 		secondRound.validator(1).prevote(&secondValue)
 		secondRound.validator(2).prevote(&secondValue).expectActions(
-			secondRound.action().scheduleTimeout(prevote),
+			secondRound.action().scheduleTimeout(types.StepPrevote),
 		)
-		secondRound.processTimeout(prevote).expectActions(
+		secondRound.processTimeout(types.StepPrevote).expectActions(
 			secondRound.action().broadcastPrecommit(nil),
 		)
 		// Validator 0 delays sending the prevote so we can only receives after timeout.
@@ -112,10 +114,10 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		// Then validator 0 stays silent during the precommit phase.
 		secondRound.validator(1).precommit(&secondValue)
 		secondRound.validator(2).precommit(&secondValue)
-		secondRound.processTimeout(precommit)
+		secondRound.processTimeout(types.StepPrecommit)
 
 		assert.Equal(t, stateMachine.state.lockedValue, &firstValue)
-		assertState(t, stateMachine, height(0), round(2), propose)
+		assertState(t, stateMachine, types.Height(0), types.Round(2), types.StepPropose)
 
 		// In the third round, validator 2 proposes value from second round. We accept it
 		thirdRound.validator(2).proposal(secondValue, 1).expectActions(

@@ -149,7 +149,7 @@ func (t *Trie) Delete(key *felt.Felt) error {
 func (t *Trie) Hash() felt.Felt {
 	hash, cached := t.hashRoot()
 	t.root = cached
-	return hash.(*trienode.HashNode).Felt
+	return felt.Felt(*hash.(*trienode.HashNode))
 }
 
 // Collapses the trie into a single hash node and flush the node changes to the database.
@@ -169,9 +169,9 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 		// case (b)
 		nodes := trienode.NewNodeSet(t.owner)
 		for _, path := range paths {
-			nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
+			nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 		}
-		return felt.Zero, nodes
+		return felt.Zero, &nodes
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
@@ -183,12 +183,12 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 
 	nodes := trienode.NewNodeSet(t.owner)
 	for _, path := range t.nodeTracer.deletedNodes() {
-		nodes.Add(path, trienode.NewDeleted(path.Len() == t.height))
+		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 	}
 
-	t.root = newCollector(nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
+	t.root = newCollector(&nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
-	return rootHash, nodes
+	return rootHash, &nodes
 }
 
 func (t *Trie) Copy() *Trie {
@@ -248,7 +248,7 @@ func (t *Trie) get(n trienode.Node, prefix, key *Path) (*felt.Felt, trienode.Nod
 		value, newNode, _, err := t.get(child, prefix, key)
 		return value, newNode, true, err
 	case *trienode.ValueNode:
-		return &n.Felt, n, false, nil
+		return (*felt.Felt)(n), n, false, nil
 	case nil:
 		return nil, nil, false, nil
 	default:
@@ -267,7 +267,7 @@ func (t *Trie) update(key, value *felt.Felt) error {
 		}
 		t.root = n
 	} else {
-		n, _, err := t.insert(t.root, new(Path), &k, &trienode.ValueNode{Felt: *value})
+		n, _, err := t.insert(t.root, new(Path), &k, (*trienode.ValueNode)(value))
 		if err != nil {
 			return err
 		}
@@ -288,8 +288,9 @@ func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (
 	// We reach the end of the key
 	if key.Len() == 0 {
 		if v, ok := n.(*trienode.ValueNode); ok {
-			vFelt := value.(*trienode.ValueNode).Felt
-			return value, !v.Equal(&vFelt), nil
+			vFelt := felt.Felt(*value.(*trienode.ValueNode))
+			vVal := felt.Felt(*v)
+			return value, !vVal.Equal(&vFelt), nil
 		}
 		return value, true, nil
 	}
@@ -482,21 +483,22 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
 	var hash felt.Felt
 	if hn != nil {
-		hash = hn.Felt
+		hash = felt.Felt(*hn)
 	}
 
-	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node
 func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	if t.root == nil {
-		return &trienode.HashNode{Felt: felt.Zero}, nil
+		zero := felt.Zero
+		return (*trienode.HashNode)(&zero), nil
 	}
 	h := newHasher(t.hashFn, t.pendingHashes > 100) //nolint:mnd //TODO(weiihann): 100 is arbitrary
 	hashed, cached := h.hash(t.root)

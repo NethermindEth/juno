@@ -33,12 +33,14 @@ func (h *hasher) hash(n trienode.Node) (trienode.Node, trienode.Node) {
 	switch n := n.(type) {
 	case *trienode.EdgeNode:
 		collapsed, cached := h.hashEdgeChild(n)
-		hn := &trienode.HashNode{Felt: collapsed.Hash(h.hashFn)}
+		hash := collapsed.Hash(h.hashFn)
+		hn := (*trienode.HashNode)(&hash)
 		cached.Flags.Hash = hn
 		return hn, cached
 	case *trienode.BinaryNode:
 		collapsed, cached := h.hashBinaryChildren(n)
-		hn := &trienode.HashNode{Felt: collapsed.Hash(h.hashFn)}
+		hash := collapsed.Hash(h.hashFn)
+		hn := (*trienode.HashNode)(&hash)
 		cached.Flags.Hash = hn
 		return hn, cached
 	case *trienode.ValueNode, *trienode.HashNode:
@@ -108,10 +110,12 @@ func (h *hasher) proofHash(original trienode.Node) (collapsed, hashed trienode.N
 	switch n := original.(type) {
 	case *trienode.EdgeNode:
 		en, _ := h.hashEdgeChild(n)
-		return en, &trienode.HashNode{Felt: en.Hash(h.hashFn)}
+		hash := en.Hash(h.hashFn)
+		return en, (*trienode.HashNode)(&hash)
 	case *trienode.BinaryNode:
 		bn, _ := h.hashBinaryChildren(n)
-		return bn, &trienode.HashNode{Felt: bn.Hash(h.hashFn)}
+		hash := bn.Hash(h.hashFn)
+		return bn, (*trienode.HashNode)(&hash)
 	default:
 		return n, n
 	}

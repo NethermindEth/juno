@@ -3,6 +3,8 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,7 +13,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := value(42)
+		committedValue := starknet.Value(42)
 
 		// Initialise the round
 		currentRound.start()
@@ -22,34 +24,34 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Receives proposal, go straight to precommit
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrevote(&committedValue),
 			currentRound.action().broadcastPrecommit(&committedValue),
 		)
 
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 
 	t.Run("Line 36: record valid value even if we don't prevote it", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 1)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
-		committedValue := value(42)
+		committedValue := starknet.Value(42)
 
 		// Initialise the round
 		currentRound.start()
 
 		// Prevotes are collected but not proposal
-		currentRound.processTimeout(propose).expectActions(
+		currentRound.processTimeout(types.StepPropose).expectActions(
 			currentRound.action().broadcastPrevote(nil),
 		)
 		currentRound.validator(2).prevote(&committedValue)
 		currentRound.validator(3).prevote(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(types.StepPrevote),
 		)
 
-		currentRound.processTimeout(prevote).expectActions(
+		currentRound.processTimeout(types.StepPrevote).expectActions(
 			currentRound.action().broadcastPrecommit(nil),
 		)
 
@@ -58,27 +60,27 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Line 36 is triggered, record valid value and round but don't broadcast precommit
 		currentRound.validator(0).prevote(&committedValue).expectActions()
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &committedValue, stateMachine.state.validValue)
-		assert.Equal(t, round(0), stateMachine.state.validRound)
+		assert.Equal(t, types.Round(0), stateMachine.state.validRound)
 
 		// Use valid value on next round
 		currentRound.validator(2).precommit(&committedValue)
 		currentRound.validator(3).precommit(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(precommit),
+			currentRound.action().scheduleTimeout(types.StepPrecommit),
 		)
-		currentRound.processTimeout(precommit).expectActions(
+		currentRound.processTimeout(types.StepPrecommit).expectActions(
 			nextRound.action().broadcastProposal(committedValue, 0),
 			nextRound.action().broadcastPrevote(&committedValue),
 		)
-		assertState(t, stateMachine, height(0), round(1), prevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
 	t.Run("Line 36: not trigger if not first time", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := value(42)
+		committedValue := starknet.Value(42)
 
 		// Initialise the round
 		currentRound.start()
@@ -87,20 +89,20 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
 		)
-		assertState(t, stateMachine, height(0), round(0), prevote)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 
 		// 2 prevotes are collected
 		currentRound.validator(0).prevote(&committedValue)
 		currentRound.validator(1).prevote(&committedValue).expectActions(
-			currentRound.action().scheduleTimeout(prevote),
+			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(&committedValue),
 		)
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Last prevote collected doesn't trigger the rule
 		currentRound.validator(2).prevote(&committedValue).expectActions()
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
-		assertState(t, stateMachine, height(0), round(0), precommit)
+		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 }

@@ -3,52 +3,51 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/mock/gomock"
 )
 
 // Implements Hashable interface
-type value uint64
-
-func (t value) Hash() felt.Felt {
-	return *new(felt.Felt).SetUint64(uint64(t))
-}
-
 // Implements Application[value, felt.Felt] interface
 type app struct {
-	cur value
+	cur starknet.Value
 }
 
 func newApp() *app { return &app{} }
 
-func (a *app) Value() value {
+func (a *app) Value() starknet.Value {
 	a.cur = (a.cur + 1) % 100
 	return a.cur
 }
 
-func (a *app) Valid(v value) bool {
+func (a *app) Valid(v starknet.Value) bool {
 	return v < 100
 }
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
-	curHeight            height
-	decision             map[height]value
-	decisionCertificates map[height][]Precommit[felt.Felt, felt.Felt]
+	curHeight            types.Height
+	decision             map[types.Height]starknet.Value
+	decisionCertificates map[types.Height][]starknet.Precommit
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[height]value),
-		decisionCertificates: make(map[height][]Precommit[felt.Felt, felt.Felt]),
+		decision:             make(map[types.Height]starknet.Value),
+		decisionCertificates: make(map[types.Height][]starknet.Precommit),
 	}
 }
 
-func (c *chain) Height() height {
+func (c *chain) Height() types.Height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt.Felt]) {
+func (c *chain) Commit(h types.Height, v starknet.Value, precommits []starknet.Precommit) {
 	c.decision[c.curHeight] = v
 	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
@@ -56,39 +55,39 @@ func (c *chain) Commit(h height, v value, precommits []Precommit[felt.Felt, felt
 
 // Implements Validators[felt.Felt] interface
 type validators struct {
-	totalVotingPower votingPower
-	vals             []felt.Felt
+	totalVotingPower types.VotingPower
+	vals             []starknet.Address
 }
 
 func newVals() *validators { return &validators{} }
 
-func (v *validators) TotalVotingPower(h height) votingPower {
+func (v *validators) TotalVotingPower(h types.Height) types.VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr felt.Felt) votingPower {
+func (v *validators) ValidatorVotingPower(validatorAddr starknet.Address) types.VotingPower {
 	return 1
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h height, r round) felt.Felt {
+func (v *validators) Proposer(h types.Height, r types.Round) starknet.Address {
 	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
 
-func (v *validators) addValidator(addr felt.Felt) {
+func (v *validators) addValidator(addr starknet.Address) {
 	v.vals = append(v.vals, addr)
 	v.totalVotingPower++
 }
 
-func getVal(idx int) *felt.Felt {
-	return new(felt.Felt).SetUint64(uint64(idx))
+func getVal(idx int) *starknet.Address {
+	return (*starknet.Address)(new(felt.Felt).SetUint64(uint64(idx)))
 }
 
 func setupStateMachine(
 	t *testing.T,
 	numValidators, thisValidator int, //nolint:unparam // This is because in all current tests numValidators is always 4.
-) *Tendermint[value, felt.Felt, felt.Felt] {
+) *testStateMachine {
 	t.Helper()
 	app, chain, vals := newApp(), newChain(), newVals()
 
@@ -97,15 +96,20 @@ func setupStateMachine(
 	}
 
 	thisNodeAddr := getVal(thisValidator)
-
-	return New(*thisNodeAddr, app, chain, vals)
+	ctrl := gomock.NewController(t)
+	// Ignore WAL for tests that use this
+	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
+	db.EXPECT().Flush().AnyTimes()
+	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
+	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*testStateMachine)
 }
 
 func TestThresholds(t *testing.T) {
 	tests := []struct {
-		n votingPower
-		q votingPower
-		f votingPower
+		n types.VotingPower
+		q types.VotingPower
+		f types.VotingPower
 	}{
 		{1, 1, 0},
 		{2, 2, 0},

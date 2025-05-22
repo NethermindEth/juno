@@ -1,5 +1,6 @@
 use crate::error::ExecutionError;
 use crate::juno_state_reader::JunoStateReader;
+use anyhow::{anyhow, Error};
 use blockifier::execution::contract_class::TrackedResource;
 use blockifier::state::state_api::{StateReader, StateResult, UpdatableState};
 use blockifier::transaction::account_transaction::ExecutionFlags;
@@ -21,7 +22,6 @@ use starknet_api::transaction::{
     DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
     InvokeTransaction, InvokeTransactionV3,
 };
-use anyhow::{Error, anyhow};
 
 pub fn process_transaction(
     txn: &mut Transaction,
@@ -216,10 +216,10 @@ where
                         Err(SimulationError::ExecutionError(error)) => return Err(error),
                     }
                 };
-            (current_l2_gas_limit, tx_info, tx_state)
-        }
-        Err(SimulationError::ExecutionError(error)) => return Err(error),
-    };
+                (current_l2_gas_limit, tx_info, tx_state)
+            }
+            Err(SimulationError::ExecutionError(error)) => return Err(error),
+        };
 
     // If the computed gas limit exceeds the initial limit, revert the transaction.
     // The L2 gas limit is set to zero to prevent the transaction execution from succeeding
@@ -291,10 +291,7 @@ where
     }
 }
 
-fn set_l2_gas_limit(
-    transaction: &mut Transaction,
-    gas_limit: GasAmount,
-) -> Result<(), Error> {
+fn set_l2_gas_limit(transaction: &mut Transaction, gas_limit: GasAmount) -> Result<(), Error> {
     if let Transaction::Account(ref mut account_transaction) = transaction {
         match &mut account_transaction.tx {
             AccountTransaction::Declare(ref mut tx) => {
@@ -348,9 +345,7 @@ fn extract_resource_bounds(tx: &Transaction) -> Result<AllResourceBounds, Error>
                     resource_bounds: ValidResourceBounds::AllResources(all_resources),
                     ..
                 }) => Ok(*all_resources),
-                _ => Err(anyhow!(
-                    "Unsupported DeployAccount transaction version"
-                )),
+                _ => Err(anyhow!("Unsupported DeployAccount transaction version")),
             },
             AccountTransaction::Invoke(invoke_tx) => match &invoke_tx.tx {
                 InvokeTransaction::V3(InvokeTransactionV3 {

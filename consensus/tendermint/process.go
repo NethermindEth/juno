@@ -1,22 +1,45 @@
 package tendermint
 
-func (t *Tendermint[V, H, A]) processStart(round round) []Action[V, H, A] {
+import "github.com/NethermindEth/juno/consensus/types"
+
+func (t *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V, H, A] {
 	return t.processLoop(t.startRound(round), nil)
 }
 
-func (t *Tendermint[V, H, A]) processProposal(p Proposal[V, H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addProposal(p) })
+func (t *stateMachine[V, H, A]) ProcessProposal(p types.Proposal[V, H, A]) []types.Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.AddProposal(p) && !t.replayMode && p.Height == t.state.height {
+			// Store proposal if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Fatalf("Failed to store prevote in WAL")
+			}
+		}
+	})
 }
 
-func (t *Tendermint[V, H, A]) processPrevote(p Prevote[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrevote(p) })
+func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []types.Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.AddPrevote(p) && !t.replayMode && p.Height == t.state.height {
+			// Store prevote if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Fatalf("Failed to store prevote in WAL")
+			}
+		}
+	})
 }
 
-func (t *Tendermint[V, H, A]) processPrecommit(p Precommit[H, A]) []Action[V, H, A] {
-	return t.processMessage(p.MessageHeader, func() { t.messages.addPrecommit(p) })
+func (t *stateMachine[V, H, A]) ProcessPrecommit(p types.Precommit[H, A]) []types.Action[V, H, A] {
+	return t.processMessage(p.MessageHeader, func() {
+		if t.messages.AddPrecommit(p) && !t.replayMode && p.Height == t.state.height {
+			// Store precommit if its the first time we see it
+			if err := t.db.SetWALEntry(p); err != nil {
+				t.log.Fatalf("Failed to store prevote in WAL")
+			}
+		}
+	})
 }
 
-func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage func()) []Action[V, H, A] {
+func (t *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []types.Action[V, H, A] {
 	if !t.preprocessMessage(header, addMessage) {
 		return nil
 	}
@@ -24,21 +47,26 @@ func (t *Tendermint[V, H, A]) processMessage(header MessageHeader[A], addMessage
 	return t.processLoop(nil, &header.Round)
 }
 
-func (t *Tendermint[V, H, A]) processTimeout(tm timeout) []Action[V, H, A] {
-	switch tm.s {
-	case propose:
-		return t.processLoop(t.onTimeoutPropose(tm.h, tm.r), nil)
-	case prevote:
-		return t.processLoop(t.onTimeoutPrevote(tm.h, tm.r), nil)
-	case precommit:
-		return t.processLoop(t.onTimeoutPrecommit(tm.h, tm.r), nil)
+func (t *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[V, H, A] {
+	if !t.replayMode && tm.Height == t.state.height {
+		if err := t.db.SetWALEntry(tm); err != nil {
+			t.log.Fatalf("Failed to store timeout trigger in WAL")
+		}
+	}
+	switch tm.Step {
+	case types.StepPropose:
+		return t.processLoop(t.onTimeoutPropose(tm.Height, tm.Round), nil)
+	case types.StepPrevote:
+		return t.processLoop(t.onTimeoutPrevote(tm.Height, tm.Round), nil)
+	case types.StepPrecommit:
+		return t.processLoop(t.onTimeoutPrecommit(tm.Height, tm.Round), nil)
 	}
 
 	return nil
 }
 
-func (t *Tendermint[V, H, A]) processLoop(action Action[V, H, A], recentlyReceivedRound *round) []Action[V, H, A] {
-	actions := []Action[V, H, A]{}
+func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recentlyReceivedRound *types.Round) []types.Action[V, H, A] {
+	actions := []types.Action[V, H, A]{}
 	if action != nil {
 		actions = append(actions, action)
 	}
@@ -52,7 +80,7 @@ func (t *Tendermint[V, H, A]) processLoop(action Action[V, H, A], recentlyReceiv
 	return actions
 }
 
-func (t *Tendermint[V, H, A]) process(recentlyReceivedRound *round) Action[V, H, A] {
+func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) types.Action[V, H, A] {
 	cachedProposal := t.findProposal(t.state.round)
 
 	var roundCachedProposal *CachedProposal[V, H, A]

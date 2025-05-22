@@ -13,7 +13,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/p2p/hashstorage"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -22,6 +21,14 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
+	syncclass "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/class"
+	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
+	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"go.uber.org/zap"
 )
 
@@ -263,8 +270,15 @@ func (s *Service) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *Service) adaptAndSanityCheckBlock(ctx context.Context, header *gen.SignedBlockHeader, contractDiffs []*gen.ContractDiff,
-	classes []*gen.Class, txs []*gen.Transaction, receipts []*gen.Receipt, events []*gen.Event, prevBlockRoot *felt.Felt,
+func (s *Service) adaptAndSanityCheckBlock(
+	ctx context.Context,
+	header *header.SignedBlockHeader,
+	contractDiffs []*state.ContractDiff,
+	classes []*class.Class,
+	txs []*synctransaction.TransactionInBlock,
+	receipts []*receipt.Receipt,
+	events []*event.Event,
+	prevBlockRoot *felt.Felt,
 ) <-chan blockBody {
 	bodyCh := make(chan blockBody)
 	go func() {
@@ -401,7 +415,7 @@ type specBlockParts interface {
 }
 
 type specBlockHeaderAndSigs struct {
-	header *gen.SignedBlockHeader
+	header *header.SignedBlockHeader
 }
 
 func (s specBlockHeaderAndSigs) blockNumber() uint64 {
@@ -410,7 +424,7 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 
 func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	headersIt, err := s.client.RequestBlockHeaders(ctx, &gen.BlockHeadersRequest{Iteration: it})
+	headersIt, err := s.client.RequestBlockHeaders(ctx, &header.BlockHeadersRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
@@ -423,9 +437,9 @@ func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-
 		for res := range headersIt {
 			headerAndSig := specBlockHeaderAndSigs{}
 			switch v := res.HeaderMessage.(type) {
-			case *gen.BlockHeadersResponse_Header:
+			case *header.BlockHeadersResponse_Header:
 				headerAndSig.header = v.Header
-			case *gen.BlockHeadersResponse_Fin:
+			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
 				s.log.Warnw("Unexpected HeaderMessage from getBlockHeaders", "v", v)
@@ -445,7 +459,7 @@ func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-
 
 type specClasses struct {
 	number  uint64
-	classes []*gen.Class
+	classes []*class.Class
 }
 
 func (s specClasses) blockNumber() uint64 {
@@ -454,7 +468,7 @@ func (s specClasses) blockNumber() uint64 {
 
 func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	classesIt, err := s.client.RequestClasses(ctx, &gen.ClassesRequest{Iteration: it})
+	classesIt, err := s.client.RequestClasses(ctx, &syncclass.ClassesRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
@@ -463,13 +477,13 @@ func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan sp
 	go func() {
 		defer close(classesCh)
 
-		var classes []*gen.Class
+		var classes []*class.Class
 	loop:
 		for res := range classesIt {
 			switch v := res.ClassMessage.(type) {
-			case *gen.ClassesResponse_Class:
+			case *syncclass.ClassesResponse_Class:
 				classes = append(classes, v.Class)
-			case *gen.ClassesResponse_Fin:
+			case *syncclass.ClassesResponse_Fin:
 				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getClasses", "v", v)
@@ -491,7 +505,7 @@ func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan sp
 
 type specContractDiffs struct {
 	number        uint64
-	contractDiffs []*gen.ContractDiff
+	contractDiffs []*state.ContractDiff
 }
 
 func (s specContractDiffs) blockNumber() uint64 {
@@ -500,7 +514,7 @@ func (s specContractDiffs) blockNumber() uint64 {
 
 func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &gen.StateDiffsRequest{Iteration: it})
+	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &state.StateDiffsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
@@ -509,16 +523,16 @@ func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan
 	go func() {
 		defer close(stateDiffsCh)
 
-		var contractDiffs []*gen.ContractDiff
+		var contractDiffs []*state.ContractDiff
 
 	loop:
 		for res := range stateDiffsIt {
 			switch v := res.StateDiffMessage.(type) {
-			case *gen.StateDiffsResponse_ContractDiff:
+			case *state.StateDiffsResponse_ContractDiff:
 				contractDiffs = append(contractDiffs, v.ContractDiff)
-			case *gen.StateDiffsResponse_DeclaredClass:
+			case *state.StateDiffsResponse_DeclaredClass:
 				s.log.Warnw("Unimplemented message StateDiffsResponse_DeclaredClass")
-			case *gen.StateDiffsResponse_Fin:
+			case *state.StateDiffsResponse_Fin:
 				break loop
 			default:
 				s.log.Warnw("Unexpected ClassMessage from getStateDiffs", "v", v)
@@ -539,7 +553,7 @@ func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan
 
 type specEvents struct {
 	number uint64
-	events []*gen.Event
+	events []*event.Event
 }
 
 func (s specEvents) blockNumber() uint64 {
@@ -548,7 +562,7 @@ func (s specEvents) blockNumber() uint64 {
 
 func (s *Service) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	eventsIt, err := s.client.RequestEvents(ctx, &gen.EventsRequest{Iteration: it})
+	eventsIt, err := s.client.RequestEvents(ctx, &event.EventsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
@@ -557,14 +571,14 @@ func (s *Service) genEvents(ctx context.Context, blockNumber uint64) (<-chan spe
 	go func() {
 		defer close(eventsCh)
 
-		var events []*gen.Event
+		var events []*event.Event
 
 	loop:
 		for res := range eventsIt {
 			switch v := res.EventMessage.(type) {
-			case *gen.EventsResponse_Event:
+			case *event.EventsResponse_Event:
 				events = append(events, v.Event)
-			case *gen.EventsResponse_Fin:
+			case *event.EventsResponse_Fin:
 				break loop
 			default:
 				s.log.Warnw("Unexpected EventMessage from getEvents", "v", v)
@@ -585,8 +599,8 @@ func (s *Service) genEvents(ctx context.Context, blockNumber uint64) (<-chan spe
 
 type specTxWithReceipts struct {
 	number   uint64
-	txs      []*gen.Transaction
-	receipts []*gen.Receipt
+	txs      []*synctransaction.TransactionInBlock
+	receipts []*receipt.Receipt
 }
 
 func (s specTxWithReceipts) blockNumber() uint64 {
@@ -595,7 +609,7 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 
 func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	txsIt, err := s.client.RequestTransactions(ctx, &gen.TransactionsRequest{Iteration: it})
+	txsIt, err := s.client.RequestTransactions(ctx, &synctransaction.TransactionsRequest{Iteration: it})
 	if err != nil {
 		return nil, err
 	}
@@ -605,18 +619,18 @@ func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-ch
 		defer close(txsCh)
 
 		var (
-			transactions []*gen.Transaction
-			receipts     []*gen.Receipt
+			transactions []*synctransaction.TransactionInBlock
+			receipts     []*receipt.Receipt
 		)
 
 	loop:
 		for res := range txsIt {
 			switch v := res.TransactionMessage.(type) {
-			case *gen.TransactionsResponse_TransactionWithReceipt:
+			case *synctransaction.TransactionsResponse_TransactionWithReceipt:
 				txWithReceipt := v.TransactionWithReceipt
 				transactions = append(transactions, txWithReceipt.Transaction)
 				receipts = append(receipts, txWithReceipt.Receipt)
-			case *gen.TransactionsResponse_Fin:
+			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
 				s.log.Warnw("Unexpected TransactionMessage from getTransactions", "v", v)
@@ -679,10 +693,10 @@ func (s *Service) removePeer(id peer.ID) {
 	s.host.Peerstore().ClearAddrs(id)
 }
 
-func (s *Service) createIteratorForBlock(blockNumber uint64) *gen.Iteration {
-	return &gen.Iteration{
-		Start:     &gen.Iteration_BlockNumber{BlockNumber: blockNumber},
-		Direction: gen.Iteration_Forward,
+func (s *Service) createIteratorForBlock(blockNumber uint64) *synccommon.Iteration {
+	return &synccommon.Iteration{
+		Start:     &synccommon.Iteration_BlockNumber{BlockNumber: blockNumber},
+		Direction: synccommon.Iteration_Forward,
 		Limit:     1,
 		Step:      1,
 	}

@@ -1,4 +1,4 @@
-package tendermint
+package types
 
 type Action[V Hashable[H], H Hash, A Addr] interface {
 	isTendermintAction()
@@ -10,7 +10,7 @@ type BroadcastPrevote[H Hash, A Addr] Prevote[H, A]
 
 type BroadcastPrecommit[H Hash, A Addr] Precommit[H, A]
 
-type ScheduleTimeout timeout
+type ScheduleTimeout Timeout
 
 func (a *BroadcastProposal[V, H, A]) isTendermintAction() {}
 
