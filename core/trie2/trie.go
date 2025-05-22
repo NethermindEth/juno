@@ -483,7 +483,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
 	var hash felt.Felt
 	if hn != nil {
-		hash = (felt.Felt)(*hn)
+		hash = felt.Felt(*hn)
 	}
 
 	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
@@ -500,7 +500,7 @@ func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *f
 	if nodeHash != nil {
 		hash = *nodeHash
 	} else if hn != nil {
-		hash = (felt.Felt)(*hn)
+		hash = felt.Felt(*hn)
 	}
 
 	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
