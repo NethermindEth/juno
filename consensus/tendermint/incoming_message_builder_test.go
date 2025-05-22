@@ -31,7 +31,6 @@ func (t incomingMessageBuilder) proposal(val starknet.Value, validRound types.Ro
 	return actionAsserter[starknet.Proposal]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: proposal,
 		actions:      actions,
 	}
 }
@@ -51,7 +50,6 @@ func (t incomingMessageBuilder) prevote(val *starknet.Value) actionAsserter[star
 	return actionAsserter[starknet.Prevote]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: prevote,
 		actions:      actions,
 	}
 }
@@ -71,7 +69,6 @@ func (t incomingMessageBuilder) precommit(val *starknet.Value) actionAsserter[st
 	return actionAsserter[starknet.Precommit]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: precommit,
 		actions:      actions,
 	}
 }

@@ -16,12 +16,12 @@ type Application[V types.Hashable[H], H types.Hash] interface {
 	Valid(V) bool
 }
 
-type Blockchain[V types.Hashable[H], H types.Hash, A types.Addr] interface {
+type Blockchain[V types.Hashable[H], H types.Hash] interface {
 	// types.Height return the current blockchain height
 	Height() types.Height
 
 	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(types.Height, V, []types.Precommit[H, A])
+	Commit(types.Height, V)
 }
 
 type Validators[A types.Addr] interface {
@@ -64,7 +64,7 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	messages types.Messages[V, H, A]
 
 	application Application[V, H]
-	blockchain  Blockchain[V, H, A]
+	blockchain  Blockchain[V, H]
 	validators  Validators[A]
 }
 
@@ -89,7 +89,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
-	chain Blockchain[V, H, A],
+	chain Blockchain[V, H],
 	vals Validators[A],
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{

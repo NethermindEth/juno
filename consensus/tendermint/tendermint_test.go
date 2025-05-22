@@ -31,15 +31,13 @@ func (a *app) Valid(v starknet.Value) bool {
 
 // Implements Blockchain[value, felt.Felt] interface
 type chain struct {
-	curHeight            types.Height
-	decision             map[types.Height]starknet.Value
-	decisionCertificates map[types.Height][]starknet.Precommit
+	curHeight types.Height
+	decision  map[types.Height]starknet.Value
 }
 
 func newChain() *chain {
 	return &chain{
-		decision:             make(map[types.Height]starknet.Value),
-		decisionCertificates: make(map[types.Height][]starknet.Precommit),
+		decision: make(map[types.Height]starknet.Value),
 	}
 }
 
@@ -47,9 +45,8 @@ func (c *chain) Height() types.Height {
 	return c.curHeight
 }
 
-func (c *chain) Commit(h types.Height, v starknet.Value, precommits []starknet.Precommit) {
+func (c *chain) Commit(h types.Height, v starknet.Value) {
 	c.decision[c.curHeight] = v
-	c.decisionCertificates[c.curHeight] = precommits
 	c.curHeight++
 }
 

@@ -48,7 +48,6 @@ func (t stateMachineContext) start() actionAsserter[any] {
 	return actionAsserter[any]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: nil,
 		actions:      t.stateMachine.ProcessStart(t.builderRound),
 	}
 }
@@ -58,7 +57,6 @@ func (t stateMachineContext) processTimeout(s types.Step) actionAsserter[any] {
 	return actionAsserter[any]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: nil,
 		actions:      t.stateMachine.ProcessTimeout(types.Timeout{Step: s, Height: t.builderHeight, Round: t.builderRound}),
 	}
 }

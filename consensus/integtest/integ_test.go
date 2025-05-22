@@ -1,14 +1,16 @@
 package integtest
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/p2p"
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -39,11 +41,11 @@ func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 	}
 }
 
-func newDB(t *testing.T) *mocks.MockTendermintDB[value, felt.Felt, felt.Felt] {
+func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
+	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
 	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
@@ -56,7 +58,6 @@ func runTest(t *testing.T, cfg testConfig) {
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
 
 	allNodes := getNodes(cfg.nodeCount)
-	network := newNetwork(allNodes, cfg.buffer)
 	commits := make(chan commit, cfg.buffer)
 	validators := newValidators(allNodes)
 
@@ -76,21 +77,28 @@ func runTest(t *testing.T, cfg testConfig) {
 			newBlockchain(commits, nodeAddr),
 			validators,
 		)
+
+		p2pHost := setupP2PHost(t)
+		fmt.Println("p2pHost", p2pHost.ID())
+
+		p2p := p2p.New(p2pHost)
+		fmt.Println("p2p", p2p)
+
 		driver := driver.New(
 			testDB,
 			stateMachine,
-			network.getListeners(nodeAddr),
-			network.getBroadcasters(nodeAddr),
+			p2p,
 			getTimeoutFn(cfg),
 		)
 
+		go p2p.Run(t.Context())
 		driver.Start()
 	}
 
 	// node index -> height
 	heights := make([]types.Height, honestNodeCount)
 	// height -> committed value
-	committedValues := make([]*value, cfg.targetHeight)
+	committedValues := make([]*starknet.Value, cfg.targetHeight)
 
 	finished := 0
 
