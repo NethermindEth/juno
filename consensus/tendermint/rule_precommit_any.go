@@ -24,7 +24,7 @@ func (t *stateMachine[V, H, A]) uponPrecommitAny() bool {
 	return hasQuorum && isFirstTime
 }
 
-func (t *stateMachine[V, H, A]) doPrecommitAny() Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doPrecommitAny() types.Action[V, H, A] {
 	t.state.timeoutPrecommitScheduled = true
 	return t.scheduleTimeout(types.StepPrecommit)
 }

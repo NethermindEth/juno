@@ -9,13 +9,20 @@ import (
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/tendermint"
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
+)
+
+type (
+	broadcaster[M starknet.Message] = p2p.Broadcaster[M, starknet.Value, starknet.Hash, starknet.Address]
+	listeners                       = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
+	broadcasters                    = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
 )
 
 const (
@@ -24,22 +31,16 @@ const (
 )
 
 type expectedBroadcast struct {
-	proposals  []types.Proposal[value, felt.Felt, felt.Felt]
-	prevotes   []types.Prevote[felt.Felt, felt.Felt]
-	precommits []types.Precommit[felt.Felt, felt.Felt]
+	proposals  []starknet.Proposal
+	prevotes   []starknet.Prevote
+	precommits []starknet.Precommit
 }
 
-type value uint64
-
-func (v value) Hash() felt.Felt {
-	return *new(felt.Felt).SetUint64(uint64(v))
-}
-
-type mockListener[M types.Message[value, felt.Felt, felt.Felt]] struct {
+type mockListener[M starknet.Message] struct {
 	ch chan M
 }
 
-func newMockListener[M types.Message[value, felt.Felt, felt.Felt]](ch chan M) *mockListener[M] {
+func newMockListener[M starknet.Message](ch chan M) *mockListener[M] {
 	return &mockListener[M]{
 		ch: ch,
 	}
@@ -49,7 +50,7 @@ func (m *mockListener[M]) Listen() <-chan M {
 	return m.ch
 }
 
-type mockBroadcaster[M types.Message[value, felt.Felt, felt.Felt]] struct {
+type mockBroadcaster[M starknet.Message] struct {
 	wg                  sync.WaitGroup
 	mu                  sync.Mutex
 	broadcastedMessages []M
@@ -63,22 +64,22 @@ func (m *mockBroadcaster[M]) Broadcast(msg M) {
 }
 
 func mockListeners(
-	proposalCh chan types.Proposal[value, felt.Felt, felt.Felt],
-	prevoteCh chan types.Prevote[felt.Felt, felt.Felt],
-	precommitCh chan types.Precommit[felt.Felt, felt.Felt],
-) p2p.Listeners[value, felt.Felt, felt.Felt] {
-	return p2p.Listeners[value, felt.Felt, felt.Felt]{
+	proposalCh chan starknet.Proposal,
+	prevoteCh chan starknet.Prevote,
+	precommitCh chan starknet.Precommit,
+) listeners {
+	return listeners{
 		ProposalListener:  newMockListener(proposalCh),
 		PrevoteListener:   newMockListener(prevoteCh),
 		PrecommitListener: newMockListener(precommitCh),
 	}
 }
 
-func mockBroadcasters() p2p.Broadcasters[value, felt.Felt, felt.Felt] {
-	return p2p.Broadcasters[value, felt.Felt, felt.Felt]{
-		ProposalBroadcaster:  &mockBroadcaster[types.Proposal[value, felt.Felt, felt.Felt]]{},
-		PrevoteBroadcaster:   &mockBroadcaster[types.Prevote[felt.Felt, felt.Felt]]{},
-		PrecommitBroadcaster: &mockBroadcaster[types.Precommit[felt.Felt, felt.Felt]]{},
+func mockBroadcasters() broadcasters {
+	return broadcasters{
+		ProposalBroadcaster:  &mockBroadcaster[starknet.Proposal]{},
+		PrevoteBroadcaster:   &mockBroadcaster[starknet.Prevote]{},
+		PrecommitBroadcaster: &mockBroadcaster[starknet.Precommit]{},
 	}
 }
 
@@ -86,33 +87,33 @@ func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
 	return 1 * time.Millisecond
 }
 
-func getRandMessageHeader(random *rand.Rand) types.MessageHeader[felt.Felt] {
-	return types.MessageHeader[felt.Felt]{
+func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
+	return starknet.MessageHeader{
 		Height: types.Height(random.Uint32()),
 		Round:  types.Round(random.Int()),
-		Sender: felt.FromUint64(random.Uint64()),
+		Sender: starknet.Address(felt.FromUint64(random.Uint64())),
 	}
 }
 
-func getRandProposal(random *rand.Rand) types.Proposal[value, felt.Felt, felt.Felt] {
-	return types.Proposal[value, felt.Felt, felt.Felt]{
+func getRandProposal(random *rand.Rand) starknet.Proposal {
+	return starknet.Proposal{
 		MessageHeader: getRandMessageHeader(random),
-		Value:         utils.HeapPtr(value(random.Uint64())),
+		Value:         utils.HeapPtr(starknet.Value(random.Uint64())),
 		ValidRound:    types.Round(random.Int()),
 	}
 }
 
-func getRandPrevote(random *rand.Rand) types.Prevote[felt.Felt, felt.Felt] {
-	return types.Prevote[felt.Felt, felt.Felt]{
+func getRandPrevote(random *rand.Rand) starknet.Prevote {
+	return starknet.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
+		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
 	}
 }
 
-func getRandPrecommit(random *rand.Rand) types.Precommit[felt.Felt, felt.Felt] {
-	return types.Precommit[felt.Felt, felt.Felt]{
+func getRandPrecommit(random *rand.Rand) starknet.Precommit {
+	return starknet.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(felt.FromUint64(random.Uint64())),
+		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
 	}
 }
 
@@ -130,42 +131,42 @@ func getRandTimeout(random *rand.Rand, step types.Step) types.Timeout {
 func generateAndRegisterRandomActions(
 	random *rand.Rand,
 	expectedBroadcast *expectedBroadcast,
-) []tendermint.Action[value, felt.Felt, felt.Felt] {
-	actions := make([]tendermint.Action[value, felt.Felt, felt.Felt], actionCount)
+) []starknet.Action {
+	actions := make([]starknet.Action, actionCount)
 	for i := range actionCount {
 		switch random.Int() % 3 {
 		case 0:
 			proposal := getRandProposal(random)
 			expectedBroadcast.proposals = append(expectedBroadcast.proposals, proposal)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastProposal[value, felt.Felt, felt.Felt](proposal))
+			actions[i] = utils.HeapPtr(starknet.BroadcastProposal(proposal))
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrevote[felt.Felt, felt.Felt](prevote))
+			actions[i] = utils.HeapPtr(starknet.BroadcastPrevote(prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
-			actions[i] = utils.HeapPtr(tendermint.BroadcastPrecommit[felt.Felt, felt.Felt](precommit))
+			actions[i] = utils.HeapPtr(starknet.BroadcastPrecommit(precommit))
 		}
 	}
 	return actions
 }
 
-func toAction(timeout types.Timeout) tendermint.Action[value, felt.Felt, felt.Felt] {
-	return utils.HeapPtr(tendermint.ScheduleTimeout(timeout))
+func toAction(timeout types.Timeout) starknet.Action {
+	return utils.HeapPtr(types.ScheduleTimeout(timeout))
 }
 
-func increaseBroadcasterWaitGroup[M types.Message[value, felt.Felt, felt.Felt]](
+func increaseBroadcasterWaitGroup[M starknet.Message](
 	expectedBroadcast []M,
-	broadcaster p2p.Broadcaster[M, value, felt.Felt, felt.Felt],
+	broadcaster broadcaster[M],
 ) {
 	broadcaster.(*mockBroadcaster[M]).wg.Add(len(expectedBroadcast))
 }
 
-func waitAndAssertBroadcaster[M types.Message[value, felt.Felt, felt.Felt]](
+func waitAndAssertBroadcaster[M starknet.Message](
 	t *testing.T,
 	expectedBroadcast []M,
-	broadcaster p2p.Broadcaster[M, value, felt.Felt, felt.Felt],
+	broadcaster broadcaster[M],
 ) {
 	mockBroadcaster := broadcaster.(*mockBroadcaster[M])
 	mockBroadcaster.wg.Wait()
@@ -183,12 +184,13 @@ func TestDriver(t *testing.T) {
 
 	expectedBroadcast := &expectedBroadcast{}
 
-	proposalCh := make(chan types.Proposal[value, felt.Felt, felt.Felt])
-	prevoteCh := make(chan types.Prevote[felt.Felt, felt.Felt])
-	precommitCh := make(chan types.Precommit[felt.Felt, felt.Felt])
+	proposalCh := make(chan starknet.Proposal)
+	prevoteCh := make(chan starknet.Prevote)
+	precommitCh := make(chan starknet.Precommit)
 	broadcasters := mockBroadcasters()
 
-	stateMachine := mocks.NewMockStateMachine[value, felt.Felt, felt.Felt](ctrl)
+	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
+	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 
 	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)
