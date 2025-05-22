@@ -37,7 +37,7 @@ func TestNetwork(t *testing.T) {
 			{utils.Goerli2, "https://alpha4-2.starknet.io/feeder_gateway/", "https://alpha4-2.starknet.io/gateway/"},
 			{utils.Integration, "https://external.integration.starknet.io/feeder_gateway/", "https://external.integration.starknet.io/gateway/"},
 			{utils.Sepolia, "https://alpha-sepolia.starknet.io/feeder_gateway/", "https://alpha-sepolia.starknet.io/gateway/"},
-			{utils.SepoliaIntegration, "https://integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
+			{utils.SepoliaIntegration, "https://feeder.integration-sepolia.starknet.io/feeder_gateway/", "https://integration-sepolia.starknet.io/gateway/"},
 		}
 
 		for _, tc := range testCases {
