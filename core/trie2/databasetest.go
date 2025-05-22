@@ -27,17 +27,30 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 }
 
 func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	var (
+		node trienode.TrieNode
+		set  *trienode.NodeSet
+		ok   bool
+	)
 	for _, nodes := range n.nodes {
-		var (
-			node trienode.TrieNode
-			ok   bool
-		)
-		node, ok = nodes.OwnerSet.Nodes[path]
-		if !ok {
-			continue
+		if nodes.OwnerSet.Owner.IsZero() {
+			node, ok = nodes.OwnerSet.Nodes[path]
+			if !ok {
+				continue
+			}
+		} else {
+			set, ok = nodes.ChildSets[*owner]
+			if !ok {
+				continue
+			}
+			node, ok = set.Nodes[path]
+			if !ok {
+				continue
+			}
 		}
+		nHash := node.Hash()
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: *owner, path: path, hash: node.Hash()}
+			return nil, &MissingNodeError{owner: *owner, path: path, hash: nHash}
 		}
 		return node.Blob(), nil
 	}

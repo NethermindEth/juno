@@ -53,7 +53,7 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
-func (dl *diskLayer) node(id trieutils.TrieID, owner felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -75,7 +75,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner felt.Felt, path trieutils.P
 	}
 
 	// Finally, read from disk
-	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isClass)
+	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, &path, isClass)
 	if err != nil {
 		return nil, err
 	}

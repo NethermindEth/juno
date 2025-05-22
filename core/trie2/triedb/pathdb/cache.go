@@ -25,16 +25,16 @@ func newCleanCache(size int) *cleanCache {
 	return &cleanCache{cache: fastcache.New(size)}
 }
 
-func (c *cleanCache) putNode(owner felt.Felt, path trieutils.Path, isClass bool, blob []byte) {
-	c.cache.Set(nodeKey(owner, path, isClass), blob)
+func (c *cleanCache) putNode(owner *felt.Felt, path trieutils.Path, isClass bool, blob []byte) {
+	c.cache.Set(nodeKey(*owner, path, isClass), blob)
 }
 
-func (c *cleanCache) getNode(owner felt.Felt, path trieutils.Path, isClass bool) []byte {
-	return c.cache.Get(nil, nodeKey(owner, path, isClass))
+func (c *cleanCache) getNode(owner *felt.Felt, path trieutils.Path, isClass bool) []byte {
+	return c.cache.Get(nil, nodeKey(*owner, path, isClass))
 }
 
-func (c *cleanCache) deleteNode(owner felt.Felt, path trieutils.Path, isClass bool) {
-	c.cache.Del(nodeKey(owner, path, isClass))
+func (c *cleanCache) deleteNode(owner *felt.Felt, path trieutils.Path, isClass bool) {
+	c.cache.Del(nodeKey(*owner, path, isClass))
 }
 
 // key = owner (32 bytes) + path (20 bytes) + trie type (1 byte)

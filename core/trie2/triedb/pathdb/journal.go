@@ -268,8 +268,8 @@ func (d *Database) getStateRoot() felt.Felt {
 	encContractRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ContractTrieContract,
-		felt.Zero,
-		trieutils.Path{},
+		&felt.Zero,
+		&trieutils.Path{},
 		false,
 	)
 	if err != nil {
@@ -279,21 +279,21 @@ func (d *Database) getStateRoot() felt.Felt {
 	encStorageRoot, err := trieutils.GetNodeByPath(
 		d.disk,
 		db.ClassTrie,
-		felt.Zero,
-		trieutils.Path{},
+		&felt.Zero,
+		&trieutils.Path{},
 		false,
 	)
 	if err != nil {
 		return felt.Zero
 	}
 
-	contractRootNode, err := trienode.DecodeNode(encContractRoot, felt.Zero, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(encContractRoot, &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return felt.Zero
 	}
 	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
 
-	classRootNode, err := trienode.DecodeNode(encStorageRoot, felt.Zero, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(encStorageRoot, &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return felt.Zero
 	}

@@ -92,16 +92,7 @@ func (n *EdgeNode) String() string {
 		indent(child))
 }
 
-func (n HashNode) String() string {
-	return fmt.Sprintf("Hash(%s)", n.Felt.String())
-}
-
-func (n ValueNode) String() string {
-	return fmt.Sprintf("Value(%s)", n.Felt.String())
-}
-
-func (n *BinaryNode) Copy() *BinaryNode { cpy := *n; return &cpy }
-func (n *EdgeNode) Copy() *EdgeNode     { cpy := *n; return &cpy }
+func (n *EdgeNode) Copy() *EdgeNode { cpy := *n; return &cpy }
 
 func (n *EdgeNode) PathMatches(key *trieutils.Path) bool {
 	return n.Path.EqualMSBs(key)

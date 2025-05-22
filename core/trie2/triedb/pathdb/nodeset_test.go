@@ -61,25 +61,25 @@ func TestGetNode(t *testing.T) {
 	)
 
 	t.Run("class node", func(t *testing.T) {
-		node, ok := ns.node(felt.Zero, path1, true)
+		node, ok := ns.node(&felt.Zero, path1, true)
 		require.True(t, ok)
 		require.Equal(t, class, node.Blob())
 	})
 
 	t.Run("contract node", func(t *testing.T) {
-		node, ok := ns.node(felt.Zero, path2, false)
+		node, ok := ns.node(&felt.Zero, path2, false)
 		require.True(t, ok)
 		require.Equal(t, contract, node.Blob())
 	})
 
 	t.Run("storage node", func(t *testing.T) {
-		node, ok := ns.node(owner, path3, false)
+		node, ok := ns.node(&owner, path3, false)
 		require.True(t, ok)
 		require.Equal(t, storage, node.Blob())
 	})
 
 	t.Run("non-existent node", func(t *testing.T) {
-		_, ok := ns.node(felt.Zero, pathff, true)
+		_, ok := ns.node(&felt.Zero, pathff, true)
 		require.False(t, ok)
 	})
 }

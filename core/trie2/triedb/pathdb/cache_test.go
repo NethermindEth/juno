@@ -33,14 +33,14 @@ func TestPutAndGetNode(t *testing.T) {
 	blob := []byte("test data")
 
 	// Test storing and retrieving non-class node
-	cache.putNode(testOwner, testPath, false, blob)
-	retrieved := cache.getNode(testOwner, testPath, false)
+	cache.putNode(&testOwner, testPath, false, blob)
+	retrieved := cache.getNode(&testOwner, testPath, false)
 	assert.Equal(t, blob, retrieved)
 
 	// Test storing and retrieving class node
 	classBlob := []byte("class data")
-	cache.putNode(testOwner, testPath, true, classBlob)
-	classRetrieved := cache.getNode(testOwner, testPath, true)
+	cache.putNode(&testOwner, testPath, true, classBlob)
+	classRetrieved := cache.getNode(&testOwner, testPath, true)
 	assert.Equal(t, classBlob, classRetrieved)
 }
 
@@ -50,24 +50,24 @@ func TestCacheMisses(t *testing.T) {
 	path := *new(trieutils.Path).SetUint64(100, 1234567890)
 
 	// Test retrieving non-existent entry
-	result := cache.getNode(owner, path, false)
+	result := cache.getNode(&owner, path, false)
 	assert.Nil(t, result)
 
 	// Store data and test retrieving with different parameters
 	blob := []byte("test data")
-	cache.putNode(owner, path, false, blob)
+	cache.putNode(&owner, path, false, blob)
 
 	// Different owner
 	diffOwner := *new(felt.Felt).SetUint64(9876543210)
-	result = cache.getNode(diffOwner, testPath, false)
+	result = cache.getNode(&diffOwner, testPath, false)
 	assert.Nil(t, result)
 
 	// Different path
 	diffPath := *new(trieutils.Path).SetUint64(100, 9876543210)
-	result = cache.getNode(testOwner, diffPath, false)
+	result = cache.getNode(&testOwner, diffPath, false)
 	assert.Nil(t, result)
 
 	// Different isClass flag
-	result = cache.getNode(testOwner, testPath, true)
+	result = cache.getNode(&testOwner, testPath, true)
 	assert.Nil(t, result)
 }

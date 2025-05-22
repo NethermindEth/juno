@@ -68,17 +68,17 @@ func TestLayersNonExistNode(t *testing.T) {
 			invalidPath := generateRandomPath(r) // very unlikely we get the same path
 
 			// Invalid class node
-			blob, err := layer.node(trieutils.NewClassTrieID(validRoot), felt.Zero, invalidPath, true)
+			blob, err := layer.node(trieutils.NewClassTrieID(validRoot), &felt.Zero, invalidPath, true)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract node
-			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), felt.Zero, invalidPath, false)
+			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), &felt.Zero, invalidPath, false)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract storage node
-			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, validRoot), felt.Zero, invalidPath, false)
+			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, validRoot), &felt.Zero, invalidPath, false)
 			require.Error(t, err)
 			require.Nil(t, blob)
 		})
@@ -308,20 +308,21 @@ func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bo
 		node := generateRandomNode(r)
 
 		if classNodesOnly || r.Intn(2) == 0 {
-			ownerSet.Add(path, node)
+			ownerSet.Add(&path, node)
 		} else {
 			owner := owners[r.Intn(len(owners))]
 			childSet, exists := childSets[owner]
 			if !exists {
-				childSet = trienode.NewNodeSet(owner)
+				newChildSet := trienode.NewNodeSet(owner)
+				childSet = &newChildSet
 				childSets[owner] = childSet
 			}
-			childSet.Add(path, node)
+			childSet.Add(&path, node)
 		}
 	}
 
 	return &trienode.MergeNodeSet{
-		OwnerSet:  ownerSet,
+		OwnerSet:  &ownerSet,
 		ChildSets: childSets,
 	}
 }
@@ -402,7 +403,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.classPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, true)
-		actualBlob, actualErr := layer.node(trieutils.NewClassTrieID(root), felt.Zero, path, true)
+		actualBlob, actualErr := layer.node(trieutils.NewClassTrieID(root), &felt.Zero, path, true)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -426,7 +427,7 @@ func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error 
 func verifyContractNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, false)
-		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(root), felt.Zero, path, false)
+		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(root), &felt.Zero, path, false)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -449,7 +450,7 @@ func verifyContractStorageNodes(layer layer, root felt.Felt, tracker *layerTrack
 	for owner, paths := range tracker.contractStoragePaths {
 		for path := range paths {
 			expectedBlob, expectedErr := tracker.resolveNode(root, owner, path, false)
-			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(owner, root), owner, path, false)
+			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(owner, root), &owner, path, false)
 
 			if expectedErr != nil {
 				if actualErr == nil {
