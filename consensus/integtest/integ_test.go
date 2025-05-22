@@ -6,9 +6,9 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -39,11 +39,11 @@ func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 	}
 }
 
-func newDB(t *testing.T) *mocks.MockTendermintDB[value, felt.Felt, felt.Felt] {
+func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[value, felt.Felt, felt.Felt](ctrl)
+	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
 	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
@@ -90,7 +90,7 @@ func runTest(t *testing.T, cfg testConfig) {
 	// node index -> height
 	heights := make([]types.Height, honestNodeCount)
 	// height -> committed value
-	committedValues := make([]*value, cfg.targetHeight)
+	committedValues := make([]*starknet.Value, cfg.targetHeight)
 
 	finished := 0
 
