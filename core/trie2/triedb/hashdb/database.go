@@ -92,16 +92,6 @@ func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path,
 	return blob, nil
 }
 
-func (d *Database) remove(bucket db.Bucket, owner felt.Felt, path trieutils.Path, hash felt.Felt, blob []byte, isLeaf bool) error {
-	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-	if err := d.dirtyCache.Remove(key, bucketToTrieType(bucket), owner); err != nil {
-		d.log.Errorw("Failed to remove node from dirty cache", "error", err)
-		return err
-	}
-	d.dirtyCacheSize -= nodeSize(key, blob)
-	return nil
-}
-
 func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	key := id.Bucket().Key()
 	owner := id.Owner()
@@ -204,10 +194,8 @@ func (d *Database) Update(
 	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
 
 	for path, node := range classNodes {
-		if deletedNode, ok := node.(*trienode.DeletedNode); ok {
-			if err := d.remove(db.ClassTrie, felt.Zero, path, deletedNode.Hash(), deletedNode.Blob(), deletedNode.IsLeaf()); err != nil {
-				return err
-			}
+		if _, ok := node.(*trienode.DeletedNode); ok {
+			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
 			d.insert(db.ClassTrie, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		}
@@ -215,9 +203,7 @@ func (d *Database) Update(
 
 	for path, node := range contractNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			if err := d.remove(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
-				return err
-			}
+			continue
 		} else {
 			d.insert(db.ContractTrieContract, felt.Zero, path, node.Hash(), node.Blob(), node.IsLeaf())
 		}
@@ -226,9 +212,7 @@ func (d *Database) Update(
 	for owner, nodes := range contractStorageNodes {
 		for path, node := range nodes {
 			if _, ok := node.(*trienode.DeletedNode); ok {
-				if err := d.remove(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf()); err != nil {
-					return err
-				}
+				continue
 			} else {
 				d.insert(db.ContractTrieStorage, owner, path, node.Hash(), node.Blob(), node.IsLeaf())
 			}
