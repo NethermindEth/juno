@@ -29,7 +29,7 @@ func TestNodeSet(t *testing.T) {
 
 		// Add a deleted node
 		key2 := trieutils.NewBitArray(8, 0xAA)
-		node2 := NewDeleted(false)
+		node2 := NewDeleted(false, nil)
 		ns.Add(&key2, node2)
 		require.Equal(t, 1, ns.updates)
 		require.Equal(t, 1, ns.deletes)
@@ -50,7 +50,7 @@ func TestNodeSet(t *testing.T) {
 
 		// Add nodes to second set
 		key2 := trieutils.NewBitArray(8, 0xAA)
-		node2 := NewDeleted(false)
+		node2 := NewDeleted(false, nil)
 		ns2.Add(&key2, node2)
 
 		// Merge sets

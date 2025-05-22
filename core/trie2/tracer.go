@@ -2,18 +2,20 @@ package trie2
 
 import (
 	"maps"
+
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // Tracks the changes to the trie, so that we know which node needs to be updated or deleted in the database
 type nodeTracer struct {
 	inserts map[Path]struct{}
-	deletes map[Path]struct{}
+	deletes map[Path]*felt.Felt // Track both path and hash of deleted nodes
 }
 
 func newTracer() nodeTracer {
 	return nodeTracer{
 		inserts: make(map[Path]struct{}),
-		deletes: make(map[Path]struct{}),
+		deletes: make(map[Path]*felt.Felt),
 	}
 }
 
@@ -30,13 +32,13 @@ func (t *nodeTracer) onInsert(key *Path) {
 
 // Tracks the newly deleted trie node. If the trie node was previously inserted, remove it from the insertion set
 // as it means that the node will not be inserted in the database
-func (t *nodeTracer) onDelete(key *Path) {
+func (t *nodeTracer) onDelete(key *Path, hash *felt.Felt) {
 	k := *key
 	if _, present := t.inserts[k]; present {
 		delete(t.inserts, k)
 		return
 	}
-	t.deletes[k] = struct{}{}
+	t.deletes[k] = hash
 }
 
 func (t *nodeTracer) copy() nodeTracer {
@@ -52,4 +54,8 @@ func (t *nodeTracer) deletedNodes() []Path {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (t *nodeTracer) getDeletedHash(path Path) *felt.Felt {
+	return t.deletes[path]
 }

@@ -267,7 +267,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 
 		deletedNodes := map[trieutils.Path]trienode.TrieNode{
-			leaf1Path: trienode.NewDeletedWithHash(true, leaf1Hash),
+			leaf1Path: trienode.NewDeleted(true, &leaf1Hash),
 		}
 
 		err = database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(deletedNodes), createContractMergeNodeSet(nil))

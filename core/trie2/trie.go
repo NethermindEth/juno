@@ -169,7 +169,8 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 		// case (b)
 		nodes := trienode.NewNodeSet(t.owner)
 		for _, path := range paths {
-			nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
+			hash := t.nodeTracer.getDeletedHash(path)
+			nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height, hash))
 		}
 		return felt.Zero, &nodes
 	}
@@ -183,7 +184,8 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 
 	nodes := trienode.NewNodeSet(t.owner)
 	for _, path := range t.nodeTracer.deletedNodes() {
-		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
+		hash := t.nodeTracer.getDeletedHash(path)
+		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height, hash))
 	}
 
 	t.root = newCollector(&nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
@@ -397,8 +399,9 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 		}
 		// If the whole key matches, remove the entire edge node and its child
 		if match.Len() == key.Len() {
-			t.nodeTracer.onDelete(prefix)                        // delete edge node
-			t.nodeTracer.onDelete(new(Path).Append(prefix, key)) // delete value node
+			hash := n.Hash(t.hashFn)
+			t.nodeTracer.onDelete(prefix, &hash)                      // delete edge node
+			t.nodeTracer.onDelete(new(Path).Append(prefix, key), nil) // delete value node
 			return nil, true, nil
 		}
 
@@ -411,12 +414,17 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 		}
 		switch child := child.(type) {
 		case *trienode.EdgeNode:
-			t.nodeTracer.onDelete(new(Path).Append(prefix, n.Path))
+			hash := n.Hash(t.hashFn)
+			t.nodeTracer.onDelete(new(Path).Append(prefix, n.Path), &hash)
 			return &trienode.EdgeNode{Path: new(Path).Append(n.Path, child.Path), Child: child.Child, Flags: trienode.NewNodeFlag()}, true, nil
 		default:
 			return &trienode.EdgeNode{Path: new(Path).Set(n.Path), Child: child, Flags: trienode.NewNodeFlag()}, true, nil
 		}
 	case *trienode.BinaryNode:
+		// Calculate hash before modifying the node
+		hash := n.Hash(t.hashFn)
+		t.nodeTracer.onDelete(prefix, &hash)
+
 		bit := key.MSB()
 		keyPrefix := new(Path).MSBs(key, 1)
 		newNode, dirty, err := t.delete(n.Children[bit], new(Path).Append(prefix, keyPrefix), key.LSBs(key, 1))
@@ -449,7 +457,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 		}
 
 		if cn, ok := n.Children[other].(*trienode.EdgeNode); ok {
-			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix))
+			t.nodeTracer.onDelete(new(Path).Append(prefix, bitPrefix), nil)
 			return &trienode.EdgeNode{
 				Path:  new(Path).Append(bitPrefix, cn.Path),
 				Child: cn.Child,
@@ -461,7 +469,7 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 		// containing the other child as the child
 		return &trienode.EdgeNode{Path: bitPrefix, Child: n.Children[other], Flags: trienode.NewNodeFlag()}, true, nil
 	case *trienode.ValueNode:
-		t.nodeTracer.onDelete(key)
+		t.nodeTracer.onDelete(key, nil)
 		return nil, true, nil
 	case *trienode.HashNode:
 		child, err := t.resolveNode(n, *prefix)
