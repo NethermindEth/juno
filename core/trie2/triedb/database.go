@@ -46,6 +46,8 @@ func (d *Database) Update(
 	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	switch td := d.triedb.(type) {
+  case *pathdb.Database:
+		return td.Update(root, parent, blockNum, classNodes, contractNodes)
 	case *hashdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	default:

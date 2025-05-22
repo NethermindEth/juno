@@ -66,7 +66,7 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 		return tr, nil
 	}
 
-	root, err := tr.resolveNodeWithHash(nil, Path{}, rootHash) // TODO: handle hash-based, need to somehow retrieve the root hash
+	root, err := tr.resolveNodeWithHash(nil, Path{}, rootHash
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}

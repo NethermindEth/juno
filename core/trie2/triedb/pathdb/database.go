@@ -10,11 +10,10 @@ import (
 
 var _ database.TrieDB = (*Database)(nil)
 
-type Config struct{} // TODO(weiihann): add the config for pathdb and hashdb here
+type Config struct{}
 
 type Database struct {
 	disk db.KeyValueStore
-	// TODO(weiihann): add the cache stuff here
 	config *Config
 }
 
