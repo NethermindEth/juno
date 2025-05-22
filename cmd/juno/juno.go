@@ -37,104 +37,108 @@ Juno is a Go implementation of a Starknet full-node client created by Nethermind
 `
 
 const (
-	configF                 = "config"
-	logLevelF               = "log-level"
-	httpF                   = "http"
-	httpHostF               = "http-host"
-	httpPortF               = "http-port"
-	wsF                     = "ws"
-	wsHostF                 = "ws-host"
-	wsPortF                 = "ws-port"
-	dbPathF                 = "db-path"
-	networkF                = "network"
-	ethNodeF                = "eth-node"
-	disableL1VerificationF  = "disable-l1-verification"
-	pprofF                  = "pprof"
-	pprofHostF              = "pprof-host"
-	pprofPortF              = "pprof-port"
-	colourF                 = "colour"
-	pendingPollIntervalF    = "pending-poll-interval"
-	p2pF                    = "p2p"
-	p2pAddrF                = "p2p-addr"
-	p2pPublicAddrF          = "p2p-public-addr"
-	p2pPeersF               = "p2p-peers"
-	p2pFeederNodeF          = "p2p-feeder-node"
-	p2pPrivateKey           = "p2p-private-key"
-	metricsF                = "metrics"
-	metricsHostF            = "metrics-host"
-	metricsPortF            = "metrics-port"
-	grpcF                   = "grpc"
-	grpcHostF               = "grpc-host"
-	grpcPortF               = "grpc-port"
-	maxVMsF                 = "max-vms"
-	maxVMQueueF             = "max-vm-queue"
-	remoteDBF               = "remote-db"
-	rpcMaxBlockScanF        = "rpc-max-block-scan"
-	dbCacheSizeF            = "db-cache-size"
-	dbMaxHandlesF           = "db-max-handles"
-	gwAPIKeyF               = "gw-api-key" //nolint: gosec
-	gwTimeoutsF             = "gw-timeouts"
-	cnNameF                 = "cn-name"
-	cnFeederURLF            = "cn-feeder-url"
-	cnGatewayURLF           = "cn-gateway-url"
-	cnL1ChainIDF            = "cn-l1-chain-id"
-	cnL2ChainIDF            = "cn-l2-chain-id"
-	cnCoreContractAddressF  = "cn-core-contract-address"
-	cnUnverifiableRangeF    = "cn-unverifiable-range"
-	callMaxStepsF           = "rpc-call-max-steps"
-	corsEnableF             = "rpc-cors-enable"
-	versionedConstantsFileF = "versioned-constants-file"
-	pluginPathF             = "plugin-path"
-	seqEnF                  = "seq-enable"
-	seqBlockTimeF           = "seq-block-time"
-	seqGenesisFileF         = "seq-genesis-file"
-	seqDisableFeesF         = "seq-disable-fees"
-	httpUpdateHostF         = "http-update-host"
-	httpUpdatePortF         = "http-update-port"
+	configF                             = "config"
+	logLevelF                           = "log-level"
+	httpF                               = "http"
+	httpHostF                           = "http-host"
+	httpPortF                           = "http-port"
+	wsF                                 = "ws"
+	wsHostF                             = "ws-host"
+	wsPortF                             = "ws-port"
+	dbPathF                             = "db-path"
+	networkF                            = "network"
+	ethNodeF                            = "eth-node"
+	disableL1VerificationF              = "disable-l1-verification"
+	pprofF                              = "pprof"
+	pprofHostF                          = "pprof-host"
+	pprofPortF                          = "pprof-port"
+	colourF                             = "colour"
+	pendingPollIntervalF                = "pending-poll-interval"
+	p2pF                                = "p2p"
+	p2pAddrF                            = "p2p-addr"
+	p2pPublicAddrF                      = "p2p-public-addr"
+	p2pPeersF                           = "p2p-peers"
+	p2pFeederNodeF                      = "p2p-feeder-node"
+	p2pPrivateKey                       = "p2p-private-key"
+	metricsF                            = "metrics"
+	metricsHostF                        = "metrics-host"
+	metricsPortF                        = "metrics-port"
+	grpcF                               = "grpc"
+	grpcHostF                           = "grpc-host"
+	grpcPortF                           = "grpc-port"
+	maxVMsF                             = "max-vms"
+	maxVMQueueF                         = "max-vm-queue"
+	remoteDBF                           = "remote-db"
+	rpcMaxBlockScanF                    = "rpc-max-block-scan"
+	dbCacheSizeF                        = "db-cache-size"
+	dbMaxHandlesF                       = "db-max-handles"
+	gwAPIKeyF                           = "gw-api-key" //nolint: gosec
+	gwTimeoutsF                         = "gw-timeouts"
+	cnNameF                             = "cn-name"
+	cnFeederURLF                        = "cn-feeder-url"
+	cnGatewayURLF                       = "cn-gateway-url"
+	cnL1ChainIDF                        = "cn-l1-chain-id"
+	cnL2ChainIDF                        = "cn-l2-chain-id"
+	cnCoreContractAddressF              = "cn-core-contract-address"
+	cnUnverifiableRangeF                = "cn-unverifiable-range"
+	callMaxStepsF                       = "rpc-call-max-steps"
+	corsEnableF                         = "rpc-cors-enable"
+	versionedConstantsFileF             = "versioned-constants-file"
+	pluginPathF                         = "plugin-path"
+	seqEnF                              = "seq-enable"
+	seqBlockTimeF                       = "seq-block-time"
+	seqGenesisFileF                     = "seq-genesis-file"
+	seqDisableFeesF                     = "seq-disable-fees"
+	httpUpdateHostF                     = "http-update-host"
+	httpUpdatePortF                     = "http-update-port"
+	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
+	submittedTransactionsCacheEntryTTLF = "submitted-transactions-cache-entry-ttl"
 
-	defaultConfig                   = ""
-	defaultHost                     = "localhost"
-	defaultHTTP                     = false
-	defaultHTTPPort                 = 6060
-	defaultWS                       = false
-	defaultWSPort                   = 6061
-	defaultEthNode                  = ""
-	defaultDisableL1Verification    = false
-	defaultPprof                    = false
-	defaultPprofPort                = 6062
-	defaultColour                   = true
-	defaultPendingPollInterval      = 5 * time.Second
-	defaultP2p                      = false
-	defaultP2pAddr                  = ""
-	defaultP2pPublicAddr            = ""
-	defaultP2pPeers                 = ""
-	defaultP2pFeederNode            = false
-	defaultP2pPrivateKey            = ""
-	defaultMetrics                  = false
-	defaultMetricsPort              = 9090
-	defaultGRPC                     = false
-	defaultGRPCPort                 = 6064
-	defaultRemoteDB                 = ""
-	defaultRPCMaxBlockScan          = math.MaxUint
-	defaultCacheSizeMb              = 1024
-	defaultMaxHandles               = 1024
-	defaultGwAPIKey                 = ""
-	defaultCNName                   = ""
-	defaultCNFeederURL              = ""
-	defaultCNGatewayURL             = ""
-	defaultCNL1ChainID              = ""
-	defaultCNL2ChainID              = ""
-	defaultCNCoreContractAddressStr = ""
-	defaultCallMaxSteps             = 4_000_000
-	defaultGwTimeout                = "5s"
-	defaultCorsEnable               = false
-	defaultVersionedConstantsFile   = ""
-	defaultPluginPath               = ""
-	defaultSeqEn                    = false
-	defaultSeqBlockTime             = 60
-	defaultSeqGenesisFile           = ""
-	defaultSeqDisableFees           = false
-	defaultHTTPUpdatePort           = 0
+	defaultConfig                             = ""
+	defaultHost                               = "localhost"
+	defaultHTTP                               = false
+	defaultHTTPPort                           = 6060
+	defaultWS                                 = false
+	defaultWSPort                             = 6061
+	defaultEthNode                            = ""
+	defaultDisableL1Verification              = false
+	defaultPprof                              = false
+	defaultPprofPort                          = 6062
+	defaultColour                             = true
+	defaultPendingPollInterval                = 5 * time.Second
+	defaultP2p                                = false
+	defaultP2pAddr                            = ""
+	defaultP2pPublicAddr                      = ""
+	defaultP2pPeers                           = ""
+	defaultP2pFeederNode                      = false
+	defaultP2pPrivateKey                      = ""
+	defaultMetrics                            = false
+	defaultMetricsPort                        = 9090
+	defaultGRPC                               = false
+	defaultGRPCPort                           = 6064
+	defaultRemoteDB                           = ""
+	defaultRPCMaxBlockScan                    = math.MaxUint
+	defaultCacheSizeMb                        = 1024
+	defaultMaxHandles                         = 1024
+	defaultGwAPIKey                           = ""
+	defaultCNName                             = ""
+	defaultCNFeederURL                        = ""
+	defaultCNGatewayURL                       = ""
+	defaultCNL1ChainID                        = ""
+	defaultCNL2ChainID                        = ""
+	defaultCNCoreContractAddressStr           = ""
+	defaultCallMaxSteps                       = 4_000_000
+	defaultGwTimeout                          = "5s"
+	defaultCorsEnable                         = false
+	defaultVersionedConstantsFile             = ""
+	defaultPluginPath                         = ""
+	defaultSeqEn                              = false
+	defaultSeqBlockTime                       = 60
+	defaultSeqGenesisFile                     = ""
+	defaultSeqDisableFees                     = false
+	defaultHTTPUpdatePort                     = 0
+	defaultSubmittedTransactionsCacheSize     = 1024
+	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -186,16 +190,18 @@ const (
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n" +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment."
-	callMaxStepsUsage           = "Maximum number of steps to be executed in starknet_call requests"
-	corsEnableUsage             = "Enable CORS on RPC endpoints"
-	versionedConstantsFileUsage = "Use custom versioned constants from provided file"
-	pluginPathUsage             = "Path to the plugin .so file"
-	seqEnUsage                  = "Enables sequencer mode of operation"
-	seqBlockTimeUsage           = "Time to build a block, in seconds"
-	seqGenesisFileUsage         = "Path to the genesis file"
-	seqDisableFeesUsage         = "Skip charge fee for sequencer execution"
-	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
-	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
+	callMaxStepsUsage                  = "Maximum number of steps to be executed in starknet_call requests"
+	corsEnableUsage                    = "Enable CORS on RPC endpoints"
+	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
+	pluginPathUsage                    = "Path to the plugin .so file"
+	seqEnUsage                         = "Enables sequencer mode of operation"
+	seqBlockTimeUsage                  = "Time to build a block, in seconds"
+	seqGenesisFileUsage                = "Path to the genesis file"
+	seqDisableFeesUsage                = "Skip charge fee for sequencer execution"
+	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
+	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
+	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
+	submittedTransactionsCacheEntryTTL = "Time-to-live for each entry in the submitted transactions cache"
 )
 
 var Version string
@@ -395,6 +401,12 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
+	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)
+	junoCmd.Flags().Duration(
+		submittedTransactionsCacheEntryTTLF,
+		defaultSubmittedTransactionsCacheEntryTTL,
+		submittedTransactionsCacheEntryTTL,
+	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
