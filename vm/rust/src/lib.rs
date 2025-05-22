@@ -46,7 +46,7 @@ use starknet_api::{
     executable_transaction::AccountTransaction,
     execution_resources::GasVector,
     transaction::{
-        fields::{Calldata, Fee, GasVectorComputationMode},
+        fields::{Calldata, Fee, GasVectorComputationMode, Tip},
         DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
         Transaction as StarknetApiTransaction, TransactionHash,
     },
@@ -461,7 +461,7 @@ pub extern "C" fn cairoVMExecute(
                         &fee_type,
                         match txn {
                             Transaction::Account(txn) => txn.tip(),
-                            Transaction::L1Handler(_) => starknet_api::transaction::fields::Tip(0),
+                            Transaction::L1Handler(_) => Tip(0),
                         },
                     )
                 }
