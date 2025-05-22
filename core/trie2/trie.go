@@ -417,9 +417,6 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 			return &trienode.EdgeNode{Path: new(Path).Set(n.Path), Child: child, Flags: trienode.NewNodeFlag()}, true, nil
 		}
 	case *trienode.BinaryNode:
-		// Calculate hash before modifying the node
-		t.nodeTracer.onDelete(prefix)
-
 		bit := key.MSB()
 		keyPrefix := new(Path).MSBs(key, 1)
 		newNode, dirty, err := t.delete(n.Children[bit], new(Path).Append(prefix, keyPrefix), key.LSBs(key, 1))
@@ -484,34 +481,34 @@ func (t *Trie) delete(n trienode.Node, prefix, key *Path) (trienode.Node, bool, 
 
 // Resolves the node at the given path from the database
 func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, error) {
-	var hash *felt.Felt
+	var hash felt.Felt
 	if hn != nil {
-		hash = (*felt.Felt)(hn)
+		hash = (felt.Felt)(*hn)
 	}
 
-	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
 }
 
 // Resolves the node at the given path from the database
 func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *felt.Felt) (trienode.Node, error) {
-	var hash *felt.Felt
+	var hash felt.Felt
 	if nodeHash != nil {
-		hash = nodeHash
+		hash = *nodeHash
 	} else if hn != nil {
-		hash = (*felt.Felt)(hn)
+		hash = (felt.Felt)(*hn)
 	}
 
-	blob, err := t.nodeReader.node(path, hash, path.Len() == t.height)
+	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
 	if err != nil {
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node

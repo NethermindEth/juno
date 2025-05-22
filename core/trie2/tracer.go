@@ -7,7 +7,7 @@ import (
 // Tracks the changes to the trie, so that we know which node needs to be updated or deleted in the database
 type nodeTracer struct {
 	inserts map[Path]struct{}
-	deletes map[Path]struct{} // Track both path and hash of deleted nodes
+	deletes map[Path]struct{}
 }
 
 func newTracer() nodeTracer {
