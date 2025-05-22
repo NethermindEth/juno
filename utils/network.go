@@ -110,7 +110,7 @@ var (
 	}
 	SepoliaIntegration = Network{
 		Name:       "sepolia-integration",
-		FeederURL:  "https://integration-sepolia.starknet.io/feeder_gateway/",
+		FeederURL:  "https://feeder.integration-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://integration-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
 		//nolint:mnd
