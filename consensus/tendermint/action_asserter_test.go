@@ -11,12 +11,10 @@ import (
 )
 
 // actionAsserter is a helper struct to assert the actions of the state machine.
-// inputMessage is the message that was processed to produce the actions.
 // actions is the list of actions that were produced by the state machine after processing the input message.
 type actionAsserter[T any] struct {
 	testing      *testing.T
 	stateMachine *testStateMachine
-	inputMessage T
 	actions      []starknet.Action
 }
 
