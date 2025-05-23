@@ -59,26 +59,26 @@ func TestLayersNonExistNode(t *testing.T) {
 
 			// Invalid root
 			invalidRoot := *new(felt.Felt).SetUint64(uint64(tc.numDiffs + 1))
-			layer := tree.get(invalidRoot)
+			layer := tree.get(&invalidRoot)
 			require.Nil(t, layer)
 
 			validRoot := *new(felt.Felt).SetUint64(uint64(tc.numDiffs))
-			layer = tree.get(validRoot)
+			layer = tree.get(&validRoot)
 			require.NotNil(t, layer)
 			invalidPath := generateRandomPath(r) // very unlikely we get the same path
 
 			// Invalid class node
-			blob, err := layer.node(trieutils.NewClassTrieID(validRoot), &felt.Zero, invalidPath, true)
+			blob, err := layer.node(trieutils.NewClassTrieID(validRoot), &felt.Zero, &invalidPath, true)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract node
-			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), &felt.Zero, invalidPath, false)
+			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), &felt.Zero, &invalidPath, false)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract storage node
-			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, validRoot), &felt.Zero, invalidPath, false)
+			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, validRoot), &felt.Zero, &invalidPath, false)
 			require.Error(t, err)
 			require.Nil(t, blob)
 		})
@@ -103,7 +103,7 @@ func TestLayersCap(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tree, tracker := setupLayerTree(numDiffs, nodesPerLayer)
 			root := *new(felt.Felt).SetUint64(uint64(numDiffs))
-			require.NoError(t, tree.cap(root, tc.capLayers))
+			require.NoError(t, tree.cap(&root, tc.capLayers))
 			err := verifyLayer(tree, root, tracker)
 			require.NoError(t, err)
 
@@ -112,7 +112,7 @@ func TestLayersCap(t *testing.T) {
 			exp := max(0, numDiffs-tc.capLayers)
 			expDiskHash := *new(felt.Felt).SetUint64(uint64(exp))
 			actualDiskHash := tree.diskLayer().rootHash()
-			require.Equal(t, expDiskHash, actualDiskHash, fmt.Sprintf("expected disk hash %s, got %s", expDiskHash.String(), actualDiskHash.String()))
+			require.Equal(t, &expDiskHash, actualDiskHash, fmt.Sprintf("expected disk hash %s, got %s", expDiskHash.String(), actualDiskHash.String()))
 		})
 	}
 }
@@ -355,7 +355,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 	flatContract, flatStorage := contractNodes.Flatten()
 
 	diskLayer := newDiskLayer(
-		parent,
+		&parent,
 		0,
 		pathDB,
 		nil,
@@ -385,7 +385,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 		tracker.trackNodes(layerRoot, parent, flatClass, flatContract, flatStorage)
 
 		// Add layer to tree
-		err := tree.add(layerRoot, parent, uint64(i), classNodes, contractNodes)
+		err := tree.add(&layerRoot, &parent, uint64(i), classNodes, contractNodes)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to add layer %d: %v", i, err))
 		}
@@ -403,7 +403,7 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.classPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, true)
-		actualBlob, actualErr := layer.node(trieutils.NewClassTrieID(root), &felt.Zero, path, true)
+		actualBlob, actualErr := layer.node(trieutils.NewClassTrieID(root), &felt.Zero, &path, true)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -427,7 +427,7 @@ func verifyClassNodes(layer layer, root felt.Felt, tracker *layerTracker) error 
 func verifyContractNodes(layer layer, root felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, felt.Zero, path, false)
-		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(root), &felt.Zero, path, false)
+		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(root), &felt.Zero, &path, false)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -450,7 +450,7 @@ func verifyContractStorageNodes(layer layer, root felt.Felt, tracker *layerTrack
 	for owner, paths := range tracker.contractStoragePaths {
 		for path := range paths {
 			expectedBlob, expectedErr := tracker.resolveNode(root, owner, path, false)
-			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(owner, root), &owner, path, false)
+			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(owner, root), &owner, &path, false)
 
 			if expectedErr != nil {
 				if actualErr == nil {
@@ -474,7 +474,7 @@ func verifyContractStorageNodes(layer layer, root felt.Felt, tracker *layerTrack
 
 // verifyLayer verifies all nodes in a single layer against expected values
 func verifyLayer(tree *layerTree, root felt.Felt, tracker *layerTracker) error {
-	layer := tree.get(root)
+	layer := tree.get(&root)
 	if layer == nil {
 		return fmt.Errorf("layer not found for root %s", root.String())
 	}

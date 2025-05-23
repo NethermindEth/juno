@@ -34,7 +34,7 @@ func TestCommit(t *testing.T) {
 				root := *new(felt.Felt).SetUint64(uint64(i))
 				classNodes := createTestNodeSet(numNodes, i, tc.numDiffs, true)
 				contractNodes := createTestNodeSet(numNodes, i, tc.numDiffs, false)
-				require.NoError(t, pathDB.Update(root, parent, uint64(i), classNodes, contractNodes))
+				require.NoError(t, pathDB.Update(&root, &parent, uint64(i), classNodes, contractNodes))
 
 				flatClass, _ := classNodes.Flatten()
 				flatContract, flatStorage := contractNodes.Flatten()
@@ -43,10 +43,10 @@ func TestCommit(t *testing.T) {
 				parent = root
 			}
 
-			require.NoError(t, pathDB.Commit(parent))
+			require.NoError(t, pathDB.Commit(&parent))
 
 			require.Equal(t, 1, pathDB.tree.len())
-			require.Equal(t, parent, pathDB.tree.diskLayer().rootHash())
+			require.Equal(t, &parent, pathDB.tree.diskLayer().rootHash())
 
 			require.NoError(t, verifyLayer(pathDB.tree, parent, tracker))
 		})

@@ -22,12 +22,13 @@ type diskLayer struct {
 	lock    sync.RWMutex
 }
 
-func newDiskLayer(root felt.Felt, id uint64, db *Database, cache *cleanCache, buffer *buffer) *diskLayer {
+func newDiskLayer(root *felt.Felt, id uint64, db *Database, cache *cleanCache, buffer *buffer) *diskLayer {
 	if cache == nil {
-		cache = newCleanCache(db.config.CleanCacheSize)
+		newCleanCache := newCleanCache(db.config.CleanCacheSize)
+		cache = &newCleanCache
 	}
 	return &diskLayer{
-		root:    root,
+		root:    *root,
 		id:      id,
 		db:      db,
 		cleans:  cache,
@@ -39,8 +40,8 @@ func (dl *diskLayer) parentLayer() layer {
 	return nil
 }
 
-func (dl *diskLayer) rootHash() felt.Felt {
-	return dl.root
+func (dl *diskLayer) rootHash() *felt.Felt {
+	return &dl.root
 }
 
 func (dl *diskLayer) stateID() uint64 {
@@ -53,7 +54,7 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
-func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -75,7 +76,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.
 	}
 
 	// Finally, read from disk
-	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, &path, isClass)
+	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isClass)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.
 	return blob, nil
 }
 
-func (dl *diskLayer) update(root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
+func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
@@ -95,11 +96,12 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	dl.stale = true
 
 	if dl.id == 0 {
-		if err := trieutils.WriteStateID(dl.db.disk, dl.root, 0); err != nil {
+		if err := trieutils.WriteStateID(dl.db.disk, &dl.root, 0); err != nil {
 			return nil, err
 		}
 	}
-	if err := trieutils.WriteStateID(dl.db.disk, bottom.rootHash(), bottom.stateID()); err != nil {
+	bottomRootHash := bottom.rootHash()
+	if err := trieutils.WriteStateID(dl.db.disk, bottomRootHash, bottom.stateID()); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +111,8 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 			return nil, err
 		}
 	}
-	newDl := newDiskLayer(bottom.rootHash(), bottom.stateID(), dl.db, dl.cleans, combined)
+	bottomRootHash = bottom.rootHash()
+	newDl := newDiskLayer(bottomRootHash, bottom.stateID(), dl.db, dl.cleans, combined)
 	return newDl, nil
 }
 

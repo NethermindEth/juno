@@ -44,11 +44,12 @@ func (d *Database) Update(
 	root,
 	parent felt.Felt,
 	blockNum uint64,
-	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+	mergeClassNodes,
+	mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
-		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
+		return td.Update(&root, &parent, blockNum, mergeClassNodes, mergeContractNodes)
 	// TODO: handle hashdb
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)

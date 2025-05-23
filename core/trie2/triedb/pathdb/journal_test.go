@@ -28,7 +28,7 @@ func TestJournal(t *testing.T) {
 
 			// Use the root from the disk layer
 			root := *new(felt.Felt).SetUint64(uint64(tc.numDiffs))
-			require.NoError(t, db.Journal(root))
+			require.NoError(t, db.Journal(&root))
 
 			_, err = New(testDB, nil)
 			require.NoError(t, err)
@@ -50,5 +50,5 @@ func TestMissingJournal(t *testing.T) {
 	require.Equal(t, 1, db.tree.len())
 
 	root := *new(felt.Felt).SetUint64(uint64(1))
-	require.Error(t, db.Journal(root))
+	require.Error(t, db.Journal(&root))
 }

@@ -132,7 +132,7 @@ func (dl *diskLayer) journal(w io.Writer) error {
 	return err
 }
 
-func (d *Database) Journal(root felt.Felt) error {
+func (d *Database) Journal(root *felt.Felt) error {
 	l := d.tree.get(root)
 	if l == nil {
 		return fmt.Errorf("layer %v not found", root)
@@ -175,7 +175,7 @@ func (d *Database) loadJournal() (layer, error) {
 		}
 
 		diskRoot := d.getStateRoot()
-		disk := newDiskLayer(diskRoot, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
+		disk := newDiskLayer(&diskRoot, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
 		return disk, nil
 	}
 
@@ -248,7 +248,7 @@ func (d *Database) loadLayers(enc []byte) (layer, error) {
 				return nil, err
 			}
 			head = newDiskLayer(
-				diskJn.Root,
+				&diskJn.Root,
 				diskJn.ID,
 				d,
 				nil,

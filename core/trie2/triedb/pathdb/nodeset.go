@@ -39,16 +39,16 @@ func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contra
 	return ns
 }
 
-func (s *nodeSet) node(owner *felt.Felt, path trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
+func (s *nodeSet) node(owner *felt.Felt, path *trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
 	// class trie nodes
 	if isClass {
-		node, ok := s.classNodes[path]
+		node, ok := s.classNodes[*path]
 		return node, ok
 	}
 
 	// contract trie nodes
 	if owner.IsZero() {
-		node, ok := s.contractNodes[path]
+		node, ok := s.contractNodes[*path]
 		return node, ok
 	}
 
@@ -58,7 +58,7 @@ func (s *nodeSet) node(owner *felt.Felt, path trieutils.Path, isClass bool) (tri
 		return nil, false
 	}
 
-	node, ok := nodes[path]
+	node, ok := nodes[*path]
 	return node, ok
 }
 
@@ -194,7 +194,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.classNodes[path] = decodeJournalNode(path, n.Blob, n.Hash)
+				s.classNodes[path] = decodeJournalNode(&path, n.Blob, &n.Hash)
 			}
 		case trieutils.Contract:
 			for _, n := range entry.Nodes {
@@ -202,7 +202,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.contractNodes[path] = decodeJournalNode(path, n.Blob, n.Hash)
+				s.contractNodes[path] = decodeJournalNode(&path, n.Blob, &n.Hash)
 			}
 		case trieutils.ContractStorage:
 			s.contractStorageNodes[entry.Owner] = make(map[trieutils.Path]trienode.TrieNode)
@@ -211,7 +211,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(path, n.Blob, n.Hash)
+				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(&path, n.Blob, &n.Hash)
 			}
 		}
 	}
@@ -288,12 +288,12 @@ func writeNodes(
 			if err := trieutils.DeleteNodeByPath(w, db.ClassTrie, &felt.Zero, &path, n.IsLeaf()); err != nil {
 				return err
 			}
-			cleans.deleteNode(&felt.Zero, path, true)
+			cleans.deleteNode(&felt.Zero, &path, true)
 		} else {
 			if err := trieutils.WriteNodeByPath(w, db.ClassTrie, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
 				return err
 			}
-			cleans.putNode(&felt.Zero, path, true, n.Blob())
+			cleans.putNode(&felt.Zero, &path, true, n.Blob())
 		}
 	}
 
@@ -302,12 +302,12 @@ func writeNodes(
 			if err := trieutils.DeleteNodeByPath(w, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf()); err != nil {
 				return err
 			}
-			cleans.deleteNode(&felt.Zero, path, false)
+			cleans.deleteNode(&felt.Zero, &path, false)
 		} else {
 			if err := trieutils.WriteNodeByPath(w, db.ContractTrieContract, &felt.Zero, &path, n.IsLeaf(), n.Blob()); err != nil {
 				return err
 			}
-			cleans.putNode(&felt.Zero, path, false, n.Blob())
+			cleans.putNode(&felt.Zero, &path, false, n.Blob())
 		}
 	}
 
@@ -317,12 +317,12 @@ func writeNodes(
 				if err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
 					return err
 				}
-				cleans.deleteNode(&owner, path, false)
+				cleans.deleteNode(&owner, &path, false)
 			} else {
 				if err := trieutils.WriteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf(), n.Blob()); err != nil {
 					return err
 				}
-				cleans.putNode(&owner, path, false, n.Blob())
+				cleans.putNode(&owner, &path, false, n.Blob())
 			}
 		}
 	}
@@ -330,17 +330,17 @@ func writeNodes(
 	return nil
 }
 
-func decodeJournalNode(path trieutils.Path, blob []byte, hash felt.Felt) trienode.TrieNode {
+func decodeJournalNode(path *trieutils.Path, blob []byte, hash *felt.Felt) trienode.TrieNode {
 	// Handle leaf
 	if path.Len() == contractClassTrieHeight { // TODO(weiihann): handle this
 		if len(blob) == 0 {
 			return trienode.NewDeleted(true)
 		}
-		return trienode.NewLeaf(hash, blob)
+		return trienode.NewLeaf(*hash, blob)
 	}
 
 	if len(blob) == 0 {
 		return trienode.NewDeleted(false)
 	}
-	return trienode.NewNonLeaf(hash, blob)
+	return trienode.NewNonLeaf(*hash, blob)
 }

@@ -130,7 +130,7 @@ func ContractHistoryStorageKey(addr, key *felt.Felt, blockNum uint64) []byte {
 	return ContractStorageHistory.Key(addr.Marshal(), key.Marshal(), b[:])
 }
 
-func StateIDKey(root felt.Felt) []byte {
+func StateIDKey(root *felt.Felt) []byte {
 	return StateID.Key(root.Marshal())
 }
 

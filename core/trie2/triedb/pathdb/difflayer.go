@@ -21,9 +21,9 @@ type diffLayer struct {
 	lock   sync.RWMutex
 }
 
-func newDiffLayer(parent layer, root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
+func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
 	return &diffLayer{
-		root:   root,
+		root:   *root,
 		id:     id,
 		block:  block,
 		nodes:  nodes,
@@ -31,7 +31,7 @@ func newDiffLayer(parent layer, root felt.Felt, id, block uint64, nodes *nodeSet
 	}
 }
 
-func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 
@@ -44,15 +44,15 @@ func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path trieutils.
 	return dl.parent.node(id, owner, path, isClass)
 }
 
-func (dl *diffLayer) rootHash() felt.Felt {
-	return dl.root
+func (dl *diffLayer) rootHash() *felt.Felt {
+	return &dl.root
 }
 
 func (dl *diffLayer) stateID() uint64 {
 	return dl.id
 }
 
-func (dl *diffLayer) update(root felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
+func (dl *diffLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
