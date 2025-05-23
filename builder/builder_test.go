@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
@@ -78,6 +79,7 @@ func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc 
 }
 
 func TestSign(t *testing.T) {
+	protocolVersion := semver.New(0, 13, 2, "", "")
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
@@ -86,7 +88,7 @@ func TestSign(t *testing.T) {
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB, *protocolVersion)
 
 	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
 	require.NoError(t, err)
@@ -94,6 +96,7 @@ func TestSign(t *testing.T) {
 }
 
 func TestBuildTwoEmptyBlocks(t *testing.T) {
+	protocolVersion := semver.New(0, 13, 2, "", "")
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
@@ -106,7 +109,7 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
 
 	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
+	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, *protocolVersion)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
@@ -128,6 +131,7 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 }
 
 func TestPrefundedAccounts(t *testing.T) {
+	protocolVersion := semver.New(0, 13, 2, "", "")
 	// transfer tokens to 0x101
 	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
@@ -195,7 +199,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB)
+	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, *protocolVersion)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for _, txn := range expectedExnsInBlock {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
