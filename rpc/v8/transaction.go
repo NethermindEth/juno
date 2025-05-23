@@ -217,29 +217,17 @@ type ResourceBoundsMap struct {
 }
 
 func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
-	type tempResourceBoundsMap struct {
-		L1Gas *ResourceBounds `json:"l1_gas"`
-		L2Gas *ResourceBounds `json:"l2_gas"`
-	}
-
-	temp := tempResourceBoundsMap{
-		L1Gas: r.L1Gas,
-		L2Gas: r.L2Gas,
-	}
-
-	// Check if L1DataGas is nil, if it is, remove it from the struct/map
+	// Check if L1DataGas is nil, if it is, provide default values
 	if r.L1DataGas == nil {
-		return json.Marshal(temp)
+		r.L1DataGas = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
 	}
 
-	// L1Gas and L2Gas should always be present.
-	return json.Marshal(struct {
-		*tempResourceBoundsMap
-		L1DataGas *ResourceBounds `json:"l1_data_gas"`
-	}{
-		tempResourceBoundsMap: &temp,
-		L1DataGas:             r.L1DataGas,
-	})
+	// Define an alias to avoid recursion
+	type alias ResourceBoundsMap
+	return json.Marshal((*alias)(r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -398,6 +386,11 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 		l1DataGasResourceBounds = &ResourceBounds{
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
+		}
+	} else {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
 		}
 	}
 

@@ -196,8 +196,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			return nil, kErr
 		}
 		mempool := mempool.New(database, chain, mempoolLimit, log)
+		// Todo: this is a placeholder, until the Validator PR is merged. That PR introduces a cmd-line flag for this var
+		pVersion := semver.New(0, 13, 2, "", "") //nolint:mnd
 		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(sequencerAddress), chain, nodeVM,
-			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database)
+			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database, *pVersion)
 		sequencer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(sequencer.PendingBlock)
 		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network)

@@ -432,7 +432,10 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
-					L1DataGas: nil,
+					L1DataGas: &rpcv8.ResourceBounds{
+						MaxAmount:       &felt.Zero,
+						MaxPricePerUnit: &felt.Zero,
+					},
 				},
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
 				PaymasterData:         &tx.PaymasterData,

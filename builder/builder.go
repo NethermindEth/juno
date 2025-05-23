@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
@@ -52,10 +53,13 @@ type Builder struct {
 	headCloser   blockchain.StateCloser
 
 	finaliseMutex musync.RWMutex
+
+	protocolVersion semver.Version
 }
 
 func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchain, vm vm.VM,
 	blockTime time.Duration, mempool *mempool.Pool, log utils.Logger, disableFees bool, database db.KeyValueStore,
+	protocolVersion semver.Version,
 ) Builder {
 	return Builder{
 		ownAddress: *ownAddr,
@@ -72,6 +76,7 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 		subPendingBlock: feed.New[*core.Block](),
 		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
 		finaliseMutex:   musync.RWMutex{},
+		protocolVersion: protocolVersion,
 	}
 }
 
@@ -167,6 +172,7 @@ func (b *Builder) ClearPending() error {
 	return nil
 }
 
+// The current gas strategy is to just use the values from the previous block
 func (b *Builder) InitPendingBlock() error {
 	header, err := b.bc.HeadsHeader()
 	if err != nil {
@@ -177,13 +183,12 @@ func (b *Builder) InitPendingBlock() error {
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: &b.ownAddress,
-			L1GasPriceETH:    felt.One.Clone(),
-			L1GasPriceSTRK:   felt.One.Clone(),
-			L1DAMode:         core.Calldata,
-			L1DataGasPrice: &core.GasPrice{
-				PriceInWei: felt.One.Clone(),
-				PriceInFri: felt.One.Clone(),
-			},
+			ProtocolVersion:  b.protocolVersion.String(),
+			L1GasPriceETH:    header.L1GasPriceETH,
+			L1GasPriceSTRK:   header.L1GasPriceSTRK,
+			L1DAMode:         core.Blob,
+			L1DataGasPrice:   header.L1DataGasPrice,
+			L2GasPrice:       header.L2GasPrice,
 		},
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
@@ -297,7 +302,7 @@ func (b *Builder) depletePool(ctx context.Context) error {
 			return err
 		}
 		b.log.Debugw("running txns", userTxns)
-		if err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
+		if _, err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
 			b.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
@@ -334,11 +339,11 @@ func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
 
 // runTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) (uint64, error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Create a state writer for the transaction execution
@@ -371,7 +376,7 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 		b.bc.Network(),
 		false, false, false, true, false)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Handle declared classes for declare transactions
@@ -379,7 +384,7 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 		if trace.StateDiff.DeclaredClasses != nil ||
 			trace.StateDiff.DeprecatedDeclaredClasses != nil {
 			if err := b.processClassDeclaration(&txns[i], &state); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
@@ -397,7 +402,11 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
-	return b.StorePending(pending)
+	l2GasConsumed := uint64(1) // Todo: should be 0?? Blockifer seems to return 0..
+	for i := range vmResults.GasConsumed {
+		l2GasConsumed += vmResults.GasConsumed[i].L2Gas
+	}
+	return l2GasConsumed, b.StorePending(pending)
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
@@ -462,4 +471,44 @@ func (b *Builder) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (b *Builder) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: b.subPendingBlock.Subscribe()}
+}
+
+func (b *Builder) MempoolIsEmpty() bool {
+	return b.mempool.Len() == 0
+}
+
+func (b *Builder) PopBatchTxns() ([]mempool.BroadcastedTransaction, error) {
+	return b.mempool.PopBatch(NumTxnsToBatchExecute)
+}
+
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
+	b.finaliseMutex.RLock()
+	defer b.finaliseMutex.RUnlock()
+	b.log.Debugw("calling ExecuteTxns")
+	blockHashToBeRevealed, err := b.getRevealedBlockHash()
+	if err != nil {
+		return 0, err
+	}
+
+	l2gasConsumed := uint64(0)
+	l2gasConsumed, err = b.runTxns(txns, blockHashToBeRevealed)
+	if err != nil {
+		b.log.Debugw("failed running txn", "err", err.Error())
+		return 0, err
+	}
+	b.log.Debugw("running txns success")
+	return l2gasConsumed, nil
+}
+
+// ExecutePending updates the pending block and state-update
+func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
+	pending, err := b.Pending()
+	if err != nil {
+		return nil, nil, err
+	}
+	newBlock, newSU, commitments, concatCommitment, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	pending.Block = newBlock
+	pending.StateUpdate = newSU
+	b.pendingBlock.Store(pending)
+	return commitments, concatCommitment, err
 }

@@ -622,8 +622,16 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 			Number:           0,
 			SequencerAddress: &felt.Zero,
 			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    &felt.Zero,
-			L1GasPriceSTRK:   &felt.Zero,
+			L1GasPriceETH:    new(felt.Felt).SetUint64(1),
+			L1GasPriceSTRK:   new(felt.Felt).SetUint64(1),
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: new(felt.Felt).SetUint64(1),
+				PriceInFri: new(felt.Felt).SetUint64(1),
+			},
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: new(felt.Felt).SetUint64(1),
+				PriceInFri: new(felt.Felt).SetUint64(1),
+			},
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,
@@ -637,4 +645,80 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
 	})
+}
+
+// Simulate returns what the new completed header and state update would be if the
+// provided block was added to the chain.
+func (b *Blockchain) Simulate(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign BlockSignFunc,
+) (*core.Block, *core.StateUpdate, *core.BlockCommitments, *felt.Felt, error) {
+	var newBlock *core.Block
+	var newSU *core.StateUpdate
+	var newCommitments *core.BlockCommitments
+	var concatCount *felt.Felt
+
+	simulate := func(txn db.IndexedBatch) error {
+		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+			return err
+		}
+		blockHash, commitments, err := core.BlockHash(
+			block,
+			stateUpdate.StateDiff,
+			b.network,
+			block.SequencerAddress)
+		if err != nil {
+			return err
+		}
+		block.Hash = blockHash
+		stateUpdate.BlockHash = blockHash
+
+		// Starknet consensus requires zero values for empty blocks
+		if block.TransactionCount == 0 {
+			newCommitments = &core.BlockCommitments{
+				TransactionCommitment: new(felt.Felt).SetUint64(0),
+				EventCommitment:       new(felt.Felt).SetUint64(0),
+				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
+				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
+			}
+			concatCount = new(felt.Felt).SetUint64(0)
+		} else {
+			newCommitments = commitments
+			concatCount = core.ConcatCounts(
+				block.TransactionCount,
+				block.EventCount,
+				stateUpdate.StateDiff.Length(),
+				block.L1DAMode)
+		}
+
+		if err := b.signBlock(block, stateUpdate, sign); err != nil {
+			return err
+		}
+
+		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+			return err
+		}
+
+		block, err := core.GetBlockByNumber(txn, block.Number)
+		if err != nil {
+			return err
+		}
+		su, err := core.GetStateUpdateByBlockNum(txn, block.Number)
+		if err != nil {
+			return err
+		}
+		newBlock = block
+		newSU = su
+		return nil
+	}
+
+	// Simulate without commit
+	txn := b.database.NewIndexedBatch()
+	if err := simulate(txn); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	txn.Reset()
+	return newBlock, newSU, newCommitments, concatCount, nil
 }
