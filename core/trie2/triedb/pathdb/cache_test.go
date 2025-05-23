@@ -15,12 +15,12 @@ var (
 
 func TestNodeKey(t *testing.T) {
 	// Test for non-class node
-	key1 := nodeKey(testOwner, &testPath, false)
+	key1 := nodeKey(&testOwner, &testPath, false)
 	assert.Equal(t, nodeCacheSize, len(key1))
 	assert.Equal(t, uint8(0), key1[nodeCacheSize-1])
 
 	// Test for class node
-	key2 := nodeKey(testOwner, &testPath, true)
+	key2 := nodeKey(&testOwner, &testPath, true)
 	assert.Equal(t, nodeCacheSize, len(key2))
 	assert.Equal(t, uint8(1), key2[nodeCacheSize-1])
 

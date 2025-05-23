@@ -74,7 +74,8 @@ func (d *Database) Update(
 	root,
 	parent *felt.Felt,
 	blockNum uint64,
-	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+	mergeClassNodes,
+	mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()

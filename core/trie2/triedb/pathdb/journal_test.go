@@ -34,7 +34,7 @@ func TestJournal(t *testing.T) {
 			require.NoError(t, err)
 
 			for i := 0; i <= tc.numDiffs; i++ {
-				root := *new(felt.Felt).SetUint64(uint64(i))
+				root := new(felt.Felt).SetUint64(uint64(i))
 				err := verifyLayer(tree, root, tracker)
 				require.NoError(t, err)
 			}
