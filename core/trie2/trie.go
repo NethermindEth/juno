@@ -47,7 +47,7 @@ type Trie struct {
 }
 
 // Creates a new trie
-func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase) (*Trie, error) {
+func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase, rootHash *felt.Felt) (*Trie, error) {
 	nodeReader, err := newNodeReader(id, nodeDB)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 		return tr, nil
 	}
 
-	root, err := tr.resolveNode(nil, Path{}) // TODO: handle hash-based, need to somehow retrieve the root hash
+	root, err := tr.resolveNodeWithHash(nil, Path{}, rootHash)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
@@ -494,6 +494,23 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
 }
 
+// Resolves the node at the given path from the database
+func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *felt.Felt) (trienode.Node, error) {
+	var hash felt.Felt
+	if nodeHash != nil {
+		hash = *nodeHash
+	} else if hn != nil {
+		hash = felt.Felt(*hn)
+	}
+
+	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
+	if err != nil {
+		return nil, err
+	}
+
+	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
+}
+
 // Calculates the hash of the root node
 func (t *Trie) hashRoot() (trienode.Node, trienode.Node) {
 	if t.root == nil {
@@ -522,15 +539,15 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase(), nil)
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase(), nil)
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase(), nil)
 	if err != nil {
 		return err
 	}
@@ -538,7 +555,7 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase(), nil)
 	if err != nil {
 		return err
 	}

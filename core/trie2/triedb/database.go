@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
+	"github.com/NethermindEth/juno/core/trie2/triedb/hashdb"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -13,11 +14,12 @@ import (
 
 type Config struct {
 	PathConfig *pathdb.Config
-	// TODO: add hashdb config here
+	HashConfig *hashdb.Config
 }
 
 type Database struct {
 	triedb database.TrieDB
+	hashdb database.TrieDB
 	config *Config
 }
 
@@ -26,11 +28,13 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	if config == nil {
 		config = &Config{
 			PathConfig: &pathdb.Config{},
+			HashConfig: hashdb.DefaultConfig,
 		}
 	}
 
-	return &Database{ // TODO: handle both pathdb and hashdb
+	return &Database{
 		triedb: pathdb.New(disk, config.PathConfig),
+		hashdb: hashdb.New(disk, config.HashConfig),
 		config: config,
 	}
 }
@@ -39,13 +43,20 @@ func (d *Database) Update(
 	root,
 	parent felt.Felt,
 	blockNum uint64,
-	classNodes map[trieutils.Path]trienode.TrieNode,
-	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	switch td := d.triedb.(type) {
-	case *pathdb.Database:
-		return td.Update(root, parent, blockNum, classNodes, contractNodes)
-	// TODO: handle hashdb
+	case *hashdb.Database:
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
+	default:
+		return fmt.Errorf("unsupported trie db type: %T", td)
+	}
+}
+
+func (d *Database) Commit(stateComm felt.Felt) error {
+	switch td := d.triedb.(type) {
+	case *hashdb.Database:
+		return td.Commit(stateComm)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
