@@ -88,3 +88,7 @@ func (d *Database) Update(
 
 	return batch.Write()
 }
+
+func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
+	return &reader{id: id, db: d}, nil
+}
