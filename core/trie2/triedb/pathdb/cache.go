@@ -6,7 +6,7 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 )
 
-var nodeCacheSize = ownerSize + trieutils.PathSize + 1
+const nodeCacheSize = ownerSize + trieutils.PathSize + 1
 
 type trieType byte
 
