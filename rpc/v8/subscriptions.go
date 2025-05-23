@@ -26,8 +26,6 @@ var (
 	subscribeTxStatusTickerDuration = 5 * time.Second
 )
 
-var _ BlockIdentifier = (*SubscriptionBlockID)(nil)
-
 type SubscriptionResponse struct {
 	Version string `json:"jsonrpc"`
 	Method  string `json:"method"`
@@ -51,10 +49,6 @@ func (b *SubscriptionBlockID) Type() blockIDType {
 
 func (b *SubscriptionBlockID) IsLatest() bool {
 	return b.typeID == latest
-}
-
-func (b *SubscriptionBlockID) IsPending() bool {
-	return false // Subscription blocks can't be pending
 }
 
 func (b *SubscriptionBlockID) IsHash() bool {
@@ -585,7 +579,7 @@ func (h *Handler) resolveBlockRange(
 		return latestHeader, latestHeader, nil
 	}
 
-	startHeader, rpcErr := h.blockHeaderByID(blockID)
+	startHeader, rpcErr := h.blockHeaderByID((*BlockID)(blockID))
 	if rpcErr != nil {
 		return nil, nil, rpcErr
 	}

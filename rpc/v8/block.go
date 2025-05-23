@@ -11,19 +11,6 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
-var _ BlockIdentifier = (*BlockID)(nil)
-
-type BlockIdentifier interface {
-	Type() blockIDType
-	IsLatest() bool
-	IsPending() bool
-	IsHash() bool
-	IsNumber() bool
-	Hash() *felt.Felt
-	Number() uint64
-	UnmarshalJSON(data []byte) error
-}
-
 type blockIDType uint8
 
 const (

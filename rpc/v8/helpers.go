@@ -62,7 +62,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(blockID BlockIdentifier) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Error) {
 	var header *core.Header
 	var err error
 	switch blockID.Type() {
