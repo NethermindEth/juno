@@ -362,6 +362,7 @@ type keyValue struct {
 	value *felt.Felt
 }
 
+// Inserts keys in sequential order, so that it's easier to know the trie structure in advance
 func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
 	tr, _ := NewEmptyPedersen()
 	records := make([]*keyValue, numKeys)
@@ -376,6 +377,7 @@ func nonRandomTrie(t *testing.T, numKeys int) (*Trie, []*keyValue) {
 	return tr, records
 }
 
+// Inserts keys in random order, making tests more robust and realistic
 func randomTrie(t testing.TB, n int) (*Trie, []*keyValue) {
 	rrand := rand.New(rand.NewSource(3))
 
