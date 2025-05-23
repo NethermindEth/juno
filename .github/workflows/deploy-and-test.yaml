@@ -99,7 +99,7 @@ jobs:
     with:
       ref: 'starknet/v0.12.0'
     secrets:
-      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_7?apikey=${{ secrets.AUTH_TOKEN }}
+      STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-rs-rpcv08:
     needs: [deploy]
@@ -133,7 +133,7 @@ jobs:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     with:
-      ref: f8f0b717aa5b59c797540c0567f309ae78537e09
+      ref: 298264d89acbbd6611fcafa09c5b40acd9d35515
       rpc_version: v0_8
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
