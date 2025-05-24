@@ -501,12 +501,14 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(
+	blockID *BlockID, txIndex int,
+) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	if id.Pending {
+	if blockID.IsPending() {
 		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
@@ -519,7 +521,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -734,7 +736,10 @@ type TransactionStatusV0_7 struct {
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
-func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
+func (h *Handler) TransactionStatusV0_7(
+	// Todo make `hash` by reference
+	ctx context.Context, hash felt.Felt,
+) (*TransactionStatusV0_7, *jsonrpc.Error) {
 	res, err := h.TransactionStatus(ctx, hash)
 	if err != nil {
 		return nil, err

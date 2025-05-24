@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -25,11 +24,6 @@ const subscribeEventsChunkSize = 1024
 var (
 	subscribeTxStatusTimeout        = 5 * time.Minute
 	subscribeTxStatusTickerDuration = 5 * time.Second
-)
-
-var (
-	_ BlockIdentifier = (*SubscriptionBlockID)(nil)
-	_ BlockIdentifier = (*BlockID)(nil)
 )
 
 type SubscriptionResponse struct {
@@ -46,58 +40,44 @@ func (e errorTxnHashNotFound) Error() string {
 	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
-type BlockIdentifier interface {
-	IsLatest() bool
-	IsPending() bool
-	GetHash() *felt.Felt
-	GetNumber() uint64
-	UnmarshalJSON(data []byte) error
-}
-
 // As per the spec, this is the same as BlockID, but without `pending`
-type SubscriptionBlockID struct {
-	Latest bool
-	Hash   *felt.Felt
-	Number uint64
+type SubscriptionBlockID BlockID
+
+func (b *SubscriptionBlockID) Type() blockIDType {
+	return b.typeID
 }
 
 func (b *SubscriptionBlockID) IsLatest() bool {
-	return b.Latest
+	return b.typeID == latest
 }
 
-func (b *SubscriptionBlockID) IsPending() bool {
-	return false // Subscription blocks can't be pending
+func (b *SubscriptionBlockID) IsHash() bool {
+	return b.typeID == hash
 }
 
-func (b *SubscriptionBlockID) GetHash() *felt.Felt {
-	return b.Hash
+func (b *SubscriptionBlockID) IsNumber() bool {
+	return b.typeID == number
 }
 
-func (b *SubscriptionBlockID) GetNumber() uint64 {
-	return b.Number
+func (b *SubscriptionBlockID) Hash() *felt.Felt {
+	return (*BlockID)(b).Hash()
+}
+
+func (b *SubscriptionBlockID) Number() uint64 {
+	return (*BlockID)(b).Number()
 }
 
 func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
-	if string(data) == `"latest"` {
-		b.Latest = true
-	} else {
-		jsonObject := make(map[string]json.RawMessage)
-		if err := json.Unmarshal(data, &jsonObject); err != nil {
-			return err
-		}
-		hash, ok := jsonObject["block_hash"]
-		if ok {
-			b.Hash = new(felt.Felt)
-			return json.Unmarshal(hash, b.Hash)
-		}
-
-		number, ok := jsonObject["block_number"]
-		if ok {
-			return json.Unmarshal(number, &b.Number)
-		}
-
-		return errors.New("cannot unmarshal block id")
+	blockID := (*BlockID)(b)
+	err := blockID.UnmarshalJSON(data)
+	if err != nil {
+		return err
 	}
+
+	if blockID.IsPending() {
+		return errors.New("subscription block id cannot be pending")
+	}
+
 	return nil
 }
 
@@ -199,8 +179,8 @@ type SentEvent struct {
 }
 
 // SubscribeEvents creates a WebSocket stream which will fire events for new Starknet events with applied filters
-func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt,
-	blockID *SubscriptionBlockID,
+func (h *Handler) SubscribeEvents(
+	ctx context.Context, fromAddr *felt.Felt, keys [][]felt.Felt, blockID *SubscriptionBlockID,
 ) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
@@ -225,9 +205,13 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return h.processEvents(ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil)
+			return h.processEvents(
+				ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil,
+			)
 		},
-		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(
+			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
+		) error {
 			if err := sendReorg(w, reorg, id); err != nil {
 				return err
 			}
@@ -235,14 +219,19 @@ func (h *Handler) SubscribeEvents(ctx context.Context, fromAddr *felt.Felt, keys
 			return nil
 		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
-			if err := h.processEvents(ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent); err != nil {
+			err := h.processEvents(
+				ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent,
+			)
+			if err != nil {
 				return err
 			}
 			nextBlock = head.Number + 1
 			return nil
 		},
 		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
-			return h.processEvents(ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent)
+			return h.processEvents(
+				ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent,
+			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
@@ -364,7 +353,10 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, 
 
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events subscription")
 
-	if err = setEventFilterRange(filter, &BlockID{Number: from}, &BlockID{Number: to}, to); err != nil {
+	fromBlockID := BlockIDFromNumber(from)
+	toBlockID := BlockIDFromNumber(to)
+	err = setEventFilterRange(filter, &fromBlockID, &toBlockID, to)
+	if err != nil {
 		h.log.Warnw("Error setting event filter range", "err", err)
 		return err
 	}
@@ -575,26 +567,25 @@ func sendPendingTxs(w jsonrpc.Conn, result any, id string) error {
 
 // resolveBlockRange returns the start and latest headers based on the blockID.
 // It will also do some sanity checks and return errors if the blockID is invalid.
-func (h *Handler) resolveBlockRange(id BlockIdentifier) (*core.Header, *core.Header, *jsonrpc.Error) {
+func (h *Handler) resolveBlockRange(
+	blockID *SubscriptionBlockID,
+) (*core.Header, *core.Header, *jsonrpc.Error) {
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 
-	if utils.IsNil(id) {
+	if blockID == nil || blockID.IsLatest() {
 		return latestHeader, latestHeader, nil
 	}
 
-	if id.IsLatest() {
-		return latestHeader, latestHeader, nil
-	}
-
-	startHeader, rpcErr := h.blockHeaderByID(id)
+	startHeader, rpcErr := h.blockHeaderByID((*BlockID)(blockID))
 	if rpcErr != nil {
 		return nil, nil, rpcErr
 	}
 
-	if latestHeader.Number >= rpccore.MaxBlocksBack && startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack {
+	if latestHeader.Number >= rpccore.MaxBlocksBack &&
+		startHeader.Number <= latestHeader.Number-rpccore.MaxBlocksBack {
 		return nil, nil, rpccore.ErrTooManyBlocksBack
 	}
 

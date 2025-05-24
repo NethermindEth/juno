@@ -262,7 +262,7 @@ func (h *Handler) EstimateFee(
 	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
-		*id,
+		id,
 		broadcastedTxns,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
 		true,
