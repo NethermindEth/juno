@@ -47,8 +47,8 @@ func (b *buffer) isFull() bool {
 	return b.nodes.size > b.limit
 }
 
-func (b *buffer) flush(d db.KeyValueStore, cleans *cleanCache, id uint64) error {
-	latestPersistedID, _ := trieutils.ReadPersistedStateID(d)
+func (b *buffer) flush(kvs db.KeyValueStore, cleans *cleanCache, id uint64) error {
+	latestPersistedID, _ := trieutils.ReadPersistedStateID(kvs)
 	if latestPersistedID+b.layers != id {
 		return fmt.Errorf(
 			"mismatch buffer layers applied: latest state id (%d) + buffer layers (%d) != target state id (%d)",
@@ -58,7 +58,7 @@ func (b *buffer) flush(d db.KeyValueStore, cleans *cleanCache, id uint64) error 
 		)
 	}
 
-	batch := d.NewBatchWithSize(b.nodes.dbSize())
+	batch := kvs.NewBatchWithSize(b.nodes.dbSize())
 	if err := b.nodes.write(batch, cleans); err != nil {
 		return err
 	}

@@ -23,16 +23,11 @@ type Config struct {
 	WriteBufferSize int // Maximum size (in bytes) for buffering writes before flushing
 }
 
-var defaultConfig = &Config{
-	CleanCacheSize:  16 * utils.Megabyte,
-	WriteBufferSize: 64 * utils.Megabyte,
-}
-
 // Represents the path-based database which contains a in-memory layer tree (cache) + disk layer (database)
 type Database struct {
 	disk   db.KeyValueStore
 	tree   *layerTree
-	config *Config
+	config Config
 	lock   sync.RWMutex
 }
 
@@ -40,9 +35,12 @@ type Database struct {
 // If the journal is not found, it will create a new disk layer only.
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	if config == nil {
-		config = defaultConfig
+		config = &Config{
+			CleanCacheSize:  16 * utils.Megabyte,
+			WriteBufferSize: 64 * utils.Megabyte,
+		}
 	}
-	db := &Database{disk: disk, config: config}
+	db := &Database{disk: disk, config: *config}
 	head, err := db.loadJournal()
 	if err != nil {
 		return nil, err
