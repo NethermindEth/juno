@@ -1,4 +1,4 @@
-package builder_test
+package sequencer
 
 import (
 	_ "github.com/NethermindEth/juno/encoder/registry"

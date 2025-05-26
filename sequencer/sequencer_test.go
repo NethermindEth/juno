@@ -1,4 +1,4 @@
-package builder_test
+package sequencer_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/mocks"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
+	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
@@ -22,112 +23,35 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func waitFor(t *testing.T, timeout time.Duration, check func() bool) {
+func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt) (sequencer.Sequencer, *blockchain.Blockchain) {
 	t.Helper()
-
-	const numPolls = 4
-	pollInterval := timeout / numPolls
-
-	for range numPolls {
-		if check() {
-			return
-		}
-		time.Sleep(pollInterval)
-	}
-	require.Equal(t, true, false, "reached timeout")
-}
-
-func waitForBlock(t *testing.T, bc blockchain.Reader, timeout time.Duration, targetBlockNumber uint64) {
-	waitFor(t, timeout, func() bool {
-		curBlockNumber, err := bc.Height()
-		require.NoError(t, err)
-		return curBlockNumber >= targetBlockNumber
-	})
-}
-
-func waitForTxns(ctx context.Context, t *testing.T, blockTime time.Duration, bc blockchain.Reader, targetTxnNumber uint64) {
-	var lastChecked uint64 = 0
-	var cumTxns uint64 = 0
-
-	for {
-		select {
-		case <-ctx.Done():
-			require.Equal(t, true, false, "reached ctx timeout in waitForTxns")
-			return
-		default:
-
-			curBlockNumber, err := bc.Height()
-			require.NoError(t, err)
-			for i := lastChecked; i < curBlockNumber; i++ {
-				block, err := bc.BlockByNumber(i)
-				require.NoError(t, err)
-
-				if block.TransactionCount != 0 {
-					t.Logf("Found %d transactions", block.TransactionCount)
-				}
-				cumTxns += block.TransactionCount
-				lastChecked = i + 1
-
-				if cumTxns >= targetTxnNumber {
-					return
-				}
-			}
-			time.Sleep(blockTime)
-		}
-	}
-}
-
-func TestSign(t *testing.T) {
-	testDB := memory.New()
-	mockCtrl := gomock.NewController(t)
-	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	privKey, err := ecdsa.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, 0, p, utils.NewNopZapLogger(), false, testDB)
-
-	_, err = testBuilder.Sign(new(felt.Felt), new(felt.Felt))
-	require.NoError(t, err)
-	// We don't check the signature since the private key generation is not deterministic.
-}
-
-func TestBuildTwoEmptyBlocks(t *testing.T) {
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	bc := blockchain.New(testDB, &utils.Integration)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p := mempool.New(memory.New(), bc, 1000, utils.NewNopZapLogger())
+	log := utils.NewNopZapLogger()
+	p := mempool.New(memory.New(), bc, 1000, log)
 
-	minHeight := uint64(2)
-	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	go func() {
-		waitForBlock(t, bc, time.Second, minHeight)
-		cancel()
-	}()
-	require.NoError(t, testBuilder.Run(ctx))
-
-	height, err := bc.Height()
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, height, minHeight)
-	for i := range height {
-		block, err := bc.BlockByNumber(i + 1)
-		require.NoError(t, err)
-		require.Equal(t, seqAddr, block.SequencerAddress)
-		require.Empty(t, block.Transactions)
-		require.Empty(t, block.Receipts)
-	}
+	testBuilder := builder.New(bc, mockVM, log, false)
+	return sequencer.New(&testBuilder, p, *seqAddr, privKey, blockTime, log), bc
 }
 
-func TestPrefundedAccounts(t *testing.T) {
+// Sequencer contains prefunded accounts.
+// We also return two invoke txns that are ready to be executed by the sequencer.
+func getGenesisSequencer(
+	t *testing.T,
+	blockTime time.Duration,
+	seqAddr *felt.Felt) (
+	sequencer.Sequencer,
+	*blockchain.Blockchain,
+	*rpc.Handler,
+	[2]rpc.BroadcastedTransaction,
+) {
+	t.Helper()
 	// transfer tokens to 0x101
 	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
@@ -175,15 +99,13 @@ func TestPrefundedAccounts(t *testing.T) {
 		},
 	}
 
-	expectedExnsInBlock := []rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 	testDB := memory.New()
 	network := &utils.Mainnet
 	bc := blockchain.New(testDB, network)
 	log := utils.NewNopZapLogger()
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	p := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	txnPool := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
@@ -194,19 +116,46 @@ func TestPrefundedAccounts(t *testing.T) {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
+	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	rpcHandler := rpc.New(bc, nil, nil, "", utils.NewNopZapLogger()).WithMempool(txnPool)
+	return sequencer.New(&testBuilder, txnPool, *seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+}
+
+func TestBuildEmptyBlocks(t *testing.T) {
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB)
-	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
-	for _, txn := range expectedExnsInBlock {
-		_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
-		require.Nil(t, rpcErr)
+	seq, bc := getEmptySequencer(t, blockTime, seqAddr)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*blockTime)
+	defer cancel()
+	require.NoError(t, seq.Run(ctx))
+
+	height, err := bc.Height()
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, height, uint64(0))
+	for i := range height {
+		block, err := bc.BlockByNumber(i + 1)
+		require.NoError(t, err)
+		require.Equal(t, seqAddr, block.SequencerAddress)
+		require.Empty(t, block.Transactions)
+		require.Empty(t, block.Receipts)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 30*blockTime) // timeout upperbound
-	go func() {
-		waitForTxns(ctx, t, blockTime, bc, 2) // attempt early cancel
-		cancel()
-	}()
-	require.NoError(t, testBuilder.Run(ctx))
+}
+
+func TestPrefundedAccounts(t *testing.T) {
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	blockTime := 100 * time.Millisecond
+	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
+
+	// Add txns to the mempool via RPC
+	_, rpcErr := rpcHandler.AddTransaction(t.Context(), txnsToExecute[0])
+	require.Nil(t, rpcErr)
+	_, rpcErr = rpcHandler.AddTransaction(t.Context(), txnsToExecute[1])
+	require.Nil(t, rpcErr)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*blockTime)
+	defer cancel()
+	require.NoError(t, seq.Run(ctx))
 
 	height, err := bc.Height()
 	require.NoError(t, err)
@@ -224,10 +173,35 @@ func TestPrefundedAccounts(t *testing.T) {
 				}
 			}
 		}
-		if numExpectedBalance == len(expectedExnsInBlock) {
+		if numExpectedBalance == len(txnsToExecute) {
 			foundExpectedNumAcntsWBalance = true
 			break
 		}
 	}
 	require.True(t, foundExpectedNumAcntsWBalance)
+}
+
+// Example of how other tests can use the sequencer to execute txns in a controlled manner.
+func TestRunOnce(t *testing.T) {
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	blockTime := 100 * time.Millisecond
+	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
+
+	// Build an empty block
+	require.NoError(t, seq.RunOnce())
+
+	// Add txns to the mempool via RPC
+	_, rpcErr := rpcHandler.AddTransaction(t.Context(), txnsToExecute[0])
+	require.Nil(t, rpcErr)
+	_, rpcErr = rpcHandler.AddTransaction(t.Context(), txnsToExecute[1])
+	require.Nil(t, rpcErr)
+
+	// Build an non-empty block
+	require.NoError(t, seq.RunOnce())
+
+	block, err := bc.BlockByNumber(2)
+	require.NoError(t, err)
+	require.Equal(t, seqAddr, block.SequencerAddress)
+	require.NotEmpty(t, block.Transactions)
+	require.NotEmpty(t, block.Receipts)
 }

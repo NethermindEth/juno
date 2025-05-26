@@ -28,6 +28,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -196,13 +197,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			return nil, kErr
 		}
 		mempool := mempool.New(database, chain, mempoolLimit, log)
-		sequencer := builder.New(pKey, new(felt.Felt).SetUint64(sequencerAddress), chain, nodeVM,
-			time.Second*time.Duration(cfg.SeqBlockTime), mempool, log, cfg.SeqDisableFees, database)
-		sequencer.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(sequencer.PendingBlock)
-		rpcHandler = rpc.New(chain, &sequencer, throttledVM, version, log, &cfg.Network)
+		builder := builder.New(chain, nodeVM, log, cfg.SeqDisableFees)
+		seq := sequencer.New(&builder, mempool, *new(felt.Felt).SetUint64(sequencerAddress),
+			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
+		seq.WithPlugin(junoPlugin)
+		chain.WithPendingBlockFn(seq.PendingBlock)
+		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
 		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
-		services = append(services, &sequencer)
+		services = append(services, &seq)
 	} else {
 		if cfg.GatewayTimeouts == "" {
 			cfg.GatewayTimeouts = feeder.DefaultTimeouts

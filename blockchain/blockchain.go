@@ -11,13 +11,13 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
 }
-type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
@@ -487,7 +487,8 @@ func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
-	sign BlockSignFunc,
+	sign utils.BlockSignFunc,
+	privKey *ecdsa.PrivateKey,
 ) error {
 	return b.database.Update(func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
@@ -499,7 +500,7 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 
-		if err := b.signBlock(block, stateUpdate, sign); err != nil {
+		if err := b.signBlock(block, stateUpdate, sign, privKey); err != nil {
 			return err
 		}
 
@@ -561,12 +562,17 @@ func (b *Blockchain) calculateBlockHash(block *core.Block, stateUpdate *core.Sta
 }
 
 // signBlock applies the signature to the block if a signing function is provided
-func (b *Blockchain) signBlock(block *core.Block, stateUpdate *core.StateUpdate, sign BlockSignFunc) error {
+func (b *Blockchain) signBlock(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	sign utils.BlockSignFunc,
+	privKey *ecdsa.PrivateKey,
+) error {
 	if sign == nil {
 		return nil
 	}
 
-	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
+	sig, err := sign(privKey, block.Hash, stateUpdate.StateDiff.Commitment())
 	if err != nil {
 		return err
 	}
@@ -613,7 +619,10 @@ func (b *Blockchain) storeBlockData(
 	return nil
 }
 
-func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+func (b *Blockchain) StoreGenesis(
+	diff *core.StateDiff,
+	classes map[felt.Felt]core.Class,
+) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 
 	block := &core.Block{
@@ -634,7 +643,7 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 	}
 	newClasses := classes
 
-	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
+	return b.Finalise(block, stateUpdate, newClasses, func(_ *ecdsa.PrivateKey, _, _ *felt.Felt) ([]*felt.Felt, error) {
 		return nil, nil
-	})
+	}, &ecdsa.PrivateKey{})
 }
