@@ -28,7 +28,7 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	if config == nil {
 		config = &Config{
 			PathConfig: &pathdb.Config{},
-			HashConfig: hashdb.DefaultConfig,
+			HashConfig: nil,
 		}
 	}
 

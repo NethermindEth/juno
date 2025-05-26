@@ -26,22 +26,22 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (
 			node trienode.TrieNode
 			ok   bool
 		)
-		node, ok = nodes.OwnerSet.Nodes[path]
+		node, ok = nodes.OwnerSet.Nodes[*path]
 		if !ok {
 			continue
 		}
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: *owner, path: path, hash: node.Hash()}
+			return nil, &MissingNodeError{owner: *owner, path: *path, hash: node.Hash()}
 		}
 		return node.Blob(), nil
 	}
-	return readNode(n.db, n.id, n.scheme, path, hash, isLeaf)
+	return readNode(n.db, n.id, n.scheme, *path, hash, isLeaf)
 }
 
 func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {

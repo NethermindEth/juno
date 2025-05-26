@@ -69,7 +69,7 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 
 func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	var res []byte
-	if err := r.Get(NodeKeyByHash(bucket, owner, path, hash, isLeaf),
+	if err := r.Get(nodeKeyByHash(bucket, owner, path, hash, isLeaf),
 		func(value []byte) error {
 			res = value
 			return nil
@@ -78,6 +78,10 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 		return nil, err
 	}
 	return res, nil
+}
+
+func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool, blob []byte) error {
+	return w.Put(nodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
 }
 
 // References: https://github.com/NethermindEth/nethermind/pull/6331
@@ -94,11 +98,8 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func NodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
-	const (
-		pathSignificantBytes = 8
-		shortPathLength      = 5
-	)
+func nodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
+	const pathSignificantBytes = 8
 	var (
 		prefixBytes = prefix.Key()
 		ownerBytes  []byte
@@ -118,17 +119,24 @@ func NodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Fe
 		nodeType = nonLeaf.Bytes()
 	}
 
-	key := make([]byte, 0, len(prefixBytes)+len(ownerBytes)+len(nodeType)+pathSignificantBytes+len(hashBytes))
+	keySize := len(prefixBytes) + len(ownerBytes) + len(nodeType) + len(hashBytes)
+	if len(pathBytes) < pathSignificantBytes {
+		keySize += pathSignificantBytes
+	} else {
+		keySize += len(pathBytes)
+	}
+
+	key := make([]byte, 0, keySize)
 	key = append(key, prefixBytes...)
 	key = append(key, ownerBytes...)
 	key = append(key, nodeType...)
 
 	if len(pathBytes) > 0 {
-		if len(pathBytes) >= pathSignificantBytes {
-			key = append(key, pathBytes[0:pathSignificantBytes]...)
-		} else {
+		if len(pathBytes) < pathSignificantBytes {
 			key = append(key, pathBytes...)
 			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
+		} else {
+			key = append(key, pathBytes...)
 		}
 	} else {
 		key = append(key, make([]byte, pathSignificantBytes)...)

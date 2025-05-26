@@ -1,116 +1,74 @@
 package hashdb
 
 import (
-	"fmt"
-	"sync"
-
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
 type DirtyCache struct {
-	classNodes           map[string][]byte
-	contractNodes        map[string][]byte
-	contractStorageNodes map[felt.Felt]map[string][]byte
-	mu                   sync.Mutex
+	classNodes           map[string]trienode.TrieNode
+	contractNodes        map[string]trienode.TrieNode
+	contractStorageNodes map[felt.Felt]map[string]trienode.TrieNode
+	size                 int
 }
 
 func NewDirtyCache() *DirtyCache {
 	return &DirtyCache{
-		classNodes:           make(map[string][]byte),
-		contractNodes:        make(map[string][]byte),
-		contractStorageNodes: make(map[felt.Felt]map[string][]byte),
+		classNodes:           make(map[string]trienode.TrieNode),
+		contractNodes:        make(map[string]trienode.TrieNode),
+		contractStorageNodes: make(map[felt.Felt]map[string]trienode.TrieNode),
 	}
 }
 
-func (c *DirtyCache) Set(key, value []byte, trieType trieutils.TrieType, owner *felt.Felt) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+func (c *DirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+	key := nodeKey(path, hash)
 	keyStr := string(key)
-	switch trieType {
-	case trieutils.Class:
-		c.classNodes[keyStr] = value
-	case trieutils.Contract:
-		c.contractNodes[keyStr] = value
-	case trieutils.ContractStorage:
+
+	if isClass {
+		c.classNodes[keyStr] = node
+	}
+
+	if owner.IsZero() {
+		c.contractNodes[keyStr] = node
+	} else {
 		if _, ok := c.contractStorageNodes[*owner]; !ok {
-			c.contractStorageNodes[*owner] = make(map[string][]byte)
+			c.contractStorageNodes[*owner] = make(map[string]trienode.TrieNode)
 		}
-		c.contractStorageNodes[*owner][keyStr] = value
+		c.contractStorageNodes[*owner][keyStr] = node
 	}
 }
 
-func (c *DirtyCache) Get(key []byte, trieType trieutils.TrieType, owner *felt.Felt) ([]byte, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+func (c *DirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool) (trienode.TrieNode, bool) {
+	key := nodeKey(path, hash)
 	keyStr := string(key)
-	switch trieType {
-	case trieutils.Class:
-		cachedValue, hit := c.classNodes[keyStr]
-		if !hit {
-			return nil, false
-		}
-		return cachedValue, true
-	case trieutils.Contract:
-		cachedValue, hit := c.contractNodes[keyStr]
-		if !hit {
-			return nil, false
-		}
-		return cachedValue, true
-	case trieutils.ContractStorage:
-		ownerNodes, ok := c.contractStorageNodes[*owner]
-		if !ok {
-			return nil, false
-		}
-		cachedValue, hit := ownerNodes[keyStr]
-		if !hit {
-			return nil, false
-		}
-		return cachedValue, true
+
+	if isClass {
+		node, ok := c.classNodes[keyStr]
+		return node, ok
 	}
-	panic("unknown trie type")
+
+	if owner.IsZero() {
+		node, ok := c.contractNodes[keyStr]
+		return node, ok
+	}
+
+	ownerNodes, ok := c.contractStorageNodes[*owner]
+	if !ok {
+		return trienode.NewLeaf(felt.Zero, nil), false
+	}
+
+	node, ok := ownerNodes[keyStr]
+	return node, ok
 }
 
 func (c *DirtyCache) Len() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	return len(c.classNodes) + len(c.contractNodes) + len(c.contractStorageNodes)
 }
 
-func (c *DirtyCache) Remove(key []byte, trieType trieutils.TrieType, owner *felt.Felt) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	keyStr := string(key)
-	switch trieType {
-	case trieutils.Class:
-		if _, ok := c.classNodes[keyStr]; ok {
-			delete(c.classNodes, keyStr)
-			return nil
-		}
-		return fmt.Errorf("key %x not found", key)
-	case trieutils.Contract:
-		if _, ok := c.contractNodes[keyStr]; ok {
-			delete(c.contractNodes, keyStr)
-			return nil
-		}
-		return fmt.Errorf("key %x not found", key)
-	case trieutils.ContractStorage:
-		ownerNodes, ok := c.contractStorageNodes[*owner]
-		if !ok {
-			return fmt.Errorf("owner %x not found", owner.Bytes())
-		}
-		if _, ok := ownerNodes[keyStr]; ok {
-			delete(ownerNodes, keyStr)
-			if len(ownerNodes) == 0 {
-				delete(c.contractStorageNodes, *owner)
-			}
-			return nil
-		}
-		return fmt.Errorf("key %x not found", key)
-	}
-	return fmt.Errorf("unknown trie type")
+func (c *DirtyCache) reset() {
+	c.classNodes = make(map[string]trienode.TrieNode)
+	c.contractNodes = make(map[string]trienode.TrieNode)
+	c.contractStorageNodes = make(map[felt.Felt]map[string]trienode.TrieNode)
+	c.size = 0
 }

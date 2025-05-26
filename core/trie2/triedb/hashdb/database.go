@@ -1,7 +1,6 @@
 package hashdb
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -11,75 +10,57 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/VictoriaMetrics/fastcache"
 )
-
-var ErrCallEmptyDatabase = errors.New("call to empty database")
 
 type Config struct {
 	CleanCacheSize int
 }
 
-var DefaultConfig = &Config{
-	CleanCacheSize: 1024 * 1024 * 64,
-}
-
 type Database struct {
 	disk   db.KeyValueStore
-	config *Config
+	config Config
 
-	cleanCache *fastcache.Cache
+	cleanCache *CleanCache
 	dirtyCache *DirtyCache
 
-	dirtyCacheSize int
-
-	log  utils.SimpleLogger
 	lock sync.RWMutex
+	log  utils.SimpleLogger
 }
-
-const (
-	idealBatchSize = 100 * 1024
-)
 
 func New(disk db.KeyValueStore, config *Config) *Database {
 	if config == nil {
-		config = DefaultConfig
+		config = &Config{
+			CleanCacheSize: 1024 * 1024 * 64,
+		}
 	}
 	return &Database{
 		disk:       disk,
-		config:     config,
-		cleanCache: fastcache.New(config.CleanCacheSize),
+		config:     *config,
+		cleanCache: NewCleanCache(config.CleanCacheSize),
 		dirtyCache: NewDirtyCache(),
 		log:        utils.NewNopZapLogger(),
 	}
 }
 
-func (d *Database) insert(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, blob []byte, isLeaf bool) {
-	key := trieutils.NodeKeyByHash(bucket, owner, path, hash, isLeaf)
-	_, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), owner)
+func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
 	if found {
 		return
 	}
-	d.dirtyCache.Set(key, blob, bucketToTrieType(bucket), owner)
-	d.dirtyCacheSize += nodeSize(key, blob)
+	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
-func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
-	key := trieutils.NodeKeyByHash(bucket, owner, &path, hash, isLeaf)
-	if blob := d.cleanCache.Get(nil, key); blob != nil {
+func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
 	}
-
-	nodeBlob, found := d.dirtyCache.Get(key, bucketToTrieType(bucket), owner)
+	node, found := d.dirtyCache.getNode(owner, path, hash, bucket == db.ClassTrie)
 	if found {
-		return nodeBlob, nil
+		return node.Blob(), nil
 	}
 
 	var blob []byte
-	err := d.disk.Get(key, func(value []byte) error {
-		blob = value
-		return nil
-	})
+	blob, err := trieutils.GetNodeByHash(d.disk, bucket, owner, path, hash, isLeaf)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +68,7 @@ func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path trieutils.Path,
 		return nil, db.ErrKeyNotFound
 	}
 
-	d.cleanCache.Set(key, blob)
+	d.cleanCache.putNode(path, hash, blob)
 
 	return blob, nil
 }
@@ -107,79 +88,55 @@ func (d *Database) Commit(_ felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
-	nodes, dirtyCacheSize, startTime := d.dirtyCache.Len(), d.dirtyCacheSize, time.Now()
+	nodes, startTime := d.dirtyCache.Len(), time.Now()
 
-	for key, nodeBlob := range d.dirtyCache.classNodes {
-		if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.Class, felt.Zero); err != nil {
+	for key, node := range d.dirtyCache.classNodes {
+		path, hash, err := decodeNodeKey([]byte(key))
+		if err != nil {
 			return err
 		}
-	}
-
-	if err := d.clearBatch(batch); err != nil {
-		return err
-	}
-
-	for key, nodeBlob := range d.dirtyCache.contractNodes {
-		if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.Contract, felt.Zero); err != nil {
+		if err := trieutils.WriteNodeByHash(batch, db.ClassTrie, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
 			return err
 		}
+		d.cleanCache.putNode(&path, &hash, node.Blob())
 	}
 
-	if err := d.clearBatch(batch); err != nil {
-		return err
+	for key, node := range d.dirtyCache.contractNodes {
+		path, hash, err := decodeNodeKey([]byte(key))
+		if err != nil {
+			return err
+		}
+		if err := trieutils.WriteNodeByHash(batch, db.ContractTrieContract, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+			return err
+		}
+		d.cleanCache.putNode(&path, &hash, node.Blob())
 	}
 
 	for owner, nodes := range d.dirtyCache.contractStorageNodes {
-		for key, nodeBlob := range nodes {
-			if err := d.writeNodeToBatch(batch, key, nodeBlob, trieutils.ContractStorage, owner); err != nil {
+		for key, node := range nodes {
+			path, hash, err := decodeNodeKey([]byte(key))
+			if err != nil {
 				return err
 			}
+			if err := trieutils.WriteNodeByHash(batch, db.ContractTrieStorage, &owner, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+				return err
+			}
+			d.cleanCache.putNode(&path, &hash, node.Blob())
 		}
 	}
 
-	if err := d.clearBatch(batch); err != nil {
+	if err := batch.Write(); err != nil {
 		return err
 	}
 
+	d.dirtyCache.reset()
+
 	d.log.Debugw("Flushed dirty cache to disk",
-		"size", dirtyCacheSize-d.dirtyCacheSize,
 		"nodes", nodes-d.dirtyCache.Len(),
 		"duration", time.Since(startTime),
 		"liveNodes", d.dirtyCache.Len(),
-		"liveSize", d.dirtyCacheSize,
+		"liveSize", d.dirtyCache.size,
 	)
-	return nil
-}
-
-func (d *Database) writeNodeToBatch(batch db.Batch, key string, nodeBlob []byte, trieType trieutils.TrieType, owner felt.Felt) error {
-	if err := batch.Put([]byte(key), nodeBlob); err != nil {
-		d.log.Errorw("Failed to write flush list to disk", "error", err)
-		return err
-	}
-
-	if batch.Size() > idealBatchSize {
-		if err := batch.Write(); err != nil {
-			d.log.Errorw("Failed to write flush list to disk", "error", err)
-			return err
-		}
-		batch.Reset()
-	}
-
-	d.dirtyCacheSize -= nodeSize([]byte(key), nodeBlob)
-	if err := d.dirtyCache.Remove([]byte(key), trieType, &owner); err != nil {
-		d.log.Errorw("Failed to remove node from dirty cache", "error", err)
-		return err
-	}
-	return nil
-}
-
-func (d *Database) clearBatch(batch db.Batch) error {
-	if batch.Size() > 0 {
-		if err := batch.Write(); err != nil {
-			d.log.Errorw("Failed to write flush list to disk", "error", err)
-			return err
-		}
-	}
 	return nil
 }
 
@@ -190,6 +147,9 @@ func (d *Database) Update(
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
 ) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	classNodes, _ := mergedClassNodes.Flatten()
 	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
 
@@ -198,7 +158,7 @@ func (d *Database) Update(
 			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
 			nodeHash := node.Hash()
-			d.insert(db.ClassTrie, &felt.Zero, &path, &nodeHash, node.Blob(), node.IsLeaf())
+			d.insert(&felt.Zero, &path, &nodeHash, true, node)
 		}
 	}
 
@@ -207,7 +167,7 @@ func (d *Database) Update(
 			continue
 		} else {
 			nodeHash := node.Hash()
-			d.insert(db.ContractTrieContract, &felt.Zero, &path, &nodeHash, node.Blob(), node.IsLeaf())
+			d.insert(&felt.Zero, &path, &nodeHash, false, node)
 		}
 	}
 
@@ -217,24 +177,11 @@ func (d *Database) Update(
 				continue
 			} else {
 				nodeHash := node.Hash()
-				d.insert(db.ContractTrieStorage, &owner, &path, &nodeHash, node.Blob(), node.IsLeaf())
+				d.insert(&owner, &path, &nodeHash, false, node)
 			}
 		}
 	}
 	return nil
-}
-
-func bucketToTrieType(bucket db.Bucket) trieutils.TrieType {
-	switch bucket {
-	case db.ClassTrie:
-		return trieutils.Class
-	case db.ContractTrieContract:
-		return trieutils.Contract
-	case db.ContractTrieStorage:
-		return trieutils.ContractStorage
-	default:
-		panic("unknown bucket")
-	}
 }
 
 type reader struct {
@@ -242,7 +189,7 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	return r.d.node(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
@@ -252,8 +199,4 @@ func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) 
 
 func (d *Database) Close() error {
 	return nil
-}
-
-func nodeSize(key, node []byte) int {
-	return len(key) + len(node)
 }

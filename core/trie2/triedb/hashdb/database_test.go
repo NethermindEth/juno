@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,13 +49,11 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
+	_, found := database.dirtyCache.getNode(&owner, &path, &nodeHash, id.Bucket() == db.ClassTrie)
+	assert.False(t, found)
+	blob, err := reader.Node(&owner, &path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
-
-	key := trieutils.NodeKeyByHash(id.Bucket(), &owner, &path, &nodeHash, node.IsLeaf())
-	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), &owner)
-	assert.False(t, found)
 }
 
 func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
@@ -62,8 +61,7 @@ func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieI
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	key := trieutils.NodeKeyByHash(id.Bucket(), &owner, &path, &nodeHash, node.IsLeaf())
-	_, found := database.dirtyCache.Get(key, bucketToTrieType(id.Bucket()), &owner)
+	_, found := database.dirtyCache.getNode(&owner, &path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.True(t, found)
 }
 
@@ -134,7 +132,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
+		database := New(memDB, nil)
 
 		deepClassNodes := map[trieutils.Path]trienode.TrieNode{
 			rootPath:    rootNode,
@@ -159,7 +157,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with contract nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
+		database := New(memDB, nil)
 
 		contractHash := *new(felt.Felt).SetUint64(210)
 		contractOwner := *new(felt.Felt).SetUint64(123)
@@ -184,7 +182,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit deep trie structure with edge nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
+		database := New(memDB, nil)
 
 		edgeHash := *new(felt.Felt).SetUint64(201)
 		edgePath := trieutils.NewBitArray(1, 0x01)
@@ -209,7 +207,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Commit handles concurrent operations", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
+		database := New(memDB, nil)
 
 		numTries := 5
 		tries := make([]struct {
@@ -271,7 +269,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("Update and Commit with deleted nodes", func(t *testing.T) {
 		memDB := memory.New()
-		database := New(memDB, DefaultConfig)
+		database := New(memDB, nil)
 
 		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
