@@ -15,7 +15,7 @@ const defaultTxnPoolSize int = 1024
 
 // Validator is used to validate new proposals. There are two potential flows, and functions must be called in order:
 // Flow 1) Non-empty proposal - ProposalInit(), BlockInfo(), TransactionBatch(), ProposalCommitment(), ProposalFin()
-// Flow 1) Empty proposal - ProposalInit(), ProposalCommitment(), ProposalFin()
+// Flow 2) Empty proposal - ProposalInit(), ProposalCommitment(), ProposalFin()
 //
 //go:generate mockgen -destination=../mocks/mock_validator.go -package=mocks github.com/NethermindEth/juno/consensus/validator Validator
 type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
