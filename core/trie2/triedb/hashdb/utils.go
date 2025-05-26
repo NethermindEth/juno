@@ -7,7 +7,6 @@ import (
 
 // key = hash (32 bytes) + path (dynamic) + pathLen (1 byte)
 func nodeKey(path *trieutils.Path, hash *felt.Felt) []byte {
-
 	hashBytes := hash.Bytes()
 	pathBytes := path.EncodedBytes()
 
