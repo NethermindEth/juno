@@ -265,10 +265,10 @@ where
     if get_execution_flags(transaction).charge_fee && l2_gas_limit > initial_gas_limit {
         tx_state.abort();
         set_l2_gas_limit(transaction, initial_gas_limit)?;
-        return execute_transaction(&transaction, state, block_context, error_on_revert);
+        return execute_transaction(transaction, state, block_context, error_on_revert);
     }
 
-    let mut exec_info = execute_transaction(&transaction, state, block_context, error_on_revert)?;
+    let mut exec_info = execute_transaction(transaction, state, block_context, error_on_revert)?;
 
     // Execute the transaction with the determined gas limit and update the estimate.
     exec_info.receipt.gas.l2_gas = l2_gas_limit;
@@ -415,10 +415,6 @@ where
         ..initial_resource_bounds
     };
 
-    // Calculate the maximum possible fee without L2 gas.
-    let max_fee_without_l2_gas =
-        ValidResourceBounds::AllResources(resource_bounds_without_l2_gas).max_possible_fee();
-
     match tx {
         Transaction::Account(account_transaction) => {
             // DEPLOY_ACCOUNT: Normal logic calculates max gas based on account balance, but account doesn't exist yet (balance = 0).
@@ -437,6 +433,10 @@ where
                 .get_fee_token_balance(account_transaction.sender_address(), fee_token_address)?;
             let balance = (balance.1.to_biguint() << 128) + balance.0.to_biguint();
 
+            // Calculate the maximum possible fee without L2 gas.
+            let max_fee_without_l2_gas =
+                ValidResourceBounds::AllResources(resource_bounds_without_l2_gas)
+                    .max_possible_fee(account_transaction.tip());
             if balance > max_fee_without_l2_gas.0.into() {
                 // Calculate the maximum amount of L2 gas that can be bought with the balance.
                 let max_l2_gas = (balance - max_fee_without_l2_gas.0)

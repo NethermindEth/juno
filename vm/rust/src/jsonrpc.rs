@@ -76,7 +76,7 @@ impl From<StateMaps> for StateDiff {
                     let starkfelt_address = address.into();
                     let entry = Entry {
                         key: key.into(),
-                        value: value.into(),
+                        value,
                     };
 
                     acc.entry(starkfelt_address)
@@ -98,7 +98,7 @@ impl From<StateMaps> for StateDiff {
             .into_iter()
             .map(|(address, nonce)| Nonce {
                 contract_address: address.into(),
-                nonce: (*nonce).into(),
+                nonce: *nonce,
             })
             .collect();
 
@@ -107,7 +107,7 @@ impl From<StateMaps> for StateDiff {
             .into_iter()
             .map(|(address, class_hash)| DeployedContract {
                 address: address.into(),
-                class_hash: (*class_hash).into(),
+                class_hash: *class_hash,
             })
             .collect();
 
@@ -115,15 +115,15 @@ impl From<StateMaps> for StateDiff {
             .declared_contracts
             .into_iter()
             .filter(|(_, is_deprecated)| *is_deprecated)
-            .map(|(class_hash, _)| (*class_hash).into())
+            .map(|(class_hash, _)| *class_hash)
             .collect();
 
         let declared_classes = state_maps
             .compiled_class_hashes
             .into_iter()
             .map(|(class_hash, compiled_class_hash)| DeclaredClass {
-                class_hash: (*class_hash).into(),
-                compiled_class_hash: compiled_class_hash.0.into(),
+                class_hash: *class_hash,
+                compiled_class_hash: compiled_class_hash.0,
             })
             .collect();
 
@@ -181,6 +181,7 @@ struct DeclaredClass {
     compiled_class_hash: StarkFelt,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ExecuteInvocation {
