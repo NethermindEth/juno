@@ -105,8 +105,8 @@
                 document.getElementById('versionInfo').textContent = 
                     `Latest version: ${versions[versions.length - 1]} | Total runs: ${data.length}`;
                 
-                // Convert duration to seconds
-                const parseDuration = (duration) => {
+                // Parse duration for calculations (still need seconds for math)
+                const parseDurationToSeconds = (duration) => {
                     const parts = duration.split(':');
                     return parseInt(parts[0]) * 3600 + 
                            parseInt(parts[1]) * 60 + 
@@ -117,10 +117,11 @@
                 const chartData = {
                     labels: data.map(d => d.version),
                     datasets: [{
-                        label: 'Sync Duration (seconds)',
+                        label: 'Sync Duration',
                         data: data.map((d, index) => ({
                             x: index,
-                            y: parseDuration(d.duration)
+                            y: parseDurationToSeconds(d.duration),
+                            duration: d.duration // Keep original format for display
                         })),
                         borderColor: 'rgb(75, 192, 192)',
                         backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -145,16 +146,19 @@
                         plugins: {
                             title: {
                                 display: true,
-                                text: 'Sync Performance by Version (10,000 blocks)'
+                                text: 'Sync Performance by Version (800,000 blocks)'
                             },
                             tooltip: {
                                 callbacks: {
+                                    label: function(context) {
+                                        const index = context.dataIndex;
+                                        return `Duration: ${data[index].duration}`;
+                                    },
                                     afterLabel: function(context) {
                                         const index = context.dataIndex;
                                         return [
                                             `Timestamp: ${new Date(data[index].timestamp).toLocaleString()}`,
-                                            `Block Target: ${data[index].block_target.toLocaleString()}`,
-                                            `Duration: ${data[index].duration}`
+                                            `Block Target: ${data[index].block_target.toLocaleString()}`
                                         ];
                                     }
                                 }
@@ -176,11 +180,20 @@
                             y: {
                                 title: {
                                     display: true,
-                                    text: 'Duration (seconds)'
+                                    text: 'Duration'
                                 },
                                 ticks: {
                                     callback: function(value) {
-                                        return value.toFixed(0) + 's';
+                                        // Convert seconds back to HH:MM:SS format for display
+                                        const hours = Math.floor(value / 3600);
+                                        const minutes = Math.floor((value % 3600) / 60);
+                                        const seconds = Math.floor(value % 60);
+                                        
+                                        if (hours > 0) {
+                                            return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                                        } else {
+                                            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                        }
                                     }
                                 }
                             }
@@ -189,23 +202,29 @@
                 });
                 
                 // Calculate statistics
-                const durations = data.map(d => parseDuration(d.duration));
+                const durations = data.map(d => parseDurationToSeconds(d.duration));
                 const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
                 const min = Math.min(...durations);
                 const max = Math.max(...durations);
                 const latest = durations[durations.length - 1];
                 
-                // Format duration for display
+                // Format duration for display (convert seconds back to HH:MM:SS)
                 const formatDuration = (seconds) => {
-                    const minutes = Math.floor(seconds / 60);
-                    const secs = (seconds % 60).toFixed(2);
-                    return `${minutes}:${secs.padStart(5, '0')}`;
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    
+                    if (hours > 0) {
+                        return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                    } else {
+                        return `${minutes}:${secs.toString().padStart(2, '0')}`;
+                    }
                 };
                 
                 // Display statistics
                 const statsHtml = `
                     <div class="stat-card">
-                        <div class="stat-value">${formatDuration(latest)}</div>
+                        <div class="stat-value">${data[data.length - 1].duration}</div>
                         <div class="stat-label">Latest</div>
                     </div>
                     <div class="stat-card">
