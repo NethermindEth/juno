@@ -11,8 +11,8 @@ import (
 
 // Stores the pending nodes in memory to be committed later
 type buffer struct {
-	layers uint64
-	limit  uint64
+	layers uint64 // number of layers merged into the buffer
+	limit  uint64 // maximum number of nodes the buffer can hold
 	nodes  *nodeSet
 }
 

@@ -85,7 +85,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	return blob, nil
 }
 
-func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
+func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 

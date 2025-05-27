@@ -16,7 +16,7 @@ type layer interface {
 	// Returns the encoded node bytes for a given trie id, owner, path and isLeaf flag
 	node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error)
 	// Updates the layer with a new root hash, state id and block number
-	update(root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer
+	update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer
 	// Writes the journal to the given writer
 	journal(w io.Writer) error
 	// Returns the root hash of the layer
@@ -50,7 +50,7 @@ func (tree *layerTree) get(root *felt.Felt) layer {
 // Adds a new layer to the layer tree
 func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
 	if root == parentRoot {
-		return errors.New("cannot have cycled layer")
+		return errors.New("cyclic layer detected, root and parent root cannot be the same")
 	}
 
 	parent := tree.get(parentRoot)
@@ -64,7 +64,7 @@ func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClass
 	newLayer := parent.update(root, parent.stateID()+1, block, newNodeSet(classNodes, contractNodes, contractStorageNodes))
 
 	tree.lock.Lock()
-	tree.layers[*root] = newLayer
+	tree.layers[*root] = &newLayer
 	tree.lock.Unlock()
 
 	return nil
@@ -139,18 +139,18 @@ func (tree *layerTree) cap(root *felt.Felt, layers int) error {
 		}
 	}
 
-	var removeLinks func(root felt.Felt)
-	removeLinks = func(root felt.Felt) {
-		delete(tree.layers, root)
-		for _, child := range children[root] {
-			removeLinks(child)
+	var removeLinks func(root *felt.Felt)
+	removeLinks = func(root *felt.Felt) {
+		delete(tree.layers, *root)
+		for _, child := range children[*root] {
+			removeLinks(&child)
 		}
-		delete(children, root)
+		delete(children, *root)
 	}
 
 	for root, layers := range tree.layers {
 		if dl, ok := layers.(*diskLayer); ok && dl.isStale() {
-			removeLinks(root)
+			removeLinks(&root)
 		}
 	}
 

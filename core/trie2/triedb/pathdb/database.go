@@ -32,7 +32,8 @@ type Database struct {
 }
 
 // Creates a new path-based database. It will load the journal from the disk and recreate the layer tree.
-// If the journal is not found, it will create a new disk layer only.
+// If the journal is not found, it will create a new disk layer only. If the config is not provided, it will use the default config,
+// which is 16MB for clean cache and 64MB for dirty cache.
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	if config == nil {
 		config = &Config{

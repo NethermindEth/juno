@@ -21,8 +21,8 @@ type diffLayer struct {
 	lock   sync.RWMutex
 }
 
-func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
-	return &diffLayer{
+func newDiffLayer(parent layer, root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
+	return diffLayer{
 		root:   *root,
 		id:     id,
 		block:  block,
@@ -52,7 +52,7 @@ func (dl *diffLayer) stateID() uint64 {
 	return dl.id
 }
 
-func (dl *diffLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) *diffLayer {
+func (dl *diffLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
@@ -69,7 +69,12 @@ func (dl *diffLayer) persist(force bool) (layer, error) {
 		dl.lock.Unlock()
 	}
 
-	return diffToDisk(dl, force)
+	disk, ok := dl.parentLayer().(*diskLayer)
+	if !ok {
+		return nil, errors.New("parent layer is not a disk layer")
+	}
+
+	return disk.commit(dl, force)
 }
 
 func (dl *diffLayer) parentLayer() layer {
@@ -77,13 +82,4 @@ func (dl *diffLayer) parentLayer() layer {
 	defer dl.lock.RUnlock()
 
 	return dl.parent
-}
-
-func diffToDisk(dl *diffLayer, force bool) (layer, error) {
-	disk, ok := dl.parentLayer().(*diskLayer)
-	if !ok {
-		return nil, errors.New("parent layer is not a disk layer")
-	}
-
-	return disk.commit(dl, force)
 }
