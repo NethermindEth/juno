@@ -144,10 +144,7 @@ func compareProposalCommitment( //nolint:gocyclo // disable linter because this 
 	concatCount *felt.Felt,
 ) error {
 	compareFeltField := func(name string, a, b *felt.Felt) error {
-		if a.IsZero() && b == nil {
-			return nil
-		}
-		if b != nil && a.Equal(b) {
+		if a.Equal(b) {
 			return nil
 		}
 		return fmt.Errorf("%s commitment mismatch: proposal=%s commitments=%s", name, a, b)
