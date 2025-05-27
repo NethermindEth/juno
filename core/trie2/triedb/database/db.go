@@ -28,5 +28,5 @@ type TrieDB interface {
 	NodeIterator
 	io.Closer
 
-	Commit(stateComm felt.Felt) error
+	Commit(stateComm *felt.Felt) error
 }

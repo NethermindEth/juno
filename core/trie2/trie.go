@@ -66,7 +66,7 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 		return tr, nil
 	}
 
-	root, err := tr.resolveNodeWithHash(nil, Path{}, rootHash)
+	root, err := tr.resolveNodeWithHash(new(Path), rootHash)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
@@ -495,20 +495,14 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 }
 
 // Resolves the node at the given path from the database
-func (t *Trie) resolveNodeWithHash(hn *trienode.HashNode, path Path, nodeHash *felt.Felt) (trienode.Node, error) {
-	var hash felt.Felt
-	if nodeHash != nil {
-		hash = *nodeHash
-	} else if hn != nil {
-		hash = felt.Felt(*hn)
-	}
-
-	blob, err := t.nodeReader.node(path, &hash, path.Len() == t.height)
+func (t *Trie) resolveNodeWithHash(path *Path, hash *felt.Felt) (trienode.Node, error) {
+	isLeaf := path.Len() == t.height
+	blob, err := t.nodeReader.node(*path, hash, isLeaf)
 	if err != nil {
 		return nil, err
 	}
 
-	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node

@@ -142,10 +142,10 @@ func TestDatabase(t *testing.T) {
 			leaf2Path:   leaf2Node,
 		}
 
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(deepClassNodes), createContractMergeNodeSet(nil))
+		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(deepClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		err = database.Commit(felt.Zero)
+		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -170,10 +170,10 @@ func TestDatabase(t *testing.T) {
 			},
 		}
 
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(contractNodes))
+		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(contractNodes))
 		require.NoError(t, err)
 
-		err = database.Commit(felt.Zero)
+		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -194,10 +194,10 @@ func TestDatabase(t *testing.T) {
 			leaf1Path: leaf1Node,
 		}
 
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(edgeClassNodes), createContractMergeNodeSet(nil))
+		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(edgeClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		err = database.Commit(felt.Zero)
+		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -245,7 +245,7 @@ func TestDatabase(t *testing.T) {
 				contractRoot: *new(felt.Felt).SetUint64(uint64(3000 + i)),
 			}
 
-			err := database.Update(tries[i].root, tries[i].parent, uint64(i), createMergeNodeSet(tries[i].classNodes), createContractMergeNodeSet(nil))
+			err := database.Update(&tries[i].root, &tries[i].parent, uint64(i), createMergeNodeSet(tries[i].classNodes), createContractMergeNodeSet(nil))
 			require.NoError(t, err)
 		}
 
@@ -254,7 +254,7 @@ func TestDatabase(t *testing.T) {
 		for range numTries {
 			go func() {
 				defer wg.Done()
-				err := database.Commit(felt.Zero)
+				err := database.Commit(&felt.Zero)
 				require.NoError(t, err)
 			}()
 		}
@@ -271,7 +271,7 @@ func TestDatabase(t *testing.T) {
 		memDB := memory.New()
 		database := New(memDB, nil)
 
-		err := database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
+		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		newRootHash := *new(felt.Felt).SetUint64(101)
@@ -283,7 +283,7 @@ func TestDatabase(t *testing.T) {
 			leaf1Path: trienode.NewDeleted(true),
 		}
 
-		err = database.Update(felt.Zero, felt.Zero, 42, createMergeNodeSet(updatedNodes), createContractMergeNodeSet(nil))
+		err = database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(updatedNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
 		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
@@ -292,7 +292,7 @@ func TestDatabase(t *testing.T) {
 		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, newRootNode)
 		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
 
-		err = database.Commit(felt.Zero)
+		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)

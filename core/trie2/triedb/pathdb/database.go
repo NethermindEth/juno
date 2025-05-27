@@ -25,7 +25,7 @@ func (d *Database) Close() error {
 	panic("TODO(weiihann): implement me")
 }
 
-func (d *Database) Commit(stateComm felt.Felt) error {
+func (d *Database) Commit(stateComm *felt.Felt) error {
 	panic("TODO(weiihann): implement me")
 }
 
@@ -51,7 +51,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 
 func (d *Database) Update(
 	root,
-	parent felt.Felt,
+	parent *felt.Felt,
 	blockNum uint64,
 	classNodes map[trieutils.Path]trienode.TrieNode,
 	contractNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,

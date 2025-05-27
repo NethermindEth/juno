@@ -10,12 +10,9 @@ type CleanCache struct {
 	cache *fastcache.Cache
 }
 
-func NewCleanCache(size int) *CleanCache {
-	if size <= 0 {
-		return nil
-	}
-	return &CleanCache{
-		cache: fastcache.New(size),
+func NewCleanCache(size uint64) CleanCache {
+	return CleanCache{
+		cache: fastcache.New(int(size)),
 	}
 }
 

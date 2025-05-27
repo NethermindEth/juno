@@ -19,7 +19,6 @@ type Config struct {
 
 type Database struct {
 	triedb database.TrieDB
-	hashdb database.TrieDB
 	config *Config
 }
 
@@ -34,16 +33,16 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 
 	return &Database{
 		triedb: pathdb.New(disk, config.PathConfig),
-		hashdb: hashdb.New(disk, config.HashConfig),
 		config: config,
 	}
 }
 
 func (d *Database) Update(
 	root,
-	parent felt.Felt,
+	parent *felt.Felt,
 	blockNum uint64,
-	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+	mergeClassNodes,
+	mergeContractNodes *trienode.MergeNodeSet,
 ) error {
 	switch td := d.triedb.(type) {
 	case *hashdb.Database:
@@ -53,7 +52,7 @@ func (d *Database) Update(
 	}
 }
 
-func (d *Database) Commit(stateComm felt.Felt) error {
+func (d *Database) Commit(stateComm *felt.Felt) error {
 	switch td := d.triedb.(type) {
 	case *hashdb.Database:
 		return td.Commit(stateComm)

@@ -288,7 +288,7 @@ func runRandTest(rt randTest) error {
 	for _, scheme := range []dbScheme{PathScheme, HashScheme} {
 		db := memory.New()
 		curRoot := felt.Zero
-		trieDB := NewTestNodeDatabase(db, scheme) // TODO: handle hash scheme later
+		trieDB := NewTestNodeDatabase(db, scheme)
 		tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, &trieDB, nil)
 		if err != nil {
 			return err

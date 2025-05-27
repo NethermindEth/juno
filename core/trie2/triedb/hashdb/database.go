@@ -13,7 +13,7 @@ import (
 )
 
 type Config struct {
-	CleanCacheSize int
+	CleanCacheSize uint64 // Maximum size (in bytes) for caching clean nodes
 }
 
 type Database struct {
@@ -27,16 +27,19 @@ type Database struct {
 	log  utils.SimpleLogger
 }
 
+// Creates a new hash-based database. If the config is not provided, it will use the default config,
+// which is 16MB for clean cache.
 func New(disk db.KeyValueStore, config *Config) *Database {
 	if config == nil {
 		config = &Config{
-			CleanCacheSize: 1024 * 1024 * 64,
+			CleanCacheSize: 1024 * 1024 * 16,
 		}
 	}
+	cleanCache := NewCleanCache(config.CleanCacheSize)
 	return &Database{
 		disk:       disk,
 		config:     *config,
-		cleanCache: NewCleanCache(config.CleanCacheSize),
+		cleanCache: &cleanCache,
 		dirtyCache: NewDirtyCache(),
 		log:        utils.NewNopZapLogger(),
 	}
@@ -50,7 +53,7 @@ func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Fel
 	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
-func (d *Database) node(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
 	}
@@ -84,7 +87,7 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(_ felt.Felt) error {
+func (d *Database) Commit(_ *felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
@@ -142,7 +145,7 @@ func (d *Database) Commit(_ felt.Felt) error {
 
 func (d *Database) Update(
 	root,
-	parent felt.Felt,
+	parent *felt.Felt,
 	blockNum uint64,
 	mergedClassNodes *trienode.MergeNodeSet,
 	mergedContractNodes *trienode.MergeNodeSet,
@@ -190,7 +193,7 @@ type reader struct {
 }
 
 func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
-	return r.d.node(r.id.Bucket(), owner, path, hash, isLeaf)
+	return r.d.readNode(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
 func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) {
