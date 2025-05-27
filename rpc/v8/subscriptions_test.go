@@ -1,3 +1,4 @@
+// todo(rdr): is ok for this tests to use rpcv8 instead of rpcv8 pkg
 package rpcv8
 
 import (
@@ -83,7 +84,8 @@ func TestSubscribeEvents(t *testing.T) {
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
-		blockID := &SubscriptionBlockID{Number: 0}
+
+		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -92,23 +94,25 @@ func TestSubscribeEvents(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		// Note the end of the window doesn't need to be tested because if requested block number is more than the
-		// head, a block not found error will be returned. This behaviour has been tested in various other tests, and we
-		// don't need to test it here again.
+		// Note the end of the window doesn't need to be tested because if requested block number
+		// is more than the head, a block not found error will be returned. This behaviour has been
+		// tested in various other tests, and we don't need to test it here again.
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
+				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
+				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, blockID)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -146,9 +150,11 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+			Return(mockEventFilterer, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+			Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -402,7 +408,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		blockID := &SubscriptionBlockID{Number: 0}
+		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -413,18 +419,20 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		t.Run("head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
+				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeNewHeads(subCtx, blockID)
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 
 		t.Run("head is more than 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 2024}, nil)
-			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number).Return(&core.Header{Number: 0}, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
+				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeNewHeads(subCtx, blockID)
+			id, rpcErr := handler.SubscribeNewHeads(subCtx, &blockID)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -579,8 +587,12 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 
 	// Unsubscribe
 	unsubMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_unsubscribe","params":[%s]}`
-	require.NoError(t, conn1.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, firstID)))
-	require.NoError(t, conn2.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, secondID)))
+	require.NoError(
+		t, conn1.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, firstID)),
+	)
+	require.NoError(
+		t, conn2.Write(ctx, websocket.MessageBinary, fmt.Appendf([]byte{}, unsubMsg, secondID)),
+	)
 }
 
 func TestSubscriptionReorg(t *testing.T) {
@@ -616,12 +628,15 @@ func TestSubscriptionReorg(t *testing.T) {
 	}
 
 	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(nil, nil, nil).AnyTimes()
+	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+		Return(nil).AnyTimes()
+	mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).
+		Return(nil, nil, nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
-	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+		Return(mockEventFilterer, nil).AnyTimes()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -640,10 +655,14 @@ func TestSubscriptionReorg(t *testing.T) {
 
 			// Simulate a reorg
 			syncer.reorgs.Send(&sync.ReorgBlockRange{
-				StartBlockHash: utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
-				StartBlockNum:  0,
-				EndBlockHash:   utils.HexToFelt(t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86"),
-				EndBlockNum:    2,
+				StartBlockHash: utils.HexToFelt(
+					t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+				),
+				StartBlockNum: 0,
+				EndBlockHash: utils.HexToFelt(
+					t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+				),
+				EndBlockNum: 2,
 			})
 
 			// Receive reorg event
@@ -1089,19 +1108,23 @@ func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent,
 	return filtered, emitted
 }
 
-func createTestEventsWebsocket(t *testing.T, h *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64) (SubscriptionID, net.Conn) {
+func createTestEventsWebsocket(
+	t *testing.T, h *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64,
+) (SubscriptionID, net.Conn) {
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		var blockID *SubscriptionBlockID
 		if startBlock != nil {
-			blockID = &SubscriptionBlockID{Number: *startBlock}
+			blockID := SubscriptionBlockID(BlockIDFromNumber(*startBlock))
+			return h.SubscribeEvents(ctx, fromAddr, keys, &blockID)
 		}
-		return h.SubscribeEvents(ctx, fromAddr, keys, blockID)
+		return h.SubscribeEvents(ctx, fromAddr, keys, nil)
 	})
 }
 
-func createTestTxStatusWebsocket(t *testing.T, h *Handler, txHash *felt.Felt) (SubscriptionID, net.Conn) {
+func createTestTxStatusWebsocket(
+	t *testing.T, h *Handler, txHash *felt.Felt,
+) (SubscriptionID, net.Conn) {
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
