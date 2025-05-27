@@ -143,7 +143,7 @@ func compareProposalCommitment( //nolint:gocyclo // disable linter because this 
 	c *core.BlockCommitments,
 	concatCount *felt.Felt,
 ) error {
-	compareProposalField := func(name string, a, b *felt.Felt) error {
+	compareFeltField := func(name string, a, b *felt.Felt) error {
 		if a.IsZero() && b == nil {
 			return nil
 		}
@@ -161,8 +161,8 @@ func compareProposalCommitment( //nolint:gocyclo // disable linter because this 
 		return fmt.Errorf("parent hash mismatch: proposal=%s header=%s", p.ParentCommitment.String(), h.ParentHash.String())
 	}
 
-	if !p.Builder.Equal(h.SequencerAddress) {
-		return fmt.Errorf("builder mismatch: proposal=%s header=%s", p.Builder.String(), h.SequencerAddress.String())
+	if err := compareFeltField("proposer address", &p.Builder, h.SequencerAddress); err != nil {
+		return err
 	}
 
 	if p.Timestamp > h.Timestamp {
@@ -173,20 +173,20 @@ func compareProposalCommitment( //nolint:gocyclo // disable linter because this 
 		return fmt.Errorf("protocol version mismatch: proposal=%s header=%s", p.ProtocolVersion, h.ProtocolVersion)
 	}
 
-	if err := compareProposalField("concat counts", &p.ConcatenatedCounts, concatCount); err != nil {
+	if err := compareFeltField("concat counts", &p.ConcatenatedCounts, concatCount); err != nil {
 		return err
 	}
 
-	if err := compareProposalField("state diff", &p.StateDiffCommitment, c.StateDiffCommitment); err != nil {
+	if err := compareFeltField("state diff", &p.StateDiffCommitment, c.StateDiffCommitment); err != nil {
 		return err
 	}
-	if err := compareProposalField("transaction", &p.TransactionCommitment, c.TransactionCommitment); err != nil {
+	if err := compareFeltField("transaction", &p.TransactionCommitment, c.TransactionCommitment); err != nil {
 		return err
 	}
-	if err := compareProposalField("event", &p.EventCommitment, c.EventCommitment); err != nil {
+	if err := compareFeltField("event", &p.EventCommitment, c.EventCommitment); err != nil {
 		return err
 	}
-	if err := compareProposalField("receipt", &p.ReceiptCommitment, c.ReceiptCommitment); err != nil {
+	if err := compareFeltField("receipt", &p.ReceiptCommitment, c.ReceiptCommitment); err != nil {
 		return err
 	}
 

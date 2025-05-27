@@ -136,7 +136,7 @@ const (
 	defaultSeqGenesisFile           = ""
 	defaultSeqDisableFees           = false
 	defaultHTTPUpdatePort           = 0
-	defaltProtocolVersion           = "0.13.3"
+	defaultProtocolVersion          = "0.13.3"
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -398,7 +398,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
-	junoCmd.Flags().String(protocolVersion, defaltProtocolVersion, protocolVersionUsage)
+	junoCmd.Flags().String(protocolVersion, defaultProtocolVersion, protocolVersionUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
