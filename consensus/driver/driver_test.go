@@ -12,7 +12,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -20,9 +19,9 @@ import (
 )
 
 type (
-	broadcaster[M starknet.Message] = p2p.Broadcaster[M, starknet.Value, starknet.Hash, starknet.Address]
-	listeners                       = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
-	broadcasters                    = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
+	broadcaster[M starknet.Message] = p2p.Broadcaster[M, starknet.Value]
+	listeners                       = p2p.Listeners[starknet.Value]
+	broadcasters                    = p2p.Broadcasters[starknet.Value]
 )
 
 const (
@@ -32,8 +31,8 @@ const (
 
 type expectedBroadcast struct {
 	proposals  []starknet.Proposal
-	prevotes   []starknet.Prevote
-	precommits []starknet.Precommit
+	prevotes   []types.Prevote
+	precommits []types.Precommit
 }
 
 type mockListener[M starknet.Message] struct {
@@ -65,8 +64,8 @@ func (m *mockBroadcaster[M]) Broadcast(msg M) {
 
 func mockListeners(
 	proposalCh chan starknet.Proposal,
-	prevoteCh chan starknet.Prevote,
-	precommitCh chan starknet.Precommit,
+	prevoteCh chan types.Prevote,
+	precommitCh chan types.Precommit,
 ) listeners {
 	return listeners{
 		ProposalListener:  newMockListener(proposalCh),
@@ -78,8 +77,8 @@ func mockListeners(
 func mockBroadcasters() broadcasters {
 	return broadcasters{
 		ProposalBroadcaster:  &mockBroadcaster[starknet.Proposal]{},
-		PrevoteBroadcaster:   &mockBroadcaster[starknet.Prevote]{},
-		PrecommitBroadcaster: &mockBroadcaster[starknet.Precommit]{},
+		PrevoteBroadcaster:   &mockBroadcaster[types.Prevote]{},
+		PrecommitBroadcaster: &mockBroadcaster[types.Precommit]{},
 	}
 }
 
@@ -87,11 +86,11 @@ func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
 	return 1 * time.Millisecond
 }
 
-func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
-	return starknet.MessageHeader{
+func getRandMessageHeader(random *rand.Rand) types.MessageHeader {
+	return types.MessageHeader{
 		Height: types.Height(random.Uint32()),
 		Round:  types.Round(random.Int()),
-		Sender: starknet.Address(felt.FromUint64(random.Uint64())),
+		Sender: types.Addr(felt.FromUint64(random.Uint64())),
 	}
 }
 
@@ -103,17 +102,17 @@ func getRandProposal(random *rand.Rand) starknet.Proposal {
 	}
 }
 
-func getRandPrevote(random *rand.Rand) starknet.Prevote {
-	return starknet.Prevote{
+func getRandPrevote(random *rand.Rand) types.Prevote {
+	return types.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
+		ID:            utils.HeapPtr(types.Hash(felt.FromUint64(random.Uint64()))),
 	}
 }
 
-func getRandPrecommit(random *rand.Rand) starknet.Precommit {
-	return starknet.Precommit{
+func getRandPrecommit(random *rand.Rand) types.Precommit {
+	return types.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
+		ID:            utils.HeapPtr(types.Hash(felt.FromUint64(random.Uint64()))),
 	}
 }
 
@@ -142,11 +141,11 @@ func generateAndRegisterRandomActions(
 		case 1:
 			prevote := getRandPrevote(random)
 			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
-			actions[i] = utils.HeapPtr(starknet.BroadcastPrevote(prevote))
+			actions[i] = utils.HeapPtr(types.BroadcastPrevote(prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
 			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
-			actions[i] = utils.HeapPtr(starknet.BroadcastPrecommit(precommit))
+			actions[i] = utils.HeapPtr(types.BroadcastPrecommit(precommit))
 		}
 	}
 	return actions
@@ -185,11 +184,11 @@ func TestDriver(t *testing.T) {
 	expectedBroadcast := &expectedBroadcast{}
 
 	proposalCh := make(chan starknet.Proposal)
-	prevoteCh := make(chan starknet.Prevote)
-	precommitCh := make(chan starknet.Precommit)
+	prevoteCh := make(chan types.Prevote)
+	precommitCh := make(chan types.Precommit)
 	broadcasters := mockBroadcasters()
 
-	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
+	stateMachine := mocks.NewMockStateMachine[starknet.Value](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
 

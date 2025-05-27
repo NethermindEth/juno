@@ -6,8 +6,8 @@ import (
 )
 
 type (
-	Listener[M starknet.Message] = p2p.Listener[M, starknet.Value, starknet.Hash, starknet.Address]
-	Listeners                    = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
+	Listener[M starknet.Message] = p2p.Listener[M, starknet.Value]
+	Listeners                    = p2p.Listeners[starknet.Value]
 )
 
 type listener[M starknet.Message] struct {

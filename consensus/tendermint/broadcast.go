@@ -5,9 +5,9 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
-	proposalMessage := types.Proposal[V, H, A]{
-		MessageHeader: types.MessageHeader[A]{
+func (t *stateMachine[V]) sendProposal(value *V) types.Action[V] {
+	proposalMessage := types.Proposal[V]{
+		MessageHeader: types.MessageHeader{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -22,12 +22,12 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
 
 	t.messages.AddProposal(proposalMessage)
 
-	return utils.HeapPtr(types.BroadcastProposal[V, H, A](proposalMessage))
+	return utils.HeapPtr(types.BroadcastProposal[V](proposalMessage))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, A] {
-	vote := types.Prevote[H, A]{
-		MessageHeader: types.MessageHeader[A]{
+func (t *stateMachine[V]) setStepAndSendPrevote(id *types.Hash) types.Action[V] {
+	vote := types.Prevote{
+		MessageHeader: types.MessageHeader{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -38,12 +38,12 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, 
 	t.messages.AddPrevote(vote)
 	t.state.step = types.StepPrevote
 
-	return utils.HeapPtr(types.BroadcastPrevote[H, A](vote))
+	return utils.HeapPtr(types.BroadcastPrevote(vote))
 }
 
-func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H, A] {
-	vote := types.Precommit[H, A]{
-		MessageHeader: types.MessageHeader[A]{
+func (t *stateMachine[V]) setStepAndSendPrecommit(id *types.Hash) types.Action[V] {
+	vote := types.Precommit{
+		MessageHeader: types.MessageHeader{
 			Height: t.state.height,
 			Round:  t.state.round,
 			Sender: t.nodeAddr,
@@ -54,5 +54,5 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H
 	t.messages.AddPrecommit(vote)
 	t.state.step = types.StepPrecommit
 
-	return utils.HeapPtr(types.BroadcastPrecommit[H, A](vote))
+	return utils.HeapPtr(types.BroadcastPrecommit(vote))
 }

@@ -7,13 +7,13 @@ import (
 
 // actionBuilder is a helper struct to build expected actions as the result of processing messages and timeouts for the state machine.
 type actionBuilder struct {
-	thisNodeAddr starknet.Address
+	thisNodeAddr types.Addr
 	actionHeight types.Height
 	actionRound  types.Round
 }
 
-func (t actionBuilder) buildMessageHeader() starknet.MessageHeader {
-	return starknet.MessageHeader{Height: t.actionHeight, Round: t.actionRound, Sender: t.thisNodeAddr}
+func (t actionBuilder) buildMessageHeader() types.MessageHeader {
+	return types.MessageHeader{Height: t.actionHeight, Round: t.actionRound, Sender: t.thisNodeAddr}
 }
 
 // broadcastProposal builds and returns a BroadcastProposal action.
@@ -27,7 +27,7 @@ func (t actionBuilder) broadcastProposal(val starknet.Value, validRound types.Ro
 
 // broadcastPrevote builds and returns a BroadcastPrevote action.
 func (t actionBuilder) broadcastPrevote(val *starknet.Value) starknet.Action {
-	return &starknet.BroadcastPrevote{
+	return &types.BroadcastPrevote{
 		MessageHeader: t.buildMessageHeader(),
 		ID:            getHash(val),
 	}
@@ -35,7 +35,7 @@ func (t actionBuilder) broadcastPrevote(val *starknet.Value) starknet.Action {
 
 // broadcastPrecommit builds and returns a BroadcastPrecommit action.
 func (t actionBuilder) broadcastPrecommit(val *starknet.Value) starknet.Action {
-	return &starknet.BroadcastPrecommit{
+	return &types.BroadcastPrecommit{
 		MessageHeader: t.buildMessageHeader(),
 		ID:            getHash(val),
 	}

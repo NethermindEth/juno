@@ -14,16 +14,16 @@ Check the upon condition on line 22:
 
 Since the value's id is expected to be unique the id can be used to compare the values.
 */
-func (t *stateMachine[V, H, A]) uponFirstProposal(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V]) uponFirstProposal(cachedProposal *CachedProposal[V]) bool {
 	return cachedProposal.ValidRound == -1 && t.state.step == types.StepPropose
 }
 
-func (t *stateMachine[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (t *stateMachine[V]) doFirstProposal(cachedProposal *CachedProposal[V]) types.Action[V] {
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound == -1 ||
 			t.state.lockedValue != nil && (*t.state.lockedValue).Hash() == *cachedProposal.ID)
 
-	var votedID *H
+	var votedID *types.Hash
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}

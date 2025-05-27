@@ -17,7 +17,7 @@ Check upon condition on line 36:
 	42: validValue_p ← v
 	43: validRound_p ← round_p
 */
-func (t *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V]) bool {
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(t.state.round, *cachedProposal.ID)
 	firstTime := !t.state.lockedValueAndOrValidValueSet
 	return hasQuorum &&
@@ -26,8 +26,8 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *Cach
 		firstTime
 }
 
-func (t *stateMachine[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
-	var action types.Action[V, H, A]
+func (t *stateMachine[V]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V]) types.Action[V] {
+	var action types.Action[V]
 	if t.state.step == types.StepPrevote {
 		t.state.lockedValue = cachedProposal.Value
 		t.state.lockedRound = t.state.round

@@ -16,7 +16,7 @@ func assertState(t *testing.T, stateMachine *testStateMachine, expectedHeight ty
 	assert.Equal(t, expectedStep, stateMachine.state.step, "step not equal")
 }
 
-func assertMessage[T starknet.Message](t *testing.T, messages map[types.Height]map[types.Round]map[starknet.Address]T, expectedMsgHeader starknet.MessageHeader, expectedMsg T) {
+func assertMessage[T starknet.Message](t *testing.T, messages map[types.Height]map[types.Round]map[types.Addr]T, expectedMsgHeader types.MessageHeader, expectedMsg T) {
 	t.Helper()
 	assert.Contains(t, messages, expectedMsgHeader.Height, "height not found")
 	assert.Contains(t, messages[expectedMsgHeader.Height], expectedMsgHeader.Round, "round not found")
@@ -35,7 +35,7 @@ func assertProposal(t *testing.T, stateMachine *testStateMachine, expectedMsg st
 }
 
 // assertPrevote asserts that the prevote message is in the state machine, except when the state machine advanced to the next height.
-func assertPrevote(t *testing.T, stateMachine *testStateMachine, expectedMsg starknet.Prevote) {
+func assertPrevote(t *testing.T, stateMachine *testStateMachine, expectedMsg types.Prevote) {
 	t.Helper()
 	// New height will discard the previous height messages.
 	if stateMachine.state.height != expectedMsg.Height {
@@ -45,7 +45,7 @@ func assertPrevote(t *testing.T, stateMachine *testStateMachine, expectedMsg sta
 }
 
 // assertPrecommit asserts that the precommit message is in the state machine, except when the state machine advanced to the next height.
-func assertPrecommit(t *testing.T, stateMachine *testStateMachine, expectedMsg starknet.Precommit) {
+func assertPrecommit(t *testing.T, stateMachine *testStateMachine, expectedMsg types.Precommit) {
 	t.Helper()
 	// New height will discard the previous height messages.
 	if stateMachine.state.height != expectedMsg.Height {

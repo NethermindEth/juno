@@ -1,21 +1,21 @@
 package types
 
-type Action[V Hashable[H], H Hash, A Addr] interface {
+type Action[V Hashable] interface {
 	isTendermintAction()
 }
 
-type BroadcastProposal[V Hashable[H], H Hash, A Addr] Proposal[V, H, A]
+type BroadcastProposal[V Hashable] Proposal[V]
 
-type BroadcastPrevote[H Hash, A Addr] Prevote[H, A]
+type BroadcastPrevote Prevote
 
-type BroadcastPrecommit[H Hash, A Addr] Precommit[H, A]
+type BroadcastPrecommit Precommit
 
 type ScheduleTimeout Timeout
 
-func (a *BroadcastProposal[V, H, A]) isTendermintAction() {}
+func (a *BroadcastProposal[V]) isTendermintAction() {}
 
-func (a *BroadcastPrevote[H, A]) isTendermintAction() {}
+func (a *BroadcastPrevote) isTendermintAction() {}
 
-func (a *BroadcastPrecommit[H, A]) isTendermintAction() {}
+func (a *BroadcastPrecommit) isTendermintAction() {}
 
 func (a *ScheduleTimeout) isTendermintAction() {}

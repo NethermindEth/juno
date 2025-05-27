@@ -6,14 +6,13 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
-type testTendermintDB = TendermintDB[starknet.Value, hash.Hash, starknet.Address]
+type testTendermintDB = TendermintDB[starknet.Value]
 
 func newTestTMDB(t *testing.T) (testTendermintDB, db.KeyValueStore, string) {
 	t.Helper()
@@ -21,7 +20,7 @@ func newTestTMDB(t *testing.T) (testTendermintDB, db.KeyValueStore, string) {
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmState := NewTendermintDB[starknet.Value, hash.Hash, starknet.Address](testDB, types.Height(0))
+	tmState := NewTendermintDB[starknet.Value](testDB, types.Height(0))
 	require.NotNil(t, tmState)
 
 	return tmState, testDB, dbPath
@@ -34,7 +33,7 @@ func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHei
 	newDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmState := NewTendermintDB[starknet.Value, hash.Hash, starknet.Address](newDB, testHeight)
+	tmState := NewTendermintDB[starknet.Value](newDB, testHeight)
 	return tmState, newDB
 }
 
@@ -43,28 +42,28 @@ func TestWALLifecycle(t *testing.T) {
 	testRound := types.Round(1)
 	testStep := types.StepPrevote
 
-	sender1 := starknet.Address(*new(felt.Felt).SetUint64(1))
-	sender2 := starknet.Address(*new(felt.Felt).SetUint64(2))
-	sender3 := starknet.Address(*new(felt.Felt).SetUint64(3))
+	sender1 := types.Addr(*new(felt.Felt).SetUint64(1))
+	sender2 := types.Addr(*new(felt.Felt).SetUint64(2))
+	sender3 := types.Addr(*new(felt.Felt).SetUint64(3))
 	var val1 starknet.Value = 10
 	valHash1 := val1.Hash()
 
 	proposal := starknet.Proposal{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender1},
+		MessageHeader: types.MessageHeader{Height: testHeight, Round: testRound, Sender: sender1},
 		ValidRound:    testRound,
 		Value:         utils.HeapPtr(val1),
 	}
-	prevote := starknet.Prevote{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender2},
+	prevote := types.Prevote{
+		MessageHeader: types.MessageHeader{Height: testHeight, Round: testRound, Sender: sender2},
 		ID:            &valHash1,
 	}
-	precommit := starknet.Precommit{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender3},
+	precommit := types.Precommit{
+		MessageHeader: types.MessageHeader{Height: testHeight, Round: testRound, Sender: sender3},
 		ID:            &valHash1,
 	}
 	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
 
-	expectedEntries := []WalEntry[starknet.Value, hash.Hash, starknet.Address]{
+	expectedEntries := []WalEntry[starknet.Value]{
 		{Type: types.MessageTypeProposal, Entry: proposal},
 		{Type: types.MessageTypePrevote, Entry: prevote},
 		{Type: types.MessageTypePrecommit, Entry: precommit},

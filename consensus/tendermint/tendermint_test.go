@@ -53,7 +53,7 @@ func (c *chain) Commit(h types.Height, v starknet.Value) {
 // Implements Validators[felt.Felt] interface
 type validators struct {
 	totalVotingPower types.VotingPower
-	vals             []starknet.Address
+	vals             []types.Addr
 }
 
 func newVals() *validators { return &validators{} }
@@ -62,23 +62,23 @@ func (v *validators) TotalVotingPower(h types.Height) types.VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(validatorAddr starknet.Address) types.VotingPower {
+func (v *validators) ValidatorVotingPower(validatorAddr types.Addr) types.VotingPower {
 	return 1
 }
 
 // Proposer is implements round robin
-func (v *validators) Proposer(h types.Height, r types.Round) starknet.Address {
+func (v *validators) Proposer(h types.Height, r types.Round) types.Addr {
 	i := (uint(h) + uint(r)) % uint(v.totalVotingPower)
 	return v.vals[i]
 }
 
-func (v *validators) addValidator(addr starknet.Address) {
+func (v *validators) addValidator(addr types.Addr) {
 	v.vals = append(v.vals, addr)
 	v.totalVotingPower++
 }
 
-func getVal(idx int) *starknet.Address {
-	return (*starknet.Address)(new(felt.Felt).SetUint64(uint64(idx)))
+func getVal(idx int) *types.Addr {
+	return (*types.Addr)(new(felt.Felt).SetUint64(uint64(idx)))
 }
 
 func setupStateMachine(
@@ -95,7 +95,7 @@ func setupStateMachine(
 	thisNodeAddr := getVal(thisValidator)
 	ctrl := gomock.NewController(t)
 	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	db := mocks.NewMockTendermintDB[starknet.Value](ctrl)
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
 	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()

@@ -5,10 +5,9 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/hash"
 )
 
-type testStateMachine = stateMachine[starknet.Value, hash.Hash, starknet.Address]
+type testStateMachine = stateMachine[starknet.Value]
 
 // stateMachineContext is a build struct to build test scenarios for the state machine.
 // Sample usages:
@@ -66,7 +65,7 @@ func (t stateMachineContext) validator(idx int) incomingMessageBuilder {
 	return incomingMessageBuilder{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		header:       starknet.MessageHeader{Height: t.builderHeight, Round: t.builderRound, Sender: *getVal(idx)},
+		header:       types.MessageHeader{Height: t.builderHeight, Round: t.builderRound, Sender: *getVal(idx)},
 	}
 }
 

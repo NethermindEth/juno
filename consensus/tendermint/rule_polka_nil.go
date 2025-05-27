@@ -11,10 +11,10 @@ Check the upon condition on line 44:
 
 Line 36 and 44 for a round are mutually exclusive.
 */
-func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
+func (t *stateMachine[V]) uponPolkaNil() bool {
 	prevotes := t.messages.Prevotes[t.state.height][t.state.round]
 
-	var vals []A
+	var vals []types.Addr
 	for addr, v := range prevotes {
 		if v.ID == nil {
 			vals = append(vals, addr)
@@ -27,6 +27,6 @@ func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
 	return hasQuorum && t.state.step == types.StepPrevote
 }
 
-func (t *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
+func (t *stateMachine[V]) doPolkaNil() types.Action[V] {
 	return t.setStepAndSendPrecommit(nil)
 }

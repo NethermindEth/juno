@@ -7,17 +7,17 @@ import (
 
 type blockchain struct {
 	height   types.Height
-	nodeAddr *starknet.Address
+	nodeAddr *types.Addr
 	commits  chan commit
 }
 
 type commit struct {
-	nodeAddr *starknet.Address
+	nodeAddr *types.Addr
 	height   types.Height
 	value    starknet.Value
 }
 
-func newBlockchain(commits chan commit, nodeAddr *starknet.Address) *blockchain {
+func newBlockchain(commits chan commit, nodeAddr *types.Addr) *blockchain {
 	return &blockchain{
 		height:   0,
 		nodeAddr: nodeAddr,

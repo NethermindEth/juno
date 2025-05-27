@@ -5,7 +5,6 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,9 +26,9 @@ func (a actionAsserter[T]) expectActions(expected ...starknet.Action) actionAsse
 		switch action := action.(type) {
 		case *starknet.BroadcastProposal:
 			assertProposal(a.testing, a.stateMachine, starknet.Proposal(*action))
-		case *starknet.BroadcastPrevote:
-			assertPrevote(a.testing, a.stateMachine, starknet.Prevote(*action))
-		case *starknet.BroadcastPrecommit:
+		case *types.BroadcastPrevote:
+			assertPrevote(a.testing, a.stateMachine, types.Prevote(*action))
+		case *types.BroadcastPrecommit:
 			// If the post state is not in new height and a value is committed, assert the valid and locked tuples.
 			if a.stateMachine.state.height == action.Height && action.ID != nil {
 				assert.Equal(a.testing, a.stateMachine.state.lockedRound, action.Round)
@@ -37,7 +36,7 @@ func (a actionAsserter[T]) expectActions(expected ...starknet.Action) actionAsse
 				assert.Equal(a.testing, a.stateMachine.state.validRound, action.Round)
 				assert.Equal(a.testing, getHash(a.stateMachine.state.validValue), action.ID)
 			}
-			assertPrecommit(a.testing, a.stateMachine, starknet.Precommit(*action))
+			assertPrecommit(a.testing, a.stateMachine, types.Precommit(*action))
 		case *types.ScheduleTimeout:
 			// ScheduleTimeout doesn't come with any state change, so there's nothing to assert here.
 		}
@@ -45,7 +44,7 @@ func (a actionAsserter[T]) expectActions(expected ...starknet.Action) actionAsse
 	return a
 }
 
-func getHash(val *starknet.Value) *hash.Hash {
+func getHash(val *starknet.Value) *types.Hash {
 	if val != nil {
 		return utils.HeapPtr(val.Hash())
 	}

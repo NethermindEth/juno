@@ -13,7 +13,7 @@ Check the upon condition on line 28:
 	32:  	broadcast {PREVOTE, hp, round_p, nil}
 	33: step_p ← prevote
 */
-func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V]) bool {
 	vr := cachedProposal.ValidRound
 	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
 	return hasQuorum &&
@@ -22,8 +22,8 @@ func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cac
 		vr < t.state.round
 }
 
-func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
-	var votedID *H
+func (t *stateMachine[V]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V]) types.Action[V] {
+	var votedID *types.Hash
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound <= cachedProposal.ValidRound ||
 			t.state.lockedValue != nil && cachedProposal.ID != nil && (*t.state.lockedValue).Hash() == *cachedProposal.ID)
