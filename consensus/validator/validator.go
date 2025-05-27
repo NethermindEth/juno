@@ -137,7 +137,7 @@ func (a *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 //  1. Some fields we can't get / compute: VersionConstantCommitment, NextL2GasPriceFRI
 //  2. The gas prices. Currently the spec sets eth gas prices, but in v1, these will be dropped
 //     for fri prices.
-func compareProposalCommitment( //nolint:gocyclo // disable linter because this function has a simple pattern
+func compareProposalCommitment(
 	p *types.ProposalCommitment,
 	h *core.Header,
 	c *core.BlockCommitments,
