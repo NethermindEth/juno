@@ -27,7 +27,8 @@ type layer interface {
 	parentLayer() layer
 }
 
-// Represents a layer tree which contains multiple in-memory diff layers and a single disk layer
+// Represents a layer tree which contains multiple in-memory diff layers and a single disk layer.
+// The disk layer must be at the bottom of the tree and there can only be one.
 type layerTree struct {
 	layers map[felt.Felt]layer
 	lock   sync.RWMutex
