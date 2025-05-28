@@ -30,4 +30,5 @@ type (
 	BroadcastProposal  = types.BroadcastProposal[Value, Hash, Address]
 	BroadcastPrevote   = types.BroadcastPrevote[Hash, Address]
 	BroadcastPrecommit = types.BroadcastPrecommit[Hash, Address]
+	Commit             = types.Commit[Value, Hash, Address]
 )

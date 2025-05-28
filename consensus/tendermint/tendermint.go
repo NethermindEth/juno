@@ -16,14 +16,6 @@ type Application[V types.Hashable[H], H types.Hash] interface {
 	Valid(V) bool
 }
 
-type Blockchain[V types.Hashable[H], H types.Hash] interface {
-	// types.Height return the current blockchain height
-	Height() types.Height
-
-	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(types.Height, V)
-}
-
 type Validators[A types.Addr] interface {
 	// TotalVotingPower represents N which is required to calculate the thresholds.
 	TotalVotingPower(types.Height) types.VotingPower
@@ -64,7 +56,6 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	messages types.Messages[V, H, A]
 
 	application Application[V, H]
-	blockchain  Blockchain[V, H]
 	validators  Validators[A]
 }
 
@@ -89,21 +80,20 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
-	chain Blockchain[V, H],
 	vals Validators[A],
+	height types.Height,
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
 		db:       db,
 		log:      log,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
-			height:      chain.Height(),
+			height:      height,
 			lockedRound: -1,
 			validRound:  -1,
 		},
 		messages:    types.NewMessages[V, H, A](),
 		application: app,
-		blockchain:  chain,
 		validators:  vals,
 	}
 }
@@ -116,7 +106,7 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
 	if err := t.db.Flush(); err != nil {
-		t.log.Fatalf("failed to flush WAL at start of round", "round", r, "height", t.blockchain.Height(), "err", err)
+		t.log.Fatalf("failed to flush WAL at start of round", "height", t.state.height, "round", r, "err", err)
 	}
 
 	t.state.round = r
@@ -135,7 +125,7 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 		}
 		actions := t.sendProposal(proposalValue)
 		if err := t.db.Flush(); err != nil {
-			t.log.Fatalf("failed to flush WAL when propsing a new block", "round", r, "height", t.blockchain.Height(), "err", err)
+			t.log.Fatalf("failed to flush WAL when proposing a new block", "height", t.state.height, "round", r, "err", err)
 		}
 		return actions
 	} else {
@@ -244,10 +234,9 @@ func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 //
 // Panics if the replaying the messages fails for whatever reason.
 func (t *stateMachine[V, H, A]) ReplayWAL() {
-	height := t.blockchain.Height()
-	walEntries, err := t.db.GetWALEntries(height)
+	walEntries, err := t.db.GetWALEntries(t.state.height)
 	if err != nil {
-		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", height, err))
+		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", t.state.height, err))
 	}
 	t.replayMode = true
 	for _, walEntry := range walEntries {

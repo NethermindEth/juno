@@ -9,10 +9,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -62,23 +60,23 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	// Spawn a network of honest nodes
 	for i := range honestNodeCount {
-		dbPath := t.TempDir()
-		testDB, err := pebble.New(dbPath)
-		require.NoError(t, err)
+		tendermintDB := newDB(t)
 
 		nodeAddr := &allNodes.addr[i]
 
 		stateMachine := tendermint.New(
-			newDB(t),
+			tendermintDB,
 			utils.NewNopZapLogger(),
 			*nodeAddr,
 			&application{},
-			newBlockchain(commits, nodeAddr),
 			validators,
+			types.Height(0),
 		)
 		driver := driver.New(
-			testDB,
+			utils.NewNopZapLogger(),
+			tendermintDB,
 			stateMachine,
+			newBlockchain(commits, nodeAddr),
 			network.getListeners(nodeAddr),
 			network.getBroadcasters(nodeAddr),
 			getTimeoutFn(cfg),

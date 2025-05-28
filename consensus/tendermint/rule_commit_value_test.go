@@ -28,16 +28,12 @@ func TestCommitValue(t *testing.T) {
 
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
+			currentRound.action().commit(committedValue, types.Round(-1), 0),
 			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
-
-		// TODO: This is a workaround to get the chain. Find a better way to do this.
-		chain := stateMachine.blockchain.(*chain)
-
-		assert.Equal(t, chain.decision[0], committedValue)
 
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
@@ -59,15 +55,11 @@ func TestCommitValue(t *testing.T) {
 		currentRound.validator(1).precommit(&committedValue)
 		currentRound.validator(2).precommit(&committedValue).expectActions(
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
+			currentRound.action().commit(committedValue, types.Round(-1), 0),
 			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
-
-		// TODO: This is a workaround to get the chain. Find a better way to do this.
-		chain := stateMachine.blockchain.(*chain)
-
-		assert.Equal(t, chain.decision[0], committedValue)
 
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
