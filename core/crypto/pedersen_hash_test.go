@@ -153,7 +153,7 @@ func BenchmarkPedersen(b *testing.B) {
 
 func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
 	randomFeltSls := make([][]*felt.Felt, 0, b.N)
-	for range b.N {
+	for b.Loop() {
 		randomFeltSls = append(randomFeltSls, genRandomFelts(b, n))
 	}
 	return randomFeltSls
