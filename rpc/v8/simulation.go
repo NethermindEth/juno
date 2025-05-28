@@ -33,13 +33,13 @@ type TracedBlockTransaction struct {
 		Simulate Handlers
 *****************************************************/
 
-func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
@@ -48,13 +48,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	state, closer, rpcErr := h.stateByBlockID(&id)
+	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
