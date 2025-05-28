@@ -556,8 +556,6 @@ func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
 }
 
 func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
-	b.finaliseMutex.RLock()
-	defer b.finaliseMutex.RUnlock()
 	b.log.Debugw("calling ExecuteTxns")
 	blockHashToBeRevealed, err := b.getRevealedBlockHash()
 	if err != nil {
