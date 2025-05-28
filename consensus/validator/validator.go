@@ -132,6 +132,9 @@ func (a *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 	return a.builder.Finalise(nil)
 }
 
+// Todo: the validator interface assumes that the msgs are prevalidated before it is called.
+// This is an issue because proto3 may leave messages empty, whereas starknet requires them
+// to be present
 func compareFeltField(name string, a, b *felt.Felt) error {
 	if a.Equal(b) {
 		return nil

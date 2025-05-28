@@ -3,6 +3,8 @@ package validator
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -243,4 +245,114 @@ func TestProposal(t *testing.T) {
 	proposedBlock := builder.PendingBlock()
 	proposalFin := types.ProposalFin(*proposedBlock.Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
+}
+
+func TestCompareFeltField(t *testing.T) {
+	name := "test-field"
+
+	a := new(felt.Felt).SetUint64(12345)
+	b := new(felt.Felt).SetUint64(12345)
+	c := new(felt.Felt).SetUint64(67890)
+
+	t.Run("EqualFields", func(t *testing.T) {
+		err := compareFeltField(name, a, b)
+		if err != nil {
+			t.Errorf("expected no error for equal fields, got: %v", err)
+		}
+	})
+
+	t.Run("UnequalFields", func(t *testing.T) {
+		err := compareFeltField(name, a, c)
+		if err == nil {
+			t.Errorf("expected error for unequal fields, got nil")
+		} else {
+			expected := fmt.Sprintf("%s commitment mismatch: proposal=%s commitments=%s", name, a, c)
+			if err.Error() != expected {
+				t.Errorf("unexpected error message: got %q, want %q", err.Error(), expected)
+			}
+		}
+	})
+}
+
+func TestCompareProposalCommitment(t *testing.T) {
+	proposer := utils.HexToFelt(t, "1")
+	commitment := &felt.Felt{}
+	commitment.SetUint64(42)
+
+	blockNumber := uint64(100)
+
+	p := &types.ProposalCommitment{
+		BlockNumber:           blockNumber,
+		ParentCommitment:      *utils.HexToFelt(t, "111"),
+		Builder:               *proposer,
+		Timestamp:             1000,
+		ProtocolVersion:       *blockchain.SupportedStarknetVersion,
+		ConcatenatedCounts:    *utils.HexToFelt(t, "1"),
+		StateDiffCommitment:   *commitment,
+		TransactionCommitment: *commitment,
+		EventCommitment:       *commitment,
+		ReceiptCommitment:     *commitment,
+		L1DAMode:              0,
+	}
+
+	h := &core.Header{
+		Number:           blockNumber,
+		ParentHash:       utils.HexToFelt(t, "111"),
+		SequencerAddress: proposer,
+		Timestamp:        1000,
+		ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
+		L1DAMode:         0,
+	}
+
+	c := &core.BlockCommitments{
+		StateDiffCommitment:   commitment,
+		TransactionCommitment: commitment,
+		EventCommitment:       commitment,
+		ReceiptCommitment:     commitment,
+	}
+
+	concatCount := utils.HexToFelt(t, "1")
+
+	t.Run("ValidCommitment", func(t *testing.T) {
+		err := compareProposalCommitment(p, h, c, concatCount)
+		if err != nil {
+			t.Errorf("expected no error, got: %v", err)
+		}
+	})
+
+	t.Run("MismatchedBlockNumber", func(t *testing.T) {
+		p.BlockNumber = blockNumber + 1
+		err := compareProposalCommitment(p, h, c, concatCount)
+		if err == nil || !strings.Contains(err.Error(), "block number mismatch") {
+			t.Errorf("expected block number mismatch error, got: %v", err)
+		}
+		p.BlockNumber = blockNumber // reset
+	})
+
+	t.Run("MismatchedParentCommitment", func(t *testing.T) {
+		p.ParentCommitment = *utils.HexToFelt(t, "222")
+		err := compareProposalCommitment(p, h, c, concatCount)
+		if err == nil || !strings.Contains(err.Error(), "parent hash mismatch") {
+			t.Errorf("expected parent hash mismatch error, got: %v", err)
+		}
+		p.ParentCommitment = *utils.HexToFelt(t, "111")
+	})
+
+	t.Run("FutureTimestamp", func(t *testing.T) {
+		p.Timestamp = 2000
+		err := compareProposalCommitment(p, h, c, concatCount)
+		if err == nil || !strings.Contains(err.Error(), "invalid timestamp") {
+			t.Errorf("expected invalid timestamp error, got: %v", err)
+		}
+		p.Timestamp = 1000
+	})
+
+	t.Run("UnsupportedProtocolVersion", func(t *testing.T) {
+		p.ProtocolVersion = *semver.New(0, 123, 0, "", "")
+		err := compareProposalCommitment(p, h, c, concatCount)
+		if err == nil || !strings.Contains(err.Error(), "protocol version mismatch") {
+			t.Errorf("expected protocol version mismatch error, got: %v", err)
+		}
+		p.ProtocolVersion = *blockchain.SupportedStarknetVersion
+	})
 }
