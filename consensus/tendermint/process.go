@@ -66,21 +66,21 @@ func (t *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[
 }
 
 func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recentlyReceivedRound *types.Round) []types.Action[V, H, A] {
-	actions := []types.Action[V, H, A]{}
-	if action != nil {
-		actions = append(actions, action)
-	}
+	actions, _ := appendAction[V, H, A](nil, action)
+	// Always try processing at least once
+	shouldContinue := true
 
-	action = t.process(recentlyReceivedRound)
-	for action != nil {
-		actions = append(actions, action)
-		action = t.process(recentlyReceivedRound)
+	for shouldContinue {
+		actions, shouldContinue = t.process(actions, recentlyReceivedRound)
 	}
 
 	return actions
 }
 
-func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) process(
+	existingActions []types.Action[V, H, A],
+	recentlyReceivedRound *types.Round,
+) (newActions []types.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := t.findProposal(t.state.round)
 
 	var roundCachedProposal *CachedProposal[V, H, A]
@@ -91,37 +91,47 @@ func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) type
 	switch {
 	// Line 22
 	case cachedProposal != nil && t.uponFirstProposal(cachedProposal):
-		return t.doFirstProposal(cachedProposal)
+		return appendAction(existingActions, t.doFirstProposal(cachedProposal))
 
 	// Line 28
 	case cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal):
-		return t.doProposalAndPolkaPrevious(cachedProposal)
+		return appendAction(existingActions, t.doProposalAndPolkaPrevious(cachedProposal))
 
 	// Line 34
 	case t.uponPolkaAny():
-		return t.doPolkaAny()
+		return appendAction(existingActions, t.doPolkaAny())
 
 	// Line 36
 	case cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal):
-		return t.doProposalAndPolkaCurrent(cachedProposal)
+		return appendAction(existingActions, t.doProposalAndPolkaCurrent(cachedProposal))
 
 	// Line 44
 	case t.uponPolkaNil():
-		return t.doPolkaNil()
+		return appendAction(existingActions, t.doPolkaNil())
 
 	// Line 47
 	case t.uponPrecommitAny():
-		return t.doPrecommitAny()
+		return appendAction(existingActions, t.doPrecommitAny())
 
 	// Line 49
 	case roundCachedProposal != nil && t.uponCommitValue(roundCachedProposal):
-		return t.doCommitValue(roundCachedProposal)
+		return appendAction(append(existingActions, (*types.Commit[V, H, A])(&roundCachedProposal.Proposal)), t.doCommitValue())
 
 	// Line 55
 	case recentlyReceivedRound != nil && t.uponSkipRound(*recentlyReceivedRound):
-		return t.doSkipRound(*recentlyReceivedRound)
+		return appendAction(existingActions, t.doSkipRound(*recentlyReceivedRound))
 
 	default:
-		return nil
+		return existingActions, false
 	}
+}
+
+func appendAction[V types.Hashable[H], H types.Hash, A types.Addr](
+	existingActions []types.Action[V, H, A],
+	action types.Action[V, H, A],
+) (newActions []types.Action[V, H, A], shouldContinue bool) {
+	if action != nil {
+		return append(existingActions, action), true
+	}
+	return existingActions, false
 }
