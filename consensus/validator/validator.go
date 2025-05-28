@@ -132,6 +132,13 @@ func (a *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 	return a.builder.Finalise(nil)
 }
 
+func compareFeltField(name string, a, b *felt.Felt) error {
+	if a.Equal(b) {
+		return nil
+	}
+	return fmt.Errorf("%s commitment mismatch: proposal=%s commitments=%s", name, a, b)
+}
+
 // Todo: there are fields in ProposalCommitment that we don't check against. Some of these fields
 // will be dropped in the finalised spec, so I don't think we should worry about them until then
 //  1. Some fields we can't get / compute: VersionConstantCommitment, NextL2GasPriceFRI
@@ -143,13 +150,6 @@ func compareProposalCommitment(
 	c *core.BlockCommitments,
 	concatCount *felt.Felt,
 ) error {
-	compareFeltField := func(name string, a, b *felt.Felt) error {
-		if a.Equal(b) {
-			return nil
-		}
-		return fmt.Errorf("%s commitment mismatch: proposal=%s commitments=%s", name, a, b)
-	}
-
 	if p.BlockNumber != h.Number {
 		return fmt.Errorf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
 	}
