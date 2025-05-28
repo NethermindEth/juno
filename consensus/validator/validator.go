@@ -166,7 +166,7 @@ func compareProposalCommitment(
 		return fmt.Errorf("invalid timestamp: proposal timestamp (%d) is later than header timestamp (%d)", p.Timestamp, h.Timestamp)
 	}
 
-	if !p.ProtocolVersion.Equal(blockchain.SupportedStarknetVersion) {
+	if !p.ProtocolVersion.LessThanEqual(blockchain.SupportedStarknetVersion) {
 		return fmt.Errorf("protocol version mismatch: proposal=%s header=%s", p.ProtocolVersion, h.ProtocolVersion)
 	}
 
