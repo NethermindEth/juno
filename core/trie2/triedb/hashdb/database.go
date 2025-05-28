@@ -211,6 +211,7 @@ func (d *Database) Close() error {
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
 func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (*felt.Felt, *felt.Felt, error) {
+	const contractClassTrieHeight = 251
 	data, err := core.GetClassAndContractRootByStateCommitment(d.disk, stateCommitment)
 	if err != nil {
 		return nil, nil, err
@@ -220,13 +221,13 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (*felt.Felt, *fe
 		return nil, nil, err
 	}
 	classRootHashBytes := classRootHash.Bytes()
-	_, err = trienode.DecodeNode(classRootHashBytes[:], &felt.Zero, 0, 251)
+	_, err = trienode.DecodeNode(classRootHashBytes[:], &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	contractRootHashBytes := contractRootHash.Bytes()
-	_, err = trienode.DecodeNode(contractRootHashBytes[:], &felt.Zero, 0, 251)
+	_, err = trienode.DecodeNode(contractRootHashBytes[:], &felt.Zero, 0, contractClassTrieHeight)
 	if err != nil {
 		return nil, nil, err
 	}

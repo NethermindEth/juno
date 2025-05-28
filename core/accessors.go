@@ -510,7 +510,7 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (Transaction, error) {
 	return GetTxByBlockNumIndexBytes(r, val)
 }
 
-func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment *felt.Felt, classRoot, contractRoot *felt.Felt) error {
+func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment, classRoot, contractRoot *felt.Felt) error {
 	val := append(classRoot.Marshal(), contractRoot.Marshal()...)
 	return w.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 }
