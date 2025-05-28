@@ -1,9 +1,11 @@
 package hashdb
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -202,4 +204,43 @@ func (d *Database) NodeReader(id trieutils.TrieID) (database.NodeReader, error) 
 
 func (d *Database) Close() error {
 	return nil
+}
+
+// TODO(MaksymMalicki): this is a mechanism to detect the node crash, checks if the trie roots associated
+// with the state commitment are present in the db, if not, the lost data needs to be recovered
+// This will be integrated during the state refactor integration, if there is a node crash,
+// the chain needs to be reverted to the last state commitment with the trie roots present in the db
+func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (*felt.Felt, *felt.Felt, error) {
+	data, err := core.GetClassAndContractRootByStateCommitment(d.disk, stateCommitment)
+	if err != nil {
+		return nil, nil, err
+	}
+	classRootHash, contractRootHash, err := decodeTriesRoots(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	classRootHashBytes := classRootHash.Bytes()
+	_, err = trienode.DecodeNode(classRootHashBytes[:], &felt.Zero, 0, 251)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	contractRootHashBytes := contractRootHash.Bytes()
+	_, err = trienode.DecodeNode(contractRootHashBytes[:], &felt.Zero, 0, 251)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return classRootHash, contractRootHash, nil
+}
+
+func decodeTriesRoots(val []byte) (*felt.Felt, *felt.Felt, error) {
+	var classRoot, contractRoot felt.Felt
+
+	if len(val) != 2*felt.Bytes {
+		return nil, nil, fmt.Errorf("invalid state hash value length")
+	}
+	classRoot.SetBytes(val[:felt.Bytes])
+	contractRoot.SetBytes(val[felt.Bytes:])
+	return &classRoot, &contractRoot, nil
 }
