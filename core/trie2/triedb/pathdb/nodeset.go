@@ -114,9 +114,10 @@ func (s *nodeSet) write(w db.KeyValueWriter, cleans *cleanCache) error {
 
 // Represents a node when writing to the journal
 type journalNode struct {
-	Path []byte
-	Blob []byte
-	Hash felt.Felt
+	Path   []byte
+	Blob   []byte
+	Hash   felt.Felt
+	IsLeaf bool
 }
 
 // Represents a set of journal nodes for a specific trie type and owner
@@ -141,7 +142,12 @@ func (s *nodeSet) encode(w io.Writer) error {
 		Nodes:    make([]journalNode, 0, len(s.classNodes)),
 	}
 	for path, n := range s.classNodes {
-		classEntry.Nodes = append(classEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
+		classEntry.Nodes = append(classEntry.Nodes, journalNode{
+			Path:   path.EncodedBytes(),
+			Blob:   n.Blob(),
+			Hash:   n.Hash(),
+			IsLeaf: n.IsLeaf(),
+		})
 	}
 	nodes = append(nodes, classEntry)
 
@@ -151,7 +157,12 @@ func (s *nodeSet) encode(w io.Writer) error {
 		Nodes:    make([]journalNode, 0, len(s.contractNodes)),
 	}
 	for path, n := range s.contractNodes {
-		contractEntry.Nodes = append(contractEntry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
+		contractEntry.Nodes = append(contractEntry.Nodes, journalNode{
+			Path:   path.EncodedBytes(),
+			Blob:   n.Blob(),
+			Hash:   n.Hash(),
+			IsLeaf: n.IsLeaf(),
+		})
 	}
 	nodes = append(nodes, contractEntry)
 
@@ -162,7 +173,12 @@ func (s *nodeSet) encode(w io.Writer) error {
 			Nodes:    make([]journalNode, 0, len(sn)),
 		}
 		for path, n := range sn {
-			entry.Nodes = append(entry.Nodes, journalNode{Path: path.EncodedBytes(), Blob: n.Blob(), Hash: n.Hash()})
+			entry.Nodes = append(entry.Nodes, journalNode{
+				Path:   path.EncodedBytes(),
+				Blob:   n.Blob(),
+				Hash:   n.Hash(),
+				IsLeaf: n.IsLeaf(),
+			})
 		}
 		nodes = append(nodes, entry)
 	}
@@ -194,7 +210,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.classNodes[path] = decodeJournalNode(&path, n.Blob, &n.Hash)
+				s.classNodes[path] = decodeJournalNode(n.Blob, &n.Hash, n.IsLeaf)
 			}
 		case trieutils.Contract:
 			for _, n := range entry.Nodes {
@@ -202,7 +218,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.contractNodes[path] = decodeJournalNode(&path, n.Blob, &n.Hash)
+				s.contractNodes[path] = decodeJournalNode(n.Blob, &n.Hash, n.IsLeaf)
 			}
 		case trieutils.ContractStorage:
 			s.contractStorageNodes[entry.Owner] = make(map[trieutils.Path]trienode.TrieNode)
@@ -211,7 +227,7 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(&path, n.Blob, &n.Hash)
+				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(n.Blob, &n.Hash, n.IsLeaf)
 			}
 		}
 	}
@@ -330,17 +346,13 @@ func writeNodes(
 	return nil
 }
 
-func decodeJournalNode(path *trieutils.Path, blob []byte, hash *felt.Felt) trienode.TrieNode {
-	// Handle leaf
-	if path.Len() == contractClassTrieHeight { // TODO(weiihann): handle this
-		if len(blob) == 0 {
-			return trienode.NewDeleted(true)
-		}
-		return trienode.NewLeaf(*hash, blob)
+func decodeJournalNode(blob []byte, hash *felt.Felt, isLeaf bool) trienode.TrieNode {
+	if len(blob) == 0 {
+		return trienode.NewDeleted(isLeaf)
 	}
 
-	if len(blob) == 0 {
-		return trienode.NewDeleted(false)
+	if isLeaf {
+		return trienode.NewLeaf(*hash, blob)
 	}
 	return trienode.NewNonLeaf(*hash, blob)
 }

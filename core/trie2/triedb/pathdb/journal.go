@@ -28,18 +28,25 @@ const (
 	diskJournal
 )
 
+// DiffJournal represents a single state transition layer containing changes to the trie.
+// It stores the new state root, block number, and the encoded set of modified nodes.
 type DiffJournal struct {
 	Root       felt.Felt
 	Block      uint64
 	EncNodeset []byte // encoded bytes of nodeset
 }
 
+// DiskJournal represents a persisted state of the trie.
+// It contains the state root, state ID, and the encoded set of all nodes at this state.
 type DiskJournal struct {
 	Root       felt.Felt
 	ID         uint64
 	EncNodeset []byte
 }
 
+// DBJournal represents the entire journal of the database.
+// It contains the version of the journal format and the encoded sequence of layers
+// that make up the state history.
 type DBJournal struct {
 	// TODO(weiihann): handle this, by right we should store the state root and verify when loading
 	// root felt.Felt

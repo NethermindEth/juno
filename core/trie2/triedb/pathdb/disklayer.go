@@ -16,8 +16,8 @@ type diskLayer struct {
 	root    felt.Felt // The corresponding state commitment
 	id      uint64
 	db      *Database
-	cleans  *cleanCache // Clean nodes that are already persisted in the db
-	dirties *buffer     // Dirty nodes for writes later
+	cleans  *cleanCache // Clean nodes that are already written in the db
+	dirties *buffer     // Modified nodes buffered in memory until flushed to disk
 	stale   bool
 	lock    sync.RWMutex
 }
@@ -33,6 +33,7 @@ func newDiskLayer(root *felt.Felt, id uint64, db *Database, cache *cleanCache, b
 		db:      db,
 		cleans:  cache,
 		dirties: buffer,
+		stale:   false,
 	}
 }
 
@@ -89,6 +90,9 @@ func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) d
 	return newDiffLayer(dl, root, id, block, nodes)
 }
 
+// commit merges the changes from the bottom diff layer into this disk layer.
+// If force is true or the buffer is full, changes are flushed to disk.
+// Returns a new disk layer with the updated state.
 func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	dl.lock.Lock()
 	defer dl.lock.Unlock()
