@@ -96,11 +96,12 @@ func TestSign(t *testing.T) {
 }
 
 func TestBuildTwoEmptyBlocks(t *testing.T) {
+	network := &utils.Integration
 	protocolVersion := semver.New(0, 13, 2, "", "")
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, network)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
@@ -110,6 +111,8 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 
 	minHeight := uint64(2)
 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, *protocolVersion)
+
+	require.Equal(t, network, testBuilder.Network())
 
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
@@ -128,6 +131,11 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 		require.Empty(t, block.Transactions)
 		require.Empty(t, block.Receipts)
 	}
+
+	block, su, err := testBuilder.HeadBlockAndStateUpdate()
+	require.NoError(t, err)
+	require.NotNil(t, block) // can't commit exact value, since the head number is run dependant
+	require.NotNil(t, su)
 }
 
 func TestPrefundedAccounts(t *testing.T) {

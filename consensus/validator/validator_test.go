@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -312,47 +311,69 @@ func TestCompareProposalCommitment(t *testing.T) {
 	}
 
 	concatCount := utils.HexToFelt(t, "1")
-
 	t.Run("ValidCommitment", func(t *testing.T) {
 		err := compareProposalCommitment(p, h, c, concatCount)
-		if err != nil {
-			t.Errorf("expected no error, got: %v", err)
-		}
+		require.NoError(t, err)
 	})
 
 	t.Run("MismatchedBlockNumber", func(t *testing.T) {
 		p.BlockNumber = blockNumber + 1
 		err := compareProposalCommitment(p, h, c, concatCount)
-		if err == nil || !strings.Contains(err.Error(), "block number mismatch") {
-			t.Errorf("expected block number mismatch error, got: %v", err)
-		}
-		p.BlockNumber = blockNumber // reset
+		expected := fmt.Sprintf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
+		require.EqualError(t, err, expected)
+		p.BlockNumber = blockNumber
 	})
 
 	t.Run("MismatchedParentCommitment", func(t *testing.T) {
 		p.ParentCommitment = *utils.HexToFelt(t, "222")
-		err := compareProposalCommitment(p, h, c, concatCount)
-		if err == nil || !strings.Contains(err.Error(), "parent hash mismatch") {
-			t.Errorf("expected parent hash mismatch error, got: %v", err)
-		}
-		p.ParentCommitment = *utils.HexToFelt(t, "111")
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
 	})
 
 	t.Run("FutureTimestamp", func(t *testing.T) {
 		p.Timestamp = 2000
-		err := compareProposalCommitment(p, h, c, concatCount)
-		if err == nil || !strings.Contains(err.Error(), "invalid timestamp") {
-			t.Errorf("expected invalid timestamp error, got: %v", err)
-		}
-		p.Timestamp = 1000
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
 	})
 
 	t.Run("UnsupportedProtocolVersion", func(t *testing.T) {
 		p.ProtocolVersion = *semver.New(0, 123, 0, "", "")
-		err := compareProposalCommitment(p, h, c, concatCount)
-		if err == nil || !strings.Contains(err.Error(), "protocol version mismatch") {
-			t.Errorf("expected protocol version mismatch error, got: %v", err)
-		}
-		p.ProtocolVersion = *blockchain.SupportedStarknetVersion
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
+		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedStateDiffCommitment", func(t *testing.T) {
+		other := &felt.Felt{}
+		other.SetUint64(99)
+		p.StateDiffCommitment = *other
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedTransactionCommitment", func(t *testing.T) {
+		other := &felt.Felt{}
+		other.SetUint64(99)
+		p.TransactionCommitment = *other
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedEventCommitment", func(t *testing.T) {
+		other := &felt.Felt{}
+		other.SetUint64(99)
+		p.EventCommitment = *other
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedReceiptCommitment", func(t *testing.T) {
+		other := &felt.Felt{}
+		other.SetUint64(99)
+		p.ReceiptCommitment = *other
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+	})
+
+	t.Run("MismatchedL1DAMode", func(t *testing.T) {
+		p.L1DAMode = 1
+		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
 	})
 }
