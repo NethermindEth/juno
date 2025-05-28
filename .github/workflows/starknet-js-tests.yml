@@ -48,3 +48,4 @@ jobs:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
           TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+          TX_VERSION: v3
