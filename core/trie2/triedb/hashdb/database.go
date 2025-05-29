@@ -210,7 +210,7 @@ func (d *Database) Close() error {
 // with the state commitment are present in the db, if not, the lost data needs to be recovered
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
-func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (*felt.Felt, *felt.Felt, error) {
+func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
 	data, err := core.GetClassAndContractRootByStateCommitment(d.disk, stateCommitment)
 	if err != nil {
@@ -231,17 +231,25 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (*felt.Felt, *fe
 	if err != nil {
 		return nil, nil, err
 	}
+	classRootNode, err := trienode.DecodeNode(classRootHashBytes[:], &classRootHash, 0, contractClassTrieHeight)
+	if err != nil {
+		return nil, nil, err
+	}
+	contractRootNode, err := trienode.DecodeNode(contractRootHashBytes[:], &contractRootHash, 0, contractClassTrieHeight)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return classRootHash, contractRootHash, nil
+	return classRootNode, contractRootNode, nil
 }
 
-func decodeTriesRoots(val []byte) (*felt.Felt, *felt.Felt, error) {
+func decodeTriesRoots(val []byte) (felt.Felt, felt.Felt, error) {
 	var classRoot, contractRoot felt.Felt
 
 	if len(val) != 2*felt.Bytes {
-		return nil, nil, fmt.Errorf("invalid state hash value length")
+		return felt.Zero, felt.Zero, fmt.Errorf("invalid state hash value length")
 	}
 	classRoot.SetBytes(val[:felt.Bytes])
 	contractRoot.SetBytes(val[felt.Bytes:])
-	return &classRoot, &contractRoot, nil
+	return classRoot, contractRoot, nil
 }

@@ -46,8 +46,18 @@ type Trie struct {
 	pendingUpdates int
 }
 
-// Creates a new trie
-func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase, rootHash *felt.Felt) (*Trie, error) {
+// Creates a new trie, with the arguments:
+// - id: the trie id
+// - height: the height of the trie, 251 for contract and class trie
+// - hashFn: the hash function to use
+// - nodeDB: database interface, which provides methods to read and write trie nodes
+// - rootHash: the root hash of the trie (provided only for hash scheme of nodeDB, needed to properly recreate the trie)
+func New(id trieutils.TrieID,
+	height uint8,
+	hashFn crypto.HashFn,
+	nodeDB database.NodeDatabase,
+	rootHash *felt.Felt,
+) (*Trie, error) {
 	nodeReader, err := newNodeReader(id, nodeDB)
 	if err != nil {
 		return nil, err

@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	leaf1Hash   = *new(felt.Felt).SetUint64(201)
-	leaf2Hash   = *new(felt.Felt).SetUint64(202)
-	rootHash    = *new(felt.Felt).SetUint64(100)
-	level1Hash1 = *new(felt.Felt).SetUint64(301)
-	level1Hash2 = *new(felt.Felt).SetUint64(302)
+	leaf1Hash   = new(felt.Felt).SetUint64(201)
+	leaf2Hash   = new(felt.Felt).SetUint64(202)
+	rootHash    = new(felt.Felt).SetUint64(100)
+	level1Hash1 = new(felt.Felt).SetUint64(301)
+	level1Hash2 = new(felt.Felt).SetUint64(302)
 
 	leaf1Path   = trieutils.NewBitArray(1, 0x00)
 	leaf2Path   = trieutils.NewBitArray(1, 0x01)
@@ -26,11 +26,11 @@ var (
 	level1Path1 = trieutils.NewBitArray(2, 0x00)
 	level1Path2 = trieutils.NewBitArray(2, 0x01)
 
-	leaf1Node   = trienode.NewLeaf(leaf1Hash, []byte{1, 2, 3})
-	leaf2Node   = trienode.NewLeaf(leaf2Hash, []byte{4, 5, 6})
-	rootNode    = trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
-	level1Node1 = trienode.NewNonLeaf(level1Hash1, createEdgeNodeBlob(leaf1Hash))
-	level1Node2 = trienode.NewNonLeaf(level1Hash2, createEdgeNodeBlob(leaf2Hash))
+	leaf1Node   = trienode.NewLeaf(*leaf1Hash, []byte{1, 2, 3})
+	leaf2Node   = trienode.NewLeaf(*leaf2Hash, []byte{4, 5, 6})
+	rootNode    = trienode.NewNonLeaf(*rootHash, createBinaryNodeBlob(leaf1Hash, leaf2Hash))
+	level1Node1 = trienode.NewNonLeaf(*level1Hash1, createEdgeNodeBlob(leaf1Hash))
+	level1Node2 = trienode.NewNonLeaf(*level1Hash2, createEdgeNodeBlob(leaf2Hash))
 
 	basicClassNodes = map[trieutils.Path]trienode.TrieNode{
 		rootPath:  rootNode,
@@ -41,7 +41,7 @@ var (
 
 // verifyNode verifies that the node is stored in the database and that the database returns the correct node.
 // It also checks that the node is not in the dirty cache, which mean that it has been flushed to disk.
-func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
+func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, path *trieutils.Path, node trienode.TrieNode) {
 	t.Helper()
 
 	reader, err := database.NodeReader(id)
@@ -49,23 +49,23 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, &path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.False(t, found)
-	blob, err := reader.Node(&owner, &path, &nodeHash, node.IsLeaf())
+	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
 }
 
-func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieID, path trieutils.Path, node trienode.TrieNode) {
+func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieID, path *trieutils.Path, node trienode.TrieNode) {
 	t.Helper()
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, &path, &nodeHash, id.Bucket() == db.ClassTrie)
+	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
 	assert.True(t, found)
 }
 
-func createBinaryNodeBlob(leftHash, rightHash felt.Felt) []byte {
+func createBinaryNodeBlob(leftHash, rightHash *felt.Felt) []byte {
 	binaryBlob := make([]byte, 1+2*felt.Bytes)
 	binaryBlob[0] = 1
 
@@ -78,7 +78,7 @@ func createBinaryNodeBlob(leftHash, rightHash felt.Felt) []byte {
 	return binaryBlob
 }
 
-func createEdgeNodeBlob(childHash felt.Felt) []byte {
+func createEdgeNodeBlob(childHash *felt.Felt) []byte {
 	edgeBlob := make([]byte, 1+felt.Bytes)
 	edgeBlob[0] = 2
 
@@ -148,11 +148,11 @@ func TestDatabase(t *testing.T) {
 		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), level1Path1, level1Node1)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), level1Path2, level1Node2)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &level1Path1, level1Node1)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &level1Path2, level1Node2)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
 	})
 
 	t.Run("Update and Commit with contract nodes", func(t *testing.T) {
@@ -176,8 +176,8 @@ func TestDatabase(t *testing.T) {
 		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNodeInDisk(t, database, trieutils.NewContractStorageTrieID(felt.Zero, contractOwner), contractPath, contractNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
+		verifyNodeInDisk(t, database, trieutils.NewContractStorageTrieID(felt.Zero, contractOwner), &contractPath, contractNode)
 	})
 
 	t.Run("Update and Commit deep trie structure with edge nodes", func(t *testing.T) {
@@ -200,9 +200,9 @@ func TestDatabase(t *testing.T) {
 		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), edgePath, edgeNode)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &edgePath, edgeNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
 	})
 
 	t.Run("Commit handles concurrent operations", func(t *testing.T) {
@@ -219,14 +219,14 @@ func TestDatabase(t *testing.T) {
 		}, numTries)
 
 		for i := range numTries {
-			leafHash := *new(felt.Felt).SetUint64(uint64(i*100 + 50))
-			rootHash := *new(felt.Felt).SetUint64(uint64(i * 100))
+			leafHash := new(felt.Felt).SetUint64(uint64(i*100 + 50))
+			rootHash := new(felt.Felt).SetUint64(uint64(i * 100))
 
 			leafPath := trieutils.NewBitArray(1, 0x00)
-			leafNode := trienode.NewLeaf(leafHash, []byte{byte(i), byte(i + 1), byte(i + 2)})
+			leafNode := trienode.NewLeaf(*leafHash, []byte{byte(i), byte(i + 1), byte(i + 2)})
 
 			rootPath := trieutils.NewBitArray(0, 0x0)
-			rootNode := trienode.NewNonLeaf(rootHash, createBinaryNodeBlob(leafHash, felt.Zero))
+			rootNode := trienode.NewNonLeaf(*rootHash, createBinaryNodeBlob(leafHash, &felt.Zero))
 
 			tries[i] = struct {
 				root         felt.Felt
@@ -235,13 +235,13 @@ func TestDatabase(t *testing.T) {
 				classRoot    felt.Felt
 				contractRoot felt.Felt
 			}{
-				root:   rootHash,
+				root:   *rootHash,
 				parent: *new(felt.Felt).SetUint64(uint64(i*100 - 1)),
 				classNodes: map[trieutils.Path]trienode.TrieNode{
 					rootPath: rootNode,
 					leafPath: leafNode,
 				},
-				classRoot:    rootHash,
+				classRoot:    *rootHash,
 				contractRoot: *new(felt.Felt).SetUint64(uint64(3000 + i)),
 			}
 
@@ -262,7 +262,7 @@ func TestDatabase(t *testing.T) {
 
 		for _, trie := range tries {
 			for path, node := range trie.classNodes {
-				verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), path, node)
+				verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &path, node)
 			}
 		}
 	})
@@ -275,7 +275,7 @@ func TestDatabase(t *testing.T) {
 		require.NoError(t, err)
 
 		newRootHash := *new(felt.Felt).SetUint64(101)
-		newRootNode := trienode.NewNonLeaf(newRootHash, createBinaryNodeBlob(felt.Zero, leaf2Hash))
+		newRootNode := trienode.NewNonLeaf(newRootHash, createBinaryNodeBlob(&felt.Zero, leaf2Hash))
 
 		updatedNodes := map[trieutils.Path]trienode.TrieNode{
 			rootPath:  newRootNode,
@@ -286,19 +286,19 @@ func TestDatabase(t *testing.T) {
 		err = database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(updatedNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, newRootNode)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
+		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
+		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
+		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
+		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, newRootNode)
+		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
 
 		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, rootNode)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf1Path, leaf1Node)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), rootPath, newRootNode)
-		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), leaf2Path, leaf2Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, newRootNode)
+		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
 	})
 }
