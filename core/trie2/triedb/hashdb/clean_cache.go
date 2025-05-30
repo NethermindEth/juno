@@ -1,6 +1,8 @@
 package hashdb
 
 import (
+	"math"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/VictoriaMetrics/fastcache"
@@ -11,6 +13,9 @@ type CleanCache struct {
 }
 
 func NewCleanCache(size uint64) CleanCache {
+	if size > uint64(math.MaxInt) {
+		panic("cache size too large: uint64 to int conversion would overflow")
+	}
 	return CleanCache{
 		cache: fastcache.New(int(size)),
 	}
