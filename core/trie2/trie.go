@@ -51,7 +51,8 @@ type Trie struct {
 // - height: the height of the trie, 251 for contract and class trie
 // - hashFn: the hash function to use
 // - nodeDB: database interface, which provides methods to read and write trie nodes
-func New(id trieutils.TrieID,
+func New(
+	id trieutils.TrieID,
 	height uint8,
 	hashFn crypto.HashFn,
 	nodeDB database.NodeDatabase,
@@ -85,7 +86,8 @@ func New(id trieutils.TrieID,
 
 // Similar to New, creates a new trie, but additionally takes one more argument:
 // - rootHash: the root hash of the trie (provided only for hash scheme of trieDB, needed to properly recreate the trie)
-func NewWithRootHash(id trieutils.TrieID,
+func NewWithRootHash(
+	id trieutils.TrieID,
 	height uint8,
 	hashFn crypto.HashFn,
 	nodeDB database.NodeDatabase,
