@@ -23,11 +23,9 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	db           db.TendermintDB[V, H, A]
 	stateMachine tendermint.StateMachine[V, H, A]
 	blockchain   Blockchain[V, H]
+	p2p          p2p.P2P[V, H, A]
 
 	getTimeout timeoutFn
-
-	listeners    p2p.Listeners[V, H, A]
-	broadcasters p2p.Broadcasters[V, H, A]
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
@@ -41,18 +39,16 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
 	blockchain Blockchain[V, H],
-	listeners p2p.Listeners[V, H, A],
-	broadcasters p2p.Broadcasters[V, H, A],
+	p2p p2p.P2P[V, H, A],
 	getTimeout timeoutFn,
-) *Driver[V, H, A] {
-	return &Driver[V, H, A]{
+) Driver[V, H, A] {
+	return Driver[V, H, A]{
 		log:          log,
 		db:           db,
 		stateMachine: stateMachine,
 		blockchain:   blockchain,
+		p2p:          p2p,
 		getTimeout:   getTimeout,
-		listeners:    listeners,
-		broadcasters: broadcasters,
 		scheduledTms: make(map[types.Timeout]*time.Timer),
 		timeoutsCh:   make(chan types.Timeout),
 		quit:         make(chan struct{}),
@@ -71,8 +67,11 @@ func (d *Driver[V, H, A]) Start() {
 	go func() {
 		defer d.wg.Done()
 
+		listeners := d.p2p.Listeners()
+		broadcasters := d.p2p.Broadcasters()
+
 		actions := d.stateMachine.ProcessStart(0)
-		d.execute(actions)
+		d.execute(broadcasters, actions)
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
@@ -85,14 +84,14 @@ func (d *Driver[V, H, A]) Start() {
 				// Handling of timeouts is priorities over messages
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
-			case p := <-d.listeners.ProposalListener.Listen():
+			case p := <-listeners.ProposalListener.Listen():
 				actions = d.stateMachine.ProcessProposal(p)
-			case p := <-d.listeners.PrevoteListener.Listen():
+			case p := <-listeners.PrevoteListener.Listen():
 				actions = d.stateMachine.ProcessPrevote(p)
-			case p := <-d.listeners.PrecommitListener.Listen():
+			case p := <-listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
 			}
-			d.execute(actions)
+			d.execute(broadcasters, actions)
 		}
 	}()
 }
@@ -105,15 +104,15 @@ func (d *Driver[V, H, A]) Stop() {
 	}
 }
 
-func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
+func (d *Driver[V, H, A]) execute(broadcasters p2p.Broadcasters[V, H, A], actions []types.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *types.BroadcastProposal[V, H, A]:
-			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
+			broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
 		case *types.BroadcastPrevote[H, A]:
-			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
+			broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
 		case *types.BroadcastPrecommit[H, A]:
-			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
+			broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
 		case *types.ScheduleTimeout:
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
