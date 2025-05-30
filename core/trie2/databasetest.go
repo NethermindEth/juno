@@ -44,16 +44,23 @@ func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt
 	return readNode(n.db, n.id, n.scheme, *path, hash, isLeaf)
 }
 
-func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
-	owner := id.Owner()
+func readNode(
+	r db.KeyValueStore,
+	id trieutils.TrieID,
+	scheme dbScheme,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	switch scheme {
 	case PathScheme:
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
+		owner := id.Owner()
+		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
 	case HashScheme:
 		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, &path, hash, isLeaf)
 	}
-
-	return nil, &MissingNodeError{owner: id.Owner(), path: path, hash: *hash}
+	owner := id.Owner()
+	return nil, &MissingNodeError{owner: owner, path: *path, hash: *hash}
 }
 
 type TestNodeDatabase struct {
