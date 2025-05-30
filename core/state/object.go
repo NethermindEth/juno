@@ -45,6 +45,12 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 		return *value, nil
 	}
 
+	if storage := s.state.db.stateCache.getStorageDiff(s.state.initRoot, s.addr); storage != nil {
+		if value, ok := storage[*key]; ok {
+			return *value, nil
+		}
+	}
+
 	tr, err := s.getStorageTrie()
 	if err != nil {
 		return felt.Zero, err

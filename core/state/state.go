@@ -82,22 +82,27 @@ func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
 	}, nil
 }
 
-// TODO(weiihann): perhaps read from live objects?
 func (s *State) ContractClassHash(addr felt.Felt) (felt.Felt, error) {
+	if classHash := s.db.stateCache.getDeployedContract(s.initRoot, addr); classHash != nil {
+		return *classHash, nil
+	}
+
 	contract, err := GetContract(s.db.disk, &addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
-
 	return contract.ClassHash, nil
 }
 
 func (s *State) ContractNonce(addr felt.Felt) (felt.Felt, error) {
+	if nonce := s.db.stateCache.getNonce(s.initRoot, addr); nonce != nil {
+		return *nonce, nil
+	}
+
 	contract, err := GetContract(s.db.disk, &addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
-
 	return contract.Nonce, nil
 }
 
@@ -205,6 +210,18 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 	if !newComm.Equal(update.NewRoot) {
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
 	}
+
+	// Create a new diff cache for this state update
+	diff := &diffCache{
+		storageDiffs:      update.StateDiff.StorageDiffs,
+		nonces:            update.StateDiff.Nonces,
+		deployedContracts: update.StateDiff.DeployedContracts,
+		declaredV0Classes: update.StateDiff.DeclaredV0Classes,
+		declaredV1Classes: update.StateDiff.DeclaredV1Classes,
+		replacedClasses:   update.StateDiff.ReplacedClasses,
+	}
+
+	s.db.stateCache.AddLayer(newComm, *update.OldRoot, diff)
 
 	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
 		return err
