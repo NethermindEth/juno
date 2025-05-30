@@ -41,7 +41,7 @@ func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt
 		}
 		return node.Blob(), nil
 	}
-	return readNode(n.db, n.id, n.scheme, *path, hash, isLeaf)
+	return readNode(n.db, n.id, n.scheme, path, hash, isLeaf)
 }
 
 func readNode(
@@ -52,14 +52,13 @@ func readNode(
 	hash *felt.Felt,
 	isLeaf bool,
 ) ([]byte, error) {
+	owner := id.Owner()
 	switch scheme {
 	case PathScheme:
-		owner := id.Owner()
 		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
 	case HashScheme:
-		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, &path, hash, isLeaf)
+		return trieutils.GetNodeByHash(r, id.Bucket(), &owner, path, hash, isLeaf)
 	}
-	owner := id.Owner()
 	return nil, &MissingNodeError{owner: owner, path: *path, hash: *hash}
 }
 

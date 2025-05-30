@@ -51,12 +51,9 @@ func (d *Database) Update(
 ) error {
 	switch td := d.triedb.(type) {
 	case *pathdb.Database:
-		return td.Update(&root, &parent, blockNum, mergeClassNodes, mergeContractNodes)
+		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	case *hashdb.Database:
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
-	default:
-		return fmt.Errorf("unsupported trie db type: %T", td)
-	}
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
 	}
