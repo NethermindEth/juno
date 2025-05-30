@@ -220,24 +220,31 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 	if err != nil {
 		return nil, nil, err
 	}
-	classRootHashBytes := classRootHash.Bytes()
-	_, err = trienode.DecodeNode(classRootHashBytes[:], &felt.Zero, 0, contractClassTrieHeight)
+
+	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Zero, &trieutils.Path{}, &classRootHash, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("class root node not found: %w", err)
+	}
+	if classRootBlob == nil {
+		return nil, nil, fmt.Errorf("class root node not found")
 	}
 
-	contractRootHashBytes := contractRootHash.Bytes()
-	_, err = trienode.DecodeNode(contractRootHashBytes[:], &felt.Zero, 0, contractClassTrieHeight)
+	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Zero, &trieutils.Path{}, &contractRootHash, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("contract root node not found: %w", err)
 	}
-	classRootNode, err := trienode.DecodeNode(classRootHashBytes[:], &classRootHash, 0, contractClassTrieHeight)
-	if err != nil {
-		return nil, nil, err
+	if contractRootBlob == nil {
+		return nil, nil, fmt.Errorf("contract root node not found")
 	}
-	contractRootNode, err := trienode.DecodeNode(contractRootHashBytes[:], &contractRootHash, 0, contractClassTrieHeight)
+
+	classRootNode, err := trienode.DecodeNode(classRootBlob, &classRootHash, 0, contractClassTrieHeight)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
+	}
+
+	contractRootNode, err := trienode.DecodeNode(contractRootBlob, &contractRootHash, 0, contractClassTrieHeight)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to decode contract root node: %w", err)
 	}
 
 	return classRootNode, contractRootNode, nil
