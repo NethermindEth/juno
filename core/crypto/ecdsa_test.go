@@ -69,8 +69,7 @@ func BenchmarkVerify(b *testing.B) {
 
 	var verified bool
 	var err error
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		verified, err = publicKey.Verify(&signature, msg)
 		require.NoError(b, err)
 	}
