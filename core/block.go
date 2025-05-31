@@ -217,7 +217,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		return nil, nil, rErr
 	}
 
-	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	pricesHash := gasPricesHash(
 		GasPrice{
@@ -284,7 +284,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		return nil, nil, rErr
 	}
 
-	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	// These values are nil for some pre 0.13.2 blocks
 	// `crypto.PoseidonArray` panics if any of the values are nil
@@ -402,7 +402,7 @@ func UnmarshalBlockNumber(val []byte) uint64 {
 	return binary.BigEndian.Uint64(val)
 }
 
-func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
+func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {
 		l1DAByte = 0b10000000
