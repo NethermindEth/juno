@@ -9,7 +9,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/bits-and-blooms/bitset v1.22.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
-	github.com/cockroachdb/pebble v1.1.4
+	github.com/cockroachdb/pebble v1.1.5
 	github.com/cockroachdb/pebble/v2 v2.0.3
 	github.com/coder/websocket v1.8.13
 	github.com/consensys/gnark-crypto v0.17.0
