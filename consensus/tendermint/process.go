@@ -71,16 +71,19 @@ func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 		actions = append(actions, action)
 	}
 
-	action = t.process(recentlyReceivedRound)
+	action, commit := t.process(recentlyReceivedRound)
 	for action != nil {
+		if commit != nil {
+			actions = append(actions, commit)
+		}
 		actions = append(actions, action)
-		action = t.process(recentlyReceivedRound)
+		action, commit = t.process(recentlyReceivedRound)
 	}
 
 	return actions
 }
 
-func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (types.Action[V, H, A], *types.Commit[V, H, A]) {
 	cachedProposal := t.findProposal(t.state.round)
 
 	var roundCachedProposal *CachedProposal[V, H, A]
@@ -91,37 +94,37 @@ func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) type
 	switch {
 	// Line 22
 	case cachedProposal != nil && t.uponFirstProposal(cachedProposal):
-		return t.doFirstProposal(cachedProposal)
+		return t.doFirstProposal(cachedProposal), nil
 
 	// Line 28
 	case cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal):
-		return t.doProposalAndPolkaPrevious(cachedProposal)
+		return t.doProposalAndPolkaPrevious(cachedProposal), nil
 
 	// Line 34
 	case t.uponPolkaAny():
-		return t.doPolkaAny()
+		return t.doPolkaAny(), nil
 
 	// Line 36
 	case cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal):
-		return t.doProposalAndPolkaCurrent(cachedProposal)
+		return t.doProposalAndPolkaCurrent(cachedProposal), nil
 
 	// Line 44
 	case t.uponPolkaNil():
-		return t.doPolkaNil()
+		return t.doPolkaNil(), nil
 
 	// Line 47
 	case t.uponPrecommitAny():
-		return t.doPrecommitAny()
+		return t.doPrecommitAny(), nil
 
 	// Line 49
 	case roundCachedProposal != nil && t.uponCommitValue(roundCachedProposal):
-		return t.doCommitValue(roundCachedProposal)
+		return t.doCommitValue(), (*types.Commit[V, H, A])(&roundCachedProposal.Proposal)
 
 	// Line 55
 	case recentlyReceivedRound != nil && t.uponSkipRound(*recentlyReceivedRound):
-		return t.doSkipRound(*recentlyReceivedRound)
+		return t.doSkipRound(*recentlyReceivedRound), nil
 
 	default:
-		return nil
+		return nil, nil
 	}
 }
