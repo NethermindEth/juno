@@ -2,7 +2,7 @@ package types
 
 type (
 	Step        uint8
-	Height      uint
+	Height      uint64
 	Round       int
 	VotingPower uint
 )
