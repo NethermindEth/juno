@@ -139,3 +139,7 @@ func uint64ToBytes(num uint64) [8]byte {
 	binary.BigEndian.PutUint64(numBytes[:], num)
 	return numBytes
 }
+
+func StateHashToTrieRootsKey(stateCommitment *felt.Felt) []byte {
+	return StateHashToTrieRoots.Key(stateCommitment.Marshal())
+}

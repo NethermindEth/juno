@@ -509,3 +509,23 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (Transaction, error) {
 
 	return GetTxByBlockNumIndexBytes(r, val)
 }
+
+func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment, classRoot, contractRoot *felt.Felt) error {
+	val := append(classRoot.Marshal(), contractRoot.Marshal()...)
+	return w.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
+}
+
+// This is used to get the class and contract roots for a given state commitment,
+// needed to properly initialise the trie or recover the cache, if the triedb is in hash scheme
+func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitment *felt.Felt) ([]byte, error) {
+	var val []byte
+	err := r.Get(db.StateHashToTrieRootsKey(stateCommitment), func(data []byte) error {
+		val = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return val, nil
+}

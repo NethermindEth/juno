@@ -157,7 +157,7 @@ func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (
 	}
 
 	binary := &BinaryNode{}
-	if !hash.IsZero() {
+	if hash != nil && !hash.IsZero() {
 		binary.Flags.Hash = (*HashNode)(hash)
 	}
 
@@ -177,7 +177,7 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 	}
 
 	edge := &EdgeNode{Path: &trieutils.Path{}}
-	if !hash.IsZero() {
+	if hash != nil && !hash.IsZero() {
 		edge.Flags.Hash = (*HashNode)(hash)
 	}
 

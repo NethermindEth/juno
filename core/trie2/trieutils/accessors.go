@@ -124,3 +124,83 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 
 	return key
 }
+
+func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	var res []byte
+	if err := r.Get(nodeKeyByHash(bucket, owner, path, hash, isLeaf),
+		func(value []byte) error {
+			res = value
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool, blob []byte) error {
+	return w.Put(nodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
+}
+
+// References: https://github.com/NethermindEth/nethermind/pull/6331
+// Construct key bytes to insert a trie node. The format is as follows:
+//
+// ClassTrie :
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
+//
+// ContractTrie :
+// [1 byte prefix][1 byte node-type][8 byte from path][32 byte hash]
+//
+// StorageTrie of a Contract :
+// [1 byte prefix][32 bytes owner][1 byte node-type][8 byte from path][32 byte hash]
+//
+// Hash: [Pedersen(path, value) + length] if length > 0 else [value].
+
+func nodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
+	const pathSignificantBytes = 8
+	var (
+		prefixBytes = prefix.Key()
+		ownerBytes  []byte
+		nodeType    []byte
+		pathBytes   = path.ActiveBytes()
+		hashBytes   = hash.Bytes()
+	)
+
+	if !owner.IsZero() {
+		ob := owner.Bytes()
+		ownerBytes = ob[:]
+	}
+
+	if isLeaf {
+		nodeType = leaf.Bytes()
+	} else {
+		nodeType = nonLeaf.Bytes()
+	}
+
+	keySize := len(prefixBytes) + len(ownerBytes) + len(nodeType) + len(hashBytes)
+	if len(pathBytes) < pathSignificantBytes {
+		keySize += pathSignificantBytes
+	} else {
+		keySize += len(pathBytes)
+	}
+
+	key := make([]byte, 0, keySize)
+	key = append(key, prefixBytes...)
+	key = append(key, ownerBytes...)
+	key = append(key, nodeType...)
+
+	if len(pathBytes) > 0 {
+		if len(pathBytes) < pathSignificantBytes {
+			key = append(key, pathBytes...)
+			key = append(key, make([]byte, pathSignificantBytes-len(pathBytes))...)
+		} else {
+			key = append(key, pathBytes...)
+		}
+	} else {
+		key = append(key, make([]byte, pathSignificantBytes)...)
+	}
+
+	key = append(key, hashBytes[:]...)
+
+	return key
+}
