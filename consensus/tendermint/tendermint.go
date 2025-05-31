@@ -9,7 +9,7 @@ import (
 )
 
 type Application[V types.Hashable[H], H types.Hash] interface {
-	// Value returns the value to the Tendermint consensus algorith which can be proposed to other validators.
+	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V
 
 	// Valid returns true if the provided value is valid according to the application context.

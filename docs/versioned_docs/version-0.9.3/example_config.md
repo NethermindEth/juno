@@ -123,5 +123,5 @@ p2p: false
 # Specify p2p source address as multiaddr
 p2p-addr: ""
 
-# Specify list of p2p boot peers splitted by a comma
+# Specify list of p2p boot peers split by a comma
 p2p-boot-peers: ""
