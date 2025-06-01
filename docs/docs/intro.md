@@ -49,10 +49,6 @@ import GuideCard from '@site/src/components/GuideCard';
 />
 ```
 
-:::tip
-You can access the Nethermind Starknet RPC service for free at https://data.voyager.online.
-:::
-
 ## Community and support
 
 Join our community for support, engaging discussions, and updates:
