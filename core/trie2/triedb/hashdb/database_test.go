@@ -189,37 +189,34 @@ func TestDatabase(t *testing.T) {
 			},
 		}
 
-		ownerSet := trienode.NewNodeSet(felt.Zero)
-		for path, node := range contractNodes[contractOwner] {
-			ownerSet.Add(&path, node)
+		allContractNodes := make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+		for owner, nodes := range contractNodes {
+			allContractNodes[owner] = nodes
 		}
-
-		childSets := make(map[felt.Felt]*trienode.NodeSet)
 		for owner, nodes := range contractStorageNodes {
-			nodeSet := trienode.NewNodeSet(owner)
-			for path, node := range nodes {
-				nodeSet.Add(&path, node)
+			if _, exists := allContractNodes[owner]; !exists {
+				allContractNodes[owner] = make(map[trieutils.Path]trienode.TrieNode)
 			}
-			childSets[owner] = &nodeSet
+			for path, node := range nodes {
+				allContractNodes[owner][path] = node
+			}
 		}
 
-		mergedContractNodes := &trienode.MergeNodeSet{
-			OwnerSet:  &ownerSet,
-			ChildSets: childSets,
-		}
-
-		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), mergedContractNodes)
+		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(allContractNodes))
 		require.NoError(t, err)
 
 		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
+		// Verify class nodes
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
 
+		// Verify contract nodes
 		verifyNodeInDisk(t, database, trieutils.NewContractTrieID(felt.Zero), &contractPath, contractNode)
 
+		// Verify contract storage nodes
 		verifyNodeInDisk(t, database, trieutils.NewContractStorageTrieID(felt.Zero, contractOwner), &storagePath, storageNode)
 	})
 
