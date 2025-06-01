@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 )
 
 var (
@@ -190,16 +191,12 @@ func TestDatabase(t *testing.T) {
 		}
 
 		allContractNodes := make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
-		for owner, nodes := range contractNodes {
-			allContractNodes[owner] = nodes
-		}
+		maps.Copy(allContractNodes, contractNodes)
 		for owner, nodes := range contractStorageNodes {
 			if _, exists := allContractNodes[owner]; !exists {
 				allContractNodes[owner] = make(map[trieutils.Path]trienode.TrieNode)
 			}
-			for path, node := range nodes {
-				allContractNodes[owner][path] = node
-			}
+			maps.Copy(allContractNodes[owner], nodes)
 		}
 
 		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(allContractNodes))
