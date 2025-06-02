@@ -156,8 +156,12 @@ func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (
 		return nil, fmt.Errorf("invalid binary node size: %d", len(blob))
 	}
 
+	if hash == nil {
+		return nil, fmt.Errorf("hash is nil")
+	}
+
 	binary := &BinaryNode{}
-	if hash != nil && !hash.IsZero() {
+	if !hash.IsZero() {
 		binary.Flags.Hash = (*HashNode)(hash)
 	}
 
@@ -176,8 +180,12 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 		return nil, fmt.Errorf("invalid edge node size: %d", len(blob))
 	}
 
+	if hash == nil {
+		return nil, fmt.Errorf("hash is nil")
+	}
+
 	edge := &EdgeNode{Path: &trieutils.Path{}}
-	if hash != nil && !hash.IsZero() {
+	if !hash.IsZero() {
 		edge.Flags.Hash = (*HashNode)(hash)
 	}
 

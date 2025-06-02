@@ -86,7 +86,7 @@ func New(
 
 // Similar to New, creates a new trie, but additionally takes one more argument:
 // - rootHash: the root hash of the trie (provided only for hash scheme of trieDB, needed to properly recreate the trie)
-func NewWithRootHash(
+func NewFromRootHash(
 	id trieutils.TrieID,
 	height uint8,
 	hashFn crypto.HashFn,
