@@ -7,11 +7,13 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, classes []*gen.Class) *core.StateDiff {
+func AdaptStateDiff(reader core.StateReader, contractDiffs []*state.ContractDiff, classes []*class.Class) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
@@ -85,13 +87,13 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*gen.ContractDiff, 
 	}
 }
 
-func adaptStoredValue(v *gen.ContractStoredValue) (felt.Felt, *felt.Felt) {
+func adaptStoredValue(v *state.ContractStoredValue) (felt.Felt, *felt.Felt) {
 	return *AdaptFelt(v.Key), AdaptFelt(v.Value)
 }
 
 type addrToClassHash struct {
-	addr      *gen.Address
-	classHash *gen.Hash
+	addr      *common.Address
+	classHash *common.Hash
 }
 
 // todo rename

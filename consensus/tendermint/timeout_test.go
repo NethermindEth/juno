@@ -3,6 +3,7 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -25,8 +26,8 @@ func TestTimeout(t *testing.T) {
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
 		currentRound.start()
-		currentRound.validator(0).proposal(value(42), -1)
-		currentRound.validator(1).prevote(utils.HeapPtr(value(42)))
+		currentRound.validator(0).proposal(starknet.Value(42), -1)
+		currentRound.validator(1).prevote(utils.HeapPtr(starknet.Value(42)))
 		currentRound.validator(2).prevote(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -42,7 +43,7 @@ func TestTimeout(t *testing.T) {
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
 		currentRound.start()
-		currentRound.validator(0).precommit(utils.HeapPtr(value(10)))
+		currentRound.validator(0).precommit(utils.HeapPtr(starknet.Value(10)))
 		currentRound.validator(1).precommit(nil)
 		currentRound.validator(2).precommit(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrecommit))
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
@@ -65,7 +66,7 @@ func TestTimeout(t *testing.T) {
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := value(10)
+		committedValue := starknet.Value(10)
 
 		currentRound.start().expectActions(currentRound.action().scheduleTimeout(types.StepPropose))
 

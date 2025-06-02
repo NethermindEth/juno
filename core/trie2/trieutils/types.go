@@ -2,7 +2,7 @@ package trieutils
 
 type Path = BitArray // Represents the path from the root to the node in the trie
 
-var PathSize = MaxBitArraySize
+const PathSize = MaxBitArraySize
 
 type leafType uint8
 
