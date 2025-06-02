@@ -85,6 +85,15 @@ pub fn is_l2_gas_accounting_enabled(
     block_context: &BlockContext,
     gas_computation_mode: &GasVectorComputationMode,
 ) -> StateResult<bool> {
+    // DEPLOY_ACCOUNT: Cannot determine L2 gas accounting from sender's class hash (account doesn't exist yet).
+    // For Braavos accounts, constructor also swaps class hash, breaking L2 gas detection entirely.
+    if is_deploy_account_transaction(transaction) {
+        return Ok(matches!(
+            gas_computation_mode,
+            GasVectorComputationMode::All
+        ));
+    }
+
     let sender_class_hash = state.get_class_hash_at(transaction.sender_address())?;
 
     // L2 gas accounting is disabled if the sender contract is uninitialized.
@@ -128,6 +137,18 @@ fn determine_gas_vector_mode(transaction: &Transaction) -> GasVectorComputationM
         },
         Transaction::L1Handler(_) => GasVectorComputationMode::NoL2Gas,
     }
+}
+
+fn is_deploy_account_transaction(transaction: &Transaction) -> bool {
+    matches!(
+        transaction,
+        Transaction::Account(
+            blockifier::transaction::account_transaction::AccountTransaction {
+                tx: starknet_api::executable_transaction::AccountTransaction::DeployAccount(_),
+                ..
+            }
+        )
+    )
 }
 
 /// The margin used in binary search for finding the minimal L2 gas limit.
@@ -383,6 +404,13 @@ where
 
     match tx {
         Transaction::Account(account_transaction) => {
+            // DEPLOY_ACCOUNT: Normal logic calculates max gas based on account balance, but account doesn't exist yet (balance = 0).
+            // This would set gas limit to zero, causing immediate "out of gas". Use max gas limit from versioned constants instead.
+            if is_deploy_account_transaction(tx) {
+                let max_sierra_gas_limit = block_context.versioned_constants().os_constants.validate_max_sierra_gas.0;
+                return Ok(GasAmount::from(max_sierra_gas_limit));
+            }
+
             // Retrieve the fee token address.
             let fee_token_address = block_context
                 .chain_info()

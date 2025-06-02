@@ -4,25 +4,25 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptClass(class core.Class) *gen.Class {
-	if class == nil {
+func AdaptClass(cls core.Class) *class.Class {
+	if cls == nil {
 		return nil
 	}
 
-	hash, err := class.Hash()
+	hash, err := cls.Hash()
 	if err != nil {
-		panic(fmt.Errorf("failed to hash %t: %w", class, err))
+		panic(fmt.Errorf("failed to hash %t: %w", cls, err))
 	}
 
-	switch v := class.(type) {
+	switch v := cls.(type) {
 	case *core.Cairo0Class:
-		return &gen.Class{
-			Class: &gen.Class_Cairo0{
-				Cairo0: &gen.Cairo0Class{
+		return &class.Class{
+			Class: &class.Class_Cairo0{
+				Cairo0: &class.Cairo0Class{
 					Abi:          string(v.Abi),
 					Externals:    utils.Map(v.Externals, adaptEntryPoint),
 					L1Handlers:   utils.Map(v.L1Handlers, adaptEntryPoint),
@@ -34,11 +34,11 @@ func AdaptClass(class core.Class) *gen.Class {
 			ClassHash: AdaptHash(hash),
 		}
 	case *core.Cairo1Class:
-		return &gen.Class{
-			Class: &gen.Class_Cairo1{
-				Cairo1: &gen.Cairo1Class{
+		return &class.Class{
+			Class: &class.Class_Cairo1{
+				Cairo1: &class.Cairo1Class{
 					Abi: v.Abi,
-					EntryPoints: &gen.Cairo1EntryPoints{
+					EntryPoints: &class.Cairo1EntryPoints{
 						Externals:    utils.Map(v.EntryPoints.External, adaptSierra),
 						L1Handlers:   utils.Map(v.EntryPoints.L1Handler, adaptSierra),
 						Constructors: utils.Map(v.EntryPoints.Constructor, adaptSierra),
@@ -51,19 +51,19 @@ func AdaptClass(class core.Class) *gen.Class {
 			ClassHash: AdaptHash(hash),
 		}
 	default:
-		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, class.Version()))
+		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, cls.Version()))
 	}
 }
 
-func adaptSierra(e core.SierraEntryPoint) *gen.SierraEntryPoint {
-	return &gen.SierraEntryPoint{
+func adaptSierra(e core.SierraEntryPoint) *class.SierraEntryPoint {
+	return &class.SierraEntryPoint{
 		Index:    e.Index,
 		Selector: AdaptFelt(e.Selector),
 	}
 }
 
-func adaptEntryPoint(e core.EntryPoint) *gen.EntryPoint {
-	return &gen.EntryPoint{
+func adaptEntryPoint(e core.EntryPoint) *class.EntryPoint {
+	return &class.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
 		Offset:   e.Offset.Uint64(),
 	}

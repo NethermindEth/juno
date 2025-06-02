@@ -217,29 +217,17 @@ type ResourceBoundsMap struct {
 }
 
 func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
-	type tempResourceBoundsMap struct {
-		L1Gas *ResourceBounds `json:"l1_gas"`
-		L2Gas *ResourceBounds `json:"l2_gas"`
-	}
-
-	temp := tempResourceBoundsMap{
-		L1Gas: r.L1Gas,
-		L2Gas: r.L2Gas,
-	}
-
-	// Check if L1DataGas is nil, if it is, remove it from the struct/map
+	// Check if L1DataGas is nil, if it is, provide default values
 	if r.L1DataGas == nil {
-		return json.Marshal(temp)
+		r.L1DataGas = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
 	}
 
-	// L1Gas and L2Gas should always be present.
-	return json.Marshal(struct {
-		*tempResourceBoundsMap
-		L1DataGas *ResourceBounds `json:"l1_data_gas"`
-	}{
-		tempResourceBoundsMap: &temp,
-		L1DataGas:             r.L1DataGas,
-	})
+	// Define an alias to avoid recursion
+	type alias ResourceBoundsMap
+	return json.Marshal((*alias)(r))
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
@@ -399,6 +387,11 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
 		}
+	} else {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
 	}
 
 	// As L1Gas & L2Gas will always be present, we can directly assign them
@@ -508,12 +501,14 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(
+	blockID *BlockID, txIndex int,
+) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	if id.Pending {
+	if blockID.IsPending() {
 		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
@@ -526,7 +521,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -741,7 +736,10 @@ type TransactionStatusV0_7 struct {
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
-func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
+func (h *Handler) TransactionStatusV0_7(
+	// Todo make `hash` by reference
+	ctx context.Context, hash felt.Felt,
+) (*TransactionStatusV0_7, *jsonrpc.Error) {
 	res, err := h.TransactionStatus(ctx, hash)
 	if err != nil {
 		return nil, err

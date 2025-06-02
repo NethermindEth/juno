@@ -26,35 +26,41 @@ func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db d
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner *felt.Felt, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (
 			node trienode.TrieNode
 			ok   bool
 		)
-		node, ok = nodes.OwnerSet.Nodes[path]
+		node, ok = nodes.OwnerSet.Nodes[*path]
 		if !ok {
 			continue
 		}
 		if _, ok := node.(*trienode.DeletedNode); ok {
-			return nil, &MissingNodeError{owner: *owner, path: path, hash: node.Hash()}
+			return nil, &MissingNodeError{owner: *owner, path: *path, hash: node.Hash()}
 		}
 		return node.Blob(), nil
 	}
 	return readNode(n.db, n.id, n.scheme, path, hash, isLeaf)
 }
 
-func readNode(r db.KeyValueStore, id trieutils.TrieID, scheme dbScheme, path trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func readNode(
+	r db.KeyValueStore,
+	id trieutils.TrieID,
+	scheme dbScheme,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
+  owner := id.Owner()
 	switch scheme {
 	case PathScheme:
-		owner := id.Owner()
-		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, &path, isLeaf)
+		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
 	case HashScheme:
 		// TODO: implement hash scheme
 	}
 
-	owner := id.Owner()
-	return nil, &MissingNodeError{owner: owner, path: path, hash: *hash}
+	return nil, &MissingNodeError{owner: owner, path: *path, hash: *hash}
 }
 
 type TestNodeDatabase struct {

@@ -3,23 +3,23 @@ package tendermint
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
 )
 
 // incomingMessageBuilder is a helper struct to build incoming messages received from other nodes for the state machine.
 // Each method builds a message, processes it, assert if it's stored in the state machine, and returns an actionAsserter to assert the result actions.
 type incomingMessageBuilder struct {
 	testing      *testing.T
-	stateMachine *stateMachine[value, felt.Felt, felt.Felt]
-	header       types.MessageHeader[felt.Felt]
+	stateMachine *testStateMachine
+	header       starknet.MessageHeader
 }
 
 // proposal builds and processes a Proposal message, asserts it's stored in the state machine,
 // and returns an actionAsserter to check resulting actions.
-func (t incomingMessageBuilder) proposal(val value, validRound types.Round) actionAsserter[types.Proposal[value, felt.Felt, felt.Felt]] {
+func (t incomingMessageBuilder) proposal(val starknet.Value, validRound types.Round) actionAsserter[starknet.Proposal] {
 	t.testing.Helper()
-	proposal := types.Proposal[value, felt.Felt, felt.Felt]{
+	proposal := starknet.Proposal{
 		MessageHeader: t.header,
 		ValidRound:    validRound,
 		Value:         &val,
@@ -28,19 +28,18 @@ func (t incomingMessageBuilder) proposal(val value, validRound types.Round) acti
 
 	assertProposal(t.testing, t.stateMachine, proposal)
 
-	return actionAsserter[types.Proposal[value, felt.Felt, felt.Felt]]{
+	return actionAsserter[starknet.Proposal]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: proposal,
 		actions:      actions,
 	}
 }
 
 // prevote builds and processes a types.Prevote message, asserts it's stored in the state machine,
 // and returns an actionAsserter to check resulting actions.
-func (t incomingMessageBuilder) prevote(val *value) actionAsserter[types.Prevote[felt.Felt, felt.Felt]] {
+func (t incomingMessageBuilder) prevote(val *starknet.Value) actionAsserter[starknet.Prevote] {
 	t.testing.Helper()
-	prevote := types.Prevote[felt.Felt, felt.Felt]{
+	prevote := starknet.Prevote{
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
@@ -48,19 +47,18 @@ func (t incomingMessageBuilder) prevote(val *value) actionAsserter[types.Prevote
 
 	assertPrevote(t.testing, t.stateMachine, prevote)
 
-	return actionAsserter[types.Prevote[felt.Felt, felt.Felt]]{
+	return actionAsserter[starknet.Prevote]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: prevote,
 		actions:      actions,
 	}
 }
 
 // precommit builds and processes a Precommit message, asserts it's stored in the state machine,
 // and returns an actionAsserter to check resulting actions.
-func (t incomingMessageBuilder) precommit(val *value) actionAsserter[types.Precommit[felt.Felt, felt.Felt]] {
+func (t incomingMessageBuilder) precommit(val *starknet.Value) actionAsserter[starknet.Precommit] {
 	t.testing.Helper()
-	precommit := types.Precommit[felt.Felt, felt.Felt]{
+	precommit := starknet.Precommit{
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
@@ -68,10 +66,9 @@ func (t incomingMessageBuilder) precommit(val *value) actionAsserter[types.Preco
 
 	assertPrecommit(t.testing, t.stateMachine, precommit)
 
-	return actionAsserter[types.Precommit[felt.Felt, felt.Felt]]{
+	return actionAsserter[starknet.Precommit]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		inputMessage: precommit,
 		actions:      actions,
 	}
 }

@@ -58,7 +58,11 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	version string,
 	logger utils.Logger,
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
