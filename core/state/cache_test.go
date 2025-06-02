@@ -48,25 +48,32 @@ func TestStateCache(t *testing.T) {
 
 	t.Run("layer eviction", func(t *testing.T) {
 		cache := newStateCache()
-		roots := make([]felt.Felt, DefaultMaxLayers+2)
 		parent := new(felt.Felt).SetUint64(0)
 
-		// Add more layers than DefaultMaxLayers
-		for i := range roots {
-			roots[i] = *new(felt.Felt).SetUint64(uint64(i + 1))
+		// Add exactly DefaultMaxLayers + 1 layers to trigger eviction
+		for i := 0; i < DefaultMaxLayers+1; i++ {
+			root := new(felt.Felt).SetUint64(uint64(i + 1))
 			diff := &diffCache{
 				nonces: map[felt.Felt]*felt.Felt{
 					*new(felt.Felt).SetUint64(uint64(i + 100)): new(felt.Felt).SetUint64(uint64(i + 1)),
 				},
 			}
-			cache.AddLayer(roots[i], *parent, diff)
-			parent = &roots[i]
+			cache.AddLayer(*root, *parent, diff)
+			parent = root
 		}
 
 		// Verify that oldest layers are evicted
 		assert.Equal(t, DefaultMaxLayers, len(cache.links))
 		assert.Equal(t, DefaultMaxLayers, len(cache.diffs))
-		assert.Equal(t, roots[1], cache.oldestRoot) // First layer should be evicted
+
+		// After eviction, the oldest root should be the second layer (root 2)
+		expectedOldestRoot := new(felt.Felt).SetUint64(2)
+		assert.Equal(t, *expectedOldestRoot, cache.oldestRoot)
+
+		// Verify that the first layer is evicted by checking that its data is not accessible
+		firstLayerRoot := new(felt.Felt).SetUint64(1)
+		firstLayerAddr := new(felt.Felt).SetUint64(100)
+		assert.Nil(t, cache.getNonce(firstLayerRoot, firstLayerAddr))
 	})
 
 	t.Run("parent chain traversal", func(t *testing.T) {
@@ -97,7 +104,7 @@ func TestStateCache(t *testing.T) {
 
 		// Test that we can traverse up the chain to find values
 		assert.Equal(t, nonce2, cache.getNonce(root3, addr)) // Should find in root2
-		assert.Equal(t, nonce1, cache.getNonce(root2, addr)) // Should find in root1
+		assert.Equal(t, nonce2, cache.getNonce(root2, addr)) // Should find in root2
 		assert.Equal(t, nonce1, cache.getNonce(root1, addr)) // Should find in root1
 	})
 

@@ -26,7 +26,6 @@ func newStateCache() *stateCache {
 	}
 }
 
-// AddLayer adds a new layer to the cache and evicts old layers if necessary
 func (c *stateCache) AddLayer(stateRoot, parentRoot felt.Felt, diff *diffCache) {
 	if len(c.links) == 0 {
 		c.oldestRoot = stateRoot
@@ -38,10 +37,16 @@ func (c *stateCache) AddLayer(stateRoot, parentRoot felt.Felt, diff *diffCache) 
 	c.evictOldLayers()
 }
 
-// evictOldLayers removes the oldest layers when the cache exceeds DefaultMaxLayers
 func (c *stateCache) evictOldLayers() {
 	for len(c.links) > DefaultMaxLayers {
-		nextOldest := c.links[c.oldestRoot]
+		// Find the child of the current oldest root
+		var nextOldest felt.Felt
+		for child, parent := range c.links {
+			if parent == c.oldestRoot {
+				nextOldest = child
+				break
+			}
+		}
 
 		delete(c.diffs, c.oldestRoot)
 		delete(c.links, c.oldestRoot)
