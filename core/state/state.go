@@ -83,7 +83,7 @@ func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr felt.Felt) (felt.Felt, error) {
-	if classHash := s.db.stateCache.getDeployedContract(s.initRoot, addr); classHash != nil {
+	if classHash := s.db.stateCache.getDeployedContract(&s.initRoot, &addr); classHash != nil {
 		return *classHash, nil
 	}
 
@@ -95,7 +95,7 @@ func (s *State) ContractClassHash(addr felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractNonce(addr felt.Felt) (felt.Felt, error) {
-	if nonce := s.db.stateCache.getNonce(s.initRoot, addr); nonce != nil {
+	if nonce := s.db.stateCache.getNonce(&s.initRoot, &addr); nonce != nil {
 		return *nonce, nil
 	}
 
@@ -216,9 +216,6 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 		storageDiffs:      update.StateDiff.StorageDiffs,
 		nonces:            update.StateDiff.Nonces,
 		deployedContracts: update.StateDiff.DeployedContracts,
-		declaredV0Classes: update.StateDiff.DeclaredV0Classes,
-		declaredV1Classes: update.StateDiff.DeclaredV1Classes,
-		replacedClasses:   update.StateDiff.ReplacedClasses,
 	}
 
 	s.db.stateCache.AddLayer(newComm, *update.OldRoot, diff)
@@ -350,6 +347,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 	return reverse, nil
 }
 
+//nolint:gocyclo
 func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	// Sort in descending order of the number of storage changes
 	// so that we start with the heaviest update first
@@ -464,6 +462,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	return newComm, su, nil
 }
 
+//nolint:gocyclo
 func (s *State) flush(
 	blockNum uint64,
 	update *stateUpdate,

@@ -11,9 +11,6 @@ type diffCache struct {
 	storageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
 	nonces            map[felt.Felt]*felt.Felt               // addr -> nonce
 	deployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
-	declaredV0Classes []*felt.Felt                           // class hashes
-	declaredV1Classes map[felt.Felt]*felt.Felt               // class hash -> compiled class hash
-	replacedClasses   map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
 type stateCache struct {
@@ -53,121 +50,61 @@ func (c *stateCache) evictOldLayers() {
 	}
 }
 
-func (c *stateCache) getNonce(stateRoot felt.Felt, addr felt.Felt) *felt.Felt {
-	diff, exists := c.diffs[stateRoot]
+func (c *stateCache) getNonce(stateRoot, addr *felt.Felt) *felt.Felt {
+	diff, exists := c.diffs[*stateRoot]
 	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getNonce(parent, addr)
+		if parent, ok := c.links[*stateRoot]; ok {
+			return c.getNonce(&parent, addr)
 		}
 		return nil
 	}
 
-	if nonce, ok := diff.nonces[addr]; ok {
+	if nonce, ok := diff.nonces[*addr]; ok {
 		return nonce
 	}
 
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getNonce(parent, addr)
+	if parent, ok := c.links[*stateRoot]; ok {
+		return c.getNonce(&parent, addr)
 	}
 
 	return nil
 }
 
-func (c *stateCache) getStorageDiff(stateRoot felt.Felt, addr felt.Felt) map[felt.Felt]*felt.Felt {
-	diff, exists := c.diffs[stateRoot]
+func (c *stateCache) getStorageDiff(stateRoot, addr *felt.Felt) map[felt.Felt]*felt.Felt {
+	diff, exists := c.diffs[*stateRoot]
 	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getStorageDiff(parent, addr)
+		if parent, ok := c.links[*stateRoot]; ok {
+			return c.getStorageDiff(&parent, addr)
 		}
 		return nil
 	}
 
-	if storage, ok := diff.storageDiffs[addr]; ok {
+	if storage, ok := diff.storageDiffs[*addr]; ok {
 		return storage
 	}
 
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getStorageDiff(parent, addr)
+	if parent, ok := c.links[*stateRoot]; ok {
+		return c.getStorageDiff(&parent, addr)
 	}
 
 	return nil
 }
 
-func (c *stateCache) getDeployedContract(stateRoot felt.Felt, addr felt.Felt) *felt.Felt {
-	diff, exists := c.diffs[stateRoot]
+func (c *stateCache) getDeployedContract(stateRoot, addr *felt.Felt) *felt.Felt {
+	diff, exists := c.diffs[*stateRoot]
 	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getDeployedContract(parent, addr)
+		if parent, ok := c.links[*stateRoot]; ok {
+			return c.getDeployedContract(&parent, addr)
 		}
 		return nil
 	}
 
-	if classHash, ok := diff.deployedContracts[addr]; ok {
+	if classHash, ok := diff.deployedContracts[*addr]; ok {
 		return classHash
 	}
 
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getDeployedContract(parent, addr)
-	}
-
-	return nil
-}
-
-func (c *stateCache) getDeclaredV0Classes(stateRoot felt.Felt) []*felt.Felt {
-	diff, exists := c.diffs[stateRoot]
-	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getDeclaredV0Classes(parent)
-		}
-		return nil
-	}
-
-	if len(diff.declaredV0Classes) > 0 {
-		return diff.declaredV0Classes
-	}
-
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getDeclaredV0Classes(parent)
-	}
-
-	return nil
-}
-
-func (c *stateCache) getDeclaredV1Classes(stateRoot felt.Felt) map[felt.Felt]*felt.Felt {
-	diff, exists := c.diffs[stateRoot]
-	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getDeclaredV1Classes(parent)
-		}
-		return nil
-	}
-
-	if len(diff.declaredV1Classes) > 0 {
-		return diff.declaredV1Classes
-	}
-
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getDeclaredV1Classes(parent)
-	}
-
-	return nil
-}
-
-func (c *stateCache) getReplacedClasses(stateRoot felt.Felt) map[felt.Felt]*felt.Felt {
-	diff, exists := c.diffs[stateRoot]
-	if !exists {
-		if parent, ok := c.links[stateRoot]; ok {
-			return c.getReplacedClasses(parent)
-		}
-		return nil
-	}
-
-	if len(diff.replacedClasses) > 0 {
-		return diff.replacedClasses
-	}
-
-	if parent, ok := c.links[stateRoot]; ok {
-		return c.getReplacedClasses(parent)
+	if parent, ok := c.links[*stateRoot]; ok {
+		return c.getDeployedContract(&parent, addr)
 	}
 
 	return nil
