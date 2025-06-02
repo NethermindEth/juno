@@ -51,7 +51,7 @@ func TestStateCache(t *testing.T) {
 		parent := new(felt.Felt).SetUint64(0)
 
 		// Add exactly DefaultMaxLayers + 1 layers to trigger eviction
-		for i := 0; i < DefaultMaxLayers+1; i++ {
+		for i := range DefaultMaxLayers + 1 {
 			root := new(felt.Felt).SetUint64(uint64(i + 1))
 			diff := &diffCache{
 				nonces: map[felt.Felt]*felt.Felt{
