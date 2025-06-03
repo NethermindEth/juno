@@ -144,8 +144,8 @@ var (
 const (
 	// Calculated at https://hur.st/bloomfilter/?n=1000&p=&m=8192&k=
 	// provides 1 in 51 possibility of false positives for approximately 1000 elements
-	eventsBloomLength    = 8192
-	eventsBloomHashFuncs = 6
+	EventsBloomLength    = 8192
+	EventsBloomHashFuncs = 6
 	queryBit             = 128
 )
 
@@ -760,7 +760,7 @@ func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error)
 }
 
 func EventsBloom(receipts []*TransactionReceipt) *bloom.BloomFilter {
-	filter := bloom.New(eventsBloomLength, eventsBloomHashFuncs)
+	filter := bloom.New(EventsBloomLength, EventsBloomHashFuncs)
 
 	for _, receipt := range receipts {
 		for _, event := range receipt.Events {
