@@ -93,10 +93,6 @@ func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
 	return b
 }
 
-func (b *Builder) Network() *utils.Network {
-	return b.bc.Network()
-}
-
 func (b *Builder) Pending() (*sync.Pending, error) {
 	p := b.pendingBlock.Load()
 	if p == nil {
@@ -578,9 +574,9 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	newBlock, newSU, commitments, concatCommitment, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
-	pending.Block = newBlock
-	pending.StateUpdate = newSU
+	simulateResult, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	pending.Block = simulateResult.Block
+	pending.StateUpdate = simulateResult.StateUpdate
 	b.pendingBlock.Store(pending)
-	return commitments, concatCommitment, err
+	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
 }

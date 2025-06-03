@@ -488,7 +488,7 @@ func (b *Blockchain) Simulate(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 	sign BlockSignFunc,
-) (*core.Block, *core.StateUpdate, *core.BlockCommitments, *felt.Felt, error) {
+) (SimulateResult, error) {
 	var newBlock *core.Block
 	var newSU *core.StateUpdate
 	var newCommitments *core.BlockCommitments
@@ -548,10 +548,22 @@ func (b *Blockchain) Simulate(
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
 	if err := simulate(txn); err != nil {
-		return nil, nil, nil, nil, err
+		return SimulateResult{}, err
 	}
 	txn.Reset()
-	return newBlock, newSU, newCommitments, concatCount, nil
+	return SimulateResult{
+		Block:            newBlock,
+		StateUpdate:      newSU,
+		BlockCommitments: newCommitments,
+		ConcatCount:      concatCount,
+	}, nil
+}
+
+type SimulateResult struct {
+	Block            *core.Block
+	StateUpdate      *core.StateUpdate
+	BlockCommitments *core.BlockCommitments
+	ConcatCount      *felt.Felt
 }
 
 // Finalise checks the block correctness and appends it to the chain

@@ -112,8 +112,6 @@ func TestBuildTwoEmptyBlocks(t *testing.T) {
 	minHeight := uint64(2)
 	testBuilder := builder.New(privKey, seqAddr, bc, mockVM, time.Millisecond, p, utils.NewNopZapLogger(), false, testDB, *protocolVersion)
 
-	require.Equal(t, network, testBuilder.Network())
-
 	ctx, cancel := context.WithCancel(t.Context())
 	go func() {
 		waitForBlock(t, bc, time.Second, minHeight)
