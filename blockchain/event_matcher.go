@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -86,6 +87,38 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 		// no key on this index matches the filter
 		if !possibleMatches {
 			break
+		}
+	}
+
+	return possibleMatches
+}
+
+// Returns candidate possibly matching block in the given filter.
+func (e *EventMatcher) getCandidateBlocksForFilter(filter *core.AggregatedBloomFilter) *bitset.BitSet {
+	possibleMatches := bitset.New(uint(core.AggregateBloomBlockRangeLen)).SetAll()
+
+	if e.contractAddress != nil {
+		addrBytes := e.contractAddress.Bytes()
+		contractBlocks := filter.BlocksForKeys([][]byte{addrBytes[:]})
+
+		possibleMatches.InPlaceIntersection(contractBlocks)
+
+		if possibleMatches.None() {
+			return bitset.New(0)
+		}
+	}
+
+	for index, kMap := range e.keysMap {
+		keys := make([][]byte, 0, len(kMap))
+		for key := range kMap {
+			keyBytes := key.Bytes()
+			keyAndIndex := binary.AppendVarint(keyBytes[:], int64(index))
+			keys = append(keys, keyAndIndex)
+		}
+		keyBlocks := filter.BlocksForKeys(keys)
+		possibleMatches.InPlaceIntersection(keyBlocks)
+		if possibleMatches.None() {
+			return bitset.New(0)
 		}
 	}
 
