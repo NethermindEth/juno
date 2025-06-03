@@ -498,7 +498,7 @@ func (b *Blockchain) Simulate(
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		blockHash, newCommitments, err := core.BlockHash(
+		blockHash, commitments, err := core.BlockHash(
 			block,
 			stateUpdate.StateDiff,
 			b.network,
@@ -508,6 +508,7 @@ func (b *Blockchain) Simulate(
 		}
 		block.Hash = blockHash
 		stateUpdate.BlockHash = blockHash
+		newCommitments = commitments
 
 		concatCount = core.ConcatCounts(
 			block.TransactionCount,

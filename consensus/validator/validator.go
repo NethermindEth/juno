@@ -11,8 +11,6 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 )
 
-const defaultTxnPoolSize int = 1024
-
 // Validator is used to validate new proposals. There are two potential flows, and functions must be called in order:
 // Flow 1) Non-empty proposal - ProposalInit(), BlockInfo(), TransactionBatch(), ProposalCommitment(), ProposalFin()
 // Flow 2) Empty proposal - ProposalInit(), ProposalCommitment(), ProposalFin()
@@ -88,6 +86,8 @@ func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment
 			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 		}
 	}
+	fmt.Println("concatCount.IsZero()", concatCount.IsZero())
+	fmt.Println("commitments", commitments)
 	pendingBlock := a.builder.PendingBlock()
 
 	if err := compareProposalCommitment(proCom, pendingBlock.Header, commitments, concatCount); err != nil {
