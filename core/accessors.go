@@ -529,3 +529,46 @@ func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitme
 
 	return val, nil
 }
+
+func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (*AggregatedBloomFilter, error) {
+	var filter AggregatedBloomFilter
+	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
+		err := encoder.Unmarshal(data, &filter)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &filter, nil
+}
+
+func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
+	enc, err := encoder.Marshal(filter)
+	if err != nil {
+		return err
+	}
+	return w.Put(db.AggregatedBloomFilterKey(filter.FromBlock(), filter.ToBlock()), enc)
+}
+
+func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
+	var filter RunningEventFilter
+	err := r.Get(db.RunningEventFilter.Key(), func(data []byte) error {
+		err := encoder.Unmarshal(data, &filter)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &filter, nil
+}
+
+func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) error {
+	enc, err := encoder.Marshal(filter)
+	if err != nil {
+		return err
+	}
+
+	return w.Put(db.RunningEventFilter.Key(), enc)
+}
