@@ -93,11 +93,26 @@ type Blockchain struct {
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
+	// TODO(Ege): make num const or configurable
+	maxCachedFilters := 16
+	cachedFilters := NewAggregatedBloomCache(maxCachedFilters)
+	fallback := func(key EventFiltersCacheKey) (*core.AggregatedBloomFilter, error) {
+		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
+	}
+
+	cachedFilters.WithFallback(fallback)
+
+	/// TODO(Ege): decide where to initialise running filter ensuring no nil and consistent
+	/// This is to make tests pass till addressing the issue.
+	runningFilter := core.NewRunningFilter(core.NewAggregatedFilter(0), 0)
+
 	return &Blockchain{
-		database:   database,
-		network:    network,
-		listener:   &SelectiveListener{},
-		l1HeadFeed: feed.New[*core.L1Head](),
+		database:      database,
+		network:       network,
+		listener:      &SelectiveListener{},
+		l1HeadFeed:    feed.New[*core.L1Head](),
+		cachedFilters: &cachedFilters,
+		RunningFilter: runningFilter,
 	}
 }
 
