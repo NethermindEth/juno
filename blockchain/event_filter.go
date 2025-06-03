@@ -136,13 +136,13 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 
 	// only canonical blocks
 	if e.toBlock <= latest {
-		return e.canonicalEvents(matchedEvents, curBlock, skippedEvents, chunkSize)
+		return e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
 	}
 
 	var rToken *ContinuationToken
 	// [canonicalBlock, pending]
 	if curBlock <= latest {
-		matchedEvents, rToken, err = e.canonicalEvents(matchedEvents, curBlock, skippedEvents, chunkSize)
+		matchedEvents, rToken, err = e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -181,15 +181,16 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 
 func (e *EventFilter) canonicalEvents(
 	matchedEvents []*FilteredEvent,
-	curBlock, skippedEvents, chunkSize uint64,
+	fromBlock, toBlock, skippedEvents, chunkSize uint64,
 ) ([]*FilteredEvent, *ContinuationToken, error) {
 	matchedBlockIter, err := e.cachedFilters.NewMatchedBlockIterator(
-		curBlock,
-		e.toBlock,
+		fromBlock,
+		toBlock,
 		e.maxScanned,
 		&e.matcher,
 		e.runningFilter,
 	)
+
 	if err != nil {
 		return nil, nil, err
 	}
