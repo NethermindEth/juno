@@ -535,16 +535,13 @@ func (b *Blockchain) Simulate(
 			return err
 		}
 
-		block, err := core.GetBlockByNumber(txn, block.Number)
-		if err != nil {
+		if newBlock, err = core.GetBlockByNumber(txn, block.Number); err != nil {
 			return err
 		}
-		su, err := core.GetStateUpdateByBlockNum(txn, block.Number)
-		if err != nil {
+
+		if newSU, err = core.GetStateUpdateByBlockNum(txn, block.Number); err != nil {
 			return err
 		}
-		newBlock = block
-		newSU = su
 		return nil
 	}
 
