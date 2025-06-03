@@ -174,7 +174,7 @@ func TestMatchBlockIterator_InsertQueryRandomEvents(t *testing.T) {
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
 
-	runningFilter := core.NewRunningFilter(core.NewAggregatedFilter(core.AggregateBloomBlockRangeLen), core.AggregateBloomBlockRangeLen)
+	runningFilter := core.NewRunningEventFilterHot(core.NewAggregatedFilter(core.AggregateBloomBlockRangeLen), core.AggregateBloomBlockRangeLen)
 	for _, test := range events {
 		// Create iterator for event
 		matcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
@@ -211,7 +211,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	var maxScannedLimit uint = 0
 	eventMatcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
-	runningFilter := core.NewRunningFilter(core.NewAggregatedFilter(chainHeight+1), chainHeight+1)
+	runningFilter := core.NewRunningEventFilterHot(core.NewAggregatedFilter(chainHeight+1), chainHeight+1)
 	t.Run("returns only what is in range", func(t *testing.T) {
 		var start, end, blockRange uint64 = 0, core.AggregateBloomBlockRangeLen * numAggregatedBloomFilters, core.AggregateBloomBlockRangeLen / 4
 
