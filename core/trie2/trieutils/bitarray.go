@@ -455,7 +455,7 @@ func (b *BitArray) IsEmpty() bool {
 //
 //	BitArray{len: 10, words: [4]uint64{0x03FF}} -> [0x03, 0xFF, 0x0A]
 func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
-	n, err := buf.Write(b.activeBytes())
+	n, err := buf.Write(b.ActiveBytes())
 
 	if err := buf.WriteByte(b.len); err != nil {
 		return 0, err
@@ -467,7 +467,7 @@ func (b *BitArray) Write(buf *bytes.Buffer) (int, error) {
 // Returns the encoded bytes of the bit array.
 func (b *BitArray) EncodedBytes() []byte {
 	var res []byte
-	res = append(res, b.activeBytes()...)
+	res = append(res, b.ActiveBytes()...)
 	res = append(res, b.len)
 	return res
 }
@@ -681,7 +681,7 @@ func (b *BitArray) Copy() BitArray {
 
 // Returns the encoded string representation of the bit array.
 func (b *BitArray) EncodedString() string {
-	bt := b.activeBytes()
+	bt := b.ActiveBytes()
 	res := make([]byte, len(bt)+1)
 	copy(res[:len(res)-1], bt)
 	res[len(res)-1] = b.len
@@ -724,7 +724,7 @@ func (b *BitArray) byteCount() uint {
 // Example:
 //
 //	len = 10, words = [0x3FF, 0, 0, 0] -> [0x03, 0xFF]
-func (b *BitArray) activeBytes() []byte {
+func (b *BitArray) ActiveBytes() []byte {
 	if b.len == 0 {
 		return nil
 	}
