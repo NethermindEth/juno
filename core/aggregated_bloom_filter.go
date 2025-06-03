@@ -107,6 +107,7 @@ func (f *AggregatedBloomFilter) ToBlock() uint64 {
 }
 
 // Insert adds a bloom filter's data for a specific block number into the aggregated filter.
+// If filter is nil, no-op.
 // Returns an error if the block number is out of range or if the bloom filter size doesn't match.
 func (f *AggregatedBloomFilter) Insert(filter *bloom.BloomFilter, blockNumber uint64) error {
 	if f.fromBlock > blockNumber || f.toBlock < blockNumber {
@@ -114,7 +115,7 @@ func (f *AggregatedBloomFilter) Insert(filter *bloom.BloomFilter, blockNumber ui
 	}
 
 	if filter == nil {
-		filter = bloom.New(EventsBloomLength, EventsBloomHashFuncs)
+		return nil
 	}
 
 	bitmap := filter.BitSet()
