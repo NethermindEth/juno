@@ -45,7 +45,7 @@ type eventTestCase struct {
 }
 
 // GenerateRandomEvents creates n random events (addresses+keys) for use in filters.
-func generateRandomEvents(t *testing.T, n int, keysPerEvent, subKeysPerKey int) []*eventTestCase {
+func generateRandomEvents(t *testing.T, n, keysPerEvent, subKeysPerKey int) []*eventTestCase {
 	t.Helper()
 	events := make([]*eventTestCase, n)
 	for i := range n {
@@ -73,7 +73,7 @@ func populateAggregatedBloomFilters(
 	fromBlock := uint64(0)
 	for i := range numAggregatedFilters {
 		filter := core.NewAggregatedFilter(fromBlock)
-		for j := uint64(0); j < blocksPerFilter; j++ {
+		for j := range blocksPerFilter {
 			blockNumber := fromBlock + j
 			bloomInst := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 			insertedEvents := make(map[int]struct{})
@@ -248,7 +248,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	t.Run("maxScanned stops early", func(t *testing.T) {
 		maxScannedLimit = 10_000
 		// Create filter for event
-		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, uint(maxScannedLimit), &eventMatcher, runningFilter)
+		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, maxScannedLimit, &eventMatcher, runningFilter)
 		require.NoError(t, err)
 
 		// for 10_000 blocks scan we need
@@ -291,7 +291,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 				currBlockFilter.Add(keyAndIndexBytes)
 			}
 		}
-		runningFilter.Insert(testDB, currBlockFilter, runningFilter.FromBlock())
+		require.NoError(t, runningFilter.Insert(testDB, currBlockFilter, runningFilter.FromBlock()))
 
 		iterator, err := cache.NewMatchedBlockIterator(runningFilter.FromBlock(), runningFilter.FromBlock(), maxScannedLimit, &eventMatcher, runningFilter)
 		require.NoError(t, err)

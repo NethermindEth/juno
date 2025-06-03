@@ -28,7 +28,6 @@ func TestEvents(t *testing.T) {
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
-
 	for i := range 7 {
 		b, err := gw.BlockByNumber(t.Context(), uint64(i))
 		require.NoError(t, err)
@@ -170,14 +169,15 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with limit", func(t *testing.T) {
 		handler = handler.WithFilterLimit(1)
-		key := utils.HexToFelt(t, "0x2e8a4ec40a36a027111fafdb6a46746ff1b0125d5067fbaebd8b5f227185a1e")
+		args.Address = utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 		args.ChunkSize = 100
 		args.Keys = make([][]felt.Felt, 0)
-		args.Keys = append(args.Keys, []felt.Felt{*key})
+
 		events, err := handler.Events(args)
 		require.Nil(t, err)
-		require.Equal(t, "1-0", events.ContinuationToken)
-		require.Empty(t, events.Events)
+		require.Equal(t, "4-0", events.ContinuationToken)
+		require.NotEmpty(t, events.Events)
+
 		handler = handler.WithFilterLimit(7)
 		events, err = handler.Events(args)
 		require.Nil(t, err)

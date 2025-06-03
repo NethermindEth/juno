@@ -87,6 +87,8 @@ type Blockchain struct {
 	listener       EventListener
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
+	cachedFilters  *AggregatedBloomFilterCache
+	RunningFilter  *core.RunningEventFilter
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
@@ -397,7 +399,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn), nil
+	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn, b.cachedFilters, b.RunningFilter), nil
 }
 
 // RevertHead reverts the head block
