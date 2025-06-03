@@ -36,26 +36,17 @@ type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type validator[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	builder           *builder.Builder    // Builder manages the pending block and state
-	txnPool           []types.Transaction // Txns may not arrive in order
-	latestExecutedTxn int                 // Tracks which txn we should execute next
+	builder *builder.Builder // Builder manages the pending block and state
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) Validator[V, H, A] {
 	return &validator[V, H, A]{
 		builder: builder,
-		txnPool: make([]types.Transaction, defaultTxnPoolSize),
 	}
 }
 
 // ProposalInit initialises the pending header according to ProposalInit
 func (a *validator[V, H, A]) ProposalInit(pInit *types.ProposalInit) error {
-	// reset txnPool
-	for i := range a.latestExecutedTxn {
-		a.txnPool[i] = types.Transaction{}
-	}
-	a.latestExecutedTxn = 0
-
 	return a.builder.ProposalInit(pInit)
 }
 
@@ -66,43 +57,19 @@ func (a *validator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) {
 
 // TransactionBatch executes the provided transactions, and stores the result in the pending state
 func (a *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
-	// Resize txnPool if necessary
-	maxID := 0
-	for i := range txns {
-		if txns[i].Index > maxID {
-			maxID = txns[i].Index
-		}
-	}
-	if maxID >= len(a.txnPool) {
-		newPool := make([]types.Transaction, 2*defaultTxnPoolSize)
-		copy(newPool, a.txnPool)
-		a.txnPool = newPool
-	}
-
-	// Insert txns into the pool
-	for i := range txns {
-		a.txnPool[txns[i].Index] = txns[i]
-	}
-
-	// Get set of txns that we can execute
-	start, end := a.latestExecutedTxn, a.latestExecutedTxn
-	for a.txnPool[end+1].Transaction != nil {
-		end++
-	}
-
-	txnsToExecute := make([]mempool.BroadcastedTransaction, end-start+1)
+	txnsToExecute := make([]mempool.BroadcastedTransaction, len(txns))
 	for i := range txnsToExecute {
 		txnsToExecute[i] = mempool.BroadcastedTransaction{
-			Transaction:   txns[start].Transaction,
-			DeclaredClass: txns[start].Class,
-			PaidFeeOnL1:   txns[start].PaidFeeOnL1,
+			Transaction:   txns[i].Transaction,
+			DeclaredClass: txns[i].Class,
+			PaidFeeOnL1:   txns[i].PaidFeeOnL1,
 		}
 	}
 
 	if err := a.builder.ExecuteTxns(txnsToExecute); err != nil {
 		return err
 	}
-	a.latestExecutedTxn = end + 1
+
 	return nil
 }
 
