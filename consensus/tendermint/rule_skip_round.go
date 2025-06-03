@@ -15,8 +15,8 @@ Check the upon condition on line 55:
 
 If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
-func (t *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
-	vals := make(map[A]struct{})
+func (t *stateMachine[V]) uponSkipRound(futureR types.Round) bool {
+	vals := make(map[types.Addr]struct{})
 	proposals, prevotes, precommits := t.messages.AllMessages(t.state.height, futureR)
 
 	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
@@ -39,6 +39,6 @@ func (t *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
 	return isNewerRound && hasQuorum
 }
 
-func (t *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
+func (t *stateMachine[V]) doSkipRound(futureR types.Round) types.Action[V] {
 	return t.startRound(futureR)
 }

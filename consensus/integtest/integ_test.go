@@ -39,11 +39,11 @@ func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 	}
 }
 
-func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
+func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value] {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	db := mocks.NewMockTendermintDB[starknet.Value](ctrl)
 	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
