@@ -228,7 +228,6 @@ func LoadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 // latest stored filter window and sequentially adds missing block filters up to the
 // blockchain's current height.
 func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEventFilter, error) {
-	fmt.Print("Enter rebuild")
 	rangeStartAlligned := int64(latest - (latest % AggregateBloomBlockRangeLen))
 	lastStoredFilterRangeEnd := latest - (latest % AggregateBloomBlockRangeLen) + AggregateBloomBlockRangeLen - 1
 
