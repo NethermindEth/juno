@@ -99,12 +99,9 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	fallback := func(key EventFiltersCacheKey) (*core.AggregatedBloomFilter, error) {
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
 	}
-
 	cachedFilters.WithFallback(fallback)
 
-	/// TODO(Ege): decide where to initialise running filter ensuring no nil and consistent
-	/// This is to make tests pass till addressing the issue.
-	runningFilter := core.NewRunningFilter(core.NewAggregatedFilter(0), 0)
+	runningFilter := core.NewRunningEventFilterLazy(database)
 
 	return &Blockchain{
 		database:      database,

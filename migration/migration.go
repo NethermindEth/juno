@@ -71,6 +71,7 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
 	MigrationFunc(removePendingBlock),
+	MigrationFunc(reconstructAggregatedBloomFilters),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -792,4 +793,29 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 	}
 
 	return txn.Put(key, value)
+}
+
+func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Network) error {
+	filter := core.NewAggregatedFilter(0)
+	for blockNumber := uint64(0); ; blockNumber++ {
+		header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+		if err != nil {
+			if errors.Is(err, db.ErrKeyNotFound) {
+				return core.NewRunningEventFilterHot(filter, blockNumber).Persist(txn)
+			}
+			return err
+		}
+
+		if err := filter.Insert(header.EventsBloom, header.Number); err != nil {
+			return err
+		}
+
+		nextBlock := blockNumber + 1
+		if blockNumber > 0 && nextBlock%core.AggregateBloomBlockRangeLen == 0 {
+			if err = core.WriteAggregatedBloomFilter(txn, filter); err != nil {
+				return err
+			}
+			filter = core.NewAggregatedFilter(nextBlock)
+		}
+	}
 }
