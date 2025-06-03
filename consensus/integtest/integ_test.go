@@ -4,14 +4,21 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
+
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/consensus/p2p"
+	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap"
 )
 
 type testConfig struct {
@@ -23,17 +30,27 @@ type testConfig struct {
 	buffer int
 	// Constant term of timeout function
 	timeoutBase time.Duration
-	// Step coefficient of timeout function
-	timeoutStepFactor time.Duration
 	// Round coefficient of timeout function
 	timeoutRoundFactor time.Duration
 	// Number of blocks to run the test for
 	targetHeight types.Height
+	// Network setup
+	networkSetup networkConfigFn
 }
 
 func getTimeoutFn(cfg testConfig) func(types.Step, types.Round) time.Duration {
 	return func(step types.Step, round types.Round) time.Duration {
-		return cfg.timeoutBase + time.Duration(step)*cfg.timeoutStepFactor + time.Duration(round)*cfg.timeoutRoundFactor
+		delta := cfg.timeoutBase + time.Duration(round+1)*cfg.timeoutRoundFactor
+		switch step {
+		case types.StepPropose:
+			prevDelta := cfg.timeoutBase + time.Duration(round)*cfg.timeoutRoundFactor
+			return (prevDelta + delta) * 2
+		case types.StepPrevote:
+			return delta * 2
+		case types.StepPrecommit:
+			return delta * 2
+		}
+		return 0
 	}
 }
 
@@ -54,35 +71,60 @@ func runTest(t *testing.T, cfg testConfig) {
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
 
 	allNodes := getNodes(cfg.nodeCount)
-	network := newNetwork(allNodes, cfg.buffer)
 	commits := make(chan commit, cfg.buffer)
 	validators := newValidators(allNodes)
 
+	p2pWaitGroup := conc.NewWaitGroup()
+	t.Cleanup(func() {
+		p2pWaitGroup.Wait()
+	})
+
+	p2pHosts := cfg.networkSetup(t, honestNodeCount)
+
+	drivers := make([]driver.Driver[starknet.Value, starknet.Hash, starknet.Address], honestNodeCount)
+	t.Cleanup(func() {
+		for i := range drivers {
+			drivers[i].Stop()
+		}
+	})
+
+	logger, err := utils.NewZapLogger(utils.NewLogLevel(zap.DebugLevel), true)
+	require.NoError(t, err)
+
 	// Spawn a network of honest nodes
 	for i := range honestNodeCount {
+		logger := &utils.ZapLogger{SugaredLogger: logger.SugaredLogger.Named(fmt.Sprint(i))}
 		tendermintDB := newDB(t)
 
 		nodeAddr := &allNodes.addr[i]
 
 		stateMachine := tendermint.New(
 			tendermintDB,
-			utils.NewNopZapLogger(),
+			logger,
 			*nodeAddr,
 			&application{},
 			validators,
 			types.Height(0),
 		)
-		driver := driver.New(
-			utils.NewNopZapLogger(),
+
+		p2p := p2p.New(p2pHosts[i].host, logger, types.Height(0), &buffered.DefaultBufferSizeConfig)
+		p2pWaitGroup.Go(func() {
+			p2pHosts[i].setupDiscovery()
+			p2p.Run(t.Context())
+		})
+
+		drivers[i] = driver.New(
+			logger,
 			tendermintDB,
 			stateMachine,
 			newBlockchain(commits, nodeAddr),
-			network.getListeners(nodeAddr),
-			network.getBroadcasters(nodeAddr),
+			p2p,
 			getTimeoutFn(cfg),
 		)
+	}
 
-		driver.Start()
+	for i := range drivers {
+		drivers[i].Start()
 	}
 
 	// node index -> height
@@ -91,7 +133,6 @@ func runTest(t *testing.T, cfg testConfig) {
 	committedValues := make([]*starknet.Value, cfg.targetHeight)
 
 	finished := 0
-
 	for commit := range commits {
 		// Ignore commits after the target height
 		if commit.height >= cfg.targetHeight {
@@ -143,14 +184,36 @@ func runWithAllHonestAndSilentFaultyNodes(t *testing.T, cfg testConfig) {
 }
 
 func TestTendermintCluster(t *testing.T) {
-	t.Run("10 nodes, 200 blocks", func(t *testing.T) {
+	t.Run("4 nodes, 10 blocks", func(t *testing.T) {
 		runWithAllHonestAndSilentFaultyNodes(t, testConfig{
-			nodeCount:          10,
+			nodeCount:          4,
 			buffer:             100,
-			timeoutBase:        10 * time.Millisecond,
-			timeoutStepFactor:  10 * time.Millisecond,
-			timeoutRoundFactor: 10 * time.Millisecond,
+			timeoutBase:        20 * time.Millisecond,
+			timeoutRoundFactor: 20 * time.Millisecond,
+			targetHeight:       10,
+			networkSetup:       lineNetworkConfig,
+		})
+	})
+
+	t.Run("20 nodes, 200 blocks", func(t *testing.T) {
+		runWithAllHonestAndSilentFaultyNodes(t, testConfig{
+			nodeCount:          20,
+			buffer:             100,
+			timeoutBase:        200 * time.Millisecond,
+			timeoutRoundFactor: 200 * time.Millisecond,
 			targetHeight:       200,
+			networkSetup:       smallWorldNetworkConfig,
+		})
+	})
+
+	t.Run("20 nodes, 50 blocks", func(t *testing.T) {
+		runWithAllHonestAndSilentFaultyNodes(t, testConfig{
+			nodeCount:          20,
+			buffer:             100,
+			timeoutBase:        1000 * time.Millisecond,
+			timeoutRoundFactor: 200 * time.Millisecond,
+			targetHeight:       50,
+			networkSetup:       smallWorldNetworkConfig,
 		})
 	})
 
@@ -158,10 +221,10 @@ func TestTendermintCluster(t *testing.T) {
 		runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 			nodeCount:          100,
 			buffer:             500,
-			timeoutBase:        100 * time.Millisecond,
-			timeoutStepFactor:  100 * time.Millisecond,
-			timeoutRoundFactor: 100 * time.Millisecond,
+			timeoutBase:        10000 * time.Millisecond,
+			timeoutRoundFactor: 10000 * time.Millisecond,
 			targetHeight:       10,
+			networkSetup:       smallWorldNetworkConfig,
 		})
 	})
 }

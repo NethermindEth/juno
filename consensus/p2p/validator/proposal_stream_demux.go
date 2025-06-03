@@ -121,8 +121,6 @@ func (t proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMes
 
 	streamID := streamID(message.StreamId)
 
-	t.log.Debugw("proposal", "streamID", streamID, "sequenceNumber", message.SequenceNumber, "t.currentHeight", t.currentHeight)
-
 	if message.SequenceNumber == 0 {
 		return t.onFirstMessage(ctx, streamID, &message)
 	}
@@ -137,8 +135,6 @@ func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID strea
 	if err != nil {
 		return err
 	}
-
-	t.log.Debugw("onFirstMessage", "height", height, "streamID", streamID, "t.currentHeight", t.currentHeight)
 
 	// If the height is less than the current height, the stream is outdated and should be deleted
 	if height < t.currentHeight {
