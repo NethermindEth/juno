@@ -498,7 +498,7 @@ func (b *Blockchain) Simulate(
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		blockHash, commitments, err := core.BlockHash(
+		blockHash, newCommitments, err := core.BlockHash(
 			block,
 			stateUpdate.StateDiff,
 			b.network,
@@ -509,29 +509,17 @@ func (b *Blockchain) Simulate(
 		block.Hash = blockHash
 		stateUpdate.BlockHash = blockHash
 
-		// Starknet consensus requires zero values for empty blocks
-		if block.TransactionCount == 0 {
-			newCommitments = &core.BlockCommitments{
-				TransactionCommitment: new(felt.Felt).SetUint64(0),
-				EventCommitment:       new(felt.Felt).SetUint64(0),
-				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
-				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
-			}
-			concatCount = new(felt.Felt).SetUint64(0)
-		} else {
-			newCommitments = commitments
-			concatCount = core.ConcatCounts(
-				block.TransactionCount,
-				block.EventCount,
-				stateUpdate.StateDiff.Length(),
-				block.L1DAMode)
-		}
+		concatCount = core.ConcatCounts(
+			block.TransactionCount,
+			block.EventCount,
+			stateUpdate.StateDiff.Length(),
+			block.L1DAMode)
 
 		if err := b.signBlock(block, stateUpdate, sign); err != nil {
 			return err
 		}
 
-		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+		if err := b.storeBlockData(txn, block, stateUpdate, newCommitments); err != nil {
 			return err
 		}
 

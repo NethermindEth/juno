@@ -112,6 +112,15 @@ func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment
 	if err != nil {
 		return err
 	}
+	// Starknet consensus requires zero values for empty blocks
+	if concatCount.IsZero() {
+		commitments = &core.BlockCommitments{
+			TransactionCommitment: new(felt.Felt).SetUint64(0),
+			EventCommitment:       new(felt.Felt).SetUint64(0),
+			ReceiptCommitment:     new(felt.Felt).SetUint64(0),
+			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
+		}
+	}
 	pendingBlock := a.builder.PendingBlock()
 
 	if err := compareProposalCommitment(proCom, pendingBlock.Header, commitments, concatCount); err != nil {
