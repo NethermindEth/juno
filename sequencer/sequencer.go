@@ -98,7 +98,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			if err != nil {
 				s.log.Infof("Failed to get pending block")
 			}
-			if err := s.builder.Finalise(pending, utils.Sign, s.privKey); err != nil {
+			if err := s.builder.Finalise(pending, utils.Sign(s.privKey), s.privKey); err != nil {
 				return err
 			}
 			s.log.Infof("Finalised new block")
@@ -143,7 +143,7 @@ func (s *Sequencer) RunOnce() error {
 	if err != nil {
 		s.log.Infof("Failed to get pending block")
 	}
-	if err := s.builder.Finalise(pending, utils.Sign, s.privKey); err != nil {
+	if err := s.builder.Finalise(pending, utils.Sign(s.privKey), s.privKey); err != nil {
 		return err
 	}
 	s.log.Infof("Finalised new block")

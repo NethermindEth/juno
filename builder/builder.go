@@ -47,7 +47,7 @@ func New(
 }
 
 func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
-	return b.blockchain.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, signer, privateKey)
+	return b.blockchain.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, signer)
 }
 
 func (b *Builder) Pending() (*sync.Pending, error) {

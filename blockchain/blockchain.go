@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -488,7 +487,6 @@ func (b *Blockchain) Finalise(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 	sign utils.BlockSignFunc,
-	privKey *ecdsa.PrivateKey,
 ) error {
 	return b.database.Update(func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
@@ -500,7 +498,7 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 
-		if err := b.signBlock(block, stateUpdate, sign, privKey); err != nil {
+		if err := b.signBlock(block, stateUpdate, sign); err != nil {
 			return err
 		}
 
@@ -566,13 +564,11 @@ func (b *Blockchain) signBlock(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	sign utils.BlockSignFunc,
-	privKey *ecdsa.PrivateKey,
 ) error {
 	if sign == nil {
 		return nil
 	}
-
-	sig, err := sign(privKey, block.Hash, stateUpdate.StateDiff.Commitment())
+	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
 	if err != nil {
 		return err
 	}
@@ -643,7 +639,5 @@ func (b *Blockchain) StoreGenesis(
 	}
 	newClasses := classes
 
-	return b.Finalise(block, stateUpdate, newClasses, func(_ *ecdsa.PrivateKey, _, _ *felt.Felt) ([]*felt.Felt, error) {
-		return nil, nil
-	}, &ecdsa.PrivateKey{})
+	return b.Finalise(block, stateUpdate, newClasses, nil)
 }
