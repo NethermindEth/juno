@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/lru"
 )
 
-// Provovides cache-accelerated lookup of blockchain events
+// Provides cache-accelerated lookup of blockchain events
 // across block ranges by aggregating bloom filters. It includes LRU-cached filters
 // and efficient block iterators for event queries.
 

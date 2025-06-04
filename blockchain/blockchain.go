@@ -46,7 +46,6 @@ type Reader interface {
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
 	EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error)
-	AggregatedBloomFilterByRange(fromBlock, toBlock uint64) (*core.AggregatedBloomFilter, error)
 
 	Network() *utils.Network
 }
@@ -304,7 +303,6 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	}
 
 	return b.runningFilter.Insert(
-		b.database,
 		block.EventsBloom,
 		block.Number,
 	)
@@ -543,7 +541,7 @@ func (b *Blockchain) Finalise(
 		return err
 	}
 
-	return b.runningFilter.Insert(b.database, block.EventsBloom, block.Number)
+	return b.runningFilter.Insert(block.EventsBloom, block.Number)
 }
 
 // updateStateRoots computes and updates state roots in the block and state update
@@ -679,14 +677,9 @@ func (b *Blockchain) StoreGenesis(
 		return err
 	}
 
-	return b.runningFilter.Insert(b.database, block.EventsBloom, block.Number)
+	return b.runningFilter.Insert(block.EventsBloom, block.Number)
 }
 
 func (b *Blockchain) PersistRunningEventFilter() error {
-	return b.runningFilter.Persist(b.database)
-}
-
-func (b *Blockchain) AggregatedBloomFilterByRange(fromBlock, toBlock uint64) (*core.AggregatedBloomFilter, error) {
-	b.listener.OnRead("AggregatedBloomFilterByRange")
-	return core.GetAggregatedBloomFilter(b.database, fromBlock, toBlock)
+	return b.runningFilter.Persist()
 }
