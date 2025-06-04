@@ -89,7 +89,7 @@ type Blockchain struct {
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
 	cachedFilters  *AggregatedBloomFilterCache
-	RunningFilter  *core.RunningEventFilter
+	runningFilter  *core.RunningEventFilter
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
@@ -109,7 +109,7 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		listener:      &SelectiveListener{},
 		l1HeadFeed:    feed.New[*core.L1Head](),
 		cachedFilters: &cachedFilters,
-		RunningFilter: runningFilter,
+		runningFilter: runningFilter,
 	}
 }
 
@@ -303,7 +303,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		return err
 	}
 
-	return b.RunningFilter.Insert(
+	return b.runningFilter.Insert(
 		b.database,
 		block.EventsBloom,
 		block.Number,
@@ -421,7 +421,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn, b.cachedFilters, b.RunningFilter), nil
+	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn, b.cachedFilters, b.runningFilter), nil
 }
 
 // RevertHead reverts the head block
@@ -507,7 +507,7 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	}
 
 	// Remove the block events bloom from the cache
-	return b.RunningFilter.Clear(blockNumber)
+	return b.runningFilter.Clear(blockNumber)
 }
 
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the
@@ -543,7 +543,7 @@ func (b *Blockchain) Finalise(
 		return err
 	}
 
-	return b.RunningFilter.Insert(b.database, block.EventsBloom, block.Number)
+	return b.runningFilter.Insert(b.database, block.EventsBloom, block.Number)
 }
 
 // updateStateRoots computes and updates state roots in the block and state update
@@ -679,7 +679,11 @@ func (b *Blockchain) StoreGenesis(
 		return err
 	}
 
-	return b.RunningFilter.Insert(b.database, block.EventsBloom, block.Number)
+	return b.runningFilter.Insert(b.database, block.EventsBloom, block.Number)
+}
+
+func (b *Blockchain) PersistRunningEventFilter() error {
+	return b.runningFilter.Persist(b.database)
 }
 
 func (b *Blockchain) AggregatedBloomFilterByRange(fromBlock, toBlock uint64) (*core.AggregatedBloomFilter, error) {
