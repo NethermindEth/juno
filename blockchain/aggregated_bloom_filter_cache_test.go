@@ -158,7 +158,7 @@ func populateAggregatedBloomDeterministic(
 	return filters
 }
 
-func TestMatchBlockIterator_InsertQueryRandomEvents(t *testing.T) {
+func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	numEvents := 64
 	numAggregatedBloomFilters := uint64(16)
 	blocksPerFilter := core.AggregateBloomBlockRangeLen
@@ -170,11 +170,12 @@ func TestMatchBlockIterator_InsertQueryRandomEvents(t *testing.T) {
 	// Build windowed filters and populate with random event emissions
 	filters := populateAggregatedBloomFilters(t, numAggregatedBloomFilters, events, blocksPerFilter)
 
+	testDB := memory.New()
 	// Create cache and insert filters
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
-
-	runningFilter := core.NewRunningEventFilterHot(core.NewAggregatedFilter(core.AggregateBloomBlockRangeLen), core.AggregateBloomBlockRangeLen)
+	runningFilterStart := numAggregatedBloomFilters * blocksPerFilter
+	runningFilter := core.NewRunningEventFilterHot(testDB, core.NewAggregatedFilter(runningFilterStart), runningFilterStart)
 	for _, test := range events {
 		// Create iterator for event
 		matcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
@@ -209,9 +210,10 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
 
+	testDB := memory.New()
 	var maxScannedLimit uint = 0
 	eventMatcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
-	runningFilter := core.NewRunningEventFilterHot(core.NewAggregatedFilter(chainHeight+1), chainHeight+1)
+	runningFilter := core.NewRunningEventFilterHot(testDB, core.NewAggregatedFilter(chainHeight+1), chainHeight+1)
 	t.Run("returns only what is in range", func(t *testing.T) {
 		var start, end, blockRange uint64 = 0, core.AggregateBloomBlockRangeLen * numAggregatedBloomFilters, core.AggregateBloomBlockRangeLen / 4
 
@@ -279,7 +281,6 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	})
 
 	t.Run("range falls into running filter", func(t *testing.T) {
-		testDB := memory.New()
 		currBlockFilter := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 		currBlockFilter.Add(test.contractAddress.Marshal())
 
@@ -291,7 +292,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 				currBlockFilter.Add(keyAndIndexBytes)
 			}
 		}
-		require.NoError(t, runningFilter.Insert(testDB, currBlockFilter, runningFilter.FromBlock()))
+		require.NoError(t, runningFilter.Insert(currBlockFilter, runningFilter.FromBlock()))
 
 		iterator, err := cache.NewMatchedBlockIterator(runningFilter.FromBlock(), runningFilter.FromBlock(), maxScannedLimit, &eventMatcher, runningFilter)
 		require.NoError(t, err)

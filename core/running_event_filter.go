@@ -1,8 +1,11 @@
 package core
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/NethermindEth/juno/db"
@@ -20,23 +23,21 @@ type RunningEventFilter struct {
 	mu    sync.RWMutex
 	txn   db.KeyValueStore
 
-	loaded   bool
 	initErr  error
-	lazyOnce sync.Once // Alternatively, for even more robust thread-safety
+	lazyOnce sync.Once
 	lazyInit bool
 }
 
 func (f *RunningEventFilter) ensureInit() error {
 	if f.lazyInit {
 		f.lazyOnce.Do(func() {
-			filter, err := LoadRunningEventFilter(f.txn)
+			filter, err := loadRunningEventFilter(f.txn)
 			if err != nil {
 				f.initErr = err
 				return
 			}
 			f.inner = filter.inner
 			f.next = filter.next
-			f.loaded = true
 		})
 	}
 	return f.initErr
@@ -44,8 +45,9 @@ func (f *RunningEventFilter) ensureInit() error {
 
 // NewRunningFilter returns a RunningEventFilter that wraps the provided aggregated filter
 // with the expected next block to process.
-func NewRunningEventFilterHot(filter *AggregatedBloomFilter, nextBlock uint64) *RunningEventFilter {
+func NewRunningEventFilterHot(txn db.KeyValueStore, filter *AggregatedBloomFilter, nextBlock uint64) *RunningEventFilter {
 	return &RunningEventFilter{
+		txn:   txn,
 		inner: filter,
 		next:  nextBlock,
 	}
@@ -61,7 +63,6 @@ func NewRunningEventFilterLazy(txn db.KeyValueStore) *RunningEventFilter {
 // This implementation assumes blocks are not missed.
 // Returns an error if the block cannot be inserted.
 func (f *RunningEventFilter) Insert(
-	w db.KeyValueWriter,
 	bloom *bloom.BloomFilter,
 	blockNumber uint64,
 ) error {
@@ -77,17 +78,15 @@ func (f *RunningEventFilter) Insert(
 		return err
 	}
 
-	f.next = blockNumber + 1
-
 	if blockNumber == f.inner.ToBlock() {
-		err := WriteAggregatedBloomFilter(w, f.inner)
+		err := WriteAggregatedBloomFilter(f.txn, f.inner)
 		if err != nil {
 			return err
 		}
 		f.inner = NewAggregatedFilter(blockNumber + 1)
-		f.next = blockNumber + 1
 	}
 
+	f.next = blockNumber + 1
 	return nil
 }
 
@@ -150,7 +149,7 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
-	return NewRunningEventFilterHot(f.inner.Copy(), f.next)
+	return NewRunningEventFilterHot(f.txn, f.inner.Copy(), f.next)
 }
 
 // InnerFilter returns a deep copy of the current AggregatedBloomFilter window.
@@ -178,7 +177,7 @@ func (f *RunningEventFilter) Clear(blockNumber uint64) error {
 }
 
 // Persist writes the current state of the RunningEventFilter to persistent storage.
-func (f *RunningEventFilter) Persist(w db.KeyValueWriter) error {
+func (f *RunningEventFilter) Persist() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -186,19 +185,20 @@ func (f *RunningEventFilter) Persist(w db.KeyValueWriter) error {
 		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
-	return WriteRunningEventFilter(w, f)
+	return WriteRunningEventFilter(f.txn, f)
 }
 
-// LoadRunningEventFilter attempts to load a RunningEventFilter from storage.
+// loadRunningEventFilter attempts to load a RunningEventFilter from storage.
 // If no filter is found, a new one is created from genesis. If the stored filter
 // is not up to date with the chain's latest block, the filter is rebuilt.
-func LoadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
+func loadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 	latest, err := GetChainHeight(txn)
 	if err != nil {
 		// Start from genesis
 		if errors.Is(err, db.ErrKeyNotFound) {
 			filter := NewAggregatedFilter(0)
 			return NewRunningEventFilterHot(
+				txn,
 				filter,
 				0,
 			), nil
@@ -209,13 +209,17 @@ func LoadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 	filter, err := GetRunningEventFilter(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			return NewRunningEventFilterHot(
+			// for case where node crashed and didnt gracefuly persist the filter for block range  (genesis, aggregated filter range)
+			filter = NewRunningEventFilterHot(
+				txn,
 				NewAggregatedFilter(0),
 				0,
-			), nil
+			)
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
+	filter.txn = txn
 
 	if filter.next == latest+1 {
 		return filter, nil
@@ -249,7 +253,7 @@ func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEve
 
 	continueFrom := lastStoredFilterRangeEnd + 1
 
-	runningFilter := NewRunningEventFilterHot(NewAggregatedFilter(continueFrom), continueFrom)
+	runningFilter := NewRunningEventFilterHot(txn, NewAggregatedFilter(continueFrom), continueFrom)
 	if lastStoredFilterRangeEnd == latest {
 		return runningFilter, nil
 	}
@@ -261,11 +265,63 @@ func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEve
 			return nil, err
 		}
 
-		err = runningFilter.Insert(txn, header.EventsBloom, continueFrom)
+		err = runningFilter.Insert(header.EventsBloom, continueFrom)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return runningFilter, nil
+}
+
+func (f *RunningEventFilter) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+
+	// Marshal the AggregatedBloomFilter (inner)
+	innerBytes, err := f.inner.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("marshal AggregatedBloomFilter: %w", err)
+	}
+
+	if err := binary.Write(&buf, binary.BigEndian, uint32(len(innerBytes))); err != nil {
+		return nil, fmt.Errorf("write inner filter length: %w", err)
+	}
+	if _, err := buf.Write(innerBytes); err != nil {
+		return nil, fmt.Errorf("write inner filter bytes: %w", err)
+	}
+
+	if err := binary.Write(&buf, binary.BigEndian, f.next); err != nil {
+		return nil, fmt.Errorf("write next block: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (f *RunningEventFilter) UnmarshalBinary(data []byte) error {
+	r := bytes.NewReader(data)
+
+	var innerLen uint32
+	if err := binary.Read(r, binary.BigEndian, &innerLen); err != nil {
+		return fmt.Errorf("read inner filter length: %w", err)
+	}
+	innerBytes := make([]byte, innerLen)
+	if _, err := io.ReadFull(r, innerBytes); err != nil {
+		return fmt.Errorf("read inner filter bytes: %w", err)
+	}
+
+	f.inner = &AggregatedBloomFilter{}
+	if err := f.inner.UnmarshalBinary(innerBytes); err != nil {
+		return fmt.Errorf("unmarshal AggregatedBloomFilter: %w", err)
+	}
+
+	if err := binary.Read(r, binary.BigEndian, &f.next); err != nil {
+		return fmt.Errorf("read next block: %w", err)
+	}
+
+	f.initErr = nil
+	f.mu = sync.RWMutex{}
+	f.lazyOnce = sync.Once{}
+	f.lazyInit = false // or true if you want to reconstruct as lazy
+
+	return nil
 }

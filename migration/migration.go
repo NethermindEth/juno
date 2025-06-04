@@ -801,7 +801,8 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 		header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
-				return core.NewRunningEventFilterHot(filter, blockNumber).Persist(txn)
+				rf := core.NewRunningEventFilterHot(nil, filter, blockNumber)
+				return core.WriteRunningEventFilter(txn, rf)
 			}
 			return err
 		}
