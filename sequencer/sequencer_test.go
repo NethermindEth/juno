@@ -153,7 +153,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	_, rpcErr = rpcHandler.AddTransaction(t.Context(), txnsToExecute[1])
 	require.Nil(t, rpcErr)
 
-	ctx, cancel := context.WithTimeout(t.Context(), 10*blockTime)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*blockTime)
 	defer cancel()
 	require.NoError(t, seq.Run(ctx))
 

@@ -3,6 +3,7 @@ package sequencer
 import (
 	"context"
 	"errors"
+	syncLock "sync"
 	"time"
 
 	"github.com/NethermindEth/juno/builder"
@@ -36,6 +37,8 @@ type Sequencer struct {
 	subPendingBlock *feed.Feed[*core.Block]
 	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
 	plugin          plugin.JunoPlugin
+
+	mu syncLock.RWMutex
 }
 
 func New(
@@ -94,6 +97,8 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			<-doneListen
 			return nil
 		case <-time.After(s.blockTime):
+			s.mu.Lock()
+
 			pending, err := s.Pending()
 			if err != nil {
 				s.log.Infof("Failed to get pending block")
@@ -117,6 +122,7 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
 				return err
 			}
+			s.mu.Unlock()
 		}
 	}
 }
@@ -191,6 +197,9 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 // and executes them in sequence, applying the state changes
 // to the pending state
 func (s *Sequencer) depletePool(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	blockHashToBeRevealed, err := s.builder.GetRevealedBlockHash()
 	if err != nil {
 		return err
