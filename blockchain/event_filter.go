@@ -190,7 +190,6 @@ func (e *EventFilter) canonicalEvents(
 		&e.matcher,
 		e.runningFilter,
 	)
-
 	if err != nil {
 		return nil, nil, err
 	}

@@ -137,8 +137,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	var windowStart uint64
 	if it.currentBits == nil {
 		windowStart = it.currentWindowStart
+		it.nextIndex = it.rangeStart % core.AggregateBloomBlockRangeLen // offset for first window
 	} else {
 		windowStart = it.currentWindowStart + core.AggregateBloomBlockRangeLen
+		it.nextIndex = 0 // offset 0 for subsequent windows
 	}
 
 	if windowStart > it.rangeEnd {
@@ -151,35 +153,34 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	key := EventFiltersCacheKey{fromBlock: fromAligned, toBlock: toAligned}
 	filter, ok := it.cache.cache.Get(key)
 
+	if ok {
+		it.currentBits = it.matcher.getCandidateBlocksForFilter(filter)
+		it.currentWindowStart = fromAligned // set current window start absolute index
+		return nil
+	}
+
+	// Not found in cache and fall into range of running filter
+	if fromAligned == it.runningFilter.FromBlock() {
+		it.currentBits = it.matcher.getCandidateBlocksForFilter(it.runningFilter.InnerFilter())
+		it.currentWindowStart = fromAligned // set current window start absolute index
+		return nil
+	}
+
 	// Not found in cache and not fall into range of running filter
-	if !ok {
-		if fromAligned != it.runningFilter.FromBlock() {
-			if it.cache.fallbackFunc == nil {
-				return ErrAggregatedBloomFilterFallbackNil
-			}
-
-			filter, err := it.cache.fallbackFunc(key)
-			if err != nil {
-				return err
-			}
-
-			if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
-				return ErrFetchedFilterBoundsMismatch
-			}
-
-			it.cache.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
-		} else {
-			// Falls into running filter
-			filter = it.runningFilter.CloneInnerFilter()
-		}
+	if it.cache.fallbackFunc == nil {
+		return ErrAggregatedBloomFilterFallbackNil
 	}
 
-	// If this window contains the very first range start
-	if it.currentBits == nil {
-		it.nextIndex = it.rangeStart % core.AggregateBloomBlockRangeLen // offset for first window
-	} else {
-		it.nextIndex = 0 // offset 0 for subsequent windows
+	filter, err := it.cache.fallbackFunc(key)
+	if err != nil {
+		return err
 	}
+
+	if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
+		return ErrFetchedFilterBoundsMismatch
+	}
+
+	it.cache.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
 
 	it.currentBits = it.matcher.getCandidateBlocksForFilter(filter)
 	it.currentWindowStart = fromAligned // set current window start absolute index
