@@ -147,21 +147,22 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		it.done = true
 		return nil
 	}
+
 	fromAligned := windowStart - (windowStart % core.AggregateBloomBlockRangeLen)
 	toAligned := fromAligned + core.AggregateBloomBlockRangeLen - 1
+
+	// Falls into range of running filter
+	if fromAligned == it.runningFilter.FromBlock() {
+		it.currentBits = it.matcher.getCandidateBlocksForFilter(it.runningFilter.InnerFilter())
+		it.currentWindowStart = fromAligned // set current window start absolute index
+		return nil
+	}
 
 	key := EventFiltersCacheKey{fromBlock: fromAligned, toBlock: toAligned}
 	filter, ok := it.cache.cache.Get(key)
 
 	if ok {
 		it.currentBits = it.matcher.getCandidateBlocksForFilter(filter)
-		it.currentWindowStart = fromAligned // set current window start absolute index
-		return nil
-	}
-
-	// Not found in cache and fall into range of running filter
-	if fromAligned == it.runningFilter.FromBlock() {
-		it.currentBits = it.matcher.getCandidateBlocksForFilter(it.runningFilter.InnerFilter())
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
 	}
