@@ -505,7 +505,7 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	}
 
 	// Remove the block events bloom from the cache
-	return b.runningFilter.Clear(blockNumber)
+	return b.runningFilter.OnReorg(blockNumber)
 }
 
 // Finalise will calculate the state commitment and block hash for the given pending block and append it to the

@@ -164,8 +164,8 @@ func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	return f.inner
 }
 
-// Clear erases the bloom filter data for the specified block in the current filter window
-func (f *RunningEventFilter) Clear(blockNumber uint64) error {
+// Clear erases the bloom filter data for the specified block
+func (f *RunningEventFilter) OnReorg(blockNumber uint64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -173,6 +173,20 @@ func (f *RunningEventFilter) Clear(blockNumber uint64) error {
 		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
+	currRangeStart := f.inner.FromBlock()
+	// Falls into previous filters range
+	if blockNumber == currRangeStart-1 {
+		rangeStartAlligned := blockNumber - (blockNumber % AggregateBloomBlockRangeLen)
+		rangeEndAlligned := rangeStartAlligned + AggregateBloomBlockRangeLen - 1
+
+		lastStoredFilter, err := GetAggregatedBloomFilter(f.txn, rangeStartAlligned, rangeEndAlligned)
+		if err != nil {
+			return err
+		}
+		f.inner = lastStoredFilter
+	}
+
+	f.next = blockNumber
 	return f.inner.clear(blockNumber)
 }
 
@@ -209,7 +223,7 @@ func loadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 	filter, err := GetRunningEventFilter(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
-			// for case where node crashed and didnt gracefuly persist the filter for block range  (genesis, aggregated filter range)
+			// for case where node crashed and didnt gracefully persist the filter for block range  (genesis, aggregated filter range)
 			filter = NewRunningEventFilterHot(
 				txn,
 				NewAggregatedFilter(0),
