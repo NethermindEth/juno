@@ -98,7 +98,7 @@ func (b *Builder) ClearPending() error {
 	return nil
 }
 
-func (b *Builder) InitPendingBlock(ownAddress felt.Felt) error {
+func (b *Builder) InitPendingBlock(ownAddress *felt.Felt) error {
 	header, err := b.blockchain.HeadsHeader()
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (b *Builder) InitPendingBlock(ownAddress felt.Felt) error {
 		Header: &core.Header{
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
-			SequencerAddress: &ownAddress,
+			SequencerAddress: ownAddress,
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,

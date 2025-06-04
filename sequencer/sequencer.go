@@ -3,7 +3,6 @@ package sequencer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/builder"
@@ -27,7 +26,7 @@ var (
 
 type Sequencer struct {
 	builder          *builder.Builder
-	sequencerAddress felt.Felt
+	sequencerAddress *felt.Felt
 	privKey          *ecdsa.PrivateKey
 	log              utils.Logger
 	blockTime        time.Duration
@@ -42,7 +41,7 @@ type Sequencer struct {
 func New(
 	builder *builder.Builder,
 	mempool *mempool.Pool,
-	sequencerAddress felt.Felt,
+	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
 	log utils.Logger,
@@ -201,10 +200,8 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("  userTxns", userTxns)
 		s.log.Debugw("running txns", userTxns)
 		if err = s.builder.RunTxns(userTxns, blockHashToBeRevealed); err != nil {
-			fmt.Println("  userTxns err", err)
 			s.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {

@@ -37,7 +37,7 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	p := mempool.New(memory.New(), bc, 1000, log)
 
 	testBuilder := builder.New(bc, mockVM, log, false)
-	return sequencer.New(&testBuilder, p, *seqAddr, privKey, blockTime, log), bc
+	return sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log), bc
 }
 
 // Sequencer contains prefunded accounts.
@@ -118,7 +118,7 @@ func getGenesisSequencer(
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	testBuilder := builder.New(bc, vm.New(false, log), log, false)
 	rpcHandler := rpc.New(bc, nil, nil, "", utils.NewNopZapLogger()).WithMempool(txnPool)
-	return sequencer.New(&testBuilder, txnPool, *seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {
