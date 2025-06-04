@@ -98,7 +98,7 @@ func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return f.inner.BlocksForKeys(keys)
@@ -110,7 +110,7 @@ func (f *RunningEventFilter) FromBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return f.inner.fromBlock
@@ -122,7 +122,7 @@ func (f *RunningEventFilter) ToBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return f.inner.toBlock
@@ -134,7 +134,7 @@ func (f *RunningEventFilter) NextBlock() uint64 {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return f.next
@@ -147,22 +147,22 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return NewRunningEventFilterHot(f.inner.Copy(), f.next)
 }
 
-// CloneInnerFilter returns a deep copy of the current AggregatedBloomFilter window.
-func (f *RunningEventFilter) CloneInnerFilter() *AggregatedBloomFilter {
+// InnerFilter returns a deep copy of the current AggregatedBloomFilter window.
+func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
-	return f.inner.Copy()
+	return f.inner
 }
 
 // Clear erases the bloom filter data for the specified block in the current filter window
@@ -171,7 +171,7 @@ func (f *RunningEventFilter) Clear(blockNumber uint64) error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return f.inner.clear(blockNumber)
@@ -183,7 +183,7 @@ func (f *RunningEventFilter) Persist(w db.KeyValueWriter) error {
 	defer f.mu.Unlock()
 
 	if err := f.ensureInit(); err != nil {
-		panic(fmt.Sprintf("Couldn't initialized the running event filter. Error: %v", err))
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
 	return WriteRunningEventFilter(w, f)
