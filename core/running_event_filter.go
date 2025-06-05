@@ -165,7 +165,7 @@ func (f *RunningEventFilter) InnerFilter() *AggregatedBloomFilter {
 }
 
 // Clear erases the bloom filter data for the specified block
-func (f *RunningEventFilter) OnReorg(blockNumber uint64) error {
+func (f *RunningEventFilter) OnReorg() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -174,9 +174,10 @@ func (f *RunningEventFilter) OnReorg(blockNumber uint64) error {
 	}
 
 	currRangeStart := f.inner.FromBlock()
+	curBlock := f.next - 1
 	// Falls into previous filters range
-	if blockNumber == currRangeStart-1 {
-		rangeStartAlligned := blockNumber - (blockNumber % AggregateBloomBlockRangeLen)
+	if curBlock == currRangeStart-1 {
+		rangeStartAlligned := curBlock - (curBlock % AggregateBloomBlockRangeLen)
 		rangeEndAlligned := rangeStartAlligned + AggregateBloomBlockRangeLen - 1
 
 		lastStoredFilter, err := GetAggregatedBloomFilter(f.txn, rangeStartAlligned, rangeEndAlligned)
@@ -186,8 +187,8 @@ func (f *RunningEventFilter) OnReorg(blockNumber uint64) error {
 		f.inner = lastStoredFilter
 	}
 
-	f.next = blockNumber
-	return f.inner.clear(blockNumber)
+	f.next = curBlock
+	return f.inner.clear(curBlock)
 }
 
 // Persist writes the current state of the RunningEventFilter to persistent storage.
