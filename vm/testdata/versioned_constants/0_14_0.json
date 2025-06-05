@@ -8,7 +8,7 @@
         "max_calldata_length": 5000,
         "max_contract_bytecode_size": 81920
     },
-    "invoke_tx_max_n_steps": 10000000,
+    "invoke_tx_max_n_steps": 6000000,
     "deprecated_l2_resource_gas_costs": {
         "gas_per_data_felt": [
             128,
@@ -40,6 +40,7 @@
     "disable_cairo0_redeclaration": true,
     "enable_stateful_compression": true,
     "comprehensive_state_diff": true,
+    "block_direct_execute_call": true,
     "allocation_cost": {
         "blob_cost": {
             "l1_gas": 0,
@@ -73,7 +74,7 @@
         "error_entry_point_failed": "ENTRYPOINT_FAILED",
         "error_entry_point_not_found": "ENTRYPOINT_NOT_FOUND",
         "execute_entry_point_selector": "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
-        "execute_max_sierra_gas": 1000000000,
+        "execute_max_sierra_gas": 600000000,
         "default_initial_gas_cost": {
             "step_gas_cost": 100000000
         },
