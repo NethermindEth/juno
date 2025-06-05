@@ -9,6 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/lru"
 )
 
+// NOTE(Ege): consider making it configurable
+const AggregatedBloomFilterCacheSize = 16
+
 // Provides cache-accelerated lookup of blockchain events
 // across block ranges by aggregating bloom filters. It includes LRU-cached filters
 // and efficient block iterators for event queries.
