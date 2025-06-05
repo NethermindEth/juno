@@ -103,6 +103,18 @@ func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	return f.inner.BlocksForKeys(keys)
 }
 
+// BlocksForKeysInto reuses a preallocated bitset (should be AggregateBloomBlockRangeLen bits).
+func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	if err := f.ensureInit(); err != nil {
+		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
+	}
+
+	return f.inner.BlocksForKeysInto(keys, out)
+}
+
 // FromBlock returns the starting block number of the current filter window.
 func (f *RunningEventFilter) FromBlock() uint64 {
 	f.mu.RLock()

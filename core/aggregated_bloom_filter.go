@@ -79,6 +79,8 @@ const (
 var (
 	ErrAggregatedBloomFilterBlockOutOfRange error = errors.New("block number is not within range")
 	ErrBloomFilterSizeMismatch              error = errors.New("bloom filter len mismatch")
+	ErrMatchesBufferNil                     error = errors.New("matches buffer must not be nil")
+	ErrMatchesBufferSizeMismatch            error = errors.New("matches buffer size mismatch")
 )
 
 // NewAggregatedFilter creates a new AggregatedBloomFilter starting from the specified block number.
@@ -158,18 +160,49 @@ func (f *AggregatedBloomFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 		return blockMatches.SetAll()
 	}
 
+	innerMatches := bitset.New(uint(AggregateBloomBlockRangeLen))
 	for _, key := range keys {
-		matches := bitset.New(uint(AggregateBloomBlockRangeLen)).SetAll()
+		innerMatches.SetAll()
 		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
 
 		for _, index := range rawIndices {
 			row := f.bitmap[index%EventsBloomLength]
-			matches.InPlaceIntersection(&row)
+			innerMatches.InPlaceIntersection(&row)
 		}
 
-		blockMatches.InPlaceUnion(matches)
+		blockMatches.InPlaceUnion(innerMatches)
 	}
 	return blockMatches
+}
+
+// BlocksForKeysInto reuses a preallocated bitset (should be AggregateBloomBlockRangeLen bits).
+func (f *AggregatedBloomFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error {
+	if out == nil {
+		return ErrMatchesBufferNil
+	}
+
+	if out.Len() != uint(AggregateBloomBlockRangeLen) {
+		return ErrMatchesBufferSizeMismatch
+	}
+
+	if len(keys) == 0 {
+		out.SetAll()
+		return nil
+	}
+
+	out.ClearAll()
+	innerMatches := bitset.New(uint(AggregateBloomBlockRangeLen))
+	for _, key := range keys {
+		innerMatches.SetAll()
+		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
+		for _, index := range rawIndices {
+			row := f.bitmap[index%EventsBloomLength]
+			innerMatches.InPlaceIntersection(&row)
+		}
+		out.InPlaceUnion(innerMatches)
+	}
+
+	return nil
 }
 
 // Copy creates a deep copy of the AggregatedBloomFilter.

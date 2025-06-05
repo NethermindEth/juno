@@ -94,17 +94,28 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 }
 
 // Returns candidate possibly matching block in the given filter.
-func (e *EventMatcher) getCandidateBlocksForFilter(filter *core.AggregatedBloomFilter) *bitset.BitSet {
-	possibleMatches := bitset.New(uint(core.AggregateBloomBlockRangeLen)).SetAll()
+func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBloomFilter, out *bitset.BitSet) error {
+	if out == nil {
+		return core.ErrMatchesBufferNil
+	}
 
+	if out.Len() != uint(core.AggregateBloomBlockRangeLen) {
+		return core.ErrMatchesBufferSizeMismatch
+	}
+
+	out.SetAll()
+
+	innerMatch := bitset.New(uint(core.AggregateBloomBlockRangeLen))
 	if e.contractAddress != nil {
 		addrBytes := e.contractAddress.Bytes()
-		contractBlocks := filter.BlocksForKeys([][]byte{addrBytes[:]})
+		if err := filter.BlocksForKeysInto([][]byte{addrBytes[:]}, innerMatch); err != nil {
+			return err
+		}
 
-		possibleMatches.InPlaceIntersection(contractBlocks)
+		out.InPlaceIntersection(innerMatch)
 
-		if possibleMatches.None() {
-			return bitset.New(0)
+		if out.None() {
+			return nil
 		}
 	}
 
@@ -115,14 +126,18 @@ func (e *EventMatcher) getCandidateBlocksForFilter(filter *core.AggregatedBloomF
 			keyAndIndex := binary.AppendVarint(keyBytes[:], int64(index))
 			keys = append(keys, keyAndIndex)
 		}
-		keyBlocks := filter.BlocksForKeys(keys)
-		possibleMatches.InPlaceIntersection(keyBlocks)
-		if possibleMatches.None() {
-			return bitset.New(0)
+
+		if err := filter.BlocksForKeysInto(keys, innerMatch); err != nil {
+			return err
+		}
+
+		out.InPlaceIntersection(innerMatch)
+		if out.None() {
+			return nil
 		}
 	}
 
-	return possibleMatches
+	return nil
 }
 
 func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
