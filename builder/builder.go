@@ -575,8 +575,6 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 		return nil, nil, err
 	}
 	simulateResult, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
-	pending.Block = simulateResult.Block
-	pending.StateUpdate = simulateResult.StateUpdate
 	b.pendingBlock.Store(pending)
 	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
 }
