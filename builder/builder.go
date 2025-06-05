@@ -50,6 +50,8 @@ type Builder struct {
 	mempool         *mempool.Pool
 	plugin          plugin.JunoPlugin
 
+	// Todo: validator may need to update the builders pending block for different proposals.
+	// We should make sure we don't incorrectly overwrite, or get race conditions etc
 	pendingBlock atomic.Pointer[sync.Pending]
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser

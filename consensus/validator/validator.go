@@ -140,6 +140,7 @@ func compareProposalCommitment(
 		return err
 	}
 
+	// Todo: ask the SN guys about the precise checks we should perform with the timestamps
 	if p.Timestamp > h.Timestamp {
 		return fmt.Errorf("invalid timestamp: proposal timestamp (%d) is later than header timestamp (%d)", p.Timestamp, h.Timestamp)
 	}
