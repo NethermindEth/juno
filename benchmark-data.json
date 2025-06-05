@@ -20,7 +20,7 @@
   {
     "version": "v0.14.4-10-ga855f36d",
     "block_target": 800000,
-    "duration_seconds": 83403.380840,
+    "duration_seconds": 83403.38084,
     "timestamp": "2025-05-31T09:31:10.798197+00:00"
   },
   {
@@ -44,7 +44,13 @@
   {
     "version": "v0.14.4-12-gff48c061",
     "block_target": 800000,
-    "duration_seconds": 88203.293970,
+    "duration_seconds": 88203.29397,
     "timestamp": "2025-06-04T11:01:43.549703+00:00"
+  },
+  {
+    "version": "v0.14.4-12-gff48c061",
+    "block_target": 800000,
+    "duration": "23:42:03.573689",
+    "timestamp": "2025-06-05T10:45:13.958788+00:00"
   }
 ]
