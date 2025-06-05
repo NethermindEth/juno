@@ -86,8 +86,6 @@ func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment
 			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 		}
 	}
-	fmt.Println("concatCount.IsZero()", concatCount.IsZero())
-	fmt.Println("commitments", commitments)
 	pendingBlock := a.builder.PendingBlock()
 
 	if err := compareProposalCommitment(proCom, pendingBlock.Header, commitments, concatCount); err != nil {

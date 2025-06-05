@@ -489,8 +489,6 @@ func (b *Blockchain) Simulate(
 	newClasses map[felt.Felt]core.Class,
 	sign BlockSignFunc,
 ) (SimulateResult, error) {
-	var newBlock *core.Block
-	var newSU *core.StateUpdate
 	var newCommitments *core.BlockCommitments
 	var concatCount *felt.Felt
 
@@ -523,21 +521,9 @@ func (b *Blockchain) Simulate(
 		return SimulateResult{}, err
 	}
 
-	if err := b.storeBlockData(txn, block, stateUpdate, newCommitments); err != nil {
-		return SimulateResult{}, err
-	}
-
-	if newBlock, err = core.GetBlockByNumber(txn, block.Number); err != nil {
-		return SimulateResult{}, err
-	}
-
-	if newSU, err = core.GetStateUpdateByBlockNum(txn, block.Number); err != nil {
-		return SimulateResult{}, err
-	}
-
 	return SimulateResult{
-		Block:            newBlock,
-		StateUpdate:      newSU,
+		Block:            block,
+		StateUpdate:      stateUpdate,
 		BlockCommitments: newCommitments,
 		ConcatCount:      concatCount,
 	}, nil
