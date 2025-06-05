@@ -529,6 +529,27 @@ func (b *Blockchain) Simulate(
 	}, nil
 }
 
+// StoreSimulated stores the simulated block. There is no need to recomute the state roots etc
+func (b *Blockchain) StoreSimulated(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	commitments *core.BlockCommitments,
+	sign BlockSignFunc,
+) error {
+	finaliseFn := func(txn db.IndexedBatch) error {
+		if err := b.signBlock(block, stateUpdate, sign); err != nil {
+			return err
+		}
+		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
+			return err
+		}
+		return core.WriteChainHeight(txn, block.Number)
+	}
+
+	return b.database.Update(finaliseFn)
+}
+
 type SimulateResult struct {
 	Block            *core.Block
 	StateUpdate      *core.StateUpdate

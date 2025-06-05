@@ -34,7 +34,8 @@ type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type validator[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	builder *builder.Builder // Builder manages the pending block and state
+	builder     *builder.Builder // Builder manages the pending block and state
+	commitments *core.BlockCommitments
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) Validator[V, H, A] {
@@ -44,17 +45,17 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Build
 }
 
 // ProposalInit initialises the pending header according to ProposalInit
-func (a *validator[V, H, A]) ProposalInit(pInit *types.ProposalInit) error {
-	return a.builder.ProposalInit(pInit)
+func (v *validator[V, H, A]) ProposalInit(pInit *types.ProposalInit) error {
+	return v.builder.ProposalInit(pInit)
 }
 
 // BlockInfo sets the pending header according to BlockInfo
-func (a *validator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) {
-	a.builder.SetBlockInfo(blockInfo)
+func (v *validator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) {
+	v.builder.SetBlockInfo(blockInfo)
 }
 
 // TransactionBatch executes the provided transactions, and stores the result in the pending state
-func (a *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
+func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 	txnsToExecute := make([]mempool.BroadcastedTransaction, len(txns))
 	for i := range txnsToExecute {
 		txnsToExecute[i] = mempool.BroadcastedTransaction{
@@ -64,7 +65,7 @@ func (a *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 		}
 	}
 
-	if err := a.builder.ExecuteTxns(txnsToExecute); err != nil {
+	if err := v.builder.ExecuteTxns(txnsToExecute); err != nil {
 		return err
 	}
 
@@ -72,8 +73,8 @@ func (a *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 }
 
 // ProposalCommitment checks the set of proposed commitments against those generated locally.
-func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment) error {
-	commitments, concatCount, err := a.builder.ExecutePending()
+func (v *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment) error {
+	commitments, concatCount, err := v.builder.ExecutePending()
 	if err != nil {
 		return err
 	}
@@ -86,8 +87,8 @@ func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment
 			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 		}
 	}
-	pendingBlock := a.builder.PendingBlock()
-
+	pendingBlock := v.builder.PendingBlock()
+	v.commitments = commitments
 	if err := compareProposalCommitment(proCom, pendingBlock.Header, commitments, concatCount); err != nil {
 		return err
 	}
@@ -95,15 +96,15 @@ func (a *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment
 }
 
 // ProposalFin executes the provided transactions, and stores the result in the pending state
-func (a *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
-	pendingBlock := a.builder.PendingBlock()
+func (v *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
+	pendingBlock := v.builder.PendingBlock()
 
 	proposerCommitmentFelt := felt.Felt(proposalFin)
 	if !proposerCommitmentFelt.Equal(pendingBlock.Hash) {
 		return fmt.Errorf("proposal fin: commitments do not match: expected=%s actual=%s",
 			proposerCommitmentFelt.String(), pendingBlock.Hash.String())
 	}
-	return a.builder.Finalise(nil)
+	return v.builder.StoredExecutedPending(v.commitments)
 }
 
 // Todo: the validator interface assumes that the msgs are prevalidated before it is called.
