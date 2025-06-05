@@ -2,49 +2,49 @@
   {
     "version": "v0.14.4-7-g65fe7e90",
     "block_target": 800000,
-    "duration": "1 day, 0:20:03.388128",
+    "duration_seconds": 87603.388128,
     "timestamp": "2025-05-28T10:06:59.435700+00:00"
   },
   {
     "version": "v0.14.4-7-g65fe7e90",
     "block_target": 800000,
-    "duration": "23:29:03.416157",
+    "duration_seconds": 84543.416157,
     "timestamp": "2025-05-29T09:37:29.940523+00:00"
   },
   {
     "version": "v0.14.4-10-ga855f36d",
     "block_target": 800000,
-    "duration": "1 day, 0:40:03.270662",
+    "duration_seconds": 88803.270662,
     "timestamp": "2025-05-30T10:19:38.856370+00:00"
   },
   {
     "version": "v0.14.4-10-ga855f36d",
     "block_target": 800000,
-    "duration": "23:10:03.380840",
+    "duration_seconds": 83403.380840,
     "timestamp": "2025-05-31T09:31:10.798197+00:00"
   },
   {
     "version": "v0.14.4-11-g5d88fe02",
     "block_target": 800000,
-    "duration": "22:58:03.450194",
+    "duration_seconds": 82683.450194,
     "timestamp": "2025-06-01T08:30:54.453835+00:00"
   },
   {
     "version": "v0.14.4-12-gff48c061",
     "block_target": 800000,
-    "duration": "1 day, 0:25:03.339732",
+    "duration_seconds": 87903.339732,
     "timestamp": "2025-06-02T09:33:43.453118+00:00"
   },
   {
     "version": "v0.14.4-12-gff48c061",
     "block_target": 800000,
-    "duration": "1 day, 0:55:03.439264",
+    "duration_seconds": 89703.439264,
     "timestamp": "2025-06-03T10:30:13.324415+00:00"
   },
   {
     "version": "v0.14.4-12-gff48c061",
     "block_target": 800000,
-    "duration": "1 day, 0:30:03.293970",
+    "duration_seconds": 88203.293970,
     "timestamp": "2025-06-04T11:01:43.549703+00:00"
   }
 ]
