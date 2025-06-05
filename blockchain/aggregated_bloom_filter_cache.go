@@ -90,6 +90,7 @@ var (
 	ErrMaxScannedBlockLimitExceed       = errors.New("max scanned blocks exceeded")
 	ErrAggregatedBloomFilterFallbackNil = errors.New("aggregated bloom filter does not have fallback")
 	ErrFetchedFilterBoundsMismatch      = errors.New("fetched filter bounds mismatch")
+	ErrNilRunningFilter                 = errors.New("running filter is nil")
 )
 
 // NewMatchedBlockIterator constructs an iterator for block numbers within [fromBlock, toBlock]
@@ -105,6 +106,10 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 ) (*MatchedBlockIterator, error) {
 	if fromBlock > toBlock {
 		return nil, ErrInvalidBlockRange
+	}
+
+	if runningFilter == nil {
+		return nil, ErrNilRunningFilter
 	}
 
 	windowStart := fromBlock - (fromBlock % core.AggregateBloomBlockRangeLen)
