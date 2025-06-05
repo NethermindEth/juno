@@ -494,52 +494,47 @@ func (b *Blockchain) Simulate(
 	var newCommitments *core.BlockCommitments
 	var concatCount *felt.Felt
 
-	simulate := func(txn db.IndexedBatch) error {
-		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
-			return err
-		}
-		blockHash, commitments, err := core.BlockHash(
-			block,
-			stateUpdate.StateDiff,
-			b.network,
-			block.SequencerAddress)
-		if err != nil {
-			return err
-		}
-		block.Hash = blockHash
-		stateUpdate.BlockHash = blockHash
-		newCommitments = commitments
-
-		concatCount = core.ConcatCounts(
-			block.TransactionCount,
-			block.EventCount,
-			stateUpdate.StateDiff.Length(),
-			block.L1DAMode)
-
-		if err := b.signBlock(block, stateUpdate, sign); err != nil {
-			return err
-		}
-
-		if err := b.storeBlockData(txn, block, stateUpdate, newCommitments); err != nil {
-			return err
-		}
-
-		if newBlock, err = core.GetBlockByNumber(txn, block.Number); err != nil {
-			return err
-		}
-
-		if newSU, err = core.GetStateUpdateByBlockNum(txn, block.Number); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
-	if err := simulate(txn); err != nil {
+	defer txn.Reset()
+
+	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
 	}
-	txn.Reset()
+	blockHash, commitments, err := core.BlockHash(
+		block,
+		stateUpdate.StateDiff,
+		b.network,
+		block.SequencerAddress)
+	if err != nil {
+		return SimulateResult{}, err
+	}
+	block.Hash = blockHash
+	stateUpdate.BlockHash = blockHash
+	newCommitments = commitments
+
+	concatCount = core.ConcatCounts(
+		block.TransactionCount,
+		block.EventCount,
+		stateUpdate.StateDiff.Length(),
+		block.L1DAMode)
+
+	if err := b.signBlock(block, stateUpdate, sign); err != nil {
+		return SimulateResult{}, err
+	}
+
+	if err := b.storeBlockData(txn, block, stateUpdate, newCommitments); err != nil {
+		return SimulateResult{}, err
+	}
+
+	if newBlock, err = core.GetBlockByNumber(txn, block.Number); err != nil {
+		return SimulateResult{}, err
+	}
+
+	if newSU, err = core.GetStateUpdateByBlockNum(txn, block.Number); err != nil {
+		return SimulateResult{}, err
+	}
+
 	return SimulateResult{
 		Block:            newBlock,
 		StateUpdate:      newSU,
