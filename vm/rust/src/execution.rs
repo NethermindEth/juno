@@ -407,7 +407,11 @@ where
             // DEPLOY_ACCOUNT: Normal logic calculates max gas based on account balance, but account doesn't exist yet (balance = 0).
             // This would set gas limit to zero, causing immediate "out of gas". Use max gas limit from versioned constants instead.
             if is_deploy_account_transaction(tx) {
-                let max_sierra_gas_limit = block_context.versioned_constants().os_constants.validate_max_sierra_gas.0;
+                let max_sierra_gas_limit = block_context
+                    .versioned_constants()
+                    .os_constants
+                    .validate_max_sierra_gas
+                    .0;
                 return Ok(GasAmount::from(max_sierra_gas_limit));
             }
 
