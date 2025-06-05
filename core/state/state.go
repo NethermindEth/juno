@@ -447,16 +447,14 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 
 	newComm := stateCommitment(&contractRoot, &classRoot)
 
-	_, contractStorageNodes := mergedContractNodes.Flatten()
-
 	su := stateUpdate{
 		prevComm:      s.initRoot,
 		curComm:       newComm,
-		contractNodes: contractStorageNodes,
+		contractNodes: mergedContractNodes,
 	}
 
 	if classNodes != nil {
-		su.classNodes = classNodes.Nodes
+		su.classNodes = trienode.NewMergeNodeSet(classNodes)
 	}
 
 	return newComm, su, nil

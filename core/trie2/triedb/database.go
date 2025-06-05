@@ -28,7 +28,7 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 			PathConfig: &pathdb.Config{},
 		}
 	}
-  
+
 	pathdb, err := pathdb.New(disk, config.PathConfig)
 	if err != nil {
 		return nil, err

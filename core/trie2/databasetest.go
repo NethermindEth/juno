@@ -52,7 +52,7 @@ func readNode(
 	hash *felt.Felt,
 	isLeaf bool,
 ) ([]byte, error) {
-  owner := id.Owner()
+	owner := id.Owner()
 	switch scheme {
 	case PathScheme:
 		return trieutils.GetNodeByPath(r, id.Bucket(), &owner, path, isLeaf)
