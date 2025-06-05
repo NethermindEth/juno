@@ -104,7 +104,7 @@ func (v *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 		return fmt.Errorf("proposal fin: commitments do not match: expected=%s actual=%s",
 			proposerCommitmentFelt.String(), pendingBlock.Hash.String())
 	}
-	return v.builder.StoredExecutedPending(v.commitments)
+	return nil
 }
 
 // Todo: the validator interface assumes that the msgs are prevalidated before it is called.
