@@ -102,8 +102,9 @@ checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
 name = "apollo_compile_to_native"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0991c3c7d8f17263c29b7125f2b63d7edc57624f9a3189041ff1650a81ca31ba"
 dependencies = [
  "apollo_config",
  "serde",
@@ -112,11 +113,13 @@ dependencies = [
 
 [[package]]
 name = "apollo_config"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c39449bebca20ed3afc6dad368d2fbb530133befaeb5830c932eae7d3bd462e"
 dependencies = [
  "apollo_infra_utils",
  "clap",
+ "const_format",
  "itertools 0.12.1",
  "serde",
  "serde_json",
@@ -128,20 +131,23 @@ dependencies = [
 
 [[package]]
 name = "apollo_infra_utils"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac9378ed6b1957b7327c407dd81a0c768e0f04184784f4702c0aae42cefcfdbd"
 dependencies = [
  "num_enum",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "apollo_metrics"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09bb2ff0d8a95283888804decabd00a269f0c42af0411cfa722211a376db829c"
 dependencies = [
  "indexmap 2.9.0",
  "metrics",
@@ -535,8 +541,9 @@ dependencies = [
 
 [[package]]
 name = "blockifier"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cff1846a7ae3878bebad894513928c04c28293baa75c7ea98d3aece3c6d4ba2d"
 dependencies = [
  "anyhow",
  "apollo_compile_to_native",
@@ -552,6 +559,7 @@ dependencies = [
  "cairo-lang-runner",
  "cairo-lang-starknet-classes",
  "cairo-vm",
+ "dashmap",
  "derive_more",
  "indexmap 2.9.0",
  "itertools 0.12.1",
@@ -1208,9 +1216,9 @@ dependencies = [
 
 [[package]]
 name = "cairo-vm"
-version = "2.0.1"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a01805fcadbebfbfd1e176bc58e6b1be26362792bb008efe59aae9df0bba60a1"
+checksum = "1d2a2f6d93aa279509d396d6f5c1992fa63d7d32c2b8d61ffa3398617c2cd0cd"
 dependencies = [
  "anyhow",
  "bincode 2.0.1",
@@ -1234,7 +1242,7 @@ dependencies = [
  "sha3",
  "starknet-crypto",
  "starknet-types-core",
- "thiserror-no-std",
+ "thiserror 2.0.12",
  "zip",
 ]
 
@@ -1471,6 +1479,20 @@ dependencies = [
  "darling_core 0.20.11",
  "quote",
  "syn 2.0.100",
+]
+
+[[package]]
+name = "dashmap"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -3331,8 +3353,9 @@ dependencies = [
 
 [[package]]
 name = "starknet_api"
-version = "0.0.0"
-source = "git+https://github.com/starkware-libs/sequencer?rev=a8af63d#a8af63d747bbb7645f910cd1524d66b42b12fb8d"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e148691693b2882d9a25bd1af3eaa001120317c78cd2251399ca71f3c3f23fe"
 dependencies = [
  "apollo_infra_utils",
  "base64",
@@ -3514,26 +3537,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
-]
-
-[[package]]
-name = "thiserror-impl-no-std"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58e6318948b519ba6dc2b442a6d0b904ebfb8d411a3ad3e07843615a72249758"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "thiserror-no-std"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3ad459d94dd517257cc96add8a43190ee620011bb6e6cdc82dafd97dfafafea"
-dependencies = [
- "thiserror-impl-no-std",
 ]
 
 [[package]]
