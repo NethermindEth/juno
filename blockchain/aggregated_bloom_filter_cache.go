@@ -89,7 +89,6 @@ var (
 	ErrInvalidBlockRange                = errors.New("fromBlock > toBlock")
 	ErrMaxScannedBlockLimitExceed       = errors.New("max scanned blocks exceeded")
 	ErrAggregatedBloomFilterFallbackNil = errors.New("aggregated bloom filter does not have fallback")
-	ErrNilRunningFilter                 = errors.New("running filter is nil")
 	ErrFetchedFilterBoundsMismatch      = errors.New("fetched filter bounds mismatch")
 )
 
@@ -106,10 +105,6 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 ) (*MatchedBlockIterator, error) {
 	if fromBlock > toBlock {
 		return nil, ErrInvalidBlockRange
-	}
-
-	if runningFilter == nil {
-		return nil, ErrNilRunningFilter
 	}
 
 	windowStart := fromBlock - (fromBlock % core.AggregateBloomBlockRangeLen)
@@ -136,6 +131,7 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	// Calculate next window start aligned to block range
 	var windowStart uint64
 	if it.currentBits == nil {
+		it.currentBits = bitset.New(uint(core.AggregateBloomBlockRangeLen))
 		windowStart = it.currentWindowStart
 		it.nextIndex = it.rangeStart % core.AggregateBloomBlockRangeLen // offset for first window
 	} else {
@@ -153,7 +149,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	// Falls into range of running filter
 	if fromAligned == it.runningFilter.FromBlock() {
-		it.currentBits = it.matcher.getCandidateBlocksForFilter(it.runningFilter.InnerFilter())
+		err := it.matcher.getCandidateBlocksForFilterInto(it.runningFilter.InnerFilter(), it.currentBits)
+		if err != nil {
+			return err
+		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
 	}
@@ -162,7 +161,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	filter, ok := it.cache.cache.Get(key)
 
 	if ok {
-		it.currentBits = it.matcher.getCandidateBlocksForFilter(filter)
+		err := it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
+		if err != nil {
+			return err
+		}
 		it.currentWindowStart = fromAligned // set current window start absolute index
 		return nil
 	}
@@ -183,7 +185,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	it.cache.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
 
-	it.currentBits = it.matcher.getCandidateBlocksForFilter(filter)
+	err = it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
+	if err != nil {
+		return err
+	}
 	it.currentWindowStart = fromAligned // set current window start absolute index
 	return nil
 }
