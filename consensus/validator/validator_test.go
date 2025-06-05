@@ -286,7 +286,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 		Builder:               *proposer,
 		Timestamp:             1000,
 		ProtocolVersion:       *blockchain.SupportedStarknetVersion,
-		ConcatenatedCounts:    *utils.HexToFelt(t, "1"),
+		ConcatenatedCounts:    *new(felt.Felt).SetUint64(1),
 		StateDiffCommitment:   *commitment,
 		TransactionCommitment: *commitment,
 		EventCommitment:       *commitment,
