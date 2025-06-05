@@ -37,8 +37,6 @@ import (
 // Idx6 |   0     |    0    |    1    | ... |   0     |
 // Idx7 |   0     |    1    |    0    | ... |   0     |
 //
-//	<-----------Bloom Filter Indices----------->
-//
 // To query for a key, the AggregatedBloomFilter:
 //
 //  1. Determines the relevant indices for the key using the same hash functions.
@@ -54,12 +52,12 @@ import (
 // Idx1:    1    0    1   ...   0
 // Idx4:    1    0    1   ...   1
 //
-//		       --------------------------
-//		AND:    1    0    1   ...   0
+// -------------------------------
+// AND:     1    0    1   ...   0
 //
-//	After AND: Resulting vector is 1 0 1 ... 0
+// After AND: Resulting vector is 1 0 1 ... 0
 //
-//	This means Block 0 and Block 2 are possible matches for this key. Block numbers are
+// This means Block 0 and Block 2 are possible matches for this key.
 //
 // This approach allows for efficient, bulk event queries on blockchain data
 // without needing to individually examine every single block’s Bloom filter.
