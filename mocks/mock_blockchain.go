@@ -44,21 +44,6 @@ func (m *MockReader) EXPECT() *MockReaderMockRecorder {
 	return m.recorder
 }
 
-// AggregatedBloomFilterByRange mocks base method.
-func (m *MockReader) AggregatedBloomFilterByRange(fromBlock, toBlock uint64) (*core.AggregatedBloomFilter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AggregatedBloomFilterByRange", fromBlock, toBlock)
-	ret0, _ := ret[0].(*core.AggregatedBloomFilter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AggregatedBloomFilterByRange indicates an expected call of AggregatedBloomFilterByRange.
-func (mr *MockReaderMockRecorder) AggregatedBloomFilterByRange(fromBlock, toBlock any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AggregatedBloomFilterByRange", reflect.TypeOf((*MockReader)(nil).AggregatedBloomFilterByRange), fromBlock, toBlock)
-}
-
 // BlockByHash mocks base method.
 func (m *MockReader) BlockByHash(hash *felt.Felt) (*core.Block, error) {
 	m.ctrl.T.Helper()
