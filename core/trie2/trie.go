@@ -46,8 +46,17 @@ type Trie struct {
 	pendingUpdates int
 }
 
-// Creates a new trie
-func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB database.NodeDatabase) (*Trie, error) {
+// Creates a new trie, with the arguments:
+// - id: the trie id
+// - height: the height of the trie, 251 for contract and class trie
+// - hashFn: the hash function to use
+// - nodeDB: database interface, which provides methods to read and write trie nodes
+func New(
+	id trieutils.TrieID,
+	height uint8,
+	hashFn crypto.HashFn,
+	nodeDB database.NodeDatabase,
+) (*Trie, error) {
 	nodeReader, err := newNodeReader(id, nodeDB)
 	if err != nil {
 		return nil, err
@@ -66,7 +75,43 @@ func New(id trieutils.TrieID, height uint8, hashFn crypto.HashFn, nodeDB databas
 		return tr, nil
 	}
 
-	root, err := tr.resolveNode(nil, Path{}) // TODO: handle hash-based, need to somehow retrieve the root hash
+	root, err := tr.resolveNode(nil, Path{})
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, err
+	}
+	tr.root = root
+
+	return tr, nil
+}
+
+// Similar to New, creates a new trie, but additionally takes one more argument:
+// - rootHash: the root hash of the trie (provided only for hash scheme of trieDB, needed to properly recreate the trie)
+func NewFromRootHash(
+	id trieutils.TrieID,
+	height uint8,
+	hashFn crypto.HashFn,
+	nodeDB database.NodeDatabase,
+	rootHash *felt.Felt,
+) (*Trie, error) {
+	nodeReader, err := newNodeReader(id, nodeDB)
+	if err != nil {
+		return nil, err
+	}
+
+	tr := &Trie{
+		owner:      id.Owner(),
+		height:     height,
+		hashFn:     hashFn,
+		nodeReader: nodeReader,
+		nodeTracer: newTracer(),
+	}
+
+	stateComm := id.StateComm()
+	if stateComm.IsZero() {
+		return tr, nil
+	}
+
+	root, err := tr.resolveNodeWithHash(new(Path), rootHash)
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return nil, err
 	}
@@ -492,6 +537,17 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 	}
 
 	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
+}
+
+// Resolves the node at the given path from the database
+func (t *Trie) resolveNodeWithHash(path *Path, hash *felt.Felt) (trienode.Node, error) {
+	isLeaf := path.Len() == t.height
+	blob, err := t.nodeReader.node(*path, hash, isLeaf)
+	if err != nil {
+		return nil, err
+	}
+
+	return trienode.DecodeNode(blob, hash, path.Len(), t.height)
 }
 
 // Calculates the hash of the root node
