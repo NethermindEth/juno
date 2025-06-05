@@ -93,47 +93,19 @@
                 }
                 const data = await response.json();
                 
-                // Hide loading, show chart
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('chartContainer').style.display = 'block';
                 
-                // Sort by timestamp
                 data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                 
-                // Extract unique versions
                 const versions = [...new Set(data.map(d => d.version))];
                 document.getElementById('versionInfo').textContent = 
                     `Latest version: ${versions[versions.length - 1]} | Total runs: ${data.length}`;
                 
-                // No parsing needed - data is already in seconds
                 const getDurationInSeconds = (dataPoint) => {
-                    // New format uses duration_seconds
-                    if (dataPoint.duration_seconds !== undefined) {
-                        return dataPoint.duration_seconds;
-                    }
-                    // Fallback for old format (can be removed later)
-                    if (dataPoint.duration && typeof dataPoint.duration === 'string') {
-                        let totalSeconds = 0;
-                        if (dataPoint.duration.includes('day')) {
-                            const [dayPart, timePart] = dataPoint.duration.split(', ');
-                            const days = parseInt(dayPart.split(' ')[0]);
-                            totalSeconds += days * 24 * 3600;
-                            const timeParts = timePart.split(':');
-                            totalSeconds += parseInt(timeParts[0]) * 3600 + 
-                                           parseInt(timeParts[1]) * 60 + 
-                                           parseFloat(timeParts[2]);
-                        } else {
-                            const parts = dataPoint.duration.split(':');
-                            totalSeconds = parseInt(parts[0]) * 3600 + 
-                                          parseInt(parts[1]) * 60 + 
-                                          parseFloat(parts[2]);
-                        }
-                        return totalSeconds;
-                    }
-                    return 0;
+                    return dataPoint.duration_seconds;
                 };
                 
-                // Prepare chart data
                 const chartData = {
                     labels: data.map(d => d.version),
                     datasets: [{
@@ -141,7 +113,7 @@
                         data: data.map((d, index) => ({
                             x: index,
                             y: getDurationInSeconds(d),
-                            originalData: d // Keep original data for tooltips
+                            originalData: d
                         })),
                         borderColor: 'rgb(75, 192, 192)',
                         backgroundColor: 'rgba(75, 192, 192, 0.2)',
@@ -151,7 +123,6 @@
                     }]
                 };
                 
-                // Create chart
                 const ctx = document.getElementById('benchmarkChart').getContext('2d');
                 new Chart(ctx, {
                     type: 'line',
@@ -204,7 +175,6 @@
                                 },
                                 ticks: {
                                     callback: function(value) {
-                                        // Convert seconds back to readable format for display
                                         const days = Math.floor(value / (24 * 3600));
                                         const hours = Math.floor((value % (24 * 3600)) / 3600);
                                         const minutes = Math.floor((value % 3600) / 60);
@@ -224,14 +194,12 @@
                     }
                 });
                 
-                // Calculate statistics
                 const durations = data.map(d => getDurationInSeconds(d));
                 const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
                 const min = Math.min(...durations);
                 const max = Math.max(...durations);
                 const latest = durations[durations.length - 1];
                 
-                // Format duration for display (convert seconds back to readable format)
                 const formatDuration = (seconds) => {
                     const days = Math.floor(seconds / (24 * 3600));
                     const hours = Math.floor((seconds % (24 * 3600)) / 3600);
@@ -247,7 +215,6 @@
                     }
                 };
                 
-                // Display statistics
                 const statsHtml = `
                     <div class="stat-card">
                         <div class="stat-value">${formatDuration(latest)}</div>
@@ -275,10 +242,7 @@
             }
         }
         
-        // Load data on page load
         loadAndDisplayBenchmarks();
-        
-        // Auto-refresh every 5 minutes if page is open
         setInterval(loadAndDisplayBenchmarks, 5 * 60 * 1000);
     </script>
 </body>
