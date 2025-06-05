@@ -134,7 +134,7 @@ func TestAggregatedBloomFilter_Copy(t *testing.T) {
 	require.False(t, filter.BlocksForKeys([][]byte{key}).Test(1))
 }
 
-func TestAggregatedBloomFilter_Serialize(t *testing.T) {
+func TestAggregatedBloomFilter_Serialise(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
 	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	key := []byte{0x33}
