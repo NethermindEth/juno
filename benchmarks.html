@@ -194,12 +194,6 @@
                     }
                 });
                 
-                const durations = data.map(d => getDurationInSeconds(d));
-                const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
-                const min = Math.min(...durations);
-                const max = Math.max(...durations);
-                const latest = durations[durations.length - 1];
-                
                 const formatDuration = (seconds) => {
                     const days = Math.floor(seconds / (24 * 3600));
                     const hours = Math.floor((seconds % (24 * 3600)) / 3600);
@@ -214,6 +208,12 @@
                         return `${minutes}:${secs.toString().padStart(2, '0')}`;
                     }
                 };
+                
+                const durations = data.map(d => getDurationInSeconds(d));
+                const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
+                const min = Math.min(...durations);
+                const max = Math.max(...durations);
+                const latest = durations[durations.length - 1];
                 
                 const statsHtml = `
                     <div class="stat-card">
