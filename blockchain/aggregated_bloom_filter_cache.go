@@ -65,7 +65,13 @@ func (c *AggregatedBloomFilterCache) SetMany(filters []*core.AggregatedBloomFilt
 	defer c.mu.Unlock()
 
 	for _, filter := range filters {
-		c.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
+		c.cache.Add(
+			EventFiltersCacheKey{
+				fromBlock: filter.FromBlock(),
+				toBlock:   filter.ToBlock(),
+			},
+			filter,
+		)
 	}
 }
 
