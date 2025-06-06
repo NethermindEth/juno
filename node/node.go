@@ -401,7 +401,7 @@ func (n *Node) Run(ctx context.Context) {
 	}()
 
 	defer func() {
-		if dbErr := n.blockchain.PersistRunningEventFilter(); dbErr != nil {
+		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
 			n.log.Errorw("Error while storing running event filter", "err", dbErr)
 		}
 	}()

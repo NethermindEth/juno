@@ -88,7 +88,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	})
 
 	t.Run("Load from DB when running filter upto date", func(t *testing.T) {
-		require.NoError(t, chain.PersistRunningEventFilter())
+		require.NoError(t, chain.WriteRunningEventFilter())
 
 		rf := core.NewRunningEventFilterLazy(testDB)
 		require.Equal(t, uint64(0), rf.FromBlock())
