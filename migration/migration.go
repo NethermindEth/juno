@@ -801,7 +801,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 		header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
-				rf := core.NewRunningEventFilterHot(nil, filter, blockNumber)
+				rf := core.NewRunningEventFilterHot(nil, &filter, blockNumber)
 				return core.WriteRunningEventFilter(txn, rf)
 			}
 			return err
@@ -813,7 +813,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 
 		nextBlock := blockNumber + 1
 		if blockNumber > 0 && nextBlock%core.AggregateBloomBlockRangeLen == 0 {
-			if err = core.WriteAggregatedBloomFilter(txn, filter); err != nil {
+			if err = core.WriteAggregatedBloomFilter(txn, &filter); err != nil {
 				return err
 			}
 			filter = core.NewAggregatedFilter(nextBlock)

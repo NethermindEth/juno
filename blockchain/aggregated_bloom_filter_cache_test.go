@@ -102,7 +102,7 @@ func populateAggregatedBloomFilters(
 			}
 			require.NoError(t, filter.Insert(bloomInst, blockNumber))
 		}
-		filterSet[i] = filter
+		filterSet[i] = &filter
 		fromBlock += blocksPerFilter
 	}
 	return filterSet
@@ -151,7 +151,7 @@ func populateAggregatedBloomDeterministic(
 			require.NoError(t, filter.Insert(innerBloom, blockNumber))
 		}
 		// Insert keys belonging to event filters that map to this block
-		filters[i] = filter
+		filters[i] = &filter
 		fromBlock += core.AggregateBloomBlockRangeLen
 	}
 
@@ -175,7 +175,8 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
 	runningFilterStart := numAggregatedBloomFilters * blocksPerFilter
-	runningFilter := core.NewRunningEventFilterHot(testDB, core.NewAggregatedFilter(runningFilterStart), runningFilterStart)
+	innerFilter := core.NewAggregatedFilter(runningFilterStart)
+	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
 	for _, test := range events {
 		// Create iterator for event
 		matcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
@@ -213,7 +214,8 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	testDB := memory.New()
 	var maxScannedLimit uint = 0
 	eventMatcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
-	runningFilter := core.NewRunningEventFilterHot(testDB, core.NewAggregatedFilter(chainHeight+1), chainHeight+1)
+	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
+	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)
 	t.Run("returns only what is in range", func(t *testing.T) {
 		var start, end, blockRange uint64 = 0, core.AggregateBloomBlockRangeLen * numAggregatedBloomFilters, core.AggregateBloomBlockRangeLen / 4
 

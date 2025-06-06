@@ -83,13 +83,13 @@ var (
 
 // NewAggregatedFilter creates a new AggregatedBloomFilter starting from the specified block number.
 // It initialises the bitmap array with empty bitsets of size AggregateBloomBlockRangeLen.
-func NewAggregatedFilter(fromBlock uint64) *AggregatedBloomFilter {
+func NewAggregatedFilter(fromBlock uint64) AggregatedBloomFilter {
 	bitmap := make([]bitset.BitSet, EventsBloomLength)
 	for i := range bitmap {
-		bitmap[i] = *bitset.New(uint(AggregateBloomBlockRangeLen))
+		bitmap[i] = makeBitset()
 	}
 
-	return &AggregatedBloomFilter{
+	return AggregatedBloomFilter{
 		bitmap:    bitmap,
 		fromBlock: fromBlock,
 		toBlock:   fromBlock + AggregateBloomBlockRangeLen - 1,
@@ -204,13 +204,13 @@ func (f *AggregatedBloomFilter) BlocksForKeysInto(keys [][]byte, out *bitset.Bit
 }
 
 // Copy creates a deep copy of the AggregatedBloomFilter.
-func (f *AggregatedBloomFilter) Copy() *AggregatedBloomFilter {
+func (f *AggregatedBloomFilter) Copy() AggregatedBloomFilter {
 	bitmapCopy := make([]bitset.BitSet, len(f.bitmap))
 	for i, bitset := range f.bitmap {
 		bitset.CopyFull(&bitmapCopy[i])
 	}
 
-	return &AggregatedBloomFilter{
+	return AggregatedBloomFilter{
 		bitmap:    bitmapCopy,
 		fromBlock: f.fromBlock,
 		toBlock:   f.toBlock,
@@ -283,4 +283,11 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 		}
 	}
 	return nil
+}
+
+func makeBitset() bitset.BitSet {
+	b := bitset.BitSet{}
+	b.Set(uint(AggregateBloomBlockRangeLen - 1))
+	b.Clear(uint(AggregateBloomBlockRangeLen - 1))
+	return b
 }
