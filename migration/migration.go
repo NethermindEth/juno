@@ -805,13 +805,13 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 		return err
 	}
 
-	windowLen := core.AggregateBloomBlockRangeLen
+	windowLen := core.NumBlocksPerFilter
 	maxWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(maxWorkers)
 	var writeMu sync.Mutex
 
 	// Last block number to fit into full aggregated filter
-	lastBlockToStore := chainHeight - (chainHeight % core.AggregateBloomBlockRangeLen) - 1
+	lastBlockToStore := chainHeight - (chainHeight % core.NumBlocksPerFilter) - 1
 
 	/// Step by window size and construct and write full aggregated filters to db
 	for start := uint64(0); start < lastBlockToStore; start += windowLen {

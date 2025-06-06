@@ -115,7 +115,7 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 		return MatchedBlockIterator{}, ErrNilRunningFilter
 	}
 
-	windowStart := fromBlock - (fromBlock % core.AggregateBloomBlockRangeLen)
+	windowStart := fromBlock - (fromBlock % core.NumBlocksPerFilter)
 	return MatchedBlockIterator{
 		rangeStart:         fromBlock,
 		rangeEnd:           toBlock,
@@ -139,11 +139,11 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 	// Calculate next window start aligned to block range
 	var windowStart uint64
 	if it.currentBits == nil {
-		it.currentBits = bitset.New(uint(core.AggregateBloomBlockRangeLen))
+		it.currentBits = bitset.New(uint(core.NumBlocksPerFilter))
 		windowStart = it.currentWindowStart
-		it.nextIndex = it.rangeStart % core.AggregateBloomBlockRangeLen // offset for first window
+		it.nextIndex = it.rangeStart % core.NumBlocksPerFilter // offset for first window
 	} else {
-		windowStart = it.currentWindowStart + core.AggregateBloomBlockRangeLen
+		windowStart = it.currentWindowStart + core.NumBlocksPerFilter
 		it.nextIndex = 0 // offset 0 for subsequent windows
 	}
 
@@ -152,8 +152,8 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		return nil
 	}
 
-	fromAligned := windowStart - (windowStart % core.AggregateBloomBlockRangeLen)
-	toAligned := fromAligned + core.AggregateBloomBlockRangeLen - 1
+	fromAligned := windowStart - (windowStart % core.NumBlocksPerFilter)
+	toAligned := fromAligned + core.NumBlocksPerFilter - 1
 
 	// Falls into range of running filter
 	if fromAligned == it.runningFilter.FromBlock() {

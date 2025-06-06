@@ -71,7 +71,7 @@ type AggregatedBloomFilter struct {
 }
 
 const (
-	AggregateBloomBlockRangeLen uint64 = 8192
+	NumBlocksPerFilter uint64 = 8192
 )
 
 var (
@@ -82,7 +82,7 @@ var (
 )
 
 // NewAggregatedFilter creates a new AggregatedBloomFilter starting from the specified block number.
-// It initialises the bitmap array with empty bitsets of size AggregateBloomBlockRangeLen.
+// It initialises the bitmap array with empty bitsets of size NumBlocksPerFilter.
 func NewAggregatedFilter(fromBlock uint64) AggregatedBloomFilter {
 	bitmap := make([]bitset.BitSet, EventsBloomLength)
 	for i := range bitmap {
@@ -92,7 +92,7 @@ func NewAggregatedFilter(fromBlock uint64) AggregatedBloomFilter {
 	return AggregatedBloomFilter{
 		bitmap:    bitmap,
 		fromBlock: fromBlock,
-		toBlock:   fromBlock + AggregateBloomBlockRangeLen - 1,
+		toBlock:   fromBlock + NumBlocksPerFilter - 1,
 	}
 }
 
@@ -153,12 +153,12 @@ func (f *AggregatedBloomFilter) clear(blockNumber uint64) error {
 // BlocksForKeys returns a bitset indicating which blocks within the range might contain
 // the given keys. If no keys are provided, returns a bitset with all bits set.
 func (f *AggregatedBloomFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
-	blockMatches := bitset.New(uint(AggregateBloomBlockRangeLen))
+	blockMatches := bitset.New(uint(NumBlocksPerFilter))
 	if len(keys) == 0 {
 		return blockMatches.SetAll()
 	}
 
-	innerMatches := bitset.New(uint(AggregateBloomBlockRangeLen))
+	innerMatches := bitset.New(uint(NumBlocksPerFilter))
 	for _, key := range keys {
 		innerMatches.SetAll()
 		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
@@ -173,13 +173,13 @@ func (f *AggregatedBloomFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	return blockMatches
 }
 
-// BlocksForKeysInto reuses a preallocated bitset (should be AggregateBloomBlockRangeLen bits).
+// BlocksForKeysInto reuses a preallocated bitset (should be NumBlocksPerFilter bits).
 func (f *AggregatedBloomFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error {
 	if out == nil {
 		return ErrMatchesBufferNil
 	}
 
-	if out.Len() != uint(AggregateBloomBlockRangeLen) {
+	if out.Len() != uint(NumBlocksPerFilter) {
 		return ErrMatchesBufferSizeMismatch
 	}
 
@@ -189,7 +189,7 @@ func (f *AggregatedBloomFilter) BlocksForKeysInto(keys [][]byte, out *bitset.Bit
 	}
 
 	out.ClearAll()
-	innerMatches := bitset.New(uint(AggregateBloomBlockRangeLen))
+	innerMatches := bitset.New(uint(NumBlocksPerFilter))
 	for _, key := range keys {
 		innerMatches.SetAll()
 		rawIndices := bloom.Locations(key, EventsBloomHashFuncs)
@@ -287,7 +287,7 @@ func (f *AggregatedBloomFilter) UnmarshalBinary(data []byte) error {
 
 func makeBitset() bitset.BitSet {
 	b := bitset.BitSet{}
-	b.Set(uint(AggregateBloomBlockRangeLen - 1))
-	b.Clear(uint(AggregateBloomBlockRangeLen - 1))
+	b.Set(uint(NumBlocksPerFilter - 1))
+	b.Clear(uint(NumBlocksPerFilter - 1))
 	return b
 }

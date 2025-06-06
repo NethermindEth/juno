@@ -30,7 +30,7 @@ func TestAggregatedBloomFilter_Insert(t *testing.T) {
 			},
 			{
 				description: "last block in range",
-				blockNumber: 200 + core.AggregateBloomBlockRangeLen - 1,
+				blockNumber: 200 + core.NumBlocksPerFilter - 1,
 			},
 		}
 
@@ -85,7 +85,7 @@ func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 	key := []byte{0xab}
 	b.Add(key)
 	require.NoError(t, filter.Insert(b, 0))
-	matchesBuf := bitset.New(uint(core.AggregateBloomBlockRangeLen))
+	matchesBuf := bitset.New(uint(core.NumBlocksPerFilter))
 	t.Run("No keys: all bits set", func(t *testing.T) {
 		require.NoError(t, filter.BlocksForKeysInto(nil, matchesBuf))
 		require.True(t, matchesBuf.All())
@@ -102,7 +102,7 @@ func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 	})
 
 	t.Run("Buffer size mismatch", func(t *testing.T) {
-		differentSizeBuf := bitset.New(uint(core.AggregateBloomBlockRangeLen - 1))
+		differentSizeBuf := bitset.New(uint(core.NumBlocksPerFilter - 1))
 		require.ErrorIs(
 			t,
 			filter.BlocksForKeysInto([][]byte{key}, differentSizeBuf),

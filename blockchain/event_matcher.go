@@ -99,13 +99,13 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 		return core.ErrMatchesBufferNil
 	}
 
-	if out.Len() != uint(core.AggregateBloomBlockRangeLen) {
+	if out.Len() != uint(core.NumBlocksPerFilter) {
 		return core.ErrMatchesBufferSizeMismatch
 	}
 
 	out.SetAll()
 
-	innerMatch := bitset.New(uint(core.AggregateBloomBlockRangeLen))
+	innerMatch := bitset.New(uint(core.NumBlocksPerFilter))
 	if e.contractAddress != nil {
 		addrBytes := e.contractAddress.Bytes()
 		if err := filter.BlocksForKeysInto([][]byte{addrBytes[:]}, innerMatch); err != nil {
