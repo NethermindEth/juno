@@ -73,15 +73,15 @@ func (c *AggregatedBloomFilterCache) SetMany(filters []*core.AggregatedBloomFilt
 // that may match an event query, using cached (or fetched) aggregated bloom filters
 // for efficient windowed scanning and filtering.
 type MatchedBlockIterator struct {
-	currentBits        *bitset.BitSet // Current candidate blocks bitset to iterate
-	nextIndex          uint64         // Next bit index to test and possibly yield
+	currentBits        *bitset.BitSet // current candidate blocks bitset to iterate
+	nextIndex          uint64         // next bit index to test and possibly yield
 	rangeStart         uint64         // starting block number of the filter range
 	currentWindowStart uint64         // absolute block start of currently loaded window
-	rangeEnd           uint64         // total number of blocks in filter range
+	rangeEnd           uint64         // end block number of the filter range
 	done               bool           // iteration finished flag
 
-	maxScanned   uint // max number of blocks to iterate (0 = unlimited)
-	scannedCount uint // number of blocks yielded so far
+	maxScanned   uint64 // max number of blocks to iterate (0 = unlimited)
+	scannedCount uint64 // number of blocks yielded so far
 
 	cache         *AggregatedBloomFilterCache
 	runningFilter *core.RunningEventFilter
@@ -103,7 +103,7 @@ var (
 // Returns an error if input is invalid or required state is missing.
 func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 	fromBlock, toBlock uint64,
-	maxScanned uint,
+	maxScanned uint64,
 	matcher *EventMatcher,
 	runningFilter *core.RunningEventFilter,
 ) (MatchedBlockIterator, error) {
