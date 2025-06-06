@@ -204,7 +204,7 @@ func (f *AggregatedBloomFilter) BlocksForKeysInto(keys [][]byte, out *bitset.Bit
 }
 
 // Copy creates a deep copy of the AggregatedBloomFilter.
-func (f *AggregatedBloomFilter) Copy() AggregatedBloomFilter {
+func (f *AggregatedBloomFilter) Clone() AggregatedBloomFilter {
 	bitmapCopy := make([]bitset.BitSet, len(f.bitmap))
 	for i, bitset := range f.bitmap {
 		bitset.CopyFull(&bitmapCopy[i])

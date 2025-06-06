@@ -119,13 +119,13 @@ func TestAggregatedBloomFilter_BlocksForKeysInto(t *testing.T) {
 	})
 }
 
-func TestAggregatedBloomFilter_Copy(t *testing.T) {
+func TestAggregatedBloomFilter_Clone(t *testing.T) {
 	filter := core.NewAggregatedFilter(0)
 	b := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
 	key := []byte{0x77}
 	b.Add(key)
 	require.NoError(t, filter.Insert(b, 0))
-	cp := filter.Copy()
+	cp := filter.Clone()
 	require.NotSame(t, &filter, &cp)
 	require.Equal(t, filter, cp)
 	// Mutate copy: shouldn't change origin

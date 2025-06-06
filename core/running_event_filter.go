@@ -162,7 +162,7 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
-	innerCopy := f.inner.Copy()
+	innerCopy := f.inner.Clone()
 	return NewRunningEventFilterHot(f.txn, &innerCopy, f.next)
 }
 
