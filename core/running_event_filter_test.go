@@ -117,7 +117,7 @@ func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 
 	fetchedFilter, err := core.GetAggregatedBloomFilter(testDB, filter.FromBlock(), filter.ToBlock())
 	require.NoError(t, err)
-	require.Equal(t, filter, *fetchedFilter)
+	require.Equal(t, filter, fetchedFilter)
 }
 
 func TestRunningEventFilter_BlocksForKeys(t *testing.T) {

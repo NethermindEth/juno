@@ -93,7 +93,7 @@ type Blockchain struct {
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
-	fallback := func(key EventFiltersCacheKey) (*core.AggregatedBloomFilter, error) {
+	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
 		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
 	}
 	cachedFilters.WithFallback(fallback)

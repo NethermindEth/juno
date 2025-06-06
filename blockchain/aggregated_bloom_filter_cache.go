@@ -28,7 +28,7 @@ type EventFiltersCacheKey struct {
 // It is safe for concurrent use.
 type AggregatedBloomFilterCache struct {
 	cache        lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
-	fallbackFunc func(EventFiltersCacheKey) (*core.AggregatedBloomFilter, error)
+	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
 	mu           sync.Mutex
 }
 
@@ -43,7 +43,7 @@ func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
 // WithFallback sets a fallback fetch function to be used if a requested
 // AggregatedBloomFilter is not found in the cache. The provided function must
 // return a filter matching the queried range, or an error.
-func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (*core.AggregatedBloomFilter, error)) {
+func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -188,11 +188,11 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		return ErrAggregatedBloomFilterFallbackNil
 	}
 
-	filter, err := it.cache.fallbackFunc(key)
+	fetched, err := it.cache.fallbackFunc(key)
 	if err != nil {
 		return err
 	}
-
+	filter = &fetched
 	if filter.FromBlock() != fromAligned || filter.ToBlock() != toAligned {
 		return ErrFetchedFilterBoundsMismatch
 	}

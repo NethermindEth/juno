@@ -198,7 +198,7 @@ func (f *RunningEventFilter) OnReorg() error {
 		if err != nil {
 			return err
 		}
-		f.inner = lastStoredFilter
+		f.inner = &lastStoredFilter
 	}
 
 	f.next = curBlock
