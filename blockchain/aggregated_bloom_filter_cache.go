@@ -106,17 +106,17 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 	maxScanned uint,
 	matcher *EventMatcher,
 	runningFilter *core.RunningEventFilter,
-) (*MatchedBlockIterator, error) {
+) (MatchedBlockIterator, error) {
 	if fromBlock > toBlock {
-		return nil, ErrInvalidBlockRange
+		return MatchedBlockIterator{}, ErrInvalidBlockRange
 	}
 
 	if runningFilter == nil {
-		return nil, ErrNilRunningFilter
+		return MatchedBlockIterator{}, ErrNilRunningFilter
 	}
 
 	windowStart := fromBlock - (fromBlock % core.AggregateBloomBlockRangeLen)
-	return &MatchedBlockIterator{
+	return MatchedBlockIterator{
 		rangeStart:         fromBlock,
 		rangeEnd:           toBlock,
 		maxScanned:         maxScanned,
