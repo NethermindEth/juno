@@ -103,8 +103,11 @@ type MergeNodeSet struct {
 
 func NewMergeNodeSet(nodes *NodeSet) *MergeNodeSet {
 	ns := &MergeNodeSet{
-		OwnerSet:  &NodeSet{},
+		OwnerSet:  &NodeSet{Nodes: make(map[trieutils.Path]TrieNode)},
 		ChildSets: make(map[felt.Felt]*NodeSet),
+	}
+	if nodes == nil {
+		return ns
 	}
 	if nodes.Owner.IsZero() {
 		ns.OwnerSet = nodes

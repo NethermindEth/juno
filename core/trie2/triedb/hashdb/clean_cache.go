@@ -8,27 +8,27 @@ import (
 	"github.com/VictoriaMetrics/fastcache"
 )
 
-type CleanCache struct {
+type cleanCache struct {
 	cache *fastcache.Cache
 }
 
-func NewCleanCache(size uint64) CleanCache {
+func newCleanCache(size uint64) cleanCache {
 	if size > uint64(math.MaxInt) {
 		panic("cache size too large: uint64 to int conversion would overflow")
 	}
-	return CleanCache{
+	return cleanCache{
 		cache: fastcache.New(int(size)),
 	}
 }
 
-func (c *CleanCache) getNode(path *trieutils.Path, hash *felt.Felt) []byte {
+func (c *cleanCache) getNode(path *trieutils.Path, hash *felt.Felt) []byte {
 	key := nodeKey(path, hash)
 	value := c.cache.Get(nil, key)
 
 	return value
 }
 
-func (c *CleanCache) putNode(path *trieutils.Path, hash *felt.Felt, value []byte) {
+func (c *cleanCache) putNode(path *trieutils.Path, hash *felt.Felt, value []byte) {
 	key := nodeKey(path, hash)
 	c.cache.Set(key, value)
 }

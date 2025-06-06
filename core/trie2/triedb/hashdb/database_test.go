@@ -136,7 +136,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("panics when cache size is too large but not max uint64", func(t *testing.T) {
 		assert.PanicsWithValue(t, "cache size too large: uint64 to int conversion would overflow", func() {
-			NewCleanCache(math.MaxInt64 + 1)
+			newCleanCache(math.MaxInt64 + 1)
 		})
 	})
 

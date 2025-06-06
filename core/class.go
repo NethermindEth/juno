@@ -1,13 +1,16 @@
 package core
 
 import (
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -254,4 +257,32 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 	}
 
 	return nil
+}
+
+type DeclaredClass struct {
+	At    uint64 // block number at which the class was declared
+	Class Class
+}
+
+func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
+	classEnc, err := encoder.Marshal(d.Class)
+	if err != nil {
+		return nil, err
+	}
+
+	size := 8 + len(classEnc)
+	buf := make([]byte, size)
+	binary.BigEndian.PutUint64(buf[:8], d.At)
+	copy(buf[8:], classEnc)
+
+	return buf, nil
+}
+
+func (d *DeclaredClass) UnmarshalBinary(data []byte) error {
+	if len(data) < 8 { //nolint:mnd
+		return errors.New("data too short to unmarshal DeclaredClass")
+	}
+
+	d.At = binary.BigEndian.Uint64(data[:8])
+	return encoder.Unmarshal(data[8:], &d.Class)
 }

@@ -22,8 +22,8 @@ type Database struct {
 	disk   db.KeyValueStore
 	config Config
 
-	cleanCache *CleanCache
-	dirtyCache *DirtyCache
+	cleanCache *cleanCache
+	dirtyCache *dirtyCache
 
 	lock sync.RWMutex
 	log  utils.SimpleLogger
@@ -37,12 +37,12 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 			CleanCacheSize: 1024 * 1024 * 16,
 		}
 	}
-	cleanCache := NewCleanCache(config.CleanCacheSize)
+	cleanCache := newCleanCache(config.CleanCacheSize)
 	return &Database{
 		disk:       disk,
 		config:     *config,
 		cleanCache: &cleanCache,
-		dirtyCache: NewDirtyCache(),
+		dirtyCache: newDirtyCache(),
 		log:        utils.NewNopZapLogger(),
 	}
 }
@@ -93,7 +93,7 @@ func (d *Database) Commit(_ *felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
-	nodes, startTime := d.dirtyCache.Len(), time.Now()
+	nodes, startTime := d.dirtyCache.len(), time.Now()
 
 	for key, node := range d.dirtyCache.classNodes {
 		path, hash, err := decodeNodeKey([]byte(key))
@@ -137,9 +137,9 @@ func (d *Database) Commit(_ *felt.Felt) error {
 	d.dirtyCache.reset()
 
 	d.log.Debugw("Flushed dirty cache to disk",
-		"nodes", nodes-d.dirtyCache.Len(),
+		"nodes", nodes-d.dirtyCache.len(),
 		"duration", time.Since(startTime),
-		"liveNodes", d.dirtyCache.Len(),
+		"liveNodes", d.dirtyCache.len(),
 		"liveSize", d.dirtyCache.size,
 	)
 	return nil
