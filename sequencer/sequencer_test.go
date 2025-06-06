@@ -205,3 +205,42 @@ func TestRunOnce(t *testing.T) {
 	require.NotEmpty(t, block.Transactions)
 	require.NotEmpty(t, block.Receipts)
 }
+func TestHelpers(t *testing.T) {
+	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	blockTime := 100 * time.Millisecond
+	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr)
+
+	require.NoError(t, seq.RunOnce())
+
+	pending, err := seq.Pending()
+	require.NoError(t, err)
+	require.NotNil(t, pending)
+
+	block := seq.PendingBlock()
+	require.NotNil(t, block)
+
+	state, closer, err := seq.PendingState()
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.NotNil(t, closer)
+	require.NoError(t, closer())
+
+	header := seq.HighestBlockHeader()
+	require.Nil(t, header)
+
+	num, err := seq.StartingBlockNumber()
+	require.NoError(t, err)
+	require.Equal(t, uint64(0), num)
+
+	reorgSub := seq.SubscribeReorg()
+	require.NotNil(t, reorgSub)
+	require.NotNil(t, reorgSub.Subscription)
+
+	newHeadsSub := seq.SubscribeNewHeads()
+	require.NotNil(t, newHeadsSub)
+	require.NotNil(t, newHeadsSub.Subscription)
+
+	pendingSub := seq.SubscribePending()
+	require.NotNil(t, pendingSub)
+	require.NotNil(t, pendingSub.Subscription)
+}
