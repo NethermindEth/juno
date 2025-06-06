@@ -205,10 +205,11 @@ func TestRunOnce(t *testing.T) {
 	require.NotEmpty(t, block.Transactions)
 	require.NotEmpty(t, block.Receipts)
 }
+
 func TestHelpers(t *testing.T) {
 	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
-	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr)
+	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr) //nolint:dogsled
 
 	require.NoError(t, seq.RunOnce())
 
