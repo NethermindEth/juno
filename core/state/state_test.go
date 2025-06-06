@@ -78,7 +78,7 @@ func TestUpdate(t *testing.T) {
 			OldRoot: oldRoot,
 		}
 		stateDB := setupState(t, stateUpdates, 0)
-		state, err := New(*su.OldRoot, stateDB)
+		state, err := New(felt.Zero, stateDB)
 		require.NoError(t, err)
 		err = state.Update(block0, su, nil)
 		require.Error(t, err)
@@ -92,7 +92,7 @@ func TestUpdate(t *testing.T) {
 			StateDiff: new(core.StateDiff),
 		}
 		stateDB := setupState(t, stateUpdates, 0)
-		state, err := New(*su.OldRoot, stateDB)
+		state, err := New(felt.Zero, stateDB)
 		require.NoError(t, err)
 		err = state.Update(block0, su, nil)
 		require.Error(t, err)

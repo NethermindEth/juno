@@ -218,7 +218,7 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 		deployedContracts: update.StateDiff.DeployedContracts,
 	}
 
-	s.db.stateCache.AddLayer(newComm, *update.OldRoot, diff)
+	s.db.stateCache.AddLayer(&newComm, &stateUpdate.prevComm, diff)
 
 	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
 		return err
@@ -470,7 +470,7 @@ func (s *State) flush(
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 
 	p.Go(func() error {
-		return s.db.triedb.Update(&update.prevComm, &update.curComm, blockNum, update.classNodes, update.contractNodes)
+		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
 	})
 
 	batch := s.db.disk.NewBatch()

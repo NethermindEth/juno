@@ -26,13 +26,13 @@ func newStateCache() *stateCache {
 	}
 }
 
-func (c *stateCache) AddLayer(stateRoot, parentRoot felt.Felt, diff *diffCache) {
+func (c *stateCache) AddLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache) {
 	if len(c.links) == 0 {
-		c.oldestRoot = stateRoot
+		c.oldestRoot = *stateRoot
 	}
 
-	c.diffs[stateRoot] = diff
-	c.links[stateRoot] = parentRoot
+	c.diffs[*stateRoot] = diff
+	c.links[*stateRoot] = *parentRoot
 
 	c.evictOldLayers()
 }

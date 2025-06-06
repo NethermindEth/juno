@@ -38,7 +38,7 @@ func TestStateCache(t *testing.T) {
 			},
 		}
 
-		cache.AddLayer(*root, *parent, diff)
+		cache.AddLayer(root, parent, diff)
 
 		// Test retrieving data
 		assert.Equal(t, nonce, cache.getNonce(root, addr))
@@ -58,7 +58,7 @@ func TestStateCache(t *testing.T) {
 					*new(felt.Felt).SetUint64(uint64(i + 100)): new(felt.Felt).SetUint64(uint64(i + 1)),
 				},
 			}
-			cache.AddLayer(*root, *parent, diff)
+			cache.AddLayer(root, parent, diff)
 			parent = root
 		}
 
@@ -98,9 +98,9 @@ func TestStateCache(t *testing.T) {
 		}
 		diff3 := &diffCache{}
 
-		cache.AddLayer(*root1, felt.Zero, diff1)
-		cache.AddLayer(*root2, *root1, diff2)
-		cache.AddLayer(*root3, *root2, diff3)
+		cache.AddLayer(root1, &felt.Zero, diff1)
+		cache.AddLayer(root2, root1, diff2)
+		cache.AddLayer(root3, root2, diff3)
 
 		// Test that we can traverse up the chain to find values
 		assert.Equal(t, nonce2, cache.getNonce(root3, addr)) // Should find in root2
