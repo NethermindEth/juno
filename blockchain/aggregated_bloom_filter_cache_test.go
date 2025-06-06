@@ -152,7 +152,7 @@ func populateAggregatedBloomDeterministic(
 		}
 		// Insert keys belonging to event filters that map to this block
 		filters[i] = &filter
-		fromBlock += core.AggregateBloomBlockRangeLen
+		fromBlock += core.NumBlocksPerFilter
 	}
 
 	return filters
@@ -161,7 +161,7 @@ func populateAggregatedBloomDeterministic(
 func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 	numEvents := 64
 	numAggregatedBloomFilters := uint64(16)
-	blocksPerFilter := core.AggregateBloomBlockRangeLen
+	blocksPerFilter := core.NumBlocksPerFilter
 	chainHeight := numAggregatedBloomFilters*blocksPerFilter - 1
 
 	// Generate 'numEvents' random event definitions
@@ -201,12 +201,12 @@ func TestMatchBlockIterator_InsertAndQueryRandomEvents(t *testing.T) {
 
 func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	var numAggregatedBloomFilters uint64 = 16
-	chainHeight := numAggregatedBloomFilters*core.AggregateBloomBlockRangeLen - 1
+	chainHeight := numAggregatedBloomFilters*core.NumBlocksPerFilter - 1
 
 	events := generateRandomEvents(t, 1, 3, 1)
 	test := events[0]
 	emmitedEvery := 4
-	filters := populateAggregatedBloomDeterministic(t, numAggregatedBloomFilters, test, core.AggregateBloomBlockRangeLen, uint64(emmitedEvery))
+	filters := populateAggregatedBloomDeterministic(t, numAggregatedBloomFilters, test, core.NumBlocksPerFilter, uint64(emmitedEvery))
 
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
@@ -217,10 +217,10 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)
 	t.Run("returns only what is in range", func(t *testing.T) {
-		var start, end, blockRange uint64 = 0, core.AggregateBloomBlockRangeLen * numAggregatedBloomFilters, core.AggregateBloomBlockRangeLen / 4
+		var start, end, blockRange uint64 = 0, core.NumBlocksPerFilter * numAggregatedBloomFilters, core.NumBlocksPerFilter / 4
 
 		for start < end {
-			currRangeEnd := min(start+blockRange-1, numAggregatedBloomFilters*core.AggregateBloomBlockRangeLen-1)
+			currRangeEnd := min(start+blockRange-1, numAggregatedBloomFilters*core.NumBlocksPerFilter-1)
 
 			// Create filter for event
 			iterator, err := cache.NewMatchedBlockIterator(

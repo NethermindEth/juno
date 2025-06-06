@@ -60,7 +60,7 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 	testDB := memory.New()
 	rf := core.NewRunningEventFilterLazy(testDB)
 	require.Equal(t, uint64(0), rf.FromBlock())
-	require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.ToBlock())
+	require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
 	require.NoError(t, rf.Insert(testBloomWithRandomKeys(t, 1), 0))
 }
 
@@ -83,7 +83,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	t.Run("Rebuild when running fitler not persisted", func(t *testing.T) {
 		rf := core.NewRunningEventFilterLazy(testDB)
 		require.Equal(t, uint64(0), rf.FromBlock())
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.ToBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
 		require.Equal(t, expectedNext, rf.NextBlock())
 	})
 
@@ -92,7 +92,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 
 		rf := core.NewRunningEventFilterLazy(testDB)
 		require.Equal(t, uint64(0), rf.FromBlock())
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.ToBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.ToBlock())
 		require.Equal(t, expectedNext, rf.NextBlock())
 	})
 
@@ -140,7 +140,7 @@ func TestRunningEventFilter_BlocksForKeysInto(t *testing.T) {
 	// Add bloom with event for block 0
 	bloom := testBloomWithKeys(t, keys)
 	require.NoError(t, rf.Insert(bloom, 0))
-	matchesBuf := *bitset.New(uint(core.AggregateBloomBlockRangeLen))
+	matchesBuf := *bitset.New(uint(core.NumBlocksPerFilter))
 	require.NoError(t, rf.BlocksForKeysInto(keys, &matchesBuf))
 	require.True(t, matchesBuf.Test(0))
 }
@@ -167,38 +167,38 @@ func TestRunningEventFilter_Reorg(t *testing.T) {
 	})
 	t.Run("Reorg spanning previous aggregation range", func(t *testing.T) {
 		testDB := memory.New()
-		rf := populateRunningFilter(t, testDB, core.AggregateBloomBlockRangeLen-1)
-		require.Equal(t, core.AggregateBloomBlockRangeLen, rf.NextBlock())
-		require.Equal(t, core.AggregateBloomBlockRangeLen, rf.InnerFilter().FromBlock())
-		require.Equal(t, 2*core.AggregateBloomBlockRangeLen-1, rf.InnerFilter().ToBlock())
+		rf := populateRunningFilter(t, testDB, core.NumBlocksPerFilter-1)
+		require.Equal(t, core.NumBlocksPerFilter, rf.NextBlock())
+		require.Equal(t, core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
+		require.Equal(t, 2*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 
 		require.NoError(t, rf.OnReorg())
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.NextBlock())
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.InnerFilter().ToBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
 	})
 
 	t.Run("Reorg spanning multiple aggregation range", func(t *testing.T) {
 		testDB := memory.New()
-		rf := populateRunningFilter(t, testDB, 2*core.AggregateBloomBlockRangeLen-1)
-		require.Equal(t, 2*core.AggregateBloomBlockRangeLen, rf.NextBlock())
-		require.Equal(t, 2*core.AggregateBloomBlockRangeLen, rf.InnerFilter().FromBlock())
-		require.Equal(t, 3*core.AggregateBloomBlockRangeLen-1, rf.InnerFilter().ToBlock())
+		rf := populateRunningFilter(t, testDB, 2*core.NumBlocksPerFilter-1)
+		require.Equal(t, 2*core.NumBlocksPerFilter, rf.NextBlock())
+		require.Equal(t, 2*core.NumBlocksPerFilter, rf.InnerFilter().FromBlock())
+		require.Equal(t, 3*core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 
-		for range core.AggregateBloomBlockRangeLen + 1 {
+		for range core.NumBlocksPerFilter + 1 {
 			require.NoError(t, rf.OnReorg())
 		}
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.NextBlock())
-		require.Equal(t, core.AggregateBloomBlockRangeLen-1, rf.InnerFilter().ToBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.NextBlock())
+		require.Equal(t, core.NumBlocksPerFilter-1, rf.InnerFilter().ToBlock())
 		require.Equal(t, uint64(0), rf.InnerFilter().FromBlock())
 	})
 }
 
 func TestMarshalling(t *testing.T) {
 	testDB := memory.New()
-	filter := core.NewAggregatedFilter(core.AggregateBloomBlockRangeLen)
-	rf := core.NewRunningEventFilterHot(testDB, &filter, core.AggregateBloomBlockRangeLen)
-	err := rf.Insert(testBloomWithRandomKeys(t, 1), core.AggregateBloomBlockRangeLen)
+	filter := core.NewAggregatedFilter(core.NumBlocksPerFilter)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, core.NumBlocksPerFilter)
+	err := rf.Insert(testBloomWithRandomKeys(t, 1), core.NumBlocksPerFilter)
 	require.NoError(t, err)
 
 	rfBytes, err := encoder.Marshal(rf)

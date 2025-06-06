@@ -104,7 +104,7 @@ func (f *RunningEventFilter) BlocksForKeys(keys [][]byte) *bitset.BitSet {
 	return f.inner.BlocksForKeys(keys)
 }
 
-// BlocksForKeysInto reuses a preallocated bitset (should be AggregateBloomBlockRangeLen bits).
+// BlocksForKeysInto reuses a preallocated bitset (should be NumBlocksPerFilter bits).
 func (f *RunningEventFilter) BlocksForKeysInto(keys [][]byte, out *bitset.BitSet) error {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -191,8 +191,8 @@ func (f *RunningEventFilter) OnReorg() error {
 	curBlock := f.next - 1
 	// Falls into previous filters range
 	if curBlock == currRangeStart-1 {
-		rangeStartAlligned := curBlock - (curBlock % AggregateBloomBlockRangeLen)
-		rangeEndAlligned := rangeStartAlligned + AggregateBloomBlockRangeLen - 1
+		rangeStartAlligned := curBlock - (curBlock % NumBlocksPerFilter)
+		rangeEndAlligned := rangeStartAlligned + NumBlocksPerFilter - 1
 
 		lastStoredFilter, err := GetAggregatedBloomFilter(f.txn, rangeStartAlligned, rangeEndAlligned)
 		if err != nil {
@@ -262,8 +262,8 @@ func loadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 // latest stored filter window and sequentially adds missing block filters up to the
 // blockchain's current height.
 func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEventFilter, error) {
-	rangeStartAlligned := int64(latest - (latest % AggregateBloomBlockRangeLen))
-	lastStoredFilterRangeEnd := latest - (latest % AggregateBloomBlockRangeLen) + AggregateBloomBlockRangeLen - 1
+	rangeStartAlligned := int64(latest - (latest % NumBlocksPerFilter))
+	lastStoredFilterRangeEnd := latest - (latest % NumBlocksPerFilter) + NumBlocksPerFilter - 1
 
 	for rangeStartAlligned >= 0 {
 		_, err := GetAggregatedBloomFilter(txn, uint64(rangeStartAlligned), lastStoredFilterRangeEnd)
@@ -273,8 +273,8 @@ func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEve
 
 		/// Check previous range
 		if errors.Is(err, db.ErrKeyNotFound) {
-			rangeStartAlligned -= int64(AggregateBloomBlockRangeLen)
-			lastStoredFilterRangeEnd -= AggregateBloomBlockRangeLen
+			rangeStartAlligned -= int64(NumBlocksPerFilter)
+			lastStoredFilterRangeEnd -= NumBlocksPerFilter
 			continue
 		}
 
