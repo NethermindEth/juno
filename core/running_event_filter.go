@@ -205,8 +205,8 @@ func (f *RunningEventFilter) OnReorg() error {
 	return f.inner.clear(curBlock)
 }
 
-// Persist writes the current state of the RunningEventFilter to persistent storage.
-func (f *RunningEventFilter) Persist() error {
+// Write writes the current state of the RunningEventFilter to persistent storage.
+func (f *RunningEventFilter) Write() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

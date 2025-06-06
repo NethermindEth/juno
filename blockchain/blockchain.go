@@ -678,6 +678,6 @@ func (b *Blockchain) StoreGenesis(
 	return b.runningFilter.Insert(block.EventsBloom, block.Number)
 }
 
-func (b *Blockchain) PersistRunningEventFilter() error {
-	return b.runningFilter.Persist()
+func (b *Blockchain) WriteRunningEventFilter() error {
+	return b.runningFilter.Write()
 }
