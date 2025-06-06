@@ -25,10 +25,6 @@ func newBlockchain(commits chan commit, nodeAddr *starknet.Address) *blockchain 
 	}
 }
 
-func (b *blockchain) Height() types.Height {
-	return b.height
-}
-
 func (b *blockchain) Commit(height types.Height, value starknet.Value) {
 	b.height = max(b.height, height)
 	b.commits <- commit{

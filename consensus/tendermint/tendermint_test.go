@@ -29,27 +29,6 @@ func (a *app) Valid(v starknet.Value) bool {
 	return v < 100
 }
 
-// Implements Blockchain[value, felt.Felt] interface
-type chain struct {
-	curHeight types.Height
-	decision  map[types.Height]starknet.Value
-}
-
-func newChain() *chain {
-	return &chain{
-		decision: make(map[types.Height]starknet.Value),
-	}
-}
-
-func (c *chain) Height() types.Height {
-	return c.curHeight
-}
-
-func (c *chain) Commit(h types.Height, v starknet.Value) {
-	c.decision[c.curHeight] = v
-	c.curHeight++
-}
-
 // Implements Validators[felt.Felt] interface
 type validators struct {
 	totalVotingPower types.VotingPower
@@ -86,7 +65,7 @@ func setupStateMachine(
 	numValidators, thisValidator int, //nolint:unparam // This is because in all current tests numValidators is always 4.
 ) *testStateMachine {
 	t.Helper()
-	app, chain, vals := newApp(), newChain(), newVals()
+	app, vals := newApp(), newVals()
 
 	for i := range numValidators {
 		vals.addValidator(*getVal(i))
@@ -99,7 +78,7 @@ func setupStateMachine(
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
 	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, chain, vals).(*testStateMachine)
+	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
 }
 
 func TestThresholds(t *testing.T) {
