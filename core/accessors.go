@@ -530,17 +530,17 @@ func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitme
 	return val, nil
 }
 
-func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (*AggregatedBloomFilter, error) {
+func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
 	var filter AggregatedBloomFilter
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
 		err := encoder.Unmarshal(data, &filter)
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return AggregatedBloomFilter{}, err
 	}
 
-	return &filter, nil
+	return filter, nil
 }
 
 func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
