@@ -30,6 +30,8 @@ type EventFilter struct {
 	matcher        EventMatcher
 	maxScanned     uint // maximum number of scanned blocks in single call.
 	pendingBlockFn func() *core.Block
+	cachedFilters  *AggregatedBloomFilterCache
+	runningFilter  *core.RunningEventFilter
 }
 
 type EventFilterRange uint
@@ -39,8 +41,14 @@ const (
 	EventFilterTo
 )
 
-func newEventFilter(txn db.KeyValueStore, contractAddress *felt.Felt, keys [][]felt.Felt, fromBlock, toBlock uint64,
+func newEventFilter(
+	txn db.KeyValueStore,
+	contractAddress *felt.Felt,
+	keys [][]felt.Felt,
+	fromBlock, toBlock uint64,
 	pendingBlockFn func() *core.Block,
+	cachedFilters *AggregatedBloomFilterCache,
+	runningFilter *core.RunningEventFilter,
 ) *EventFilter {
 	return &EventFilter{
 		txn:            txn,
@@ -49,6 +57,8 @@ func newEventFilter(txn db.KeyValueStore, contractAddress *felt.Felt, keys [][]f
 		toBlock:        toBlock,
 		maxScanned:     math.MaxUint,
 		pendingBlockFn: pendingBlockFn,
+		cachedFilters:  cachedFilters,
+		runningFilter:  runningFilter,
 	}
 }
 
@@ -106,23 +116,15 @@ type FilteredEvent struct {
 	EventIndex      int
 }
 
-//nolint:gocyclo
 func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
+
 	latest, err := core.GetChainHeight(e.txn)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	var pending *core.Block
-	if e.toBlock > latest {
-		e.toBlock = latest + 1
-
-		pending = e.pendingBlockFn()
-		if pending == nil {
-			e.toBlock = latest
-		}
-	}
+	e.toBlock = min(e.toBlock, latest+1)
 
 	var skippedEvents uint64
 	curBlock := e.fromBlock
@@ -132,42 +134,106 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		curBlock = cToken.fromBlock
 	}
 
-	var (
-		remainingScannedBlocks = e.maxScanned
-		rToken                 *ContinuationToken
-	)
-	for ; curBlock <= e.toBlock && remainingScannedBlocks > 0; curBlock, remainingScannedBlocks = curBlock+1, remainingScannedBlocks-1 {
-		var header *core.Header
-		if curBlock != latest+1 {
-			header, err = core.GetBlockHeaderByNumber(e.txn, curBlock)
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			header = pending.Header
+	// only canonical blocks
+	if e.toBlock <= latest {
+		return e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
+	}
+
+	var rToken *ContinuationToken
+	// [canonicalBlock, pending]
+	if curBlock <= latest {
+		matchedEvents, rToken, err = e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
+		if err != nil {
+			return nil, nil, err
 		}
 
-		if possibleMatches := e.matcher.TestBloom(header.EventsBloom); !possibleMatches {
-			// bloom filter says no events match the filter, skip this block entirely if from is not nil
-			continue
+		if rToken != nil {
+			return matchedEvents, rToken, nil
+		}
+		// Skipped events are processed, so we can reset the counter
+		skippedEvents = 0
+	}
+
+	// Case [canonicalBlock, pending] || [pending, pending]
+	pending := e.pendingBlockFn()
+	if pending == nil {
+		return matchedEvents, nil, nil
+	}
+
+	header := pending.Header
+	if possibleMatches := e.matcher.TestBloom(header.EventsBloom); !possibleMatches {
+		return matchedEvents, nil, nil
+	}
+
+	var processedEvents uint64
+	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, pending.Receipts, skippedEvents, chunkSize)
+	if err != nil {
+		// Max events to scan exhausted middle of pending block, continue from next unprocessed event
+		if errors.Is(err, errChunkSizeReached) {
+			rToken := &ContinuationToken{fromBlock: latest + 1, processedEvents: processedEvents}
+			return matchedEvents, rToken, nil
+		}
+		return nil, nil, err
+	}
+
+	return matchedEvents, nil, nil
+}
+
+func (e *EventFilter) canonicalEvents(
+	matchedEvents []*FilteredEvent,
+	fromBlock, toBlock, skippedEvents, chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
+	matchedBlockIter, err := e.cachedFilters.NewMatchedBlockIterator(
+		fromBlock,
+		toBlock,
+		uint64(e.maxScanned),
+		&e.matcher,
+		e.runningFilter,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var (
+		rToken              *ContinuationToken
+		lastProccessedBlock uint64
+	)
+	for {
+		curBlock, ok, err := matchedBlockIter.Next()
+		if !ok {
+			if err == nil {
+				break
+			}
+			// If max scans exhausted end of block
+			if errors.Is(err, ErrMaxScannedBlockLimitExceed) {
+				// Next candidate block for continuation token
+				lastProccessedBlock = curBlock
+				break
+			}
+			return nil, nil, err
+		}
+
+		lastProccessedBlock = curBlock
+
+		var header *core.Header
+		header, err = core.GetBlockHeaderByNumber(e.txn, curBlock)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		var receipts []*core.TransactionReceipt
-		if curBlock != latest+1 {
-			receipts, err = core.GetReceiptsByBlockNum(e.txn, header.Number)
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			receipts = pending.Receipts
+		receipts, err = core.GetReceiptsByBlockNum(e.txn, header.Number)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		var processedEvents uint64
 		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, receipts, skippedEvents, chunkSize)
 		if err != nil {
+			// Max events to scan exhausted mid block, continue from next unprocessed event
 			if errors.Is(err, errChunkSizeReached) {
 				rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: processedEvents}
-				break
+				return matchedEvents, rToken, nil
 			}
 			return nil, nil, err
 		}
@@ -176,8 +242,11 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 		skippedEvents = 0
 	}
 
-	if rToken == nil && remainingScannedBlocks == 0 && curBlock <= e.toBlock {
-		rToken = &ContinuationToken{fromBlock: curBlock, processedEvents: 0}
+	// If max scans exhausted end of block
+	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned && lastProccessedBlock <= e.toBlock {
+		rToken = &ContinuationToken{fromBlock: lastProccessedBlock, processedEvents: 0}
+		return matchedEvents, rToken, nil
 	}
-	return matchedEvents, rToken, nil
+
+	return matchedEvents, nil, nil
 }

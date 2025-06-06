@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/bits-and-blooms/bloom/v3"
 )
 
@@ -90,6 +91,53 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 	}
 
 	return possibleMatches
+}
+
+// Returns candidate possibly matching block in the given filter.
+func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBloomFilter, out *bitset.BitSet) error {
+	if out == nil {
+		return core.ErrMatchesBufferNil
+	}
+
+	if out.Len() != uint(core.NumBlocksPerFilter) {
+		return core.ErrMatchesBufferSizeMismatch
+	}
+
+	out.SetAll()
+
+	innerMatch := bitset.New(uint(core.NumBlocksPerFilter))
+	if e.contractAddress != nil {
+		addrBytes := e.contractAddress.Bytes()
+		if err := filter.BlocksForKeysInto([][]byte{addrBytes[:]}, innerMatch); err != nil {
+			return err
+		}
+
+		out.InPlaceIntersection(innerMatch)
+
+		if out.None() {
+			return nil
+		}
+	}
+
+	for index, kMap := range e.keysMap {
+		keys := make([][]byte, 0, len(kMap))
+		for key := range kMap {
+			keyBytes := key.Bytes()
+			keyAndIndex := binary.AppendVarint(keyBytes[:], int64(index))
+			keys = append(keys, keyAndIndex)
+		}
+
+		if err := filter.BlocksForKeysInto(keys, innerMatch); err != nil {
+			return err
+		}
+
+		out.InPlaceIntersection(innerMatch)
+		if out.None() {
+			return nil
+		}
+	}
+
+	return nil
 }
 
 func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
