@@ -212,7 +212,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	cache.SetMany(filters)
 
 	testDB := memory.New()
-	var maxScannedLimit uint = 0
+	var maxScannedLimit uint64 = 0
 	eventMatcher := blockchain.NewEventMatcher(test.contractAddress, test.keys)
 	innerFilter := core.NewAggregatedFilter(chainHeight + 1)
 	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, chainHeight+1)
@@ -250,7 +250,7 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		}
 	})
 	t.Run("maxScanned stops early", func(t *testing.T) {
-		maxScannedLimit = 10_000
+		maxScannedLimit = uint64(10_000)
 		// Create filter for event
 		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, maxScannedLimit, &eventMatcher, runningFilter)
 		require.NoError(t, err)

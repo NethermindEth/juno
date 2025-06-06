@@ -186,7 +186,7 @@ func (e *EventFilter) canonicalEvents(
 	matchedBlockIter, err := e.cachedFilters.NewMatchedBlockIterator(
 		fromBlock,
 		toBlock,
-		e.maxScanned,
+		uint64(e.maxScanned),
 		&e.matcher,
 		e.runningFilter,
 	)
