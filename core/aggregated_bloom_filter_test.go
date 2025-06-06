@@ -126,7 +126,7 @@ func TestAggregatedBloomFilter_Copy(t *testing.T) {
 	b.Add(key)
 	require.NoError(t, filter.Insert(b, 0))
 	cp := filter.Copy()
-	require.NotSame(t, filter, cp)
+	require.NotSame(t, &filter, &cp)
 	require.Equal(t, filter, cp)
 	// Mutate copy: shouldn't change origin
 	require.NoError(t, cp.Insert(b, 1))
@@ -146,5 +146,5 @@ func TestAggregatedBloomFilter_Serialise(t *testing.T) {
 
 	filter2 := &core.AggregatedBloomFilter{}
 	require.NoError(t, filter2.UnmarshalBinary(data))
-	require.Equal(t, filter, filter2)
+	require.Equal(t, filter, *filter2)
 }

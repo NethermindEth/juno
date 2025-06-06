@@ -83,7 +83,8 @@ func (f *RunningEventFilter) Insert(
 		if err != nil {
 			return err
 		}
-		f.inner = NewAggregatedFilter(blockNumber + 1)
+		filter := NewAggregatedFilter(blockNumber + 1)
+		f.inner = &filter
 	}
 
 	f.next = blockNumber + 1
@@ -161,7 +162,8 @@ func (f *RunningEventFilter) Clone() *RunningEventFilter {
 		panic(fmt.Sprintf("Couldn't initialised the running event filter. Error: %v", err))
 	}
 
-	return NewRunningEventFilterHot(f.txn, f.inner.Copy(), f.next)
+	innerCopy := f.inner.Copy()
+	return NewRunningEventFilterHot(f.txn, &innerCopy, f.next)
 }
 
 // InnerFilter returns a deep copy of the current AggregatedBloomFilter window.
@@ -226,30 +228,31 @@ func loadRunningEventFilter(txn db.KeyValueStore) (*RunningEventFilter, error) {
 			filter := NewAggregatedFilter(0)
 			return NewRunningEventFilterHot(
 				txn,
-				filter,
+				&filter,
 				0,
 			), nil
 		}
 		return nil, err
 	}
 
-	filter, err := GetRunningEventFilter(txn)
+	rf, err := GetRunningEventFilter(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
+			filter := NewAggregatedFilter(0)
 			// for case where node crashed and didnt gracefully persist the filter for block range  (genesis, aggregated filter range)
-			filter = NewRunningEventFilterHot(
+			rf = NewRunningEventFilterHot(
 				txn,
-				NewAggregatedFilter(0),
+				&filter,
 				0,
 			)
 		} else {
 			return nil, err
 		}
 	}
-	filter.txn = txn
+	rf.txn = txn
 
-	if filter.next == latest+1 {
-		return filter, nil
+	if rf.next == latest+1 {
+		return rf, nil
 	}
 
 	return rebuildRunningEventFilter(txn, latest)
@@ -279,8 +282,8 @@ func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEve
 	}
 
 	continueFrom := lastStoredFilterRangeEnd + 1
-
-	runningFilter := NewRunningEventFilterHot(txn, NewAggregatedFilter(continueFrom), continueFrom)
+	filter := NewAggregatedFilter(continueFrom)
+	runningFilter := NewRunningEventFilterHot(txn, &filter, continueFrom)
 	if lastStoredFilterRangeEnd == latest {
 		return runningFilter, nil
 	}

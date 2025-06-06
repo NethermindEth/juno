@@ -40,7 +40,7 @@ func testBloomWithKeys(t *testing.T, keys [][]byte) *bloom.BloomFilter {
 func populateRunningFilter(t *testing.T, db db.KeyValueStore, toBlock uint64) *core.RunningEventFilter {
 	t.Helper()
 	filter := core.NewAggregatedFilter(0)
-	rf := core.NewRunningEventFilterHot(db, filter, 0)
+	rf := core.NewRunningEventFilterHot(db, &filter, 0)
 	for i := range toBlock + 1 {
 		require.NoError(t, rf.Insert(testBloomWithRandomKeys(t, 3), i))
 	}
@@ -50,7 +50,7 @@ func populateRunningFilter(t *testing.T, db db.KeyValueStore, toBlock uint64) *c
 func TestRunningEventFilter_HotInitialization(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
-	f := core.NewRunningEventFilterHot(testDB, filter, 0)
+	f := core.NewRunningEventFilterHot(testDB, &filter, 0)
 	require.Equal(t, uint64(0), f.FromBlock())
 	require.Equal(t, filter.ToBlock(), f.ToBlock())
 	require.Equal(t, uint64(0), f.NextBlock())
@@ -108,7 +108,7 @@ func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
-	rf := core.NewRunningEventFilterHot(testDB, filter, 0)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, 0)
 	for block := uint64(0); block <= filter.ToBlock(); block++ {
 		err := rf.Insert(testBloomWithRandomKeys(t, 1), block)
 		require.NoError(t, err)
@@ -117,14 +117,14 @@ func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 
 	fetchedFilter, err := core.GetAggregatedBloomFilter(testDB, filter.FromBlock(), filter.ToBlock())
 	require.NoError(t, err)
-	require.Equal(t, filter, fetchedFilter)
+	require.Equal(t, filter, *fetchedFilter)
 }
 
 func TestRunningEventFilter_BlocksForKeys(t *testing.T) {
 	keys := [][]byte{{0x1}, {0x2}}
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
-	rf := core.NewRunningEventFilterHot(testDB, filter, 0)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, 0)
 	// Add bloom with event for block 0
 	bloom := testBloomWithKeys(t, keys)
 	require.NoError(t, rf.Insert(bloom, 0))
@@ -136,7 +136,7 @@ func TestRunningEventFilter_BlocksForKeysInto(t *testing.T) {
 	keys := [][]byte{{0x1}, {0x2}}
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
-	rf := core.NewRunningEventFilterHot(testDB, filter, 0)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, 0)
 	// Add bloom with event for block 0
 	bloom := testBloomWithKeys(t, keys)
 	require.NoError(t, rf.Insert(bloom, 0))
@@ -149,7 +149,7 @@ func TestRunningEventFilter_Clone(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(0)
 	require.NoError(t, filter.Insert(testBloomWithRandomKeys(t, 5), 0))
-	rf := core.NewRunningEventFilterHot(testDB, filter, 0)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, 0)
 	clone := rf.Clone()
 	require.NotSame(t, rf, clone)
 	require.NotSame(t, rf.InnerFilter(), clone.InnerFilter())
@@ -197,7 +197,7 @@ func TestRunningEventFilter_Reorg(t *testing.T) {
 func TestMarshalling(t *testing.T) {
 	testDB := memory.New()
 	filter := core.NewAggregatedFilter(core.AggregateBloomBlockRangeLen)
-	rf := core.NewRunningEventFilterHot(testDB, filter, core.AggregateBloomBlockRangeLen)
+	rf := core.NewRunningEventFilterHot(testDB, &filter, core.AggregateBloomBlockRangeLen)
 	err := rf.Insert(testBloomWithRandomKeys(t, 1), core.AggregateBloomBlockRangeLen)
 	require.NoError(t, err)
 
