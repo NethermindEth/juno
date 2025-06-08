@@ -1,6 +1,10 @@
 package state
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"fmt"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
 
 const (
 	// DefaultMaxLayers is the default maximum number of layers to keep in the cache
@@ -26,7 +30,7 @@ func newStateCache() *stateCache {
 	}
 }
 
-func (c *stateCache) AddLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache) {
+func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache) {
 	if len(c.links) == 0 {
 		c.oldestRoot = *stateRoot
 	}
@@ -34,10 +38,6 @@ func (c *stateCache) AddLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache)
 	c.diffs[*stateRoot] = diff
 	c.links[*stateRoot] = *parentRoot
 
-	c.evictOldLayers()
-}
-
-func (c *stateCache) evictOldLayers() {
 	for len(c.links) > DefaultMaxLayers {
 		// Find the child of the current oldest root
 		var nextOldest felt.Felt
@@ -53,6 +53,23 @@ func (c *stateCache) evictOldLayers() {
 
 		c.oldestRoot = nextOldest
 	}
+}
+
+func (c *stateCache) PopLayer(stateRoot *felt.Felt) error {
+	if _, exists := c.diffs[*stateRoot]; !exists {
+		return fmt.Errorf("layer with state root %v not found", stateRoot)
+	}
+
+	for _, parent := range c.links {
+		if parent.Equal(stateRoot) {
+			return fmt.Errorf("cannot pop layer %v: it is not the newest layer", stateRoot)
+		}
+	}
+
+	delete(c.diffs, *stateRoot)
+	delete(c.links, *stateRoot)
+
+	return nil
 }
 
 func (c *stateCache) getNonce(stateRoot, addr *felt.Felt) *felt.Felt {
@@ -75,31 +92,34 @@ func (c *stateCache) getNonce(stateRoot, addr *felt.Felt) *felt.Felt {
 	return nil
 }
 
-func (c *stateCache) getStorageDiff(stateRoot, addr *felt.Felt) map[felt.Felt]*felt.Felt {
+func (c *stateCache) getStorageDiff(stateRoot, addr, key *felt.Felt) *felt.Felt {
 	diff, exists := c.diffs[*stateRoot]
 	if !exists {
 		if parent, ok := c.links[*stateRoot]; ok {
-			return c.getStorageDiff(&parent, addr)
+			return c.getStorageDiff(&parent, addr, key)
 		}
 		return nil
 	}
 
 	if storage, ok := diff.storageDiffs[*addr]; ok {
-		return storage
+		if value, ok := storage[*key]; ok {
+			return value
+		}
+		return nil
 	}
 
 	if parent, ok := c.links[*stateRoot]; ok {
-		return c.getStorageDiff(&parent, addr)
+		return c.getStorageDiff(&parent, addr, key)
 	}
 
 	return nil
 }
 
-func (c *stateCache) getDeployedContract(stateRoot, addr *felt.Felt) *felt.Felt {
+func (c *stateCache) getReplacedClass(stateRoot, addr *felt.Felt) *felt.Felt {
 	diff, exists := c.diffs[*stateRoot]
 	if !exists {
 		if parent, ok := c.links[*stateRoot]; ok {
-			return c.getDeployedContract(&parent, addr)
+			return c.getReplacedClass(&parent, addr)
 		}
 		return nil
 	}
@@ -109,7 +129,7 @@ func (c *stateCache) getDeployedContract(stateRoot, addr *felt.Felt) *felt.Felt 
 	}
 
 	if parent, ok := c.links[*stateRoot]; ok {
-		return c.getDeployedContract(&parent, addr)
+		return c.getReplacedClass(&parent, addr)
 	}
 
 	return nil

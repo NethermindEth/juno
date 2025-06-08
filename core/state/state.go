@@ -83,7 +83,7 @@ func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
 }
 
 func (s *State) ContractClassHash(addr felt.Felt) (felt.Felt, error) {
-	if classHash := s.db.stateCache.getDeployedContract(&s.initRoot, &addr); classHash != nil {
+	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, &addr); classHash != nil {
 		return *classHash, nil
 	}
 
@@ -107,6 +107,10 @@ func (s *State) ContractNonce(addr felt.Felt) (felt.Felt, error) {
 }
 
 func (s *State) ContractStorage(addr, key felt.Felt) (felt.Felt, error) {
+	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, &addr, &key); storage != nil {
+		return *storage, nil
+	}
+
 	obj, err := s.getStateObject(addr)
 	if err != nil {
 		return felt.Felt{}, err
@@ -211,14 +215,11 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
 	}
 
-	// Create a new diff cache for this state update
-	diff := &diffCache{
+	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
 		storageDiffs:      update.StateDiff.StorageDiffs,
 		nonces:            update.StateDiff.Nonces,
-		deployedContracts: update.StateDiff.DeployedContracts,
-	}
-
-	s.db.stateCache.AddLayer(&newComm, &stateUpdate.prevComm, diff)
+		deployedContracts: update.StateDiff.ReplacedClasses,
+	})
 
 	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
 		return err
@@ -228,6 +229,8 @@ func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasse
 }
 
 // Revert a given state update. The block number is the block number of the state update.
+//
+//nolint:gocyclo
 func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	// Ensure the current root is the same as the new root
 	if err := s.verifyComm(update.NewRoot); err != nil {
@@ -288,6 +291,10 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	}
 
 	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+		return err
+	}
+
+	if err := s.db.stateCache.PopLayer(update.NewRoot); err != nil {
 		return err
 	}
 

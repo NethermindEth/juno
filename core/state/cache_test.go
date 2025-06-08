@@ -38,12 +38,12 @@ func TestStateCache(t *testing.T) {
 			},
 		}
 
-		cache.AddLayer(root, parent, diff)
+		cache.PushLayer(root, parent, diff)
 
 		// Test retrieving data
 		assert.Equal(t, nonce, cache.getNonce(root, addr))
-		assert.Equal(t, storageValue, cache.getStorageDiff(root, addr)[*storageKey])
-		assert.Equal(t, classHash, cache.getDeployedContract(root, addr))
+		assert.Equal(t, storageValue, cache.getStorageDiff(root, addr, storageKey))
+		assert.Equal(t, classHash, cache.getReplacedClass(root, addr))
 	})
 
 	t.Run("layer eviction", func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestStateCache(t *testing.T) {
 					*new(felt.Felt).SetUint64(uint64(i + 100)): new(felt.Felt).SetUint64(uint64(i + 1)),
 				},
 			}
-			cache.AddLayer(root, parent, diff)
+			cache.PushLayer(root, parent, diff)
 			parent = root
 		}
 
@@ -98,9 +98,9 @@ func TestStateCache(t *testing.T) {
 		}
 		diff3 := &diffCache{}
 
-		cache.AddLayer(root1, &felt.Zero, diff1)
-		cache.AddLayer(root2, root1, diff2)
-		cache.AddLayer(root3, root2, diff3)
+		cache.PushLayer(root1, &felt.Zero, diff1)
+		cache.PushLayer(root2, root1, diff2)
+		cache.PushLayer(root3, root2, diff3)
 
 		// Test that we can traverse up the chain to find values
 		assert.Equal(t, nonce2, cache.getNonce(root3, addr)) // Should find in root2
@@ -114,7 +114,7 @@ func TestStateCache(t *testing.T) {
 		addr := new(felt.Felt).SetUint64(100)
 
 		assert.Nil(t, cache.getNonce(root, addr))
-		assert.Nil(t, cache.getStorageDiff(root, addr))
-		assert.Nil(t, cache.getDeployedContract(root, addr))
+		assert.Nil(t, cache.getStorageDiff(root, addr, new(felt.Felt).SetUint64(1)))
+		assert.Nil(t, cache.getReplacedClass(root, addr))
 	})
 }
