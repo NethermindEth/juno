@@ -18,7 +18,7 @@ height and round.
 There is no need to check decision_p[h_p] = nil since it is implied that decision are made
 sequentially, i.e. x, x+1, x+2... .
 */
-func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V]) uponCommitValue(cachedProposal *CachedProposal[V]) bool {
 	_, hasQuorum := t.checkForQuorumPrecommit(cachedProposal.Round, *cachedProposal.ID)
 
 	// This is checked here instead of inside execution, because it's the only case in execution in this rule
@@ -28,7 +28,7 @@ func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 	return hasQuorum && isValid
 }
 
-func (t *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (t *stateMachine[V]) doCommitValue(cachedProposal *CachedProposal[V]) types.Action[V] {
 	if err := t.db.Flush(); err != nil {
 		t.log.Fatalf("failed to flush WAL during commit", "height", cachedProposal.Height, "round", cachedProposal.Round, "err", err)
 	}

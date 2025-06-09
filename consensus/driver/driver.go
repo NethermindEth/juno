@@ -12,15 +12,15 @@ import (
 
 type timeoutFn func(step types.Step, round types.Round) time.Duration
 
-type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+type Driver[V types.Hashable] struct {
 	db db.KeyValueStore
 
-	stateMachine tendermint.StateMachine[V, H, A]
+	stateMachine tendermint.StateMachine[V]
 
 	getTimeout timeoutFn
 
-	listeners    p2p.Listeners[V, H, A]
-	broadcasters p2p.Broadcasters[V, H, A]
+	listeners    p2p.Listeners[V]
+	broadcasters p2p.Broadcasters[V]
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
@@ -29,14 +29,14 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	quit chan struct{}
 }
 
-func New[V types.Hashable[H], H types.Hash, A types.Addr](
+func New[V types.Hashable](
 	db db.KeyValueStore,
-	stateMachine tendermint.StateMachine[V, H, A],
-	listeners p2p.Listeners[V, H, A],
-	broadcasters p2p.Broadcasters[V, H, A],
+	stateMachine tendermint.StateMachine[V],
+	listeners p2p.Listeners[V],
+	broadcasters p2p.Broadcasters[V],
 	getTimeout timeoutFn,
-) *Driver[V, H, A] {
-	return &Driver[V, H, A]{
+) *Driver[V] {
+	return &Driver[V]{
 		db:           db,
 		stateMachine: stateMachine,
 		getTimeout:   getTimeout,
@@ -53,7 +53,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 // these messages and returns a set of actions to be executed by the Driver.
 // The Driver executes these actions (namely broadcasting messages
 // and triggering scheduled timeouts).
-func (d *Driver[V, H, A]) Start() {
+func (d *Driver[V]) Start() {
 	d.stateMachine.ReplayWAL()
 
 	d.wg.Add(1)
@@ -86,7 +86,7 @@ func (d *Driver[V, H, A]) Start() {
 	}()
 }
 
-func (d *Driver[V, H, A]) Stop() {
+func (d *Driver[V]) Stop() {
 	close(d.quit)
 	d.wg.Wait()
 	for _, tm := range d.scheduledTms {
@@ -94,15 +94,15 @@ func (d *Driver[V, H, A]) Stop() {
 	}
 }
 
-func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
+func (d *Driver[V]) execute(actions []types.Action[V]) {
 	for _, action := range actions {
 		switch action := action.(type) {
-		case *types.BroadcastProposal[V, H, A]:
-			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
-		case *types.BroadcastPrevote[H, A]:
-			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
-		case *types.BroadcastPrecommit[H, A]:
-			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
+		case *types.BroadcastProposal[V]:
+			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V](*action))
+		case *types.BroadcastPrevote:
+			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote(*action))
+		case *types.BroadcastPrecommit:
+			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit(*action))
 		case *types.ScheduleTimeout:
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
