@@ -155,8 +155,22 @@ func (d *Database) Update(
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	classNodes, _ := mergedClassNodes.Flatten()
-	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
+	var classNodes map[trieutils.Path]trienode.TrieNode
+	var contractNodes map[trieutils.Path]trienode.TrieNode
+	var contractStorageNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode
+
+	if mergedClassNodes != nil {
+		classNodes, _ = mergedClassNodes.Flatten()
+	} else {
+		classNodes = make(map[trieutils.Path]trienode.TrieNode)
+	}
+
+	if mergedContractNodes != nil {
+		contractNodes, contractStorageNodes = mergedContractNodes.Flatten()
+	} else {
+		contractNodes = make(map[trieutils.Path]trienode.TrieNode)
+		contractStorageNodes = make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+	}
 
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
@@ -216,7 +230,7 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 	if err != nil {
 		return nil, nil, err
 	}
-	classRootHash, contractRootHash, err := decodeTriesRoots(data)
+	classRootHash, contractRootHash, err := trienode.DecodeTriesRoots(data)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,15 +262,4 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 	}
 
 	return classRootNode, contractRootNode, nil
-}
-
-func decodeTriesRoots(val []byte) (felt.Felt, felt.Felt, error) {
-	var classRoot, contractRoot felt.Felt
-
-	if len(val) != 2*felt.Bytes {
-		return felt.Zero, felt.Zero, fmt.Errorf("invalid state hash value length")
-	}
-	classRoot.SetBytes(val[:felt.Bytes])
-	contractRoot.SetBytes(val[felt.Bytes:])
-	return classRoot, contractRoot, nil
 }
