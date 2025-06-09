@@ -44,9 +44,6 @@ func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
 // AggregatedBloomFilter is not found in the cache. The provided function must
 // return a filter matching the queried range, or an error.
 func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.fallbackFunc = fallback
 }
 
