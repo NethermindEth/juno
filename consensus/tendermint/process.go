@@ -65,73 +65,74 @@ func (t *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[
 	return nil
 }
 
-func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recentlyReceivedRound *types.Round) []types.Action[V, H, A] {
-	actions := []types.Action[V, H, A]{}
-	if action != nil {
-		actions = append(actions, action)
-	}
-
-	shouldContinue := t.process(&actions, recentlyReceivedRound)
-	for shouldContinue {
-		shouldContinue = t.process(&actions, recentlyReceivedRound)
-	}
-	return actions
-}
-
-func (t *stateMachine[V, H, A]) process( //nolint:gocyclo // simple repetitive logic
-	existingActions *[]types.Action[V, H, A],
+func (t *stateMachine[V, H, A]) processLoop( //nolint:gocyclo
+	initialAction types.Action[V, H, A],
 	recentlyReceivedRound *types.Round,
-) bool {
-	cachedProposal := t.findProposal(t.state.round)
-
-	var roundCachedProposal *CachedProposal[V, H, A]
-	if recentlyReceivedRound != nil {
-		roundCachedProposal = t.findProposal(*recentlyReceivedRound)
+) []types.Action[V, H, A] {
+	actions := []types.Action[V, H, A]{}
+	if initialAction != nil {
+		actions = append(actions, initialAction)
 	}
 
-	var actions []types.Action[V, H, A]
-	switch {
-	// Line 22
-	case cachedProposal != nil && t.uponFirstProposal(cachedProposal):
-		actions = append(actions, t.doFirstProposal(cachedProposal))
+	// Process all rules until we can take no more actions
+	for {
+		cachedProposal := t.findProposal(t.state.round)
 
-	// Line 28
-	case cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal):
-		actions = append(actions, t.doProposalAndPolkaPrevious(cachedProposal))
+		var roundCachedProposal *CachedProposal[V, H, A]
+		if recentlyReceivedRound != nil {
+			roundCachedProposal = t.findProposal(*recentlyReceivedRound)
+		}
+		switch {
+		// Line 22
+		case cachedProposal != nil && t.uponFirstProposal(cachedProposal):
+			if action := t.doFirstProposal(cachedProposal); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 34
-	case t.uponPolkaAny():
-		actions = append(actions, t.doPolkaAny())
+		// Line 28
+		case cachedProposal != nil && t.uponProposalAndPolkaPrevious(cachedProposal):
+			if action := t.doProposalAndPolkaPrevious(cachedProposal); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 36
-	case cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal):
-		actions = append(actions, t.doProposalAndPolkaCurrent(cachedProposal))
+		// Line 34
+		case t.uponPolkaAny():
+			if action := t.doPolkaAny(); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 44
-	case t.uponPolkaNil():
-		actions = append(actions, t.doPolkaNil())
+		// Line 36
+		case cachedProposal != nil && t.uponProposalAndPolkaCurrent(cachedProposal):
+			if action := t.doProposalAndPolkaCurrent(cachedProposal); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 47
-	case t.uponPrecommitAny():
-		actions = append(actions, t.doPrecommitAny())
+		// Line 44
+		case t.uponPolkaNil():
+			if action := t.doPolkaNil(); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 49
-	case roundCachedProposal != nil && t.uponCommitValue(roundCachedProposal):
-		actions = append(actions, t.doCommitValue(), (*types.Commit[V, H, A])(&roundCachedProposal.Proposal))
+		// Line 47
+		case t.uponPrecommitAny():
+			if action := t.doPrecommitAny(); action != nil {
+				actions = append(actions, action)
+			}
 
-	// Line 55
-	case recentlyReceivedRound != nil && t.uponSkipRound(*recentlyReceivedRound):
-		actions = append(actions, t.doSkipRound(*recentlyReceivedRound))
+		// Line 49
+		case roundCachedProposal != nil && t.uponCommitValue(roundCachedProposal):
+			if action := t.doCommitValue(); action != nil {
+				actions = append(actions, action, (*types.Commit[V, H, A])(&roundCachedProposal.Proposal))
+			}
 
-	default:
-		return false
-	}
+		// Line 55
+		case recentlyReceivedRound != nil && t.uponSkipRound(*recentlyReceivedRound):
+			if action := t.doSkipRound(*recentlyReceivedRound); action != nil {
+				actions = append(actions, action)
+			}
 
-	for _, action := range actions {
-		if action != nil {
-			*existingActions = append(*existingActions, action)
+		default:
+			return actions
 		}
 	}
-
-	return true
 }
