@@ -162,7 +162,11 @@ func (s *State) Commitment() (felt.Felt, error) {
 // Applies a state update to a given state. If any error is encountered, state is not updated.
 // After a state update is applied, the root of the state must match the given new root in the state update.
 // TODO(weiihann): deal with flush atomicity
-func (s *State) Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.Class) error {
+func (s *State) Update(
+	blockNum uint64,
+	update *core.StateUpdate,
+	declaredClasses map[felt.Felt]core.Class,
+) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
 	}
