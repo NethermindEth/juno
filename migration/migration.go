@@ -817,12 +817,12 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 	for start := uint64(0); start < lastBlockToStore; start += windowLen {
 		// Capture loop vars
 		rangeStart := start
-		end := start + windowLen - 1
+		rangeEnd := start + windowLen - 1
 
 		workerPool.Go(func() error {
 			filter := core.NewAggregatedFilter(start)
 
-			for blockNum := rangeStart; blockNum <= end; blockNum++ {
+			for blockNum := rangeStart; blockNum <= rangeEnd; blockNum++ {
 				header, err := core.GetBlockHeaderByNumber(txn, blockNum)
 				if err != nil {
 					return fmt.Errorf("failed to load block header %d: %w", blockNum, err)
@@ -836,7 +836,7 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 			err := core.WriteAggregatedBloomFilter(txn, &filter)
 			writeMu.Unlock()
 			if err != nil {
-				return fmt.Errorf("failed to write aggregated bloom filter for blocks %d-%d: %w", start, end, err)
+				return fmt.Errorf("failed to write aggregated bloom filter for blocks %d-%d: %w", rangeStart, rangeEnd, err)
 			}
 
 			return nil
