@@ -34,6 +34,10 @@ func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache
 	if len(c.links) == 0 {
 		c.oldestRoot = *stateRoot
 	}
+	// if there was no change in the state, don't cache the diff
+	if stateRoot.Equal(parentRoot) {
+		return
+	}
 
 	c.diffs[*stateRoot] = diff
 	c.links[*stateRoot] = *parentRoot
@@ -55,7 +59,12 @@ func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache
 	}
 }
 
-func (c *stateCache) PopLayer(stateRoot *felt.Felt) error {
+func (c *stateCache) PopLayer(stateRoot, parentRoot *felt.Felt) error {
+	// if there was no change in the state, the layer is not cached
+	if stateRoot.Equal(parentRoot) {
+		return nil
+	}
+
 	if _, exists := c.diffs[*stateRoot]; !exists {
 		return fmt.Errorf("layer with state root %v not found", stateRoot)
 	}

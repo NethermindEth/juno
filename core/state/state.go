@@ -294,7 +294,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		return err
 	}
 
-	if err := s.db.stateCache.PopLayer(update.NewRoot); err != nil {
+	if err := s.db.stateCache.PopLayer(update.NewRoot, update.OldRoot); err != nil {
 		return err
 	}
 

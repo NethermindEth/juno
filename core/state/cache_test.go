@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStateCache(t *testing.T) {
@@ -116,5 +117,55 @@ func TestStateCache(t *testing.T) {
 		assert.Nil(t, cache.getNonce(root, addr))
 		assert.Nil(t, cache.getStorageDiff(root, addr, new(felt.Felt).SetUint64(1)))
 		assert.Nil(t, cache.getReplacedClass(root, addr))
+	})
+
+	t.Run("pop from empty cache", func(t *testing.T) {
+		cache := newStateCache()
+		root := new(felt.Felt).SetUint64(1)
+
+		err := cache.PopLayer(root, &felt.Zero)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "layer with state root")
+	})
+
+	t.Run("push and pop multiple layers with no changes", func(t *testing.T) {
+		cache := newStateCache()
+		parent := new(felt.Felt).SetUint64(0)
+
+		emptyDiff := &diffCache{
+			storageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+			nonces:            make(map[felt.Felt]*felt.Felt),
+			deployedContracts: make(map[felt.Felt]*felt.Felt),
+		}
+
+		var roots []*felt.Felt
+		for i := range 3 {
+			roots = append(roots, new(felt.Felt).SetUint64(uint64(1)))
+			if i == 0 {
+				cache.PushLayer(roots[i], parent, emptyDiff)
+			} else {
+				cache.PushLayer(roots[i], roots[i-1], emptyDiff)
+			}
+			assert.Equal(t, 1, len(cache.diffs))
+			assert.Equal(t, 1, len(cache.links))
+		}
+
+		var err error
+		for i := len(roots) - 1; i >= 0; i-- {
+			if i == 0 {
+				err = cache.PopLayer(roots[i], parent)
+				require.NoError(t, err)
+				assert.Equal(t, 0, len(cache.diffs))
+				assert.Equal(t, 0, len(cache.links))
+			} else {
+				err = cache.PopLayer(roots[i], roots[i-1])
+				assert.Equal(t, 1, len(cache.diffs))
+				assert.Equal(t, 1, len(cache.links))
+			}
+			require.NoError(t, err)
+		}
+
+		assert.Empty(t, cache.diffs)
+		assert.Empty(t, cache.links)
 	})
 }
