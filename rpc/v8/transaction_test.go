@@ -1870,9 +1870,6 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		CallData:      []*felt.Felt{},
 	}
 
-	txnHash, err := core.TransactionHash(txnToAdd, &network)
-	require.NoError(t, err)
-	txnToAdd.TransactionHash = txnHash
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
 
 	// transaction no† found in db and feeder but found in cache
@@ -1881,17 +1878,17 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
 			WithGateway(gw).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
-		/// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
-		_, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 
-		status, err := handler.TransactionStatus(ctx, *txnHash)
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
 	})
@@ -1901,19 +1898,18 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
 			WithGateway(gw).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
 		// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
-		_, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
-
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		// Expire cache entry
 		time.Sleep(cacheEntryTimeOut)
-		status, err := handler.TransactionStatus(ctx, *txnHash)
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Nil(t, status)
 	})
