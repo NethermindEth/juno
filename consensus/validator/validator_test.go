@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -18,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
+	"github.com/NethermindEth/juno/sequencer"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -39,8 +39,7 @@ var emptyCommitments = core.BlockCommitments{}
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
 // head without access to the state. To get around this, a custom chain was used
 // in these tests.
-func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
-	protocolVersion := semver.New(0, 13, 2, "", "")
+func getCustomBC(t *testing.T, seqAddr *felt.Felt) *builder.Builder {
 	t.Helper()
 
 	// transfer tokens to 0x101
@@ -87,20 +86,16 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Head
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(privKey, seqAddr, bc, vm.New(false, log), blockTime, p, log, false, testDB, *protocolVersion)
+	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	// We use the sequencer to build a non-empty blockchain
+	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
 	for i := range expectedExnsInBlock {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), expectedExnsInBlock[i])
 		require.Nil(t, rpcErr)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 10*blockTime)
-	defer cancel()
-	require.NoError(t, testBuilder.Run(ctx))
-
-	block, _, err := testBuilder.HeadBlockAndStateUpdate()
-	require.NoError(t, err)
-
-	return &testBuilder, block.Header
+	require.NoError(t, seq.RunOnce())
+	return &testBuilder
 }
 
 // getBlockchain returns the blockchain at network, where block 0 has been stored.
@@ -121,24 +116,16 @@ func getBlockchain(t *testing.T, network *utils.Network) (*blockchain.Blockchain
 	return chain, testDB
 }
 
-func getBuilder(t *testing.T, chain *blockchain.Blockchain, db *memory.Database) builder.Builder {
-	protocolVersion := semver.New(0, 13, 2, "", "")
-	log := utils.NewNopZapLogger()
-	builderAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	privKey, err := ecdsa.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-	vm := vm.New(false, log)
-	p := mempool.New(memory.New(), chain, 1000, utils.NewNopZapLogger())
-	return builder.New(privKey, builderAddr, chain, vm, 0, p, log, false, db, *protocolVersion)
-}
-
 // This test assumes Sepolia block 0 has been committed, and now
 // the Proposer proposes an empty block for block 1
 func TestEmptyProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xabcdef")
-	chain, db := getBlockchain(t, &utils.Sepolia)
-	builder := getBuilder(t, chain, db)
-	validator := New[value, felt.Felt, felt.Felt](&builder)
+	chain, _ := getBlockchain(t, &utils.Sepolia)
+	log := utils.NewNopZapLogger()
+	vm := vm.New(false, log)
+	testBuilder := builder.New(chain, vm, log, false)
+
+	validator := New[value, felt.Felt, felt.Felt](&testBuilder)
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
@@ -172,19 +159,21 @@ func TestEmptyProposal(t *testing.T) {
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	builder, header := getCustomBC(t, proposerAddr)
+	builder := getCustomBC(t, proposerAddr)
 	validator := New[value, felt.Felt, felt.Felt](builder)
+	head, err := builder.Head()
+	require.NoError(t, err)
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: header.Number + 1,
+		BlockNum: head.Number + 1,
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
 
 	// Step 2: BlockInfo
 	blockInfo := types.BlockInfo{
-		BlockNumber:       header.Number + 1,
+		BlockNumber:       head.Number + 1,
 		Builder:           *proposerAddr,
 		Timestamp:         1700474724,
 		L2GasPriceFRI:     *new(felt.Felt).SetUint64(10),
@@ -220,9 +209,9 @@ func TestProposal(t *testing.T) {
 	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Index: 0, Transaction: &invokeTxn2}}))
 
 	nonEmptyCommitment := types.ProposalCommitment{
-		BlockNumber:      header.Number + 1,
+		BlockNumber:      head.Number + 1,
 		Builder:          *proposerAddr,
-		ParentCommitment: *header.Hash,
+		ParentCommitment: *head.Hash,
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
 

@@ -1,25 +1,17 @@
 package builder
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	musync "sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/plugin"
-	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -27,72 +19,36 @@ import (
 )
 
 var (
-	_                     service.Service = (*Builder)(nil)
-	_                     sync.Reader     = (*Builder)(nil)
-	NumTxnsToBatchExecute                 = 10
-	ErrPendingParentHash                  = errors.New("pending block parent hash does not match chain head")
+	NumTxnsToBatchExecute = 10
+	ErrPendingParentHash  = errors.New("pending block parent hash does not match chain head")
 )
 
 type Builder struct {
-	ownAddress      felt.Felt
-	privKey         *ecdsa.PrivateKey
-	blockTime       time.Duration
-	disableFees     bool
-	protocolVersion semver.Version
-
-	bc              *blockchain.Blockchain
-	db              db.KeyValueStore
-	vm              vm.VM
-	log             utils.Logger
-	subNewHeads     *feed.Feed[*core.Block]
-	subPendingBlock *feed.Feed[*core.Block]
-	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-	mempool         *mempool.Pool
-	plugin          plugin.JunoPlugin
-
-	// Todo: validator may need to update the builders pending block for different proposals.
-	// We should make sure we don't incorrectly overwrite, or get race conditions etc
 	pendingBlock atomic.Pointer[sync.Pending]
+	vm           vm.VM
+	blockchain   *blockchain.Blockchain
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
-
-	finaliseMutex musync.RWMutex
+	log          utils.Logger
+	disableFees  bool
 }
 
 func New(
-	privKey *ecdsa.PrivateKey,
-	ownAddr *felt.Felt,
 	bc *blockchain.Blockchain,
 	vm vm.VM,
-	blockTime time.Duration,
-	mempool *mempool.Pool,
 	log utils.Logger,
 	disableFees bool,
-	database db.KeyValueStore,
-	protocolVersion semver.Version,
 ) Builder {
 	return Builder{
-		ownAddress:      *ownAddr,
-		privKey:         privKey,
-		blockTime:       blockTime,
-		log:             log,
-		protocolVersion: protocolVersion,
-
-		disableFees:     disableFees,
-		bc:              bc,
-		db:              database,
-		mempool:         mempool,
-		vm:              vm,
-		subNewHeads:     feed.New[*core.Block](),
-		subPendingBlock: feed.New[*core.Block](),
-		subReorgFeed:    feed.New[*sync.ReorgBlockRange](),
-		finaliseMutex:   musync.RWMutex{},
+		log:         log,
+		blockchain:  bc,
+		disableFees: disableFees,
+		vm:          vm,
 	}
 }
 
-func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
-	b.plugin = junoPlugin
-	return b
+func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
+	return b.blockchain.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, signer)
 }
 
 func (b *Builder) Pending() (*sync.Pending, error) {
@@ -100,11 +56,11 @@ func (b *Builder) Pending() (*sync.Pending, error) {
 	if p == nil {
 		return nil, sync.ErrPendingBlockNotFound
 	}
-
 	expectedParentHash := &felt.Zero
-	if head, err := b.bc.HeadsHeader(); err == nil {
+	if head, err := b.blockchain.HeadsHeader(); err == nil {
 		expectedParentHash = head.Hash
 	}
+
 	if p.Block.ParentHash.Equal(expectedParentHash) {
 		return p, nil
 	}
@@ -130,51 +86,6 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), func() error { return nil }, nil
 }
 
-func (b *Builder) Run(ctx context.Context) error {
-	defer b.mempool.Close()
-
-	// Clear pending state on shutdown
-	defer func() {
-		if pErr := b.ClearPending(); pErr != nil {
-			b.log.Errorw("clearing pending", "err", pErr)
-		}
-	}()
-
-	if err := b.InitPendingBlock(); err != nil {
-		return err
-	}
-
-	doneListen := make(chan struct{})
-	go func() {
-		if pErr := b.listenPool(ctx); pErr != nil {
-			if pErr != mempool.ErrTxnPoolEmpty {
-				b.log.Warnw("listening pool", "err", pErr)
-			}
-		}
-		close(doneListen)
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			<-doneListen
-			return nil
-		case <-time.After(b.blockTime):
-			err := b.Finalise(b.Sign)
-			b.log.Infof("Finalised new block")
-			if err != nil {
-				return err
-			}
-			if err := b.ClearPending(); err != nil {
-				return err
-			}
-			if err := b.InitPendingBlock(); err != nil {
-				return err
-			}
-		}
-	}
-}
-
 func (b *Builder) ClearPending() error {
 	b.pendingBlock.Store(&sync.Pending{})
 
@@ -188,8 +99,8 @@ func (b *Builder) ClearPending() error {
 	return nil
 }
 
-func (b *Builder) InitPendingBlock() error {
-	header, err := b.bc.HeadsHeader()
+func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
+	header, err := b.blockchain.HeadsHeader()
 	if err != nil {
 		return err
 	}
@@ -197,8 +108,7 @@ func (b *Builder) InitPendingBlock() error {
 		Header: &core.Header{
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
-			SequencerAddress: &b.ownAddress,
-			ProtocolVersion:  b.protocolVersion.String(),
+			SequencerAddress: sequencerAddress,
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
@@ -221,142 +131,12 @@ func (b *Builder) InitPendingBlock() error {
 		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
-	b.headState, b.headCloser, err = b.bc.HeadState()
+	b.headState, b.headCloser, err = b.blockchain.HeadState()
 	return err
 }
 
-// Finalise writes the pending block to the DB.
-func (b *Builder) Finalise(signFunc blockchain.BlockSignFunc) error {
-	b.finaliseMutex.Lock()
-	defer b.finaliseMutex.Unlock()
-
-	pending, err := b.Pending()
-	if err != nil {
-		return err
-	}
-	if err := b.bc.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, b.Sign); err != nil {
-		return err
-	}
-	b.log.Infow("Finalised block", "number", pending.Block.Number, "hash",
-		pending.Block.Hash.ShortString(), "state", pending.Block.GlobalStateRoot.ShortString())
-	// Update subscribers
-	if b.plugin != nil {
-		err := b.plugin.NewBlock(pending.Block, pending.StateUpdate, pending.NewClasses)
-		if err != nil {
-			b.log.Errorw("error sending new block to plugin", err)
-		}
-	}
-	// push the new block head to the feed
-	if b.subNewHeads != nil {
-		b.subNewHeads.Send(b.PendingBlock())
-	}
-	return nil
-}
-
-func (b *Builder) StartingBlockNumber() (uint64, error) {
-	return 0, nil
-}
-
-func (b *Builder) HighestBlockHeader() *core.Header {
-	return nil
-}
-
-func (b *Builder) HeadBlockAndStateUpdate() (*core.Block, *core.StateUpdate, error) {
-	height, err := b.bc.Height()
-	if err != nil {
-		return nil, nil, err
-	}
-	su, err := b.bc.StateUpdateByNumber(height)
-	if err != nil {
-		return nil, nil, err
-	}
-	block, err := b.bc.BlockByNumber(height)
-	if err != nil {
-		return nil, nil, err
-	}
-	return block, su, nil
-}
-
-// Sign returns the builder's signature over data.
-func (b *Builder) Sign(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error) {
-	data := crypto.PoseidonArray(blockHash, stateDiffCommitment).Bytes()
-	signatureBytes, err := b.privKey.Sign(data[:], nil)
-	if err != nil {
-		return nil, err
-	}
-	sig := make([]*felt.Felt, 0)
-	for start := 0; start < len(signatureBytes); {
-		step := len(signatureBytes[start:])
-		if step > felt.Bytes {
-			step = felt.Bytes
-		}
-		sig = append(sig, new(felt.Felt).SetBytes(signatureBytes[start:step]))
-		start += step
-	}
-	return sig, nil
-}
-
-// listenPool waits until the mempool has transactions, then
-// executes them one by one until the mempool is empty.
-func (b *Builder) listenPool(ctx context.Context) error {
-	for {
-		if err := b.depletePool(ctx); err != nil {
-			if !errors.Is(err, mempool.ErrTxnPoolEmpty) {
-				return err
-			}
-		}
-
-		// push the pending block to the feed
-		b.subPendingBlock.Send(b.PendingBlock())
-		select {
-		case <-ctx.Done():
-			return nil
-		// We wait for the mempool to get more txns before we continue
-		case <-b.mempool.Wait():
-			continue
-		}
-	}
-}
-
-// depletePool pops all available transactions from the mempool,
-// and executes them in sequence, applying the state changes
-// to the pending state
-func (b *Builder) depletePool(ctx context.Context) error {
-	blockHashToBeRevealed, err := b.getRevealedBlockHash()
-	if err != nil {
-		return err
-	}
-	for {
-		b.finaliseMutex.RLock()
-		userTxns, err := b.mempool.PopBatch(NumTxnsToBatchExecute)
-		if err != nil {
-			b.finaliseMutex.RUnlock()
-			return err
-		}
-		if len(userTxns) == 0 {
-			return nil
-		}
-		b.log.Debugw("running txns", userTxns)
-		if err = b.runTxns(userTxns, blockHashToBeRevealed); err != nil {
-			b.log.Debugw("failed running txn", "err", err.Error())
-			var txnExecutionError vm.TransactionExecutionError
-			if !errors.As(err, &txnExecutionError) {
-				b.finaliseMutex.RUnlock()
-				return err
-			}
-		}
-		b.log.Debugw("running txns success")
-		b.finaliseMutex.RUnlock()
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-	}
-}
-
-func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
-	blockHeight, err := b.bc.Height()
+func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
+	blockHeight, err := b.blockchain.Height()
 	if err != nil {
 		return nil, err
 	}
@@ -365,16 +145,20 @@ func (b *Builder) getRevealedBlockHash() (*felt.Felt, error) {
 		return nil, nil
 	}
 
-	header, err := b.bc.BlockHeaderByNumber(blockHeight - blockHashLag)
+	header, err := b.blockchain.BlockHeaderByNumber(blockHeight - blockHashLag)
 	if err != nil {
 		return nil, err
 	}
 	return header.Hash, nil
 }
 
-// runTxns executes the provided transaction and applies the state changes
+func (b *Builder) Head() (*core.Block, error) {
+	return b.blockchain.Head()
+}
+
+// RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -408,8 +192,8 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 			BlockHashToBeRevealed: blockHashToBeRevealed,
 		},
 		state,
-		b.bc.Network(),
-		false, false, false, true, false)
+		b.blockchain.Network(),
+		b.disableFees, false, false, true, false)
 	if err != nil {
 		return err
 	}
@@ -436,7 +220,8 @@ func (b *Builder) runTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
-	return b.StorePending(pending)
+
+	return b.storePending(pending)
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
@@ -474,15 +259,14 @@ func updatePendingBlock(
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (b *Builder) StorePending(newPending *sync.Pending) error {
+func (b *Builder) storePending(newPending *sync.Pending) error {
 	expectedParentHash := new(felt.Felt)
-	h, err := b.bc.HeadsHeader()
+	h, err := b.blockchain.HeadsHeader()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	} else if err == nil {
 		expectedParentHash = h.Hash
 	}
-
 	if !expectedParentHash.Equal(newPending.Block.ParentHash) {
 		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
 	}
@@ -490,21 +274,8 @@ func (b *Builder) StorePending(newPending *sync.Pending) error {
 	return nil
 }
 
-// The builder has no reorg logic (centralised sequencer that can't reorg)
-func (b *Builder) SubscribeReorg() sync.ReorgSubscription {
-	return sync.ReorgSubscription{Subscription: b.subReorgFeed.Subscribe()}
-}
-
-func (b *Builder) SubscribeNewHeads() sync.NewHeadSubscription {
-	return sync.NewHeadSubscription{Subscription: b.subNewHeads.Subscribe()}
-}
-
-func (b *Builder) SubscribePending() sync.PendingSubscription {
-	return sync.PendingSubscription{Subscription: b.subPendingBlock.Subscribe()}
-}
-
 func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
-	header, err := b.bc.HeadsHeader()
+	header, err := b.blockchain.HeadsHeader()
 	if err != nil {
 		return err
 	}
@@ -517,7 +288,8 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 			Number:           pInit.BlockNum,
 			SequencerAddress: &pInit.Proposer,
 			ParentHash:       header.Hash,
-			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
+			// Todo: we need a mapping of protocolversion to block versions from SN
+			ProtocolVersion: blockchain.SupportedStarknetVersion.String(),
 			// Todo: once the spec is finalised, handle these fields (if they still exist)
 			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
 			L1GasPriceETH: header.L1GasPriceETH,
@@ -537,7 +309,7 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
-	b.headState, b.headCloser, err = b.bc.HeadState()
+	b.headState, b.headCloser, err = b.blockchain.HeadState()
 	return err
 }
 
@@ -555,11 +327,11 @@ func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
 
 func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
 	b.log.Debugw("calling ExecuteTxns")
-	blockHashToBeRevealed, err := b.getRevealedBlockHash()
+	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
 	if err != nil {
 		return err
 	}
-	if err := b.runTxns(txns, blockHashToBeRevealed); err != nil {
+	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
 		b.log.Debugw("failed running txn", "err", err.Error())
 		var txnExecutionError vm.TransactionExecutionError
 		if !errors.As(err, &txnExecutionError) {
@@ -576,7 +348,7 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	simulateResult, err := b.bc.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
 	b.pendingBlock.Store(pending)
 	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
 }
@@ -587,5 +359,5 @@ func (b *Builder) StoredExecutedPending(commitments *core.BlockCommitments) erro
 	if err != nil {
 		return err
 	}
-	return b.bc.StoreSimulated(pending.Block, pending.StateUpdate, pending.NewClasses, commitments, nil)
+	return b.blockchain.StoreSimulated(pending.Block, pending.StateUpdate, pending.NewClasses, commitments, nil)
 }

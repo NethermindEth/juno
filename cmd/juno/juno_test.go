@@ -64,7 +64,6 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultSeqBlockTime := uint(60)
 	defaultGwTimeout := "5s,"
-	defaultProtocolVersion := "0.13.3"
 
 	expectedConfig1 := node.Config{
 		LogLevel:            "debug",
@@ -97,7 +96,6 @@ func TestConfigPrecedence(t *testing.T) {
 		SeqBlockTime:        defaultSeqBlockTime,
 		HTTPUpdateHost:      defaultHost,
 		HTTPUpdatePort:      0,
-		ProtocolVersion:     defaultProtocolVersion,
 	}
 
 	expectedConfig2 := node.Config{
@@ -131,7 +129,6 @@ func TestConfigPrecedence(t *testing.T) {
 		SeqBlockTime:        defaultSeqBlockTime,
 		HTTPUpdateHost:      defaultHost,
 		HTTPUpdatePort:      0,
-		ProtocolVersion:     defaultProtocolVersion,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -215,7 +212,6 @@ cn-unverifiable-range: [0,10]
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"config file with all settings but without any other flags": {
@@ -258,7 +254,6 @@ pprof: true
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -298,7 +293,6 @@ http-port: 4576
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"all flags without config file": {
@@ -337,7 +331,6 @@ http-port: 4576
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"some flags without config file": {
@@ -376,7 +369,6 @@ http-port: 4576
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -439,7 +431,6 @@ db-cache-size: 1024
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -481,7 +472,6 @@ network: sepolia
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -519,7 +509,6 @@ network: sepolia
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"only set env variables": {
@@ -555,7 +544,6 @@ network: sepolia
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -592,7 +580,6 @@ network: sepolia
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -630,7 +617,6 @@ network: sepolia
 				SeqBlockTime:        defaultSeqBlockTime,
 				HTTPUpdateHost:      defaultHost,
 				HTTPUpdatePort:      0,
-				ProtocolVersion:     defaultProtocolVersion,
 			},
 		},
 	}

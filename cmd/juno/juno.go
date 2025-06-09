@@ -91,7 +91,6 @@ const (
 	seqDisableFeesF         = "seq-disable-fees"
 	httpUpdateHostF         = "http-update-host"
 	httpUpdatePortF         = "http-update-port"
-	protocolVersion         = "protocol-version"
 
 	defaultConfig                   = ""
 	defaultHost                     = "localhost"
@@ -136,7 +135,6 @@ const (
 	defaultSeqGenesisFile           = ""
 	defaultSeqDisableFees           = false
 	defaultHTTPUpdatePort           = 0
-	defaultProtocolVersion          = "0.13.3"
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -198,7 +196,6 @@ const (
 	seqDisableFeesUsage         = "Skip charge fee for sequencer execution"
 	httpUpdateHostUsage         = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage         = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
-	protocolVersionUsage        = "The starknet protocol version supported when running Juno as a sequencer, or validator"
 )
 
 var Version string
@@ -398,7 +395,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
-	junoCmd.Flags().String(protocolVersion, defaultProtocolVersion, protocolVersionUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd
