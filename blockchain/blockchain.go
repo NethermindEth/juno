@@ -17,7 +17,6 @@ import (
 type L1HeadSubscription struct {
 	*feed.Subscription[*core.L1Head]
 }
-type BlockSignFunc func(blockHash, stateDiffCommitment *felt.Felt) ([]*felt.Felt, error)
 
 //go:generate mockgen -destination=../mocks/mock_blockchain.go -package=mocks github.com/NethermindEth/juno/blockchain Reader
 type Reader interface {
@@ -487,7 +486,7 @@ func (b *Blockchain) Finalise(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
-	sign BlockSignFunc,
+	sign utils.BlockSignFunc,
 ) error {
 	return b.database.Update(func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
@@ -561,11 +560,14 @@ func (b *Blockchain) calculateBlockHash(block *core.Block, stateUpdate *core.Sta
 }
 
 // signBlock applies the signature to the block if a signing function is provided
-func (b *Blockchain) signBlock(block *core.Block, stateUpdate *core.StateUpdate, sign BlockSignFunc) error {
+func (b *Blockchain) signBlock(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	sign utils.BlockSignFunc,
+) error {
 	if sign == nil {
 		return nil
 	}
-
 	sig, err := sign(block.Hash, stateUpdate.StateDiff.Commitment())
 	if err != nil {
 		return err
@@ -613,7 +615,10 @@ func (b *Blockchain) storeBlockData(
 	return nil
 }
 
-func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]core.Class) error {
+func (b *Blockchain) StoreGenesis(
+	diff *core.StateDiff,
+	classes map[felt.Felt]core.Class,
+) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 
 	block := &core.Block{
@@ -634,7 +639,5 @@ func (b *Blockchain) StoreGenesis(diff *core.StateDiff, classes map[felt.Felt]co
 	}
 	newClasses := classes
 
-	return b.Finalise(block, stateUpdate, newClasses, func(_, _ *felt.Felt) ([]*felt.Felt, error) {
-		return nil, nil
-	})
+	return b.Finalise(block, stateUpdate, newClasses, nil)
 }
