@@ -61,7 +61,6 @@ func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.Stre
 	}
 }
 
-//nolint:unused // TODO: This is used in the next PR and this comment should be removed there.
 func (s *proposalStream) loop(ctx context.Context) {
 	for {
 		select {
@@ -76,7 +75,6 @@ func (s *proposalStream) loop(ctx context.Context) {
 	}
 }
 
-//nolint:unused // TODO: This is used in the next PR and this comment should be removed there.
 func (s *proposalStream) enqueueMessage(ctx context.Context, streamMessage *consensus.StreamMessage) {
 	select {
 	case <-ctx.Done():
@@ -85,7 +83,6 @@ func (s *proposalStream) enqueueMessage(ctx context.Context, streamMessage *cons
 	}
 }
 
-//nolint:unused // TODO: This is used in the next PR and this comment should be removed there.
 func (s *proposalStream) close() {
 	close(s.input)
 }
