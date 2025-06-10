@@ -40,7 +40,7 @@ func TestReplayWAL(t *testing.T) {
 	proposerAddr := getVal(0)
 	nonProposerAddr := getVal(3)
 	proposedValue := starknet.Value(1)
-	app, chain, vals := newApp(), newChain(), newVals()
+	app, vals := newApp(), newVals()
 	for i := range 4 {
 		vals.addValidator(*getVal(i))
 	}
@@ -58,7 +58,7 @@ func TestReplayWAL(t *testing.T) {
 
 	t.Run("ReplayWAL: replay on empty db", func(t *testing.T) {
 		mockDB := mocks.NewMockTendermintDB[starknet.Value, hash.Hash, address.Address](ctrl)
-		stateMachine := New(mockDB, utils.NewNopZapLogger(), *getVal(0), app, chain, vals).(*testStateMachine)
+		stateMachine := New(mockDB, utils.NewNopZapLogger(), *getVal(0), app, vals, types.Height(0)).(*testStateMachine)
 		emptyList := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{}
 		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(emptyList, nil)
 		stateMachine.ReplayWAL() // ReplayWAL will panic if anything goes wrong
@@ -66,7 +66,7 @@ func TestReplayWAL(t *testing.T) {
 
 	t.Run("ReplayWAL: proposer crashes right after proposing", func(t *testing.T) {
 		mockDB := mocks.NewMockTendermintDB[starknet.Value, hash.Hash, address.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, chain, vals).(*testStateMachine)
+		sMachine := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 
 		// Start, Propose a block, Progress to Prevote step, assert state
 		mockDB.EXPECT().Flush().Return(nil).Times(2)
@@ -75,7 +75,7 @@ func TestReplayWAL(t *testing.T) {
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
 
 		// Crash the node, replay wal, and assert we get to the expected state
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, chain, vals).(*testStateMachine)
+		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{{Entry: proposalMessage, Type: types.MessageTypeProposal}}
 		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries, nil)
@@ -86,7 +86,7 @@ func TestReplayWAL(t *testing.T) {
 	t.Run("ReplayWAL: non proposer crashes right before commit", func(t *testing.T) {
 		// Setup
 		mockDB := mocks.NewMockTendermintDB[starknet.Value, hash.Hash, address.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, chain, vals).(*testStateMachine)
+		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 
 		prevote0 := getPrevote(0)
 		prevote1 := getPrevote(1)
@@ -117,7 +117,7 @@ func TestReplayWAL(t *testing.T) {
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Crash, recover, and assert we arrive at previous state
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, chain, vals).(*testStateMachine)
+		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{
 			{Entry: proposalMessage, Type: types.MessageTypeProposal},
@@ -137,8 +137,7 @@ func TestReplayWAL(t *testing.T) {
 		// Todo: why do we only need two precommits for quorum.....
 		// Receive final precommit, now we reach quorum
 		mockDB.EXPECT().SetWALEntry(precommit1).Return(nil)
-		mockDB.EXPECT().Flush().Return(nil).Times(2) // Once in doCommitValue, once in t.startRound(0)
-		mockDB.EXPECT().DeleteWALEntries(types.Height(0)).Return(nil)
+		mockDB.EXPECT().Flush().Return(nil).Times(1)
 		sMachineRecoverd.ProcessPrecommit(precommit1)
 
 		// Progress to new height
@@ -159,9 +158,8 @@ func TestReplayWAL(t *testing.T) {
 		// for this height and round.
 
 		// Setup
-		chain := newChain()
 		mockDB := mocks.NewMockTendermintDB[starknet.Value, hash.Hash, address.Address](ctrl)
-		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, chain, vals).(*testStateMachine)
+		sMachine := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 
 		timeout := types.Timeout{
 			Step:   types.StepPropose,
@@ -177,7 +175,7 @@ func TestReplayWAL(t *testing.T) {
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
 
 		// Crash and recover
-		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, chain, vals).(*testStateMachine)
+		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *nonProposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{
 			{Entry: timeout, Type: types.MessageTypeTimeout},

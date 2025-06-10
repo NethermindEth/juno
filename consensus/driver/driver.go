@@ -4,18 +4,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/utils"
 )
 
 type timeoutFn func(step types.Step, round types.Round) time.Duration
 
-type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	db db.KeyValueStore
+type Blockchain[V types.Hashable[H], H types.Hash] interface {
+	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
+	Commit(types.Height, V)
+}
 
+type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	log          utils.Logger
+	db           db.TendermintDB[V, H, A]
 	stateMachine tendermint.StateMachine[V, H, A]
+	blockchain   Blockchain[V, H]
 
 	getTimeout timeoutFn
 
@@ -30,15 +37,19 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	db db.KeyValueStore,
+	log utils.Logger,
+	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
+	blockchain Blockchain[V, H],
 	listeners p2p.Listeners[V, H, A],
 	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
+		log:          log,
 		db:           db,
 		stateMachine: stateMachine,
+		blockchain:   blockchain,
 		getTimeout:   getTimeout,
 		listeners:    listeners,
 		broadcasters: broadcasters,
@@ -110,6 +121,16 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 				case d.timeoutsCh <- types.Timeout(*action):
 				}
 			})
+		case *types.Commit[V, H, A]:
+			if err := d.db.Flush(); err != nil {
+				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
+			}
+
+			d.blockchain.Commit(action.Height, *action.Value)
+
+			if err := d.db.DeleteWALEntries(action.Height); err != nil {
+				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
+			}
 		}
 	}
 }
