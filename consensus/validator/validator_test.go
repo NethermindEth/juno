@@ -39,7 +39,7 @@ var emptyCommitments = core.BlockCommitments{}
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
 // head without access to the state. To get around this, a custom chain was used
 // in these tests.
-func getCustomBC(t *testing.T, seqAddr *felt.Felt) *builder.Builder {
+func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
 	t.Helper()
 
 	// transfer tokens to 0x101
@@ -94,8 +94,9 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) *builder.Builder {
 		_, rpcErr := rpcHandler.AddTransaction(t.Context(), expectedExnsInBlock[i])
 		require.Nil(t, rpcErr)
 	}
-	require.NoError(t, seq.RunOnce())
-	return &testBuilder
+	head, err := seq.RunOnce()
+	require.NoError(t, err)
+	return &testBuilder, head
 }
 
 // getBlockchain returns the blockchain at network, where block 0 has been stored.
@@ -159,10 +160,8 @@ func TestEmptyProposal(t *testing.T) {
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	builder := getCustomBC(t, proposerAddr)
+	builder, head := getCustomBC(t, proposerAddr)
 	validator := New[value, felt.Felt, felt.Felt](builder)
-	head, err := builder.Head()
-	require.NoError(t, err)
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{

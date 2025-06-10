@@ -152,10 +152,6 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (b *Builder) Head() (*core.Block, error) {
-	return b.blockchain.Head()
-}
-
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
 func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
