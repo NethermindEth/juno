@@ -46,7 +46,7 @@ func TestWALLifecycle(t *testing.T) {
 	sender1 := starknet.Address(*new(felt.Felt).SetUint64(1))
 	sender2 := starknet.Address(*new(felt.Felt).SetUint64(2))
 	sender3 := starknet.Address(*new(felt.Felt).SetUint64(3))
-	var val1 starknet.Value = 10
+	val1 := starknet.Value(*new(felt.Felt).SetUint64(10))
 	valHash1 := val1.Hash()
 
 	proposal := starknet.Proposal{

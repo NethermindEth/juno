@@ -21,12 +21,17 @@ type app struct {
 func newApp() *app { return &app{} }
 
 func (a *app) Value() starknet.Value {
-	a.cur = (a.cur + 1) % 100
-	return a.cur
+	aFelt := felt.Felt(a.cur)
+	aFelt.Add(&aFelt, new(felt.Felt).SetUint64(1))
+	if aFelt.Cmp(new(felt.Felt).SetUint64(100)) > -1 {
+		aFelt = *new(felt.Felt).SetUint64(0)
+	}
+	return starknet.Value(aFelt)
 }
 
 func (a *app) Valid(v starknet.Value) bool {
-	return v < 100
+	vFelt := felt.Felt(v)
+	return vFelt.Cmp(new(felt.Felt).SetUint64(100)) == -1
 }
 
 // Implements Validators[felt.Felt] interface

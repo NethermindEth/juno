@@ -5,13 +5,14 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 func TestSkipRound(t *testing.T) {
 	t.Run("Line 55 (Proposal): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		expectedHeight := types.Height(0)
-		rPrime, rPrimeVal := types.Round(4), starknet.Value(10)
+		rPrime, rPrimeVal := types.Round(4), starknet.Value(*new(felt.Felt).SetUint64(10))
 		futureRound := newTestRound(t, stateMachine, expectedHeight, rPrime)
 
 		stateMachine.ProcessStart(types.Round(0))
@@ -26,7 +27,7 @@ func TestSkipRound(t *testing.T) {
 	t.Run("Line 55 (Prevote): Start round r' when f+1 future round messages are received from round r'", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		expectedHeight := types.Height(0)
-		rPrime, rPrimeVal := types.Round(4), starknet.Value(10)
+		rPrime, rPrimeVal := types.Round(4), starknet.Value(*new(felt.Felt).SetUint64(10))
 		futureRound := newTestRound(t, stateMachine, expectedHeight, rPrime)
 
 		stateMachine.ProcessStart(types.Round(0))
@@ -42,7 +43,7 @@ func TestSkipRound(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		expectedHeight := types.Height(0)
 		rPrime := types.Round(4)
-		round4Value := starknet.Value(10)
+		round4Value := starknet.Value(*new(felt.Felt).SetUint64(10))
 		futureRound := newTestRound(t, stateMachine, expectedHeight, rPrime)
 
 		stateMachine.ProcessStart(types.Round(0))

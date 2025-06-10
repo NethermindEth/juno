@@ -12,6 +12,9 @@ import (
 // TODO: better error handling
 var errInvalidMessage = errors.New("invalid message")
 
+// The state machine can progress along two distinct paths:
+// Path 1: InitialState -> AwaitingBlockInfoOrCommitmentState -> ReceivingTransactionsState -> AwaitingProposalFinState -> FinState
+// Path 2: InitialState -> AwaitingBlockInfoOrCommitmentState ->  FinState
 type ProposalStateMachine interface {
 	OnEvent(context.Context, Transition, *consensus.ProposalPart) (ProposalStateMachine, error)
 }

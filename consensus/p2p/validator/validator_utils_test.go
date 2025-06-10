@@ -36,8 +36,44 @@ func GetRandomAddress(t *testing.T) *common.Address {
 
 func getRandomTransaction(t *testing.T) *consensus.ConsensusTransaction {
 	t.Helper()
+	address := &common.Address{Elements: []byte{1}}
+	someFelt252 := &common.Felt252{Elements: []byte{0x42}}
 	return &consensus.ConsensusTransaction{
-		Txn:             &consensus.ConsensusTransaction_InvokeV3{InvokeV3: &transaction.InvokeV3{}},
+		Txn: &consensus.ConsensusTransaction_InvokeV3{
+			InvokeV3: &transaction.InvokeV3{
+				Sender: address,
+				Signature: &transaction.AccountSignature{
+					Parts: []*common.Felt252{
+						{Elements: []byte{0xAA}},
+						{Elements: []byte{0xBB}},
+					},
+				},
+				Calldata: []*common.Felt252{
+					{Elements: []byte{0x01}},
+					{Elements: []byte{0x02}},
+				},
+				ResourceBounds: &transaction.ResourceBounds{
+					L1Gas: &transaction.ResourceLimits{
+						MaxAmount:       someFelt252,
+						MaxPricePerUnit: someFelt252,
+					},
+					L2Gas: &transaction.ResourceLimits{
+						MaxAmount:       someFelt252,
+						MaxPricePerUnit: someFelt252,
+					},
+					L1DataGas: &transaction.ResourceLimits{
+						MaxAmount:       someFelt252,
+						MaxPricePerUnit: someFelt252,
+					},
+				},
+				Tip:                       100,
+				PaymasterData:             []*common.Felt252{someFelt252},
+				AccountDeploymentData:     []*common.Felt252{someFelt252},
+				NonceDataAvailabilityMode: common.VolitionDomain_L1,
+				FeeDataAvailabilityMode:   common.VolitionDomain_L1,
+				Nonce:                     someFelt252,
+			},
+		},
 		TransactionHash: &common.Hash{Elements: getRandomFelt(t)},
 	}
 }

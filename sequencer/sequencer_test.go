@@ -106,7 +106,7 @@ func getGenesisSequencer(
 	log := utils.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)
-	txnPool := mempool.New(testDB, bc, 1000, utils.NewNopZapLogger())
+	txnPool := mempool.New(testDB, bc, 1024, utils.NewNopZapLogger())
 
 	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)

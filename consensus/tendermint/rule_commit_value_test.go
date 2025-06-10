@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +15,7 @@ func TestCommitValue(t *testing.T) {
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 1, 0)
 
-		committedValue := starknet.Value(10)
+		committedValue := starknet.Value(*new(felt.Felt).SetUint64(10))
 
 		currentRound.start().expectActions(
 			currentRound.action().scheduleTimeout(types.StepPropose),
@@ -44,7 +45,7 @@ func TestCommitValue(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 1, 0)
-		committedValue := starknet.Value(10)
+		committedValue := starknet.Value(*new(felt.Felt).SetUint64(10))
 
 		currentRound.start().expectActions(
 			currentRound.action().scheduleTimeout(types.StepPropose),

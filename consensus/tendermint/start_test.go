@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -14,7 +15,7 @@ func TestStartRound(t *testing.T) {
 
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		val := starknet.Value(1)
+		val := starknet.Value(*new(felt.Felt).SetUint64(1))
 		currentRound.start().expectActions(
 			currentRound.action().broadcastProposal(val, -1),
 			currentRound.action().broadcastPrevote(utils.HeapPtr(val)),

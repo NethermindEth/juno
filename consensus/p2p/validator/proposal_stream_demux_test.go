@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
@@ -17,6 +18,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -55,8 +57,15 @@ func TestProposalStreamDemux(t *testing.T) {
 	require.NoError(t, err)
 
 	commitNotifier := make(chan types.Height)
-
-	demux := NewProposalStreamDemux(logger, NewTransition(), &config.DefaultBufferSizes, commitNotifier, block1)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedValidator := mocks.NewMockValidator[value, felt.Felt, felt.Felt](ctrl)
+	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
+	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
+	demux := NewProposalStreamDemux(logger, NewTransition[value, felt.Felt, felt.Felt](mockedValidator), &config.DefaultBufferSizes, commitNotifier, block1)
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
@@ -177,14 +186,16 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 
 	round := rand.Uint32()
 	value := uint64(time.Now().Unix())
+	someUint128 := &common.Uint128{Low: 1, High: 2}
 
+	proposerAddress := &common.Address{Elements: proposerBytes[:]}
 	builder := newProposalBuilder(t)
 	builder.addPart(&consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Init{
 			Init: &consensus.ProposalInit{
 				BlockNumber: uint64(height),
 				Round:       round,
-				Proposer:    &common.Address{Elements: proposerBytes[:]},
+				Proposer:    proposerAddress,
 			},
 		},
 	})
@@ -192,8 +203,14 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 	builder.addPart(&consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_BlockInfo{
 			BlockInfo: &consensus.BlockInfo{
-				BlockNumber: uint64(height),
-				Timestamp:   value,
+				Builder:           proposerAddress,
+				BlockNumber:       uint64(height),
+				Timestamp:         value,
+				L2GasPriceFri:     someUint128,
+				L1GasPriceWei:     someUint128,
+				L1DataGasPriceWei: someUint128,
+				EthToStrkRate:     someUint128,
+				L1DaMode:          common.L1DataAvailabilityMode_Blob,
 			},
 		},
 	})
@@ -210,14 +227,11 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 
 	builder.addPart(&consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Commitment{
-			Commitment: &consensus.ProposalCommitment{
-				BlockNumber: uint64(height),
-				Timestamp:   value,
-			},
+			Commitment: getExampleProposalCommitment(t, uint64(height), value, proposerAddress),
 		},
 	})
 
-	valueHash := felt.Felt(starknet.Value(value).Hash())
+	valueHash := felt.Felt(starknet.Value(*new(felt.Felt).SetUint64(value)).Hash())
 	valueHashBytes := valueHash.Bytes()
 
 	builder.addPart(&consensus.ProposalPart{
@@ -236,7 +250,7 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 			Round:  types.Round(round),
 			Sender: starknet.Address(*proposer),
 		},
-		Value:      (*starknet.Value)(&value),
+		Value:      (*starknet.Value)(new(felt.Felt).SetUint64(value)),
 		ValidRound: -1,
 	}
 

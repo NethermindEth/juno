@@ -1,9 +1,11 @@
 package validator
 
 import (
+	"encoding/binary"
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
@@ -12,8 +14,43 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/proto"
 )
+
+type value uint64
+
+func (v value) Hash() felt.Felt {
+	return *new(felt.Felt).SetUint64(uint64(v))
+}
+
+// Todo: move to utils or something
+func getExampleProposalCommitment(t *testing.T, blockNumber, timestamp uint64, sender *common.Address) *consensus.ProposalCommitment {
+	t.Helper()
+	someFelt := &common.Felt252{Elements: []byte{1}}
+	someHash := &common.Hash{Elements: []byte{1}}
+	someU128 := &common.Uint128{Low: 1, High: 2}
+	return &consensus.ProposalCommitment{
+		BlockNumber:               blockNumber,
+		ParentCommitment:          someHash,
+		Builder:                   sender,
+		Timestamp:                 timestamp,
+		ProtocolVersion:           "0.12.3",
+		OldStateRoot:              someHash,
+		VersionConstantCommitment: someHash,
+		StateDiffCommitment:       someHash,
+		TransactionCommitment:     someHash,
+		EventCommitment:           someHash,
+		ReceiptCommitment:         someHash,
+		ConcatenatedCounts:        someFelt,
+		L1GasPriceFri:             someU128,
+		L1DataGasPriceFri:         someU128,
+		L2GasPriceFri:             someU128,
+		L2GasUsed:                 someU128,
+		NextL2GasPriceFri:         someU128,
+		L1DaMode:                  common.L1DataAvailabilityMode_Blob,
+	}
+}
 
 func TestProposalStream_Start(t *testing.T) {
 	t.Run("valid proposal init", func(t *testing.T) {
@@ -78,7 +115,16 @@ func buildMessage(t *testing.T, sequenceNumber uint64, proposalPart *consensus.P
 
 func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expectedErrorMsg string, message *consensus.StreamMessage) {
 	t.Helper()
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition(), 0, nil)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedValidator := mocks.NewMockValidator[value, felt.Felt, felt.Felt](ctrl)
+	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
+	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, felt.Felt, felt.Felt](mockedValidator), 0, nil)
 	height, err := stream.start(t.Context(), message)
 	assert.Equal(t, expectedHeight, height)
 	if expectedErrorMsg != "" {
@@ -144,6 +190,7 @@ func (e errorStepResult) validate(ctx *stepValidationContext) {
 }
 
 type step struct {
+	msgType        string
 	message        *consensus.StreamMessage
 	expectedResult expectedStepResult
 }
@@ -152,7 +199,12 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 	height := types.Height(1337)
 	round := types.Round(1338)
 	validRound := types.Round(1339)
-	value := starknet.Value(1340)
+	valueUint := uint64(1340)
+	value := starknet.Value(*new(felt.Felt).SetUint64(valueUint))
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, valueUint)
+	validFinCommitment := &common.Hash{Elements: buf}
+	someUint128 := &common.Uint128{Low: 1, High: 2}
 	sender := GetRandomAddress(t)
 	expectedHeader := &starknet.MessageHeader{
 		Height: height,
@@ -179,8 +231,14 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 			{
 				message: buildMessage(t, 1, &consensus.ProposalPart{
 					Messages: &consensus.ProposalPart_BlockInfo{BlockInfo: &consensus.BlockInfo{
-						BlockNumber: uint64(height),
-						Timestamp:   uint64(value),
+						Builder:           sender,
+						BlockNumber:       uint64(height),
+						Timestamp:         valueUint,
+						L2GasPriceFri:     someUint128,
+						L1GasPriceWei:     someUint128,
+						L1DataGasPriceWei: someUint128,
+						EthToStrkRate:     someUint128,
+						L1DaMode:          common.L1DataAvailabilityMode_Blob,
 					}},
 				}),
 				expectedResult: streamPostStateStepResult{
@@ -219,10 +277,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 			{
 				message: buildMessage(t, 4, &consensus.ProposalPart{
 					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: uint64(height),
-							Timestamp:   uint64(value),
-						},
+						Commitment: getExampleProposalCommitment(t, uint64(height), valueUint, sender),
 					},
 				}),
 				expectedResult: streamPostStateStepResult{
@@ -251,34 +306,13 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 		})
 	})
 
-	t.Run("empty proposal", func(t *testing.T) {
+	t.Run("valid empty proposal", func(t *testing.T) {
 		expectedProposal := &starknet.Proposal{
 			MessageHeader: *expectedHeader,
 			ValidRound:    validRound,
+			Value:         &value,
 		}
 		testProposalStreamProcessMessage(t, sender, []step{
-			{
-				message: buildMessage(t, 2, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Fin{
-						Fin: &consensus.ProposalFin{},
-					},
-				}),
-				expectedResult: messageStoredStepResult{},
-			},
-			{
-				message: buildMessage(t, 1, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: 1337,
-							Timestamp:   1338,
-						},
-					},
-				}),
-				expectedResult: streamPostStateStepResult{
-					stateMachine:       (*FinState)(expectedProposal),
-					nextSequenceNumber: 3,
-				},
-			},
 			{
 				message: &consensus.StreamMessage{
 					SequenceNumber: 3,
@@ -286,6 +320,33 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Fin: &common.Fin{},
 					},
 				},
+				expectedResult: messageStoredStepResult{},
+			},
+			{
+				msgType: "ProposalCommitment",
+				message: buildMessage(t, 1, &consensus.ProposalPart{
+					Messages: &consensus.ProposalPart_Commitment{
+						Commitment: getExampleProposalCommitment(t, 1337, 1338, sender),
+					},
+				}),
+				expectedResult: streamPostStateStepResult{
+					stateMachine: &AwaitingProposalFinState{
+						Header:     expectedHeader,
+						ValidRound: validRound,
+						Value:      nil,
+					},
+					nextSequenceNumber: 2,
+				},
+			},
+			{
+				msgType: "ProposalFin",
+				message: buildMessage(t, 2, &consensus.ProposalPart{
+					Messages: &consensus.ProposalPart_Fin{
+						Fin: &consensus.ProposalFin{
+							ProposalCommitment: validFinCommitment,
+						},
+					},
+				}),
 				expectedResult: streamPostStateStepResult{
 					stateMachine:       (*FinState)(expectedProposal),
 					nextSequenceNumber: 4,
@@ -323,8 +384,16 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 
 func testProposalStreamProcessMessage(t *testing.T, sender *common.Address, steps []step) {
 	outputs := make(chan starknet.Proposal, 1)
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition(), 0, outputs)
-	_, err := stream.start(t.Context(), buildMessage(t, 1, &consensus.ProposalPart{
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockedValidator := mocks.NewMockValidator[value, felt.Felt, felt.Felt](ctrl)
+	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
+	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
+	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, felt.Felt, felt.Felt](mockedValidator), 0, outputs)
+	_, err := stream.start(t.Context(), buildMessage(t, 0, &consensus.ProposalPart{ // sequenceNumber is irrelevant here
 		Messages: &consensus.ProposalPart_Init{Init: &consensus.ProposalInit{
 			BlockNumber: 1337,
 			Round:       1338,
@@ -335,12 +404,11 @@ func testProposalStreamProcessMessage(t *testing.T, sender *common.Address, step
 	require.NoError(t, err)
 
 	for _, step := range steps {
-		t.Run(fmt.Sprintf("%d", step.message.SequenceNumber), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s %d", step.msgType, step.message.SequenceNumber), func(t *testing.T) {
 			oldStateMachine := stream.stateMachine
 			oldNextSequenceNumber := stream.nextSequenceNumber
 
 			err := stream.processMessages(t.Context(), step.message)
-
 			step.expectedResult.validate(&stepValidationContext{
 				t:                     t,
 				stream:                stream,

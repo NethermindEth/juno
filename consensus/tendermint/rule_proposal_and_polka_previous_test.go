@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,8 +17,8 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		firstRound := newTestRound(t, stateMachine, 0, 0)
 		secondRound := newTestRound(t, stateMachine, 0, 1)
 
-		wrongValue := starknet.Value(42)
-		correctValue := starknet.Value(43)
+		wrongValue := starknet.Value(*new(felt.Felt).SetUint64(42))
+		correctValue := starknet.Value(*new(felt.Felt).SetUint64(43))
 
 		// In the first round, validator 0 sent us a different (valid) value from all the other peers
 		firstRound.start()
@@ -67,8 +68,8 @@ func TestProposalAndPolkaPrevious(t *testing.T) {
 		secondRound := newTestRound(t, stateMachine, 0, 1)
 		thirdRound := newTestRound(t, stateMachine, 0, 2)
 
-		firstValue := starknet.Value(42)
-		secondValue := starknet.Value(43)
+		firstValue := starknet.Value(*new(felt.Felt).SetUint64(42))
+		secondValue := starknet.Value(*new(felt.Felt).SetUint64(43))
 
 		// In the first round, validator 0 "tricked" us to lock to a value but sent a different value to validator 2.
 		firstRound.start()

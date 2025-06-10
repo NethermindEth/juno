@@ -8,10 +8,10 @@ import (
 )
 
 // TODO: Replace with the actual value type.
-type Value uint64
+type Value felt.Felt
 
 func (v Value) Hash() hash.Hash {
-	return hash.Hash(*new(felt.Felt).SetUint64(uint64(v)))
+	return hash.Hash(v)
 }
 
 type (

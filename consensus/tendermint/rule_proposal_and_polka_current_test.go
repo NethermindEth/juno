@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +14,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := starknet.Value(42)
+		committedValue := starknet.Value(*new(felt.Felt).SetUint64(42))
 
 		// Initialise the round
 		currentRound.start()
@@ -37,7 +38,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 1)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
-		committedValue := starknet.Value(42)
+		committedValue := starknet.Value(*new(felt.Felt).SetUint64(42))
 
 		// Initialise the round
 		currentRound.start()
@@ -80,7 +81,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := starknet.Value(42)
+		committedValue := starknet.Value(*new(felt.Felt).SetUint64(42))
 
 		// Initialise the round
 		currentRound.start()
