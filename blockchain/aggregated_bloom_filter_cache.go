@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"errors"
-	"sync"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/bits-and-blooms/bitset"
@@ -29,7 +28,6 @@ type EventFiltersCacheKey struct {
 type AggregatedBloomFilterCache struct {
 	cache        lru.Cache[EventFiltersCacheKey, *core.AggregatedBloomFilter]
 	fallbackFunc func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)
-	mu           sync.Mutex
 }
 
 // NewAggregatedBloomCache creates a new LRU cache for aggregated bloom filters
@@ -49,18 +47,12 @@ func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCach
 
 // Reset clears the entire bloom filter cache, removing all stored filters.
 func (c *AggregatedBloomFilterCache) Reset() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.cache.Purge()
 }
 
 // SetMany inserts multiple aggregated bloom filters into the cache.
 // Each filter is keyed by its block range.
 func (c *AggregatedBloomFilterCache) SetMany(filters []*core.AggregatedBloomFilter) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	for _, filter := range filters {
 		c.cache.Add(
 			EventFiltersCacheKey{
