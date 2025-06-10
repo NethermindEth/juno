@@ -641,3 +641,58 @@ func (b *Blockchain) StoreGenesis(
 
 	return b.Finalise(block, stateUpdate, newClasses, nil)
 }
+
+type SimulateResult struct {
+	Block            *core.Block
+	StateUpdate      *core.StateUpdate
+	BlockCommitments *core.BlockCommitments
+	ConcatCount      *felt.Felt
+}
+
+// Simulate returns what the new completed header and state update would be if the
+// provided block was added to the chain.
+func (b *Blockchain) Simulate(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	sign utils.BlockSignFunc,
+) (SimulateResult, error) {
+	var newCommitments *core.BlockCommitments
+	var concatCount *felt.Felt
+
+	// Simulate without commit
+	txn := b.database.NewIndexedBatch()
+	defer txn.Reset()
+
+	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+		return SimulateResult{}, err
+	}
+	blockHash, commitments, err := core.BlockHash(
+		block,
+		stateUpdate.StateDiff,
+		b.network,
+		block.SequencerAddress)
+	if err != nil {
+		return SimulateResult{}, err
+	}
+	block.Hash = blockHash
+	stateUpdate.BlockHash = blockHash
+	newCommitments = commitments
+
+	concatCount = core.ConcatCounts(
+		block.TransactionCount,
+		block.EventCount,
+		stateUpdate.StateDiff.Length(),
+		block.L1DAMode)
+
+	if err := b.signBlock(block, stateUpdate, sign); err != nil {
+		return SimulateResult{}, err
+	}
+
+	return SimulateResult{
+		Block:            block,
+		StateUpdate:      stateUpdate,
+		BlockCommitments: newCommitments,
+		ConcatCount:      concatCount,
+	}, nil
+}

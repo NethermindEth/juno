@@ -166,7 +166,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 			return err
 		}
 		s.log.Debugw("running txns", userTxns)
-		if err = s.builder.RunTxns(userTxns, blockHashToBeRevealed); err != nil {
+		if _, err = s.builder.RunTxns(userTxns, blockHashToBeRevealed); err != nil {
 			s.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
