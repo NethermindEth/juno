@@ -12,9 +12,16 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+type Scheme string
+
+const (
+	PathDB Scheme = "pathdb"
+	HashDB Scheme = "hashdb"
+)
+
 type Config struct {
-	PathConfig *pathdb.Config
-	HashConfig *hashdb.Config
+	pathConfig *pathdb.Config
+	pashConfig *hashdb.Config
 }
 
 type Database struct {
@@ -26,21 +33,23 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	// Default to path config if not provided
 	if config == nil {
 		config = &Config{
-			PathConfig: pathdb.DefaultConfig,
-			HashConfig: nil,
+			pathConfig: nil,
+			pashConfig: &hashdb.Config{
+				CleanCacheSize: 1000,
+			},
 		}
 	}
 
 	var triedb database.TrieDB
 	var err error
 
-	if config.PathConfig != nil {
-		triedb, err = pathdb.New(disk, config.PathConfig)
+	if config.pathConfig != nil {
+		triedb, err = pathdb.New(disk, config.pathConfig)
 		if err != nil {
 			return nil, err
 		}
-	} else if config.HashConfig != nil {
-		triedb = hashdb.New(disk, config.HashConfig)
+	} else if config.pashConfig != nil {
+		triedb = hashdb.New(disk, config.pashConfig)
 	}
 
 	return &Database{
@@ -63,6 +72,17 @@ func (d *Database) Update(
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
+	}
+}
+
+func (d *Database) Scheme() Scheme {
+	switch d.triedb.(type) {
+	case *pathdb.Database:
+		return PathDB
+	case *hashdb.Database:
+		return HashDB
+	default:
+		return ""
 	}
 }
 
