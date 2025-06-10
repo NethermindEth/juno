@@ -23,10 +23,10 @@ type stateObject struct {
 	storageTrie  *trie2.Trie // storage trie
 }
 
-func newStateObject(state *State, addr felt.Felt, contract *stateContract) *stateObject {
+func newStateObject(state *State, addr *felt.Felt, contract *stateContract) *stateObject {
 	return &stateObject{
 		state:        state,
-		addr:         addr,
+		addr:         *addr,
 		contract:     contract,
 		dirtyStorage: make(Storage),
 	}
@@ -68,7 +68,7 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 		return s.storageTrie, nil
 	}
 
-	storageTrie, err := s.state.db.ContractStorageTrie(s.state.initRoot, s.addr)
+	storageTrie, err := s.state.db.ContractStorageTrie(&s.state.initRoot, &s.addr)
 	if err != nil {
 		return nil, err
 	}

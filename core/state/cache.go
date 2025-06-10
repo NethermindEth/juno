@@ -17,24 +17,28 @@ type diffCache struct {
 	deployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
+// stateCache is a clean, in-memory cache of the state, where the stateDiffs are stored. After every state update,
+// a new layer - a stateDiff associated with the state root is added to the cache. The state cache is implemented as a linked list.
 type stateCache struct {
 	diffs      map[felt.Felt]*diffCache // state root -> state diff
 	links      map[felt.Felt]felt.Felt  // child -> parent
 	oldestRoot felt.Felt                // root of the oldest layer in the cache
 }
 
-func newStateCache() *stateCache {
-	return &stateCache{
+func newStateCache() stateCache {
+	return stateCache{
 		diffs: make(map[felt.Felt]*diffCache),
 		links: make(map[felt.Felt]felt.Felt),
 	}
 }
 
+// PushLayer adds a new stateDiff associated with the state root to the cache.
+// If the cache is full, the oldest layer is removed. By default, the cache is limited to 128 layers.
+// If the state root is the same as the parent root, the layer is not added to the cache.
 func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache) {
 	if len(c.links) == 0 {
 		c.oldestRoot = *stateRoot
 	}
-	// if there was no change in the state, don't cache the diff
 	if stateRoot.Equal(parentRoot) {
 		return
 	}
@@ -59,8 +63,10 @@ func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache
 	}
 }
 
+// PopLayer removes the layer associated with the state root from the cache.
+// It returns an error if the layer is not found or if it is not the newest layer.
+// If there was no change in the state, the layer is not cached, hence it is not removed.
 func (c *stateCache) PopLayer(stateRoot, parentRoot *felt.Felt) error {
-	// if there was no change in the state, the layer is not cached
 	if stateRoot.Equal(parentRoot) {
 		return nil
 	}

@@ -38,19 +38,19 @@ type StateReader interface {
 }
 
 type ContractReader interface {
-	ContractClassHash(addr felt.Felt) (felt.Felt, error)
-	ContractNonce(addr felt.Felt) (felt.Felt, error)
-	ContractStorage(addr, key felt.Felt) (felt.Felt, error)
+	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
 }
 
 type ClassReader interface {
-	Class(classHash felt.Felt) (*core.DeclaredClass, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
 }
 
 type TrieProvider interface {
 	ClassTrie() (*trie2.Trie, error)
 	ContractTrie() (*trie2.Trie, error)
-	ContractStorageTrie(addr felt.Felt) (*trie2.Trie, error)
+	ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error)
 }
 
 type State struct {
@@ -62,7 +62,7 @@ type State struct {
 	stateObjects map[felt.Felt]*stateObject
 }
 
-func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
+func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
 	}
 
 	return &State{
-		initRoot:     stateRoot,
+		initRoot:     *stateRoot,
 		db:           db,
 		contractTrie: contractTrie,
 		classTrie:    classTrie,
@@ -82,32 +82,32 @@ func New(stateRoot felt.Felt, db *StateDB) (*State, error) {
 	}, nil
 }
 
-func (s *State) ContractClassHash(addr felt.Felt) (felt.Felt, error) {
-	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, &addr); classHash != nil {
+func (s *State) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	if classHash := s.db.stateCache.getReplacedClass(&s.initRoot, addr); classHash != nil {
 		return *classHash, nil
 	}
 
-	contract, err := GetContract(s.db.disk, &addr)
+	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 	return contract.ClassHash, nil
 }
 
-func (s *State) ContractNonce(addr felt.Felt) (felt.Felt, error) {
-	if nonce := s.db.stateCache.getNonce(&s.initRoot, &addr); nonce != nil {
+func (s *State) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	if nonce := s.db.stateCache.getNonce(&s.initRoot, addr); nonce != nil {
 		return *nonce, nil
 	}
 
-	contract, err := GetContract(s.db.disk, &addr)
+	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		return felt.Felt{}, err
 	}
 	return contract.Nonce, nil
 }
 
-func (s *State) ContractStorage(addr, key felt.Felt) (felt.Felt, error) {
-	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, &addr, &key); storage != nil {
+func (s *State) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	if storage := s.db.stateCache.getStorageDiff(&s.initRoot, addr, key); storage != nil {
 		return *storage, nil
 	}
 
@@ -116,7 +116,7 @@ func (s *State) ContractStorage(addr, key felt.Felt) (felt.Felt, error) {
 		return felt.Felt{}, err
 	}
 
-	ret, err := obj.getStorage(&key)
+	ret, err := obj.getStorage(key)
 	if err != nil {
 		return felt.Felt{}, err
 	}
@@ -124,8 +124,8 @@ func (s *State) ContractStorage(addr, key felt.Felt) (felt.Felt, error) {
 	return ret, nil
 }
 
-func (s *State) ContractDeployedAt(addr felt.Felt, blockNum uint64) (bool, error) {
-	contract, err := GetContract(s.db.disk, &addr)
+func (s *State) ContractDeployedAt(addr *felt.Felt, blockNum uint64) (bool, error) {
+	contract, err := GetContract(s.db.disk, addr)
 	if err != nil {
 		if errors.Is(err, ErrContractNotDeployed) {
 			return false, nil
@@ -133,11 +133,11 @@ func (s *State) ContractDeployedAt(addr felt.Felt, blockNum uint64) (bool, error
 		return false, err
 	}
 
-	return contract.DeployHeight <= blockNum, nil
+	return contract.DeployedHeight <= blockNum, nil
 }
 
-func (s *State) Class(classHash felt.Felt) (*core.DeclaredClass, error) {
-	return GetClass(s.db.disk, &classHash)
+func (s *State) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return GetClass(s.db.disk, classHash)
 }
 
 func (s *State) ClassTrie() (*trie2.Trie, error) {
@@ -148,8 +148,8 @@ func (s *State) ContractTrie() (*trie2.Trie, error) {
 	return s.contractTrie, nil
 }
 
-func (s *State) ContractStorageTrie(addr felt.Felt) (*trie2.Trie, error) {
-	return s.db.ContractStorageTrie(s.initRoot, addr)
+func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
+	return s.db.ContractStorageTrie(&s.initRoot, addr)
 }
 
 // Returns the state commitment
@@ -201,7 +201,9 @@ func (s *State) Update(
 			return ErrContractAlreadyDeployed
 		}
 
-		s.stateObjects[addr] = newStateObject(s, addr, newContractDeployed(*classHash, blockNum))
+		contract := newContractDeployed(*classHash, blockNum)
+		obj := newStateObject(s, &addr, &contract)
+		s.stateObjects[addr] = obj
 	}
 
 	// Update the contract fields
@@ -258,7 +260,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 	// Revert the classes
 	dirtyClasses := make(map[felt.Felt]core.Class)
 	for _, hash := range classHashes {
-		dc, err := s.Class(*hash)
+		dc, err := s.Class(hash)
 		if err != nil {
 			return err
 		}
@@ -321,7 +323,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 		for key := range stDiffs {
 			value := felt.Zero
 			if blockNum > 0 {
-				oldValue, err := s.ContractStorageAt(addr, key, blockNum-1)
+				oldValue, err := s.ContractStorageAt(&addr, &key, blockNum-1)
 				if err != nil {
 					return core.StateDiff{}, err
 				}
@@ -335,7 +337,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 		oldNonce := felt.Zero
 		if blockNum > 0 {
 			var err error
-			oldNonce, err = s.ContractNonceAt(addr, blockNum-1)
+			oldNonce, err = s.ContractNonceAt(&addr, blockNum-1)
 			if err != nil {
 				return core.StateDiff{}, err
 			}
@@ -347,7 +349,7 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 		oldCh := felt.Zero
 		if blockNum > 0 {
 			var err error
-			oldCh, err = s.ContractClassHashAt(addr, blockNum-1)
+			oldCh, err = s.ContractClassHashAt(&addr, blockNum-1)
 			if err != nil {
 				return core.StateDiff{}, err
 			}
@@ -587,7 +589,7 @@ func (s *State) updateContracts(blockNum uint64, diff *core.StateDiff) error {
 
 func (s *State) updateContractClasses(classes map[felt.Felt]*felt.Felt) error {
 	for addr, classHash := range classes {
-		obj, err := s.getStateObject(addr)
+		obj, err := s.getStateObject(&addr)
 		if err != nil {
 			return err
 		}
@@ -600,7 +602,7 @@ func (s *State) updateContractClasses(classes map[felt.Felt]*felt.Felt) error {
 
 func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
 	for addr, nonce := range nonces {
-		obj, err := s.getStateObject(addr)
+		obj, err := s.getStateObject(&addr)
 		if err != nil {
 			return err
 		}
@@ -613,10 +615,11 @@ func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
 
 func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map[felt.Felt]*felt.Felt) error {
 	for addr, storage := range storage {
-		obj, err := s.getStateObject(addr)
+		obj, err := s.getStateObject(&addr)
 		if err != nil {
 			if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
-				obj = newStateObject(s, addr, newContractDeployed(noClassContractsClassHash, blockNum))
+				contract := newContractDeployed(noClassContractsClassHash, blockNum)
+				obj = newStateObject(s, &addr, &contract)
 				s.stateObjects[addr] = obj
 			} else {
 				return err
@@ -629,10 +632,10 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 	return nil
 }
 
-func (s *State) getStateObject(addr felt.Felt) (*stateObject, error) {
-	obj, ok := s.stateObjects[addr]
+func (s *State) getStateObject(addr *felt.Felt) (*stateObject, error) {
+	objPointer, ok := s.stateObjects[*addr]
 	if ok {
-		return obj, nil
+		return objPointer, nil
 	}
 
 	obj, err := GetStateObject(s.db.disk, s, addr)
@@ -640,25 +643,25 @@ func (s *State) getStateObject(addr felt.Felt) (*stateObject, error) {
 		return nil, err
 	}
 
-	s.stateObjects[addr] = obj
+	s.stateObjects[*addr] = obj
 	return obj, nil
 }
 
 // Returns the storage value of a contract at a given storage key at a given block number.
-func (s *State) ContractStorageAt(addr, key felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractStorageHistoryKey(&addr, &key)
+func (s *State) ContractStorageAt(addr, key *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractStorageHistoryKey(addr, key)
 	return s.getHistoricalValue(prefix, blockNum)
 }
 
 // Returns the nonce of a contract at a given block number.
-func (s *State) ContractNonceAt(addr felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractNonceHistoryKey(&addr)
+func (s *State) ContractNonceAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractNonceHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
 }
 
 // Returns the class hash of a contract at a given block number.
-func (s *State) ContractClassHashAt(addr felt.Felt, blockNum uint64) (felt.Felt, error) {
-	prefix := db.ContractClassHashHistoryKey(&addr)
+func (s *State) ContractClassHashAt(addr *felt.Felt, blockNum uint64) (felt.Felt, error) {
+	prefix := db.ContractClassHashHistoryKey(addr)
 	return s.getHistoricalValue(prefix, blockNum)
 }
 

@@ -16,19 +16,19 @@ func TestStateContract_MarshalUnmarshal(t *testing.T) {
 		{
 			name: "Full contract",
 			contract: &stateContract{
-				Nonce:        newFelt(123),
-				ClassHash:    newFelt(456),
-				StorageRoot:  newFelt(789),
-				DeployHeight: 1000,
+				Nonce:          newFelt(123),
+				ClassHash:      newFelt(456),
+				StorageRoot:    newFelt(789),
+				DeployedHeight: 1000,
 			},
 		},
 		{
 			name: "Empty root contract",
 			contract: &stateContract{
-				Nonce:        newFelt(123),
-				ClassHash:    newFelt(456),
-				StorageRoot:  felt.Zero,
-				DeployHeight: 1000,
+				Nonce:          newFelt(123),
+				ClassHash:      newFelt(456),
+				StorageRoot:    felt.Zero,
+				DeployedHeight: 1000,
 			},
 		},
 	}
@@ -55,7 +55,7 @@ func TestStateContract_MarshalUnmarshal(t *testing.T) {
 			assert.Equal(t, tt.contract.Nonce, newContract.Nonce)
 			assert.Equal(t, tt.contract.ClassHash, newContract.ClassHash)
 			assert.Equal(t, tt.contract.StorageRoot, newContract.StorageRoot)
-			assert.Equal(t, tt.contract.DeployHeight, newContract.DeployHeight)
+			assert.Equal(t, tt.contract.DeployedHeight, newContract.DeployedHeight)
 		})
 	}
 }
