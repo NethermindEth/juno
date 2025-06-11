@@ -33,10 +33,11 @@ var (
 )
 
 type Builder struct {
-	ownAddress  felt.Felt
-	privKey     *ecdsa.PrivateKey
-	blockTime   time.Duration
-	disableFees bool
+	ownAddress    felt.Felt
+	privKey       *ecdsa.PrivateKey
+	blockTime     time.Duration
+	disableFees   bool
+	l2gasConsumed uint64
 
 	bc              *blockchain.Blockchain
 	db              db.KeyValueStore
@@ -83,6 +84,10 @@ func New(privKey *ecdsa.PrivateKey, ownAddr *felt.Felt, bc *blockchain.Blockchai
 func (b *Builder) WithPlugin(junoPlugin plugin.JunoPlugin) *Builder {
 	b.plugin = junoPlugin
 	return b
+}
+
+func (b *Builder) L2GasConsumed() uint64 {
+	return b.l2gasConsumed
 }
 
 func (b *Builder) Pending() (*sync.Pending, error) {
@@ -160,6 +165,7 @@ func (b *Builder) Run(ctx context.Context) error {
 }
 
 func (b *Builder) ClearPending() error {
+	b.l2gasConsumed = 0
 	b.pendingBlock.Store(&sync.Pending{})
 
 	if b.headState != nil {
@@ -481,23 +487,23 @@ func (b *Builder) PopBatchTxns() ([]mempool.BroadcastedTransaction, error) {
 	return b.mempool.PopBatch(NumTxnsToBatchExecute)
 }
 
-func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
 	b.finaliseMutex.RLock()
 	defer b.finaliseMutex.RUnlock()
 	b.log.Debugw("calling ExecuteTxns")
 	blockHashToBeRevealed, err := b.getRevealedBlockHash()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	l2gasConsumed := uint64(0)
-	l2gasConsumed, err = b.runTxns(txns, blockHashToBeRevealed)
+	l2gasConsumed, err := b.runTxns(txns, blockHashToBeRevealed)
 	if err != nil {
 		b.log.Debugw("failed running txn", "err", err.Error())
-		return 0, err
+		return err
 	}
+	b.l2gasConsumed += l2gasConsumed
 	b.log.Debugw("running txns success")
-	return l2gasConsumed, nil
+	return nil
 }
 
 // ExecutePending updates the pending block and state-update
