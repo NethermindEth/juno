@@ -26,7 +26,10 @@ func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *Cache
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
 		(t.state.lockedRound <= cachedProposal.ValidRound ||
-			t.state.lockedValue != nil && cachedProposal.ID != nil && (*t.state.lockedValue).Hash() == *cachedProposal.ID)
+			t.state.lockedValue != nil &&
+				cachedProposal.ID != nil &&
+				(*t.state.lockedValue).Hash() == *cachedProposal.ID)
+
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}
