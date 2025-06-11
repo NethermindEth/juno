@@ -199,6 +199,7 @@ func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
 	if err != nil {
 		return types.ProposalCommitment{}, err
 	}
+
 	pending, err := p.builder.Pending()
 	if err != nil {
 		return types.ProposalCommitment{}, err
