@@ -279,23 +279,6 @@ func (b *Builder) storePending(newPending *sync.Pending) error {
 	return nil
 }
 
-func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
-	b.log.Debugw("calling ExecuteTxns")
-	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
-	if err != nil {
-		return 0, err
-	}
-
-	l2gasConsumed := uint64(0)
-	l2gasConsumed, err = b.RunTxns(txns, blockHashToBeRevealed)
-	if err != nil {
-		b.log.Debugw("failed running txn", "err", err.Error())
-		return 0, err
-	}
-	b.log.Debugw("running txns success")
-	return l2gasConsumed, nil
-}
-
 func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	header, err := b.blockchain.HeadsHeader()
 	if err != nil {
@@ -333,6 +316,22 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	b.pendingBlock.Store(&pending)
 	b.headState, b.headCloser, err = b.blockchain.HeadState()
 	return err
+}
+
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
+	b.log.Debugw("calling ExecuteTxns")
+	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
+	if err != nil {
+		return 0, err
+	}
+
+	l2gasConsumed, err := b.RunTxns(txns, blockHashToBeRevealed)
+	if err != nil {
+		b.log.Debugw("failed running txn", "err", err.Error())
+		return 0, err
+	}
+	b.log.Debugw("running txns success")
+	return l2gasConsumed, nil
 }
 
 func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
