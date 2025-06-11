@@ -177,6 +177,7 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 			select {
 			case <-ctx.Done():
 				return
+			default:
 			}
 		}
 	}()
