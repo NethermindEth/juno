@@ -149,6 +149,8 @@ func TestEmptyProposal(t *testing.T) {
 	require.NoError(t, validator.ProposalCommitment(&emptyCommitment))
 
 	// Step 3: ProposalFin
+	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
+	// we update SupportedStarknetVersion
 	block1Hash, err := new(felt.Felt).SetString("0x6de5ea1b1db43acda6c32c17bea719af54e98d08acbfc6da33b178bbb8ab326")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
