@@ -77,6 +77,13 @@ func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
 	return h
 }
 
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransactionsCache) *Handler {
+	h.rpcv6Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv7Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
+	return h
+}
+
 func (h *Handler) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 

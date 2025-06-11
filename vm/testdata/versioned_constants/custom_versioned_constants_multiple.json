@@ -1,4 +1,5 @@
 {
     "0.13.2": "./testdata/versioned_constants/0_13_2.json",
-    "0.13.2.1": "./testdata/versioned_constants/0_13_2.json"
+    "0.13.2.1": "./testdata/versioned_constants/0_13_2.json",
+    "0.14.0": "./testdata/versioned_constants/0_14_0.json"
 }
