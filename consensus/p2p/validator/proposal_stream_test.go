@@ -89,13 +89,63 @@ func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expected
 	}
 }
 
+type stepValidationContext struct {
+	t                     *testing.T
+	stream                *proposalStream
+	err                   error
+	message               *consensus.StreamMessage
+	oldStateMachine       ProposalStateMachine
+	oldNextSequenceNumber uint64
+	outputs               <-chan starknet.Proposal
+}
+
+// There are three possible flows:
+// 1. The received message can't be processed right now, so it only stored (messageStoredStepResult)
+// 2. The received message can be processed, which may result in other stored messages also being processed (streamPostStateStepResult)
+// 3. The received message is not expected, so the stream ends with an error (errorStepResult)
+
+type expectedStepResult interface {
+	validate(ctx *stepValidationContext)
+}
+
+type messageStoredStepResult struct{}
+
+func (e messageStoredStepResult) validate(ctx *stepValidationContext) {
+	require.NoError(ctx.t, ctx.err)
+	require.Contains(ctx.t, ctx.stream.messages, ctx.message.SequenceNumber, "message not stored")
+	assert.Equal(ctx.t, ctx.message, ctx.stream.messages[ctx.message.SequenceNumber], "message not stored correctly")
+	assert.Equal(ctx.t, ctx.oldStateMachine, ctx.stream.stateMachine, "state machine changed")
+	assert.Equal(ctx.t, ctx.oldNextSequenceNumber, ctx.stream.nextSequenceNumber, "next sequence number changed")
+}
+
+type streamPostStateStepResult struct {
+	stateMachine       ProposalStateMachine
+	nextSequenceNumber uint64
+	output             *starknet.Proposal
+}
+
+func (e streamPostStateStepResult) validate(ctx *stepValidationContext) {
+	require.NoError(ctx.t, ctx.err)
+	require.NotContains(ctx.t, ctx.stream.messages, ctx.message.SequenceNumber, "message stored")
+
+	if e.output != nil {
+		assertOutput(ctx.t, ctx.outputs, *e.output)
+	}
+	assertNoOutput(ctx.t, ctx.outputs)
+
+	assert.Equal(ctx.t, e.stateMachine, ctx.stream.stateMachine, "state machine not changed correctly")
+	assert.Equal(ctx.t, e.nextSequenceNumber, ctx.stream.nextSequenceNumber, "next sequence number not changed correctly")
+}
+
+type errorStepResult string
+
+func (e errorStepResult) validate(ctx *stepValidationContext) {
+	assert.Contains(ctx.t, ctx.err.Error(), string(e))
+}
+
 type step struct {
-	message                    *consensus.StreamMessage
-	expectedStorage            bool
-	expectedNextSequenceNumber uint64
-	expectedOutput             *starknet.Proposal
-	expectedStateMachine       ProposalStateMachine
-	expectedError              string
+	message        *consensus.StreamMessage
+	expectedResult expectedStepResult
 }
 
 func TestProposalStream_ProcessMessage(t *testing.T) {
@@ -124,7 +174,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Transactions: GetRandomTransactions(t, 5),
 					}},
 				}),
-				expectedStorage: true,
+				expectedResult: messageStoredStepResult{},
 			},
 			{
 				message: buildMessage(t, 1, &consensus.ProposalPart{
@@ -133,11 +183,13 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Timestamp:   uint64(value),
 					}},
 				}),
-				expectedNextSequenceNumber: 2,
-				expectedStateMachine: &ReceivingTransactionsState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &value,
+				expectedResult: streamPostStateStepResult{
+					stateMachine: &ReceivingTransactionsState{
+						Header:     expectedHeader,
+						ValidRound: validRound,
+						Value:      &value,
+					},
+					nextSequenceNumber: 2,
 				},
 			},
 			{
@@ -146,11 +198,13 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Transactions: GetRandomTransactions(t, 10),
 					}},
 				}),
-				expectedNextSequenceNumber: 4,
-				expectedStateMachine: &ReceivingTransactionsState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &value,
+				expectedResult: streamPostStateStepResult{
+					stateMachine: &ReceivingTransactionsState{
+						Header:     expectedHeader,
+						ValidRound: validRound,
+						Value:      &value,
+					},
+					nextSequenceNumber: 4,
 				},
 			},
 			{
@@ -160,7 +214,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Fin: &common.Fin{},
 					},
 				},
-				expectedStorage: true,
+				expectedResult: messageStoredStepResult{},
 			},
 			{
 				message: buildMessage(t, 4, &consensus.ProposalPart{
@@ -171,11 +225,13 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						},
 					},
 				}),
-				expectedNextSequenceNumber: 5,
-				expectedStateMachine: &AwaitingProposalFinState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &value,
+				expectedResult: streamPostStateStepResult{
+					stateMachine: &AwaitingProposalFinState{
+						Header:     expectedHeader,
+						ValidRound: validRound,
+						Value:      &value,
+					},
+					nextSequenceNumber: 5,
 				},
 			},
 			{
@@ -186,9 +242,11 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						},
 					},
 				}),
-				expectedNextSequenceNumber: 7,
-				expectedStateMachine:       (*FinState)(expectedProposal),
-				expectedOutput:             expectedProposal,
+				expectedResult: streamPostStateStepResult{
+					stateMachine:       (*FinState)(expectedProposal),
+					nextSequenceNumber: 7,
+					output:             expectedProposal,
+				},
 			},
 		})
 	})
@@ -205,7 +263,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Fin: &consensus.ProposalFin{},
 					},
 				}),
-				expectedStorage: true,
+				expectedResult: messageStoredStepResult{},
 			},
 			{
 				message: buildMessage(t, 1, &consensus.ProposalPart{
@@ -216,8 +274,10 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						},
 					},
 				}),
-				expectedNextSequenceNumber: 3,
-				expectedStateMachine:       (*FinState)(expectedProposal),
+				expectedResult: streamPostStateStepResult{
+					stateMachine:       (*FinState)(expectedProposal),
+					nextSequenceNumber: 3,
+				},
 			},
 			{
 				message: &consensus.StreamMessage{
@@ -226,9 +286,11 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Fin: &common.Fin{},
 					},
 				},
-				expectedNextSequenceNumber: 4,
-				expectedStateMachine:       (*FinState)(expectedProposal),
-				expectedOutput:             expectedProposal,
+				expectedResult: streamPostStateStepResult{
+					stateMachine:       (*FinState)(expectedProposal),
+					nextSequenceNumber: 4,
+					output:             expectedProposal,
+				},
 			},
 		})
 	})
@@ -242,7 +304,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 						Fin: &common.Fin{},
 					},
 				},
-				expectedError: "stream does not end with proposal fin",
+				expectedResult: errorStepResult("stream does not end with proposal fin"),
 			},
 		})
 	})
@@ -253,7 +315,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 				message: &consensus.StreamMessage{
 					SequenceNumber: 1,
 				},
-				expectedError: "unknown message type",
+				expectedResult: errorStepResult("unknown message type"),
 			},
 		})
 	})
@@ -278,34 +340,21 @@ func testProposalStreamProcessMessage(t *testing.T, sender *common.Address, step
 			oldNextSequenceNumber := stream.nextSequenceNumber
 
 			err := stream.processMessages(t.Context(), step.message)
-			if step.expectedError != "" {
-				assert.Contains(t, err.Error(), step.expectedError)
-				return
-			}
-			require.NoError(t, err)
 
-			if step.expectedStorage {
-				require.Contains(t, stream.messages, step.message.SequenceNumber, "message not stored")
-				assert.Equal(t, step.message, stream.messages[step.message.SequenceNumber], "message not stored correctly")
-				assert.Equal(t, oldStateMachine, stream.stateMachine, "state machine changed")
-				assert.Equal(t, oldNextSequenceNumber, stream.nextSequenceNumber, "next sequence number changed")
-				return
-			}
-
-			require.NotContains(t, stream.messages, step.message.SequenceNumber, "message stored")
-
-			if step.expectedOutput != nil {
-				assertOutput(t, outputs, *step.expectedOutput)
-			}
-			assertNoOutput(t, outputs)
-
-			assert.Equal(t, step.expectedStateMachine, stream.stateMachine, "state machine not changed correctly")
-			assert.Equal(t, step.expectedNextSequenceNumber, stream.nextSequenceNumber, "next sequence number not changed correctly")
+			step.expectedResult.validate(&stepValidationContext{
+				t:                     t,
+				stream:                stream,
+				err:                   err,
+				message:               step.message,
+				oldStateMachine:       oldStateMachine,
+				oldNextSequenceNumber: oldNextSequenceNumber,
+				outputs:               outputs,
+			})
 		})
 	}
 }
 
-func assertOutput(t *testing.T, outputs chan starknet.Proposal, expectedOutput starknet.Proposal) {
+func assertOutput(t *testing.T, outputs <-chan starknet.Proposal, expectedOutput starknet.Proposal) {
 	t.Helper()
 	select {
 	case actualOutput := <-outputs:
@@ -315,7 +364,7 @@ func assertOutput(t *testing.T, outputs chan starknet.Proposal, expectedOutput s
 	}
 }
 
-func assertNoOutput(t *testing.T, outputs chan starknet.Proposal) {
+func assertNoOutput(t *testing.T, outputs <-chan starknet.Proposal) {
 	t.Helper()
 	select {
 	case <-outputs:
