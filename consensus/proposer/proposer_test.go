@@ -76,9 +76,8 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 	// Build the block
 	require.NoError(t, testBuilder.ClearPending())
 	require.NoError(t, testBuilder.InitPendingBlock())
-	l2GasUsed, err := testBuilder.ExecuteTxns([]mempool.BroadcastedTransaction{invokeTxn})
+	err = testBuilder.ExecuteTxns([]mempool.BroadcastedTransaction{invokeTxn})
 	require.NoError(t, err)
-	require.NotZero(t, l2GasUsed)
 	require.NoError(t, testBuilder.Finalise(nil))
 	require.True(t, testBuilder.MempoolIsEmpty())
 	return &testBuilder, rpcHandler
