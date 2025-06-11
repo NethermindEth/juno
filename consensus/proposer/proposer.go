@@ -151,12 +151,6 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 	go func() {
 		defer close(out)
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
 			txns, err := p.mempool.PopBatch(NumTxnsToBatchExecute)
 			if err != nil {
 				if errors.Is(err, mempool.ErrTxnPoolEmpty) {
@@ -179,11 +173,10 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 					PaidFeeOnL1: txns[i].PaidFeeOnL1,
 				}
 			}
-
+			out <- TxnBatchResult{Txns: adaptedTxns}
 			select {
 			case <-ctx.Done():
 				return
-			case out <- TxnBatchResult{Txns: adaptedTxns}:
 			}
 		}
 	}()
