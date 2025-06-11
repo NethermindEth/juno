@@ -65,7 +65,7 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 		}
 	}
 
-	if _, err := v.builder.ExecuteTxns(txnsToExecute); err != nil {
+	if err := v.builder.ExecuteTxns(txnsToExecute); err != nil {
 		return err
 	}
 

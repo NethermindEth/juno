@@ -82,7 +82,6 @@ type proposer struct {
 	sequencerAddress *felt.Felt
 	builder          *builder.Builder
 	mempool          *mempool.Pool
-	l2GasConsumed    uint64
 }
 
 func New(builder *builder.Builder, mempool *mempool.Pool, sequencerAddress *felt.Felt) Proposer {
@@ -168,12 +167,10 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 				return
 			}
 
-			l2GasConsumed, err := p.builder.ExecuteTxns(txns)
-			if err != nil {
+			if err := p.builder.ExecuteTxns(txns); err != nil {
 				out <- TxnBatchResult{Err: err}
 				return
 			}
-			p.l2GasConsumed += l2GasConsumed
 			adaptedTxns := make([]types.Transaction, len(txns))
 			for i := range adaptedTxns {
 				adaptedTxns[i] = types.Transaction{
@@ -226,7 +223,7 @@ func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
 		L1GasPriceFRI:         *pending.Block.L1GasPriceSTRK,
 		L1DataGasPriceFRI:     *pending.Block.L1DataGasPrice.PriceInFri,
 		L2GasPriceFRI:         *pending.Block.L2GasPrice.PriceInFri,
-		L2GasUsed:             *new(felt.Felt).SetUint64(p.l2GasConsumed),
+		L2GasUsed:             *new(felt.Felt).SetUint64(p.builder.L2GasConsumed()),
 		L1DAMode:              core.Blob,
 	}, nil
 }

@@ -24,13 +24,14 @@ var (
 )
 
 type Builder struct {
-	pendingBlock atomic.Pointer[sync.Pending]
-	vm           vm.VM
-	blockchain   *blockchain.Blockchain
-	headState    core.StateReader
-	headCloser   blockchain.StateCloser
-	log          utils.Logger
-	disableFees  bool
+	pendingBlock  atomic.Pointer[sync.Pending]
+	vm            vm.VM
+	l2GasConsumed uint64
+	blockchain    *blockchain.Blockchain
+	headState     core.StateReader
+	headCloser    blockchain.StateCloser
+	log           utils.Logger
+	disableFees   bool
 }
 
 func New(
@@ -45,6 +46,10 @@ func New(
 		disableFees: disableFees,
 		vm:          vm,
 	}
+}
+
+func (b *Builder) L2GasConsumed() uint64 {
+	return b.l2GasConsumed
 }
 
 func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
@@ -87,6 +92,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) ClearPending() error {
+	b.l2GasConsumed = 0
 	b.pendingBlock.Store(&sync.Pending{})
 
 	if b.headState != nil {
@@ -159,14 +165,11 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) RunTxns(
-	txns []mempool.BroadcastedTransaction,
-	blockHashToBeRevealed *felt.Felt,
-) (l2GasConsumed uint64, err error) {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) (err error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	// Create a state writer for the transaction execution
@@ -199,7 +202,7 @@ func (b *Builder) RunTxns(
 		b.blockchain.Network(),
 		b.disableFees, false, false, true, false)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	// Handle declared classes for declare transactions
@@ -207,7 +210,7 @@ func (b *Builder) RunTxns(
 		if trace.StateDiff.DeclaredClasses != nil ||
 			trace.StateDiff.DeprecatedDeclaredClasses != nil {
 			if err := b.processClassDeclaration(&txns[i], &state); err != nil {
-				return 0, err
+				return err
 			}
 		}
 	}
@@ -226,9 +229,9 @@ func (b *Builder) RunTxns(
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
 	for i := range vmResults.GasConsumed {
-		l2GasConsumed += vmResults.GasConsumed[i].L2Gas
+		b.l2GasConsumed += vmResults.GasConsumed[i].L2Gas
 	}
-	return l2GasConsumed, b.storePending(pending)
+	return b.storePending(pending)
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
@@ -332,20 +335,19 @@ func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
 	b.pendingBlock.Store(pending)
 }
 
-func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
+func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
 	b.log.Debugw("calling ExecuteTxns")
 	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	l2gasConsumed, err := b.RunTxns(txns, blockHashToBeRevealed)
-	if err != nil {
+	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
 		b.log.Debugw("failed running txn", "err", err.Error())
-		return 0, err
+		return err
 	}
 	b.log.Debugw("running txns success")
-	return l2gasConsumed, nil
+	return nil
 }
 
 // ExecutePending updates the pending block and state-update
