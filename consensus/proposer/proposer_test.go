@@ -85,7 +85,7 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 func TestEmptyProposal(t *testing.T) {
 	proposerAddr := new(felt.Felt).SetUint64(123123)
 	builder, _, mempool := getCustomBuilder(t, proposerAddr)
-	proposer := New(builder, mempool, proposerAddr)
+	proposer := New(builder, mempool, proposerAddr, utils.NewNopZapLogger())
 
 	// Step 1: ProposalInit()
 	pInit, err := proposer.ProposalInit()
@@ -113,7 +113,7 @@ func TestEmptyProposal(t *testing.T) {
 func TestNonEmptyProposal(t *testing.T) {
 	proposerAddr := new(felt.Felt).SetUint64(123123)
 	builder, rpcHandler, mempool := getCustomBuilder(t, proposerAddr)
-	proposer := New(builder, mempool, proposerAddr)
+	proposer := New(builder, mempool, proposerAddr, utils.NewNopZapLogger())
 
 	// Step 1: ProposalInit()
 	pInit, err := proposer.ProposalInit()

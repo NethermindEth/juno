@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/utils"
 )
 
 const NumTxnsToBatchExecute = 10 // TODO: Make this configurable
@@ -65,7 +66,7 @@ type Proposer interface {
 	BlockInfo(ctx context.Context) (types.BlockInfo, bool)
 
 	// Returns a channel that emits transaction batches (can emit multiple times).
-	Txns(ctx context.Context) <-chan TxnBatchResult
+	Txns(ctx context.Context) <-chan []types.Transaction
 
 	// Blocks until the proposal commitment is ready or context is cancelled.
 	ProposalCommitment() (types.ProposalCommitment, error)
@@ -73,22 +74,24 @@ type Proposer interface {
 	ProposalFin() (types.ProposalFin, error)
 }
 
-type TxnBatchResult struct {
-	Txns []types.Transaction
-	Err  error
-}
-
 type proposer struct {
 	sequencerAddress *felt.Felt
 	builder          *builder.Builder
 	mempool          *mempool.Pool
+	log              utils.Logger
 }
 
-func New(builder *builder.Builder, mempool *mempool.Pool, sequencerAddress *felt.Felt) Proposer {
+func New(
+	builder *builder.Builder,
+	mempool *mempool.Pool,
+	sequencerAddress *felt.Felt,
+	log utils.Logger,
+) Proposer {
 	return &proposer{
 		sequencerAddress: sequencerAddress,
 		builder:          builder,
 		mempool:          mempool,
+		log:              log,
 	}
 }
 
@@ -145,8 +148,8 @@ func (p *proposer) BlockInfo(ctx context.Context) (types.BlockInfo, bool) {
 // Txns streams executed transaction batches until the context is cancelled or an error occurs.
 // Returns a channel of TxnBatchResult, which includes either a batch of transactions or an error.
 // The channel is closed when the stream ends.
-func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: consider back pressure
-	out := make(chan TxnBatchResult)
+func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Todo: consider back pressure
+	out := make(chan []types.Transaction)
 
 	go func() {
 		defer close(out)
@@ -162,12 +165,12 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 					time.Sleep(100 * time.Millisecond) //nolint:mnd
 					continue
 				}
-				out <- TxnBatchResult{Err: err}
+				p.log.Errorw(err.Error())
 				return
 			}
 
 			if err := p.builder.ExecuteTxns(txns); err != nil {
-				out <- TxnBatchResult{Err: err}
+				p.log.Errorw(err.Error())
 				return
 			}
 			adaptedTxns := make([]types.Transaction, len(txns))
@@ -178,7 +181,7 @@ func (p *proposer) Txns(ctx context.Context) <-chan TxnBatchResult { // Todo: co
 					PaidFeeOnL1: txns[i].PaidFeeOnL1,
 				}
 			}
-			out <- TxnBatchResult{Txns: adaptedTxns}
+			out <- adaptedTxns
 		}
 	}()
 
