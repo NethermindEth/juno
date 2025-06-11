@@ -713,7 +713,6 @@ func (b *Blockchain) Simulate(
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	var newCommitments *core.BlockCommitments
-	var concatCount *felt.Felt
 
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
@@ -734,7 +733,7 @@ func (b *Blockchain) Simulate(
 	stateUpdate.BlockHash = blockHash
 	newCommitments = commitments
 
-	concatCount = core.ConcatCounts(
+	concatCount := core.ConcatCounts(
 		block.TransactionCount,
 		block.EventCount,
 		stateUpdate.StateDiff.Length(),
@@ -748,6 +747,6 @@ func (b *Blockchain) Simulate(
 		Block:            block,
 		StateUpdate:      stateUpdate,
 		BlockCommitments: newCommitments,
-		ConcatCount:      concatCount,
+		ConcatCount:      &concatCount,
 	}, nil
 }
