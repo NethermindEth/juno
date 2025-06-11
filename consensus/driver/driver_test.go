@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
@@ -13,9 +14,10 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/hash"
-	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
@@ -23,6 +25,8 @@ type (
 	broadcaster[M starknet.Message] = p2p.Broadcaster[M, starknet.Value, starknet.Hash, starknet.Address]
 	listeners                       = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters                    = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
+	tendermintDB                    = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
+	blockchain                      = driver.Blockchain[starknet.Value, starknet.Hash]
 )
 
 const (
@@ -61,6 +65,23 @@ func (m *mockBroadcaster[M]) Broadcast(msg M) {
 	defer m.mu.Unlock()
 	m.broadcastedMessages = append(m.broadcastedMessages, msg)
 	m.wg.Done()
+}
+
+type mockBlockchain struct {
+	t              *testing.T
+	expectedCommit *starknet.Commit
+}
+
+func (m *mockBlockchain) Commit(height types.Height, value starknet.Value) {
+	require.Equal(m.t, m.expectedCommit.Value, &value)
+	require.Equal(m.t, m.expectedCommit.Height, height)
+}
+
+func newMockBlockchain(t *testing.T, expectedCommit *starknet.Commit) blockchain {
+	return &mockBlockchain{
+		t:              t,
+		expectedCommit: expectedCommit,
+	}
 }
 
 func mockListeners(
@@ -177,6 +198,15 @@ func waitAndAssertBroadcaster[M starknet.Message](
 	assert.ElementsMatch(t, expectedBroadcast, mockBroadcaster.broadcastedMessages)
 }
 
+func newTendermintDB(t *testing.T) tendermintDB {
+	t.Helper()
+	dbPath := t.TempDir()
+	pebbleDB, err := pebble.New(dbPath)
+	require.NoError(t, err)
+
+	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB, types.Height(0))
+}
+
 func TestDriver(t *testing.T) {
 	random := rand.New(rand.NewSource(seed))
 	ctrl := gomock.NewController(t)
@@ -191,7 +221,18 @@ func TestDriver(t *testing.T) {
 
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
-	driver := driver.New(memory.New(), stateMachine, mockListeners(proposalCh, prevoteCh, precommitCh), broadcasters, mockTimeoutFn)
+
+	commitAction := starknet.Commit(getRandProposal(random))
+
+	driver := driver.New(
+		utils.NewNopZapLogger(),
+		newTendermintDB(t),
+		stateMachine,
+		newMockBlockchain(t, &commitAction),
+		mockListeners(proposalCh, prevoteCh, precommitCh),
+		broadcasters,
+		mockTimeoutFn,
+	)
 
 	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)
 	inputTimeoutPrevote := getRandTimeout(random, types.StepPrevote)
@@ -213,7 +254,7 @@ func TestDriver(t *testing.T) {
 		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrevote)),
 	)
 	stateMachine.EXPECT().ProcessPrevote(inputPrevoteMsg).Return(
-		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit)),
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit), &commitAction),
 	)
 	stateMachine.EXPECT().ProcessPrecommit(inputPrecommitMsg).Return(nil)
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutProposal).Return(generateAndRegisterRandomActions(random, expectedBroadcast))

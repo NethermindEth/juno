@@ -87,14 +87,26 @@ type Blockchain struct {
 	listener       EventListener
 	l1HeadFeed     *feed.Feed[*core.L1Head]
 	pendingBlockFn func() *core.Block
+	cachedFilters  *AggregatedBloomFilterCache
+	runningFilter  *core.RunningEventFilter
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
+	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
+	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
+		return core.GetAggregatedBloomFilter(database, key.fromBlock, key.toBlock)
+	}
+	cachedFilters.WithFallback(fallback)
+
+	runningFilter := core.NewRunningEventFilterLazy(database)
+
 	return &Blockchain{
-		database:   database,
-		network:    network,
-		listener:   &SelectiveListener{},
-		l1HeadFeed: feed.New[*core.L1Head](),
+		database:      database,
+		network:       network,
+		listener:      &SelectiveListener{},
+		l1HeadFeed:    feed.New[*core.L1Head](),
+		cachedFilters: &cachedFilters,
+		runningFilter: runningFilter,
 	}
 }
 
@@ -251,7 +263,7 @@ func (b *Blockchain) SetL1Head(update *core.L1Head) error {
 func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class,
 ) error {
-	return b.database.Update(func(txn db.IndexedBatch) error {
+	err := b.database.Update(func(txn db.IndexedBatch) error {
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -284,6 +296,14 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 
 		return core.WriteChainHeight(txn, block.Number)
 	})
+	if err != nil {
+		return err
+	}
+
+	return b.runningFilter.Insert(
+		block.EventsBloom,
+		block.Number,
+	)
 }
 
 // VerifyBlock assumes the block has already been sanity-checked.
@@ -397,7 +417,7 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilt
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn), nil
+	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn, b.cachedFilters, b.runningFilter), nil
 }
 
 // RevertHead reverts the head block
@@ -477,7 +497,13 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 		return core.DeleteChainHeight(txn)
 	}
 
-	return core.WriteChainHeight(txn, blockNumber-1)
+	err = core.WriteChainHeight(txn, blockNumber-1)
+	if err != nil {
+		return err
+	}
+
+	// Remove the block events bloom from the cache
+	return b.runningFilter.OnReorg()
 }
 
 // Simulate returns what the new completed header and state update would be if the
@@ -563,7 +589,7 @@ func (b *Blockchain) Finalise(
 	newClasses map[felt.Felt]core.Class,
 	sign utils.BlockSignFunc,
 ) error {
-	finaliseFn := func(txn db.IndexedBatch) error {
+	err := b.database.Update(func(txn db.IndexedBatch) error {
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
@@ -578,9 +604,12 @@ func (b *Blockchain) Finalise(
 			return err
 		}
 		return core.WriteChainHeight(txn, block.Number)
+	})
+	if err != nil {
+		return err
 	}
 
-	return b.database.Update(finaliseFn)
+	return b.runningFilter.Insert(block.EventsBloom, block.Number)
 }
 
 // updateStateRoots computes and updates state roots in the block and state update
@@ -711,5 +740,14 @@ func (b *Blockchain) StoreGenesis(
 	}
 	newClasses := classes
 
-	return b.Finalise(block, stateUpdate, newClasses, nil)
+	err := b.Finalise(block, stateUpdate, newClasses, nil)
+	if err != nil {
+		return err
+	}
+
+	return b.runningFilter.Insert(block.EventsBloom, block.Number)
+}
+
+func (b *Blockchain) WriteRunningEventFilter() error {
+	return b.runningFilter.Write()
 }
