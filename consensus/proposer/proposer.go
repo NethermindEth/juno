@@ -13,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 )
 
-var NumTxnsToBatchExecute = 10
+const NumTxnsToBatchExecute = 10 // TODO: Make this configurable
 
 // Proposer defines the interface for constructing a block proposal in two possible flows:
 //
