@@ -159,7 +159,10 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) (uint64, error) {
+func (b *Builder) RunTxns(
+	txns []mempool.BroadcastedTransaction,
+	blockHashToBeRevealed *felt.Felt,
+) (l2GasConsumed uint64, err error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -222,7 +225,6 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
-	l2GasConsumed := uint64(1) // Todo: should be 0?? Blockifer seems to return 0..
 	for i := range vmResults.GasConsumed {
 		l2GasConsumed += vmResults.GasConsumed[i].L2Gas
 	}
