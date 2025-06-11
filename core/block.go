@@ -167,7 +167,6 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return crypto.PedersenArray(
 		new(felt.Felt).SetUint64(b.Number), // block number
 		b.GlobalStateRoot,                  // global state root

@@ -400,6 +400,12 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
+	defer func() {
+		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
+			n.log.Errorw("Error while storing running event filter", "err", dbErr)
+		}
+	}()
+
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {

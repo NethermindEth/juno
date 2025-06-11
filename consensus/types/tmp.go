@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -44,7 +45,7 @@ type ProposalCommitment struct {
 	// We must set these by hand. They will be compared against ProposalCommitment
 	ParentCommitment felt.Felt
 	Timestamp        uint64
-	ProtocolVersion  string
+	ProtocolVersion  semver.Version
 
 	// These also need set by hand. However, we would need to update the DB
 	// and blockchain Reader interface, so they are ignored for now.

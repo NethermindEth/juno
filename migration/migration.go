@@ -71,6 +71,7 @@ var defaultMigrations = []Migration{
 	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
 	MigrationFunc(removePendingBlock),
+	MigrationFunc(reconstructAggregatedBloomFilters),
 }
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
@@ -792,4 +793,79 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 	}
 
 	return txn.Put(key, value)
+}
+
+func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Network) error {
+	chainHeight, err := core.GetChainHeight(txn)
+	if err != nil {
+		if errors.Is(err, db.ErrKeyNotFound) {
+			// Empty DB, nothing to migrate
+			return nil
+		}
+		return err
+	}
+
+	windowLen := core.NumBlocksPerFilter
+	maxWorkers := runtime.GOMAXPROCS(0)
+	workerPool := pool.New().WithErrors().WithMaxGoroutines(maxWorkers)
+	var writeMu sync.Mutex
+
+	// Last block number to fit into full aggregated filter
+	lastBlockToStore := chainHeight - (chainHeight % core.NumBlocksPerFilter) - 1
+
+	/// Step by window size and construct and write full aggregated filters to db
+	for start := uint64(0); start < lastBlockToStore; start += windowLen {
+		// Capture loop vars
+		rangeStart := start
+		rangeEnd := start + windowLen - 1
+
+		workerPool.Go(func() error {
+			filter := core.NewAggregatedFilter(start)
+
+			for blockNum := rangeStart; blockNum <= rangeEnd; blockNum++ {
+				header, err := core.GetBlockHeaderByNumber(txn, blockNum)
+				if err != nil {
+					return fmt.Errorf("failed to load block header %d: %w", blockNum, err)
+				}
+				if err := filter.Insert(header.EventsBloom, blockNum); err != nil {
+					return fmt.Errorf("failed to insert bloom for block %d: %w", blockNum, err)
+				}
+			}
+
+			writeMu.Lock()
+			err := core.WriteAggregatedBloomFilter(txn, &filter)
+			writeMu.Unlock()
+			if err != nil {
+				return fmt.Errorf("failed to write aggregated bloom filter for blocks %d-%d: %w", rangeStart, rangeEnd, err)
+			}
+
+			return nil
+		})
+	}
+
+	if err := workerPool.Wait(); err != nil {
+		return err
+	}
+
+	// Check if running filter needs to be constructed, else return
+	numBlocksInRunningFilter := chainHeight - lastBlockToStore
+	if numBlocksInRunningFilter == 0 {
+		return nil
+	}
+
+	runningFilterStart := lastBlockToStore + 1
+	filter := core.NewAggregatedFilter(runningFilterStart)
+	runningFilter := core.NewRunningEventFilterHot(nil, &filter, runningFilterStart)
+
+	for blockNum := runningFilterStart; blockNum <= chainHeight; blockNum++ {
+		header, err := core.GetBlockHeaderByNumber(txn, blockNum)
+		if err != nil {
+			return fmt.Errorf("failed to load block header %d: %w", blockNum, err)
+		}
+		if err := runningFilter.Insert(header.EventsBloom, blockNum); err != nil {
+			return fmt.Errorf("failed to insert bloom for block %d: %w", blockNum, err)
+		}
+	}
+
+	return core.WriteRunningEventFilter(txn, runningFilter)
 }

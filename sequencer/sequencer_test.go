@@ -28,7 +28,8 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	bc := blockchain.New(testDB, &utils.Integration)
+	network := &utils.Mainnet
+	bc := blockchain.New(testDB, network)
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -188,7 +189,8 @@ func TestRunOnce(t *testing.T) {
 	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
 
 	// Build an empty block
-	require.NoError(t, seq.RunOnce())
+	_, err := seq.RunOnce()
+	require.NoError(t, err)
 
 	// Add txns to the mempool via RPC
 	_, rpcErr := rpcHandler.AddTransaction(t.Context(), txnsToExecute[0])
@@ -197,7 +199,8 @@ func TestRunOnce(t *testing.T) {
 	require.Nil(t, rpcErr)
 
 	// Build an non-empty block
-	require.NoError(t, seq.RunOnce())
+	_, err = seq.RunOnce()
+	require.NoError(t, err)
 
 	block, err := bc.BlockByNumber(2)
 	require.NoError(t, err)
@@ -211,7 +214,8 @@ func TestHelpers(t *testing.T) {
 	blockTime := 100 * time.Millisecond
 	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr) //nolint:dogsled
 
-	require.NoError(t, seq.RunOnce())
+	_, err := seq.RunOnce()
+	require.NoError(t, err)
 
 	pending, err := seq.Pending()
 	require.NoError(t, err)

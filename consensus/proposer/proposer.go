@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
@@ -203,13 +204,18 @@ func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
 		return types.ProposalCommitment{}, err
 	}
 
+	version, err := semver.NewVersion(pending.Block.ProtocolVersion)
+	if err != nil {
+		return types.ProposalCommitment{}, err
+	}
+
 	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
 	return types.ProposalCommitment{
 		BlockNumber:           pending.Block.Number,
 		Builder:               *pending.Block.SequencerAddress,
 		ParentCommitment:      *pending.Block.ParentHash,
 		Timestamp:             pending.Block.Timestamp,
-		ProtocolVersion:       pending.Block.ProtocolVersion,
+		ProtocolVersion:       *version,
 		OldStateRoot:          *pending.StateUpdate.OldRoot,
 		StateDiffCommitment:   *commitments.StateDiffCommitment,
 		TransactionCommitment: *commitments.TransactionCommitment,

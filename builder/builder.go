@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -295,6 +296,57 @@ func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, er
 	return l2gasConsumed, nil
 }
 
+func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
+	header, err := b.blockchain.HeadsHeader()
+	if err != nil {
+		return err
+	}
+	if header.Number+1 != pInit.BlockNum {
+		return fmt.Errorf("proposed block number is not head.Number +1")
+	}
+
+	pendingBlock := core.Block{
+		Header: &core.Header{
+			Number:           pInit.BlockNum,
+			SequencerAddress: &pInit.Proposer,
+			ParentHash:       header.Hash,
+			// Todo: we need a mapping of protocolversion to block versions from SN
+			ProtocolVersion: blockchain.SupportedStarknetVersion.String(),
+			// Todo: once the spec is finalised, handle these fields (if they still exist)
+			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
+			L1GasPriceETH: header.L1GasPriceETH,
+		},
+		Transactions: []core.Transaction{},
+		Receipts:     []*core.TransactionReceipt{},
+	}
+
+	newClasses := make(map[felt.Felt]core.Class)
+	emptyStateDiff := core.EmptyStateDiff()
+	su := core.StateUpdate{
+		StateDiff: &emptyStateDiff,
+	}
+	pending := sync.Pending{
+		Block:       &pendingBlock,
+		StateUpdate: &su,
+		NewClasses:  newClasses,
+	}
+	b.pendingBlock.Store(&pending)
+	b.headState, b.headCloser, err = b.blockchain.HeadState()
+	return err
+}
+
+func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
+	pending := b.pendingBlock.Load()
+	pending.Block.Header.Number = blockInfo.BlockNumber
+	pending.Block.Header.SequencerAddress = &blockInfo.Builder
+	pending.Block.Header.Timestamp = blockInfo.Timestamp
+	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
+	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
+	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
+	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
+	b.pendingBlock.Store(pending)
+}
+
 // ExecutePending updates the pending block and state-update
 func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	pending, err := b.Pending()
@@ -304,4 +356,13 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
 	b.pendingBlock.Store(pending)
 	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
+}
+
+// StoredExecutedPending stores the executed pending block
+func (b *Builder) StoredExecutedPending(commitments *core.BlockCommitments) error {
+	pending, err := b.Pending()
+	if err != nil {
+		return err
+	}
+	return b.blockchain.StoreSimulated(pending.Block, pending.StateUpdate, pending.NewClasses, commitments, nil)
 }

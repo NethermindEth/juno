@@ -150,11 +150,11 @@ func (mr *MockReaderMockRecorder) Head() *gomock.Call {
 }
 
 // HeadState mocks base method.
-func (m *MockReader) HeadState() (core.StateReader, func() error, error) {
+func (m *MockReader) HeadState() (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HeadState")
 	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
+	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -257,11 +257,11 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 }
 
 // StateAtBlockHash mocks base method.
-func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, func() error, error) {
+func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockHash", blockHash)
 	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
+	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -273,11 +273,11 @@ func (mr *MockReaderMockRecorder) StateAtBlockHash(blockHash any) *gomock.Call {
 }
 
 // StateAtBlockNumber mocks base method.
-func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.StateReader, func() error, error) {
+func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.StateReader, blockchain.StateCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockNumber", blockNumber)
 	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
+	ret1, _ := ret[1].(blockchain.StateCloser)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

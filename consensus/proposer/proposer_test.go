@@ -76,7 +76,8 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(txnPool)
 	_, rpcErr := rpcHandler.AddTransaction(t.Context(), invokeTxn)
 	require.Nil(t, rpcErr)
-	require.NoError(t, seq.RunOnce())
+	_, err = seq.RunOnce()
+	require.NoError(t, err)
 
 	return &testBuilder, rpcHandler, txnPool
 }
