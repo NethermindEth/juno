@@ -318,6 +318,18 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	return err
 }
 
+func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
+	pending := b.pendingBlock.Load()
+	pending.Block.Header.Number = blockInfo.BlockNumber
+	pending.Block.Header.SequencerAddress = &blockInfo.Builder
+	pending.Block.Header.Timestamp = blockInfo.Timestamp
+	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
+	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
+	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
+	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
+	b.pendingBlock.Store(pending)
+}
+
 func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, error) {
 	b.log.Debugw("calling ExecuteTxns")
 	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
@@ -332,18 +344,6 @@ func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) (uint64, er
 	}
 	b.log.Debugw("running txns success")
 	return l2gasConsumed, nil
-}
-
-func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
-	pending := b.pendingBlock.Load()
-	pending.Block.Header.Number = blockInfo.BlockNumber
-	pending.Block.Header.SequencerAddress = &blockInfo.Builder
-	pending.Block.Header.Timestamp = blockInfo.Timestamp
-	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
-	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
-	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
-	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
-	b.pendingBlock.Store(pending)
 }
 
 // ExecutePending updates the pending block and state-update
