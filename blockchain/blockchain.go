@@ -701,7 +701,7 @@ type SimulateResult struct {
 	Block            *core.Block
 	StateUpdate      *core.StateUpdate
 	BlockCommitments *core.BlockCommitments
-	ConcatCount      *felt.Felt
+	ConcatCount      felt.Felt
 }
 
 // Simulate returns what the new completed header and state update would be if the
@@ -747,6 +747,6 @@ func (b *Blockchain) Simulate(
 		Block:            block,
 		StateUpdate:      stateUpdate,
 		BlockCommitments: newCommitments,
-		ConcatCount:      &concatCount,
+		ConcatCount:      concatCount,
 	}, nil
 }

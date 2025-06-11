@@ -355,7 +355,7 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	}
 	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
 	b.pendingBlock.Store(pending)
-	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
+	return simulateResult.BlockCommitments, &simulateResult.ConcatCount, err
 }
 
 // StoredExecutedPending stores the executed pending block
