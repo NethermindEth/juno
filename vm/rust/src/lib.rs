@@ -48,7 +48,7 @@ use starknet_api::{
     transaction::{
         fields::{Calldata, Fee, GasVectorComputationMode, Tip},
         DeclareTransaction, DeployAccountTransaction, InvokeTransaction,
-        Transaction as StarknetApiTransaction, TransactionHash,
+        Transaction as StarknetApiTransaction, TransactionHash, TransactionVersion,
     },
 };
 use starknet_api::{
@@ -387,7 +387,6 @@ pub extern "C" fn cairoVMExecute(
             return;
         }
 
-        let is_l1_handler_txn = false;
         let mut txn_state = CachedState::create_transactional(&mut state);
         let mut txn = txn.unwrap();
         let gas_vector_computation_mode = determine_gas_vector_mode(&txn);
@@ -432,39 +431,54 @@ pub extern "C" fn cairoVMExecute(
                 }
             },
             Ok(mut tx_execution_info) => {
-                // we are estimating fee, override actual fee calculation
-                if tx_execution_info.receipt.fee.0 == 0 && !is_l1_handler_txn {
-                    let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
-                    let l1_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l1_gas
-                        .max(minimal_gas_vector.l1_gas);
-                    let l1_data_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l1_data_gas
-                        .max(minimal_gas_vector.l1_data_gas);
-                    let l2_gas_consumed = tx_execution_info
-                        .receipt
-                        .gas
-                        .l2_gas
-                        .max(minimal_gas_vector.l2_gas);
+                let minimal_gas_vector = minimal_gas_vector.unwrap_or_default();
+                let mut l1_gas_consumed = tx_execution_info
+                    .receipt
+                    .gas
+                    .l1_gas
+                    .max(minimal_gas_vector.l1_gas);
+                let l1_data_gas_consumed = tx_execution_info
+                    .receipt
+                    .gas
+                    .l1_data_gas
+                    .max(minimal_gas_vector.l1_data_gas);
+                let mut l2_gas_consumed = tx_execution_info
+                    .receipt
+                    .gas
+                    .l2_gas
+                    .max(minimal_gas_vector.l2_gas);
 
-                    tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
-                        block_context.block_info(),
-                        GasVector {
-                            l1_data_gas: l1_data_gas_consumed,
-                            l1_gas: l1_gas_consumed,
-                            l2_gas: l2_gas_consumed,
-                        },
-                        &fee_type,
-                        match txn {
-                            Transaction::Account(txn) => txn.tip(),
-                            Transaction::L1Handler(_) => Tip(0),
-                        },
-                    )
+                // For L1 handlers transaction with blockifier >= 0.15.0, convert all L2 gas to L1 gas.
+                if let GasVectorComputationMode::NoL2Gas = gas_vector_computation_mode {
+                    let wrapped_l1_gas_consumed = l1_gas_consumed.checked_add(
+                        block_context
+                            .versioned_constants()
+                            .sierra_gas_to_l1_gas_amount_round_up(l2_gas_consumed),
+                    );
+                    if wrapped_l1_gas_consumed.is_none() {
+                        report_error(
+                            reader_handle,
+                            "L1 gas amount overflowed while adding converted L2 gas",
+                            txn_index as i64,
+                            0,
+                        );
+                        return;
+                    }
+                    l1_gas_consumed = wrapped_l1_gas_consumed.unwrap();
+
+                    l2_gas_consumed = GasAmount(0).into();
                 }
+
+                tx_execution_info.receipt.fee = fee_utils::get_fee_by_gas_vector(
+                    block_context.block_info(),
+                    GasVector {
+                        l1_data_gas: l1_data_gas_consumed,
+                        l1_gas: l1_gas_consumed,
+                        l2_gas: l2_gas_consumed,
+                    },
+                    &fee_type,
+                    get_tip(&txn),
+                );
 
                 let actual_fee: Felt = tx_execution_info.receipt.fee.0.into();
                 let da_gas_l1_gas = tx_execution_info.receipt.da_gas.l1_gas.into();
@@ -860,5 +874,18 @@ pub extern "C" fn freeString(s: *mut c_char) {
             // when drop function returns.
             drop(CString::from_raw(s));
         }
+    }
+}
+
+fn get_tip(tx: &Transaction) -> Tip {
+    match tx {
+        Transaction::Account(tx) => {
+            if tx.version() == TransactionVersion::THREE {
+                tx.tip()
+            } else {
+                Tip(0)
+            }
+        }
+        _ => Tip(0),
     }
 }
