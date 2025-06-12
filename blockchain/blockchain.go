@@ -506,6 +506,13 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	return b.runningFilter.OnReorg()
 }
 
+type SimulateResult struct {
+	Block            *core.Block
+	StateUpdate      *core.StateUpdate
+	BlockCommitments *core.BlockCommitments
+	ConcatCount      felt.Felt
+}
+
 // Simulate returns what the new completed header and state update would be if the
 // provided block was added to the chain.
 func (b *Blockchain) Simulate(
@@ -515,7 +522,6 @@ func (b *Blockchain) Simulate(
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
 	var newCommitments *core.BlockCommitments
-	var concatCount *felt.Felt
 
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
@@ -536,7 +542,7 @@ func (b *Blockchain) Simulate(
 	stateUpdate.BlockHash = blockHash
 	newCommitments = commitments
 
-	concatCount = core.ConcatCounts(
+	concatCount := core.ConcatCounts(
 		block.TransactionCount,
 		block.EventCount,
 		stateUpdate.StateDiff.Length(),
@@ -573,13 +579,6 @@ func (b *Blockchain) StoreSimulated(
 	}
 
 	return b.database.Update(finaliseFn)
-}
-
-type SimulateResult struct {
-	Block            *core.Block
-	StateUpdate      *core.StateUpdate
-	BlockCommitments *core.BlockCommitments
-	ConcatCount      *felt.Felt
 }
 
 // Finalise checks the block correctness and appends it to the chain

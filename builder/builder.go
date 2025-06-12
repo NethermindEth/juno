@@ -24,13 +24,14 @@ var (
 )
 
 type Builder struct {
-	pendingBlock atomic.Pointer[sync.Pending]
-	vm           vm.VM
-	blockchain   *blockchain.Blockchain
-	headState    core.StateReader
-	headCloser   blockchain.StateCloser
-	log          utils.Logger
-	disableFees  bool
+	pendingBlock  atomic.Pointer[sync.Pending]
+	vm            vm.VM
+	l2GasConsumed uint64
+	blockchain    *blockchain.Blockchain
+	headState     core.StateReader
+	headCloser    blockchain.StateCloser
+	log           utils.Logger
+	disableFees   bool
 }
 
 func New(
@@ -45,6 +46,10 @@ func New(
 		disableFees: disableFees,
 		vm:          vm,
 	}
+}
+
+func (b *Builder) L2GasConsumed() uint64 {
+	return b.l2GasConsumed
 }
 
 func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
@@ -87,6 +92,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) ClearPending() error {
+	b.l2GasConsumed = 0
 	b.pendingBlock.Store(&sync.Pending{})
 
 	if b.headState != nil {
@@ -109,10 +115,15 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: sequencerAddress,
+			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
 			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: felt.One.Clone(),
+				PriceInFri: felt.One.Clone(),
+			},
+			L2GasPrice: &core.GasPrice{
 				PriceInWei: felt.One.Clone(),
 				PriceInFri: felt.One.Clone(),
 			},
@@ -154,7 +165,7 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) (err error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -217,6 +228,9 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
+	for i := range vmResults.GasConsumed {
+		b.l2GasConsumed += vmResults.GasConsumed[i].L2Gas
+	}
 	return b.storePending(pending)
 }
 
@@ -327,12 +341,10 @@ func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
 	if err != nil {
 		return err
 	}
+
 	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
 		b.log.Debugw("failed running txn", "err", err.Error())
-		var txnExecutionError vm.TransactionExecutionError
-		if !errors.As(err, &txnExecutionError) {
-			return err
-		}
+		return err
 	}
 	b.log.Debugw("running txns success")
 	return nil
@@ -346,7 +358,7 @@ func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
 	}
 	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
 	b.pendingBlock.Store(pending)
-	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
+	return simulateResult.BlockCommitments, &simulateResult.ConcatCount, err
 }
 
 // StoredExecutedPending stores the executed pending block
