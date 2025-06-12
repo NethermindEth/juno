@@ -165,12 +165,12 @@ func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Tod
 					time.Sleep(100 * time.Millisecond) //nolint:mnd
 					continue
 				}
-				p.log.Errorw(err.Error())
+				p.log.Errorw("failed to pop transactions from the mempool", "err", err)
 				return
 			}
 
 			if err := p.builder.ExecuteTxns(txns); err != nil {
-				p.log.Errorw(err.Error())
+				p.log.Errorw("failed to execute transactions", "err", err)
 				return
 			}
 			adaptedTxns := make([]types.Transaction, len(txns))
