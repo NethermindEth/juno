@@ -43,7 +43,7 @@ func (f *RunningEventFilter) ensureInit() error {
 	return f.initErr
 }
 
-// NewRunningFilter returns a RunningEventFilter that wraps the provided aggregated filter
+// NewRunningEventFilterHot returns a RunningEventFilter that wraps the provided aggregated filter
 // with the expected next block to process.
 func NewRunningEventFilterHot(txn db.KeyValueStore, filter *AggregatedBloomFilter, nextBlock uint64) *RunningEventFilter {
 	return &RunningEventFilter{
