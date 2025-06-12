@@ -8,8 +8,14 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+// H 3 R3 , we propose
+// Call Value() V - this blocks out consensus progress
+// The network commits H3 R2 while we generate a proposal
+// We could cancel the block builder, and move to the new height
+// Msg times : delta + maxTime
+
 type Application[V types.Hashable[H], H types.Hash] interface {
-	// Value returns the value to the Tendermint consensus algorith which can be proposed to other validators.
+	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V
 
 	// Valid returns true if the provided value is valid according to the application context.
