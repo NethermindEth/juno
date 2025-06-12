@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
+	"github.com/NethermindEth/juno/p2p/proto/consensus/consensus"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -21,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -28,17 +30,18 @@ const (
 	discoveryServiceTag = "test-buffered-topic-subscription-discovery"
 	nodeCount           = 20
 	messageCount        = 100
-	throttledRate       = 3 * nodeCount * time.Millisecond
+	throttledRate       = 5 * nodeCount * time.Millisecond
 	logLevel            = zapcore.ErrorLevel
+	retryInterval       = 1 * time.Second
 )
 
 type node struct {
 	host     host.Host
 	topic    *pubsub.Topic
-	messages []string
+	messages []proto.Message
 }
 
-func TestBufferedTopicSubscription(t *testing.T) {
+func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 	t.Run(fmt.Sprintf("%d nodes, each sending %d messages", nodeCount, messageCount), func(t *testing.T) {
 		logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
 		require.NoError(t, err)
@@ -64,11 +67,15 @@ func TestBufferedTopicSubscription(t *testing.T) {
 		allMessages := make(map[string]struct{})
 
 		for i := range nodes {
-			nodes[i].messages = make([]string, messageCount)
+			nodes[i].messages = make([]proto.Message, messageCount)
 			for j := range nodes[i].messages {
-				msg := fmt.Sprintf("message %d", i*messageCount+j)
+				msg := getTestMessage(i, j)
 				nodes[i].messages[j] = msg
-				allMessages[msg] = struct{}{}
+
+				msgBytes, err := proto.Marshal(msg)
+				require.NoError(t, err)
+
+				allMessages[string(msgBytes)] = struct{}{}
 			}
 		}
 
@@ -97,9 +104,11 @@ func TestBufferedTopicSubscription(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			iterator.ForEachIdx(nodes, func(i int, source *node) {
 				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("source-%d", i))}
+				broadcaster := buffered.NewProtoBroadcaster(logger, messageCount, retryInterval)
+				go broadcaster.Loop(t.Context(), source.topic)
 				for _, message := range source.messages {
 					logger.Debugw("publishing", "message", message)
-					require.NoError(t, source.topic.Publish(t.Context(), []byte(message), pubsub.WithReadiness(pubsub.MinTopicSize(1))))
+					broadcaster.Broadcast(message)
 					time.Sleep(throttledRate)
 				}
 			})
@@ -129,6 +138,12 @@ func TestBufferedTopicSubscription(t *testing.T) {
 	})
 }
 
+func getTestMessage(node, messageIndex int) proto.Message {
+	return &consensus.ConsensusStreamId{
+		Nonce: uint64(node*messageCount + messageIndex),
+	}
+}
+
 func getNode(t *testing.T) node {
 	t.Helper()
 
@@ -156,7 +171,7 @@ func getNode(t *testing.T) node {
 	return node{
 		host:     host,
 		topic:    topic,
-		messages: make([]string, messageCount),
+		messages: make([]proto.Message, messageCount),
 	}
 }
 
