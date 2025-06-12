@@ -29,8 +29,6 @@ func (v value) Hash() felt.Felt {
 	return *new(felt.Felt).SetUint64(uint64(v))
 }
 
-var emptyCommitments = core.BlockCommitments{}
-
 // We use a custom chain to test the consensus logic.
 // The reason is that our current blockifier version is incompatible
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
