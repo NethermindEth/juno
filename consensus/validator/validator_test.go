@@ -149,7 +149,9 @@ func TestEmptyProposal(t *testing.T) {
 	require.NoError(t, validator.ProposalCommitment(&emptyCommitment))
 
 	// Step 3: ProposalFin
-	block1Hash, err := new(felt.Felt).SetString("0x6de5ea1b1db43acda6c32c17bea719af54e98d08acbfc6da33b178bbb8ab326")
+	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
+	// we update SupportedStarknetVersion
+	block1Hash, err := new(felt.Felt).SetString("0x10ccfbbc0b45b229f251b3f058bae326f7c4475fc9e7de802ce29ccea55e68b")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))

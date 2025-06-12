@@ -308,6 +308,28 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 		Receipts:     []*core.TransactionReceipt{},
 	}
 
+	// Old blocks do not have these values, but we need them
+	// when we transition to a new block hash function
+	if pendingBlock.L1GasPriceSTRK == nil {
+		pendingBlock.L1GasPriceSTRK = new(felt.Felt).SetUint64(1)
+	}
+	if pendingBlock.L1GasPriceETH == nil {
+		pendingBlock.L1GasPriceETH = new(felt.Felt).SetUint64(1)
+	}
+
+	if pendingBlock.L1DataGasPrice == nil {
+		pendingBlock.L1DataGasPrice = &core.GasPrice{
+			PriceInWei: new(felt.Felt).SetUint64(1),
+			PriceInFri: new(felt.Felt).SetUint64(1),
+		}
+	}
+	if pendingBlock.L2GasPrice == nil {
+		pendingBlock.L2GasPrice = &core.GasPrice{
+			PriceInWei: new(felt.Felt).SetUint64(1),
+			PriceInFri: new(felt.Felt).SetUint64(1),
+		}
+	}
+
 	newClasses := make(map[felt.Felt]core.Class)
 	emptyStateDiff := core.EmptyStateDiff()
 	su := core.StateUpdate{
