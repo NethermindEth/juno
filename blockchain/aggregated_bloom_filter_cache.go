@@ -216,35 +216,44 @@ func (it *MatchedBlockIterator) Next() (uint64, bool, error) {
 		}
 	}
 
-	// Search till finding next set bit or iterator exhausts
-	next, found := it.currentBits.NextSet(uint(it.nextIndex))
-	for !found {
-		if err := it.loadNextWindow(); err != nil {
-			it.done = true
-			return 0, false, err
+	for {
+		// Search till finding next set bit or iterator exhausts
+		next, found := it.currentBits.NextSet(uint(it.nextIndex))
+		for !found {
+			if err := it.loadNextWindow(); err != nil {
+				it.done = true
+				return 0, false, err
+			}
+
+			if it.done {
+				return 0, false, nil
+			}
+			next, found = it.currentBits.NextSet(uint(it.nextIndex))
 		}
 
-		if it.done {
+		// Calculate absolute block number relative to current window
+		blockNum := it.currentWindowStart + uint64(next)
+		if blockNum > it.rangeEnd {
+			it.done = true
 			return 0, false, nil
 		}
-		next, found = it.currentBits.NextSet(uint(it.nextIndex))
-	}
 
-	// Calculate absolute block number relative to current window
-	blockNum := it.currentWindowStart + uint64(next)
-	if blockNum > it.rangeEnd {
-		it.done = true
-		return 0, false, nil
-	}
-	it.nextIndex = uint64(next) + 1
-
-	if it.maxScanned > 0 {
-		it.scannedCount++
-		if it.scannedCount > it.maxScanned {
-			it.done = true
-			return blockNum, false, ErrMaxScannedBlockLimitExceed
+		// Skip blocks before the requested range start
+		if blockNum < it.rangeStart {
+			it.nextIndex = uint64(next) + 1
+			continue
 		}
-	}
 
-	return blockNum, true, nil
+		it.nextIndex = uint64(next) + 1
+
+		if it.maxScanned > 0 {
+			it.scannedCount++
+			if it.scannedCount > it.maxScanned {
+				it.done = true
+				return blockNum, false, ErrMaxScannedBlockLimitExceed
+			}
+		}
+
+		return blockNum, true, nil
+	}
 }

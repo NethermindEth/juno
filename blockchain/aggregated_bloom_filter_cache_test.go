@@ -309,3 +309,106 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		// TODO(Ege)
 	})
 }
+
+func TestMatchedBlockIterator_RangeBounds(t *testing.T) {
+	testDB := memory.New()
+	contractAddr := randomContractAddress(t)
+	keys := randomEventKeys(t, 2, 1)
+	filter := core.NewAggregatedFilter(0)
+	eventBlocks := []uint64{100, 200, 1000, 5000, 8000, 8191}
+
+	for _, blockNum := range eventBlocks {
+		bloom := bloom.New(core.EventsBloomLength, core.EventsBloomHashFuncs)
+		bloom.Add(contractAddr.Marshal())
+
+		for index, keySet := range keys {
+			for _, key := range keySet {
+				keyBytes := key.Bytes()
+				keyAndIndexBytes := binary.AppendVarint(keyBytes[:], int64(index))
+				bloom.Add(keyAndIndexBytes)
+			}
+		}
+
+		require.NoError(t, filter.Insert(bloom, blockNum))
+	}
+
+	cache := blockchain.NewAggregatedBloomCache(1)
+	cache.SetMany([]*core.AggregatedBloomFilter{&filter})
+
+	runningFilterStart := uint64(8192)
+	innerFilter := core.NewAggregatedFilter(runningFilterStart)
+	runningFilter := core.NewRunningEventFilterHot(testDB, &innerFilter, runningFilterStart)
+	matcher := blockchain.NewEventMatcher(contractAddr, keys)
+
+	t.Run("query single block should only return that block", func(t *testing.T) {
+		iterator, err := cache.NewMatchedBlockIterator(8191, 8191, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		blockNumber, ok, err := iterator.Next()
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, uint64(8191), blockNumber)
+
+		blockNumber, ok, err = iterator.Next()
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Equal(t, uint64(0), blockNumber)
+	})
+
+	t.Run("query middle block should only return that block", func(t *testing.T) {
+		iterator, err := cache.NewMatchedBlockIterator(1000, 1000, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		blockNumber, ok, err := iterator.Next()
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, uint64(1000), blockNumber)
+
+		blockNumber, ok, err = iterator.Next()
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Equal(t, uint64(0), blockNumber)
+	})
+
+	t.Run("query block without events should return nothing", func(t *testing.T) {
+		iterator, err := cache.NewMatchedBlockIterator(500, 500, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		blockNumber, ok, err := iterator.Next()
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Equal(t, uint64(0), blockNumber)
+	})
+
+	t.Run("query range should return all blocks in range", func(t *testing.T) {
+		iterator, err := cache.NewMatchedBlockIterator(800, 1200, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		blockNumber, ok, err := iterator.Next()
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, uint64(1000), blockNumber)
+
+		blockNumber, ok, err = iterator.Next()
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Equal(t, uint64(0), blockNumber)
+	})
+
+	t.Run("query large range should return all matching blocks in order", func(t *testing.T) {
+		iterator, err := cache.NewMatchedBlockIterator(0, 8191, 0, &matcher, runningFilter)
+		require.NoError(t, err)
+
+		for _, expectedBlock := range eventBlocks {
+			blockNumber, ok, err := iterator.Next()
+			require.NoError(t, err)
+			require.True(t, ok)
+			require.Equal(t, expectedBlock, blockNumber)
+		}
+
+		blockNumber, ok, err := iterator.Next()
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Equal(t, uint64(0), blockNumber)
+	})
+}
