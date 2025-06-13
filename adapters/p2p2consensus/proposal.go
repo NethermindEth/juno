@@ -26,8 +26,8 @@ func AdaptProposalInit(msg *p2pconsensus.ProposalInit) consensus.ProposalInit {
 	}
 }
 
-func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) *consensus.BlockInfo {
-	return &consensus.BlockInfo{
+func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) consensus.BlockInfo {
+	return consensus.BlockInfo{
 		BlockNumber:       msg.BlockNumber,
 		Builder:           *new(felt.Felt).SetBytes(msg.Builder.Elements),
 		Timestamp:         msg.Timestamp,
