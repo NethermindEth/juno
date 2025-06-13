@@ -9,7 +9,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,11 +17,9 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,14 +29,12 @@ func (v value) Hash() felt.Felt {
 	return *new(felt.Felt).SetUint64(uint64(v))
 }
 
-var emptyCommitments = core.BlockCommitments{}
-
 // We use a custom chain to test the consensus logic.
 // The reason is that our current blockifier version is incompatible
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
 // head without access to the state. To get around this, a custom chain was used
 // in these tests.
-func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
+func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchain.Blockchain, *core.Header) {
 	t.Helper()
 
 	// transfer tokens to 0x101
@@ -96,32 +91,14 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Head
 	}
 	head, err := seq.RunOnce()
 	require.NoError(t, err)
-	return &testBuilder, head
-}
-
-// getBlockchain returns the blockchain at network, where block 0 has been stored.
-func getBlockchain(t *testing.T, network *utils.Network) (*blockchain.Blockchain, *memory.Database) {
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	testDB := memory.New()
-	chain := blockchain.New(testDB, network)
-	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
-
-	return chain, testDB
+	return &testBuilder, bc, head
 }
 
 // This test assumes Sepolia block 0 has been committed, and now
 // the Proposer proposes an empty block for block 1
 func TestEmptyProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xabcdef")
-	chain, _ := getBlockchain(t, &utils.Sepolia)
+	_, chain, head := getCustomBC(t, proposerAddr)
 	log := utils.NewNopZapLogger()
 	vm := vm.New(false, log)
 	testBuilder := builder.New(chain, vm, log, false)
@@ -130,16 +107,14 @@ func TestEmptyProposal(t *testing.T) {
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: 1,
+		BlockNum: head.Number + 1,
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
 
-	block0, err := chain.BlockByNumber(0)
-	require.NoError(t, err)
 	emptyCommitment := types.ProposalCommitment{
-		BlockNumber:      1,
-		ParentCommitment: *block0.Hash,
+		BlockNumber:      head.Number + 1,
+		ParentCommitment: *head.Hash,
 		Builder:          *proposerAddr,
 		Timestamp:        0,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
@@ -151,7 +126,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x10ccfbbc0b45b229f251b3f058bae326f7c4475fc9e7de802ce29ccea55e68b")
+	block1Hash, err := new(felt.Felt).SetString("0x27a852d180c77e0b7bc2b3e9b635b625db3ae48f2c469c93930c1889ae2d09f")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -162,7 +137,7 @@ func TestEmptyProposal(t *testing.T) {
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	builder, head := getCustomBC(t, proposerAddr)
+	builder, _, head := getCustomBC(t, proposerAddr)
 	validator := New[value, felt.Felt, felt.Felt](builder)
 
 	// Step 1: ProposalInit
