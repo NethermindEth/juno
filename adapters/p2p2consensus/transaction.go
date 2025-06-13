@@ -19,7 +19,9 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 		tx := t.GetDeclareV3()
 		// Todo: we pass in CompiledClassHash here, but in sync we pass in ClassHash.
 		// Are we expected to compile the class hash here???
-		return p2p2core.AdaptDeclareV3TxnCommon(tx.Common, tx.Common.CompiledClassHash, t.TransactionHash), AdaptClass(tx.Class)
+		class := p2p2core.AdaptCairo1Class(tx.Class)
+		return p2p2core.AdaptDeclareV3TxnCommon(tx.Common, tx.Common.CompiledClassHash, t.TransactionHash), &class
+
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:
 		tx := t.GetDeployAccountV3()
 		return p2p2core.AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash), nil
