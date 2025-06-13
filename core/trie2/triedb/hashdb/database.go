@@ -22,8 +22,8 @@ type Database struct {
 	disk   db.KeyValueStore
 	config Config
 
-	cleanCache *CleanCache
-	dirtyCache *DirtyCache
+	cleanCache *cleanCache
+	dirtyCache *dirtyCache
 
 	lock sync.RWMutex
 	log  utils.SimpleLogger
@@ -37,12 +37,12 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 			CleanCacheSize: 1024 * 1024 * 16,
 		}
 	}
-	cleanCache := NewCleanCache(config.CleanCacheSize)
+	cleanCache := newCleanCache(config.CleanCacheSize)
 	return &Database{
 		disk:       disk,
 		config:     *config,
 		cleanCache: &cleanCache,
-		dirtyCache: NewDirtyCache(),
+		dirtyCache: newDirtyCache(),
 		log:        utils.NewNopZapLogger(),
 	}
 }
@@ -93,7 +93,7 @@ func (d *Database) Commit(_ *felt.Felt) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	batch := d.disk.NewBatch()
-	nodes, startTime := d.dirtyCache.Len(), time.Now()
+	nodes, startTime := d.dirtyCache.len(), time.Now()
 
 	for key, node := range d.dirtyCache.classNodes {
 		path, hash, err := decodeNodeKey([]byte(key))
@@ -137,9 +137,9 @@ func (d *Database) Commit(_ *felt.Felt) error {
 	d.dirtyCache.reset()
 
 	d.log.Debugw("Flushed dirty cache to disk",
-		"nodes", nodes-d.dirtyCache.Len(),
+		"nodes", nodes-d.dirtyCache.len(),
 		"duration", time.Since(startTime),
-		"liveNodes", d.dirtyCache.Len(),
+		"liveNodes", d.dirtyCache.len(),
 		"liveSize", d.dirtyCache.size,
 	)
 	return nil
@@ -155,8 +155,22 @@ func (d *Database) Update(
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	classNodes, _ := mergedClassNodes.Flatten()
-	contractNodes, contractStorageNodes := mergedContractNodes.Flatten()
+	var classNodes map[trieutils.Path]trienode.TrieNode
+	var contractNodes map[trieutils.Path]trienode.TrieNode
+	var contractStorageNodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode
+
+	if mergedClassNodes != nil {
+		classNodes, _ = mergedClassNodes.Flatten()
+	} else {
+		classNodes = make(map[trieutils.Path]trienode.TrieNode)
+	}
+
+	if mergedContractNodes != nil {
+		contractNodes, contractStorageNodes = mergedContractNodes.Flatten()
+	} else {
+		contractNodes = make(map[trieutils.Path]trienode.TrieNode)
+		contractStorageNodes = make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
+	}
 
 	for path, node := range classNodes {
 		if _, ok := node.(*trienode.DeletedNode); ok {
@@ -216,7 +230,7 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 	if err != nil {
 		return nil, nil, err
 	}
-	classRootHash, contractRootHash, err := decodeTriesRoots(data)
+	classRootHash, contractRootHash, err := trienode.DecodeTriesRoots(data)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -248,15 +262,4 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 	}
 
 	return classRootNode, contractRootNode, nil
-}
-
-func decodeTriesRoots(val []byte) (felt.Felt, felt.Felt, error) {
-	var classRoot, contractRoot felt.Felt
-
-	if len(val) != 2*felt.Bytes {
-		return felt.Zero, felt.Zero, fmt.Errorf("invalid state hash value length")
-	}
-	classRoot.SetBytes(val[:felt.Bytes])
-	contractRoot.SetBytes(val[felt.Bytes:])
-	return classRoot, contractRoot, nil
 }

@@ -26,18 +26,25 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	// Default to path config if not provided
 	if config == nil {
 		config = &Config{
-			PathConfig: &pathdb.Config{},
+			PathConfig: pathdb.DefaultConfig,
 			HashConfig: nil,
 		}
 	}
 
-	pathdb, err := pathdb.New(disk, config.PathConfig)
-	if err != nil {
-		return nil, err
+	var triedb database.TrieDB
+	var err error
+
+	if config.PathConfig != nil {
+		triedb, err = pathdb.New(disk, config.PathConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else if config.HashConfig != nil {
+		triedb = hashdb.New(disk, config.HashConfig)
 	}
 
-	return &Database{ // TODO: handle both pathdb and hashdb
-		triedb: pathdb,
+	return &Database{
+		triedb: triedb,
 		config: config,
 	}, nil
 }

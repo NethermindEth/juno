@@ -1,19 +1,11 @@
-package core_test
+package core
 
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-var NoopOnValueChanged = func(location, oldValue *felt.Felt) error {
-	return nil
-}
 
 func TestContractAddress(t *testing.T) {
 	tests := []struct {
@@ -43,118 +35,10 @@ func TestContractAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("Address", func(t *testing.T) {
-			address := core.ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCallData)
+			address := ContractAddress(tt.callerAddress, tt.classHash, tt.salt, tt.constructorCallData)
 			if !address.Equal(tt.want) {
 				t.Errorf("wrong address: got %s, want %s", address.String(), tt.want.String())
 			}
 		})
 	}
-}
-
-func TestNewContract(t *testing.T) {
-	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-	addr := new(felt.Felt).SetUint64(234)
-	classHash := new(felt.Felt).SetBytes([]byte("class hash"))
-
-	t.Run("cannot create Contract instance if un-deployed", func(t *testing.T) {
-		_, err := core.NewContractUpdater(addr, txn)
-		require.EqualError(t, err, core.ErrContractNotDeployed.Error())
-	})
-
-	_, err := core.DeployContract(addr, classHash, txn)
-	require.NoError(t, err)
-
-	t.Run("redeploy should fail", func(t *testing.T) {
-		_, err := core.DeployContract(addr, classHash, txn)
-		require.EqualError(t, err, core.ErrContractAlreadyDeployed.Error())
-	})
-}
-
-func TestNonceAndClassHash(t *testing.T) {
-	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-	addr := new(felt.Felt).SetUint64(44)
-	classHash := new(felt.Felt).SetUint64(37)
-
-	contract, err := core.DeployContract(addr, classHash, txn)
-	require.NoError(t, err)
-
-	t.Run("initial nonce should be 0", func(t *testing.T) {
-		got, err := core.ContractNonce(addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, new(felt.Felt), got)
-	})
-	t.Run("UpdateNonce()", func(t *testing.T) {
-		require.NoError(t, contract.UpdateNonce(classHash))
-
-		got, err := core.ContractNonce(addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, classHash, got)
-	})
-
-	t.Run("ClassHash()", func(t *testing.T) {
-		got, err := core.ContractClassHash(addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, classHash, got)
-	})
-
-	t.Run("Replace()", func(t *testing.T) {
-		replaceWith := utils.HexToFelt(t, "0xDEADBEEF")
-		require.NoError(t, contract.Replace(replaceWith))
-		got, err := core.ContractClassHash(addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, replaceWith, got)
-	})
-}
-
-func TestUpdateStorage(t *testing.T) {
-	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-	addr := new(felt.Felt).SetUint64(44)
-	classHash := new(felt.Felt).SetUint64(37)
-
-	contract, err := core.DeployContract(addr, classHash, txn)
-	require.NoError(t, err)
-
-	t.Run("apply storage diff", func(t *testing.T) {
-		oldRoot, err := core.ContractRoot(addr, txn)
-		require.NoError(t, err)
-
-		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: classHash}, NoopOnValueChanged))
-
-		gotValue, err := core.ContractStorage(addr, addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, classHash, gotValue)
-
-		newRoot, err := core.ContractRoot(addr, txn)
-		require.NoError(t, err)
-		assert.NotEqual(t, oldRoot, newRoot)
-	})
-
-	t.Run("delete key from storage with storage diff", func(t *testing.T) {
-		require.NoError(t, contract.UpdateStorage(map[felt.Felt]*felt.Felt{*addr: new(felt.Felt)}, NoopOnValueChanged))
-
-		val, err := core.ContractStorage(addr, addr, txn)
-		require.NoError(t, err)
-		require.Equal(t, &felt.Zero, val)
-
-		sRoot, err := core.ContractRoot(addr, txn)
-		require.NoError(t, err)
-		assert.Equal(t, new(felt.Felt), sRoot)
-	})
-}
-
-func TestPurge(t *testing.T) {
-	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-	addr := new(felt.Felt).SetUint64(44)
-	classHash := new(felt.Felt).SetUint64(37)
-
-	contract, err := core.DeployContract(addr, classHash, txn)
-	require.NoError(t, err)
-
-	require.NoError(t, contract.Purge())
-	_, err = core.NewContractUpdater(addr, txn)
-	assert.ErrorIs(t, err, core.ErrContractNotDeployed)
 }

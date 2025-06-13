@@ -59,8 +59,16 @@ func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClass
 		return fmt.Errorf("parent layer %v not found", parentRoot)
 	}
 
-	classNodes, _ := mergeClassNodes.Flatten()
-	contractNodes, contractStorageNodes := mergeContractNodes.Flatten()
+	var classNodes classNodesMap
+	var contractNodes contractNodesMap
+	var contractStorageNodes contractStorageNodesMap
+
+	if mergeClassNodes != nil {
+		classNodes, _ = mergeClassNodes.Flatten()
+	}
+	if mergeContractNodes != nil {
+		contractNodes, contractStorageNodes = mergeContractNodes.Flatten()
+	}
 
 	newLayer := parent.update(root, parent.stateID()+1, block, newNodeSet(classNodes, contractNodes, contractStorageNodes))
 
