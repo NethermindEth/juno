@@ -1,23 +1,14 @@
 package p2p2consensus
 
 import (
-	"math/big"
-
 	"github.com/Masterminds/semver/v3"
+	"github.com/NethermindEth/juno/adapters/p2p2core"
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	common "github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
-
-func U128ToFelt(u *common.Uint128) *felt.Felt {
-	lowBig := new(big.Int).SetUint64(u.Low)
-	highBig := new(big.Int).SetUint64(u.High)
-	highBig.Lsh(highBig, 64) //nolint:mnd
-	return new(felt.Felt).SetBigInt(highBig.Or(highBig, lowBig))
-}
 
 func AdaptProposalInit(msg *p2pconsensus.ProposalInit) consensus.ProposalInit {
 	return consensus.ProposalInit{
@@ -31,10 +22,10 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) consensus.BlockInfo {
 		BlockNumber:       msg.BlockNumber,
 		Builder:           *new(felt.Felt).SetBytes(msg.Builder.Elements),
 		Timestamp:         msg.Timestamp,
-		L2GasPriceFRI:     *U128ToFelt(msg.L2GasPriceFri),
-		L1GasPriceWEI:     *U128ToFelt(msg.L1DataGasPriceWei),
-		L1DataGasPriceWEI: *U128ToFelt(msg.L1DataGasPriceWei),
-		EthToStrkRate:     *U128ToFelt(msg.EthToStrkRate),
+		L2GasPriceFRI:     *p2p2core.AdaptUint128(msg.L2GasPriceFri),
+		L1GasPriceWEI:     *p2p2core.AdaptUint128(msg.L1DataGasPriceWei),
+		L1DataGasPriceWEI: *p2p2core.AdaptUint128(msg.L1DataGasPriceWei),
+		EthToStrkRate:     *p2p2core.AdaptUint128(msg.EthToStrkRate),
 		L1DAMode:          core.L1DAMode(msg.L1DaMode),
 	}
 }
@@ -50,17 +41,17 @@ func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) consensus.Pro
 
 		OldStateRoot:              *new(felt.Felt).SetBytes(msg.OldStateRoot.Elements),
 		VersionConstantCommitment: *new(felt.Felt).SetBytes(msg.VersionConstantCommitment.Elements),
-		NextL2GasPriceFRI:         *U128ToFelt(msg.NextL2GasPriceFri),
+		NextL2GasPriceFRI:         *p2p2core.AdaptUint128(msg.NextL2GasPriceFri),
 
 		StateDiffCommitment:   *new(felt.Felt).SetBytes(msg.StateDiffCommitment.Elements),
 		TransactionCommitment: *new(felt.Felt).SetBytes(msg.TransactionCommitment.Elements),
 		EventCommitment:       *new(felt.Felt).SetBytes(msg.EventCommitment.Elements),
 		ReceiptCommitment:     *new(felt.Felt).SetBytes(msg.ReceiptCommitment.Elements),
 		ConcatenatedCounts:    *new(felt.Felt).SetBytes(msg.ConcatenatedCounts.Elements),
-		L1GasPriceFRI:         *U128ToFelt(msg.L1GasPriceFri),
-		L1DataGasPriceFRI:     *U128ToFelt(msg.L1DataGasPriceFri),
-		L2GasPriceFRI:         *U128ToFelt(msg.L2GasPriceFri),
-		L2GasUsed:             *U128ToFelt(msg.L2GasUsed),
+		L1GasPriceFRI:         *p2p2core.AdaptUint128(msg.L1GasPriceFri),
+		L1DataGasPriceFRI:     *p2p2core.AdaptUint128(msg.L1DataGasPriceFri),
+		L2GasPriceFRI:         *p2p2core.AdaptUint128(msg.L2GasPriceFri),
+		L2GasUsed:             *p2p2core.AdaptUint128(msg.L2GasUsed),
 		L1DAMode:              core.L1DAMode(msg.L1DaMode),
 	}
 }
