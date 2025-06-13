@@ -14,6 +14,40 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
+func AdaptCairo1Class(cairo1 *class.Cairo1Class) core.Cairo1Class {
+	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
+
+	program := utils.Map(cairo1.Program, AdaptFelt)
+	compiled, err := createCompiledClass(cairo1)
+	if err != nil {
+		panic(err)
+	}
+
+	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
+		// usage of NonNilSlice is essential because relevant core class fields are non nil
+		return utils.Map(utils.NonNilSlice(points), adaptSierra)
+	}
+
+	entryPoints := cairo1.EntryPoints
+	return core.Cairo1Class{
+		Abi:     cairo1.Abi,
+		AbiHash: abiHash,
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{
+			Constructor: adaptEP(entryPoints.Constructors),
+			External:    adaptEP(entryPoints.Externals),
+			L1Handler:   adaptEP(entryPoints.L1Handlers),
+		},
+		Program:         program,
+		ProgramHash:     crypto.PoseidonArray(program...),
+		SemanticVersion: cairo1.ContractClassVersion,
+		Compiled:        compiled,
+	}
+}
+
 func AdaptClass(cls *class.Class) core.Class {
 	if cls == nil {
 		return nil
@@ -35,38 +69,8 @@ func AdaptClass(cls *class.Class) core.Class {
 			Program:      cairo0.Program,
 		}
 	case *class.Class_Cairo1:
-		cairo1 := cls.Cairo1
-		abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
-
-		program := utils.Map(cairo1.Program, AdaptFelt)
-		compiled, err := createCompiledClass(cairo1)
-		if err != nil {
-			panic(err)
-		}
-
-		adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
-			// usage of NonNilSlice is essential because relevant core class fields are non nil
-			return utils.Map(utils.NonNilSlice(points), adaptSierra)
-		}
-
-		entryPoints := cairo1.EntryPoints
-		return &core.Cairo1Class{
-			Abi:     cairo1.Abi,
-			AbiHash: abiHash,
-			EntryPoints: struct {
-				Constructor []core.SierraEntryPoint
-				External    []core.SierraEntryPoint
-				L1Handler   []core.SierraEntryPoint
-			}{
-				Constructor: adaptEP(entryPoints.Constructors),
-				External:    adaptEP(entryPoints.Externals),
-				L1Handler:   adaptEP(entryPoints.L1Handlers),
-			},
-			Program:         program,
-			ProgramHash:     crypto.PoseidonArray(program...),
-			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        compiled,
-		}
+		class := AdaptCairo1Class(cls.Cairo1)
+		return &class
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
 	}

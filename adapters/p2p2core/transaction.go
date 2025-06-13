@@ -11,7 +11,123 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 )
 
-//nolint:funlen,gocyclo
+func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash, txnHash *common.Hash) *core.DeclareTransaction {
+	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+	}
+	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+	}
+	declareTx := &core.DeclareTransaction{
+		TransactionHash:      AdaptHash(txnHash),
+		ClassHash:            AdaptHash(classHash),
+		SenderAddress:        AdaptAddress(tx.Sender),
+		MaxFee:               nil, // in 3 version this field was removed
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		Nonce:                AdaptFelt(tx.Nonce),
+		Version:              txVersion(3),
+		CompiledClassHash:    AdaptHash(tx.CompiledClassHash),
+		Tip:                  tx.Tip,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		},
+		PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
+		AccountDeploymentData: utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		NonceDAMode:           nDAMode,
+		FeeDAMode:             fDAMode,
+	}
+	return declareTx
+}
+
+func AdaptDeployAccountV3TxnCommon(tx *transaction.DeployAccountV3, txnHash *common.Hash) *core.DeployAccountTransaction {
+	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+	}
+
+	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+	}
+
+	addressSalt := AdaptFelt(tx.AddressSalt)
+	classHash := AdaptHash(tx.ClassHash)
+	callData := utils.Map(tx.Calldata, AdaptFelt)
+
+	return &core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     AdaptHash(txnHash),
+			ContractAddressSalt: addressSalt,
+			ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
+			ClassHash:           classHash,
+			ConstructorCallData: callData,
+			Version:             txVersion(3),
+		},
+		MaxFee:               nil, // todo(kirill) update spec? missing field
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		Nonce:                AdaptFelt(tx.Nonce),
+		Tip:                  tx.Tip,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		},
+		PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
+		NonceDAMode:   nDAMode,
+		FeeDAMode:     fDAMode,
+	}
+}
+
+func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) *core.InvokeTransaction {
+	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
+	}
+
+	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
+	}
+
+	return &core.InvokeTransaction{
+		TransactionHash:      AdaptHash(txnHash),
+		ContractAddress:      nil, // todo call core.ContractAddress() ?
+		CallData:             utils.Map(tx.Calldata, AdaptFelt),
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		MaxFee:               nil, // in 3 version this field was removed
+		Version:              txVersion(3),
+		Nonce:                AdaptFelt(tx.Nonce),
+		SenderAddress:        AdaptAddress(tx.Sender),
+		EntryPointSelector:   nil,
+		Tip:                  tx.Tip,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
+			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
+			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
+		},
+		PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
+		NonceDAMode:           nDAMode,
+		FeeDAMode:             fDAMode,
+		AccountDeploymentData: nil, // todo(kirill) recheck
+	}
+}
+
+func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1HandlerTransaction {
+	return &core.L1HandlerTransaction{
+		TransactionHash:    AdaptHash(txnHash),
+		ContractAddress:    AdaptAddress(tx.Address),
+		EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
+		Nonce:              AdaptFelt(tx.Nonce),
+		CallData:           utils.Map(tx.Calldata, AdaptFelt),
+		Version:            txVersion(0),
+	}
+}
+
+//nolint:funlen
 func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Network) core.Transaction {
 	if t == nil {
 		return nil
@@ -86,39 +202,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 		return declareTx
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
-
-		nDAMode, err := adaptVolitionDomain(tx.Common.NonceDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.Common.NonceDataAvailabilityMode))
-		}
-
-		fDAMode, err := adaptVolitionDomain(tx.Common.FeeDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.Common.FeeDataAvailabilityMode))
-		}
-
-		declareTx := &core.DeclareTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Common.Sender),
-			MaxFee:               nil, // in 3 version this field was removed
-			TransactionSignature: adaptAccountSignature(tx.Common.Signature),
-			Nonce:                AdaptFelt(tx.Common.Nonce),
-			Version:              txVersion(3),
-			CompiledClassHash:    AdaptHash(tx.Common.CompiledClassHash),
-			Tip:                  tx.Common.Tip,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas:     adaptResourceLimits(tx.Common.ResourceBounds.L1Gas),
-				core.ResourceL2Gas:     adaptResourceLimits(tx.Common.ResourceBounds.L2Gas),
-				core.ResourceL1DataGas: adaptResourceLimits(tx.Common.ResourceBounds.L1DataGas),
-			},
-			PaymasterData:         utils.Map(tx.Common.PaymasterData, AdaptFelt),
-			AccountDeploymentData: utils.Map(tx.Common.AccountDeploymentData, AdaptFelt),
-			NonceDAMode:           nDAMode,
-			FeeDAMode:             fDAMode,
-		}
-
-		return declareTx
+		return AdaptDeclareV3TxnCommon(tx.Common, tx.ClassHash, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_Deploy_:
 		tx := t.GetDeploy()
 
@@ -164,44 +248,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 		return deployAccTx
 	case *synctransaction.TransactionInBlock_DeployAccountV3:
 		tx := t.GetDeployAccountV3()
-
-		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
-		}
-
-		fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
-		}
-
-		addressSalt := AdaptFelt(tx.AddressSalt)
-		classHash := AdaptHash(tx.ClassHash)
-		callData := utils.Map(tx.Calldata, AdaptFelt)
-		deployAccTx := &core.DeployAccountTransaction{
-			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     AdaptHash(t.TransactionHash),
-				ContractAddressSalt: addressSalt,
-				ContractAddress:     core.ContractAddress(&felt.Zero, classHash, addressSalt, callData),
-				ClassHash:           classHash,
-				ConstructorCallData: callData,
-				Version:             txVersion(3),
-			},
-			MaxFee:               nil, // todo(kirill) update spec? missing field
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Nonce:                AdaptFelt(tx.Nonce),
-			Tip:                  tx.Tip,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-				core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-				core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
-			},
-			PaymasterData: utils.Map(tx.PaymasterData, AdaptFelt),
-			NonceDAMode:   nDAMode,
-			FeeDAMode:     fDAMode,
-		}
-
-		return deployAccTx
+		return AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_InvokeV0_:
 		tx := t.GetInvokeV0()
 		invTx := &core.InvokeTransaction{
@@ -249,52 +296,10 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 		return invTx
 	case *synctransaction.TransactionInBlock_InvokeV3:
 		tx := t.GetInvokeV3()
-
-		nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
-		}
-
-		fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
-		}
-
-		invTx := &core.InvokeTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			ContractAddress:      nil, // todo call core.ContractAddress() ?
-			CallData:             utils.Map(tx.Calldata, AdaptFelt),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			MaxFee:               nil, // in 3 version this field was removed
-			Version:              txVersion(3),
-			Nonce:                AdaptFelt(tx.Nonce),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			EntryPointSelector:   nil,
-			Tip:                  tx.Tip,
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas:     adaptResourceLimits(tx.ResourceBounds.L1Gas),
-				core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
-				core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
-			},
-			PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
-			NonceDAMode:           nDAMode,
-			FeeDAMode:             fDAMode,
-			AccountDeploymentData: nil, // todo(kirill) recheck
-		}
-
-		return invTx
+		return AdaptInvokeV3TxnCommon(tx, t.TransactionHash)
 	case *synctransaction.TransactionInBlock_L1Handler:
 		tx := t.GetL1Handler()
-		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash:    AdaptHash(t.TransactionHash),
-			ContractAddress:    AdaptAddress(tx.Address),
-			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
-			Nonce:              AdaptFelt(tx.Nonce),
-			CallData:           utils.Map(tx.Calldata, AdaptFelt),
-			Version:            txVersion(0),
-		}
-
-		return l1Tx
+		return AdaptL1Handler(tx, t.TransactionHash)
 	default:
 		panic(fmt.Errorf("unsupported tx type %T", t.Txn))
 	}
