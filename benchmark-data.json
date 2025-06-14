@@ -94,5 +94,11 @@
     "block_target": 800000,
     "duration_seconds": 83643.268917,
     "timestamp": "2025-06-13T11:19:53.898057+00:00"
+  },
+  {
+    "version": "v0.14.5-2-ge642db03",
+    "block_target": 800000,
+    "duration_seconds": 83523.38433,
+    "timestamp": "2025-06-14T10:33:22.370778+00:00"
   }
 ]
