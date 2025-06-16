@@ -1,4 +1,4 @@
-package validator_test
+package stateMachine_test
 
 import (
 	"encoding/binary"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/mocks"
-	"github.com/NethermindEth/juno/consensus/p2p/validator"
+	"github.com/NethermindEth/juno/consensus/p2p/stateMachine"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
@@ -52,14 +52,14 @@ func getExampleProposalCommitment(t *testing.T) *consensus.ProposalCommitment {
 
 type validTransitionTestStep struct {
 	event     *consensus.ProposalPart
-	postState validator.ProposalStateMachine
+	postState stateMachine.ProposalStateMachine
 }
 
 func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 	height := uint64(1337)
 	round := uint32(1338)
 	validRound := types.Round(-1)
-	proposer := validator.GetRandomAddress(t)
+	proposer := stateMachine.GetRandomAddress(t)
 
 	expectedHeader := &starknet.MessageHeader{
 		Height: types.Height(height),
@@ -71,7 +71,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 	t.Run("valid proposal stream", func(t *testing.T) {
 		value := uint64(1339)
 		starknetValue := starknet.Value(*new(felt.Felt).SetUint64(value))
-		expectedHash := &common.Hash{Elements: validator.ToBytes(*new(felt.Felt).SetUint64(value))}
+		expectedHash := &common.Hash{Elements: stateMachine.ToBytes(*new(felt.Felt).SetUint64(value))}
 		expectedProposal := &starknet.Proposal{
 			MessageHeader: *expectedHeader,
 			ValidRound:    validRound,
@@ -87,7 +87,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						Proposer:    proposer,
 					}},
 				},
-				postState: &validator.AwaitingBlockInfoOrCommitmentState{
+				postState: &stateMachine.AwaitingBlockInfoOrCommitmentState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 				},
@@ -107,7 +107,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						},
 					},
 				},
-				postState: &validator.ReceivingTransactionsState{
+				postState: &stateMachine.ReceivingTransactionsState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 					Value:      &starknetValue,
@@ -116,10 +116,10 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 			{
 				event: &consensus.ProposalPart{
 					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: validator.GetRandomTransactions(t, 4),
+						Transactions: stateMachine.GetRandomTransactions(t, 4),
 					}},
 				},
-				postState: &validator.ReceivingTransactionsState{
+				postState: &stateMachine.ReceivingTransactionsState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 					Value:      &starknetValue,
@@ -128,10 +128,10 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 			{
 				event: &consensus.ProposalPart{
 					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: validator.GetRandomTransactions(t, 5),
+						Transactions: stateMachine.GetRandomTransactions(t, 5),
 					}},
 				},
-				postState: &validator.ReceivingTransactionsState{
+				postState: &stateMachine.ReceivingTransactionsState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 					Value:      &starknetValue,
@@ -143,7 +143,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						Commitment: getExampleProposalCommitment(t),
 					},
 				},
-				postState: &validator.AwaitingProposalFinState{
+				postState: &stateMachine.AwaitingProposalFinState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 					Value:      &starknetValue,
@@ -157,7 +157,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						},
 					},
 				},
-				postState: (*validator.FinState)(expectedProposal),
+				postState: (*stateMachine.FinState)(expectedProposal),
 			},
 		})
 	})
@@ -182,7 +182,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						Proposer:    proposer,
 					}},
 				},
-				postState: &validator.AwaitingBlockInfoOrCommitmentState{
+				postState: &stateMachine.AwaitingBlockInfoOrCommitmentState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 				},
@@ -196,7 +196,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						},
 					},
 				},
-				postState: &validator.AwaitingProposalFinState{
+				postState: &stateMachine.AwaitingProposalFinState{
 					Header:     expectedHeader,
 					ValidRound: validRound,
 				},
@@ -207,7 +207,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 						Fin: &consensus.ProposalFin{ProposalCommitment: validFinCommitment},
 					},
 				},
-				postState: (*validator.FinState)(expectedProposal),
+				postState: (*stateMachine.FinState)(expectedProposal),
 			},
 		})
 	})
@@ -224,8 +224,8 @@ func runTestSteps(t *testing.T, steps []validTransitionTestStep) {
 	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
 	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
 	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	transition := validator.NewTransition[value, felt.Felt, felt.Felt](mockedValidator)
-	var state validator.ProposalStateMachine = &validator.InitialState{}
+	transition := stateMachine.NewTransition[value, felt.Felt, felt.Felt](mockedValidator)
+	var state stateMachine.ProposalStateMachine = &stateMachine.InitialState{}
 
 	for _, step := range steps {
 		t.Run(fmt.Sprintf("apply %T to get %T", step.event.Messages, step.postState), func(t *testing.T) {
@@ -237,14 +237,14 @@ func runTestSteps(t *testing.T, steps []validTransitionTestStep) {
 }
 
 type invalidTransitionTestCase struct {
-	state  validator.ProposalStateMachine
+	state  stateMachine.ProposalStateMachine
 	events []*consensus.ProposalPart
 }
 
 func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 	steps := []invalidTransitionTestCase{
 		{
-			state: &validator.InitialState{},
+			state: &stateMachine.InitialState{},
 			events: []*consensus.ProposalPart{
 				{Messages: &consensus.ProposalPart_BlockInfo{}},
 				{Messages: &consensus.ProposalPart_Commitment{}},
@@ -253,7 +253,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 			},
 		},
 		{
-			state: &validator.AwaitingBlockInfoOrCommitmentState{},
+			state: &stateMachine.AwaitingBlockInfoOrCommitmentState{},
 			events: []*consensus.ProposalPart{
 				{Messages: &consensus.ProposalPart_Init{}},
 				{Messages: &consensus.ProposalPart_Transactions{}},
@@ -261,7 +261,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 			},
 		},
 		{
-			state: &validator.ReceivingTransactionsState{},
+			state: &stateMachine.ReceivingTransactionsState{},
 			events: []*consensus.ProposalPart{
 				{Messages: &consensus.ProposalPart_Init{}},
 				{Messages: &consensus.ProposalPart_BlockInfo{}},
@@ -269,7 +269,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 			},
 		},
 		{
-			state: &validator.AwaitingProposalFinState{},
+			state: &stateMachine.AwaitingProposalFinState{},
 			events: []*consensus.ProposalPart{
 				{Messages: &consensus.ProposalPart_Init{}},
 				{Messages: &consensus.ProposalPart_BlockInfo{}},
@@ -278,7 +278,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 			},
 		},
 		{
-			state: &validator.FinState{},
+			state: &stateMachine.FinState{},
 			events: []*consensus.ProposalPart{
 				{Messages: &consensus.ProposalPart_Init{}},
 				{Messages: &consensus.ProposalPart_BlockInfo{}},
@@ -296,7 +296,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
 	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
 	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	transition := validator.NewTransition[value, felt.Felt, felt.Felt](mockedValidator)
+	transition := stateMachine.NewTransition[value, felt.Felt, felt.Felt](mockedValidator)
 	for _, step := range steps {
 		t.Run(fmt.Sprintf("State %T", step.state), func(t *testing.T) {
 			for _, event := range step.events {

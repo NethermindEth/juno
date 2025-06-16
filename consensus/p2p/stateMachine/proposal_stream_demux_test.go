@@ -1,4 +1,4 @@
-package validator
+package stateMachine
 
 import (
 	"math/rand/v2"

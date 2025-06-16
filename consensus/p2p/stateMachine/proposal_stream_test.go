@@ -1,4 +1,4 @@
-package validator
+package stateMachine
 
 import (
 	"encoding/binary"
