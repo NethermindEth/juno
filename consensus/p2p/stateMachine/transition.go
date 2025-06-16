@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/validator"
 	val "github.com/NethermindEth/juno/consensus/validator"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -181,20 +182,22 @@ func (t *transition[V, H, A]) OnProposalFin(
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
-	// Todo: think about changes I made here.
-
+	finState := &FinState{
+		MessageHeader: *state.Header,
+		ValidRound:    state.ValidRound,
+	}
 	// Todo: validate the inputs
+
 	adaptedFin := p2p2consensus.AdaptProposalFin(fin)
-	// validator.ProposalFin is responsible for validating the final proposal commitments
 	err := t.validator.ProposalFin(adaptedFin)
 	if err != nil {
+		if errors.Is(err, validator.ErrProposalFinMismatch) {
+			return finState, nil
+		}
 		return nil, err
 	}
 	// commitments match, so update the states value
-	adaptedValue := starknet.Value(adaptedFin)
-	return &FinState{
-		MessageHeader: *state.Header,
-		Value:         &adaptedValue,
-		ValidRound:    state.ValidRound,
-	}, nil
+	nonnilValue := starknet.Value(adaptedFin)
+	finState.Value = &nonnilValue
+	return finState, nil
 }
