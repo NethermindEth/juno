@@ -3,7 +3,6 @@ package statemachine
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -13,8 +12,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
-
-var errProposalFinHashMismatch = errors.New("proposal fin hash mismatch")
 
 type Transition interface {
 	OnProposalInit(
@@ -62,7 +59,6 @@ func NewTransition[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnProposalInit(
 	ctx context.Context,
 	state *InitialState,
@@ -81,19 +77,17 @@ func (t *transition[V, H, A]) OnProposalInit(
 	if err = t.validator.ProposalInit(&adaptedProposalInit); err != nil {
 		return nil, err
 	}
-	sender := starknet.Address(felt.FromBytes(init.Proposer.Elements))
 
 	return &AwaitingBlockInfoOrCommitmentState{
 		Header: &starknet.MessageHeader{
 			Height: types.Height(init.BlockNumber),
 			Round:  types.Round(init.Round),
-			Sender: sender,
+			Sender: starknet.Address(felt.FromBytes(init.Proposer.Elements)),
 		},
 		ValidRound: validRound,
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnEmptyBlockCommitment(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
@@ -106,7 +100,6 @@ func (t *transition[V, H, A]) OnEmptyBlockCommitment(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnBlockInfo(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
@@ -125,7 +118,6 @@ func (t *transition[V, H, A]) OnBlockInfo(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnTransactions(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
@@ -155,7 +147,6 @@ func (t *transition[V, H, A]) OnTransactions(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnProposalCommitment(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
@@ -165,9 +156,9 @@ func (t *transition[V, H, A]) OnProposalCommitment(
 	if err != nil {
 		return nil, err
 	}
-	err = t.validator.ProposalCommitment(&adaptedCommitment)
-	if err != nil {
-		return nil, errProposalFinHashMismatch
+
+	if err = t.validator.ProposalCommitment(&adaptedCommitment); err != nil {
+		return nil, err
 	}
 
 	return &AwaitingProposalFinState{
@@ -177,26 +168,18 @@ func (t *transition[V, H, A]) OnProposalCommitment(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition[V, H, A]) OnProposalFin(
 	ctx context.Context,
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
-	finState := &FinState{
-		MessageHeader: *state.Header,
-		ValidRound:    state.ValidRound,
-	}
 
 	adaptedFin, err := p2p2consensus.AdaptProposalFin(fin)
 	if err != nil {
 		return nil, err
 	}
-	err = t.validator.ProposalFin(adaptedFin)
-	if err != nil {
-		if errors.Is(err, validator.ErrProposalFinMismatch) {
-			return finState, nil
-		}
+
+	if err = t.validator.ProposalFin(adaptedFin); err != nil {
 		return nil, err
 	}
 
@@ -206,7 +189,9 @@ func (t *transition[V, H, A]) OnProposalFin(
 	b := fin.ProposalCommitment.Elements
 	val := binary.BigEndian.Uint64(b[len(b)-8:])
 	nonnilValue := starknet.Value(val)
-	// commitments match, so update the states value
-	finState.Value = &nonnilValue
-	return finState, nil
+	return &FinState{
+		MessageHeader: *state.Header,
+		ValidRound:    state.ValidRound,
+		Value:         &nonnilValue,
+	}, nil
 }
