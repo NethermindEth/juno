@@ -14,10 +14,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-var (
-	errNilProposer             = errors.New("proposer is nil")
-	errProposalFinHashMismatch = errors.New("proposal fin hash mismatch")
-)
+var errProposalFinHashMismatch = errors.New("proposal fin hash mismatch")
 
 type Transition interface {
 	OnProposalInit(
@@ -76,11 +73,10 @@ func (t *transition[V, H, A]) OnProposalInit(
 		validRound = types.Round(*init.ValidRound)
 	}
 
-	if init.Proposer == nil {
-		return nil, errNilProposer
+	if err := validateProposalInit(init); err != nil {
+		return nil, err
 	}
 
-	// Todo: validate the inputs
 	adaptedProposalInit := p2p2consensus.AdaptProposalInit(init)
 	err := t.validator.ProposalInit(&adaptedProposalInit)
 	if err != nil {
@@ -117,7 +113,10 @@ func (t *transition[V, H, A]) OnBlockInfo(
 	state *AwaitingBlockInfoOrCommitmentState,
 	blockInfo *consensus.BlockInfo,
 ) (*ReceivingTransactionsState, error) {
-	// Todo: validate the inputs
+	if err := validateBlockInfo(blockInfo); err != nil {
+		return nil, err
+	}
+
 	adaptedBlockInfo := p2p2consensus.AdaptBlockInfo(blockInfo)
 	t.validator.BlockInfo(&adaptedBlockInfo)
 
@@ -134,7 +133,12 @@ func (t *transition[V, H, A]) OnTransactions(
 	state *ReceivingTransactionsState,
 	transactions []*consensus.ConsensusTransaction,
 ) (*ReceivingTransactionsState, error) {
-	// Todo: validate the inputs
+	for _, txn := range transactions {
+		if err := validateConsensusTransaction(txn); err != nil {
+			return nil, err
+		}
+	}
+
 	txns := make([]types.Transaction, len(transactions))
 	for i := range transactions {
 		txn, class := p2p2consensus.AdaptTransaction(transactions[i], &t.network)
@@ -162,7 +166,10 @@ func (t *transition[V, H, A]) OnProposalCommitment(
 	state *ReceivingTransactionsState,
 	commitment *consensus.ProposalCommitment,
 ) (*AwaitingProposalFinState, error) {
-	// Todo: validate the inputs
+	if err := validateProposalCommitment(commitment); err != nil {
+		return nil, err
+	}
+
 	adaptedCommitment := p2p2consensus.AdaptProposalCommitment(commitment)
 	err := t.validator.ProposalCommitment(&adaptedCommitment)
 	if err != nil {
@@ -182,11 +189,14 @@ func (t *transition[V, H, A]) OnProposalFin(
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
+	if err := validateProposalFin(fin); err != nil {
+		return nil, err
+	}
+
 	finState := &FinState{
 		MessageHeader: *state.Header,
 		ValidRound:    state.ValidRound,
 	}
-	// Todo: validate the inputs
 
 	adaptedFin := p2p2consensus.AdaptProposalFin(fin)
 	err := t.validator.ProposalFin(adaptedFin)
@@ -196,7 +206,6 @@ func (t *transition[V, H, A]) OnProposalFin(
 		}
 		return nil, err
 	}
-	// commitments match, so update the states value
 
 	// Todo: This is a hack until we update the starknet.Value.
 	// The tests specify starknet.Value as uint64, but we must return a felt in production.
@@ -204,6 +213,7 @@ func (t *transition[V, H, A]) OnProposalFin(
 	b := fin.ProposalCommitment.Elements
 	val := binary.BigEndian.Uint64(b[len(b)-8:])
 	nonnilValue := starknet.Value(val)
+	// commitments match, so update the states value
 	finState.Value = &nonnilValue
 	return finState, nil
 }
