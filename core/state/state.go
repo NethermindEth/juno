@@ -594,7 +594,7 @@ func (s *State) updateContractClasses(classes map[felt.Felt]*felt.Felt) error {
 			return err
 		}
 
-		obj.setClassHash(*classHash)
+		obj.setClassHash(classHash)
 	}
 
 	return nil
@@ -607,7 +607,7 @@ func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
 			return err
 		}
 
-		obj.setNonce(*nonce)
+		obj.setNonce(nonce)
 	}
 
 	return nil

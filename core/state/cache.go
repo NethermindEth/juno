@@ -6,10 +6,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-const (
-	// DefaultMaxLayers is the default maximum number of layers to keep in the cache
-	DefaultMaxLayers = 128
-)
+// DefaultMaxLayers is the default maximum number of layers to keep in the cache
+const DefaultMaxLayers = 128
 
 type diffCache struct {
 	storageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
@@ -18,10 +16,10 @@ type diffCache struct {
 }
 
 type cacheNode struct {
-	root   *felt.Felt
+	root   felt.Felt
 	parent *cacheNode
 	child  *cacheNode
-	diff   *diffCache
+	diff   diffCache
 }
 
 // stateCache is a clean, in-memory cache of the state, where the stateDiffs are stored. After every state update,
@@ -49,8 +47,8 @@ func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache
 
 	// Create new node
 	node := &cacheNode{
-		root:   stateRoot,
-		diff:   diff,
+		root:   *stateRoot,
+		diff:   *diff,
 		parent: c.newestNode,
 	}
 	if c.newestNode != nil {
@@ -63,13 +61,13 @@ func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache
 	c.rootMap[*stateRoot] = node
 
 	// Evict if over capacity
-	for len(c.rootMap) > DefaultMaxLayers {
+	if len(c.rootMap) > DefaultMaxLayers {
 		evict := c.oldestNode
 		c.oldestNode = evict.child
 		if c.oldestNode != nil {
 			c.oldestNode.parent = nil
 		}
-		delete(c.rootMap, *evict.root)
+		delete(c.rootMap, evict.root)
 	}
 }
 

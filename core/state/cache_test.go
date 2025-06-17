@@ -70,7 +70,7 @@ func TestStateCache(t *testing.T) {
 
 		// After eviction, the oldest root should be the second layer (root 2)
 		expectedOldestRoot := new(felt.Felt).SetUint64(2)
-		assert.Equal(t, *expectedOldestRoot, *cache.oldestNode.root)
+		assert.Equal(t, *expectedOldestRoot, cache.oldestNode.root)
 
 		// Verify that the first layer is evicted by checking that its data is not accessible
 		firstLayerRoot := new(felt.Felt).SetUint64(1)

@@ -32,12 +32,12 @@ func newStateObject(state *State, addr *felt.Felt, contract *stateContract) *sta
 	}
 }
 
-func (s *stateObject) setClassHash(classHash felt.Felt) {
-	s.contract.ClassHash = classHash
+func (s *stateObject) setClassHash(classHash *felt.Felt) {
+	s.contract.ClassHash = *classHash
 }
 
-func (s *stateObject) setNonce(nonce felt.Felt) {
-	s.contract.Nonce = nonce
+func (s *stateObject) setNonce(nonce *felt.Felt) {
+	s.contract.Nonce = *nonce
 }
 
 func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
