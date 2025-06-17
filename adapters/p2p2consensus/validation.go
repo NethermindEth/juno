@@ -1,14 +1,12 @@
-package statemachine
+package p2p2consensus
 
 import (
 	"errors"
 
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-// Todo: figure out a better place for this
-
-func validateProposalInit(p *consensus.ProposalInit) error {
+func validateProposalInit(p *p2pconsensus.ProposalInit) error {
 	if p == nil {
 		return errors.New("proposal init is nil")
 	}
@@ -18,7 +16,7 @@ func validateProposalInit(p *consensus.ProposalInit) error {
 	return nil
 }
 
-func validateBlockInfo(b *consensus.BlockInfo) error {
+func validateBlockInfo(b *p2pconsensus.BlockInfo) error {
 	if b == nil {
 		return errors.New("block info is nil")
 	}
@@ -40,7 +38,7 @@ func validateBlockInfo(b *consensus.BlockInfo) error {
 	return nil
 }
 
-func validateConsensusTransaction(tx *consensus.ConsensusTransaction) error {
+func validateConsensusTransaction(tx *p2pconsensus.ConsensusTransaction) error {
 	if tx == nil {
 		return errors.New("consensus transaction is nil")
 	}
@@ -54,7 +52,7 @@ func validateConsensusTransaction(tx *consensus.ConsensusTransaction) error {
 	return nil
 }
 
-func validateProposalCommitment(p *consensus.ProposalCommitment) error { //nolint:gocyclo // simple, repetative code
+func validateProposalCommitment(p *p2pconsensus.ProposalCommitment) error { //nolint:gocyclo // simple, repetative code
 	if p == nil {
 		return errors.New("proposal commitment is nil")
 	}
@@ -103,7 +101,7 @@ func validateProposalCommitment(p *consensus.ProposalCommitment) error { //nolin
 	return nil
 }
 
-func validateProposalFin(p *consensus.ProposalFin) error {
+func validateProposalFin(p *p2pconsensus.ProposalFin) error {
 	if p == nil {
 		return errors.New("proposal fin is nil")
 	}

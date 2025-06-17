@@ -73,13 +73,12 @@ func (t *transition[V, H, A]) OnProposalInit(
 		validRound = types.Round(*init.ValidRound)
 	}
 
-	if err := validateProposalInit(init); err != nil {
+	adaptedProposalInit, err := p2p2consensus.AdaptProposalInit(init)
+	if err != nil {
 		return nil, err
 	}
 
-	adaptedProposalInit := p2p2consensus.AdaptProposalInit(init)
-	err := t.validator.ProposalInit(&adaptedProposalInit)
-	if err != nil {
+	if err = t.validator.ProposalInit(&adaptedProposalInit); err != nil {
 		return nil, err
 	}
 	sender := starknet.Address(felt.FromBytes(init.Proposer.Elements))
@@ -113,11 +112,10 @@ func (t *transition[V, H, A]) OnBlockInfo(
 	state *AwaitingBlockInfoOrCommitmentState,
 	blockInfo *consensus.BlockInfo,
 ) (*ReceivingTransactionsState, error) {
-	if err := validateBlockInfo(blockInfo); err != nil {
+	adaptedBlockInfo, err := p2p2consensus.AdaptBlockInfo(blockInfo)
+	if err != nil {
 		return nil, err
 	}
-
-	adaptedBlockInfo := p2p2consensus.AdaptBlockInfo(blockInfo)
 	t.validator.BlockInfo(&adaptedBlockInfo)
 
 	return &ReceivingTransactionsState{
@@ -133,15 +131,12 @@ func (t *transition[V, H, A]) OnTransactions(
 	state *ReceivingTransactionsState,
 	transactions []*consensus.ConsensusTransaction,
 ) (*ReceivingTransactionsState, error) {
-	for _, txn := range transactions {
-		if err := validateConsensusTransaction(txn); err != nil {
-			return nil, err
-		}
-	}
-
 	txns := make([]types.Transaction, len(transactions))
 	for i := range transactions {
-		txn, class := p2p2consensus.AdaptTransaction(transactions[i], &t.network)
+		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i], &t.network)
+		if err != nil {
+			return nil, err
+		}
 		txns[i] = types.Transaction{
 			Transaction: txn,
 			Class:       class,
@@ -166,12 +161,11 @@ func (t *transition[V, H, A]) OnProposalCommitment(
 	state *ReceivingTransactionsState,
 	commitment *consensus.ProposalCommitment,
 ) (*AwaitingProposalFinState, error) {
-	if err := validateProposalCommitment(commitment); err != nil {
+	adaptedCommitment, err := p2p2consensus.AdaptProposalCommitment(commitment)
+	if err != nil {
 		return nil, err
 	}
-
-	adaptedCommitment := p2p2consensus.AdaptProposalCommitment(commitment)
-	err := t.validator.ProposalCommitment(&adaptedCommitment)
+	err = t.validator.ProposalCommitment(&adaptedCommitment)
 	if err != nil {
 		return nil, errProposalFinHashMismatch
 	}
@@ -189,17 +183,16 @@ func (t *transition[V, H, A]) OnProposalFin(
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
-	if err := validateProposalFin(fin); err != nil {
-		return nil, err
-	}
-
 	finState := &FinState{
 		MessageHeader: *state.Header,
 		ValidRound:    state.ValidRound,
 	}
 
-	adaptedFin := p2p2consensus.AdaptProposalFin(fin)
-	err := t.validator.ProposalFin(adaptedFin)
+	adaptedFin, err := p2p2consensus.AdaptProposalFin(fin)
+	if err != nil {
+		return nil, err
+	}
+	err = t.validator.ProposalFin(adaptedFin)
 	if err != nil {
 		if errors.Is(err, validator.ErrProposalFinMismatch) {
 			return finState, nil

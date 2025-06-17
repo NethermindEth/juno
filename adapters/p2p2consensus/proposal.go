@@ -6,18 +6,23 @@ import (
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func AdaptProposalInit(msg *p2pconsensus.ProposalInit) consensus.ProposalInit {
+func AdaptProposalInit(msg *p2pconsensus.ProposalInit) (consensus.ProposalInit, error) {
+	if err := validateProposalInit(msg); err != nil {
+		return consensus.ProposalInit{}, err
+	}
 	return consensus.ProposalInit{
 		BlockNum: msg.BlockNumber,
 		Proposer: *new(felt.Felt).SetBytes(msg.Proposer.Elements),
-	}
+	}, nil
 }
 
-func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) consensus.BlockInfo {
+func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) (consensus.BlockInfo, error) {
+	if err := validateBlockInfo(msg); err != nil {
+		return consensus.BlockInfo{}, err
+	}
 	return consensus.BlockInfo{
 		BlockNumber:       msg.BlockNumber,
 		Builder:           *new(felt.Felt).SetBytes(msg.Builder.Elements),
@@ -27,10 +32,13 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) consensus.BlockInfo {
 		L1DataGasPriceWEI: *p2p2core.AdaptUint128(msg.L1DataGasPriceWei),
 		EthToStrkRate:     *p2p2core.AdaptUint128(msg.EthToStrkRate),
 		L1DAMode:          core.L1DAMode(msg.L1DaMode),
-	}
+	}, nil
 }
 
-func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) consensus.ProposalCommitment {
+func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) (consensus.ProposalCommitment, error) {
+	if err := validateProposalCommitment(msg); err != nil {
+		return consensus.ProposalCommitment{}, err
+	}
 	return consensus.ProposalCommitment{
 		BlockNumber: msg.BlockNumber,
 		Builder:     *new(felt.Felt).SetBytes(msg.Builder.Elements),
@@ -53,22 +61,12 @@ func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) consensus.Pro
 		L2GasPriceFRI:         *p2p2core.AdaptUint128(msg.L2GasPriceFri),
 		L2GasUsed:             *p2p2core.AdaptUint128(msg.L2GasUsed),
 		L1DAMode:              core.L1DAMode(msg.L1DaMode),
-	}
+	}, nil
 }
 
-func AdaptProposalTransaction(msg *p2pconsensus.TransactionBatch, network *utils.Network) []consensus.Transaction {
-	txns := make([]consensus.Transaction, len(msg.Transactions))
-	for i := range msg.Transactions {
-		txn, class := AdaptTransaction(msg.Transactions[i], network)
-		txns[i] = consensus.Transaction{
-			Transaction: txn,
-			Class:       class,
-			PaidFeeOnL1: nil, // Todo: this value is not passed in the spec.
-		}
+func AdaptProposalFin(msg *p2pconsensus.ProposalFin) (consensus.ProposalFin, error) {
+	if err := validateProposalFin(msg); err != nil {
+		return consensus.ProposalFin{}, err
 	}
-	return txns
-}
-
-func AdaptProposalFin(msg *p2pconsensus.ProposalFin) consensus.ProposalFin {
-	return consensus.ProposalFin(*new(felt.Felt).SetBytes(msg.ProposalCommitment.Elements))
+	return consensus.ProposalFin(*new(felt.Felt).SetBytes(msg.ProposalCommitment.Elements)), nil
 }
