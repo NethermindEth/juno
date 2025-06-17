@@ -172,7 +172,6 @@ func (t *transition[V, H, A]) OnProposalFin(
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
-
 	adaptedFin, err := p2p2consensus.AdaptProposalFin(fin)
 	if err != nil {
 		return nil, err

@@ -10,8 +10,6 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 )
 
-var ErrProposalFinMismatch = fmt.Errorf("proposal fin commitment doesn't match that generated locally")
-
 // Validator is used to validate new proposals. There are two potential flows, and functions must be called in order:
 // Flow 1) Non-empty proposal - ProposalInit(), BlockInfo(), TransactionBatch(), ProposalCommitment(), ProposalFin()
 // Flow 2) Empty proposal - ProposalInit(), ProposalCommitment(), ProposalFin()
@@ -88,7 +86,7 @@ func (v *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 
 	proposerCommitmentFelt := felt.Felt(proposalFin)
 	if !proposerCommitmentFelt.Equal(pendingBlock.Hash) {
-		return ErrProposalFinMismatch
+		return compareFeltField("proposal fin", &proposerCommitmentFelt, pendingBlock.Hash)
 	}
 	return nil
 }
@@ -131,6 +129,10 @@ func compareProposalCommitment(computed, proposal *types.ProposalCommitment) err
 	}
 
 	if err := compareFeltField("concat counts", &proposal.ConcatenatedCounts, &computed.ConcatenatedCounts); err != nil {
+		return err
+	}
+
+	if err := compareFeltField("old state root", &proposal.OldStateRoot, &computed.OldStateRoot); err != nil {
 		return err
 	}
 

@@ -19,15 +19,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTransitionInvalidMsgs(t *testing.T) {
-	builder := getGenesisBuilder(t)
-	val := validator.New[value, felt.Felt, felt.Felt](&builder)
-	transition := statemachine.NewTransition[value, felt.Felt, felt.Felt](val)
-	t.Run("Invalid OnProposalInit", func(t *testing.T) {
-		initMsg := &consensus.ProposalInit{}
-		_, err := transition.OnProposalInit(t.Context(), nil, initMsg)
-		require.Error(t, err)
-	})
+// Todo:clean, and move.
+func hexToCommonHash(t *testing.T, in string) *common.Hash {
+	inFelt, err := new(felt.Felt).SetString(in)
+	require.NoError(t, err)
+	inBytes := inFelt.Bytes()
+	return &common.Hash{Elements: inBytes[:]}
 }
 
 func TestTransition(t *testing.T) {
@@ -36,10 +33,11 @@ func TestTransition(t *testing.T) {
 	transition := statemachine.NewTransition[value, felt.Felt, felt.Felt](val)
 
 	proposerAddress := &common.Address{Elements: []byte{1}}
-	someFelt := &common.Felt252{Elements: []byte{1}}
+	zeroConcat := &common.Felt252{Elements: []byte{0}}
 	someHash := &common.Hash{Elements: []byte{1}}
+	zeroHash := &common.Hash{Elements: []byte{0}}
 	someU128 := &common.Uint128{Low: 1, High: 2}
-	timestamp := uint64(123)
+	timestamp := uint64(0)
 	height := uint64(1)
 	round := 0
 	header := &starknet.MessageHeader{
@@ -67,23 +65,23 @@ func TestTransition(t *testing.T) {
 		}
 		proposalCommitMsg := &consensus.ProposalCommitment{
 			BlockNumber:               height,
-			ParentCommitment:          someHash, // Todo
+			ParentCommitment:          hexToCommonHash(t, "0x36a24bd21cdd58b47aaa18342781ab3a5a938ff775d72eca9f4528e89e90e08"),
 			Builder:                   proposerAddress,
 			Timestamp:                 timestamp,
 			ProtocolVersion:           "0.12.3",
-			OldStateRoot:              someHash, // Todo
-			VersionConstantCommitment: someHash, // Todo
-			StateDiffCommitment:       someHash, // Todo
-			TransactionCommitment:     someHash, // Todo
-			EventCommitment:           someHash, // Todo
-			ReceiptCommitment:         someHash, // Todo
-			ConcatenatedCounts:        someFelt, // Todo
-			L1GasPriceFri:             someU128,
-			L1DataGasPriceFri:         someU128,
-			L2GasPriceFri:             someU128,
-			L2GasUsed:                 someU128,
-			NextL2GasPriceFri:         someU128,
-			L1DaMode:                  common.L1DataAvailabilityMode_Blob,
+			OldStateRoot:              hexToCommonHash(t, "0x5eed4c967bf69f5574663f19635c031c03294283827119495aa3d4b14f55b8d"),
+			VersionConstantCommitment: someHash, // Todo: update when we support this
+			StateDiffCommitment:       zeroHash,
+			TransactionCommitment:     zeroHash,
+			EventCommitment:           zeroHash,
+			ReceiptCommitment:         zeroHash,
+			ConcatenatedCounts:        zeroConcat,
+			L1GasPriceFri:             someU128, // Todo: update when we support this
+			L1DataGasPriceFri:         someU128, // Todo: update when we support this
+			L2GasPriceFri:             someU128, // Todo: update when we support this
+			L2GasUsed:                 someU128, // Todo: update when we support this
+			NextL2GasPriceFri:         someU128, // Todo: update when we support this
+			L1DaMode:                  common.L1DataAvailabilityMode_Calldata,
 		}
 		_, err = transition.OnProposalCommitment(t.Context(), commitState, proposalCommitMsg)
 		require.NoError(t, err)
@@ -95,11 +93,10 @@ func TestTransition(t *testing.T) {
 			Value:      nil,
 		}
 		proposalFinMsg := &consensus.ProposalFin{
-			ProposalCommitment: &common.Hash{Elements: []byte{123}}, // Todo
+			ProposalCommitment: hexToCommonHash(t, "0x2c0c3d895adb9535198914fe603fd291d8d0eabc9f70b1e41ef0cacc306d60f"),
 		}
 		_, err = transition.OnProposalFin(t.Context(), finState, proposalFinMsg)
 		require.NoError(t, err)
-
 	})
 
 	t.Run("Valid NonEmpty Block", func(t *testing.T) { // Todo
@@ -146,7 +143,17 @@ func TestTransition(t *testing.T) {
 		_, err = transition.OnTransactions(t.Context(), txnState, txnsMsg)
 		require.NoError(t, err)
 	})
+}
 
+func TestTransitionInvalidMsgs(t *testing.T) {
+	builder := getGenesisBuilder(t)
+	val := validator.New[value, felt.Felt, felt.Felt](&builder)
+	transition := statemachine.NewTransition[value, felt.Felt, felt.Felt](val)
+	t.Run("Invalid OnProposalInit", func(t *testing.T) {
+		initMsg := &consensus.ProposalInit{}
+		_, err := transition.OnProposalInit(t.Context(), nil, initMsg)
+		require.Error(t, err)
+	})
 }
 
 // Just to keep the code tidier
