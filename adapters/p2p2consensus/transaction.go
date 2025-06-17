@@ -5,11 +5,10 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/utils"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func AdaptTransaction(msg *p2pconsensus.ConsensusTransaction, network *utils.Network) (core.Transaction, core.Class, error) {
+func AdaptTransaction(msg *p2pconsensus.ConsensusTransaction) (core.Transaction, core.Class, error) {
 	if msg == nil {
 		return nil, nil, nil
 	}

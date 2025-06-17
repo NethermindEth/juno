@@ -48,7 +48,6 @@ type Transition interface {
 
 type transition[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	validator validator.Validator[V, H, A]
-	network   utils.Network // Todo
 }
 
 func NewTransition[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -125,7 +124,7 @@ func (t *transition[V, H, A]) OnTransactions(
 ) (*ReceivingTransactionsState, error) {
 	txns := make([]types.Transaction, len(transactions))
 	for i := range transactions {
-		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i], &t.network)
+		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i])
 		if err != nil {
 			return nil, err
 		}
