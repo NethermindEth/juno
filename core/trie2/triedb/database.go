@@ -20,8 +20,8 @@ const (
 )
 
 type Config struct {
-	pathConfig *pathdb.Config
-	pashConfig *hashdb.Config
+	PathConfig *pathdb.Config
+	HashConfig *hashdb.Config
 }
 
 type Database struct {
@@ -33,23 +33,21 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	// Default to path config if not provided
 	if config == nil {
 		config = &Config{
-			pathConfig: nil,
-			pashConfig: &hashdb.Config{
-				CleanCacheSize: 1000,
-			},
+			PathConfig: pathdb.DefaultConfig,
+			HashConfig: nil,
 		}
 	}
 
 	var triedb database.TrieDB
 	var err error
 
-	if config.pathConfig != nil {
-		triedb, err = pathdb.New(disk, config.pathConfig)
+	if config.PathConfig != nil {
+		triedb, err = pathdb.New(disk, config.PathConfig)
 		if err != nil {
 			return nil, err
 		}
-	} else if config.pashConfig != nil {
-		triedb = hashdb.New(disk, config.pashConfig)
+	} else if config.HashConfig != nil {
+		triedb = hashdb.New(disk, config.HashConfig)
 	}
 
 	return &Database{
