@@ -118,6 +118,12 @@ func TestEmptyProposal(t *testing.T) {
 		Builder:          *proposerAddr,
 		Timestamp:        0,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
+		// Other fields are set to 0 as expected by the validator
+		ConcatenatedCounts:    *new(felt.Felt).SetUint64(0),
+		StateDiffCommitment:   *new(felt.Felt).SetUint64(0),
+		TransactionCommitment: *new(felt.Felt).SetUint64(0),
+		EventCommitment:       *new(felt.Felt).SetUint64(0),
+		ReceiptCommitment:     *new(felt.Felt).SetUint64(0),
 	}
 
 	// Step 2: ProposalCommitment
@@ -238,6 +244,7 @@ func TestCompareFeltField(t *testing.T) {
 	})
 }
 
+// TODO: Write tests to actually test the `ProposalCommitment` function.
 func TestCompareProposalCommitment(t *testing.T) {
 	proposer := utils.HexToFelt(t, "1")
 
@@ -272,89 +279,91 @@ func TestCompareProposalCommitment(t *testing.T) {
 		ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
 		L1DAMode:         core.Blob,
 	}
-
-	c := &core.BlockCommitments{
-		StateDiffCommitment:   stateDiffCommitment,
-		TransactionCommitment: transactionCommitment,
-		EventCommitment:       eventCommitment,
-		ReceiptCommitment:     receiptCommitment,
-	}
-
-	concatCount := utils.HexToFelt(t, "1")
 	t.Run("ValidCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
-		err := compareProposalCommitment(p, h, c, concatCount)
+		expected := newDefaultProposalCommitment()
+		err := compareProposalCommitment(expected, p)
 		require.NoError(t, err)
 	})
 
 	t.Run("MismatchedBlockNumber", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.BlockNumber = blockNumber + 1
-		err := compareProposalCommitment(p, h, c, concatCount)
-		expected := fmt.Sprintf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
-		require.EqualError(t, err, expected)
+		err := compareProposalCommitment(expected, p)
+		expectedErr := fmt.Sprintf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
+		require.EqualError(t, err, expectedErr)
 		p.BlockNumber = blockNumber
 	})
 
 	t.Run("MismatchedParentCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ParentCommitment = *utils.HexToFelt(t, "222")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("FutureTimestamp", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.Timestamp = 2000
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("UnsupportedProtocolVersion", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ProtocolVersion = *semver.New(0, 123, 0, "", "")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedStateDiffCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.StateDiffCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedTransactionCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.TransactionCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedEventCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.EventCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedReceiptCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.ReceiptCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL1DAMode", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.L1DAMode = core.Calldata
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 }
