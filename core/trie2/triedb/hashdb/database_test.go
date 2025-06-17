@@ -53,20 +53,9 @@ func verifyNodeInDisk(t *testing.T, database *Database, id trieutils.TrieID, pat
 
 	owner := id.Owner()
 	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
-	assert.False(t, found)
 	blob, err := reader.Node(&owner, path, &nodeHash, node.IsLeaf())
 	require.NoError(t, err)
 	assert.Equal(t, node.Blob(), blob)
-}
-
-func verifyNodeInDirtyCache(t *testing.T, database *Database, id trieutils.TrieID, path *trieutils.Path, node trienode.TrieNode) {
-	t.Helper()
-
-	owner := id.Owner()
-	nodeHash := node.Hash()
-	_, found := database.dirtyCache.getNode(&owner, path, &nodeHash, id.Bucket() == db.ClassTrie)
-	assert.True(t, found)
 }
 
 func createBinaryNodeBlob(leftHash, rightHash *felt.Felt) []byte {
@@ -155,9 +144,6 @@ func TestDatabase(t *testing.T) {
 		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(deepClassNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		err = database.Commit(&felt.Zero)
-		require.NoError(t, err)
-
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &level1Path1, level1Node1)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &level1Path2, level1Node2)
@@ -202,9 +188,6 @@ func TestDatabase(t *testing.T) {
 		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(basicClassNodes), createContractMergeNodeSet(allContractNodes))
 		require.NoError(t, err)
 
-		err = database.Commit(&felt.Zero)
-		require.NoError(t, err)
-
 		// Verify class nodes
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
@@ -232,9 +215,6 @@ func TestDatabase(t *testing.T) {
 		}
 
 		err := database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(edgeClassNodes), createContractMergeNodeSet(nil))
-		require.NoError(t, err)
-
-		err = database.Commit(&felt.Zero)
 		require.NoError(t, err)
 
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
@@ -323,15 +303,6 @@ func TestDatabase(t *testing.T) {
 		err = database.Update(&felt.Zero, &felt.Zero, 42, createMergeNodeSet(updatedNodes), createContractMergeNodeSet(nil))
 		require.NoError(t, err)
 
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, newRootNode)
-		verifyNodeInDirtyCache(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
-
-		err = database.Commit(&felt.Zero)
-		require.NoError(t, err)
-
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &rootPath, rootNode)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf1Path, leaf1Node)
 		verifyNodeInDisk(t, database, trieutils.NewClassTrieID(felt.Zero), &leaf2Path, leaf2Node)
@@ -349,7 +320,7 @@ func TestDatabase(t *testing.T) {
 			contractRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
 			classRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
 			contractRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
-			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, classRootHash, contractRootHash)
+			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, append(classRootHash.Marshal(), contractRootHash.Marshal()...))
 			require.NoError(t, err)
 
 			err = trieutils.WriteNodeByHash(memDB, db.ClassTrie, &felt.Zero, &rootPath, classRootHash, false, classRootBlob)
@@ -385,7 +356,7 @@ func TestDatabase(t *testing.T) {
 			classRootHash := new(felt.Felt).SetUint64(2000)
 			contractRootHash := new(felt.Felt).SetUint64(3000)
 
-			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, classRootHash, contractRootHash)
+			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, append(classRootHash.Marshal(), contractRootHash.Marshal()...))
 			require.NoError(t, err)
 
 			_, _, err = database.GetTrieRootNodes(stateCommitment)

@@ -42,7 +42,8 @@ const (
 	ContractTrieContract // ContractTrieContract + nodetype + path + pathlength -> Trie Node
 	ContractTrieStorage  // ContractTrieStorage + nodetype + path + pathlength -> Trie Node
 	Contract             // Contract + ContractAddr -> Contract
-	StateHashToTrieRoots // StateHash -> ClassRootHash + ContractRootHash
+	StateHashToTrieRoots // StateHash -> ClassRootHash + ContractRootHash (archive node)
+	ContractStorageRoot  // StateHash + ContractCommitment -> ContractStorageRoot (archive node)
 	StateID              // StateID + root hash -> state id
 	PersistedStateID     // PersistedStateID -> state id
 	TrieJournal          // TrieJournal -> journal
