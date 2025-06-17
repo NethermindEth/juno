@@ -47,6 +47,8 @@ const (
 	StateID              // StateID + root hash -> state id
 	PersistedStateID     // PersistedStateID -> state id
 	TrieJournal          // TrieJournal -> journal
+  AggregatedBloomFilters // maps block range to AggregatedBloomFilter
+	RunningEventFilter     // aggregated filter not full yet
 )
 
 // Key flattens a prefix and series of byte arrays into a single []byte.

@@ -19,6 +19,8 @@ var (
 	_ Class = (*Cairo1Class)(nil)
 )
 
+const minDeclaredClassSize = 8
+
 // Single felt identifying the number "0.1.0" as a short string
 var SierraVersion010 felt.Felt = felt.New(
 	fp.Element([4]uint64{
@@ -279,7 +281,7 @@ func (d *DeclaredClass) MarshalBinary() ([]byte, error) {
 }
 
 func (d *DeclaredClass) UnmarshalBinary(data []byte) error {
-	if len(data) < 8 { //nolint:mnd
+	if len(data) < minDeclaredClassSize {
 		return errors.New("data too short to unmarshal DeclaredClass")
 	}
 

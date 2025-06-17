@@ -395,7 +395,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
-
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd

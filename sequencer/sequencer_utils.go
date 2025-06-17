@@ -3,18 +3,19 @@ package sequencer
 import (
 	"context"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/utils"
 )
 
 // Execute a single block. Useful for tests.
-func (s *Sequencer) RunOnce() error {
+func (s *Sequencer) RunOnce() (*core.Header, error) {
 	if err := s.builder.ClearPending(); err != nil {
 		s.log.Errorw("clearing pending", "err", err)
 	}
 
 	if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
-		return err
+		return nil, err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -30,7 +31,7 @@ func (s *Sequencer) RunOnce() error {
 		s.log.Infof("Failed to get pending block")
 	}
 	if err := s.builder.Finalise(pending, utils.Sign(s.privKey), s.privKey); err != nil {
-		return err
+		return nil, err
 	}
 	s.log.Infof("Finalised new block")
 	if s.plugin != nil {
@@ -43,10 +44,10 @@ func (s *Sequencer) RunOnce() error {
 	s.subNewHeads.Send(pending.Block)
 
 	if err := s.builder.ClearPending(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return pending.Block.Header, nil
 }

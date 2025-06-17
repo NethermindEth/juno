@@ -49,3 +49,16 @@ func (t actionBuilder) scheduleTimeout(s types.Step) starknet.Action {
 		Round:  t.actionRound,
 	}
 }
+
+// commit returns a commit action.
+func (t actionBuilder) commit(val starknet.Value, validRound types.Round, proposer int) starknet.Action {
+	return &starknet.Commit{
+		MessageHeader: starknet.MessageHeader{
+			Height: t.actionHeight,
+			Round:  t.actionRound,
+			Sender: *getVal(proposer),
+		},
+		Value:      &val,
+		ValidRound: validRound,
+	}
+}

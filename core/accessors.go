@@ -513,6 +513,49 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (Transaction, error) {
 func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment *felt.Felt, val []byte) error {
 	return w.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 }
+  
+func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
+	var filter AggregatedBloomFilter
+	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
+		err := encoder.Unmarshal(data, &filter)
+		return err
+	})
+	if err != nil {
+		return AggregatedBloomFilter{}, err
+	}
+
+	return filter, nil
+}
+
+func WriteAggregatedBloomFilter(w db.KeyValueWriter, filter *AggregatedBloomFilter) error {
+	enc, err := encoder.Marshal(filter)
+	if err != nil {
+		return err
+	}
+	return w.Put(db.AggregatedBloomFilterKey(filter.FromBlock(), filter.ToBlock()), enc)
+}
+
+func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
+	var filter RunningEventFilter
+	err := r.Get(db.RunningEventFilter.Key(), func(data []byte) error {
+		err := encoder.Unmarshal(data, &filter)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+  
+  return &filter, nil
+}
+
+func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) error {
+	enc, err := encoder.Marshal(filter)
+	if err != nil {
+		return err
+	}
+
+	return w.Put(db.RunningEventFilter.Key(), enc)
+}
 
 // This is used to get the class and contract roots for a given state commitment,
 // needed to properly initialise the trie or recover the cache, if the triedb is in hash scheme
@@ -549,14 +592,15 @@ func GetContractStorageRoot(r db.KeyValueReader, stateCommitment, contractCommit
 	err := r.Get(db.ContractStorageRootKey(stateCommitment, contractCommitment), func(data []byte) error {
 		val = data
 		return nil
-	})
+    	})
 	if err != nil {
 		return nil, err
 	}
-
-	return val, nil
+  
+  return val, nil
 }
 
 func DeleteContractStorageRoot(w db.KeyValueWriter, stateCommitment, contractCommitment *felt.Felt) error {
 	return w.Delete(db.ContractStorageRootKey(stateCommitment, contractCommitment))
 }
+

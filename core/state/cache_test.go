@@ -11,8 +11,10 @@ import (
 func TestStateCache(t *testing.T) {
 	t.Run("new state cache is empty", func(t *testing.T) {
 		cache := newStateCache()
-		assert.Empty(t, cache.diffs)
-		assert.Empty(t, cache.links)
+		assert.Empty(t, cache.rootMap)
+		assert.Equal(t, 0, len(cache.rootMap))
+		assert.Nil(t, cache.oldestNode)
+		assert.Nil(t, cache.newestNode)
 	})
 
 	t.Run("add layer and retrieve data", func(t *testing.T) {
@@ -64,12 +66,11 @@ func TestStateCache(t *testing.T) {
 		}
 
 		// Verify that oldest layers are evicted
-		assert.Equal(t, DefaultMaxLayers, len(cache.links))
-		assert.Equal(t, DefaultMaxLayers, len(cache.diffs))
+		assert.Equal(t, DefaultMaxLayers, len(cache.rootMap))
 
 		// After eviction, the oldest root should be the second layer (root 2)
 		expectedOldestRoot := new(felt.Felt).SetUint64(2)
-		assert.Equal(t, *expectedOldestRoot, cache.oldestRoot)
+		assert.Equal(t, *expectedOldestRoot, cache.oldestNode.root)
 
 		// Verify that the first layer is evicted by checking that its data is not accessible
 		firstLayerRoot := new(felt.Felt).SetUint64(1)
@@ -146,8 +147,8 @@ func TestStateCache(t *testing.T) {
 			} else {
 				cache.PushLayer(roots[i], roots[i-1], emptyDiff)
 			}
-			assert.Equal(t, 1, len(cache.diffs))
-			assert.Equal(t, 1, len(cache.links))
+			assert.Equal(t, 1, len(cache.rootMap))
+			assert.Equal(t, cache.oldestNode.root, cache.newestNode.root)
 		}
 
 		var err error
@@ -155,17 +156,16 @@ func TestStateCache(t *testing.T) {
 			if i == 0 {
 				err = cache.PopLayer(roots[i], parent)
 				require.NoError(t, err)
-				assert.Equal(t, 0, len(cache.diffs))
-				assert.Equal(t, 0, len(cache.links))
+				assert.Equal(t, 0, len(cache.rootMap))
 			} else {
 				err = cache.PopLayer(roots[i], roots[i-1])
-				assert.Equal(t, 1, len(cache.diffs))
-				assert.Equal(t, 1, len(cache.links))
+				assert.Equal(t, 1, len(cache.rootMap))
 			}
 			require.NoError(t, err)
 		}
 
-		assert.Empty(t, cache.diffs)
-		assert.Empty(t, cache.links)
+		assert.Empty(t, cache.rootMap)
+		assert.Nil(t, cache.oldestNode)
+		assert.Nil(t, cache.newestNode)
 	})
 }

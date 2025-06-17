@@ -26,7 +26,8 @@ type StateDB struct {
 }
 
 func NewStateDB(disk db.KeyValueStore, triedb *triedb.Database) *StateDB {
-	return &StateDB{disk: disk, triedb: triedb, stateCache: newStateCache()}
+	stateCache := newStateCache()
+	return &StateDB{disk: disk, triedb: triedb, stateCache: &stateCache}
 }
 
 // Opens a class trie for the given state root

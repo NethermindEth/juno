@@ -138,6 +138,34 @@ func StateIDKey(root *felt.Felt) []byte {
 	return StateID.Key(root.Marshal())
 }
 
+const AggregatedBloomFilterRangeKeySize = 16
+
+type AggregatedBloomFilterRangeKey struct {
+	FromBlock uint64
+	ToBlock   uint64
+}
+
+func (b *AggregatedBloomFilterRangeKey) MarshalBinary() []byte {
+	data := make([]byte, AggregatedBloomFilterRangeKeySize)
+	binary.BigEndian.PutUint64(data[0:8], b.FromBlock)
+	binary.BigEndian.PutUint64(data[8:16], b.ToBlock)
+	return data
+}
+
+func (b *AggregatedBloomFilterRangeKey) UnmarshalBinary(data []byte) error {
+	if len(data) < AggregatedBloomFilterRangeKeySize {
+		return errors.New("data is too short to unmarshal fromBlock and toBlock")
+	}
+	b.FromBlock = binary.BigEndian.Uint64(data[0:8])
+	b.ToBlock = binary.BigEndian.Uint64(data[8:16])
+	return nil
+}
+
+func AggregatedBloomFilterKey(fromBlock, toBlock uint64) []byte {
+	key := &AggregatedBloomFilterRangeKey{FromBlock: fromBlock, ToBlock: toBlock}
+	return AggregatedBloomFilters.Key(key.MarshalBinary())
+}
+
 func uint64ToBytes(num uint64) [8]byte {
 	var numBytes [8]byte
 	binary.BigEndian.PutUint64(numBytes[:], num)

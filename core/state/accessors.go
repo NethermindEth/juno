@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-func GetStateObject(r db.KeyValueReader, state *State, addr felt.Felt) (*stateObject, error) {
-	contract, err := GetContract(r, &addr)
+func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateObject, error) {
+	contract, err := GetContract(r, addr)
 	if err != nil {
 		return nil, err
 	}

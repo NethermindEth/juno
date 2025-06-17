@@ -6,10 +6,8 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-const (
-	// DefaultMaxLayers is the default maximum number of layers to keep in the cache
-	DefaultMaxLayers = 128
-)
+// DefaultMaxLayers is the default maximum number of layers to keep in the cache
+const DefaultMaxLayers = 128
 
 type diffCache struct {
 	storageDiffs      map[felt.Felt]map[felt.Felt]*felt.Felt // addr -> {key -> value, ...}
@@ -17,129 +15,123 @@ type diffCache struct {
 	deployedContracts map[felt.Felt]*felt.Felt               // addr -> class hash
 }
 
+type cacheNode struct {
+	root   felt.Felt
+	parent *cacheNode
+	child  *cacheNode
+	diff   diffCache
+}
+
+// stateCache is a clean, in-memory cache of the state, where the stateDiffs are stored. After every state update,
+// a new layer - a stateDiff associated with the state root is added to the cache. The state cache is implemented as a linked list.
+
 type stateCache struct {
-	diffs      map[felt.Felt]*diffCache // state root -> state diff
-	links      map[felt.Felt]felt.Felt  // child -> parent
-	oldestRoot felt.Felt                // root of the oldest layer in the cache
+	rootMap    map[felt.Felt]*cacheNode
+	oldestNode *cacheNode
+	newestNode *cacheNode
 }
 
-func newStateCache() *stateCache {
-	return &stateCache{
-		diffs: make(map[felt.Felt]*diffCache),
-		links: make(map[felt.Felt]felt.Felt),
+func newStateCache() stateCache {
+	return stateCache{
+		rootMap: make(map[felt.Felt]*cacheNode, DefaultMaxLayers),
 	}
 }
 
+// PushLayer adds a new stateDiff associated with the state root to the cache.
+// If the cache is full, the oldest layer is removed. By default, the cache is limited to 128 layers.
+// If the state root is the same as the parent root, the layer is not added to the cache.
 func (c *stateCache) PushLayer(stateRoot, parentRoot *felt.Felt, diff *diffCache) {
-	if len(c.links) == 0 {
-		c.oldestRoot = *stateRoot
-	}
-	// if there was no change in the state, don't cache the diff
 	if stateRoot.Equal(parentRoot) {
 		return
 	}
 
-	c.diffs[*stateRoot] = diff
-	c.links[*stateRoot] = *parentRoot
+	// Create new node
+	node := &cacheNode{
+		root:   *stateRoot,
+		diff:   *diff,
+		parent: c.newestNode,
+	}
+	if c.newestNode != nil {
+		c.newestNode.child = node
+	}
+	c.newestNode = node
+	if c.oldestNode == nil {
+		c.oldestNode = node
+	}
+	c.rootMap[*stateRoot] = node
 
-	for len(c.links) > DefaultMaxLayers {
-		// Find the child of the current oldest root
-		var nextOldest felt.Felt
-		for child, parent := range c.links {
-			if parent == c.oldestRoot {
-				nextOldest = child
-				break
-			}
+	// Evict if over capacity
+	if len(c.rootMap) > DefaultMaxLayers {
+		evict := c.oldestNode
+		c.oldestNode = evict.child
+		if c.oldestNode != nil {
+			c.oldestNode.parent = nil
 		}
-
-		delete(c.diffs, c.oldestRoot)
-		delete(c.links, c.oldestRoot)
-
-		c.oldestRoot = nextOldest
+		delete(c.rootMap, evict.root)
 	}
 }
 
+// PopLayer removes the layer associated with the state root from the cache.
+// It returns an error if the layer is not found or if it is not the newest layer.
+// If there was no change in the state, the layer is not cached, hence it is not removed.
 func (c *stateCache) PopLayer(stateRoot, parentRoot *felt.Felt) error {
-	// if there was no change in the state, the layer is not cached
 	if stateRoot.Equal(parentRoot) {
 		return nil
 	}
 
-	if _, exists := c.diffs[*stateRoot]; !exists {
+	node, ok := c.rootMap[*stateRoot]
+	if !ok {
 		return fmt.Errorf("layer with state root %v not found", stateRoot)
 	}
 
-	for _, parent := range c.links {
-		if parent.Equal(stateRoot) {
-			return fmt.Errorf("cannot pop layer %v: it is not the newest layer", stateRoot)
-		}
+	if node.child != nil {
+		return fmt.Errorf("cannot pop layer %v: it is not the newest layer", stateRoot)
 	}
 
-	delete(c.diffs, *stateRoot)
-	delete(c.links, *stateRoot)
+	// Remove node
+	if node.parent != nil {
+		node.parent.child = nil
+		c.newestNode = node.parent
+	} else {
+		c.newestNode = nil
+		c.oldestNode = nil
+	}
+	delete(c.rootMap, *stateRoot)
 
 	return nil
 }
 
 func (c *stateCache) getNonce(stateRoot, addr *felt.Felt) *felt.Felt {
-	diff, exists := c.diffs[*stateRoot]
-	if !exists {
-		if parent, ok := c.links[*stateRoot]; ok {
-			return c.getNonce(&parent, addr)
+	node := c.rootMap[*stateRoot]
+	for node != nil {
+		if nonce, ok := node.diff.nonces[*addr]; ok {
+			return nonce
 		}
-		return nil
+		node = node.parent
 	}
-
-	if nonce, ok := diff.nonces[*addr]; ok {
-		return nonce
-	}
-
-	if parent, ok := c.links[*stateRoot]; ok {
-		return c.getNonce(&parent, addr)
-	}
-
 	return nil
 }
 
 func (c *stateCache) getStorageDiff(stateRoot, addr, key *felt.Felt) *felt.Felt {
-	diff, exists := c.diffs[*stateRoot]
-	if !exists {
-		if parent, ok := c.links[*stateRoot]; ok {
-			return c.getStorageDiff(&parent, addr, key)
+	node := c.rootMap[*stateRoot]
+	for node != nil {
+		if storage, ok := node.diff.storageDiffs[*addr]; ok {
+			if val, ok := storage[*key]; ok {
+				return val
+			}
 		}
-		return nil
+		node = node.parent
 	}
-
-	if storage, ok := diff.storageDiffs[*addr]; ok {
-		if value, ok := storage[*key]; ok {
-			return value
-		}
-		return nil
-	}
-
-	if parent, ok := c.links[*stateRoot]; ok {
-		return c.getStorageDiff(&parent, addr, key)
-	}
-
 	return nil
 }
 
 func (c *stateCache) getReplacedClass(stateRoot, addr *felt.Felt) *felt.Felt {
-	diff, exists := c.diffs[*stateRoot]
-	if !exists {
-		if parent, ok := c.links[*stateRoot]; ok {
-			return c.getReplacedClass(&parent, addr)
+	node := c.rootMap[*stateRoot]
+	for node != nil {
+		if classHash, ok := node.diff.deployedContracts[*addr]; ok {
+			return classHash
 		}
-		return nil
+		node = node.parent
 	}
-
-	if classHash, ok := diff.deployedContracts[*addr]; ok {
-		return classHash
-	}
-
-	if parent, ok := c.links[*stateRoot]; ok {
-		return c.getReplacedClass(&parent, addr)
-	}
-
 	return nil
 }
