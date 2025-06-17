@@ -188,7 +188,7 @@ func TestProposal(t *testing.T) {
 			utils.HexToFelt(t, "0x0"),
 		},
 	}
-	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Index: 0, Transaction: &invokeTxn2}}))
+	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn2}}))
 
 	nonEmptyCommitment := types.ProposalCommitment{
 		BlockNumber:      head.Number + 1,
