@@ -17,14 +17,3 @@ func nodeKey(path *trieutils.Path, hash *felt.Felt) []byte {
 	copy(key[felt.Bytes:], pathBytes)
 	return key
 }
-
-func decodeNodeKey(key []byte) (path trieutils.Path, hash felt.Felt, err error) {
-	hash.SetBytes(key[:felt.Bytes])
-
-	pathBytes := key[felt.Bytes:]
-	if err := path.UnmarshalBinary(pathBytes); err != nil {
-		return path, hash, err
-	}
-
-	return path, hash, nil
-}

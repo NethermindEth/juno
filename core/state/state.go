@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
@@ -211,27 +212,33 @@ func (s *State) Update(
 		return err
 	}
 
-	newComm, stateUpdate, classRoot, contractRoot, storageRoots, err := s.commit()
+	result, err := s.commit()
 	if err != nil {
 		return err
 	}
 
 	// Check if the new commitment matches the one in state diff
-	if !newComm.Equal(update.NewRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+	if !result.stateCommitment.Equal(update.NewRoot) {
+		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &result.stateCommitment)
 	}
 
-	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
+	s.db.stateCache.PushLayer(&result.stateCommitment, &result.update.prevComm, &diffCache{
 		storageDiffs:      update.StateDiff.StorageDiffs,
 		nonces:            update.StateDiff.Nonces,
 		deployedContracts: update.StateDiff.ReplacedClasses,
 	})
-	err = s.persistTrieRoots(&newComm, &stateUpdate.prevComm, &classRoot, &contractRoot, storageRoots, false)
+	err = s.persistTrieRoots(
+		&result.stateCommitment,
+		&result.update.prevComm,
+		&result.classRoot,
+		&result.contractRoot,
+		result.storageRoots,
+		false,
+	)
 	if err != nil {
 		return err
 	}
-
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
+	if err := s.flush(blockNum, &result.update, dirtyClasses, true); err != nil {
 		return err
 	}
 
@@ -290,17 +297,17 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		s.stateObjects[addr] = nil // mark for deletion
 	}
 
-	newComm, stateUpdate, classRoot, contractRoot, storageRoots, err := s.commit()
+	result, err := s.commit()
 	if err != nil {
 		return err
 	}
 
 	// Check if the new commitment matches the old one
-	if !newComm.Equal(update.OldRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
+	if !result.stateCommitment.Equal(update.OldRoot) {
+		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &result.stateCommitment)
 	}
 
-	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
+	if err := s.flush(blockNum, &result.update, dirtyClasses, false); err != nil {
 		return err
 	}
 
@@ -308,7 +315,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 		return err
 	}
 
-	err = s.persistTrieRoots(update.NewRoot, update.OldRoot, &classRoot, &contractRoot, storageRoots, true)
+	err = s.persistTrieRoots(update.NewRoot, update.OldRoot, &result.classRoot, &result.contractRoot, result.storageRoots, true)
 	if err != nil {
 		return err
 	}
@@ -369,8 +376,16 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 	return reverse, nil
 }
 
+type commitResult struct {
+	stateCommitment felt.Felt
+	update          stateUpdate
+	classRoot       felt.Felt
+	contractRoot    felt.Felt
+	storageRoots    map[felt.Felt]felt.Felt // contract commitment -> storage root
+}
+
 //nolint:gocyclo
-func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt.Felt]felt.Felt, error) {
+func (s *State) commit() (commitResult, error) {
 	// Sort in descending order of the number of storage changes
 	// so that we start with the heaviest update first
 	keys := slices.SortedStableFunc(maps.Keys(s.stateObjects), s.compareContracts)
@@ -419,7 +434,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt
 	}
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero, emptyStateUpdate, felt.Zero, felt.Zero, nil, err
+		return commitResult{}, err
 	}
 
 	storageRootsMap := make(map[felt.Felt]felt.Felt, len(keys))
@@ -429,7 +444,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt
 
 	for i, addr := range keys {
 		if err := s.contractTrie.Update(&addr, &comms[i]); err != nil {
-			return felt.Zero, emptyStateUpdate, felt.Zero, felt.Zero, nil, err
+			return commitResult{}, err
 		}
 
 		// As noClassContracts are not in StateDiff.DeployedContracts we can only purge them if their storage no longer exists.
@@ -442,7 +457,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt
 
 				if root.IsZero() {
 					if err := s.contractTrie.Update(&nAddr, &felt.Zero); err != nil {
-						return felt.Zero, emptyStateUpdate, felt.Zero, felt.Zero, nil, err
+						return commitResult{}, err
 					}
 
 					s.stateObjects[nAddr] = nil // mark for deletion
@@ -467,11 +482,11 @@ func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt
 	})
 
 	if err := p.Wait(); err != nil {
-		return felt.Zero, emptyStateUpdate, felt.Zero, felt.Zero, nil, err
+		return commitResult{}, err
 	}
 
 	if err := merge(contractNodes); err != nil {
-		return felt.Zero, emptyStateUpdate, felt.Zero, felt.Zero, nil, err
+		return commitResult{}, err
 	}
 
 	newComm := stateCommitment(&contractRoot, &classRoot)
@@ -486,7 +501,13 @@ func (s *State) commit() (felt.Felt, stateUpdate, felt.Felt, felt.Felt, map[felt
 		su.classNodes = trienode.NewMergeNodeSet(classNodes)
 	}
 
-	return newComm, su, classRoot, contractRoot, storageRootsMap, nil
+	return commitResult{
+		stateCommitment: newComm,
+		update:          su,
+		classRoot:       classRoot,
+		contractRoot:    contractRoot,
+		storageRoots:    storageRootsMap,
+	}, nil
 }
 
 //nolint:gocyclo
@@ -794,8 +815,15 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 }
 
 // TODO(maksym): this could be cached
-func (s *State) persistTrieRoots(stateCommitment, parentRoot, classRoot, contractRoot *felt.Felt, storageRoots map[felt.Felt]felt.Felt, revert bool) error {
+func (s *State) persistTrieRoots(
+	stateCommitment, parentRoot, classRoot, contractRoot *felt.Felt,
+	storageRoots map[felt.Felt]felt.Felt,
+	revert bool,
+) error {
 	// if there was no change in the state, we don't need to write the roots to the disk
+	if s.db.triedb.Scheme() != triedb.HashDB {
+		return nil
+	}
 	if stateCommitment.Equal(parentRoot) {
 		return nil
 	}
@@ -807,12 +835,12 @@ func (s *State) persistTrieRoots(stateCommitment, parentRoot, classRoot, contrac
 		if revert {
 			err := core.DeleteContractStorageRoot(s.db.disk, stateCommitment, &contractComm)
 			if err != nil {
-				return nil
+				return err
 			}
 		} else {
 			err := core.WriteContractStorageRoot(s.db.disk, stateCommitment, &contractComm, &contractStorageRoot)
 			if err != nil {
-				return nil
+				return err
 			}
 		}
 	}

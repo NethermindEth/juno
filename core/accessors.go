@@ -513,7 +513,7 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (Transaction, error) {
 func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment *felt.Felt, val []byte) error {
 	return w.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 }
-  
+
 func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
 	var filter AggregatedBloomFilter
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
@@ -544,8 +544,8 @@ func GetRunningEventFilter(r db.KeyValueReader) (*RunningEventFilter, error) {
 	if err != nil {
 		return nil, err
 	}
-  
-  return &filter, nil
+
+	return &filter, nil
 }
 
 func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) error {
@@ -592,15 +592,14 @@ func GetContractStorageRoot(r db.KeyValueReader, stateCommitment, contractCommit
 	err := r.Get(db.ContractStorageRootKey(stateCommitment, contractCommitment), func(data []byte) error {
 		val = data
 		return nil
-    	})
+	})
 	if err != nil {
 		return nil, err
 	}
-  
-  return val, nil
+
+	return val, nil
 }
 
 func DeleteContractStorageRoot(w db.KeyValueWriter, stateCommitment, contractCommitment *felt.Felt) error {
 	return w.Delete(db.ContractStorageRootKey(stateCommitment, contractCommitment))
 }
-

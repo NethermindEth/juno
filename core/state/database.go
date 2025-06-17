@@ -30,62 +30,72 @@ func NewStateDB(disk db.KeyValueStore, triedb *triedb.Database) *StateDB {
 	return &StateDB{disk: disk, triedb: triedb, stateCache: &stateCache}
 }
 
-// Opens a class trie for the given state root
-func (s *StateDB) ClassTrie(stateComm felt.Felt) (*trie2.Trie, error) {
+type trieConfig struct {
+	id      func(felt.Felt) trieutils.TrieID
+	height  uint8
+	getRoot func([]byte) (*felt.Felt, error)
+}
+
+func (s *StateDB) createTrie(stateComm *felt.Felt, config trieConfig) (*trie2.Trie, error) {
 	switch scheme := s.triedb.Scheme(); scheme {
 	case triedb.PathDB:
-		return trie2.New(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
+		return trie2.New(config.id(*stateComm), config.height, crypto.Poseidon, s.triedb)
 	case triedb.HashDB:
 		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
+			return trie2.New(config.id(*stateComm), config.height, crypto.Poseidon, s.triedb)
 		}
-		rootHash, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
+		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, stateComm)
 		if err != nil {
 			return nil, err
 		}
-		classRootHash, _, err := trienode.DecodeTriesRoots(rootHash)
+		rootHash, err := config.getRoot(rootsBytes)
 		if err != nil {
 			return nil, err
 		}
-		return trie2.NewFromRootHash(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb, &classRootHash)
+		return trie2.NewFromRootHash(config.id(*stateComm), config.height, crypto.Poseidon, s.triedb, rootHash)
 	default:
 		return nil, fmt.Errorf("unsupported trie db type: %T", scheme)
 	}
 }
 
-// Opens a contract trie for the given state root
-func (s *StateDB) ContractTrie(stateComm felt.Felt) (*trie2.Trie, error) {
-	switch scheme := s.triedb.Scheme(); scheme {
-	case triedb.PathDB:
-		return trie2.New(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
-	case triedb.HashDB:
-		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
-		}
-		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
-		if err != nil {
-			return nil, err
-		}
-		_, contractRootHash, err := trienode.DecodeTriesRoots(rootsBytes)
-		if err != nil {
-			return nil, err
-		}
-		return trie2.NewFromRootHash(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb, &contractRootHash)
-	default:
-		return nil, fmt.Errorf("unsupported trie db type: %T", scheme)
-	}
+func (s *StateDB) ClassTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
+	return s.createTrie(stateComm, trieConfig{
+		id:     func(f felt.Felt) trieutils.TrieID { return trieutils.NewClassTrieID(f) },
+		height: ClassTrieHeight,
+		getRoot: func(rootsBytes []byte) (*felt.Felt, error) {
+			classRoot, _, err := trienode.DecodeTriesRoots(rootsBytes)
+			if err != nil {
+				return nil, err
+			}
+			return &classRoot, nil
+		},
+	})
+}
+
+func (s *StateDB) ContractTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
+	return s.createTrie(stateComm, trieConfig{
+		id:     func(f felt.Felt) trieutils.TrieID { return trieutils.NewContractTrieID(f) },
+		height: ContractTrieHeight,
+		getRoot: func(rootsBytes []byte) (*felt.Felt, error) {
+			_, contractRoot, err := trienode.DecodeTriesRoots(rootsBytes)
+			if err != nil {
+				return nil, err
+			}
+			return &contractRoot, nil
+		},
+	})
 }
 
 // Opens a contract storage trie for the given state root and contract address
-func (s *StateDB) ContractStorageTrie(stateComm, owner felt.Felt) (*trie2.Trie, error) {
+func (s *StateDB) ContractStorageTrie(stateComm, owner *felt.Felt) (*trie2.Trie, error) {
 	switch scheme := s.triedb.Scheme(); scheme {
 	case triedb.PathDB:
-		return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+		return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 	case triedb.HashDB:
 		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+			return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 		}
-		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
+		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, stateComm)
 		if err != nil {
 			return nil, err
 		}
@@ -93,28 +103,34 @@ func (s *StateDB) ContractStorageTrie(stateComm, owner felt.Felt) (*trie2.Trie, 
 		if err != nil {
 			return nil, err
 		}
-		contractTrie, err := trie2.NewFromRootHash(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb, &contractRootHash)
+		contractTrie, err := trie2.NewFromRootHash(
+			trieutils.NewContractTrieID(*stateComm),
+			ContractTrieHeight,
+			crypto.Pedersen,
+			s.triedb,
+			&contractRootHash,
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		contractComm, err := contractTrie.Get(&owner)
+		contractComm, err := contractTrie.Get(owner)
 		if err != nil {
 			return nil, err
 		}
 
 		if contractComm.IsZero() {
-			return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+			return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 		}
 
-		contractStorageRootBytes, err := core.GetContractStorageRoot(s.disk, &stateComm, &contractComm)
+		contractStorageRootBytes, err := core.GetContractStorageRoot(s.disk, stateComm, &contractComm)
 		if err != nil {
 			return nil, err
 		}
 		contractStorageRoot := new(felt.Felt).SetBytes(contractStorageRootBytes)
 
 		return trie2.NewFromRootHash(
-			trieutils.NewContractStorageTrieID(stateComm, owner),
+			trieutils.NewContractStorageTrieID(*stateComm, *owner),
 			ContractStorageTrieHeight,
 			crypto.Pedersen,
 			s.triedb,
