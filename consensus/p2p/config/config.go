@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 type BufferSizes struct {
 	ProposalSubscription      int
 	VoteSubscription          int
@@ -11,6 +13,7 @@ type BufferSizes struct {
 	PrecommitOutput           int
 	ProposalProtoBroadcaster  int
 	VoteProtoBroadcaster      int
+	RetryInterval             time.Duration
 }
 
 var DefaultBufferSizes = BufferSizes{
@@ -24,4 +27,5 @@ var DefaultBufferSizes = BufferSizes{
 	PrecommitOutput:           1024,
 	ProposalProtoBroadcaster:  1024,
 	VoteProtoBroadcaster:      1024,
+	RetryInterval:             1 * time.Second,
 }
