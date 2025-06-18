@@ -176,7 +176,7 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 	proposerBytes := proposer.Bytes()
 
 	round := rand.Uint32()
-	value := uint64(time.Now().Unix())
+	timestamp := uint64(time.Now().Unix())
 
 	builder := newProposalBuilder(t)
 	builder.addPart(&consensus.ProposalPart{
@@ -193,7 +193,7 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 		Messages: &consensus.ProposalPart_BlockInfo{
 			BlockInfo: &consensus.BlockInfo{
 				BlockNumber: uint64(height),
-				Timestamp:   value,
+				Timestamp:   timestamp,
 			},
 		},
 	})
@@ -212,12 +212,12 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 		Messages: &consensus.ProposalPart_Commitment{
 			Commitment: &consensus.ProposalCommitment{
 				BlockNumber: uint64(height),
-				Timestamp:   value,
+				Timestamp:   timestamp,
 			},
 		},
 	})
 
-	valueHash := felt.Felt(starknet.Value(value).Hash())
+	valueHash := felt.FromUint64(timestamp)
 	valueHashBytes := valueHash.Bytes()
 
 	builder.addPart(&consensus.ProposalPart{
@@ -236,7 +236,7 @@ func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Propo
 			Round:  types.Round(round),
 			Sender: starknet.Address(*proposer),
 		},
-		Value:      (*starknet.Value)(&value),
+		Value:      (*starknet.Value)(&valueHash),
 		ValidRound: -1,
 	}
 

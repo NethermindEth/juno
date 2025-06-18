@@ -152,7 +152,8 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 	height := types.Height(1337)
 	round := types.Round(1338)
 	validRound := types.Round(1339)
-	value := starknet.Value(1340)
+	timestamp := uint64(1340)
+	value := starknet.Value(felt.FromUint64(timestamp))
 	sender := GetRandomAddress(t)
 	expectedHeader := &starknet.MessageHeader{
 		Height: height,
@@ -180,7 +181,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 				message: buildMessage(t, 1, &consensus.ProposalPart{
 					Messages: &consensus.ProposalPart_BlockInfo{BlockInfo: &consensus.BlockInfo{
 						BlockNumber: uint64(height),
-						Timestamp:   uint64(value),
+						Timestamp:   timestamp,
 					}},
 				}),
 				expectedResult: streamPostStateStepResult{
@@ -221,7 +222,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 					Messages: &consensus.ProposalPart_Commitment{
 						Commitment: &consensus.ProposalCommitment{
 							BlockNumber: uint64(height),
-							Timestamp:   uint64(value),
+							Timestamp:   timestamp,
 						},
 					},
 				}),

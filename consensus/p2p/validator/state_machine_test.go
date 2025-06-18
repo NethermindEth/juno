@@ -32,7 +32,7 @@ func TestProposalStateMachine_ValidTranstions(t *testing.T) {
 	}
 	t.Run("valid proposal stream", func(t *testing.T) {
 		value := uint64(1339)
-		starknetValue := starknet.Value(value)
+		starknetValue := starknet.Value(felt.FromUint64(value))
 		expectedHash := &common.Hash{Elements: validator.ToBytes(*new(felt.Felt).SetUint64(value))}
 		expectedProposal := &starknet.Proposal{
 			MessageHeader: *expectedHeader,
