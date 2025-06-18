@@ -151,13 +151,12 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	stateUpdates := getStateUpdates(t)
-	stateUpdates = stateUpdates[:2]
-
-	su0 := stateUpdates[0]
-	su1 := stateUpdates[1]
-
 	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateUpdates := getStateUpdates(t)
+		stateUpdates = stateUpdates[:2]
+
+		su0 := stateUpdates[0]
+		su1 := stateUpdates[1]
 		stateDB := setupState(t, stateUpdates, 2, dbType)
 		state, err := New(su1.NewRoot, stateDB)
 		require.NoError(t, err)
@@ -175,20 +174,19 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
-	root := utils.HexToFelt(t, "0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
-
-	su0 := &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: root,
-		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*addr: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
-			},
-		},
-	}
-
 	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		root := utils.HexToFelt(t, "0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
+
+		su0 := &core.StateUpdate{
+			OldRoot: &felt.Zero,
+			NewRoot: root,
+			StateDiff: &core.StateDiff{
+				DeployedContracts: map[felt.Felt]*felt.Felt{
+					*addr: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+				},
+			},
+		}
 		t.Run("newly deployed contract has zero nonce", func(t *testing.T) {
 			stateDB := setupState(t, nil, 0, dbType)
 			state, err := New(&felt.Zero, stateDB)
@@ -263,8 +261,8 @@ func TestClass(t *testing.T) {
 }
 
 func TestContractDeployedAt(t *testing.T) {
-	stateUpdates := getStateUpdates(t)
 	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateUpdates := getStateUpdates(t)
 		stateDB := setupState(t, stateUpdates, 2, dbType)
 		root := *stateUpdates[1].NewRoot
 
@@ -309,12 +307,12 @@ func TestContractDeployedAt(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	stateUpdates := getStateUpdates(t)
-
-	su0 := stateUpdates[0]
-	su1 := stateUpdates[1]
-	su2 := stateUpdates[2]
 	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateUpdates := getStateUpdates(t)
+
+		su0 := stateUpdates[0]
+		su1 := stateUpdates[1]
+		su2 := stateUpdates[2]
 		t.Run("revert a replace class", func(t *testing.T) {
 			stateDB := setupState(t, stateUpdates, 2, dbType)
 
@@ -631,6 +629,9 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("db should be empty after block0 revert for pathdb", func(t *testing.T) {
+		stateUpdates := getStateUpdates(t)
+
+		su0 := stateUpdates[0]
 		stateDB := setupState(t, stateUpdates, 1, triedb.PathDB)
 
 		state, err := New(su0.NewRoot, stateDB)
@@ -651,6 +652,9 @@ func TestRevert(t *testing.T) {
 	})
 
 	t.Run("db should not be empty after block0 revert for hashdb", func(t *testing.T) {
+		stateUpdates := getStateUpdates(t)
+
+		su0 := stateUpdates[0]
 		stateDB := setupState(t, stateUpdates, 1, triedb.HashDB)
 
 		state, err := New(su0.NewRoot, stateDB)
@@ -672,28 +676,28 @@ func TestRevert(t *testing.T) {
 }
 
 func TestContractHistory(t *testing.T) {
-	addr := utils.HexToFelt(t, "0x1234567890abcdef")
-	classHash := new(felt.Felt).SetBytes([]byte("class_hash"))
-	nonce := new(felt.Felt).SetBytes([]byte("nonce"))
-	storageKey := new(felt.Felt).SetBytes([]byte("storage_key"))
-	storageValue := new(felt.Felt).SetBytes([]byte("storage_value"))
-
-	emptyStateUpdate := &core.StateUpdate{
-		OldRoot:   &felt.Zero,
-		NewRoot:   &felt.Zero,
-		StateDiff: &core.StateDiff{},
-	}
-
-	su := &core.StateUpdate{
-		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6"),
-		StateDiff: &core.StateDiff{
-			DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
-			Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
-			StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{*addr: {*storageKey: storageValue}},
-		},
-	}
 	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		addr := utils.HexToFelt(t, "0x1234567890abcdef")
+		classHash := new(felt.Felt).SetBytes([]byte("class_hash"))
+		nonce := new(felt.Felt).SetBytes([]byte("nonce"))
+		storageKey := new(felt.Felt).SetBytes([]byte("storage_key"))
+		storageValue := new(felt.Felt).SetBytes([]byte("storage_value"))
+
+		emptyStateUpdate := &core.StateUpdate{
+			OldRoot:   &felt.Zero,
+			NewRoot:   &felt.Zero,
+			StateDiff: &core.StateDiff{},
+		}
+
+		su := &core.StateUpdate{
+			OldRoot: &felt.Zero,
+			NewRoot: utils.HexToFelt(t, "0x55075b726402e12fa85ad5a063774764b5f3f119053d4d72e1ef3986063bee6"),
+			StateDiff: &core.StateDiff{
+				DeployedContracts: map[felt.Felt]*felt.Felt{*addr: classHash},
+				Nonces:            map[felt.Felt]*felt.Felt{*addr: nonce},
+				StorageDiffs:      map[felt.Felt]map[felt.Felt]*felt.Felt{*addr: {*storageKey: storageValue}},
+			},
+		}
 		t.Run("empty", func(t *testing.T) {
 			stateDB := newTestStateDB(dbType)
 			state, err := New(&felt.Zero, stateDB)
@@ -816,20 +820,20 @@ func TestContractHistory(t *testing.T) {
 }
 
 func BenchmarkStateUpdate(b *testing.B) {
-	client := feeder.NewTestClient(b, &utils.Mainnet)
-	gw := adaptfeeder.New(client)
-
-	su0, err := gw.StateUpdate(b.Context(), block0)
-	require.NoError(b, err)
-
-	su1, err := gw.StateUpdate(b.Context(), block1)
-	require.NoError(b, err)
-
-	su2, err := gw.StateUpdate(b.Context(), block2)
-	require.NoError(b, err)
-
-	stateUpdates := []*core.StateUpdate{su0, su1, su2}
 	runWithDBTypesBench(b, func(b *testing.B, dbType triedb.Scheme) {
+		client := feeder.NewTestClient(b, &utils.Mainnet)
+		gw := adaptfeeder.New(client)
+
+		su0, err := gw.StateUpdate(b.Context(), block0)
+		require.NoError(b, err)
+
+		su1, err := gw.StateUpdate(b.Context(), block1)
+		require.NoError(b, err)
+
+		su2, err := gw.StateUpdate(b.Context(), block2)
+		require.NoError(b, err)
+
+		stateUpdates := []*core.StateUpdate{su0, su1, su2}
 		for b.Loop() {
 			stateDB := newTestStateDB(dbType)
 			for i, su := range stateUpdates {
@@ -883,11 +887,16 @@ func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64, d
 	return stateDB
 }
 
+func TestSetupState(t *testing.T) {
+	setupState(t, getStateUpdates(t), 2, triedb.HashDB)
+}
+
 func newTestStateDB(dbType triedb.Scheme) *StateDB {
 	memDB := memory.New()
 	var config *triedb.Config
 	if dbType == triedb.HashDB {
 		config = &triedb.Config{
+			PathConfig: nil,
 			HashConfig: &hashdb.Config{
 				CleanCacheSize: 1000,
 			},

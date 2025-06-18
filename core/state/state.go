@@ -64,12 +64,12 @@ type State struct {
 }
 
 func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
-	contractTrie, err := db.ContractTrie(stateRoot)
+	contractTrie, err := db.ContractTrie(*stateRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	classTrie, err := db.ClassTrie(stateRoot)
+	classTrie, err := db.ClassTrie(*stateRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func (s *State) ContractTrie() (*trie2.Trie, error) {
 }
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie2.Trie, error) {
-	return s.db.ContractStorageTrie(&s.initRoot, addr)
+	return s.db.ContractStorageTrie(s.initRoot, *addr)
 }
 
 // Returns the state commitment
