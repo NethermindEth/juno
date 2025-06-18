@@ -3,7 +3,6 @@ package tendermint
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +12,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := starknet.Value(42)
+		committedValue := value(42)
 
 		// Initialise the round
 		currentRound.start()
@@ -37,7 +36,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 1)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
-		committedValue := starknet.Value(42)
+		committedValue := value(42)
 
 		// Initialise the round
 		currentRound.start()
@@ -80,7 +79,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		committedValue := starknet.Value(42)
+		committedValue := value(42)
 
 		// Initialise the round
 		currentRound.start()

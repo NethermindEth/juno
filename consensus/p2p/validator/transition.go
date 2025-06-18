@@ -103,7 +103,7 @@ func (t *transition) OnBlockInfo(
 	return &ReceivingTransactionsState{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,
-		Value:      utils.HeapPtr(starknet.Value(blockInfo.Timestamp)),
+		Value:      utils.HeapPtr(starknet.Value(felt.FromUint64(blockInfo.Timestamp))),
 	}, nil
 }
 

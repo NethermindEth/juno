@@ -3,15 +3,13 @@ package starknet
 import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/address"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/hash"
 )
 
-// TODO: Replace with the actual value type.
-type Value uint64
+type Value hash.Hash
 
 func (v Value) Hash() hash.Hash {
-	return hash.Hash(*new(felt.Felt).SetUint64(uint64(v)))
+	return hash.Hash(v)
 }
 
 type (
