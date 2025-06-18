@@ -28,8 +28,10 @@ type BlockInfo struct {
 }
 
 type ProposalInit struct {
-	BlockNum uint64
-	Proposer felt.Felt
+	BlockNum   Height
+	Round      Round
+	ValidRound Round
+	Proposer   felt.Felt
 }
 
 type ProposalCommitment struct {

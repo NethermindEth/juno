@@ -11,7 +11,7 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 )
 
-//nolint:funlen,gocyclo
+//nolint:gocyclo
 func AdaptTransaction(tx core.Transaction) *synctransaction.TransactionInBlock {
 	if tx == nil {
 		return nil
@@ -37,18 +37,7 @@ func AdaptTransaction(tx core.Transaction) *synctransaction.TransactionInBlock {
 			}
 		case tx.Version.Is(3):
 			specTx.Txn = &synctransaction.TransactionInBlock_DeployAccountV3{
-				DeployAccountV3: &transaction.DeployAccountV3{
-					Signature:                 AdaptAccountSignature(tx.Signature()),
-					ClassHash:                 AdaptHash(tx.ClassHash),
-					Nonce:                     AdaptFelt(tx.Nonce),
-					AddressSalt:               AdaptFelt(tx.ContractAddressSalt),
-					Calldata:                  AdaptFeltSlice(tx.ConstructorCallData),
-					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
-					Tip:                       tx.Tip,
-					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
-					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
-				},
+				DeployAccountV3: AdaptDeployAccountV3Transaction(tx),
 			}
 		default:
 			panic(fmt.Errorf("unsupported InvokeTransaction version %s", tx.Version))
@@ -88,18 +77,7 @@ func AdaptTransaction(tx core.Transaction) *synctransaction.TransactionInBlock {
 		case tx.Version.Is(3):
 			specTx.Txn = &synctransaction.TransactionInBlock_DeclareV3{
 				DeclareV3: &synctransaction.TransactionInBlock_DeclareV3WithoutClass{
-					Common: &transaction.DeclareV3Common{
-						Sender:                    AdaptAddress(tx.SenderAddress),
-						Signature:                 AdaptAccountSignature(tx.Signature()),
-						Nonce:                     AdaptFelt(tx.Nonce),
-						CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
-						ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
-						Tip:                       tx.Tip,
-						PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-						AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
-						NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
-						FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
-					},
+					Common:    AdaptDeclareV3Common(tx),
 					ClassHash: AdaptHash(tx.ClassHash),
 				},
 			}
@@ -130,24 +108,15 @@ func AdaptTransaction(tx core.Transaction) *synctransaction.TransactionInBlock {
 			}
 		case tx.Version.Is(3):
 			specTx.Txn = &synctransaction.TransactionInBlock_InvokeV3{
-				InvokeV3: &transaction.InvokeV3{
-					Sender:                    AdaptAddress(tx.SenderAddress),
-					Signature:                 AdaptAccountSignature(tx.Signature()),
-					Calldata:                  AdaptFeltSlice(tx.CallData),
-					ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
-					Tip:                       tx.Tip,
-					PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
-					AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
-					NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
-					FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
-					Nonce:                     AdaptFelt(tx.Nonce),
-				},
+				InvokeV3: AdaptInvokeV3Transaction(tx),
 			}
 		default:
 			panic(fmt.Errorf("unsupported Invoke transaction version %s", tx.Version))
 		}
 	case *core.L1HandlerTransaction:
-		specTx.Txn = adaptL1HandlerTransaction(tx)
+		specTx.Txn = &synctransaction.TransactionInBlock_L1Handler{
+			L1Handler: AdaptL1HandlerTransaction(tx),
+		}
 	}
 
 	specTx.TransactionHash = AdaptHash(tx.Hash())
@@ -182,14 +151,57 @@ func adaptDeployTransaction(tx *core.DeployTransaction) *synctransaction.Transac
 	}
 }
 
-func adaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *synctransaction.TransactionInBlock_L1Handler {
-	return &synctransaction.TransactionInBlock_L1Handler{
-		L1Handler: &transaction.L1HandlerV0{
-			Nonce:              AdaptFelt(tx.Nonce),
-			Address:            AdaptAddress(tx.ContractAddress),
-			EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
-			Calldata:           AdaptFeltSlice(tx.CallData),
-		},
+func AdaptDeclareV3Common(tx *core.DeclareTransaction) *transaction.DeclareV3Common {
+	return &transaction.DeclareV3Common{
+		Sender:                    AdaptAddress(tx.SenderAddress),
+		Signature:                 AdaptAccountSignature(tx.Signature()),
+		Nonce:                     AdaptFelt(tx.Nonce),
+		CompiledClassHash:         AdaptHash(tx.CompiledClassHash),
+		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+		Tip:                       tx.Tip,
+		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+		AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+	}
+}
+
+func AdaptDeployAccountV3Transaction(tx *core.DeployAccountTransaction) *transaction.DeployAccountV3 {
+	return &transaction.DeployAccountV3{
+		Signature:                 AdaptAccountSignature(tx.Signature()),
+		ClassHash:                 AdaptHash(tx.ClassHash),
+		Nonce:                     AdaptFelt(tx.Nonce),
+		AddressSalt:               AdaptFelt(tx.ContractAddressSalt),
+		Calldata:                  AdaptFeltSlice(tx.ConstructorCallData),
+		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+		Tip:                       tx.Tip,
+		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+	}
+}
+
+func AdaptInvokeV3Transaction(tx *core.InvokeTransaction) *transaction.InvokeV3 {
+	return &transaction.InvokeV3{
+		Sender:                    AdaptAddress(tx.SenderAddress),
+		Signature:                 AdaptAccountSignature(tx.Signature()),
+		Calldata:                  AdaptFeltSlice(tx.CallData),
+		ResourceBounds:            adaptResourceBounds(tx.ResourceBounds),
+		Tip:                       tx.Tip,
+		PaymasterData:             utils.Map(tx.PaymasterData, AdaptFelt),
+		AccountDeploymentData:     utils.Map(tx.AccountDeploymentData, AdaptFelt),
+		NonceDataAvailabilityMode: adaptVolitionDomain(tx.NonceDAMode),
+		FeeDataAvailabilityMode:   adaptVolitionDomain(tx.FeeDAMode),
+		Nonce:                     AdaptFelt(tx.Nonce),
+	}
+}
+
+func AdaptL1HandlerTransaction(tx *core.L1HandlerTransaction) *transaction.L1HandlerV0 {
+	return &transaction.L1HandlerV0{
+		Nonce:              AdaptFelt(tx.Nonce),
+		Address:            AdaptAddress(tx.ContractAddress),
+		EntryPointSelector: AdaptFelt(tx.EntryPointSelector),
+		Calldata:           AdaptFeltSlice(tx.CallData),
 	}
 }
 

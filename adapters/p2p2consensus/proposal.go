@@ -11,9 +11,16 @@ import (
 )
 
 func AdaptProposalInit(msg *p2pconsensus.ProposalInit) consensus.ProposalInit {
+	var validRound consensus.Round = -1
+	if msg.ValidRound != nil {
+		validRound = consensus.Round(*msg.ValidRound)
+	}
+
 	return consensus.ProposalInit{
-		BlockNum: msg.BlockNumber,
-		Proposer: *new(felt.Felt).SetBytes(msg.Proposer.Elements),
+		BlockNum:   consensus.Height(msg.BlockNumber),
+		Round:      consensus.Round(msg.Round),
+		ValidRound: validRound,
+		Proposer:   *new(felt.Felt).SetBytes(msg.Proposer.Elements),
 	}
 }
 
@@ -23,7 +30,7 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) consensus.BlockInfo {
 		Builder:           *new(felt.Felt).SetBytes(msg.Builder.Elements),
 		Timestamp:         msg.Timestamp,
 		L2GasPriceFRI:     *p2p2core.AdaptUint128(msg.L2GasPriceFri),
-		L1GasPriceWEI:     *p2p2core.AdaptUint128(msg.L1DataGasPriceWei),
+		L1GasPriceWEI:     *p2p2core.AdaptUint128(msg.L1GasPriceWei),
 		L1DataGasPriceWEI: *p2p2core.AdaptUint128(msg.L1DataGasPriceWei),
 		EthToStrkRate:     *p2p2core.AdaptUint128(msg.EthToStrkRate),
 		L1DAMode:          core.L1DAMode(msg.L1DaMode),

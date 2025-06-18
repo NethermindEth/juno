@@ -293,13 +293,13 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	if err != nil {
 		return err
 	}
-	if header.Number+1 != pInit.BlockNum {
+	if header.Number+1 != uint64(pInit.BlockNum) {
 		return fmt.Errorf("proposed block number is not head.Number +1")
 	}
 
 	pendingBlock := core.Block{
 		Header: &core.Header{
-			Number:           pInit.BlockNum,
+			Number:           uint64(pInit.BlockNum),
 			SequencerAddress: &pInit.Proposer,
 			ParentHash:       header.Hash,
 			// Todo: we need a mapping of protocolversion to block versions from SN
