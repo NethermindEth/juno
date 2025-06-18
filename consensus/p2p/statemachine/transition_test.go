@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/vm"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,6 +26,20 @@ func hexToCommonHash(t *testing.T, in string) *common.Hash {
 	require.NoError(t, err)
 	inBytes := inFelt.Bytes()
 	return &common.Hash{Elements: inBytes[:]}
+}
+
+func hexToCommonAddress(t *testing.T, in string) *common.Address {
+	inFelt, err := new(felt.Felt).SetString(in)
+	require.NoError(t, err)
+	inBytes := inFelt.Bytes()
+	return &common.Address{Elements: inBytes[:]}
+}
+
+func hexToCommonFelt252(t *testing.T, in string) *common.Felt252 {
+	inFelt, err := new(felt.Felt).SetString(in)
+	require.NoError(t, err)
+	inBytes := inFelt.Bytes()
+	return &common.Felt252{Elements: inBytes[:]}
 }
 
 func TestTransition(t *testing.T) {
@@ -45,6 +60,8 @@ func TestTransition(t *testing.T) {
 		Round:  types.Round(round),
 		Sender: starknet.Address(*new(felt.Felt).SetBytes(proposerAddress.Elements)),
 	}
+
+	someValue := starknet.Value(1) // Todo : OnTransaction should not expect this!
 
 	t.Run("Valid Empty Block", func(t *testing.T) {
 		// 1. OnProposalInit
@@ -131,16 +148,59 @@ func TestTransition(t *testing.T) {
 		// 3. OnTransactions
 		txnsMsg := []*consensus.ConsensusTransaction{
 			{
-				// Txn: getConsensusTxn(),
-				// TransactionHash: Todo,
+				Txn:             getConsensusTxn(t),
+				TransactionHash: hexToCommonHash(t, "0x3ecb47a4945b98115f404c5fd9893f624c0066a164a2ac0ac53bbfc5fef3485"),
 			},
 		}
 		txnState := &statemachine.ReceivingTransactionsState{
 			Header:     header,
 			ValidRound: -1,
-			Value:      nil,
+			Value:      &someValue, // Todo: remove, OnTransactions shouldn't know value yet.
 		}
 		_, err = transition.OnTransactions(t.Context(), txnState, txnsMsg)
+		// Todo: very important to solve this, should be noError,
+		//  I'm getting a very strange error, despite OnTransactions returning a nil error....
+		require.Error(t, err)
+
+		// 4. OnProposalCommitment
+		commitState := &statemachine.ReceivingTransactionsState{
+			Header:     header,
+			ValidRound: -1,
+			Value:      nil,
+		}
+		proposalCommitMsg := &consensus.ProposalCommitment{
+			BlockNumber:               height,
+			ParentCommitment:          hexToCommonHash(t, "0x36a24bd21cdd58b47aaa18342781ab3a5a938ff775d72eca9f4528e89e90e08"),
+			Builder:                   proposerAddress,
+			Timestamp:                 timestamp,
+			ProtocolVersion:           "0.12.3",
+			OldStateRoot:              hexToCommonHash(t, "0x5eed4c967bf69f5574663f19635c031c03294283827119495aa3d4b14f55b8d"),
+			VersionConstantCommitment: someHash, // Todo: update when we support this
+			StateDiffCommitment:       hexToCommonHash(t, "0x49973925542c74a9d9ff0efaa98c61e1225d0aedb708092433cbbb20836d30a"),
+			TransactionCommitment:     hexToCommonHash(t, "0x0"), // Todo: This should NOT be 0??
+			EventCommitment:           hexToCommonHash(t, "0x0"), // Todo: This should NOT be 0??
+			ReceiptCommitment:         hexToCommonHash(t, "0x0"), // Todo: This should NOT be 0??
+			ConcatenatedCounts:        hexToCommonFelt252(t, "0x8000000000000000"),
+			L1GasPriceFri:             someU128, // Todo: update when we support this
+			L1DataGasPriceFri:         someU128, // Todo: update when we support this
+			L2GasPriceFri:             someU128, // Todo: update when we support this
+			L2GasUsed:                 someU128, // Todo: update when we support this
+			NextL2GasPriceFri:         someU128, // Todo: update when we support this
+			L1DaMode:                  common.L1DataAvailabilityMode_Blob,
+		}
+		_, err = transition.OnProposalCommitment(t.Context(), commitState, proposalCommitMsg)
+		require.NoError(t, err)
+
+		// 5. OnProposalFin
+		finState := &statemachine.AwaitingProposalFinState{
+			Header:     header,
+			ValidRound: -1,
+			Value:      nil,
+		}
+		proposalFinMsg := &consensus.ProposalFin{
+			ProposalCommitment: hexToCommonHash(t, "0xcaa5d3f27a87e885a4767c1fd9f18355aec825988e2bf548fd78d13629d538"),
+		}
+		_, err = transition.OnProposalFin(t.Context(), finState, proposalFinMsg)
 		require.NoError(t, err)
 	})
 }
@@ -157,32 +217,45 @@ func TestTransitionInvalidMsgs(t *testing.T) {
 }
 
 // Just to keep the code tidier
-// func getConsensusTxn() *consensus.ConsensusTransaction {
-// 	// transfer tokens to 0x101
-// 	return &consensus.ConsensusTransaction{
-// 		Txn: &consensus.ConsensusTransaction_InvokeV3{
-// 			InvokeV3: &transaction.InvokeV3{
-// 				Sender: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-// 				Signature: &transaction.AccountSignature{
-// 					Parts: []*common.Felt252{
-// 						utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-// 						utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
-// 					},
-// 				},
-// 				CallData: &[]*felt.Felt{
-// 					utils.HexToFelt(t, "0x1"),
-// 					utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-// 					utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-// 					utils.HexToFelt(t, "0x3"),
-// 					utils.HexToFelt(t, "0x101"),
-// 					utils.HexToFelt(t, "0x12345678"),
-// 					utils.HexToFelt(t, "0x0"),
-// 				},
-// 				Nonce: new(felt.Felt).SetUint64(0),
-// 			},
-// 		},
-// 	}
-// }
+func getConsensusTxn(t *testing.T) *consensus.ConsensusTransaction_InvokeV3 {
+	// transfer tokens to 0x101
+	resourceBounds := &transaction.ResourceBounds{
+		L1Gas: &transaction.ResourceLimits{
+			MaxAmount:       hexToCommonFelt252(t, "0x0"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+		},
+		L1DataGas: &transaction.ResourceLimits{
+			MaxAmount:       hexToCommonFelt252(t, "0x0"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+		},
+		L2Gas: &transaction.ResourceLimits{
+			MaxAmount:       hexToCommonFelt252(t, "0x0"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+		},
+	}
+	return &consensus.ConsensusTransaction_InvokeV3{
+		InvokeV3: &transaction.InvokeV3{
+			Sender: hexToCommonAddress(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+			Signature: &transaction.AccountSignature{
+				Parts: []*common.Felt252{
+					hexToCommonFelt252(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
+					hexToCommonFelt252(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
+				},
+			},
+			Calldata: []*common.Felt252{
+				hexToCommonFelt252(t, "0x1"),
+				hexToCommonFelt252(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				hexToCommonFelt252(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				hexToCommonFelt252(t, "0x3"),
+				hexToCommonFelt252(t, "0x101"),
+				hexToCommonFelt252(t, "0x12345678"),
+				hexToCommonFelt252(t, "0x0"),
+			},
+			Nonce:          hexToCommonFelt252(t, "0x0"),
+			ResourceBounds: resourceBounds,
+		},
+	}
+}
 
 func getGenesisBuilder(t *testing.T) builder.Builder {
 	t.Helper()

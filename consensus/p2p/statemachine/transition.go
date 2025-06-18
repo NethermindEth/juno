@@ -3,6 +3,7 @@ package statemachine
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -63,28 +64,33 @@ func (t *transition[V, H, A]) OnProposalInit(
 	state *InitialState,
 	init *consensus.ProposalInit,
 ) (*AwaitingBlockInfoOrCommitmentState, error) {
+	fmt.Println(" -- 0 OnProposalInit")
 	validRound := types.Round(-1)
 	if init.ValidRound != nil {
 		validRound = types.Round(*init.ValidRound)
 	}
-
+	fmt.Println(" -- 1")
 	adaptedProposalInit, err := p2p2consensus.AdaptProposalInit(init)
 	if err != nil {
+		fmt.Println(" -- 1", err)
 		return nil, err
 	}
-
+	fmt.Println(" -- 2 ")
 	if err = t.validator.ProposalInit(&adaptedProposalInit); err != nil {
+		fmt.Println(" -- 2", err)
 		return nil, err
 	}
-
-	return &AwaitingBlockInfoOrCommitmentState{
+	fmt.Println(" -- 3 ")
+	qwe := &AwaitingBlockInfoOrCommitmentState{
 		Header: &starknet.MessageHeader{
 			Height: types.Height(init.BlockNumber),
 			Round:  types.Round(init.Round),
 			Sender: starknet.Address(felt.FromBytes(init.Proposer.Elements)),
 		},
 		ValidRound: validRound,
-	}, nil
+	}
+	fmt.Println(" -- 4 ")
+	return qwe, nil
 }
 
 func (t *transition[V, H, A]) OnEmptyBlockCommitment(
