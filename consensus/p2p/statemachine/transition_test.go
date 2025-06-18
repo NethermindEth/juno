@@ -61,8 +61,6 @@ func TestTransition(t *testing.T) {
 		Sender: starknet.Address(*new(felt.Felt).SetBytes(proposerAddress.Elements)),
 	}
 
-	someValue := starknet.Value(1) // Todo : OnTransaction should not expect this!
-
 	t.Run("Valid Empty Block", func(t *testing.T) {
 		// 1. OnProposalInit
 		initMsg := &consensus.ProposalInit{
@@ -116,7 +114,7 @@ func TestTransition(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Valid NonEmpty Block", func(t *testing.T) { // Todo
+	t.Run("Valid NonEmpty Block", func(t *testing.T) {
 		// 1. OnProposalInit
 		initMsg := &consensus.ProposalInit{
 			BlockNumber: height,
@@ -155,12 +153,10 @@ func TestTransition(t *testing.T) {
 		txnState := &statemachine.ReceivingTransactionsState{
 			Header:     header,
 			ValidRound: -1,
-			Value:      &someValue, // Todo: remove, OnTransactions shouldn't know value yet.
+			Value:      nil,
 		}
 		_, err = transition.OnTransactions(t.Context(), txnState, txnsMsg)
-		// Todo: very important to solve this, should be noError,
-		//  I'm getting a very strange error, despite OnTransactions returning a nil error....
-		require.Error(t, err)
+		require.NoError(t, err)
 
 		// 4. OnProposalCommitment
 		commitState := &statemachine.ReceivingTransactionsState{

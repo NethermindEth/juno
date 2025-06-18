@@ -64,33 +64,27 @@ func (t *transition[V, H, A]) OnProposalInit(
 	state *InitialState,
 	init *consensus.ProposalInit,
 ) (*AwaitingBlockInfoOrCommitmentState, error) {
-	fmt.Println(" -- 0 OnProposalInit")
 	validRound := types.Round(-1)
 	if init.ValidRound != nil {
 		validRound = types.Round(*init.ValidRound)
 	}
-	fmt.Println(" -- 1")
+
 	adaptedProposalInit, err := p2p2consensus.AdaptProposalInit(init)
 	if err != nil {
-		fmt.Println(" -- 1", err)
 		return nil, err
 	}
-	fmt.Println(" -- 2 ")
+
 	if err = t.validator.ProposalInit(&adaptedProposalInit); err != nil {
-		fmt.Println(" -- 2", err)
 		return nil, err
 	}
-	fmt.Println(" -- 3 ")
-	qwe := &AwaitingBlockInfoOrCommitmentState{
+	return &AwaitingBlockInfoOrCommitmentState{
 		Header: &starknet.MessageHeader{
 			Height: types.Height(init.BlockNumber),
 			Round:  types.Round(init.Round),
 			Sender: starknet.Address(felt.FromBytes(init.Proposer.Elements)),
 		},
 		ValidRound: validRound,
-	}
-	fmt.Println(" -- 4 ")
-	return qwe, nil
+	}, nil
 }
 
 func (t *transition[V, H, A]) OnEmptyBlockCommitment(
@@ -132,6 +126,7 @@ func (t *transition[V, H, A]) OnTransactions(
 	for i := range transactions {
 		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i])
 		if err != nil {
+			fmt.Println(" adapter error ", err)
 			return nil, err
 		}
 		txns[i] = types.Transaction{
@@ -142,13 +137,15 @@ func (t *transition[V, H, A]) OnTransactions(
 
 	err := t.validator.TransactionBatch(txns)
 	if err != nil {
+		fmt.Println(" validator.TransactionBatch error ", err)
 		return nil, err
 	}
 
 	return &ReceivingTransactionsState{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,
-		Value:      state.Value,
+		// Todo: remove, OnTransactions can't know value / block hash yet.
+		Value: state.Value,
 	}, nil
 }
 
