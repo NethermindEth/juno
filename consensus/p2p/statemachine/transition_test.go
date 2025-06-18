@@ -51,7 +51,7 @@ func TestTransition(t *testing.T) {
 	zeroConcat := &common.Felt252{Elements: []byte{0}}
 	someHash := &common.Hash{Elements: []byte{1}}
 	zeroHash := &common.Hash{Elements: []byte{0}}
-	someU128 := &common.Uint128{Low: 1, High: 2}
+	someU128 := &common.Uint128{Low: 0, High: 0}
 	timestamp := uint64(0)
 	height := uint64(1)
 	round := 0
@@ -115,6 +115,7 @@ func TestTransition(t *testing.T) {
 	})
 
 	t.Run("Valid NonEmpty Block", func(t *testing.T) {
+		feesU128 := &common.Uint128{Low: 0, High: 0}
 		// 1. OnProposalInit
 		initMsg := &consensus.ProposalInit{
 			BlockNumber: height,
@@ -130,10 +131,10 @@ func TestTransition(t *testing.T) {
 			BlockNumber:       height,
 			Builder:           proposerAddress,
 			Timestamp:         123,
-			L2GasPriceFri:     someU128,
-			L1GasPriceWei:     someU128,
-			L1DataGasPriceWei: someU128,
-			EthToStrkRate:     someU128,
+			L2GasPriceFri:     feesU128,
+			L1GasPriceWei:     feesU128,
+			L1DataGasPriceWei: feesU128,
+			EthToStrkRate:     feesU128,
 			L1DaMode:          common.L1DataAvailabilityMode_Blob,
 		}
 		waitingState := &statemachine.AwaitingBlockInfoOrCommitmentState{
@@ -155,6 +156,7 @@ func TestTransition(t *testing.T) {
 			ValidRound: -1,
 			Value:      nil,
 		}
+
 		_, err = transition.OnTransactions(t.Context(), txnState, txnsMsg)
 		require.NoError(t, err)
 
@@ -217,16 +219,16 @@ func getConsensusTxn(t *testing.T) *consensus.ConsensusTransaction_InvokeV3 {
 	// transfer tokens to 0x101
 	resourceBounds := &transaction.ResourceBounds{
 		L1Gas: &transaction.ResourceLimits{
-			MaxAmount:       hexToCommonFelt252(t, "0x0"),
-			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+			MaxAmount:       hexToCommonFelt252(t, "0x1"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x1"),
 		},
 		L1DataGas: &transaction.ResourceLimits{
-			MaxAmount:       hexToCommonFelt252(t, "0x0"),
-			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+			MaxAmount:       hexToCommonFelt252(t, "0x1"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x1"),
 		},
 		L2Gas: &transaction.ResourceLimits{
-			MaxAmount:       hexToCommonFelt252(t, "0x0"),
-			MaxPricePerUnit: hexToCommonFelt252(t, "0x0"),
+			MaxAmount:       hexToCommonFelt252(t, "0x1"),
+			MaxPricePerUnit: hexToCommonFelt252(t, "0x1"),
 		},
 	}
 	return &consensus.ConsensusTransaction_InvokeV3{
@@ -270,5 +272,5 @@ func getGenesisBuilder(t *testing.T) builder.Builder {
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	return builder.New(bc, vm.New(false, log), log, false)
+	return builder.New(bc, vm.New(false, log), log, true)
 }

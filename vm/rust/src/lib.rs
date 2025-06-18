@@ -402,7 +402,6 @@ pub extern "C" fn cairoVMExecute(
             ),
             Transaction::L1Handler(t) => (None, t.fee_type()),
         };
-
         match process_transaction(
             &mut txn,
             &mut txn_state,
@@ -750,7 +749,7 @@ fn build_block_context(
             .unwrap(),
         },
     };
-
+    
     pre_process_block(
         state,
         old_block_number_and_hash,

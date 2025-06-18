@@ -55,7 +55,6 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 //export JunoStateGetClassHashAt
 func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
-
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
 	val, err := context.state.ContractClassHash(contractAddressFelt)
 	if err != nil {
@@ -65,7 +64,6 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 		}
 		val = &felt.Zero
 	}
-
 	return fillBufferWithFelt(val, buffer)
 }
 
@@ -87,7 +85,6 @@ func JunoStateGetCompiledClass(readerHandle C.uintptr_t, classHash unsafe.Pointe
 		context.log.Errorw("JunoStateGetCompiledClass failed to marshal compiled class", "err", err)
 		return nil
 	}
-
 	return unsafe.Pointer(cstring(compiledClass))
 }
 
