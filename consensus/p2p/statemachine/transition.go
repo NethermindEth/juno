@@ -3,7 +3,6 @@ package statemachine
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -126,7 +125,6 @@ func (t *transition[V, H, A]) OnTransactions(
 	for i := range transactions {
 		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i])
 		if err != nil {
-			fmt.Println(" adapter error ", err)
 			return nil, err
 		}
 		txns[i] = types.Transaction{
@@ -137,7 +135,6 @@ func (t *transition[V, H, A]) OnTransactions(
 
 	err := t.validator.TransactionBatch(txns)
 	if err != nil {
-		fmt.Println(" validator.TransactionBatch error ", err)
 		return nil, err
 	}
 

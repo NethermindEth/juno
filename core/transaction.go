@@ -290,6 +290,116 @@ type InvokeTransaction struct {
 	FeeDAMode DataAvailabilityMode
 }
 
+func (tx *InvokeTransaction) Print() {
+	if tx.TransactionHash == nil {
+		fmt.Println("TransactionHash: nil")
+	} else {
+		fmt.Printf("TransactionHash: %v\n", tx.TransactionHash)
+	}
+
+	if tx.CallData == nil {
+		fmt.Println("CallData: nil")
+	} else {
+		fmt.Printf("CallData: len=%d\n", len(tx.CallData))
+		for i, val := range tx.CallData {
+			if val == nil {
+				fmt.Printf("  CallData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  CallData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.TransactionSignature == nil {
+		fmt.Println("TransactionSignature: nil")
+	} else {
+		fmt.Printf("TransactionSignature: len=%d\n", len(tx.TransactionSignature))
+		for i, val := range tx.TransactionSignature {
+			if val == nil {
+				fmt.Printf("  TransactionSignature[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  TransactionSignature[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.MaxFee == nil {
+		fmt.Println("MaxFee: nil")
+	} else {
+		fmt.Printf("MaxFee: %v\n", tx.MaxFee)
+	}
+
+	if tx.ContractAddress == nil {
+		fmt.Println("ContractAddress: nil")
+	} else {
+		fmt.Printf("ContractAddress: %v\n", tx.ContractAddress)
+	}
+
+	if tx.Version == nil {
+		fmt.Println("Version: nil")
+	} else {
+		fmt.Printf("Version: %v\n", tx.Version)
+	}
+
+	if tx.EntryPointSelector == nil {
+		fmt.Println("EntryPointSelector: nil")
+	} else {
+		fmt.Printf("EntryPointSelector: %v\n", tx.EntryPointSelector)
+	}
+
+	if tx.Nonce == nil {
+		fmt.Println("Nonce: nil")
+	} else {
+		fmt.Printf("Nonce: %v\n", tx.Nonce)
+	}
+
+	if tx.SenderAddress == nil {
+		fmt.Println("SenderAddress: nil")
+	} else {
+		fmt.Printf("SenderAddress: %v\n", tx.SenderAddress)
+	}
+
+	if tx.ResourceBounds == nil {
+		fmt.Println("ResourceBounds: nil")
+	} else {
+		fmt.Printf("ResourceBounds: len=%d\n", len(tx.ResourceBounds))
+		for key, val := range tx.ResourceBounds {
+			fmt.Printf("  ResourceBounds[%v]: %+v\n", key, val)
+		}
+	}
+
+	fmt.Printf("Tip: %d\n", tx.Tip)
+
+	if tx.PaymasterData == nil {
+		fmt.Println("PaymasterData: nil")
+	} else {
+		fmt.Printf("PaymasterData: len=%d\n", len(tx.PaymasterData))
+		for i, val := range tx.PaymasterData {
+			if val == nil {
+				fmt.Printf("  PaymasterData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  PaymasterData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.AccountDeploymentData == nil {
+		fmt.Println("AccountDeploymentData: nil")
+	} else {
+		fmt.Printf("AccountDeploymentData: len=%d\n", len(tx.AccountDeploymentData))
+		for i, val := range tx.AccountDeploymentData {
+			if val == nil {
+				fmt.Printf("  AccountDeploymentData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  AccountDeploymentData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	fmt.Printf("NonceDAMode: %v\n", tx.NonceDAMode)
+	fmt.Printf("FeeDAMode: %v\n", tx.FeeDAMode)
+}
+
 func (i *InvokeTransaction) TxVersion() *TransactionVersion {
 	return i.Version
 }
