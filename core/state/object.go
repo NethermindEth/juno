@@ -68,7 +68,7 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 		return s.storageTrie, nil
 	}
 
-	storageTrie, err := s.state.db.ContractStorageTrie(&s.state.initRoot, &s.addr)
+	storageTrie, err := s.state.db.ContractStorageTrie(s.state.initRoot, s.addr)
 	if err != nil {
 		return nil, err
 	}
