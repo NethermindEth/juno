@@ -107,7 +107,7 @@ func TestEmptyProposal(t *testing.T) {
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: head.Number + 1,
+		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
@@ -148,7 +148,7 @@ func TestProposal(t *testing.T) {
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: head.Number + 1,
+		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
