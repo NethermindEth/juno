@@ -22,7 +22,6 @@ func AdaptTransaction(msg *p2pconsensus.ConsensusTransaction) (core.Transaction,
 		// Are we expected to compile the class hash here???
 		class := p2p2core.AdaptCairo1Class(tx.Class)
 		return p2p2core.AdaptDeclareV3TxnCommon(tx.Common, tx.Common.CompiledClassHash, msg.TransactionHash), &class, nil
-
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:
 		tx := msg.GetDeployAccountV3()
 		return p2p2core.AdaptDeployAccountV3TxnCommon(tx, msg.TransactionHash), nil, nil

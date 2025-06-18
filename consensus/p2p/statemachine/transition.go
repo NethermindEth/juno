@@ -3,11 +3,13 @@ package statemachine
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/validator"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -127,6 +129,8 @@ func (t *transition[V, H, A]) OnTransactions(
 		if err != nil {
 			return nil, err
 		}
+		qwe, err := core.TransactionHash(txn, &utils.Mainnet)
+		fmt.Println(qwe.String(), err)
 		txns[i] = types.Transaction{
 			Transaction: txn,
 			Class:       class,

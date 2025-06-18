@@ -381,6 +381,7 @@ pub extern "C" fn cairoVMExecute(
             paid_fee_on_l1,
             account_execution_flags,
         );
+        
         if let Err(e) = txn {
             report_error(reader_handle, e.to_string().as_str(), txn_index as i64, 0);
             return;

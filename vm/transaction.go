@@ -48,6 +48,13 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println(string(result))
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
 	return result, nil
 }
 
@@ -70,6 +77,154 @@ type Transaction struct {
 	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty"`
 	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty"`
 	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
+}
+
+func (tx *Transaction) Print() {
+	if tx.Version == nil {
+		fmt.Println("Version: nil")
+	} else {
+		fmt.Printf("Version: %v\n", tx.Version)
+	}
+
+	if tx.ContractAddress == nil {
+		fmt.Println("ContractAddress: nil")
+	} else {
+		fmt.Printf("ContractAddress: %v\n", tx.ContractAddress)
+	}
+
+	if tx.ContractAddressSalt == nil {
+		fmt.Println("ContractAddressSalt: nil")
+	} else {
+		fmt.Printf("ContractAddressSalt: %v\n", tx.ContractAddressSalt)
+	}
+
+	if tx.ClassHash == nil {
+		fmt.Println("ClassHash: nil")
+	} else {
+		fmt.Printf("ClassHash: %v\n", tx.ClassHash)
+	}
+
+	if tx.ConstructorCallData == nil {
+		fmt.Println("ConstructorCallData: nil")
+	} else {
+		fmt.Printf("ConstructorCallData: len=%d\n", len(*tx.ConstructorCallData))
+		for i, val := range *tx.ConstructorCallData {
+			if val == nil {
+				fmt.Printf("  ConstructorCallData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  ConstructorCallData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.SenderAddress == nil {
+		fmt.Println("SenderAddress: nil")
+	} else {
+		fmt.Printf("SenderAddress: %v\n", tx.SenderAddress)
+	}
+
+	if tx.MaxFee == nil {
+		fmt.Println("MaxFee: nil")
+	} else {
+		fmt.Printf("MaxFee: %v\n", tx.MaxFee)
+	}
+
+	if tx.Signature == nil {
+		fmt.Println("Signature: nil")
+	} else {
+		fmt.Printf("Signature: len=%d\n", len(*tx.Signature))
+		for i, val := range *tx.Signature {
+			if val == nil {
+				fmt.Printf("  Signature[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  Signature[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.CallData == nil {
+		fmt.Println("CallData: nil")
+	} else {
+		fmt.Printf("CallData: len=%d\n", len(*tx.CallData))
+		for i, val := range *tx.CallData {
+			if val == nil {
+				fmt.Printf("  CallData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  CallData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.EntryPointSelector == nil {
+		fmt.Println("EntryPointSelector: nil")
+	} else {
+		fmt.Printf("EntryPointSelector: %v\n", tx.EntryPointSelector)
+	}
+
+	if tx.Nonce == nil {
+		fmt.Println("Nonce: nil")
+	} else {
+		fmt.Printf("Nonce: %v\n", tx.Nonce)
+	}
+
+	if tx.CompiledClassHash == nil {
+		fmt.Println("CompiledClassHash: nil")
+	} else {
+		fmt.Printf("CompiledClassHash: %v\n", tx.CompiledClassHash)
+	}
+
+	if tx.ResourceBounds == nil {
+		fmt.Println("ResourceBounds: nil")
+	} else {
+		fmt.Printf("ResourceBounds: len=%d\n", len(*tx.ResourceBounds))
+		for key, val := range *tx.ResourceBounds {
+			fmt.Printf("  ResourceBounds[%v]: %+v\n", key, val)
+		}
+	}
+
+	if tx.Tip == nil {
+		fmt.Println("Tip: nil")
+	} else {
+		fmt.Printf("Tip: %v\n", tx.Tip)
+	}
+
+	if tx.PaymasterData == nil {
+		fmt.Println("PaymasterData: nil")
+	} else {
+		fmt.Printf("PaymasterData: len=%d\n", len(*tx.PaymasterData))
+		for i, val := range *tx.PaymasterData {
+			if val == nil {
+				fmt.Printf("  PaymasterData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  PaymasterData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.AccountDeploymentData == nil {
+		fmt.Println("AccountDeploymentData: nil")
+	} else {
+		fmt.Printf("AccountDeploymentData: len=%d\n", len(*tx.AccountDeploymentData))
+		for i, val := range *tx.AccountDeploymentData {
+			if val == nil {
+				fmt.Printf("  AccountDeploymentData[%d]: nil\n", i)
+			} else {
+				fmt.Printf("  AccountDeploymentData[%d]: %v\n", i, val)
+			}
+		}
+	}
+
+	if tx.NonceDAMode == nil {
+		fmt.Println("NonceDAMode: nil")
+	} else {
+		fmt.Printf("NonceDAMode: %v\n", tx.NonceDAMode)
+	}
+
+	if tx.FeeDAMode == nil {
+		fmt.Println("FeeDAMode: nil")
+	} else {
+		fmt.Printf("FeeDAMode: %v\n", tx.FeeDAMode)
+	}
 }
 
 type DataAvailabilityMode uint32
@@ -195,6 +350,8 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 	default:
 		panic(fmt.Sprintf("unknown txn type in core2sn.AdaptTransaction: %T", t))
 	}
+	fmt.Println(" ===============", tx.Version)
+	tx.Print()
 	return tx
 }
 
