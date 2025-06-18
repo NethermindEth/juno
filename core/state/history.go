@@ -15,13 +15,13 @@ type StateHistory struct {
 	state    *State
 }
 
-func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (StateHistory, error) {
+func NewStateHistory(blockNum uint64, stateRoot *felt.Felt, db *StateDB) (*StateHistory, error) {
 	state, err := New(stateRoot, db)
 	if err != nil {
-		return StateHistory{}, err
+		return nil, err
 	}
 
-	return StateHistory{
+	return &StateHistory{
 		blockNum: blockNum,
 		state:    state,
 	}, nil
