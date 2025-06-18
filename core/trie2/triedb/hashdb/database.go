@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -224,18 +223,10 @@ func (d *Database) Close() error {
 // with the state commitment are present in the db, if not, the lost data needs to be recovered
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
-func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, trienode.Node, error) {
+func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
-	data, err := core.GetClassAndContractRootByStateCommitment(d.disk, stateCommitment)
-	if err != nil {
-		return nil, nil, err
-	}
-	classRootHash, contractRootHash, err := trienode.DecodeTriesRoots(data)
-	if err != nil {
-		return nil, nil, err
-	}
 
-	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Zero, &trieutils.Path{}, &classRootHash, false)
+	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Zero, &trieutils.Path{}, classRootHash, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("class root node not found: %w", err)
 	}
@@ -243,7 +234,7 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 		return nil, nil, fmt.Errorf("class root node not found")
 	}
 
-	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Zero, &trieutils.Path{}, &contractRootHash, false)
+	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Zero, &trieutils.Path{}, contractRootHash, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("contract root node not found: %w", err)
 	}
@@ -251,12 +242,12 @@ func (d *Database) GetTrieRootNodes(stateCommitment *felt.Felt) (trienode.Node, 
 		return nil, nil, fmt.Errorf("contract root node not found")
 	}
 
-	classRootNode, err := trienode.DecodeNode(classRootBlob, &classRootHash, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(classRootBlob, classRootHash, 0, contractClassTrieHeight)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
 	}
 
-	contractRootNode, err := trienode.DecodeNode(contractRootBlob, &contractRootHash, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(contractRootBlob, contractRootHash, 0, contractClassTrieHeight)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode contract root node: %w", err)
 	}
