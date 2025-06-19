@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/types"
@@ -24,13 +25,19 @@ var (
 )
 
 type Builder struct {
-	pendingBlock atomic.Pointer[sync.Pending]
-	vm           vm.VM
-	blockchain   *blockchain.Blockchain
-	headState    core.StateReader
-	headCloser   blockchain.StateCloser
-	log          utils.Logger
-	disableFees  bool
+	// Builder dependencies
+	vm          vm.VM
+	blockchain  *blockchain.Blockchain
+	headState   core.StateReader
+	headCloser  blockchain.StateCloser
+	log         utils.Logger
+	disableFees bool
+
+	// Builder state
+	// TODO: move to a builder state struct
+	pendingBlock      atomic.Pointer[sync.Pending]
+	l2GasConsumed     uint64
+	revealedBlockHash *felt.Felt
 }
 
 func New(
@@ -87,6 +94,7 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) ClearPending() error {
+	b.l2GasConsumed = 0
 	b.pendingBlock.Store(&sync.Pending{})
 
 	if b.headState != nil {
@@ -104,15 +112,26 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 	if err != nil {
 		return err
 	}
+
+	b.revealedBlockHash, err = b.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return err
+	}
+
 	pendingBlock := core.Block{
 		Header: &core.Header{
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: sequencerAddress,
+			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
 			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: felt.One.Clone(),
+				PriceInFri: felt.One.Clone(),
+			},
+			L2GasPrice: &core.GasPrice{
 				PriceInWei: felt.One.Clone(),
 				PriceInFri: felt.One.Clone(),
 			},
@@ -135,11 +154,7 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 	return err
 }
 
-func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
-	blockHeight, err := b.blockchain.Height()
-	if err != nil {
-		return nil, err
-	}
+func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	const blockHashLag = 10
 	if blockHeight < blockHashLag {
 		return nil, nil
@@ -154,7 +169,7 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction) (err error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -185,7 +200,7 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 		paidFeesOnL1,
 		&vm.BlockInfo{
 			Header:                pending.Block.Header,
-			BlockHashToBeRevealed: blockHashToBeRevealed,
+			BlockHashToBeRevealed: b.revealedBlockHash,
 		},
 		state,
 		b.blockchain.Network(),
@@ -217,6 +232,9 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
+	for i := range vmResults.GasConsumed {
+		b.l2GasConsumed += vmResults.GasConsumed[i].L2Gas
+	}
 	return b.storePending(pending)
 }
 
@@ -288,7 +306,14 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 			ProtocolVersion: blockchain.SupportedStarknetVersion.String(),
 			// Todo: once the spec is finalised, handle these fields (if they still exist)
 			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
-			L1GasPriceETH: header.L1GasPriceETH,
+			// Note: we use the header values by default, since the proposer only
+			// sends over a subset of the gas prices (eg for L1DataGasPrice it
+			// only sends the L1DataGasPriceWEI, but not the price in FRI, but
+			// we need both for the block hash)
+			L1GasPriceETH:  header.L1GasPriceETH,
+			L1GasPriceSTRK: header.L1GasPriceSTRK,
+			L1DataGasPrice: header.L1DataGasPrice,
+			L2GasPrice:     header.L2GasPrice,
 		},
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
@@ -314,46 +339,55 @@ func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
 	pending.Block.Header.Number = blockInfo.BlockNumber
 	pending.Block.Header.SequencerAddress = &blockInfo.Builder
 	pending.Block.Header.Timestamp = blockInfo.Timestamp
-	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
+	pending.Block.Header.L2GasPrice.PriceInFri = &blockInfo.L2GasPriceFRI
 	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
-	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
+	pending.Block.Header.L1DataGasPrice.PriceInWei = &blockInfo.L1DataGasPriceWEI
 	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
 	b.pendingBlock.Store(pending)
 }
 
-func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
-	b.log.Debugw("calling ExecuteTxns")
-	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
+func (b *Builder) ProposalCommitment() (types.ProposalCommitment, error) {
+	pending, err := b.Pending()
 	if err != nil {
-		return err
+		return types.ProposalCommitment{}, err
 	}
-	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
-		b.log.Debugw("failed running txn", "err", err.Error())
-		var txnExecutionError vm.TransactionExecutionError
-		if !errors.As(err, &txnExecutionError) {
-			return err
+
+	simulatedResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	if err != nil {
+		return types.ProposalCommitment{}, err
+	}
+
+	if simulatedResult.ConcatCount.IsZero() {
+		simulatedResult.BlockCommitments = &core.BlockCommitments{
+			TransactionCommitment: new(felt.Felt).SetUint64(0),
+			EventCommitment:       new(felt.Felt).SetUint64(0),
+			ReceiptCommitment:     new(felt.Felt).SetUint64(0),
+			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 		}
 	}
-	b.log.Debugw("running txns success")
-	return nil
-}
 
-// ExecutePending updates the pending block and state-update
-func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
-	pending, err := b.Pending()
+	version, err := semver.NewVersion(pending.Block.ProtocolVersion)
 	if err != nil {
-		return nil, nil, err
+		return types.ProposalCommitment{}, err
 	}
-	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
-	b.pendingBlock.Store(pending)
-	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
-}
 
-// StoredExecutedPending stores the executed pending block
-func (b *Builder) StoredExecutedPending(commitments *core.BlockCommitments) error {
-	pending, err := b.Pending()
-	if err != nil {
-		return err
-	}
-	return b.blockchain.StoreSimulated(pending.Block, pending.StateUpdate, pending.NewClasses, commitments, nil)
+	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
+	return types.ProposalCommitment{
+		BlockNumber:           pending.Block.Number,
+		Builder:               *pending.Block.SequencerAddress,
+		ParentCommitment:      *pending.Block.ParentHash,
+		Timestamp:             pending.Block.Timestamp,
+		ProtocolVersion:       *version,
+		OldStateRoot:          *pending.StateUpdate.OldRoot,
+		StateDiffCommitment:   *simulatedResult.BlockCommitments.StateDiffCommitment,
+		TransactionCommitment: *simulatedResult.BlockCommitments.TransactionCommitment,
+		EventCommitment:       *simulatedResult.BlockCommitments.EventCommitment,
+		ReceiptCommitment:     *simulatedResult.BlockCommitments.ReceiptCommitment,
+		ConcatenatedCounts:    simulatedResult.ConcatCount,
+		L1GasPriceFRI:         *pending.Block.L1GasPriceSTRK,
+		L1DataGasPriceFRI:     *pending.Block.L1DataGasPrice.PriceInFri,
+		L2GasPriceFRI:         *pending.Block.L2GasPrice.PriceInFri,
+		L2GasUsed:             *new(felt.Felt).SetUint64(b.l2GasConsumed),
+		L1DAMode:              pending.Block.L1DAMode,
+	}, nil
 }

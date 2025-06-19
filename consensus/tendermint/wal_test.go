@@ -39,7 +39,7 @@ func getPrecommit(idx int) starknet.Precommit {
 func TestReplayWAL(t *testing.T) {
 	proposerAddr := getVal(0)
 	nonProposerAddr := getVal(3)
-	proposedValue := starknet.Value(1)
+	proposedValue := value(1)
 	app, vals := newApp(), newVals()
 	for i := range 4 {
 		vals.addValidator(*getVal(i))
