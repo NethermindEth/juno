@@ -202,8 +202,8 @@ func (s *State) Update(
 		}
 
 		contract := newContractDeployed(*classHash, blockNum)
-		obj := newStateObject(s, &addr, &contract)
-		s.stateObjects[addr] = obj
+		newObj := newStateObject(s, &addr, &contract)
+		s.stateObjects[addr] = &newObj
 	}
 
 	// Update the contract fields
@@ -269,7 +269,7 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 			continue
 		}
 
-		if dc.Class.Version() == 1 {
+		if _, ok := dc.Class.(*core.Cairo1Class); ok {
 			if err := s.classTrie.Update(hash, &felt.Zero); err != nil {
 				return err
 			}
@@ -619,7 +619,8 @@ func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map
 		if err != nil {
 			if _, ok := noClassContracts[addr]; ok && errors.Is(err, ErrContractNotDeployed) {
 				contract := newContractDeployed(noClassContractsClassHash, blockNum)
-				obj = newStateObject(s, &addr, &contract)
+				newObj := newStateObject(s, &addr, &contract)
+				obj = &newObj
 				s.stateObjects[addr] = obj
 			} else {
 				return err

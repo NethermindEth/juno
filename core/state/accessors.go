@@ -15,10 +15,11 @@ func GetStateObject(r db.KeyValueReader, state *State, addr *felt.Felt) (*stateO
 		return nil, err
 	}
 
-	return newStateObject(state, addr, &contract), nil
+	obj := newStateObject(state, addr, &contract)
+	return &obj, nil
 }
 
-// Wrapper around getContract which checks if a contract is deployed
+// Gets a contract instance from the database. If it doesn't exist returns a contract not deployed error
 func GetContract(r db.KeyValueReader, addr *felt.Felt) (stateContract, error) {
 	contract, err := getContract(r, addr)
 	if err != nil {

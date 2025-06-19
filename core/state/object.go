@@ -23,8 +23,8 @@ type stateObject struct {
 	storageTrie  *trie2.Trie // storage trie
 }
 
-func newStateObject(state *State, addr *felt.Felt, contract *stateContract) *stateObject {
-	return &stateObject{
+func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stateObject {
+	return stateObject{
 		state:        state,
 		addr:         *addr,
 		contract:     contract,
