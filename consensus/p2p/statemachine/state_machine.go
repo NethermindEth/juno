@@ -38,6 +38,7 @@ func (s *InitialState) OnEvent(
 type AwaitingBlockInfoOrCommitmentState struct {
 	Header     *starknet.MessageHeader
 	ValidRound types.Round
+	validator
 }
 
 func (s *AwaitingBlockInfoOrCommitmentState) OnEvent(

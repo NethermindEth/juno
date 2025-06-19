@@ -93,6 +93,10 @@ func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) *cor
 		panic(fmt.Sprintf("Failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode))
 	}
 
+	paymasterData := utils.Map(tx.PaymasterData, AdaptFelt)
+	if paymasterData == nil {
+		paymasterData = []*felt.Felt{}
+	}
 	return &core.InvokeTransaction{
 		TransactionHash:      AdaptHash(txnHash),
 		ContractAddress:      nil, // todo call core.ContractAddress() ?
@@ -109,10 +113,10 @@ func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) *cor
 			core.ResourceL2Gas:     adaptResourceLimits(tx.ResourceBounds.L2Gas),
 			core.ResourceL1DataGas: adaptResourceLimits(tx.ResourceBounds.L1DataGas),
 		},
-		PaymasterData:         utils.Map(tx.PaymasterData, AdaptFelt),
+		PaymasterData:         paymasterData,
 		NonceDAMode:           nDAMode,
 		FeeDAMode:             fDAMode,
-		AccountDeploymentData: nil, // todo(kirill) recheck
+		AccountDeploymentData: []*felt.Felt{},
 	}
 }
 

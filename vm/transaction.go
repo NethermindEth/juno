@@ -48,6 +48,13 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println(string(result))
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println("")
 	return result, nil
 }
 
