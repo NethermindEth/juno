@@ -15,8 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func nopCloser() error { return nil }
-
 func TestVersion(t *testing.T) {
 	const version = "1.2.3-rc1"
 
@@ -47,7 +45,7 @@ func TestThrottledVMError(t *testing.T) {
 
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
 		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
@@ -62,7 +60,7 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("simulate", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
@@ -96,10 +94,10 @@ func TestThrottledVMError(t *testing.T) {
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv7.ExecutionStepsHeader))

@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sync"
@@ -27,8 +28,7 @@ type Builder struct {
 	pendingBlock atomic.Pointer[sync.Pending]
 	vm           vm.VM
 	blockchain   *blockchain.Blockchain
-	headState    core.StateReader
-	headCloser   blockchain.StateCloser
+	headState    state.StateReader
 	log          utils.Logger
 	disableFees  bool
 }
@@ -76,26 +76,17 @@ func (b *Builder) PendingBlock() *core.Block {
 	return pending.Block
 }
 
-func (b *Builder) PendingState() (core.StateReader, func() error, error) {
+func (b *Builder) PendingState() (state.StateReader, error) {
 	pending, err := b.Pending()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), func() error { return nil }, nil
+	return sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, b.headState), nil
 }
 
 func (b *Builder) ClearPending() error {
 	b.pendingBlock.Store(&sync.Pending{})
-
-	if b.headState != nil {
-		if err := b.headCloser(); err != nil {
-			return err
-		}
-		b.headState = nil
-		b.headCloser = nil
-	}
 	return nil
 }
 
@@ -131,7 +122,7 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
-	b.headState, b.headCloser, err = b.blockchain.HeadState()
+	b.headState, err = b.blockchain.HeadState()
 	return err
 }
 
@@ -305,7 +296,7 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 		NewClasses:  newClasses,
 	}
 	b.pendingBlock.Store(&pending)
-	b.headState, b.headCloser, err = b.blockchain.HeadState()
+	b.headState, err = b.blockchain.HeadState()
 	return err
 }
 

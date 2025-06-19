@@ -46,7 +46,7 @@ func TestMempool(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
