@@ -362,15 +362,10 @@ func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[prot
 			return nil, err
 		}
 
-		stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
+		stateReader, err := h.bcReader.StateAtBlockNumber(blockNumber)
 		if err != nil {
 			return nil, err
 		}
-		defer func() {
-			if closeErr := closer(); closeErr != nil {
-				h.log.Errorw("Failed to close state reader", "err", closeErr)
-			}
-		}()
 
 		stateDiff := stateUpdate.StateDiff
 

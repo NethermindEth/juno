@@ -37,7 +37,7 @@ type Reader interface {
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
 	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
-	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash felt.Felt, blockNumber uint64, err error)
+	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash felt.Felt, err error)
@@ -227,24 +227,24 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
-func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, felt.Felt, uint64, error) {
+func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
 	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
 	if err != nil {
-		return nil, felt.Zero, 0, err
+		return nil, nil, 0, err
 	}
 
 	receipt, err := core.GetReceiptByHash(b.database, hash)
 	if err != nil {
-		return nil, felt.Zero, 0, err
+		return nil, nil, 0, err
 	}
 
 	header, err := core.GetBlockHeaderByNumber(b.database, bnIndex.Number)
 	if err != nil {
-		return nil, felt.Zero, 0, err
+		return nil, nil, 0, err
 	}
 
-	return receipt, *header.Hash, header.Number, nil
+	return receipt, header.Hash, header.Number, nil
 }
 
 func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {

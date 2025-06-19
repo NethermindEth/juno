@@ -349,20 +349,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 			// Note: Parts of the State Update are created from Blockchain object as the Store and SanityCheck functions require a State
 			// Update but there is no such message in P2P.
 
-			stateReader, stateCloser, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
+			stateReader, err := s.blockchain.StateAtBlockNumber(coreBlock.Number - 1)
 			if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
 				// todo(kirill) change to shutdown
 				panic(err)
 			}
-			defer func() {
-				if stateCloser == nil {
-					return
-				}
-
-				if closeErr := stateCloser(); closeErr != nil {
-					s.log.Errorw("Failed to close state reader", "err", closeErr)
-				}
-			}()
 
 			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
 

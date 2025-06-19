@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -74,7 +75,7 @@ type Reader interface {
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	PendingState() (state.StateReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -108,7 +109,7 @@ func (n *NoopSynchronizer) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingState() (state.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
@@ -199,14 +200,11 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 }
 
 func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
-	state, closer, err := s.blockchain.HeadState()
+	state, err := s.blockchain.HeadState()
 	if err != nil {
 		// if err is db.ErrKeyNotFound we are on an empty DB
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, err
-		}
-		closer = func() error {
-			return nil
 		}
 	}
 
@@ -663,7 +661,7 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 var noop = func() error { return nil }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
+func (s *Synchronizer) PendingState() (state.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pending, err := s.Pending()
