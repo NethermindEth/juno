@@ -1,4 +1,4 @@
-package validator
+package statemachine
 
 import (
 	"context"
@@ -45,12 +45,12 @@ type ProposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr] interf
 // - Cancel the current height streams when a new commit is received.
 // Although the methods must be called sequentially and the streams are created, loaded, started, and stopped sequentially,
 // the streams run concurrently.
-type proposalStreamDemux struct {
+type proposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	log                  utils.Logger
-	transition           Transition
+	transition           Transition[V, H, A]
 	bufferSizeConfig     *config.BufferSizes
 	commitNotifier       <-chan types.Height
-	streams              map[streamID]*proposalStream
+	streams              map[streamID]*proposalStream[V, H, A]
 	streamHeights        map[types.Height][]streamID
 	outputs              chan starknet.Proposal
 	currentHeight        types.Height
@@ -58,26 +58,26 @@ type proposalStreamDemux struct {
 	currentHeightCtxPool *pool.ContextPool
 }
 
-func NewProposalStreamDemux(
+func NewProposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
-	transition Transition,
+	transition Transition[V, H, A],
 	bufferSizeConfig *config.BufferSizes,
 	commitNotifier <-chan types.Height,
 	currentHeight types.Height,
 ) ProposalStreamDemux[starknet.Value, starknet.Hash, starknet.Address] {
-	return &proposalStreamDemux{
+	return &proposalStreamDemux[V, H, A]{
 		log:              log,
 		transition:       transition,
 		bufferSizeConfig: bufferSizeConfig,
 		commitNotifier:   commitNotifier,
-		streams:          make(map[streamID]*proposalStream),
+		streams:          make(map[streamID]*proposalStream[V, H, A]),
 		streamHeights:    make(map[types.Height][]streamID),
 		outputs:          make(chan starknet.Proposal, bufferSizeConfig.ProposalOutputs),
 		currentHeight:    currentHeight,
 	}
 }
 
-func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
+func (t *proposalStreamDemux[V, H, A]) Loop(ctx context.Context, topic *pubsub.Topic) {
 	defer close(t.outputs)
 
 	messages := make(chan *pubsub.Message, t.bufferSizeConfig.ProposalDemux)
@@ -128,12 +128,12 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 	wg.Wait()
 }
 
-func (t *proposalStreamDemux) Listen() <-chan starknet.Proposal {
+func (t *proposalStreamDemux[V, H, A]) Listen() <-chan starknet.Proposal {
 	return t.outputs
 }
 
 // stop stops the current height pool and deletes the streams for the current height
-func (t *proposalStreamDemux) stop() {
+func (t *proposalStreamDemux[V, H, A]) stop() {
 	// First cancel all running stream of the current height
 	t.currentHeightCancel()
 
@@ -151,13 +151,13 @@ func (t *proposalStreamDemux) stop() {
 }
 
 // createCtxPool creates a new pool for the current height
-func (t *proposalStreamDemux) createCtxPool(ctx context.Context) {
+func (t *proposalStreamDemux[V, H, A]) createCtxPool(ctx context.Context) {
 	ctx, t.currentHeightCancel = context.WithCancel(ctx)
 	t.currentHeightCtxPool = pool.New().WithContext(ctx)
 }
 
 // processCommit processes the commit for the current height
-func (t *proposalStreamDemux) processCommit(height types.Height) error {
+func (t *proposalStreamDemux[V, H, A]) processCommit(height types.Height) error {
 	if height != t.currentHeight {
 		return fmt.Errorf("expected height %d, got %d", t.currentHeight+1, height)
 	}
@@ -176,7 +176,7 @@ func (t *proposalStreamDemux) processCommit(height types.Height) error {
 }
 
 // processStreamMessage processes the stream message.
-func (t *proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMessage *pubsub.Message) error {
+func (t *proposalStreamDemux[V, H, A]) processStreamMessage(ctx context.Context, pubsubMessage *pubsub.Message) error {
 	message := consensus.StreamMessage{}
 	if err := proto.Unmarshal(pubsubMessage.Data, &message); err != nil {
 		return fmt.Errorf("unable to unmarshal stream message: %w", err)
@@ -195,7 +195,7 @@ func (t *proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMe
 }
 
 // onFirstMessage is called when the first message is received for a stream.
-func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
+func (t *proposalStreamDemux[V, H, A]) onFirstMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
 	stream := t.getStream(streamID)
 	// Start the stream and get the height from the first message
 	height, err := stream.start(ctx, message)
@@ -224,7 +224,7 @@ func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID strea
 
 // onSubsequentMessage is called when a subsequent message is received for a stream.
 // The message is enqueued to the stream to be processed by the stream.
-func (t *proposalStreamDemux) onSubsequentMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
+func (t *proposalStreamDemux[V, H, A]) onSubsequentMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
 	stream := t.getStream(streamID)
 	stream.enqueueMessage(ctx, message)
 	return nil
@@ -232,7 +232,7 @@ func (t *proposalStreamDemux) onSubsequentMessage(ctx context.Context, streamID 
 
 // getStream gets the stream for the given stream ID.
 // If the stream does not exist, it creates a new one.
-func (t *proposalStreamDemux) getStream(id streamID) *proposalStream {
+func (t *proposalStreamDemux[V, H, A]) getStream(id streamID) *proposalStream[V, H, A] {
 	if stream, exists := t.streams[id]; exists {
 		return stream
 	}

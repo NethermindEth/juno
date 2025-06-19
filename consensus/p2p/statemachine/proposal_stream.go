@@ -1,4 +1,4 @@
-package validator
+package statemachine
 
 import (
 	"context"
@@ -14,34 +14,36 @@ import (
 // proposalStream receives and processes parts of Starknet proposals streamed from peers.
 // Each part is delivered via the input channel, then ordered and validated.
 // Once a complete and valid proposal is assembled, it is sent to the caller via the outputs channel.
-type proposalStream struct {
-	log                utils.Logger
-	input              chan *consensus.StreamMessage
-	outputs            chan<- starknet.Proposal
-	messages           map[uint64]*consensus.StreamMessage
-	transition         Transition
-	stateMachine       ProposalStateMachine
+type proposalStream[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	log      utils.Logger
+	input    chan *consensus.StreamMessage
+	outputs  chan<- starknet.Proposal
+	messages map[uint64]*consensus.StreamMessage
+	// Every proposal stream shares the same transition
+	transition Transition[V, H, A]
+	// Each proposal stream gets its own state. The state contains a validator that is unique to it.
+	stateMachine       ProposalStateMachine[V, H, A]
 	nextSequenceNumber uint64
 }
 
-func newSingleProposalStream(
+func newSingleProposalStream[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
-	transition Transition,
+	transition Transition[V, H, A],
 	inputBufferSize int,
 	outputs chan<- starknet.Proposal,
-) *proposalStream {
-	return &proposalStream{
+) *proposalStream[V, H, A] {
+	return &proposalStream[V, H, A]{
 		log:                log,
 		input:              make(chan *consensus.StreamMessage, inputBufferSize),
 		outputs:            outputs,
 		messages:           make(map[uint64]*consensus.StreamMessage),
 		transition:         transition,
-		stateMachine:       &InitialState{},
+		stateMachine:       &InitialState[V, H, A]{},
 		nextSequenceNumber: 0,
 	}
 }
 
-func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.StreamMessage) (types.Height, error) {
+func (s *proposalStream[V, H, A]) start(ctx context.Context, firstMessage *consensus.StreamMessage) (types.Height, error) {
 	content := firstMessage.GetContent()
 	if content == nil {
 		return 0, fmt.Errorf("first message has empty content")
@@ -53,7 +55,7 @@ func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.Stre
 
 	// The state machine should have progressed from InitialState to AwaitingBlockInfoOrCommitmentState
 	switch state := s.stateMachine.(type) {
-	case *AwaitingBlockInfoOrCommitmentState:
+	case *AwaitingBlockInfoOrCommitmentState[V, H, A]:
 		s.nextSequenceNumber = 1
 		return state.Header.Height, nil
 	default:
@@ -61,7 +63,7 @@ func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.Stre
 	}
 }
 
-func (s *proposalStream) loop(ctx context.Context) {
+func (s *proposalStream[V, H, A]) loop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -75,7 +77,7 @@ func (s *proposalStream) loop(ctx context.Context) {
 	}
 }
 
-func (s *proposalStream) enqueueMessage(ctx context.Context, streamMessage *consensus.StreamMessage) {
+func (s *proposalStream[V, H, A]) enqueueMessage(ctx context.Context, streamMessage *consensus.StreamMessage) {
 	select {
 	case <-ctx.Done():
 		return
@@ -83,11 +85,11 @@ func (s *proposalStream) enqueueMessage(ctx context.Context, streamMessage *cons
 	}
 }
 
-func (s *proposalStream) close() {
+func (s *proposalStream[V, H, A]) close() {
 	close(s.input)
 }
 
-func (s *proposalStream) processMessages(ctx context.Context, nextMessage *consensus.StreamMessage) error {
+func (s *proposalStream[V, H, A]) processMessages(ctx context.Context, nextMessage *consensus.StreamMessage) error {
 	if s.nextSequenceNumber != nextMessage.SequenceNumber {
 		s.messages[nextMessage.SequenceNumber] = nextMessage
 		return nil
@@ -103,7 +105,7 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 			nextMessage = s.getNextMessage()
 		case *consensus.StreamMessage_Fin:
 			switch state := s.stateMachine.(type) {
-			case *FinState:
+			case *FinState[V, H, A]:
 				if state == nil {
 					return nil
 				}
@@ -124,7 +126,7 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 	return nil
 }
 
-func (s *proposalStream) processProposalPart(ctx context.Context, messageContent []byte) error {
+func (s *proposalStream[V, H, A]) processProposalPart(ctx context.Context, messageContent []byte) error {
 	var err error
 	proposalPart := consensus.ProposalPart{}
 	if err = proto.Unmarshal(messageContent, &proposalPart); err != nil {
@@ -138,7 +140,7 @@ func (s *proposalStream) processProposalPart(ctx context.Context, messageContent
 	return nil
 }
 
-func (s *proposalStream) getNextMessage() *consensus.StreamMessage {
+func (s *proposalStream[V, H, A]) getNextMessage() *consensus.StreamMessage {
 	streamMessage, exists := s.messages[s.nextSequenceNumber]
 	if !exists {
 		return nil

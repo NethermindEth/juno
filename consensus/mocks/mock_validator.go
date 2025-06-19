@@ -41,7 +41,7 @@ func (m *MockValidator[V, H, A]) EXPECT() *MockValidatorMockRecorder[V, H, A] {
 }
 
 // BlockInfo mocks base method.
-func (m *MockValidator[V, H, A]) BlockInfo(blockInfo types.BlockInfo) {
+func (m *MockValidator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "BlockInfo", blockInfo)
 }
@@ -53,7 +53,7 @@ func (mr *MockValidatorMockRecorder[V, H, A]) BlockInfo(blockInfo any) *gomock.C
 }
 
 // ProposalCommitment mocks base method.
-func (m *MockValidator[V, H, A]) ProposalCommitment(proposalCommitment types.ProposalCommitment) error {
+func (m *MockValidator[V, H, A]) ProposalCommitment(proposalCommitment *types.ProposalCommitment) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProposalCommitment", proposalCommitment)
 	ret0, _ := ret[0].(error)
@@ -67,21 +67,21 @@ func (mr *MockValidatorMockRecorder[V, H, A]) ProposalCommitment(proposalCommitm
 }
 
 // ProposalFin mocks base method.
-func (m *MockValidator[V, H, A]) ProposalFin(proposalCommitment types.ProposalFin) error {
+func (m *MockValidator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProposalFin", proposalCommitment)
+	ret := m.ctrl.Call(m, "ProposalFin", proposalFin)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ProposalFin indicates an expected call of ProposalFin.
-func (mr *MockValidatorMockRecorder[V, H, A]) ProposalFin(proposalCommitment any) *gomock.Call {
+func (mr *MockValidatorMockRecorder[V, H, A]) ProposalFin(proposalFin any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposalFin", reflect.TypeOf((*MockValidator[V, H, A])(nil).ProposalFin), proposalCommitment)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProposalFin", reflect.TypeOf((*MockValidator[V, H, A])(nil).ProposalFin), proposalFin)
 }
 
 // ProposalInit mocks base method.
-func (m *MockValidator[V, H, A]) ProposalInit(pInit types.ProposalInit) error {
+func (m *MockValidator[V, H, A]) ProposalInit(pInit *types.ProposalInit) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProposalInit", pInit)
 	ret0, _ := ret[0].(error)
@@ -95,7 +95,7 @@ func (mr *MockValidatorMockRecorder[V, H, A]) ProposalInit(pInit any) *gomock.Ca
 }
 
 // TransactionBatch mocks base method.
-func (m *MockValidator[V, H, A]) TransactionBatch(txn types.Transaction) error {
+func (m *MockValidator[V, H, A]) TransactionBatch(txn []types.Transaction) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionBatch", txn)
 	ret0, _ := ret[0].(error)
