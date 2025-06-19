@@ -92,6 +92,11 @@ func (z *Felt) SetBytes(e []byte) *Felt {
 	return z
 }
 
+// SetBytesCanonical forwards the call to underlying field element implementation
+func (z *Felt) SetBytesCanonical(e []byte) error {
+	return (*fp.Element)(z).SetBytesCanonical(e)
+}
+
 // SetString forwards the call to underlying field element implementation
 func (z *Felt) SetString(number string) (*Felt, error) {
 	// get temporary big int from the pool
