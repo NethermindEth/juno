@@ -727,8 +727,16 @@ func (b *Blockchain) StoreGenesis(
 			Number:           0,
 			SequencerAddress: &felt.Zero,
 			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    &felt.Zero,
-			L1GasPriceSTRK:   &felt.Zero,
+			L1GasPriceETH:    new(felt.Felt).SetUint64(1),
+			L1GasPriceSTRK:   new(felt.Felt).SetUint64(1),
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: new(felt.Felt).SetUint64(1),
+				PriceInFri: new(felt.Felt).SetUint64(1),
+			},
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: new(felt.Felt).SetUint64(1),
+				PriceInFri: new(felt.Felt).SetUint64(1),
+			},
 		},
 		Transactions: make([]core.Transaction, 0),
 		Receipts:     receipts,

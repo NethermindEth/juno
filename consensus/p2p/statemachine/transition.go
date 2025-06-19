@@ -1,19 +1,15 @@
-package validator
+package statemachine
 
 import (
 	"context"
-	"errors"
 
+	"github.com/NethermindEth/juno/adapters/p2p2consensus"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/validator"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
-)
-
-var (
-	errNilProposer  = errors.New("proposer is nil")
-	errHashMismatch = errors.New("hash mismatch")
 )
 
 type Transition interface {
@@ -49,14 +45,19 @@ type Transition interface {
 	) (*FinState, error)
 }
 
-type transition struct{}
-
-func NewTransition() Transition {
-	return &transition{}
+type transition[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	validator validator.Validator[V, H, A]
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnProposalInit(
+func NewTransition[V types.Hashable[H], H types.Hash, A types.Addr](
+	val validator.Validator[V, H, A],
+) Transition {
+	return &transition[V, H, A]{
+		validator: val,
+	}
+}
+
+func (t *transition[V, H, A]) OnProposalInit(
 	ctx context.Context,
 	state *InitialState,
 	init *consensus.ProposalInit,
@@ -66,23 +67,25 @@ func (t *transition) OnProposalInit(
 		validRound = types.Round(*init.ValidRound)
 	}
 
-	if init.Proposer == nil {
-		return nil, errNilProposer
+	adaptedProposalInit, err := p2p2consensus.AdaptProposalInit(init)
+	if err != nil {
+		return nil, err
 	}
-	sender := starknet.Address(felt.FromBytes(init.Proposer.Elements))
 
+	if err = t.validator.ProposalInit(&adaptedProposalInit); err != nil {
+		return nil, err
+	}
 	return &AwaitingBlockInfoOrCommitmentState{
 		Header: &starknet.MessageHeader{
 			Height: types.Height(init.BlockNumber),
 			Round:  types.Round(init.Round),
-			Sender: sender,
+			Sender: starknet.Address(felt.FromBytes(init.Proposer.Elements)),
 		},
 		ValidRound: validRound,
 	}, nil
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnEmptyBlockCommitment(
+func (t *transition[V, H, A]) OnEmptyBlockCommitment(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
 	commitment *consensus.ProposalCommitment,
@@ -94,68 +97,95 @@ func (t *transition) OnEmptyBlockCommitment(
 	}, nil
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnBlockInfo(
+func (t *transition[V, H, A]) OnBlockInfo(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
 	blockInfo *consensus.BlockInfo,
 ) (*ReceivingTransactionsState, error) {
+	adaptedBlockInfo, err := p2p2consensus.AdaptBlockInfo(blockInfo)
+	if err != nil {
+		return nil, err
+	}
+	t.validator.BlockInfo(&adaptedBlockInfo)
+
 	return &ReceivingTransactionsState{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,
-		Value:      utils.HeapPtr(starknet.Value(felt.FromUint64(blockInfo.Timestamp))),
+		// Todo: remove, OnBlockInfo can't know value / block hash yet..
+		Value: utils.HeapPtr(starknet.Value(felt.FromUint64(blockInfo.Timestamp))),
 	}, nil
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnTransactions(
+func (t *transition[V, H, A]) OnTransactions(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
 	transactions []*consensus.ConsensusTransaction,
 ) (*ReceivingTransactionsState, error) {
+	txns := make([]types.Transaction, len(transactions))
+	for i := range transactions {
+		txn, class, err := p2p2consensus.AdaptTransaction(transactions[i])
+		if err != nil {
+			return nil, err
+		}
+		txns[i] = types.Transaction{
+			Transaction: txn,
+			Class:       class,
+		}
+	}
+
+	err := t.validator.TransactionBatch(txns)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ReceivingTransactionsState{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,
-		Value:      state.Value,
+		// Todo: remove, OnTransactions can't know value / block hash yet..
+		Value: state.Value,
 	}, nil
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnProposalCommitment(
+func (t *transition[V, H, A]) OnProposalCommitment(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
 	commitment *consensus.ProposalCommitment,
 ) (*AwaitingProposalFinState, error) {
+	adaptedCommitment, err := p2p2consensus.AdaptProposalCommitment(commitment)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = t.validator.ProposalCommitment(&adaptedCommitment); err != nil {
+		return nil, err
+	}
+
 	return &AwaitingProposalFinState{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,
-		Value:      state.Value,
+		// Todo: remove, we aren't populating with the value/block hash we generate..
+		Value: state.Value,
 	}, nil
 }
 
-// TODO: Implement this function properly
-func (t *transition) OnProposalFin(
+func (t *transition[V, H, A]) OnProposalFin(
 	ctx context.Context,
 	state *AwaitingProposalFinState,
 	fin *consensus.ProposalFin,
 ) (*FinState, error) {
-	// Check if expected and actual are both nil or both non-nil
-	if (state.Value == nil) != (fin.ProposalCommitment == nil) {
-		return nil, errHashMismatch
+	adaptedFin, err := p2p2consensus.AdaptProposalFin(fin)
+	if err != nil {
+		return nil, err
 	}
 
-	// If both are non-nil, check if they are equal
-	if state.Value != nil {
-		expected := state.Value.Hash()
-		actual := starknet.Hash(felt.FromBytes(fin.ProposalCommitment.Elements))
-		if expected != actual {
-			return nil, errHashMismatch
-		}
+	if err = t.validator.ProposalFin(adaptedFin); err != nil {
+		return nil, err
 	}
 
+	commitment := starknet.Value(*new(felt.Felt).SetBytes(fin.ProposalCommitment.Elements))
 	return &FinState{
 		MessageHeader: *state.Header,
-		Value:         state.Value,
 		ValidRound:    state.ValidRound,
+		Value:         &commitment,
 	}, nil
 }
