@@ -210,4 +210,4 @@ require (
 // So it is replaced with the commit that supports go1.24.
 replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
 
-replace github.com/starknet-io/starknet-p2pspecs => ./
+replace github.com/starknet-io/starknet-p2pspecs => ./starknet-p2pspecs
