@@ -1,6 +1,8 @@
 package pathdb
 
 import (
+	"math"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/VictoriaMetrics/fastcache"
@@ -21,8 +23,13 @@ type cleanCache struct {
 }
 
 // Creates a new clean cache with the given size. The size is the maximum size of the cache in bytes.
-func newCleanCache(size int) cleanCache {
-	return cleanCache{cache: fastcache.New(size)}
+func newCleanCache(size uint64) cleanCache {
+	if size > uint64(math.MaxInt) {
+		panic("cache size too large: uint64 to int conversion would overflow")
+	}
+	return cleanCache{
+		cache: fastcache.New(int(size)),
+	}
 }
 
 func (c *cleanCache) putNode(owner *felt.Felt, path *trieutils.Path, isClass bool, blob []byte) {
