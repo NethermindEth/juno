@@ -115,9 +115,10 @@ type Node struct {
 	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 
-	earlyServices []service.Service // Services that needs to start before than other services and before migration.
-	services      []service.Service
-	log           utils.Logger
+	earlyServices         []service.Service
+	services              []service.Service
+	postMigrationServices []service.Service
+	log                   utils.Logger
 
 	version string
 }
@@ -282,15 +283,18 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
+
+	var postMigrationServices []service.Service
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		earlyServices = append(earlyServices, makeHealthOnlyHTTP(cfg.HTTPHost, cfg.HTTPPort, log))
+		postMigrationServices = append(postMigrationServices, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.Websocket {
-		services = append(services,
+		postMigrationServices = append(postMigrationServices,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
 	if cfg.HTTPUpdatePort != 0 {
@@ -331,13 +335,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	n := &Node{
-		cfg:           cfg,
-		log:           log,
-		version:       version,
-		db:            database,
-		blockchain:    chain,
-		services:      services,
-		earlyServices: earlyServices,
+		cfg:                   cfg,
+		log:                   log,
+		version:               version,
+		db:                    database,
+		blockchain:            chain,
+		services:              services,
+		earlyServices:         earlyServices,
+		postMigrationServices: postMigrationServices,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -428,7 +433,12 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
+	for _, s := range n.services {
+		n.StartService(wg, ctx, cancel, s)
+	}
+
+	err = migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log)
+	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
@@ -437,16 +447,16 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
+	for _, s := range n.postMigrationServices {
+		n.StartService(wg, ctx, cancel, s)
+	}
+
 	if n.cfg.Sequencer {
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
 			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
 			return
 		}
-	}
-
-	for _, s := range n.services {
-		n.StartService(wg, ctx, cancel, s)
 	}
 
 	<-ctx.Done()

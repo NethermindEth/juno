@@ -261,3 +261,16 @@ func (h *readinessHandlers) isSynced() bool {
 
 	return head.Number+SyncBlockRange >= highestBlockHeader.Number
 }
+
+func makeHealthOnlyHTTP(host string, port uint16, log utils.SimpleLogger) *httpService {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	})
+
+	return makeHTTPService(host, port, mux)
+}
