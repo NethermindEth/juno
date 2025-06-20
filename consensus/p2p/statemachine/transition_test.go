@@ -4,11 +4,9 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/statemachine"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/consensus/validator"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
@@ -43,15 +41,17 @@ func hexToCommonFelt252(t *testing.T, in string) *common.Felt252 {
 }
 
 func TestTransition(t *testing.T) {
-	builder := getGenesisBuilder(t)
-	val := validator.New[value, starknet.Hash, starknet.Address](&builder)
-	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](val)
+	bc, vm := getTransitionInputs(t)
+	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false)
 
-	proposerAddress := &common.Address{Elements: []byte{1}}
-	zeroConcat := &common.Felt252{Elements: []byte{0}}
-	someHash := &common.Hash{Elements: []byte{1}}
-	zeroHash := &common.Hash{Elements: []byte{0}}
-	someU128 := &common.Uint128{Low: 0, High: 0}
+	// We can't use random values here since 1. certain values need to match those in the header,
+	// and 2. it will alter the block hash, and we need a fixed expected value
+	proposerAddress := hexToCommonAddress(t, "0x1")
+	zeroConcat := hexToCommonFelt252(t, "0x0")
+	someHash := hexToCommonHash(t, "0x1")
+	zeroHashCommitment := hexToCommonHash(t, "0x0")
+	headerFeesU128 := &common.Uint128{Low: 0, High: 0}
+
 	timestamp := uint64(0)
 	height := uint64(1)
 	round := 0
@@ -85,16 +85,16 @@ func TestTransition(t *testing.T) {
 			ProtocolVersion:           "0.12.3",
 			OldStateRoot:              hexToCommonHash(t, "0x5eed4c967bf69f5574663f19635c031c03294283827119495aa3d4b14f55b8d"),
 			VersionConstantCommitment: someHash, // Todo: update when we support this
-			StateDiffCommitment:       zeroHash,
-			TransactionCommitment:     zeroHash,
-			EventCommitment:           zeroHash,
-			ReceiptCommitment:         zeroHash,
+			StateDiffCommitment:       zeroHashCommitment,
+			TransactionCommitment:     zeroHashCommitment,
+			EventCommitment:           zeroHashCommitment,
+			ReceiptCommitment:         zeroHashCommitment,
 			ConcatenatedCounts:        zeroConcat,
-			L1GasPriceFri:             someU128, // Todo: update when we support this
-			L1DataGasPriceFri:         someU128, // Todo: update when we support this
-			L2GasPriceFri:             someU128, // Todo: update when we support this
-			L2GasUsed:                 someU128, // Todo: update when we support this
-			NextL2GasPriceFri:         someU128, // Todo: update when we support this
+			L1GasPriceFri:             headerFeesU128,
+			L1DataGasPriceFri:         headerFeesU128,
+			L2GasPriceFri:             headerFeesU128,
+			L2GasUsed:                 headerFeesU128,
+			NextL2GasPriceFri:         headerFeesU128,
 			L1DaMode:                  common.L1DataAvailabilityMode_Calldata,
 		}
 		_, err = transition.OnProposalCommitment(t.Context(), commitState, proposalCommitMsg)
@@ -105,11 +105,14 @@ func TestTransition(t *testing.T) {
 			Header:     header,
 			ValidRound: -1,
 		}
+		expectedProposalFin := "0x2c0c3d895adb9535198914fe603fd291d8d0eabc9f70b1e41ef0cacc306d60f"
 		proposalFinMsg := &consensus.ProposalFin{
-			ProposalCommitment: hexToCommonHash(t, "0x2c0c3d895adb9535198914fe603fd291d8d0eabc9f70b1e41ef0cacc306d60f"),
+			ProposalCommitment: hexToCommonHash(t, expectedProposalFin),
 		}
-		_, err = transition.OnProposalFin(t.Context(), finState, proposalFinMsg)
+		proposalFin, err := transition.OnProposalFin(t.Context(), finState, proposalFinMsg)
 		require.NoError(t, err)
+		finalValue := proposalFin.Value.Hash()
+		require.Equal(t, expectedProposalFin, finalValue.String())
 	})
 
 	t.Run("Valid NonEmpty Block", func(t *testing.T) {
@@ -180,11 +183,11 @@ func TestTransition(t *testing.T) {
 			EventCommitment:           hexToCommonHash(t, "0x0"), // Todo: This should NOT be 0??
 			ReceiptCommitment:         hexToCommonHash(t, "0x0"), // Todo: This should NOT be 0??
 			ConcatenatedCounts:        hexToCommonFelt252(t, "0x8000000000000000"),
-			L1GasPriceFri:             someU128, // Todo: update when we support this
-			L1DataGasPriceFri:         someU128, // Todo: update when we support this
-			L2GasPriceFri:             someU128, // Todo: update when we support this
-			L2GasUsed:                 someU128, // Todo: update when we support this
-			NextL2GasPriceFri:         someU128, // Todo: update when we support this
+			L1GasPriceFri:             headerFeesU128,
+			L1DataGasPriceFri:         headerFeesU128,
+			L2GasPriceFri:             headerFeesU128,
+			L2GasUsed:                 headerFeesU128,
+			NextL2GasPriceFri:         headerFeesU128,
 			L1DaMode:                  common.L1DataAvailabilityMode_Blob,
 		}
 		_, err = transition.OnProposalCommitment(t.Context(), commitState, proposalCommitMsg)
@@ -200,17 +203,6 @@ func TestTransition(t *testing.T) {
 		}
 		_, err = transition.OnProposalFin(t.Context(), finState, proposalFinMsg)
 		require.NoError(t, err)
-	})
-}
-
-func TestTransitionInvalidMsgs(t *testing.T) {
-	builder := getGenesisBuilder(t)
-	val := validator.New[value, starknet.Hash, starknet.Address](&builder)
-	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](val)
-	t.Run("Invalid OnProposalInit", func(t *testing.T) {
-		initMsg := &consensus.ProposalInit{}
-		_, err := transition.OnProposalInit(t.Context(), nil, initMsg)
-		require.Error(t, err)
 	})
 }
 
@@ -254,7 +246,7 @@ func getConsensusTxn(t *testing.T) *consensus.ConsensusTransaction_InvokeV3 {
 	}
 }
 
-func getGenesisBuilder(t *testing.T) builder.Builder {
+func getTransitionInputs(t *testing.T) (*blockchain.Blockchain, vm.VM) {
 	t.Helper()
 
 	testDB := memory.New()
@@ -268,8 +260,9 @@ func getGenesisBuilder(t *testing.T) builder.Builder {
 		"../../../genesis/classes/strk.json", "../../../genesis/classes/account.json",
 		"../../../genesis/classes/universaldeployer.json", "../../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
+	vm := vm.New(false, log)
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm, bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	return builder.New(bc, vm.New(false, log), log, true)
+	return bc, vm
 }

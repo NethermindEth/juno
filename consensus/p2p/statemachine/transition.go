@@ -56,9 +56,17 @@ type transition[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func NewTransition[V types.Hashable[H], H types.Hash, A types.Addr](
-	val validator.Validator[V, H, A],
+	bc *blockchain.Blockchain,
+	vm vm.VM,
+	log utils.Logger,
+	disableFees bool,
 ) Transition[V, H, A] {
-	return &transition[V, H, A]{}
+	return &transition[V, H, A]{
+		bc:          bc,
+		vm:          vm,
+		log:         log,
+		disableFees: disableFees,
+	}
 }
 
 func (t *transition[V, H, A]) OnProposalInit(
