@@ -84,6 +84,7 @@ func (t *transition[V, H, A]) OnProposalInit(
 		return nil, err
 	}
 
+	// Todo: this is problemantic because we can't mock the validator.
 	newBuilder := builder.New(t.bc, t.vm, t.log, t.disableFees)
 	newValidator := validator.New[V, H, A](&newBuilder)
 	if err = newValidator.ProposalInit(&adaptedProposalInit); err != nil {
