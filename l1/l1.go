@@ -122,10 +122,18 @@ func (c *Client) Run(ctx context.Context) error {
 
 	ticker := time.NewTicker(c.pollFinalisedInterval)
 	defer ticker.Stop()
+
+	// Add heartbeat to track L1 client health
+	heartbeatTicker := time.NewTicker(5 * time.Minute)
+	defer heartbeatTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
+			c.log.Infow("L1 client context cancelled, stopping")
 			return nil
+		case <-heartbeatTicker.C:
+			c.log.Debugw("L1 client heartbeat", "nonFinalisedLogsCount", len(c.nonFinalisedLogs))
 		case <-ticker.C:
 		Outer:
 			for {
@@ -139,6 +147,7 @@ func (c *Client) Run(ctx context.Context) error {
 
 					updateSub, err = c.subscribeToUpdates(ctx, updateChan)
 					if err != nil {
+						c.log.Errorw("Failed to resubscribe to L1 updates, L1 client will exit", "err", err)
 						return err
 					}
 					defer updateSub.Unsubscribe() //nolint:gocritic
@@ -164,6 +173,7 @@ func (c *Client) Run(ctx context.Context) error {
 			}
 
 			if err := c.setL1Head(ctx); err != nil {
+				c.log.Errorw("Failed to set L1 head, L1 client will exit", "err", err)
 				return err
 			}
 		}
@@ -204,6 +214,7 @@ func (c *Client) setL1Head(ctx context.Context) error {
 
 	// No finalised logs.
 	if maxFinalisedHead == nil {
+		c.log.Debugw("No finalised L1 logs to process", "finalisedHeight", finalisedHeight, "nonFinalisedLogsCount", len(c.nonFinalisedLogs))
 		return nil
 	}
 
@@ -212,9 +223,22 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		BlockHash:   new(felt.Felt).SetBigInt(maxFinalisedHead.BlockHash),
 		StateRoot:   new(felt.Felt).SetBigInt(maxFinalisedHead.GlobalRoot),
 	}
+
+	c.log.Debugw("Attempting to set L1 head",
+		"blockNumber", head.BlockNumber,
+		"blockHash", head.BlockHash.ShortString(),
+		"stateRoot", head.StateRoot.ShortString(),
+		"finalisedHeight", finalisedHeight)
+
 	if err := c.l2Chain.SetL1Head(head); err != nil {
+		c.log.Errorw("SetL1Head failed",
+			"blockNumber", head.BlockNumber,
+			"blockHash", head.BlockHash.ShortString(),
+			"stateRoot", head.StateRoot.ShortString(),
+			"err", err)
 		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
 	}
+
 	c.listener.OnNewL1Head(head)
 	c.log.Infow("Updated l1 head",
 		"blockNumber", head.BlockNumber,
