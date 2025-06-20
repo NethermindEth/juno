@@ -97,7 +97,6 @@ func (t *transition[V, H, A]) OnEmptyBlockCommitment(
 	state *AwaitingBlockInfoOrCommitmentState[V, H, A],
 	commitment *consensus.ProposalCommitment,
 ) (*AwaitingProposalFinState[V, H, A], error) {
-
 	return &AwaitingProposalFinState[V, H, A]{
 		Header:     state.Header,
 		ValidRound: state.ValidRound,

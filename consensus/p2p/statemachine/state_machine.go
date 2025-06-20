@@ -22,9 +22,7 @@ type ProposalStateMachine[V types.Hashable[H], H types.Hash, A types.Addr] inter
 
 // InitialState handles the first step in the proposal flow,
 // accepting only a ProposalInit message to begin the process.
-type InitialState[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	validator validator.Validator[V, H, A]
-}
+type InitialState[V types.Hashable[H], H types.Hash, A types.Addr] struct{}
 
 func (s *InitialState[V, H, A]) OnEvent(
 	ctx context.Context,
