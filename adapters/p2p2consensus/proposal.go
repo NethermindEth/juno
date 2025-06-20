@@ -103,28 +103,24 @@ func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) (consensus.Pr
 	}
 
 	return consensus.ProposalCommitment{
-		BlockNumber: msg.BlockNumber,
-		Builder:     builder,
-
-		ParentCommitment: parentCommitment,
-		Timestamp:        msg.Timestamp,
-		ProtocolVersion:  *snVersion,
-
+		BlockNumber:               msg.BlockNumber,
+		Builder:                   builder,
+		ParentCommitment:          parentCommitment,
+		Timestamp:                 msg.Timestamp,
+		ProtocolVersion:           *snVersion,
 		OldStateRoot:              oldStateRoot,
 		VersionConstantCommitment: versionConstantCommitment,
 		NextL2GasPriceFRI:         *p2p2core.AdaptUint128(msg.NextL2GasPriceFri),
-
-		StateDiffCommitment:   stateDiffCommitment,
-		TransactionCommitment: transactionCommitment,
-		EventCommitment:       eventCommitment,
-		ReceiptCommitment:     receiptCommitment,
-		ConcatenatedCounts:    concatenatedCounts,
-
-		L1GasPriceFRI:     *p2p2core.AdaptUint128(msg.L1GasPriceFri),
-		L1DataGasPriceFRI: *p2p2core.AdaptUint128(msg.L1DataGasPriceFri),
-		L2GasPriceFRI:     *p2p2core.AdaptUint128(msg.L2GasPriceFri),
-		L2GasUsed:         *p2p2core.AdaptUint128(msg.L2GasUsed),
-		L1DAMode:          core.L1DAMode(msg.L1DaMode),
+		StateDiffCommitment:       stateDiffCommitment,
+		TransactionCommitment:     transactionCommitment,
+		EventCommitment:           eventCommitment,
+		ReceiptCommitment:         receiptCommitment,
+		ConcatenatedCounts:        concatenatedCounts,
+		L1GasPriceFRI:             *p2p2core.AdaptUint128(msg.L1GasPriceFri),
+		L1DataGasPriceFRI:         *p2p2core.AdaptUint128(msg.L1DataGasPriceFri),
+		L2GasPriceFRI:             *p2p2core.AdaptUint128(msg.L2GasPriceFri),
+		L2GasUsed:                 *p2p2core.AdaptUint128(msg.L2GasUsed),
+		L1DAMode:                  core.L1DAMode(msg.L1DaMode),
 	}, nil
 }
 
