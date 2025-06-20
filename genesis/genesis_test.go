@@ -33,7 +33,7 @@ func TestGenesisStateDiff(t *testing.T) {
 			require.NotNil(t, newClasses[con.ClassHash])
 		}
 		require.Empty(t, stateDiff.ReplacedClasses)
-		require.Equal(t, len(genesisConfig.BootstrapAccounts)+3, len(stateDiff.DeployedContracts)) // num_accounts + strk token + udc + udacnt
+		require.Equal(t, len(genesisConfig.BootstrapAccounts)+4, len(stateDiff.DeployedContracts)) // num_accounts + strk token + udc + udacnt
 		numFundedAccounts := 0
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]

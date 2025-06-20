@@ -25,30 +25,6 @@ import (
 func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.Handler, *mempool.Pool) {
 	t.Helper()
 
-	// transfer tokens to 0x101
-	invokeTxn := rpc.BroadcastedTransaction{
-		Transaction: rpc.Transaction{
-			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-			Version:       new(felt.Felt).SetUint64(1),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(0),
-			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
-			},
-			CallData: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x101"),
-				utils.HexToFelt(t, "0x12345678"),
-				utils.HexToFelt(t, "0x0"),
-			},
-		},
-	}
-
 	network := &utils.Mainnet
 	testDB := memory.New()
 
@@ -70,12 +46,10 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, true)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(txnPool)
-	_, rpcErr := rpcHandler.AddTransaction(t.Context(), invokeTxn)
-	require.Nil(t, rpcErr)
 	_, err = seq.RunOnce()
 	require.NoError(t, err)
 
@@ -121,30 +95,49 @@ func TestNonEmptyProposal(t *testing.T) {
 	require.NotEmpty(t, pInit)
 
 	// Add txn to the mempool (send tokens to "0x102")
-	txn := rpc.BroadcastedTransaction{
+	daModeL1 := rpc.DAModeL1
+	invokeTxn := rpc.BroadcastedTransaction{
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			Hash:          utils.HexToFelt(t, "0x722e584df0c18fcda54552ae5055f6c1fda331c4ae5de7ec5fc0376ae8b9a7f"),
-			SenderAddress: utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-			Version:       utils.HexToFelt(t, "1"),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(1),
+			Hash:          utils.HexToFelt(t, "0x76f781334b478792e443af1e632eb7ecc82cdb4ce4337ad90f24bd6481a8c02"),
+			SenderAddress: utils.HexToFelt(t, "0x29abab2cdf9cf0daad14b926b27744882b8e76a5ae0d33e0d3d9698ec2c4c22"),
+			Version:       utils.HexToFelt(t, "0x3"),
+			Nonce:         new(felt.Felt).SetUint64(0),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
-				utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+				utils.HexToFelt(t, "0x1d2cab7be6f8675d2ca5365fde15bdefaab45e18d10cc5a70a2584debea89a"),
+				utils.HexToFelt(t, "0x68cf661a6d90bc9ecb9da41deba26c9961def7757605e25a9d29cd83e942cb2"),
 			},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				utils.HexToFelt(t, "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
 				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x102"),
-				utils.HexToFelt(t, "0x12345678"),
+				utils.HexToFelt(t, "0x7a168e677e301b1334408040cd61acdcfc8bf40f460be7dd4d36b4cde4ab628"),
+				utils.HexToFelt(t, "0x1158e460913d00000"),
 				utils.HexToFelt(t, "0x0"),
 			},
+			ResourceBounds: &rpc.ResourceBoundsMap{
+				L1Gas: &rpc.ResourceBounds{
+					MaxAmount:       utils.HexToFelt(t, "0x123"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x2d79883d2000"),
+				},
+				L2Gas: &rpc.ResourceBounds{
+					MaxAmount:       utils.HexToFelt(t, "0x124"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x1800"),
+				},
+				L1DataGas: &rpc.ResourceBounds{
+					MaxAmount:       utils.HexToFelt(t, "0x125"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x1800"),
+				},
+			},
+			Tip:                   utils.HexToFelt(t, "0"),
+			PaymasterData:         &[]*felt.Felt{},
+			AccountDeploymentData: &[]*felt.Felt{},
+			NonceDAMode:           &daModeL1,
+			FeeDAMode:             &daModeL1,
 		},
 	}
-	_, rpcErr := rpcHandler.AddTransaction(t.Context(), txn)
+	_, rpcErr := rpcHandler.AddTransaction(t.Context(), invokeTxn)
 	require.Nil(t, rpcErr)
 
 	// Step 2: BlockInfo() returns (zero,false)
