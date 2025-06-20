@@ -36,22 +36,26 @@ func AdaptClass(cls core.Class) *class.Class {
 	case *core.Cairo1Class:
 		return &class.Class{
 			Class: &class.Class_Cairo1{
-				Cairo1: &class.Cairo1Class{
-					Abi: v.Abi,
-					EntryPoints: &class.Cairo1EntryPoints{
-						Externals:    utils.Map(v.EntryPoints.External, adaptSierra),
-						L1Handlers:   utils.Map(v.EntryPoints.L1Handler, adaptSierra),
-						Constructors: utils.Map(v.EntryPoints.Constructor, adaptSierra),
-					},
-					Program:              utils.Map(v.Program, AdaptFelt),
-					ContractClassVersion: v.SemanticVersion,
-				},
+				Cairo1: AdaptCairo1Class(v),
 			},
 			Domain:    0, // todo(kirill) recheck
 			ClassHash: AdaptHash(hash),
 		}
 	default:
 		panic(fmt.Errorf("unsupported cairo class %T (version=%d)", v, cls.Version()))
+	}
+}
+
+func AdaptCairo1Class(cls *core.Cairo1Class) *class.Cairo1Class {
+	return &class.Cairo1Class{
+		Abi: cls.Abi,
+		EntryPoints: &class.Cairo1EntryPoints{
+			Externals:    utils.Map(cls.EntryPoints.External, adaptSierra),
+			L1Handlers:   utils.Map(cls.EntryPoints.L1Handler, adaptSierra),
+			Constructors: utils.Map(cls.EntryPoints.Constructor, adaptSierra),
+		},
+		Program:              utils.Map(cls.Program, AdaptFelt),
+		ContractClassVersion: cls.SemanticVersion,
 	}
 }
 
