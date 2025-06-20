@@ -114,19 +114,32 @@
 			"constructor_calldata": []
 		},
 		{
-			"transaction_hash": "0xc7ce47912f2d0931fb693882d3f5dfca884e196d71b7771c53121c3f717f3",
-			"max_fee": "0x5af3107a4000",
-			"version": "0x1",
-			"signature": [
-				"0x3d961ed4d414e60aba73519bae95b45c50a24b07e17bf7d3b1a0f22a4cce42a",
-				"0x4ae418b5d51355c3b8bfc58b0ceab6421ca047884b4d9e1e5703e753a9d76ba"
-			],
-			"nonce": "0x1",
+			"transaction_hash": "0x7966d2619e2e4ebae2c3ea75f60e36b492f281b9fb22581b8cb810832075c1",
 			"type": "INVOKE",
-			"sender_address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
-			"calldata": [
-				"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
-			]
+			"version": "0x3",
+                "sender_address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+                "signature": [
+                    "0x2df74069c1e88187be5f091cfdd5cddaa1b8359d2b71db631f0ea0d47a8ebe6",
+                    "0x78b112b02974ba8a960a7b95966153ff7cf1552abb06a15074a7baba093867c"
+                ],
+                "calldata": [
+                    "0x1",
+                    "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                    "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+                    "0x3",
+                    "0x101",
+                    "0x12345678",
+                    "0x0"
+                ],
+                "nonce": "0x0",
+                "resource_bounds": {
+                    
+                },
+                "tip": "0x0",
+                "nonce_data_availability_mode": "L1",
+                "fee_data_availability_mode": "L1",
+                "account_deployment_data": [],
+                "paymaster_data": []
 		}
 	]
 }
