@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
@@ -118,13 +117,8 @@ func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expected
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockedValidator := mocks.NewMockValidator[value, starknet.Hash, starknet.Address](ctrl)
-	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
-	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, starknet.Hash, starknet.Address](mockedValidator), 0, nil)
+	bc, vm := getTransitionInputs(t)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false), 0, nil)
 	height, err := stream.start(t.Context(), message)
 	assert.Equal(t, expectedHeight, height)
 	if expectedErrorMsg != "" {
@@ -380,13 +374,8 @@ func testProposalStreamProcessMessage(t *testing.T, sender *common.Address, step
 	outputs := make(chan starknet.Proposal, 1)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockedValidator := mocks.NewMockValidator[value, starknet.Hash, starknet.Address](ctrl)
-	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
-	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, starknet.Hash, starknet.Address](mockedValidator), 0, outputs)
+	bc, vm := getTransitionInputs(t)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false), 0, outputs)
 	_, err := stream.start(t.Context(), buildMessage(t, 0, &consensus.ProposalPart{ // sequenceNumber is irrelevant here
 		Messages: &consensus.ProposalPart_Init{Init: &consensus.ProposalInit{
 			BlockNumber: 1337,

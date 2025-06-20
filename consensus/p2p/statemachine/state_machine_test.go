@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p/statemachine"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
@@ -205,13 +205,8 @@ func runTestSteps(t *testing.T, steps []validTransitionTestStep) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockedValidator := mocks.NewMockValidator[value, starknet.Hash, starknet.Address](ctrl)
-	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
-	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](mockedValidator)
+	bc, vm := getTransitionInputs(t)
+	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false)
 	var state statemachine.ProposalStateMachine[value, starknet.Hash, starknet.Address] = &statemachine.InitialState[value, starknet.Hash, starknet.Address]{}
 
 	for _, step := range steps {
@@ -277,13 +272,8 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockedValidator := mocks.NewMockValidator[value, starknet.Hash, starknet.Address](ctrl)
-	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
-	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](mockedValidator)
+	bc, vm := getTransitionInputs(t)
+	transition := statemachine.NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false)
 	for _, step := range steps {
 		t.Run(fmt.Sprintf("State %T", step.state), func(t *testing.T) {
 			for _, event := range step.events {

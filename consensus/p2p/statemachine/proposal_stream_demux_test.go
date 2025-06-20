@@ -5,12 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/mocks"
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/multiformats/go-multiaddr"
@@ -18,7 +21,6 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -34,6 +36,27 @@ const (
 	txnPartCount  = 3
 	firstHalfSize = 4
 )
+
+func getTransitionInputs(t *testing.T) (*blockchain.Blockchain, vm.VM) {
+	t.Helper()
+
+	testDB := memory.New()
+	network := &utils.Mainnet
+	bc := blockchain.New(testDB, network)
+	log := utils.NewNopZapLogger()
+
+	genesisConfig, err := genesis.Read("../../../genesis/genesis_prefund_accounts.json")
+	require.NoError(t, err)
+	genesisConfig.Classes = []string{
+		"../../../genesis/classes/strk.json", "../../../genesis/classes/account.json",
+		"../../../genesis/classes/universaldeployer.json", "../../../genesis/classes/udacnt.json",
+	}
+	vm := vm.New(false, log)
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm, bc.Network(), 40000000) //nolint:gomnd
+	require.NoError(t, err)
+	require.NoError(t, bc.StoreGenesis(&diff, classes))
+	return bc, vm
+}
 
 func TestProposalStreamDemux(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -57,15 +80,8 @@ func TestProposalStreamDemux(t *testing.T) {
 	require.NoError(t, err)
 
 	commitNotifier := make(chan types.Height)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	mockedValidator := mocks.NewMockValidator[value, starknet.Hash, starknet.Address](ctrl)
-	mockedValidator.EXPECT().ProposalInit(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().BlockInfo(gomock.Any()).AnyTimes()
-	mockedValidator.EXPECT().TransactionBatch(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalCommitment(gomock.Any()).AnyTimes().Return(nil)
-	mockedValidator.EXPECT().ProposalFin(gomock.Any()).AnyTimes().Return(nil)
-	demux := NewProposalStreamDemux(logger, NewTransition[value, starknet.Hash, starknet.Address](mockedValidator), &config.DefaultBufferSizes, commitNotifier, block1)
+	bc, vm := getTransitionInputs(t)
+	demux := NewProposalStreamDemux(logger, NewTransition[value, starknet.Hash, starknet.Address](bc, vm, utils.NewNopZapLogger(), false), &config.DefaultBufferSizes, commitNotifier, block1)
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
