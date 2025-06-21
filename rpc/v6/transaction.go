@@ -579,11 +579,25 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	var (
+		res *AddTxResponse
+		err *jsonrpc.Error
+	)
 	if h.memPool != nil {
-		return h.addToMempool(&tx)
+		res, err = h.addToMempool(&tx)
 	} else {
-		return h.pushToFeederGateway(ctx, tx)
+		res, err = h.pushToFeederGateway(ctx, tx)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add(res.TransactionHash)
+	}
+
+	return res, nil
 }
 
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
@@ -677,6 +691,8 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 	}, nil
 }
 
+var errTransactionNotFound = errors.New("transaction not found")
+
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
@@ -695,28 +711,25 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		var status TransactionStatus
-		switch txStatus.FinalityStatus {
-		case starknet.AcceptedOnL1:
-			status.Finality = TxnStatusAcceptedOnL1
-		case starknet.AcceptedOnL2:
-			status.Finality = TxnStatusAcceptedOnL2
-		case starknet.Received:
-			status.Finality = TxnStatusReceived
-		default:
-			return nil, rpccore.ErrTxnHashNotFound
+		if h.submittedTransactionsCache != nil {
+			switch txStatus.FinalityStatus {
+			case starknet.NotReceived:
+				if h.submittedTransactionsCache.Contains(&hash) {
+					txStatus.FinalityStatus = starknet.Received
+				}
+			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
+				h.submittedTransactionsCache.Remove(&hash)
+			}
 		}
 
-		switch txStatus.ExecutionStatus {
-		case starknet.Succeeded:
-			status.Execution = TxnSuccess
-		case starknet.Reverted:
-			status.Execution = TxnFailure
-		case starknet.Rejected:
-			status.Finality = TxnStatusRejected
-		default: // Omit the field on error. It's optional in the spec.
+		status, err := adaptTransactionStatus(txStatus)
+		if err != nil {
+			if !errors.Is(err, errTransactionNotFound) {
+				h.log.Errorw("Failed to adapt transaction status", "err", err)
+			}
+			return nil, rpccore.ErrTxnHashNotFound
 		}
-		return &status, nil
+		return status, nil
 	}
 	return nil, txErr
 }
@@ -943,4 +956,31 @@ func adaptDeployAccountTransaction(t *core.DeployAccountTransaction) *Transactio
 	}
 
 	return tx
+}
+
+func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
+	var status TransactionStatus
+	switch txStatus.FinalityStatus {
+	case starknet.AcceptedOnL1:
+		status.Finality = TxnStatusAcceptedOnL1
+	case starknet.AcceptedOnL2:
+		status.Finality = TxnStatusAcceptedOnL2
+	case starknet.Received:
+		status.Finality = TxnStatusReceived
+	case starknet.NotReceived:
+		return nil, errTransactionNotFound
+	default:
+		return nil, errTransactionNotFound
+	}
+
+	switch txStatus.ExecutionStatus {
+	case starknet.Succeeded:
+		status.Execution = TxnSuccess
+	case starknet.Reverted:
+		status.Execution = TxnFailure
+	case starknet.Rejected:
+		status.Finality = TxnStatusRejected
+	default: // Omit the field on error. It's optional in the spec.
+	}
+	return &status, nil
 }
