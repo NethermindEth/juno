@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 )
 
@@ -25,14 +26,14 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 	storageLocationFelt := makeFeltFromPtr(storageLocation)
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
+		if !errors.Is(err, state.ErrContractNotDeployed) {
 			context.log.Errorw("JunoStateGetStorageAt failed to read contract storage", "err", err)
 			return 0
 		}
-		val = &felt.Zero
+		val = felt.Zero
 	}
 
-	return fillBufferWithFelt(val, buffer)
+	return fillBufferWithFelt(&val, buffer)
 }
 
 //export JunoStateGetNonceAt
@@ -46,10 +47,10 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 			context.log.Errorw("JunoStateGetNonceAt failed to read contract nonce", "err", err)
 			return 0
 		}
-		val = &felt.Zero
+		val = felt.Zero
 	}
 
-	return fillBufferWithFelt(val, buffer)
+	return fillBufferWithFelt(&val, buffer)
 }
 
 //export JunoStateGetClassHashAt
@@ -63,10 +64,10 @@ func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer u
 			context.log.Errorw("JunoStateGetClassHashAt failed to read contract class", "err", err)
 			return 0
 		}
-		val = &felt.Zero
+		val = felt.Zero
 	}
 
-	return fillBufferWithFelt(val, buffer)
+	return fillBufferWithFelt(&val, buffer)
 }
 
 //export JunoStateGetCompiledClass

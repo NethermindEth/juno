@@ -12,6 +12,7 @@ import (
 )
 
 var feltOne = new(felt.Felt).SetUint64(1)
+var _ state.StateReader = &PendingState{}
 
 type Pending struct {
 	Block       *core.Block
