@@ -44,7 +44,7 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
 			Version:       new(felt.Felt).SetUint64(1),
 			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(0),
+			Nonce:         new(felt.Felt).SetUint64(1),
 			Signature: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
 				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),

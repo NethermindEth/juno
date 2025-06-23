@@ -21,21 +21,21 @@
 			]
 		},
 		"0x101": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x01a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
 			"constructor_args": [
 				"0x16d03d341717ab11083a481f53278d8e54f610af815cbdab4035b2df283fcc0",
 				"0x0"
 			]
 		},
 		"0x102": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x01a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
 			"constructor_args": [
 				"0x3bc7ab4ca475e24a0053db47c3e5a2a53264a30639d8b2bd0a08407da3ca0c",
 				"0x0"
 			]
 		},
 		"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x01a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
 			"constructor_args": [
 				"0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f",
 				"0x0"
@@ -48,7 +48,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x101",
-				"0x56bc75e2d63100000",
+				"0x1111111",
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -58,7 +58,27 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x102",
-				"0x56bc75e2d63100000",
+				"0x1111111",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x103",
+				"0x1111111",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x104",
+				"0x1111111",
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -68,17 +88,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
-				"0x56bc75e2d63100000",
-				"0x0"
-			],
-			"caller_address": "0x0"
-		},
-		{
-			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
-			"calldata": [
-				"0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
-				"0x56bc75e2d63100000",
+				"0x11111112222222",
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -114,19 +124,43 @@
 			"constructor_calldata": []
 		},
 		{
-			"transaction_hash": "0xc7ce47912f2d0931fb693882d3f5dfca884e196d71b7771c53121c3f717f3",
-			"max_fee": "0x5af3107a4000",
-			"version": "0x1",
-			"signature": [
-				"0x3d961ed4d414e60aba73519bae95b45c50a24b07e17bf7d3b1a0f22a4cce42a",
-				"0x4ae418b5d51355c3b8bfc58b0ceab6421ca047884b4d9e1e5703e753a9d76ba"
-			],
-			"nonce": "0x1",
 			"type": "INVOKE",
-			"sender_address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
-			"calldata": [
-				"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
-			]
+			"transaction_hash": "0x7966d2619e2e4ebae2c3ea75f60e36b492f281b9fb22581b8cb810832075c1",
+			"version": "0x3",
+                "sender_address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+                "signature": [
+                    "0x286c762c9d8422ba258207f7f6b132b0ff3166ea0a6c581a1da4ad1cfc86469",
+                    "0x2dc1914080d58b743c317ef5fa879fa0df71520bf8205fe5e3198d9382e36e1"
+                ],
+                "calldata": [
+                    "0x1",
+                    "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                    "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+                    "0x3",
+                    "0x105",
+                    "0x111111122",
+                    "0x0"
+                ],
+                "nonce": "0x0",
+                "resource_bounds": {
+                    "l1_data_gas": {
+                        "max_amount": "0x0",
+                        "max_price_per_unit": "0x0"
+                    },
+                    "l1_gas": {
+                        "max_amount": "0x0",
+                        "max_price_per_unit": "0x0"
+                    },
+                    "l2_gas": {
+                        "max_amount": "0x0",
+                        "max_price_per_unit": "0x0"
+                    }
+                },
+                "tip": "0x0",
+                "nonce_data_availability_mode": "L1",
+                "fee_data_availability_mode": "L1",
+                "account_deployment_data": [],
+                "paymaster_data": []
 		}
 	]
 }
