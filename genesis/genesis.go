@@ -220,6 +220,7 @@ func deployContract(
 
 	result, err := v.Call(callInfo, blockInfo, genesisState, network, maxSteps,
 		classhashToSierraVersion[classHash], true, true)
+	fmt.Println(" ------- Call err", err)
 	if err != nil {
 		return fmt.Errorf("execute constructor call: %v", err)
 	}
@@ -321,7 +322,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, network, true, false, true, true, false)
+		&blockInfo, genesisState, network, true, true, true, true, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}
