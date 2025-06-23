@@ -119,8 +119,8 @@
 			"version": "0x3",
                 "sender_address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
                 "signature": [
-                    "0x2df74069c1e88187be5f091cfdd5cddaa1b8359d2b71db631f0ea0d47a8ebe6",
-                    "0x78b112b02974ba8a960a7b95966153ff7cf1552abb06a15074a7baba093867c"
+                    "0x286c762c9d8422ba258207f7f6b132b0ff3166ea0a6c581a1da4ad1cfc86469",
+                    "0x2dc1914080d58b743c317ef5fa879fa0df71520bf8205fe5e3198d9382e36e1"
                 ],
                 "calldata": [
                     "0x1",
@@ -133,7 +133,18 @@
                 ],
                 "nonce": "0x0",
                 "resource_bounds": {
-                    
+                    "l1_data_gas": {
+                        "max_amount": "0x1",
+                        "max_price_per_unit": "0x1"
+                    },
+                    "l1_gas": {
+                        "max_amount": "0x1",
+                        "max_price_per_unit": "0x1"
+                    },
+                    "l2_gas": {
+                        "max_amount": "0x1",
+                        "max_price_per_unit": "0x1"
+                    }
                 },
                 "tip": "0x0",
                 "nonce_data_availability_mode": "L1",
