@@ -105,7 +105,7 @@ func (p *proposer) ProposalInit() (types.ProposalInit, error) {
 	pendingBlock := p.builder.PendingBlock()
 
 	return types.ProposalInit{
-		BlockNum: pendingBlock.Number,
+		BlockNum: types.Height(pendingBlock.Number),
 		Proposer: *pendingBlock.SequencerAddress,
 	}, nil
 }
