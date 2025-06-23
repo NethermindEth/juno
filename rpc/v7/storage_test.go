@@ -47,10 +47,10 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
@@ -59,7 +59,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("non-existent key", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(&felt.Zero, nil)
 
@@ -69,7 +69,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("internal error while retrieving key", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("some internal error"))
 
@@ -81,7 +81,7 @@ func TestStorageAt(t *testing.T) {
 	expectedStorage := new(felt.Felt).SetUint64(1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
@@ -91,7 +91,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
@@ -101,7 +101,7 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 

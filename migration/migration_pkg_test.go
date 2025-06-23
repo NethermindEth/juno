@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
@@ -175,7 +176,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		for _, bucket := range buckets {
 			for i := range 5 {
-				var coreNode trie.Node
+				var coreNode trienode.Node
 				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
 				require.NoError(t, err)
 			}

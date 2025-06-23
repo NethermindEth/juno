@@ -137,7 +137,7 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, *jsonrpc.Error) {
+func (h *Handler) stateByBlockID(blockID *BlockID) (state.StateReader, *jsonrpc.Error) {
 	var reader state.StateReader
 	var err error
 	switch blockID.Type() {

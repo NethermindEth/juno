@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
+	state "github.com/NethermindEth/juno/core/state"
 	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -85,13 +86,12 @@ func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
 }
 
 // PendingState mocks base method.
-func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
+func (m *MockSyncReader) PendingState() (state.StateReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingState")
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(state.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PendingState indicates an expected call of PendingState.

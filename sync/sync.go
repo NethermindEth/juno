@@ -109,8 +109,8 @@ func (n *NoopSynchronizer) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (state.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
+func (n *NoopSynchronizer) PendingState() (state.StateReader, error) {
+	return nil, errors.New("PendingState() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates

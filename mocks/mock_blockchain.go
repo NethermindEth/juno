@@ -15,6 +15,7 @@ import (
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	state "github.com/NethermindEth/juno/core/state"
 	utils "github.com/NethermindEth/juno/utils"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"
@@ -150,13 +151,12 @@ func (mr *MockReaderMockRecorder) Head() *gomock.Call {
 }
 
 // HeadState mocks base method.
-func (m *MockReader) HeadState() (core.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) HeadState() (state.StateReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HeadState")
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(blockchain.StateCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(state.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // HeadState indicates an expected call of HeadState.
@@ -196,10 +196,10 @@ func (mr *MockReaderMockRecorder) Height() *gomock.Call {
 }
 
 // L1HandlerTxnHash mocks base method.
-func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) {
+func (m *MockReader) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1HandlerTxnHash", msgHash)
-	ret0, _ := ret[0].(*felt.Felt)
+	ret0, _ := ret[0].(felt.Felt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -211,10 +211,10 @@ func (mr *MockReaderMockRecorder) L1HandlerTxnHash(msgHash any) *gomock.Call {
 }
 
 // L1Head mocks base method.
-func (m *MockReader) L1Head() (*core.L1Head, error) {
+func (m *MockReader) L1Head() (core.L1Head, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1Head")
-	ret0, _ := ret[0].(*core.L1Head)
+	ret0, _ := ret[0].(core.L1Head)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -257,13 +257,12 @@ func (mr *MockReaderMockRecorder) Receipt(hash any) *gomock.Call {
 }
 
 // StateAtBlockHash mocks base method.
-func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) StateAtBlockHash(blockHash *felt.Felt) (state.StateReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockHash", blockHash)
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(blockchain.StateCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(state.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // StateAtBlockHash indicates an expected call of StateAtBlockHash.
@@ -273,13 +272,12 @@ func (mr *MockReaderMockRecorder) StateAtBlockHash(blockHash any) *gomock.Call {
 }
 
 // StateAtBlockNumber mocks base method.
-func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (core.StateReader, blockchain.StateCloser, error) {
+func (m *MockReader) StateAtBlockNumber(blockNumber uint64) (state.StateReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StateAtBlockNumber", blockNumber)
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(blockchain.StateCloser)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(state.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // StateAtBlockNumber indicates an expected call of StateAtBlockNumber.

@@ -310,7 +310,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	declaredClass, err := state.Class(classHash)
+	declaredClass, err := state.Class(&classHash)
 	if err != nil {
 		return nil, rpccore.ErrClassHashNotFound
 	}
@@ -326,7 +326,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		ContractAddress: &funcCall.ContractAddress,
 		Selector:        &funcCall.EntryPointSelector,
 		Calldata:        funcCall.Calldata,
-		ClassHash:       classHash,
+		ClassHash:       &classHash,
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,

@@ -49,7 +49,7 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 		return nil, rpccore.ErrInternal
 	}
 
-	return value, nil
+	return &value, nil
 }
 
 type StorageProofResult struct {
