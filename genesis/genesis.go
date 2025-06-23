@@ -115,15 +115,17 @@ func GenesisStateDiff(
 		return core.StateDiff{}, nil, err
 	}
 
+	fmt.Println(" -- deployContracts")
 	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, &genesisState, classhashToSierraVersion)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
-
+	fmt.Println(" -- executeFunctionCalls")
 	if err := executeFunctionCalls(config, v, network, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
+	fmt.Println(" -- executeTransactions")
 	if err := executeTransactions(config, v, network, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
@@ -280,9 +282,11 @@ func executeTransactions(
 
 	coreTxns := make([]core.Transaction, len(config.Txns))
 	for i := range config.Txns {
+
 		txn := &config.Txns[i]
 		switch txn.Type {
 		case rpc.TxnInvoke:
+			fmt.Println(" -- -- txn IVNOKE")
 			coreTxns[i] = &core.InvokeTransaction{
 				TransactionHash:       txn.Hash,
 				CallData:              *txn.CallData,
@@ -301,6 +305,7 @@ func executeTransactions(
 				FeeDAMode:             core.DataAvailabilityMode(*txn.FeeDAMode),
 			}
 		case rpc.TxnDeployAccount:
+			fmt.Println(" -- -- txn Deploy")
 			coreTxns[i] = &core.DeployAccountTransaction{
 				DeployTransaction: core.DeployTransaction{
 					TransactionHash:     txn.Hash,
