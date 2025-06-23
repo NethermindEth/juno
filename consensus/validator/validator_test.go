@@ -55,7 +55,7 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, true)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
 	head, err := seq.RunOnce()
@@ -138,14 +138,13 @@ func TestProposal(t *testing.T) {
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x101"
 	invokeTxn := core.InvokeTransaction{
-		// Type:          rpc.TxnInvoke,
-		TransactionHash: utils.HexToFelt(t, "0x1"),
+		TransactionHash: utils.HexToFelt(t, "0x7966d2619e2e4ebae2c3ea75f60e36b492f281b9fb22581b8cb810832075c1"),
 		SenderAddress:   utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		Nonce:           new(felt.Felt).SetUint64(1),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-			utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
+			utils.HexToFelt(t, "0x286c762c9d8422ba258207f7f6b132b0ff3166ea0a6c581a1da4ad1cfc86469"),
+			utils.HexToFelt(t, "0x2dc1914080d58b743c317ef5fa879fa0df71520bf8205fe5e3198d9382e36e1"),
 		},
 		CallData: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
@@ -190,7 +189,7 @@ func TestProposal(t *testing.T) {
 		EventCommitment:       *utils.HexToFelt(t, "0x366f7f8dd503ee94f626be1575fbd579692bb990be92b6c5b65b98a6c4faa9a"),
 		ReceiptCommitment:     *utils.HexToFelt(t, "0x513b7abd6c2952930a937580e14a05b0cdd1c69b570862194a023bf85090464"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000300000000000000048000000000000000"),
-		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(0),
+		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L1DAMode:              blockInfo.L1DAMode,
 	}
