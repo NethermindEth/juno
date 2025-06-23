@@ -127,7 +127,7 @@ func TestProposal(t *testing.T) {
 		BlockNumber:       head.Number + 1,
 		Builder:           *proposerAddr,
 		Timestamp:         1700474724,
-		L2GasPriceFRI:     *new(felt.Felt).SetUint64(10),
+		L2GasPriceFRI:     *new(felt.Felt).SetUint64(1),
 		L1GasPriceWEI:     *new(felt.Felt).SetUint64(11),
 		L1DataGasPriceWEI: *new(felt.Felt).SetUint64(12),
 		EthToStrkRate:     *new(felt.Felt).SetUint64(13),
@@ -136,27 +136,12 @@ func TestProposal(t *testing.T) {
 	validator.BlockInfo(&blockInfo)
 
 	// Step 3: TransactionBatch
-	// Invoke txn: transfer tokens to account "0x102"
-	resBounds := map[core.Resource]core.ResourceBounds{
-		core.ResourceL1Gas: core.ResourceBounds{
-			MaxAmount:       128,
-			MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
-		},
-		core.ResourceL2Gas: core.ResourceBounds{
-			MaxAmount:       440001,
-			MaxPricePerUnit: utils.HexToFelt(t, "0x11"),
-		},
-		core.ResourceL1DataGas: core.ResourceBounds{
-			MaxAmount:       128,
-			MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
-		},
-	}
+	// Invoke txn: transfer tokens to account "0x101"
 	invokeTxn := core.InvokeTransaction{
 		// Type:          rpc.TxnInvoke,
 		TransactionHash: utils.HexToFelt(t, "0x1"),
 		SenderAddress:   utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		MaxFee:          utils.HexToFelt(t, "0x12345"),
 		Nonce:           new(felt.Felt).SetUint64(1),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
@@ -171,7 +156,20 @@ func TestProposal(t *testing.T) {
 			utils.HexToFelt(t, "0x1234"),
 			utils.HexToFelt(t, "0x0"),
 		},
-		ResourceBounds:        resBounds,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: core.ResourceBounds{
+				MaxAmount:       128,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+			},
+			core.ResourceL2Gas: core.ResourceBounds{
+				MaxAmount:       440001,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x2"),
+			},
+			core.ResourceL1DataGas: core.ResourceBounds{
+				MaxAmount:       129,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x3"),
+			},
+		},
 		Tip:                   0,
 		PaymasterData:         []*felt.Felt{},
 		AccountDeploymentData: []*felt.Felt{},
@@ -192,7 +190,7 @@ func TestProposal(t *testing.T) {
 		EventCommitment:       *utils.HexToFelt(t, "0x366f7f8dd503ee94f626be1575fbd579692bb990be92b6c5b65b98a6c4faa9a"),
 		ReceiptCommitment:     *utils.HexToFelt(t, "0x513b7abd6c2952930a937580e14a05b0cdd1c69b570862194a023bf85090464"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000300000000000000048000000000000000"),
-		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
+		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(0),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L1DAMode:              blockInfo.L1DAMode,
 	}
