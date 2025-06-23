@@ -120,6 +120,8 @@ type Node struct {
 	log           utils.Logger
 
 	version string
+
+	httpSwappable *migrationAwareHandler
 }
 
 // New sets the config and logger to the StarknetNode.
@@ -282,13 +284,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
-	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
-		httpHandlers := map[string]http.HandlerFunc{
-			"/ready/sync": readinessHandlers.HandleReadySync,
-		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
-	}
 	if cfg.Websocket {
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
@@ -338,6 +333,18 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		blockchain:    chain,
 		services:      services,
 		earlyServices: earlyServices,
+	}
+
+	if cfg.HTTP {
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		httpHandlers := map[string]http.HandlerFunc{
+			"/ready/sync": readinessHandlers.HandleReadySync,
+		}
+		httpHandler := makeRPCHandler(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable)
+		migrationHandler := newMigrationAwareHandler(httpHandler)
+		httpService := makeHTTPService(cfg.HTTPHost, cfg.HTTPPort, migrationHandler)
+		n.earlyServices = append(n.earlyServices, httpService)
+		n.httpSwappable = migrationHandler
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -435,6 +442,10 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.httpSwappable != nil {
+		n.httpSwappable.completeMigration()
 	}
 
 	if n.cfg.Sequencer {
