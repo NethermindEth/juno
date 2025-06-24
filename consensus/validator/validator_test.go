@@ -168,27 +168,45 @@ func TestProposal(t *testing.T) {
 
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"
-	invokeTxn2 := core.InvokeTransaction{
-		TransactionHash: utils.HexToFelt(t, "0x722e584df0c18fcda54552ae5055f6c1fda331c4ae5de7ec5fc0376ae8b9a7f"),
-		SenderAddress:   utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-		Version:         new(core.TransactionVersion).SetUint64(1),
-		MaxFee:          utils.HexToFelt(t, "0xaeb1bacb2c"),
-		Nonce:           new(felt.Felt).SetUint64(1),
+	invokeTxn := core.InvokeTransaction{
+		TransactionHash: utils.HexToFelt(t, "0x7e321883d6d23f793507e329efc318be2f26da77605a59c5b0c8e47659d8790"),
+		SenderAddress:   utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		Nonce:           new(felt.Felt).SetUint64(0),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
-			utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+			utils.HexToFelt(t, "0x6768957ac1d23dd46ff88589a829d639acb3db2dd2f160b2f102ae49c8f9733"),
+			utils.HexToFelt(t, "0x302f3eff94d9fe7a4fab87de2aa779171744a15e4166a168a1d589db667f3b6"),
 		},
 		CallData: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
 			utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 			utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 			utils.HexToFelt(t, "0x3"),
-			utils.HexToFelt(t, "0x102"),
-			utils.HexToFelt(t, "0x12345678"),
+			utils.HexToFelt(t, "0x101"),
+			utils.HexToFelt(t, "0x1234"),
 			utils.HexToFelt(t, "0x0"),
 		},
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: core.ResourceBounds{
+				MaxAmount:       296,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x128"),
+			},
+			core.ResourceL2Gas: core.ResourceBounds{
+				MaxAmount:       440001,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x128"),
+			},
+			core.ResourceL1DataGas: core.ResourceBounds{
+				MaxAmount:       296,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x128"),
+			},
+		},
+		Tip:                   0,
+		PaymasterData:         []*felt.Felt{},
+		AccountDeploymentData: []*felt.Felt{},
+		NonceDAMode:           core.DAModeL1,
+		FeeDAMode:             core.DAModeL1,
 	}
-	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn2}}))
+	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn}}))
 
 	nonEmptyCommitment := types.ProposalCommitment{
 		BlockNumber:      head.Number + 1,
