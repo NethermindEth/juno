@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -136,7 +135,7 @@ func TestDatabase(t *testing.T) {
 
 	t.Run("panics when cache size is too large but not max uint64", func(t *testing.T) {
 		assert.PanicsWithValue(t, "cache size too large: uint64 to int conversion would overflow", func() {
-			NewCleanCache(math.MaxInt64 + 1)
+			newCleanCache(math.MaxInt64 + 1)
 		})
 	})
 
@@ -349,7 +348,9 @@ func TestDatabase(t *testing.T) {
 			contractRootBlob := createBinaryNodeBlob(leaf1Hash, leaf2Hash)
 			classRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
 			contractRootHash := crypto.Poseidon(leaf1Hash, leaf2Hash)
-			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, classRootHash, contractRootHash)
+
+			val := append(classRootHash.Marshal(), contractRootHash.Marshal()...)
+			err := memDB.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 			require.NoError(t, err)
 
 			err = trieutils.WriteNodeByHash(memDB, db.ClassTrie, &felt.Zero, &rootPath, classRootHash, false, classRootBlob)
@@ -357,7 +358,7 @@ func TestDatabase(t *testing.T) {
 			err = trieutils.WriteNodeByHash(memDB, db.ContractTrieContract, &felt.Zero, &rootPath, contractRootHash, false, contractRootBlob)
 			require.NoError(t, err)
 
-			newClassRootNode, newContractRootNode, err := database.GetTrieRootNodes(stateCommitment)
+			newClassRootNode, newContractRootNode, err := database.GetTrieRootNodes(classRootHash, contractRootHash)
 			require.NoError(t, err)
 			assert.NotNil(t, newClassRootNode)
 			assert.NotNil(t, newContractRootNode)
@@ -368,15 +369,6 @@ func TestDatabase(t *testing.T) {
 			assert.True(t, contractRootHash.Equal(&newContractRootHash))
 		})
 
-		t.Run("returns error when state commitment not found", func(t *testing.T) {
-			memDB := memory.New()
-			database := New(memDB, nil)
-
-			stateCommitment := new(felt.Felt).SetUint64(1000)
-			_, _, err := database.GetTrieRootNodes(stateCommitment)
-			assert.Error(t, err)
-		})
-
 		t.Run("returns error when root nodes not found", func(t *testing.T) {
 			memDB := memory.New()
 			database := New(memDB, nil)
@@ -385,10 +377,11 @@ func TestDatabase(t *testing.T) {
 			classRootHash := new(felt.Felt).SetUint64(2000)
 			contractRootHash := new(felt.Felt).SetUint64(3000)
 
-			err := core.WriteClassAndContractRootByStateCommitment(memDB, stateCommitment, classRootHash, contractRootHash)
+			val := append(classRootHash.Marshal(), contractRootHash.Marshal()...)
+			err := memDB.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
 			require.NoError(t, err)
 
-			_, _, err = database.GetTrieRootNodes(stateCommitment)
+			_, _, err = database.GetTrieRootNodes(classRootHash, contractRootHash)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), "class root node not found")
 		})

@@ -196,3 +196,14 @@ func decodeEdgeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*E
 	}
 	return edge, nil
 }
+
+func DecodeTriesRoots(val []byte) (felt.Felt, felt.Felt, error) {
+	var classRoot, contractRoot felt.Felt
+
+	if len(val) != 2*felt.Bytes {
+		return felt.Zero, felt.Zero, fmt.Errorf("invalid state hash value length")
+	}
+	classRoot.SetBytes(val[:felt.Bytes])
+	contractRoot.SetBytes(val[felt.Bytes:])
+	return classRoot, contractRoot, nil
+}

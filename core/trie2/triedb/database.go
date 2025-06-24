@@ -23,21 +23,25 @@ type Database struct {
 }
 
 func New(disk db.KeyValueStore, config *Config) (*Database, error) {
+	var triedb database.TrieDB
+	var err error
 	// Default to path config if not provided
 	if config == nil {
-		config = &Config{
-			PathConfig: &pathdb.Config{},
-			HashConfig: nil,
+		triedb, err = pathdb.New(disk, nil)
+		if err != nil {
+			return nil, err
 		}
+	} else if config.PathConfig != nil {
+		triedb, err = pathdb.New(disk, config.PathConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else if config.HashConfig != nil {
+		triedb = hashdb.New(disk, config.HashConfig)
 	}
 
-	pathdb, err := pathdb.New(disk, config.PathConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Database{ // TODO: handle both pathdb and hashdb
-		triedb: pathdb,
+	return &Database{
+		triedb: triedb,
 		config: config,
 	}, nil
 }

@@ -56,12 +56,13 @@ func _BucketNoOp() {
 	_ = x[ClassTrie-(29)]
 	_ = x[ContractTrieContract-(30)]
 	_ = x[ContractTrieStorage-(31)]
-	_ = x[StateHashToTrieRoots-(32)]
-	_ = x[StateID-(33)]
-	_ = x[PersistedStateID-(34)]
-	_ = x[TrieJournal-(35)]
-	_ = x[AggregatedBloomFilters-(36)]
-	_ = x[RunningEventFilter-(37)]
+	_ = x[Contract-(32)]
+	_ = x[StateHashToTrieRoots-(33)]
+	_ = x[StateID-(34)]
+	_ = x[PersistedStateID-(35)]
+	_ = x[TrieJournal-(36)]
+	_ = x[AggregatedBloomFilters-(37)]
+	_ = x[RunningEventFilter-(38)]
 }
 
 var _BucketValues = []Bucket{StateTrie, Peer, ContractClassHash, ContractStorage, Class, ContractNonce, ChainHeight, BlockHeaderNumbersByHash, BlockHeadersByNumber, TransactionBlockNumbersAndIndicesByHash, TransactionsByBlockNumberAndIndex, ReceiptsByBlockNumberAndIndex, StateUpdatesByBlockNumber, ClassesTrie, ContractStorageHistory, ContractNonceHistory, ContractClassHashHistory, ContractDeploymentHeight, L1Height, SchemaVersion, Unused, BlockCommitments, Temporary, SchemaIntermediateState, L1HandlerTxnHashByMsgHash, MempoolHead, MempoolTail, MempoolLength, MempoolNode, ClassTrie, ContractTrieContract, ContractTrieStorage, StateHashToTrieRoots, StateID, PersistedStateID, TrieJournal, AggregatedBloomFilters, RunningEventFilter}

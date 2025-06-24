@@ -343,11 +343,6 @@ func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt
 	return oldClassHash, nil
 }
 
-type DeclaredClass struct {
-	At    uint64
-	Class Class
-}
-
 func (s *State) putClass(classHash *felt.Felt, class Class, declaredAt uint64) error {
 	classKey := db.ClassKey(classHash)
 

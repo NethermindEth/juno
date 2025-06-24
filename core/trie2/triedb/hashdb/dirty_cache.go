@@ -6,22 +6,22 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
-type DirtyCache struct {
+type dirtyCache struct {
 	classNodes           map[string]trienode.TrieNode
 	contractNodes        map[string]trienode.TrieNode
 	contractStorageNodes map[felt.Felt]map[string]trienode.TrieNode
 	size                 int
 }
 
-func NewDirtyCache() *DirtyCache {
-	return &DirtyCache{
+func newDirtyCache() *dirtyCache {
+	return &dirtyCache{
 		classNodes:           make(map[string]trienode.TrieNode),
 		contractNodes:        make(map[string]trienode.TrieNode),
 		contractStorageNodes: make(map[felt.Felt]map[string]trienode.TrieNode),
 	}
 }
 
-func (c *DirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (c *dirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 
@@ -39,7 +39,7 @@ func (c *DirtyCache) putNode(owner *felt.Felt, path *trieutils.Path, hash *felt.
 	}
 }
 
-func (c *DirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool) (trienode.TrieNode, bool) {
+func (c *dirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool) (trienode.TrieNode, bool) {
 	key := nodeKey(path, hash)
 	keyStr := string(key)
 
@@ -62,11 +62,11 @@ func (c *DirtyCache) getNode(owner *felt.Felt, path *trieutils.Path, hash *felt.
 	return node, ok
 }
 
-func (c *DirtyCache) Len() int {
+func (c *dirtyCache) len() int {
 	return len(c.classNodes) + len(c.contractNodes) + len(c.contractStorageNodes)
 }
 
-func (c *DirtyCache) reset() {
+func (c *dirtyCache) reset() {
 	c.classNodes = make(map[string]trienode.TrieNode)
 	c.contractNodes = make(map[string]trienode.TrieNode)
 	c.contractStorageNodes = make(map[felt.Felt]map[string]trienode.TrieNode)
