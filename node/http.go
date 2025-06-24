@@ -9,6 +9,7 @@ import (
 	"net/http/pprof"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -88,9 +89,35 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	httpHandlers map[string]http.HandlerFunc, log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
-) *httpService {
+// migrationAwareHandler allows serving 503 responses during migration
+// and switching to normal RPC handling after migration completes.
+type migrationAwareHandler struct {
+	migrationComplete atomic.Bool
+	rpcHandler        http.Handler
+}
+
+func (h *migrationAwareHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !h.migrationComplete.Load() {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Database migration in progress"))
+		return
+	}
+	h.rpcHandler.ServeHTTP(w, r)
+}
+
+func (h *migrationAwareHandler) completeMigration() {
+	h.migrationComplete.Store(true)
+}
+
+func newMigrationAwareHandler(rpcHandler http.Handler) *migrationAwareHandler {
+	return &migrationAwareHandler{
+		rpcHandler: rpcHandler,
+	}
+}
+
+func makeRPCHandler(host string, port uint16, servers map[string]*jsonrpc.Server, httpHandlers map[string]http.HandlerFunc,
+	log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool) http.Handler {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
 		listener = makeHTTPMetrics()
@@ -112,6 +139,13 @@ func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Serve
 	if corsEnabled {
 		handler = cors.Default().Handler(handler)
 	}
+	return handler
+}
+
+func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
+	httpHandlers map[string]http.HandlerFunc, log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
+) *httpService {
+	handler := makeRPCHandler(host, port, servers, httpHandlers, log, metricsEnabled, corsEnabled)
 	return makeHTTPService(host, port, handler)
 }
 

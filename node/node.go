@@ -119,7 +119,8 @@ type Node struct {
 	services      []service.Service
 	log           utils.Logger
 
-	version string
+	version       string
+	httpSwappable *migrationAwareHandler
 }
 
 // New sets the config and logger to the StarknetNode.
@@ -146,6 +147,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	services := make([]service.Service, 0)
 	earlyServices := make([]service.Service, 0)
+	var httpSwappable *migrationAwareHandler
 
 	chain := blockchain.New(database, &cfg.Network)
 
@@ -287,7 +289,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		httpHandlers := map[string]http.HandlerFunc{
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		httpService, migrationHandler := makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable)
+		earlyServices = append(earlyServices, httpService)
+		httpSwappable = migrationHandler
 	}
 	if cfg.Websocket {
 		services = append(services,
@@ -338,6 +342,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		blockchain:    chain,
 		services:      services,
 		earlyServices: earlyServices,
+		httpSwappable: httpSwappable,
 	}
 
 	if !n.cfg.DisableL1Verification {
@@ -435,6 +440,10 @@ func (n *Node) Run(ctx context.Context) {
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.httpSwappable != nil {
+		n.httpSwappable.completeMigration()
 	}
 
 	if n.cfg.Sequencer {
