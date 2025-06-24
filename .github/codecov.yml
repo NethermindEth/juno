@@ -13,7 +13,7 @@ ignore:
   - l1/internal/contract/starknet.go
   - grpc/gen/*
   - vm
-  - p2p
+  - starknet-p2pspecs
   - adapters/core2p2p
   - adapters/p2p2core
   - docs
