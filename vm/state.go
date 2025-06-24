@@ -6,6 +6,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,7 +21,6 @@ func JunoFree(ptr unsafe.Pointer) {
 //export JunoStateGetStorageAt
 func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLocation, buffer unsafe.Pointer) C.int {
 	context := unwrapContext(readerHandle)
-
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
 	storageLocationFelt := makeFeltFromPtr(storageLocation)
 	val, err := context.state.ContractStorage(contractAddressFelt, storageLocationFelt)
@@ -32,6 +32,7 @@ func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLoc
 		val = &felt.Zero
 	}
 
+	fmt.Println(" [JunoStateGetStorageAt] contractAddressFelt", contractAddressFelt.String(), storageLocationFelt.String(), val.String())
 	return fillBufferWithFelt(val, buffer)
 }
 

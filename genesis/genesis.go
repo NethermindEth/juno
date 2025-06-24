@@ -123,7 +123,7 @@ func GenesisStateDiff(
 	if err := executeFunctionCalls(config, v, network, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
 		return core.StateDiff{}, nil, err
 	}
-
+	fmt.Println(" ]]]] executeTransactions [[[[")
 	if err := executeTransactions(config, v, network, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}

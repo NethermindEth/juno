@@ -55,7 +55,7 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, true)
+	testBuilder := builder.New(bc, vm.New(false, log), log, false)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
 	head, err := seq.RunOnce()

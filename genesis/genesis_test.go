@@ -1,6 +1,7 @@
 package genesis_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/genesis"
@@ -38,8 +39,9 @@ func TestGenesisStateDiff(t *testing.T) {
 		tokensSentByInvoke3Txn := 0
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
-		for _, v := range strkTokenDiffs {
+		for k, v := range strkTokenDiffs {
 			if v.Equal(utils.HexToFelt(t, "0x1111111")) { // see genesis_prefunded_accounts.json
+				fmt.Println(" [Genesis] ", k.String(), v.String())
 				numFundedAccounts++
 			}
 			if v.Equal(utils.HexToFelt(t, "0x54321")) { // see genesis_prefunded_accounts.json
@@ -53,5 +55,6 @@ func TestGenesisStateDiff(t *testing.T) {
 			stateDiff.Nonces[*utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923")].String(),
 			"0x1")
 		require.Equal(t, 1, tokensSentByInvoke3Txn)
+		panic(1)
 	})
 }

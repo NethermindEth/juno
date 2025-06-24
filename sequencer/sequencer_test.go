@@ -79,10 +79,10 @@ func getGenesisSequencer(
 			ResourceBounds: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
 					MaxAmount:       utils.HexToFelt(t, "0x1234"),
-					MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+					MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       utils.HexToFelt(t, "0x123456"),
+					MaxAmount:       utils.HexToFelt(t, "0x123"),
 					MaxPricePerUnit: utils.HexToFelt(t, "0x2"),
 				},
 				L1DataGas: &rpc.ResourceBounds{

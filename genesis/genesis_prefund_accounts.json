@@ -62,8 +62,8 @@
       "entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
       "calldata": [
         "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
-        "0x111111111111111",
-        "0x0"
+        "0x11111111111111122222222222",
+        "0x11111111111111122222222222"
       ],
       "caller_address": "0x0"
     },
@@ -72,8 +72,8 @@
       "entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
       "calldata": [
         "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
-        "0x111111111111111",
-        "0x0"
+        "0x11111111111111122222222222",
+        "0x11111111111111122222222222"
       ],
       "caller_address": "0x0"
     },
@@ -136,17 +136,7 @@
     }
   ],
   "transactions": [
-    {
-      "transaction_hash": "0x199f9d79d02cb7900556eb1a77f411abf807bbbe6ad2841bd72b72e3d290a8c",
-      "max_fee": "0x69c71f05154",
-      "version": "0x1",
-      "signature": [],
-      "nonce": "0x0",
-      "type": "DEPLOY_ACCOUNT",
-      "class_hash": "0x402d6191ebe3ea289789edd160f3afa6600a389f1aad0ab7709b830653c6f08",
-      "contract_address_salt": "0x0",
-      "constructor_calldata": []
-    },
+
     {
       "type": "INVOKE",
       "transaction_hash": "0x7966d2619e2e4ebae2c3ea75f60e36b492f281b9fb22581b8cb810832075c1",
