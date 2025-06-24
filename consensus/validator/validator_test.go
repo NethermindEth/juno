@@ -132,7 +132,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x27a852d180c77e0b7bc2b3e9b635b625db3ae48f2c469c93930c1889ae2d09f")
+	block1Hash, err := new(felt.Felt).SetString("0x9979aca51e836c8fd0f40a777980210120998a236a23d74615219f557a09f1")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -197,10 +197,10 @@ func TestProposal(t *testing.T) {
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
 
-		StateDiffCommitment:   *utils.HexToFelt(t, "0x3248f1e62ba170555f7caa03c6f6c89843d5bfdafbf16384210544ef0b548e1"),
+		StateDiffCommitment:   *utils.HexToFelt(t, "0x3362432493bbee0f2469221a15f474e5e03c74fe76ea7ba7f97e7600c07a719"),
 		TransactionCommitment: *utils.HexToFelt(t, "0x4ba493c0b6605d0a7af00e6d401e937989192bb10ba3cc940ee509fee3e664b"),
-		EventCommitment:       *utils.HexToFelt(t, "0x366f7f8dd503ee94f626be1575fbd579692bb990be92b6c5b65b98a6c4faa9a"),
-		ReceiptCommitment:     *utils.HexToFelt(t, "0x513b7abd6c2952930a937580e14a05b0cdd1c69b570862194a023bf85090464"),
+		EventCommitment:       *utils.HexToFelt(t, "0x9c4350067ba4cc77274d9baa723b3547359c24765d1a4e92c82964ebbf8f06"),
+		ReceiptCommitment:     *utils.HexToFelt(t, "0x61f349c979d244924d73d834ec7fedfe32d57171a95adb2786dac1029b8c21a"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000300000000000000048000000000000000"),
 		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
