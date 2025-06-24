@@ -81,18 +81,18 @@ func TestPendingState(t *testing.T) {
 
 			cH, cErr := state.ContractClassHash(&felt.Zero)
 			require.NoError(t, cErr)
-			assert.Equal(t, expectedClassHash, cH)
+			assert.Equal(t, *expectedClassHash, cH)
 		})
 	})
 	t.Run("ContractNonce", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
 			cN, cErr := state.ContractNonce(deployedAddr)
 			require.NoError(t, cErr)
-			assert.Equal(t, new(felt.Felt).SetUint64(44), cN)
+			assert.Equal(t, *new(felt.Felt).SetUint64(44), cN)
 
 			cN, cErr = state.ContractNonce(deployedAddr2)
 			require.NoError(t, cErr)
-			assert.Equal(t, &felt.Zero, cN)
+			assert.Equal(t, felt.Zero, cN)
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedNonce := new(felt.Felt).SetUint64(1337)

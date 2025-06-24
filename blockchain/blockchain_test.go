@@ -671,7 +671,7 @@ func TestL1Update(t *testing.T) {
 			require.NoError(t, chain.SetL1Head(head))
 			got, err := chain.L1Head()
 			require.NoError(t, err)
-			assert.Equal(t, *head, got)
+			assert.Equal(t, head, got)
 		})
 	}
 }
