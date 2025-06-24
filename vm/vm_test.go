@@ -32,6 +32,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	stateDB := state.NewStateDB(testDB, triedb)
 	testState, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),

@@ -11,8 +11,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
-var feltOne = new(felt.Felt).SetUint64(1)
-var _ state.StateReader = &PendingState{}
+var (
+	feltOne                   = new(felt.Felt).SetUint64(1)
+	_       state.StateReader = &PendingState{}
+)
 
 type Pending struct {
 	Block       *core.Block

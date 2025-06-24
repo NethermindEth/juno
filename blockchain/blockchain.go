@@ -593,7 +593,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 ) error {
-	//TODO(maksym): how to retrieve the state root, that we want to use
+	// TODO(maksym): how to retrieve the state root, that we want to use
 	state, err := state.New(stateUpdate.OldRoot, b.StateDB)
 	if err != nil {
 		return err

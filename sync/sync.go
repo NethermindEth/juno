@@ -658,8 +658,6 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pending.Block
 }
 
-var noop = func() error { return nil }
-
 // PendingState returns the state resulting from execution of the pending block
 func (s *Synchronizer) PendingState() (state.StateReader, error) {
 	pending, err := s.Pending()

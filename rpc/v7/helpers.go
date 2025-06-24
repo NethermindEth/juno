@@ -140,12 +140,6 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (h *Handler) callAndLogErr(f func() error, msg string) {
-	if err := f(); err != nil {
-		h.log.Errorw(msg, "err", err)
-	}
-}
-
 func feeUnit(txn core.Transaction) FeeUnit {
 	feeUnit := WEI
 	version := txn.TxVersion()
