@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
-	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
@@ -99,7 +98,7 @@ type Blockchain struct {
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
-	trieDB, err := triedb.New(database, &triedb.Config{PathConfig: &pathdb.Config{}}) // TODO: handle hashdb
+	trieDB, err := triedb.New(database, nil) // TODO: handle hashdb
 	if err != nil {
 		panic(err)
 	}

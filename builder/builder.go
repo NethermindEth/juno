@@ -29,8 +29,7 @@ type Builder struct {
 	// Builder dependencies
 	vm          vm.VM
 	blockchain  *blockchain.Blockchain
-	headState   core.StateReader
-	headCloser  blockchain.StateCloser
+	headState   state.StateReader
 	log         utils.Logger
 	disableFees bool
 

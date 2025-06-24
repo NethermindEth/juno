@@ -288,7 +288,8 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
+	expectedL1HandlerTxnHash := utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5")
+	require.Equal(t, *expectedL1HandlerTxnHash, l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {
@@ -670,7 +671,7 @@ func TestL1Update(t *testing.T) {
 			require.NoError(t, chain.SetL1Head(head))
 			got, err := chain.L1Head()
 			require.NoError(t, err)
-			assert.Equal(t, head, got)
+			assert.Equal(t, *head, got)
 		})
 	}
 }
