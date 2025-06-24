@@ -13,8 +13,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/core/trie2/trienode"
+	trie "github.com/NethermindEth/juno/core/legacytrie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/encoder"
@@ -176,7 +175,7 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		for _, bucket := range buckets {
 			for i := range 5 {
-				var coreNode trienode.Node
+				var coreNode trie.Node
 				err := txn.Get(bucket.Key([]byte{byte(i)}), coreNode.UnmarshalBinary)
 				require.NoError(t, err)
 			}

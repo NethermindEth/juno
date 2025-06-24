@@ -14,8 +14,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie2/trienode"
-	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	trie "github.com/NethermindEth/juno/core/legacytrie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/starknet"
@@ -547,7 +546,7 @@ func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
 	return processBlocks(txn, processBlockFunc)
 }
 
-func bitset2BitArray(bs *bitset.BitSet) *trieutils.BitArray {
+func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
 	bsWords := bs.Words()
 	if len(bsWords) > felt.Limbs {
 		panic("key too long to fit in Felt")
@@ -560,7 +559,7 @@ func bitset2BitArray(bs *bitset.BitSet) *trieutils.BitArray {
 	}
 
 	f := new(felt.Felt).SetBytes(bsBytes[:])
-	return new(trieutils.BitArray).SetFelt(uint8(bs.Len()), f)
+	return new(trie.BitArray).SetFelt(uint8(bs.Len()), f)
 }
 
 func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
@@ -604,7 +603,7 @@ func migrateTrieNodesFromBitsetToTrieKey(target db.Bucket) BucketMigratorDoFunc 
 			return err
 		}
 
-		trieNode := trienode.Node{
+		trieNode := trie.Node{
 			Value: n.Value,
 		}
 		if n.Left != nil {
