@@ -9,7 +9,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -18,11 +17,9 @@ import (
 	"github.com/NethermindEth/juno/mempool"
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
-	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,14 +29,12 @@ func (v value) Hash() felt.Felt {
 	return *new(felt.Felt).SetUint64(uint64(v))
 }
 
-var emptyCommitments = core.BlockCommitments{}
-
 // We use a custom chain to test the consensus logic.
 // The reason is that our current blockifier version is incompatible
 // with early mainnet/sepolia blocks. And we can't execute blocks at the chain
 // head without access to the state. To get around this, a custom chain was used
 // in these tests.
-func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Header) {
+func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchain.Blockchain, *core.Header) {
 	t.Helper()
 
 	// transfer tokens to 0x101
@@ -96,32 +91,14 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Head
 	}
 	head, err := seq.RunOnce()
 	require.NoError(t, err)
-	return &testBuilder, head
-}
-
-// getBlockchain returns the blockchain at network, where block 0 has been stored.
-func getBlockchain(t *testing.T, network *utils.Network) (*blockchain.Blockchain, *memory.Database) {
-	client := feeder.NewTestClient(t, network)
-	gw := adaptfeeder.New(client)
-
-	block0, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-
-	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	testDB := memory.New()
-	chain := blockchain.New(testDB, network)
-	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
-
-	return chain, testDB
+	return &testBuilder, bc, head
 }
 
 // This test assumes Sepolia block 0 has been committed, and now
 // the Proposer proposes an empty block for block 1
 func TestEmptyProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xabcdef")
-	chain, _ := getBlockchain(t, &utils.Sepolia)
+	_, chain, head := getCustomBC(t, proposerAddr)
 	log := utils.NewNopZapLogger()
 	vm := vm.New(false, log)
 	testBuilder := builder.New(chain, vm, log, false)
@@ -130,26 +107,32 @@ func TestEmptyProposal(t *testing.T) {
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: 1,
+		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
 
-	block0, err := chain.BlockByNumber(0)
-	require.NoError(t, err)
 	emptyCommitment := types.ProposalCommitment{
-		BlockNumber:      1,
-		ParentCommitment: *block0.Hash,
+		BlockNumber:      head.Number + 1,
+		ParentCommitment: *head.Hash,
 		Builder:          *proposerAddr,
 		Timestamp:        0,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
+		// Other fields are set to 0 as expected by the validator
+		ConcatenatedCounts:    *new(felt.Felt).SetUint64(0),
+		StateDiffCommitment:   *new(felt.Felt).SetUint64(0),
+		TransactionCommitment: *new(felt.Felt).SetUint64(0),
+		EventCommitment:       *new(felt.Felt).SetUint64(0),
+		ReceiptCommitment:     *new(felt.Felt).SetUint64(0),
 	}
 
 	// Step 2: ProposalCommitment
 	require.NoError(t, validator.ProposalCommitment(&emptyCommitment))
 
 	// Step 3: ProposalFin
-	block1Hash, err := new(felt.Felt).SetString("0x6de5ea1b1db43acda6c32c17bea719af54e98d08acbfc6da33b178bbb8ab326")
+	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
+	// we update SupportedStarknetVersion
+	block1Hash, err := new(felt.Felt).SetString("0x27a852d180c77e0b7bc2b3e9b635b625db3ae48f2c469c93930c1889ae2d09f")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -160,12 +143,12 @@ func TestEmptyProposal(t *testing.T) {
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	builder, head := getCustomBC(t, proposerAddr)
+	builder, _, head := getCustomBC(t, proposerAddr)
 	validator := New[value, felt.Felt, felt.Felt](builder)
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
-		BlockNum: head.Number + 1,
+		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
 	require.NoError(t, validator.ProposalInit(&proposalInit))
@@ -205,7 +188,7 @@ func TestProposal(t *testing.T) {
 			utils.HexToFelt(t, "0x0"),
 		},
 	}
-	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Index: 0, Transaction: &invokeTxn2}}))
+	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn2}}))
 
 	nonEmptyCommitment := types.ProposalCommitment{
 		BlockNumber:      head.Number + 1,
@@ -261,6 +244,7 @@ func TestCompareFeltField(t *testing.T) {
 	})
 }
 
+// TODO: Write tests to actually test the `ProposalCommitment` function.
 func TestCompareProposalCommitment(t *testing.T) {
 	proposer := utils.HexToFelt(t, "1")
 
@@ -295,89 +279,91 @@ func TestCompareProposalCommitment(t *testing.T) {
 		ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
 		L1DAMode:         core.Blob,
 	}
-
-	c := &core.BlockCommitments{
-		StateDiffCommitment:   stateDiffCommitment,
-		TransactionCommitment: transactionCommitment,
-		EventCommitment:       eventCommitment,
-		ReceiptCommitment:     receiptCommitment,
-	}
-
-	concatCount := utils.HexToFelt(t, "1")
 	t.Run("ValidCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
-		err := compareProposalCommitment(p, h, c, concatCount)
+		expected := newDefaultProposalCommitment()
+		err := compareProposalCommitment(expected, p)
 		require.NoError(t, err)
 	})
 
 	t.Run("MismatchedBlockNumber", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.BlockNumber = blockNumber + 1
-		err := compareProposalCommitment(p, h, c, concatCount)
-		expected := fmt.Sprintf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
-		require.EqualError(t, err, expected)
+		err := compareProposalCommitment(expected, p)
+		expectedErr := fmt.Sprintf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
+		require.EqualError(t, err, expectedErr)
 		p.BlockNumber = blockNumber
 	})
 
 	t.Run("MismatchedParentCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ParentCommitment = *utils.HexToFelt(t, "222")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("FutureTimestamp", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.Timestamp = 2000
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("UnsupportedProtocolVersion", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ProtocolVersion = *semver.New(0, 123, 0, "", "")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedStateDiffCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.StateDiffCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedTransactionCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.TransactionCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedEventCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.EventCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedReceiptCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.ReceiptCommitment = *other
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL1DAMode", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
 		p.L1DAMode = core.Calldata
-		require.Error(t, compareProposalCommitment(p, h, c, concatCount))
+		require.Error(t, compareProposalCommitment(expected, p))
 	})
 }

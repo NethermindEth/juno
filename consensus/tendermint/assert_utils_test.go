@@ -5,8 +5,13 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 )
+
+func value(value uint64) starknet.Value {
+	return starknet.Value(felt.FromUint64(value))
+}
 
 // assertState asserts that the state machine is in the expected state.
 func assertState(t *testing.T, stateMachine *testStateMachine, expectedHeight types.Height, expectedRound types.Round, expectedStep types.Step) {

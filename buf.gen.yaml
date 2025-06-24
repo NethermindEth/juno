@@ -2,7 +2,7 @@ version: v2
 clean: true
 plugins:
   - remote: buf.build/protocolbuffers/go
-    out: p2p/proto
+    out: starknet-p2pspecs/p2p/proto
     opt: module=github.com/starknet-io/starknet-p2pspecs/p2p/proto
 inputs:
   - git_repo: https://github.com/starknet-io/starknet-p2p-specs.git

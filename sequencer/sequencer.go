@@ -157,17 +157,13 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	blockHashToBeRevealed, err := s.builder.GetRevealedBlockHash()
-	if err != nil {
-		return err
-	}
 	for {
 		userTxns, err := s.mempool.PopBatch(NumTxnsToBatchExecute)
 		if err != nil {
 			return err
 		}
 		s.log.Debugw("running txns", userTxns)
-		if err = s.builder.RunTxns(userTxns, blockHashToBeRevealed); err != nil {
+		if err = s.builder.RunTxns(userTxns); err != nil {
 			s.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {

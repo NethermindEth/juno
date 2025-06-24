@@ -136,7 +136,7 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 
 	// only canonical blocks
 	if e.toBlock <= latest {
-		return e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
+		return e.canonicalEvents(matchedEvents, curBlock, e.toBlock, skippedEvents, chunkSize)
 	}
 
 	var rToken *ContinuationToken
