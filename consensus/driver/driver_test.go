@@ -1,6 +1,7 @@
 package driver_test
 
 import (
+	"context"
 	"math/rand"
 	"sync"
 	"testing"
@@ -84,24 +85,43 @@ func newMockBlockchain(t *testing.T, expectedCommit *starknet.Commit) blockchain
 	}
 }
 
-func mockListeners(
+type mockP2P struct {
+	listeners    listeners
+	broadcasters broadcasters
+}
+
+func newMockP2P(
 	proposalCh chan starknet.Proposal,
 	prevoteCh chan starknet.Prevote,
 	precommitCh chan starknet.Precommit,
-) listeners {
-	return listeners{
-		ProposalListener:  newMockListener(proposalCh),
-		PrevoteListener:   newMockListener(prevoteCh),
-		PrecommitListener: newMockListener(precommitCh),
+) p2p.P2P[starknet.Value, starknet.Hash, starknet.Address] {
+	return &mockP2P{
+		listeners: listeners{
+			ProposalListener:  newMockListener(proposalCh),
+			PrevoteListener:   newMockListener(prevoteCh),
+			PrecommitListener: newMockListener(precommitCh),
+		},
+		broadcasters: broadcasters{
+			ProposalBroadcaster:  &mockBroadcaster[starknet.Proposal]{},
+			PrevoteBroadcaster:   &mockBroadcaster[starknet.Prevote]{},
+			PrecommitBroadcaster: &mockBroadcaster[starknet.Precommit]{},
+		},
 	}
 }
 
-func mockBroadcasters() broadcasters {
-	return broadcasters{
-		ProposalBroadcaster:  &mockBroadcaster[starknet.Proposal]{},
-		PrevoteBroadcaster:   &mockBroadcaster[starknet.Prevote]{},
-		PrecommitBroadcaster: &mockBroadcaster[starknet.Precommit]{},
-	}
+func (m *mockP2P) Run(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockP2P) Listeners() p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address] {
+	return m.listeners
+}
+
+func (m *mockP2P) Broadcasters() p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address] {
+	return m.broadcasters
+}
+
+func (m *mockP2P) OnCommit(ctx context.Context, height types.Height) {
 }
 
 func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
@@ -217,20 +237,19 @@ func TestDriver(t *testing.T) {
 	proposalCh := make(chan starknet.Proposal)
 	prevoteCh := make(chan starknet.Prevote)
 	precommitCh := make(chan starknet.Precommit)
-	broadcasters := mockBroadcasters()
 
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))
+	p2p := newMockP2P(proposalCh, prevoteCh, precommitCh)
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
 		newTendermintDB(t),
 		stateMachine,
 		newMockBlockchain(t, &commitAction),
-		mockListeners(proposalCh, prevoteCh, precommitCh),
-		broadcasters,
+		p2p,
 		mockTimeoutFn,
 	)
 
@@ -261,9 +280,9 @@ func TestDriver(t *testing.T) {
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 
-	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
-	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
-	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
 
 	driver.Start()
 
@@ -277,9 +296,9 @@ func TestDriver(t *testing.T) {
 		precommitCh <- inputPrecommitMsg
 	}()
 
-	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
-	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
-	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
 
 	driver.Stop()
 }
