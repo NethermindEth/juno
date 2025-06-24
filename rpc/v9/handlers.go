@@ -163,7 +163,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.8.1", nil
+	return "0.9.0", nil
 }
 
 // Currently only used for testing
@@ -297,5 +297,5 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.GetMessageStatus,
 		},
-	}, "/v0_8"
+	}, "/v0_9"
 }
