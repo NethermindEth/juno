@@ -106,7 +106,7 @@ func (h *Handler) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint:funlen,dupl
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -300,7 +300,7 @@ func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint: funlen
 	}, "/v0_9"
 }
 
-func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen,dupl
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
