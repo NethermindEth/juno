@@ -48,6 +48,8 @@ func marshalTxn(txn core.Transaction) (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
+	qwe, err := json.MarshalIndent(txnAndQueryBit, "  ", "  ")
+	fmt.Println(string(qwe))
 	return result, nil
 }
 

@@ -169,13 +169,13 @@ func TestProposal(t *testing.T) {
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"
 	invokeTxn := core.InvokeTransaction{
-		TransactionHash: utils.HexToFelt(t, "0x7e321883d6d23f793507e329efc318be2f26da77605a59c5b0c8e47659d8790"),
+		TransactionHash: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
 		SenderAddress:   utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		Nonce:           new(felt.Felt).SetUint64(0),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x6768957ac1d23dd46ff88589a829d639acb3db2dd2f160b2f102ae49c8f9733"),
-			utils.HexToFelt(t, "0x302f3eff94d9fe7a4fab87de2aa779171744a15e4166a168a1d589db667f3b6"),
+			utils.HexToFelt(t, "0x11e96dc7adc31cf627ca6d89e5fcde0c9db7198d40f44b7ca04cf2528a7157d"),
+			utils.HexToFelt(t, "0x61c9f9fd8f3355d971f451b3bae9e0c7bb9b55fb6f8189e65a8017d915c24d3"),
 		},
 		CallData: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
