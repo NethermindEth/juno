@@ -41,6 +41,7 @@ RUN cargo clean --release --manifest-path starknet/compiler/rust/Cargo.toml --pa
 
 # Copy go mod files and download deps
 COPY go.mod go.sum ./
+COPY starknet-p2pspecs/go.mod starknet-p2pspecs/go.mod
 RUN go mod download
 
 # Copy the rest of the source

@@ -1,17 +1,21 @@
 package p2p2consensus
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
-	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/utils"
+	consensus "github.com/NethermindEth/juno/consensus/types"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Network) (core.Transaction, core.Class) {
+func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transaction, error) {
 	if t == nil {
-		return nil, nil
+		return consensus.Transaction{}, errors.New("transaction is nil")
+	}
+	if err := validateConsensusTransaction(t); err != nil {
+		return consensus.Transaction{}, err
 	}
 
 	switch t.Txn.(type) {
@@ -20,18 +24,42 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 		// Todo: we pass in CompiledClassHash here, but in sync we pass in ClassHash.
 		// Are we expected to compile the class hash here???
 		class := p2p2core.AdaptCairo1Class(tx.Class)
-		return p2p2core.AdaptDeclareV3TxnCommon(tx.Common, tx.Common.CompiledClassHash, t.TransactionHash), &class
+		classHash, err := class.Hash()
+		classHashBytes := classHash.Bytes()
+		if err != nil {
+			return consensus.Transaction{}, err
+		}
+		return consensus.Transaction{
+			Transaction: p2p2core.AdaptDeclareV3TxnCommon(tx.Common, &common.Hash{Elements: classHashBytes[:]}, t.TransactionHash),
+			Class:       &class,
+			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+		}, nil
 
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:
 		tx := t.GetDeployAccountV3()
-		return p2p2core.AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash), nil
+		return consensus.Transaction{
+			Transaction: p2p2core.AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash),
+			Class:       nil,
+			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+		}, nil
+
 	case *p2pconsensus.ConsensusTransaction_InvokeV3:
 		tx := t.GetInvokeV3()
-		return p2p2core.AdaptInvokeV3TxnCommon(tx, t.TransactionHash), nil
+		return consensus.Transaction{
+			Transaction: p2p2core.AdaptInvokeV3TxnCommon(tx, t.TransactionHash),
+			Class:       nil,
+			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+		}, nil
+
 	case *p2pconsensus.ConsensusTransaction_L1Handler:
 		tx := t.GetL1Handler()
-		return p2p2core.AdaptL1Handler(tx, t.TransactionHash), nil
+		return consensus.Transaction{
+			Transaction: p2p2core.AdaptL1Handler(tx, t.TransactionHash),
+			Class:       nil,
+			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+		}, nil
+
 	default:
-		panic(fmt.Errorf("unsupported tx type %T", t.Txn))
+		return consensus.Transaction{}, fmt.Errorf("unsupported tx type %T", t.Txn)
 	}
 }

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
-	"github.com/NethermindEth/juno/p2p/proto/consensus/consensus"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -19,6 +18,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
