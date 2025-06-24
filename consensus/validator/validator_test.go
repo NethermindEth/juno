@@ -53,11 +53,9 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 	}
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
-	qwe := utils.HexToFelt(t, "0x29abab2cdf9cf0daad14b926b27744882b8e76a5ae0d33e0d3d9698ec2c4c22")
-	diff.Nonces[*qwe] = utils.HexToFelt(t, "0x1")
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, true)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
 
@@ -144,7 +142,7 @@ func TestProposal(t *testing.T) {
 		TransactionHash: utils.HexToFelt(t, "0x76f781334b478792e443af1e632eb7ecc82cdb4ce4337ad90f24bd6481a8c02"),
 		SenderAddress:   utils.HexToFelt(t, "0x29abab2cdf9cf0daad14b926b27744882b8e76a5ae0d33e0d3d9698ec2c4c22"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
-		Nonce:           new(felt.Felt).SetUint64(1),
+		Nonce:           new(felt.Felt).SetUint64(0),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x1d2cab7be6f8675d2ca5365fde15bdefaab45e18d10cc5a70a2584debea89a"),
 			utils.HexToFelt(t, "0x68cf661a6d90bc9ecb9da41deba26c9961def7757605e25a9d29cd83e942cb2"),
@@ -164,12 +162,12 @@ func TestProposal(t *testing.T) {
 				MaxPricePerUnit: utils.HexToFelt(t, "0x2d79883d2000"),
 			},
 			core.ResourceL2Gas: core.ResourceBounds{
-				MaxAmount:       0,
-				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
+				MaxAmount:       1800000,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1800"),
 			},
 			core.ResourceL1DataGas: core.ResourceBounds{
-				MaxAmount:       0,
-				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
+				MaxAmount:       18000,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1800"),
 			},
 		},
 		Tip:                   utils.HexToUint64(t, "0x9184e72a000"),

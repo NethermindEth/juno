@@ -204,7 +204,7 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction) (err error) {
 		},
 		state,
 		b.blockchain.Network(),
-		true, true, true, true, false)
+		b.disableFees, true, false, true, false)
 	if err != nil {
 		return err
 	}
