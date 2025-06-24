@@ -14,6 +14,9 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 	if t == nil {
 		return consensus.Transaction{}, errors.New("transaction is nil")
 	}
+	if err := validateConsensusTransaction(t); err != nil {
+		return consensus.Transaction{}, err
+	}
 
 	switch t.Txn.(type) {
 	case *p2pconsensus.ConsensusTransaction_DeclareV3:
@@ -26,7 +29,6 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 		if err != nil {
 			return consensus.Transaction{}, err
 		}
-
 		return consensus.Transaction{
 			Transaction: p2p2core.AdaptDeclareV3TxnCommon(tx.Common, &common.Hash{Elements: classHashBytes[:]}, t.TransactionHash),
 			Class:       &class,
