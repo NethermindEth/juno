@@ -188,7 +188,12 @@ func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Tod
 }
 
 func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
-	return p.builder.ProposalCommitment()
+	buildResult, err := p.builder.Finish()
+	if err != nil {
+		return types.ProposalCommitment{}, err
+	}
+
+	return buildResult.ProposalCommitment, nil
 }
 
 // ProposalFin() returns the block hash of the pending block
