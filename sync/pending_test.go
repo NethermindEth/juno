@@ -30,7 +30,6 @@ func TestPendingState(t *testing.T) {
 	require.NoError(t, err)
 
 	pending := sync.Pending{
-		Block: nil,
 		StateUpdate: &core.StateUpdate{
 			BlockHash: nil,
 			NewRoot:   nil,
@@ -64,21 +63,21 @@ func TestPendingState(t *testing.T) {
 			t.Run("deployed", func(t *testing.T) {
 				cH, cErr := state.ContractClassHash(deployedAddr)
 				require.NoError(t, cErr)
-				assert.Equal(t, deployedClassHash, cH)
+				assert.Equal(t, *deployedClassHash, cH)
 
 				cH, cErr = state.ContractClassHash(deployedAddr2)
 				require.NoError(t, cErr)
-				assert.Equal(t, deployedClassHash, cH)
+				assert.Equal(t, *deployedClassHash, cH)
 			})
 			t.Run("replaced", func(t *testing.T) {
 				cH, cErr := state.ContractClassHash(replacedAddr)
 				require.NoError(t, cErr)
-				assert.Equal(t, replacedClassHash, cH)
+				assert.Equal(t, *replacedClassHash, cH)
 			})
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedClassHash := new(felt.Felt).SetUint64(37)
-			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+			mockState.EXPECT().ContractClassHash(gomock.Any()).Return(*expectedClassHash, nil)
 
 			cH, cErr := state.ContractClassHash(&felt.Zero)
 			require.NoError(t, cErr)

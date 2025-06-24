@@ -211,10 +211,10 @@ func (mr *MockReaderMockRecorder) L1HandlerTxnHash(msgHash any) *gomock.Call {
 }
 
 // L1Head mocks base method.
-func (m *MockReader) L1Head() (core.L1Head, error) {
+func (m *MockReader) L1Head() (*core.L1Head, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "L1Head")
-	ret0, _ := ret[0].(core.L1Head)
+	ret0, _ := ret[0].(*core.L1Head)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -21,7 +21,7 @@ func (h *Handler) l1Head() (*core.L1Head, *jsonrpc.Error) {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
 	// nil is returned if l1 head doesn't exist
-	return &l1Head, nil
+	return l1Head, nil
 }
 
 func isL1Verified(n uint64, l1 *core.L1Head) bool {

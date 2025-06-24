@@ -29,7 +29,7 @@ func TestCompiledCasm(t *testing.T) {
 	handler := rpc.New(rd, nil, nil, "", nil)
 
 	t.Run("db failure", func(t *testing.T) {
-		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))
+		rd.EXPECT().HeadState().Return(nil, fmt.Errorf("error"))
 		resp, err := handler.CompiledCasm(utils.HexToFelt(t, "0x000"))
 		assert.Nil(t, resp)
 		assert.Equal(t, jsonrpc.InternalError, err.Code)
@@ -39,7 +39,7 @@ func TestCompiledCasm(t *testing.T) {
 
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(nil, db.ErrKeyNotFound)
-		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		rd.EXPECT().HeadState().Return(mockState, nil)
 
 		resp, err := handler.CompiledCasm(classHash)
 		assert.Nil(t, resp)
@@ -68,7 +68,7 @@ func TestCompiledCasm(t *testing.T) {
 
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: class}, nil)
-		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		rd.EXPECT().HeadState().Return(mockState, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
 		require.Nil(t, rpcErr)
@@ -110,7 +110,7 @@ func TestCompiledCasm(t *testing.T) {
 
 		mockState := mocks.NewMockStateReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: cairo1Class}, nil)
-		rd.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		rd.EXPECT().HeadState().Return(mockState, nil)
 
 		resp, rpcErr := handler.CompiledCasm(classHash)
 		require.Nil(t, rpcErr)

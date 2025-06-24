@@ -28,7 +28,7 @@ func TestCompiledCasm(t *testing.T) {
 	handler := rpc.New(rd, nil, nil, "", nil, nil)
 
 	t.Run("db failure", func(t *testing.T) {
-		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))
+		rd.EXPECT().HeadState().Return(nil, fmt.Errorf("error"))
 		resp, err := handler.CompiledCasm(utils.HexToFelt(t, "0x000"))
 		assert.Nil(t, resp)
 		assert.Equal(t, jsonrpc.InternalError, err.Code)
