@@ -1837,12 +1837,13 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	network := utils.Integration
 
 	client := feeder.NewTestClient(t, &network)
-	gw := gateway.NewTestClient(t)
+
 	cacheSize := 5
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		Version: new(core.TransactionVersion).SetUint64(3),
+		TransactionHash: new(felt.Felt).SetUint64(12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
 			utils.HexToFelt(t, "0x1"),
@@ -1872,17 +1873,32 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
 
-	// transaction no† found in db and feeder but found in cache
+	var gatewayResponse struct {
+		TransactionHash *felt.Felt `json:"transaction_hash"`
+		ContractAddress *felt.Felt `json:"address"`
+		ClassHash       *felt.Felt `json:"class_hash"`
+	}
+
+	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
+	rawGatewayResponse, err := json.Marshal(gatewayResponse)
+	require.NoError(t, err)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	mockGateway.
+		EXPECT().
+		AddTransaction(gomock.Any(), gomock.Any()).
+		Return(rawGatewayResponse, nil).
+		Times(2)
 	t.Run("transaction not found in db and feeder but found in cache", func(t *testing.T) {
 		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
 
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
-			WithGateway(gw).
+			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
-		// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
+
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
@@ -1896,13 +1912,11 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
 		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
 
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
-			WithGateway(gw).
+			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
-		// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
+
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
