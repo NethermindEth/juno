@@ -37,8 +37,8 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 
 	switch blockID.Type() {
 	case pending:
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending *sync.PendingData
+		pending, err = h.syncReader.PendingData()
 		if err == nil {
 			block = pending.Block
 		}
@@ -67,8 +67,8 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var err error
 	switch blockID.Type() {
 	case pending:
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending *sync.PendingData
+		pending, err = h.syncReader.PendingData()
 		if err == nil {
 			header = pending.Block.Header
 		}

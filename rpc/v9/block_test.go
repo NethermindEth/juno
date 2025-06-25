@@ -112,7 +112,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
 			handler := rpcv9.New(chain, mockSyncReader, nil, "", log)
@@ -210,7 +210,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
+		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
 			Block: latestBlock,
 		}, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
@@ -244,7 +244,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
 			handler := rpcv9.New(chain, mockSyncReader, nil, "", log)
@@ -360,7 +360,7 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
+		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
 			Block: latestBlock,
 		}, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -500,7 +500,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: block0}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: block0}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
 		blockID := blockIDPending(t)

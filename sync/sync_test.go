@@ -217,7 +217,7 @@ func TestPending(t *testing.T) {
 		}
 		require.NoError(t, synchronizer.StorePending(pendingGenesis))
 
-		gotPending, pErr := synchronizer.Pending()
+		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
 		assert.Equal(t, pendingGenesis, gotPending)
 	})
@@ -249,7 +249,7 @@ func TestPending(t *testing.T) {
 		}
 		require.NoError(t, synchronizer.StorePending(expectedPending))
 
-		gotPending, pErr := synchronizer.Pending()
+		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
 		assert.Equal(t, expectedPending, gotPending)
 	})
@@ -305,7 +305,7 @@ func TestSubscribePending(t *testing.T) {
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
-	pending, err := synchronizer.Pending()
+	pending, err := synchronizer.PendingData()
 	require.NoError(t, err)
 	pendingBlock, ok := <-sub.Recv()
 	require.True(t, ok)
