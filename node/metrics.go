@@ -275,7 +275,7 @@ func makeFeederMetrics() feeder.EventListener {
 		Namespace: "feeder",
 		Subsystem: "client",
 		Name:      "request_latency",
-		Help:      "Feeder gateway request latency in seconds",
+		Help:      "Feeder client request latency in seconds",
 	}, []string{"method", "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &feeder.SelectiveListener{
