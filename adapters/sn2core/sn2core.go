@@ -357,26 +357,40 @@ func AdaptCairo0Class(response *starknet.Cairo0Definition) (core.Class, error) {
 }
 
 func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error) {
-	stateDiff := new(core.StateDiff)
-	stateDiff.DeclaredV0Classes = response.StateDiff.OldDeclaredContracts
+	stateDiff, err := AdaptStateDiff(&response.StateDiff)
+	if err != nil {
+		return nil, err
+	}
 
-	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeclaredClasses))
-	for _, declaredV1Class := range response.StateDiff.DeclaredClasses {
+	return &core.StateUpdate{
+		BlockHash: response.BlockHash,
+		NewRoot:   response.NewRoot,
+		OldRoot:   response.OldRoot,
+		StateDiff: stateDiff,
+	}, nil
+}
+
+func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
+	stateDiff := new(core.StateDiff)
+	stateDiff.DeclaredV0Classes = response.OldDeclaredContracts
+
+	stateDiff.DeclaredV1Classes = make(map[felt.Felt]*felt.Felt, len(response.DeclaredClasses))
+	for _, declaredV1Class := range response.DeclaredClasses {
 		stateDiff.DeclaredV1Classes[*declaredV1Class.ClassHash] = declaredV1Class.CompiledClassHash
 	}
 
-	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.ReplacedClasses))
-	for _, replacedClass := range response.StateDiff.ReplacedClasses {
+	stateDiff.ReplacedClasses = make(map[felt.Felt]*felt.Felt, len(response.ReplacedClasses))
+	for _, replacedClass := range response.ReplacedClasses {
 		stateDiff.ReplacedClasses[*replacedClass.Address] = replacedClass.ClassHash
 	}
 
-	stateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.DeployedContracts))
-	for _, deployedContract := range response.StateDiff.DeployedContracts {
+	stateDiff.DeployedContracts = make(map[felt.Felt]*felt.Felt, len(response.DeployedContracts))
+	for _, deployedContract := range response.DeployedContracts {
 		stateDiff.DeployedContracts[*deployedContract.Address] = deployedContract.ClassHash
 	}
 
-	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(response.StateDiff.Nonces))
-	for addrStr, nonce := range response.StateDiff.Nonces {
+	stateDiff.Nonces = make(map[felt.Felt]*felt.Felt, len(response.Nonces))
+	for addrStr, nonce := range response.Nonces {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
 			return nil, err
@@ -384,8 +398,8 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StateDiff.StorageDiffs))
-	for addrStr, diffs := range response.StateDiff.StorageDiffs {
+	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StorageDiffs))
+	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
 			return nil, err
@@ -397,11 +411,78 @@ func AdaptStateUpdate(response *starknet.StateUpdate) (*core.StateUpdate, error)
 		}
 	}
 
-	return &core.StateUpdate{
-		BlockHash: response.BlockHash,
-		NewRoot:   response.NewRoot,
-		OldRoot:   response.OldRoot,
-		StateDiff: stateDiff,
+	return stateDiff, nil
+}
+
+func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConfirmed, error) {
+	if response == nil {
+		return nil, errors.New("nil preconfirmed block")
+	}
+
+	var adaptedStateDiff *core.StateDiff
+	var err error
+
+	candidateTxHashesMap := make(map[felt.Felt]struct{})
+	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
+	for i, stateDiff := range response.TransactionStateDiffs {
+		if stateDiff == nil {
+			candidateTxHashesMap[*response.Transactions[i].Hash] = struct{}{}
+			continue
+		}
+
+		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
+			return nil, err
+		}
+		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
+	}
+
+	lastPreconfirmedIndex := len(response.Transactions) - len(candidateTxHashesMap) - 1
+
+	txns := make([]core.Transaction, lastPreconfirmedIndex+1)
+	for i, txn := range response.Transactions[:lastPreconfirmedIndex+1] {
+		var err error
+		txns[i], err = AdaptTransaction(txn)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	receipts := make([]*core.TransactionReceipt, lastPreconfirmedIndex+1)
+	eventCount := uint64(0)
+	for i, receipt := range response.Receipts[:lastPreconfirmedIndex+1] {
+		receipts[i] = AdaptTransactionReceipt(receipt)
+		eventCount += uint64(len(receipt.Events))
+	}
+
+	// Squash per-tx state updates
+	stateDiff := core.EmptyStateDiff()
+	for _, txStateDiff := range txStateDiffs {
+		stateDiff.Merge(txStateDiff)
+	}
+	stateUpdate := core.StateUpdate{StateDiff: &stateDiff}
+
+	adaptedBlock := &core.Block{
+		Header: &core.Header{
+			Timestamp:        response.Timestamp,
+			ProtocolVersion:  response.Version,
+			SequencerAddress: response.SequencerAddress,
+			TransactionCount: uint64(len(response.Transactions)),
+			EventCount:       eventCount,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    response.L1GasPriceETH(),
+			L1GasPriceSTRK:   response.L1GasPriceSTRK(),
+			L1DAMode:         core.L1DAMode(response.L1DAMode),
+			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
+			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
+		},
+		Transactions: txns,
+		Receipts:     receipts,
+	}
+	return &core.PreConfirmed{
+		Block:                 adaptedBlock,
+		TransactionStateDiffs: txStateDiffs,
+		CandidateTxHashes:     candidateTxHashesMap,
+		StateUpdate:           &stateUpdate,
 	}, nil
 }
 
