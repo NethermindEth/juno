@@ -459,21 +459,36 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	for _, txStateDiff := range txStateDiffs {
 		stateDiff.Merge(txStateDiff)
 	}
-	stateUpdate := core.StateUpdate{StateDiff: &stateDiff}
+	stateUpdate := core.StateUpdate{
+		BlockHash: nil,
+		NewRoot:   nil,
+		// Must be set to previous global state root
+		OldRoot:   nil,
+		StateDiff: &stateDiff,
+	}
 
 	adaptedBlock := &core.Block{
+		// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L1636
 		Header: &core.Header{
+			// Must set the number to latest known block number + 1
+			Number:           0,
 			Timestamp:        response.Timestamp,
 			ProtocolVersion:  response.Version,
 			SequencerAddress: response.SequencerAddress,
-			TransactionCount: uint64(len(response.Transactions)),
-			EventCount:       eventCount,
-			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    response.L1GasPriceETH(),
 			L1GasPriceSTRK:   response.L1GasPriceSTRK(),
 			L1DAMode:         core.L1DAMode(response.L1DAMode),
 			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
 			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
+			// Not required in spec but useful
+			TransactionCount: uint64(len(response.Transactions)),
+			EventCount:       eventCount,
+			EventsBloom:      core.EventsBloom(receipts),
+			// Following fields are nil for pre_confirmed block
+			Hash:            nil,
+			ParentHash:      nil,
+			GlobalStateRoot: nil,
+			Signatures:      nil,
 		},
 		Transactions: txns,
 		Receipts:     receipts,
@@ -483,6 +498,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 		TransactionStateDiffs: txStateDiffs,
 		CandidateTxHashes:     candidateTxHashesMap,
 		StateUpdate:           &stateUpdate,
+		NewClasses:            make(map[felt.Felt]core.Class),
 	}, nil
 }
 
