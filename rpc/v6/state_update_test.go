@@ -36,7 +36,7 @@ func TestStateUpdate(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 			handler := rpc.New(chain, mockSyncReader, nil, "", n, nil)
 
@@ -145,7 +145,7 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
+		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
 			StateUpdate: update21656,
 		}, nil)
 

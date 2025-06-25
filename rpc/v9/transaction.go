@@ -509,7 +509,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if blockID.IsPending() {
-		pending, err := h.syncReader.Pending()
+		pending, err := h.syncReader.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
