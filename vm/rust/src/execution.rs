@@ -158,6 +158,16 @@ enum SimulationError {
     ExecutionError(ExecutionError),
 }
 
+/// Gets the default maximum Sierra gas limit from blockifier's versioned constants.
+fn get_default_max_sierra_gas_limit(block_context: &BlockContext) -> GasAmount {
+    let max_sierra_gas_limit = block_context
+        .versioned_constants()
+        .os_constants
+        .execute_max_sierra_gas
+        .0;
+    GasAmount::from(max_sierra_gas_limit)
+}
+
 /// Determines the optimal L2 gas limit required for a transaction to execute successfully.
 /// If the required gas exceeds the initial limit, the transaction is reverted.
 fn execute_transaction_with_binary_search<S>(
@@ -177,13 +187,7 @@ where
     let max_l2_gas_limit = if get_execution_flags(transaction).charge_fee {
         calculate_max_l2_gas_covered(transaction, block_context, state)?
     } else {
-        // Use blockifier's default limit when fee charging is disabled
-        let max_sierra_gas_limit = block_context
-            .versioned_constants()
-            .os_constants
-            .validate_max_sierra_gas
-            .0;
-        GasAmount::from(max_sierra_gas_limit)
+        get_default_max_sierra_gas_limit(block_context)
     };
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
@@ -420,12 +424,7 @@ where
             // DEPLOY_ACCOUNT: Normal logic calculates max gas based on account balance, but account doesn't exist yet (balance = 0).
             // This would set gas limit to zero, causing immediate "out of gas". Use max gas limit from versioned constants instead.
             if is_deploy_account_transaction(tx) {
-                let max_sierra_gas_limit = block_context
-                    .versioned_constants()
-                    .os_constants
-                    .validate_max_sierra_gas
-                    .0;
-                return Ok(GasAmount::from(max_sierra_gas_limit));
+                return Ok(get_default_max_sierra_gas_limit(block_context));
             }
 
             // Retrieve the fee token address.
