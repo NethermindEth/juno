@@ -1837,12 +1837,13 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	network := utils.Integration
 
 	client := feeder.NewTestClient(t, &network)
-	gw := gateway.NewTestClient(t)
+
 	cacheSize := 5
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		Version: new(core.TransactionVersion).SetUint64(3),
+		TransactionHash: new(felt.Felt).SetUint64(12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
 			utils.HexToFelt(t, "0x1"),
@@ -1870,28 +1871,38 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		CallData:      []*felt.Felt{},
 	}
 
-	txnHash, err := core.TransactionHash(txnToAdd, &network)
-	require.NoError(t, err)
-	txnToAdd.TransactionHash = txnHash
 	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
 
-	// transaction no† found in db and feeder but found in cache
+	var gatewayResponse struct {
+		TransactionHash *felt.Felt `json:"transaction_hash"`
+	}
+
+	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
+	rawGatewayResponse, err := json.Marshal(gatewayResponse)
+	require.NoError(t, err)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	mockGateway.
+		EXPECT().
+		AddTransaction(gomock.Any(), gomock.Any()).
+		Return(rawGatewayResponse, nil).
+		Times(2)
 	t.Run("transaction not found in db and feeder but found in cache", func(t *testing.T) {
 		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
 
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
-			WithGateway(gw).
+			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
-		/// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
-		_, err := handler.AddTransaction(ctx, *broadcastedTxn)
-		require.Nil(t, err)
 
-		status, err := handler.TransactionStatus(ctx, *txnHash)
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		require.Nil(t, err)
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
 	})
@@ -1899,21 +1910,18 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
 		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
 
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		mockReader.EXPECT().TransactionByHash(txnHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
 			WithFeeder(client).
-			WithGateway(gw).
+			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
-		// Test Gateway server wont add this tx, gateway should return txnNotFound upon querying transaction status
-		_, err := handler.AddTransaction(ctx, *broadcastedTxn)
-		require.Nil(t, err)
 
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		require.Nil(t, err)
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		// Expire cache entry
 		time.Sleep(cacheEntryTimeOut)
-		status, err := handler.TransactionStatus(ctx, *txnHash)
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Nil(t, status)
 	})
