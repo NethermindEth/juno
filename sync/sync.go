@@ -167,27 +167,40 @@ func (s *Synchronizer) WithListener(listener EventListener) *Synchronizer {
 
 // Run starts the Synchronizer, returns an error if the loop is already running
 func (s *Synchronizer) Run(ctx context.Context) error {
+	s.log.Infow("SYNC_DEBUG: Synchronizer starting", "pendingPollInterval", s.pendingPollInterval, "readOnlyBlockchain", s.readOnlyBlockchain)
 	s.syncBlocks(ctx)
+	s.log.Infow("SYNC_DEBUG: Synchronizer finished")
 	return nil
 }
 
 func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers *stream.Stream,
 	resetStreams context.CancelFunc,
 ) stream.Callback {
+	s.log.Infow("SYNC_DEBUG: Starting fetcherTask", "height", height, "catchUpMode", s.catchUpMode)
+
 	for {
 		select {
 		case <-ctx.Done():
+			s.log.Infow("SYNC_DEBUG: fetcherTask context cancelled", "height", height)
 			return func() {}
 		default:
+			s.log.Infow("SYNC_DEBUG: Attempting to fetch block", "height", height)
 			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
 			if err != nil {
+				s.log.Warnw("SYNC_DEBUG: Failed to fetch block, will retry", "height", height, "err", err)
 				continue
 			}
 
+			s.log.Infow("SYNC_DEBUG: Successfully fetched block", "height", height, "blockHash", block.Hash.ShortString())
+
+			s.log.Infow("SYNC_DEBUG: Fetching unknown classes", "height", height, "numDeployedContracts", len(stateUpdate.StateDiff.DeployedContracts), "numDeclaredV0", len(stateUpdate.StateDiff.DeclaredV0Classes), "numDeclaredV1", len(stateUpdate.StateDiff.DeclaredV1Classes))
 			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
 			if err != nil {
+				s.log.Warnw("SYNC_DEBUG: Failed to fetch unknown classes, will retry", "height", height, "err", err)
 				continue
 			}
+
+			s.log.Infow("SYNC_DEBUG: Successfully fetched all data, sending to verifier", "height", height, "numNewClasses", len(newClasses))
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
@@ -297,25 +310,35 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
 ) stream.Callback {
+	s.log.Infow("SYNC_DEBUG: Starting verifierTask", "height", block.Number, "blockHash", block.Hash.ShortString())
+
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
 	if err == nil {
+		s.log.Infow("SYNC_DEBUG: Sanity checks passed", "height", block.Number, "verifyTime", time.Since(verifyTimer))
 		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
+	} else {
+		s.log.Warnw("SYNC_DEBUG: Sanity checks failed during verification", "height", block.Number, "err", err)
 	}
+
 	return func() {
 		select {
 		case <-ctx.Done():
+			s.log.Infow("SYNC_DEBUG: verifierTask context cancelled", "height", block.Number)
 			return
 		default:
 			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+				s.log.Warnw("SYNC_DEBUG: Sanity checks failed, resetting streams", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
 				resetStreams()
 				return
 			}
+
+			s.log.Infow("SYNC_DEBUG: Starting block storage", "height", block.Number)
 			storeTimer := time.Now()
 			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
 			if err != nil {
 				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
+					s.log.Warnw("SYNC_DEBUG: Parent hash mismatch detected, handling reorg", "height", block.Number, "blockHash", block.Hash.ShortString(), "parentHash", block.ParentHash.ShortString())
 					// revert the head and restart the sync process, hoping that the reorg is not deep
 					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
 					// blocks
@@ -327,24 +350,26 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					// The previous head has been reverted, hence, get the current head and store empty pending block
 					head, err := s.blockchain.HeadsHeader()
 					if err != nil {
-						s.log.Errorw("Failed to retrieve the head header", "err", err)
+						s.log.Errorw("SYNC_DEBUG: Failed to retrieve the head header after revert", "err", err)
 					}
 
 					if head != nil {
 						if err := s.storeEmptyPending(head); err != nil {
-							s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+							s.log.Errorw("SYNC_DEBUG: Failed to store empty pending block after revert", "number", block.Number, "err", err)
 						}
 					}
 				} else {
-					s.log.Warnw("Failed storing Block", "number", block.Number,
+					s.log.Warnw("SYNC_DEBUG: Failed storing Block due to other error", "number", block.Number,
 						"hash", block.Hash.ShortString(), "err", err)
 				}
 				resetStreams()
 				return
 			}
 
+			s.log.Infow("SYNC_DEBUG: Block stored successfully", "height", block.Number, "storeTime", time.Since(storeTimer))
+
 			if err := s.storeEmptyPending(block.Header); err != nil {
-				s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+				s.log.Errorw("SYNC_DEBUG: Failed to store empty pending block", "number", block.Number, "err", err)
 			}
 
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
@@ -352,28 +377,34 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			highestBlockHeader := s.highestBlockHeader.Load()
 			if highestBlockHeader != nil {
 				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+				s.log.Infow("SYNC_DEBUG: Checking catch-up mode", "currentHeight", block.Number, "networkHeight", highestBlockHeader.Number, "isBehind", isBehind, "wasInCatchUpMode", s.catchUpMode)
 				if s.catchUpMode != isBehind {
+					s.log.Infow("SYNC_DEBUG: Catch-up mode changed, resetting streams", "newCatchUpMode", isBehind)
 					resetStreams()
 				}
 				s.catchUpMode = isBehind
+			} else {
+				s.log.Warnw("SYNC_DEBUG: No highest block header available for catch-up mode check")
 			}
 
 			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
 				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
+				s.log.Infow("SYNC_DEBUG: Updated highest block header", "newHeight", block.Number)
 			}
 
 			if s.currReorg != nil {
+				s.log.Infow("SYNC_DEBUG: Sending reorg notification", "reorg", s.currReorg)
 				s.reorgFeed.Send(s.currReorg)
 				s.currReorg = nil // reset the reorg data
 			}
 
 			s.newHeads.Send(block)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
+			s.log.Infow("SYNC_DEBUG: Block processing completed successfully", "number", block.Number, "hash",
 				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
 			if s.plugin != nil {
 				err := s.plugin.NewBlock(block, stateUpdate, newClasses)
 				if err != nil {
-					s.log.Errorw("Plugin NewBlock failure:", err)
+					s.log.Errorw("SYNC_DEBUG: Plugin NewBlock failure", "height", block.Number, "err", err)
 				}
 			}
 		}
@@ -384,12 +415,16 @@ func (s *Synchronizer) nextHeight() uint64 {
 	nextHeight := uint64(0)
 	if h, err := s.blockchain.Height(); err == nil {
 		nextHeight = h + 1
+		s.log.Infow("SYNC_DEBUG: Database height retrieved", "currentHeight", h, "nextHeight", nextHeight)
+	} else {
+		s.log.Warnw("SYNC_DEBUG: Failed to get database height, starting from 0", "err", err)
 	}
 	return nextHeight
 }
 
 func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	defer func() {
+		s.log.Infow("SYNC_DEBUG: syncBlocks exiting, cleaning up")
 		s.startingBlockNumber = nil
 		s.highestBlockHeader.Store(nil)
 	}()
@@ -398,8 +433,11 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
 
+	s.log.Infow("SYNC_DEBUG: Starting sync process", "startingHeight", startingHeight, "readOnlyBlockchain", s.readOnlyBlockchain)
+
 	latestSem := make(chan struct{}, 1)
 	if s.readOnlyBlockchain {
+		s.log.Infow("SYNC_DEBUG: Running in read-only mode, only polling latest")
 		s.pollLatest(syncCtx, latestSem)
 		return
 	}
@@ -407,30 +445,51 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
+	s.log.Infow("SYNC_DEBUG: Setting up workers and starting polling", "fetcherWorkers", fetchers, "verifierWorkers", verifiers)
+
 	go s.pollLatest(syncCtx, latestSem)
 	pendingSem := make(chan struct{}, 1)
 	go s.pollPending(syncCtx, pendingSem)
 
+	s.log.Infow("SYNC_DEBUG: Entering main sync loop", "startingNextHeight", nextHeight)
+
 	for {
 		select {
 		case <-streamCtx.Done():
+			s.log.Warnw("SYNC_DEBUG: Stream context cancelled, cleaning up workers", "nextHeight", nextHeight)
 			streamCancel()
 			fetchers.Wait()
 			verifiers.Wait()
 
 			select {
 			case <-syncCtx.Done():
+				s.log.Infow("SYNC_DEBUG: Sync context cancelled, exiting completely")
 				pendingSem <- struct{}{}
 				latestSem <- struct{}{}
 				return
 			default:
+				// Add exponential backoff for restart to prevent rapid restart loops
+				restartDelay := time.Second * 5
+				s.log.Warnw("SYNC_DEBUG: Restarting sync process", "height", nextHeight, "delay", restartDelay, "catchUpMode", s.catchUpMode)
+
+				select {
+				case <-time.After(restartDelay):
+					s.log.Infow("SYNC_DEBUG: Restart delay completed, resuming")
+				case <-syncCtx.Done():
+					s.log.Infow("SYNC_DEBUG: Sync cancelled during restart delay")
+					pendingSem <- struct{}{}
+					latestSem <- struct{}{}
+					return
+				}
+
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
-				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
+				s.log.Warnw("SYNC_DEBUG: Sync process restarted", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
+			s.log.Infow("SYNC_DEBUG: Scheduling fetch task", "height", curHeight, "catchUpMode", s.catchUpMode)
 			fetchers.Go(func() stream.Callback {
 				fetchTimer := time.Now()
 				cb := s.fetcherTask(curStreamCtx, curHeight, verifiers, curCancel)
@@ -451,6 +510,9 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	if s.catchUpMode {
 		numWorkers = maxWorkers()
 	}
+
+	s.log.Infow("SYNC_DEBUG: Setting up workers", "catchUpMode", s.catchUpMode, "fetcherWorkers", numWorkers, "verifierWorkers", runtime.GOMAXPROCS(0))
+
 	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
@@ -512,6 +574,8 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
+	s.log.Infow("SYNC_DEBUG: Starting pollLatest goroutine")
+
 	poll := func() {
 		select {
 		case sem <- struct{}{}:
@@ -519,26 +583,35 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 				defer func() {
 					<-sem
 				}()
+				s.log.Infow("SYNC_DEBUG: Polling for latest block from network")
 				highestBlock, err := s.starknetData.BlockLatest(ctx)
 				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
+					s.log.Warnw("SYNC_DEBUG: Failed fetching latest block from network", "err", err)
 				} else {
+					s.log.Infow("SYNC_DEBUG: Successfully fetched latest block from network", "networkHeight", highestBlock.Number, "networkHash", highestBlock.Hash.ShortString())
 					s.highestBlockHeader.Store(highestBlock.Header)
 				}
 			}()
 		default:
+			s.log.Debugw("SYNC_DEBUG: pollLatest semaphore busy, skipping this poll")
 		}
 	}
 
-	ticker := time.NewTicker(time.Minute)
+	// Poll immediately on startup
+	s.log.Infow("SYNC_DEBUG: Performing initial latest block poll")
 	poll()
+
+	ticker := time.NewTicker(time.Minute)
+	s.log.Infow("SYNC_DEBUG: Starting periodic latest block polling every minute")
 
 	for {
 		select {
 		case <-ctx.Done():
+			s.log.Infow("SYNC_DEBUG: pollLatest context cancelled, stopping")
 			ticker.Stop()
 			return
 		case <-ticker.C:
+			s.log.Debugw("SYNC_DEBUG: Ticker fired, polling latest block")
 			poll()
 		}
 	}

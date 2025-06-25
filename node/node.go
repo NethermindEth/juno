@@ -454,12 +454,18 @@ func (n *Node) Run(ctx context.Context) {
 }
 
 func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
+	serviceName := reflect.TypeOf(s).String()
+	n.log.Infow("SYNC_DEBUG: Starting service", "serviceName", serviceName)
+
 	wg.Go(func() {
 		// Immediately acknowledge panicing services by shutting down the node
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C
 		defer cancel()
+		n.log.Infow("SYNC_DEBUG: Service starting to run", "serviceName", serviceName)
 		if err := s.Run(ctx); err != nil {
-			n.log.Errorw("Service error", "name", reflect.TypeOf(s), "err", err)
+			n.log.Errorw("SYNC_DEBUG: Service error", "name", serviceName, "err", err)
+		} else {
+			n.log.Infow("SYNC_DEBUG: Service finished successfully", "serviceName", serviceName)
 		}
 	})
 }
