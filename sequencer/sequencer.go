@@ -33,10 +33,11 @@ type Sequencer struct {
 	blockTime        time.Duration
 	mempool          *mempool.Pool
 
-	subNewHeads     *feed.Feed[*core.Block]
-	subPendingBlock *feed.Feed[*core.Block]
-	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-	plugin          plugin.JunoPlugin
+	subNewHeads          *feed.Feed[*core.Block]
+	subPendingBlock      *feed.Feed[*core.Block]
+	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
+	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
+	plugin               plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
@@ -50,15 +51,16 @@ func New(
 	log utils.Logger,
 ) Sequencer {
 	return Sequencer{
-		builder:          builder,
-		mempool:          mempool,
-		sequencerAddress: sequencerAddress,
-		privKey:          privKey,
-		log:              log,
-		blockTime:        blockTime,
-		subNewHeads:      feed.New[*core.Block](),
-		subPendingBlock:  feed.New[*core.Block](),
-		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
+		builder:              builder,
+		mempool:              mempool,
+		sequencerAddress:     sequencerAddress,
+		privKey:              privKey,
+		log:                  log,
+		blockTime:            blockTime,
+		subNewHeads:          feed.New[*core.Block](),
+		subPendingBlock:      feed.New[*core.Block](),
+		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
+		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
 	}
 }
 
@@ -190,6 +192,18 @@ func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
 	return s.builder.PendingState()
 }
 
+func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
+	return s.builder.PreConfirmed()
+}
+
+func (s *Sequencer) PreConfirmedBlock() *core.Block {
+	return s.builder.PreConfirmedBlock()
+}
+
+func (s *Sequencer) PreConfirmedState() (core.StateReader, func() error, error) {
+	return s.builder.PreConfirmedState()
+}
+
 func (s *Sequencer) HighestBlockHeader() *core.Header {
 	return nil // Not relevant for Sequencer. Todo: clean Reader
 }
@@ -209,4 +223,8 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (s *Sequencer) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: s.subPendingBlock.Subscribe()}
+}
+
+func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
+	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
 }

@@ -360,16 +360,18 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads *feed.Feed[*core.Block]
-	reorgs   *feed.Feed[*sync.ReorgBlockRange]
-	pending  *feed.Feed[*core.Block]
+	newHeads     *feed.Feed[*core.Block]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pending      *feed.Feed[*core.Block]
+	preConfirmed *feed.Feed[*core.PreConfirmed]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads: feed.New[*core.Block](),
-		reorgs:   feed.New[*sync.ReorgBlockRange](),
-		pending:  feed.New[*core.Block](),
+		newHeads:     feed.New[*core.Block](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pending:      feed.New[*core.Block](),
+		preConfirmed: feed.New[*core.PreConfirmed](),
 	}
 }
 
@@ -385,6 +387,10 @@ func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
 }
 
+func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
+	return sync.PreConfirmedSubscription{Subscription: fs.preConfirmed.Subscribe()}
+}
+
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
 	return 0, nil
 }
@@ -396,6 +402,14 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) Pending() (*sync.Pending, error)                       { return nil, nil }
 func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
 func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
+
+func (fs *fakeSyncer) PreConfirmed() (*core.PreConfirmed, error) {
+	return nil, sync.ErrPreConfirmedBlockNotFound
+}
+func (fs *fakeSyncer) PreConfirmedBlock() *core.Block { return nil }
+func (fs *fakeSyncer) PreConfirmedState() (core.StateReader, func() error, error) {
+	return nil, nil, nil
+}
 
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
