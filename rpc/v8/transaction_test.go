@@ -1875,8 +1875,6 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 	var gatewayResponse struct {
 		TransactionHash *felt.Felt `json:"transaction_hash"`
-		ContractAddress *felt.Felt `json:"address"`
-		ClassHash       *felt.Felt `json:"class_hash"`
 	}
 
 	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
