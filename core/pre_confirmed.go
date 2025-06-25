@@ -15,13 +15,15 @@ type PreConfirmed struct {
 	Block                 *Block
 	StateUpdate           *StateUpdate
 	TransactionStateDiffs []*StateDiff
-	CandidateTxHashes     map[felt.Felt]struct{}
+	CandidateTxs          []Transaction
 	NewClasses            map[felt.Felt]Class
 }
 
 func (p *PreConfirmed) HasCandidateTx(hash felt.Felt) bool {
-	if _, ok := p.CandidateTxHashes[hash]; ok {
-		return true
+	for _, txn := range p.CandidateTxs {
+		if *txn.Hash() == hash {
+			return true
+		}
 	}
 	return false
 }

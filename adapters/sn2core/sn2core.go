@@ -422,12 +422,10 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	var adaptedStateDiff *core.StateDiff
 	var err error
 
-	candidateTxHashesMap := make(map[felt.Felt]struct{})
 	txStateDiffs := make([]*core.StateDiff, 0, len(response.TransactionStateDiffs))
-	for i, stateDiff := range response.TransactionStateDiffs {
+	for _, stateDiff := range response.TransactionStateDiffs {
 		if stateDiff == nil {
-			candidateTxHashesMap[*response.Transactions[i].Hash] = struct{}{}
-			continue
+			break
 		}
 
 		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
@@ -436,15 +434,24 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
 	}
 
-	lastPreconfirmedIndex := len(response.Transactions) - len(candidateTxHashesMap) - 1
+	lastPreconfirmedIndex := len(txStateDiffs) - 1
 
 	txns := make([]core.Transaction, lastPreconfirmedIndex+1)
 	for i, txn := range response.Transactions[:lastPreconfirmedIndex+1] {
-		var err error
-		txns[i], err = AdaptTransaction(txn)
+		adaptedTxn, err := AdaptTransaction(txn)
 		if err != nil {
 			return nil, err
 		}
+		txns[i] = adaptedTxn
+	}
+
+	candidateTxs := make([]core.Transaction, len(response.Transactions)-lastPreconfirmedIndex-1)
+	for i, txn := range response.Transactions[lastPreconfirmedIndex+1:] {
+		adaptedTxn, err := AdaptTransaction(txn)
+		if err != nil {
+			return nil, err
+		}
+		candidateTxs[i] = adaptedTxn
 	}
 
 	receipts := make([]*core.TransactionReceipt, lastPreconfirmedIndex+1)
@@ -459,6 +466,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	for _, txStateDiff := range txStateDiffs {
 		stateDiff.Merge(txStateDiff)
 	}
+
 	stateUpdate := core.StateUpdate{
 		BlockHash: nil,
 		NewRoot:   nil,
@@ -481,7 +489,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
 			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
 			// Not required in spec but useful
-			TransactionCount: uint64(len(response.Transactions)),
+			TransactionCount: uint64(len(txns)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
 			// Following fields are nil for pre_confirmed block
@@ -496,7 +504,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	return &core.PreConfirmed{
 		Block:                 adaptedBlock,
 		TransactionStateDiffs: txStateDiffs,
-		CandidateTxHashes:     candidateTxHashesMap,
+		CandidateTxs:          candidateTxs,
 		StateUpdate:           &stateUpdate,
 		NewClasses:            make(map[felt.Felt]core.Class),
 	}, nil
