@@ -594,7 +594,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}
 
 	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add(tx.Hash)
+		h.submittedTransactionsCache.Add(res.TransactionHash)
 	}
 
 	return res, nil
