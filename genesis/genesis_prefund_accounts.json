@@ -20,22 +20,36 @@
 				"0x0"
 			]
 		},
+		"0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d": {
+			"class_hash": "0x3182d1ef7f16f9f0e8481a10d0182eb6e4fb59d5ffd58ba8204d57322f4ab90",
+			"constructor_args": [
+				"0x537461726b6e657420546f6b656e",
+				"0x5354524b",
+				"0x12",
+				"0x283c",
+				"0x123456789123456789",
+				"0x123456",
+				"0x123456",
+				"0x1",
+				"0x0"
+			]
+		},
 		"0x101": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
 			"constructor_args": [
 				"0x16d03d341717ab11083a481f53278d8e54f610af815cbdab4035b2df283fcc0",
 				"0x0"
 			]
 		},
 		"0x102": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
 			"constructor_args": [
 				"0x3bc7ab4ca475e24a0053db47c3e5a2a53264a30639d8b2bd0a08407da3ca0c",
 				"0x0"
 			]
 		},
 		"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923": {
-			"class_hash": "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003",
+			"class_hash": "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f",
 			"constructor_args": [
 				"0x441973b4517116d46800d35eca3bbcd455e034045c39852e46a74376d6881f",
 				"0x0"
@@ -43,6 +57,26 @@
 		}
 	},
 	"function_calls": [
+		{
+			"contract_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x101",
+				"0x66bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
+		{
+			"contract_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
+			"calldata": [
+				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
+				"0x66bc75e2d63100000",
+				"0x0"
+			],
+			"caller_address": "0x0"
+		},
 		{
 			"contract_address": "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
@@ -68,7 +102,7 @@
 			"entry_point_selector": "0x01c67057e2995950900dbf33db0f5fc9904f5a18aae4a3768f721c43efe5d288",
 			"calldata": [
 				"0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
-				"0x56bc75e2d63100000",
+				"0x11111111111111111",
 				"0x0"
 			],
 			"caller_address": "0x0"
@@ -114,19 +148,43 @@
 			"constructor_calldata": []
 		},
 		{
-			"transaction_hash": "0xc7ce47912f2d0931fb693882d3f5dfca884e196d71b7771c53121c3f717f3",
-			"max_fee": "0x5af3107a4000",
-			"version": "0x1",
-			"signature": [
-				"0x3d961ed4d414e60aba73519bae95b45c50a24b07e17bf7d3b1a0f22a4cce42a",
-				"0x4ae418b5d51355c3b8bfc58b0ceab6421ca047884b4d9e1e5703e753a9d76ba"
-			],
-			"nonce": "0x1",
 			"type": "INVOKE",
-			"sender_address": "0x535ca4e1d1be7ec4a88d51a2962cd6c5aea1be96cb2c0b60eb1721dc34f800d",
+			"transaction_hash": "0x417be6cfa789efb3d18c917110d404631b9820c2607efec1ea11f41568ba34a",
+			"version": "0x3",
+			"signature": [
+				"0x1d2cab7be6f8675d2ca5365fde15bdefaab45e18d10cc5a70a2584debea89a",
+				"0x68cf661a6d90bc9ecb9da41deba26c9961def7757605e25a9d29cd83e942cb2"
+			],
+			"nonce": "0x0",
+			"nonce_data_availability_mode": "L1",
+			"fee_data_availability_mode": "L1",
+			"resource_bounds": {
+				"l1_gas": {
+					"max_amount": "0x128",
+					"max_price_per_unit": "0x128"
+				},
+				"l1_data_gas": {
+					"max_amount": "0x128",
+					"max_price_per_unit": "0x128"
+				},
+				"l2_gas": {
+					"max_amount": "0x6b6c1",
+					"max_price_per_unit": "0x128"
+				}
+			},
+			"tip": "0x0",
+			"paymaster_data": [],
+			"sender_address": "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923",
 			"calldata": [
-				"0x7b3e05f48f0c69e4a65ce5e076a66271a527aff2c34ce1083ec6e1526997a69"
-			]
+				"0x1",
+				"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+				"0x3",
+				"0x105",
+				"0x1111111",
+				"0x0"
+			],
+			"account_deployment_data": []
 		}
 	]
 }

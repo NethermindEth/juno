@@ -24,31 +24,6 @@ import (
 // This allows us to execute real txns in the tests.
 func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.Handler, *mempool.Pool) {
 	t.Helper()
-
-	// transfer tokens to 0x101
-	invokeTxn := rpc.BroadcastedTransaction{
-		Transaction: rpc.Transaction{
-			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-			Version:       new(felt.Felt).SetUint64(1),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(0),
-			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
-			},
-			CallData: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x101"),
-				utils.HexToFelt(t, "0x12345678"),
-				utils.HexToFelt(t, "0x0"),
-			},
-		},
-	}
-
 	network := &utils.Mainnet
 	testDB := memory.New()
 
@@ -70,12 +45,10 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, false, true)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(txnPool)
-	_, rpcErr := rpcHandler.AddTransaction(t.Context(), invokeTxn)
-	require.Nil(t, rpcErr)
 	_, err = seq.RunOnce()
 	require.NoError(t, err)
 
