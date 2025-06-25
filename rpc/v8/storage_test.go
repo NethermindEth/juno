@@ -103,7 +103,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 
 		blockID := blockIDLatest(t)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
@@ -114,7 +114,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 
 		blockID := blockIDHash(t, &felt.Zero)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
@@ -125,7 +125,7 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 
 		blockID := blockIDNumber(t, 0)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
@@ -181,6 +181,7 @@ func TestStorageProof(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
+	mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()
 	mockState.EXPECT().ClassTrie().Return(classTrie, nil).AnyTimes()

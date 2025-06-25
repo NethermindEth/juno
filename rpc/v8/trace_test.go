@@ -1274,7 +1274,7 @@ func TestCall(t *testing.T) {
 
 		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
-		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
+		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
 		mockVM.EXPECT().Call(&vm.CallInfo{
