@@ -12,6 +12,7 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -37,6 +38,7 @@ func TestRun(t *testing.T) {
 		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
 		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
 		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, "", nil),
+		rpcv9Handler: rpcv9.New(mockBcReader, mockSyncReader, nil, "", nil),
 	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
