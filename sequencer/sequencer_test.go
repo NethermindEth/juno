@@ -37,7 +37,7 @@ func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt
 	log := utils.NewNopZapLogger()
 	p := mempool.New(memory.New(), bc, 1000, log)
 
-	testBuilder := builder.New(bc, mockVM, log, false)
+	testBuilder := builder.New(bc, mockVM, log, false, false)
 	return sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log), bc
 }
 
@@ -53,11 +53,11 @@ func getGenesisSequencer(
 	[2]rpc.BroadcastedTransaction,
 ) {
 	t.Helper()
-	// transfer tokens to 0x101
+	// transfer tokens to 0x105
 	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+			SenderAddress: utils.HexToFelt(t, "0x101"),
 			Version:       new(felt.Felt).SetUint64(1),
 			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(0),
@@ -70,17 +70,17 @@ func getGenesisSequencer(
 				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x101"),
-				utils.HexToFelt(t, "0x12345678"),
+				utils.HexToFelt(t, "0x108"),
+				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x0"),
 			},
 		},
 	}
-	// transfer tokens to 0x102
+	// transfer tokens to 0x106
 	invokeTxn2 := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
+			SenderAddress: utils.HexToFelt(t, "0x101"),
 			Version:       new(felt.Felt).SetUint64(1),
 			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(1),
@@ -93,8 +93,8 @@ func getGenesisSequencer(
 				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x102"),
-				utils.HexToFelt(t, "0x12345678"),
+				utils.HexToFelt(t, "0x109"),
+				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x0"),
 			},
 		},
@@ -117,7 +117,7 @@ func getGenesisSequencer(
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000) //nolint:gomnd
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, false, true)
 	rpcHandler := rpc.New(bc, nil, nil, "", utils.NewNopZapLogger()).WithMempool(txnPool)
 	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
@@ -161,7 +161,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	height, err := bc.Height()
 	require.NoError(t, err)
 
-	expectedBalance := new(felt.Felt).Add(utils.HexToFelt(t, "0x56bc75e2d63100000"), utils.HexToFelt(t, "0x12345678"))
+	expectedBalance := utils.HexToFelt(t, "0x1")
 	numExpectedBalance := 0
 	foundExpectedNumAcntsWBalance := false
 	for i := range height {

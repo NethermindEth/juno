@@ -72,12 +72,12 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 
 // ProposalCommitment checks the set of proposed commitments against those generated locally.
 func (v *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment) error {
-	expectedCommitments, err := v.builder.ProposalCommitment()
+	buildResult, err := v.builder.Finish()
 	if err != nil {
 		return err
 	}
 
-	return compareProposalCommitment(&expectedCommitments, proCom)
+	return compareProposalCommitment(&buildResult.ProposalCommitment, proCom)
 }
 
 // ProposalFin executes the provided transactions, and stores the result in the pending state

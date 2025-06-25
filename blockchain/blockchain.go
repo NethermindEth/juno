@@ -400,7 +400,7 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (state.StateReader, 
 		return nil, err
 	}
 
-	return state.NewStateHistory(header.Number, header.GlobalStateRoot, b.StateDB)
+	return state.New(header.GlobalStateRoot, b.StateDB)
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
@@ -491,8 +491,6 @@ func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 }
 
 type SimulateResult struct {
-	Block            *core.Block
-	StateUpdate      *core.StateUpdate
 	BlockCommitments *core.BlockCommitments
 	ConcatCount      felt.Felt
 }
@@ -505,38 +503,29 @@ func (b *Blockchain) Simulate(
 	newClasses map[felt.Felt]core.Class,
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
-	var newCommitments *core.BlockCommitments
-
 	// Simulate without commit
 	if err := b.updateStateRoots(block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
 	}
-	blockHash, commitments, err := core.BlockHash(
-		block,
-		stateUpdate.StateDiff,
-		b.network,
-		block.SequencerAddress)
+
+	commitments, err := b.updateBlockHash(block, stateUpdate)
 	if err != nil {
 		return SimulateResult{}, err
 	}
-	block.Hash = blockHash
-	stateUpdate.BlockHash = blockHash
-	newCommitments = commitments
 
 	concatCount := core.ConcatCounts(
 		block.TransactionCount,
 		block.EventCount,
 		stateUpdate.StateDiff.Length(),
-		block.L1DAMode)
+		block.L1DAMode,
+	)
 
 	if err := b.signBlock(block, stateUpdate, sign); err != nil {
 		return SimulateResult{}, err
 	}
 
 	return SimulateResult{
-		Block:            block,
-		StateUpdate:      stateUpdate,
-		BlockCommitments: newCommitments,
+		BlockCommitments: commitments,
 		ConcatCount:      concatCount,
 	}, nil
 }
@@ -619,6 +608,22 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate.NewRoot = block.GlobalStateRoot
 
 	return nil
+}
+
+// updateBlockHash computes and sets the block hash and commitments
+func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateUpdate) (*core.BlockCommitments, error) {
+	blockHash, commitments, err := core.BlockHash(
+		block,
+		stateUpdate.StateDiff,
+		b.network,
+		block.SequencerAddress,
+	)
+	if err != nil {
+		return nil, err
+	}
+	block.Hash = blockHash
+	stateUpdate.BlockHash = blockHash
+	return commitments, nil
 }
 
 // calculateBlockHash computes and sets the block hash and commitments
