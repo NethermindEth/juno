@@ -171,7 +171,20 @@ where
 {
     let initial_resource_bounds = extract_resource_bounds(transaction)?;
     let initial_gas_limit = initial_resource_bounds.l2_gas.max_amount;
-    let max_l2_gas_limit = calculate_max_l2_gas_covered(transaction, block_context, state)?;
+    
+    // Use balance-dependent limit only when charge_fee is enabled,
+    // otherwise use blockifier's default limit to avoid the account balance issue
+    let max_l2_gas_limit = if get_execution_flags(transaction).charge_fee {
+        calculate_max_l2_gas_covered(transaction, block_context, state)?
+    } else {
+        // Use blockifier's default limit when fee charging is disabled
+        let max_sierra_gas_limit = block_context
+            .versioned_constants()
+            .os_constants
+            .validate_max_sierra_gas
+            .0;
+        GasAmount::from(max_sierra_gas_limit)
+    };
 
     // Simulate transaction execution with maximum possible gas to get actual gas usage.
     set_l2_gas_limit(transaction, max_l2_gas_limit)?;
