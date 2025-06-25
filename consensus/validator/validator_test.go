@@ -100,7 +100,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x9979aca51e836c8fd0f40a777980210120998a236a23d74615219f557a09f1")
+	block1Hash, err := new(felt.Felt).SetString("0x5ec8e267093fb2c592cecc9493832f4c5e6d0b24fd4dd5ab6738eaf3ada55bc")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -160,7 +160,7 @@ func TestProposal(t *testing.T) {
 				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       440001,
+				MaxAmount:       520001,
 				MaxPricePerUnit: utils.HexToFelt(t, "0x11"),
 			},
 			core.ResourceL1DataGas: {
@@ -183,11 +183,11 @@ func TestProposal(t *testing.T) {
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
 
-		StateDiffCommitment:   *utils.HexToFelt(t, "0x3362432493bbee0f2469221a15f474e5e03c74fe76ea7ba7f97e7600c07a719"),
-		TransactionCommitment: *utils.HexToFelt(t, "0x4ba493c0b6605d0a7af00e6d401e937989192bb10ba3cc940ee509fee3e664b"),
-		EventCommitment:       *utils.HexToFelt(t, "0x9c4350067ba4cc77274d9baa723b3547359c24765d1a4e92c82964ebbf8f06"),
-		ReceiptCommitment:     *utils.HexToFelt(t, "0x61f349c979d244924d73d834ec7fedfe32d57171a95adb2786dac1029b8c21a"),
-		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000300000000000000048000000000000000"),
+		StateDiffCommitment:   *utils.HexToFelt(t, "0x7f2bfa8b6c963a200dd153543a8d80421d1f6c5dd4c9fdfca82a456b7d9dc8d"),
+		TransactionCommitment: *utils.HexToFelt(t, "0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd"),
+		EventCommitment:       *utils.HexToFelt(t, "0xad5d7a8a43cf50a55d408355a75107f45911018f2630d3f1ca50c27773fbc8"),
+		ReceiptCommitment:     *utils.HexToFelt(t, "0x418196f35df812f4b39fa6b3d1bd3663106a1ba477066cf8bc3d1f7e827c937"),
+		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
 		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L1DAMode:              blockInfo.L1DAMode,
