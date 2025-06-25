@@ -174,17 +174,17 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "sync",
 		Name:      "timers",
-		Help:      "Synchronization operation duration in seconds",
+		Help:      "Synchronisation operation duration in seconds",
 	}, []string{"op"})
 	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "sync",
 		Name:      "blocks",
-		Help:      "Total number of blocks processed during synchronization",
+		Help:      "Total number of blocks processed during Synchronisation",
 	})
 	reorgCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "sync",
 		Name:      "reorganisations",
-		Help:      "Total number of blockchain reorganizations encountered",
+		Help:      "Total number of blockchain reorganisations encountered",
 	})
 	chainHeightGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "sync",
