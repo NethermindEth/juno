@@ -228,3 +228,7 @@ func (s *Sequencer) SubscribePending() sync.PendingSubscription {
 func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
 	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
 }
+
+func (s *Sequencer) PendingData() (*sync.PendingData, error) {
+	return nil, nil
+}
