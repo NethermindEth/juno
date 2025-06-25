@@ -33,15 +33,15 @@ func NewStateDB(disk db.KeyValueStore, triedb *triedb.Database) *StateDB {
 // Opens a class trie for the given state root
 //
 //nolint:dupl
-func (s *StateDB) ClassTrie(stateComm felt.Felt) (*trie2.Trie, error) {
+func (s *StateDB) ClassTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
 	switch scheme := s.triedb.Scheme(); scheme {
 	case triedb.PathDB:
-		return trie2.New(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
+		return trie2.New(trieutils.NewClassTrieID(*stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
 	case triedb.HashDB:
 		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
+			return trie2.New(trieutils.NewClassTrieID(*stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb)
 		}
-		rootHash, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
+		rootHash, err := core.GetClassAndContractRootByStateCommitment(s.disk, stateComm)
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +49,7 @@ func (s *StateDB) ClassTrie(stateComm felt.Felt) (*trie2.Trie, error) {
 		if err != nil {
 			return nil, err
 		}
-		return trie2.NewFromRootHash(trieutils.NewClassTrieID(stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb, &classRootHash)
+		return trie2.NewFromRootHash(trieutils.NewClassTrieID(*stateComm), ClassTrieHeight, crypto.Poseidon, s.triedb, &classRootHash)
 	default:
 		return nil, fmt.Errorf("unsupported trie db type: %T", scheme)
 	}
@@ -58,15 +58,15 @@ func (s *StateDB) ClassTrie(stateComm felt.Felt) (*trie2.Trie, error) {
 // Opens a contract trie for the given state root
 //
 //nolint:dupl
-func (s *StateDB) ContractTrie(stateComm felt.Felt) (*trie2.Trie, error) {
+func (s *StateDB) ContractTrie(stateComm *felt.Felt) (*trie2.Trie, error) {
 	switch scheme := s.triedb.Scheme(); scheme {
 	case triedb.PathDB:
-		return trie2.New(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
+		return trie2.New(trieutils.NewContractTrieID(*stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
 	case triedb.HashDB:
 		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
+			return trie2.New(trieutils.NewContractTrieID(*stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb)
 		}
-		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
+		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, stateComm)
 		if err != nil {
 			return nil, err
 		}
@@ -74,22 +74,22 @@ func (s *StateDB) ContractTrie(stateComm felt.Felt) (*trie2.Trie, error) {
 		if err != nil {
 			return nil, err
 		}
-		return trie2.NewFromRootHash(trieutils.NewContractTrieID(stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb, &contractRootHash)
+		return trie2.NewFromRootHash(trieutils.NewContractTrieID(*stateComm), ContractTrieHeight, crypto.Pedersen, s.triedb, &contractRootHash)
 	default:
 		return nil, fmt.Errorf("unsupported trie db type: %T", scheme)
 	}
 }
 
 // Opens a contract storage trie for the given state root and contract address
-func (s *StateDB) ContractStorageTrie(stateComm, owner felt.Felt) (*trie2.Trie, error) {
+func (s *StateDB) ContractStorageTrie(stateComm, owner *felt.Felt) (*trie2.Trie, error) {
 	switch scheme := s.triedb.Scheme(); scheme {
 	case triedb.PathDB:
-		return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+		return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 	case triedb.HashDB:
 		if stateComm.IsZero() {
-			return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+			return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 		}
-		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, &stateComm)
+		rootsBytes, err := core.GetClassAndContractRootByStateCommitment(s.disk, stateComm)
 		if err != nil {
 			return nil, err
 		}
@@ -98,7 +98,7 @@ func (s *StateDB) ContractStorageTrie(stateComm, owner felt.Felt) (*trie2.Trie, 
 			return nil, err
 		}
 		contractTrie, err := trie2.NewFromRootHash(
-			trieutils.NewContractTrieID(stateComm),
+			trieutils.NewContractTrieID(*stateComm),
 			ContractTrieHeight,
 			crypto.Pedersen,
 			s.triedb,
@@ -108,23 +108,23 @@ func (s *StateDB) ContractStorageTrie(stateComm, owner felt.Felt) (*trie2.Trie, 
 			return nil, err
 		}
 
-		contractComm, err := contractTrie.Get(&owner)
+		contractComm, err := contractTrie.Get(owner)
 		if err != nil {
 			return nil, err
 		}
 
 		if contractComm.IsZero() {
-			return trie2.New(trieutils.NewContractStorageTrieID(stateComm, owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
+			return trie2.New(trieutils.NewContractStorageTrieID(*stateComm, *owner), ContractStorageTrieHeight, crypto.Pedersen, s.triedb)
 		}
 
-		contractStorageRootBytes, err := core.GetContractStorageRoot(s.disk, &stateComm, &contractComm)
+		contractStorageRootBytes, err := core.GetContractStorageRoot(s.disk, stateComm, &contractComm)
 		if err != nil {
 			return nil, err
 		}
 		contractStorageRoot := new(felt.Felt).SetBytes(contractStorageRootBytes)
 
 		return trie2.NewFromRootHash(
-			trieutils.NewContractStorageTrieID(stateComm, owner),
+			trieutils.NewContractStorageTrieID(*stateComm, *owner),
 			ContractStorageTrieHeight,
 			crypto.Pedersen,
 			s.triedb,

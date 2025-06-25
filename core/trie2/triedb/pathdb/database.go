@@ -21,14 +21,6 @@ var _ database.TrieDB = (*Database)(nil)
 type Config struct {
 	CleanCacheSize  uint64 // Maximum size (in bytes) for caching clean nodes
 	WriteBufferSize int    // Maximum size (in bytes) for buffering writes before flushing
-<<<<<<< HEAD
-}
-
-var DefaultConfig = &Config{
-	CleanCacheSize:  16 * utils.Megabyte,
-	WriteBufferSize: 64 * utils.Megabyte,
-=======
->>>>>>> main
 }
 
 // Represents the path-based database which contains a in-memory layer tree (cache) + disk layer (database)
