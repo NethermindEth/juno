@@ -197,7 +197,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			return nil, kErr
 		}
 		mempool := mempool.New(database, chain, mempoolLimit, log)
-		builder := builder.New(chain, nodeVM, log, cfg.SeqDisableFees)
+		builder := builder.New(chain, nodeVM, log, cfg.SeqDisableFees, false)
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)

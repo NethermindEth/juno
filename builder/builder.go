@@ -26,12 +26,13 @@ var (
 
 type Builder struct {
 	// Builder dependencies
-	vm          vm.VM
-	blockchain  *blockchain.Blockchain
-	headState   core.StateReader
-	headCloser  blockchain.StateCloser
-	log         utils.Logger
-	disableFees bool
+	vm           vm.VM
+	blockchain   *blockchain.Blockchain
+	headState    core.StateReader
+	headCloser   blockchain.StateCloser
+	log          utils.Logger
+	disableFees  bool
+	skipValidate bool // allows us to modify txn fields without having to re-calculate the signature etc
 
 	// Builder state
 	// TODO: move to a builder state struct
@@ -44,13 +45,15 @@ func New(
 	bc *blockchain.Blockchain,
 	vm vm.VM,
 	log utils.Logger,
-	disableFees bool,
+	disableFees,
+	skipValidate bool,
 ) Builder {
 	return Builder{
-		log:         log,
-		blockchain:  bc,
-		disableFees: disableFees,
-		vm:          vm,
+		log:          log,
+		blockchain:   bc,
+		disableFees:  disableFees,
+		skipValidate: skipValidate,
+		vm:           vm,
 	}
 }
 
@@ -204,7 +207,7 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction) (err error) {
 		},
 		state,
 		b.blockchain.Network(),
-		b.disableFees, false, false, true, false)
+		b.disableFees, b.skipValidate, false, true, false)
 	if err != nil {
 		return err
 	}

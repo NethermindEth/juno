@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -36,32 +35,6 @@ func (v value) Hash() felt.Felt {
 // in these tests.
 func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchain.Blockchain, *core.Header) {
 	t.Helper()
-
-	// transfer tokens to 0x101
-	invokeTxn := rpc.BroadcastedTransaction{
-		Transaction: rpc.Transaction{
-			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-			Version:       new(felt.Felt).SetUint64(1),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
-			Nonce:         new(felt.Felt).SetUint64(0),
-			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
-			},
-			CallData: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x101"),
-				utils.HexToFelt(t, "0x12345678"),
-				utils.HexToFelt(t, "0x0"),
-			},
-		},
-	}
-
-	expectedExnsInBlock := []rpc.BroadcastedTransaction{invokeTxn}
 	testDB := memory.New()
 	network := &utils.Mainnet
 	bc := blockchain.New(testDB, network)
@@ -81,14 +54,9 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false)
+	testBuilder := builder.New(bc, vm.New(false, log), log, false, true)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
-	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(p)
-	for i := range expectedExnsInBlock {
-		_, rpcErr := rpcHandler.AddTransaction(t.Context(), expectedExnsInBlock[i])
-		require.Nil(t, rpcErr)
-	}
 	head, err := seq.RunOnce()
 	require.NoError(t, err)
 	return &testBuilder, bc, head
@@ -101,7 +69,7 @@ func TestEmptyProposal(t *testing.T) {
 	_, chain, head := getCustomBC(t, proposerAddr)
 	log := utils.NewNopZapLogger()
 	vm := vm.New(false, log)
-	testBuilder := builder.New(chain, vm, log, false)
+	testBuilder := builder.New(chain, vm, log, false, false)
 
 	validator := New[value, felt.Felt, felt.Felt](&testBuilder)
 
@@ -132,7 +100,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x27a852d180c77e0b7bc2b3e9b635b625db3ae48f2c469c93930c1889ae2d09f")
+	block1Hash, err := new(felt.Felt).SetString("0x26029592e4514e487be4aa2219be1e4ab50db9c630f2000d05b077d533de262")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -168,27 +136,45 @@ func TestProposal(t *testing.T) {
 
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"
-	invokeTxn2 := core.InvokeTransaction{
-		TransactionHash: utils.HexToFelt(t, "0x722e584df0c18fcda54552ae5055f6c1fda331c4ae5de7ec5fc0376ae8b9a7f"),
-		SenderAddress:   utils.HexToFelt(t, "0x0406a8f52e741619b17410fc90774e4b36f968e1a71ae06baacfe1f55d987923"),
-		Version:         new(core.TransactionVersion).SetUint64(1),
-		MaxFee:          utils.HexToFelt(t, "0xaeb1bacb2c"),
-		Nonce:           new(felt.Felt).SetUint64(1),
+	invokeTxn := core.InvokeTransaction{
+		TransactionHash: utils.HexToFelt(t, "0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992"),
+		SenderAddress:   utils.HexToFelt(t, "0x101"),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		Nonce:           new(felt.Felt).SetUint64(0),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
-			utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+			utils.HexToFelt(t, "0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0"),
+			utils.HexToFelt(t, "0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823"),
 		},
 		CallData: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
-			utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+			utils.HexToFelt(t, "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
 			utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 			utils.HexToFelt(t, "0x3"),
-			utils.HexToFelt(t, "0x102"),
-			utils.HexToFelt(t, "0x12345678"),
+			utils.HexToFelt(t, "0x105"),
+			utils.HexToFelt(t, "0x1234"),
 			utils.HexToFelt(t, "0x0"),
 		},
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       4,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       440001,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x11"),
+			},
+			core.ResourceL1DataGas: {
+				MaxAmount:       296,
+				MaxPricePerUnit: utils.HexToFelt(t, "0x3"),
+			},
+		},
+		Tip:                   utils.HexToUint64(t, "0x0"),
+		PaymasterData:         []*felt.Felt{},
+		AccountDeploymentData: []*felt.Felt{},
+		NonceDAMode:           core.DAModeL1,
+		FeeDAMode:             core.DAModeL1,
 	}
-	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn2}}))
+	require.NoError(t, validator.TransactionBatch([]types.Transaction{{Transaction: &invokeTxn}}))
 
 	nonEmptyCommitment := types.ProposalCommitment{
 		BlockNumber:      head.Number + 1,
@@ -197,11 +183,11 @@ func TestProposal(t *testing.T) {
 		Timestamp:        blockInfo.Timestamp,
 		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
 
-		StateDiffCommitment:   *utils.HexToFelt(t, "0x3248f1e62ba170555f7caa03c6f6c89843d5bfdafbf16384210544ef0b548e1"),
-		TransactionCommitment: *utils.HexToFelt(t, "0x4ba493c0b6605d0a7af00e6d401e937989192bb10ba3cc940ee509fee3e664b"),
-		EventCommitment:       *utils.HexToFelt(t, "0x366f7f8dd503ee94f626be1575fbd579692bb990be92b6c5b65b98a6c4faa9a"),
-		ReceiptCommitment:     *utils.HexToFelt(t, "0x513b7abd6c2952930a937580e14a05b0cdd1c69b570862194a023bf85090464"),
-		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000300000000000000048000000000000000"),
+		StateDiffCommitment:   *utils.HexToFelt(t, "0x7506a5f11e6261ac1d49e718d4d7e32fb2f6f82054792e5c3ae99af54e6d2af"),
+		TransactionCommitment: *utils.HexToFelt(t, "0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd"),
+		EventCommitment:       *utils.HexToFelt(t, "0x203d16245ccf912948cac8d15f68e2a0e6ddef8fcff360785ecd4a746b8310c"),
+		ReceiptCommitment:     *utils.HexToFelt(t, "0x5cb7e16c82ae5167290de76ab5704ccde608327b5edd37527fdd74d82acb21c"),
+		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
 		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L1DAMode:              blockInfo.L1DAMode,
