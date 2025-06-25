@@ -491,6 +491,24 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 	return traces, nil
 }
 
+func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+		"blockNumber": blockNumber,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	preConfirmedBlock := new(starknet.PreConfirmedBlock)
+	if err = json.NewDecoder(body).Decode(preConfirmedBlock); err != nil {
+		return nil, err
+	}
+	return preConfirmedBlock, nil
+}
+
 func findTargetDirectory(targetRelPath string) (string, error) {
 	root, err := os.Getwd()
 	if err != nil {
