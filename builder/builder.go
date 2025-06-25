@@ -3,8 +3,8 @@ package builder
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/types"
@@ -23,27 +23,41 @@ var (
 	ErrPendingParentHash  = errors.New("pending block parent hash does not match chain head")
 )
 
+type BuildResult struct {
+	Pending            sync.Pending
+	ProposalCommitment types.ProposalCommitment
+}
+
 type Builder struct {
-	pendingBlock atomic.Pointer[sync.Pending]
+	// Builder dependencies
 	vm           vm.VM
 	blockchain   *blockchain.Blockchain
 	headState    core.StateReader
 	headCloser   blockchain.StateCloser
 	log          utils.Logger
 	disableFees  bool
+	skipValidate bool // allows us to modify txn fields without having to re-calculate the signature etc
+
+	// Builder state
+	// TODO: move to a builder state struct
+	pendingBlock      *sync.Pending
+	l2GasConsumed     uint64
+	revealedBlockHash *felt.Felt
 }
 
 func New(
 	bc *blockchain.Blockchain,
 	vm vm.VM,
 	log utils.Logger,
-	disableFees bool,
+	disableFees,
+	skipValidate bool,
 ) Builder {
 	return Builder{
-		log:         log,
-		blockchain:  bc,
-		disableFees: disableFees,
-		vm:          vm,
+		log:          log,
+		blockchain:   bc,
+		disableFees:  disableFees,
+		skipValidate: skipValidate,
+		vm:           vm,
 	}
 }
 
@@ -52,8 +66,7 @@ func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, pr
 }
 
 func (b *Builder) Pending() (*sync.Pending, error) {
-	p := b.pendingBlock.Load()
-	if p == nil {
+	if b.pendingBlock == nil {
 		return nil, sync.ErrPendingBlockNotFound
 	}
 	expectedParentHash := &felt.Zero
@@ -61,8 +74,8 @@ func (b *Builder) Pending() (*sync.Pending, error) {
 		expectedParentHash = head.Hash
 	}
 
-	if p.Block.ParentHash.Equal(expectedParentHash) {
-		return p, nil
+	if b.pendingBlock.Block.ParentHash.Equal(expectedParentHash) {
+		return b.pendingBlock, nil
 	}
 
 	return nil, ErrPendingParentHash
@@ -87,7 +100,8 @@ func (b *Builder) PendingState() (core.StateReader, func() error, error) {
 }
 
 func (b *Builder) ClearPending() error {
-	b.pendingBlock.Store(&sync.Pending{})
+	b.l2GasConsumed = 0
+	b.pendingBlock = &sync.Pending{}
 
 	if b.headState != nil {
 		if err := b.headCloser(); err != nil {
@@ -104,15 +118,26 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 	if err != nil {
 		return err
 	}
+
+	b.revealedBlockHash, err = b.getRevealedBlockHash(header.Number)
+	if err != nil {
+		return err
+	}
+
 	pendingBlock := core.Block{
 		Header: &core.Header{
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: sequencerAddress,
+			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
 			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: felt.One.Clone(),
+				PriceInFri: felt.One.Clone(),
+			},
+			L2GasPrice: &core.GasPrice{
 				PriceInWei: felt.One.Clone(),
 				PriceInFri: felt.One.Clone(),
 			},
@@ -130,16 +155,12 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 		StateUpdate: &su,
 		NewClasses:  newClasses,
 	}
-	b.pendingBlock.Store(&pending)
+	b.pendingBlock = &pending
 	b.headState, b.headCloser, err = b.blockchain.HeadState()
 	return err
 }
 
-func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
-	blockHeight, err := b.blockchain.Height()
-	if err != nil {
-		return nil, err
-	}
+func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	const blockHashLag = 10
 	if blockHeight < blockHashLag {
 		return nil, nil
@@ -154,7 +175,7 @@ func (b *Builder) GetRevealedBlockHash() (*felt.Felt, error) {
 
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
-func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRevealed *felt.Felt) error {
+func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction) (err error) {
 	// Get the pending state
 	pending, err := b.Pending()
 	if err != nil {
@@ -185,11 +206,11 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 		paidFeesOnL1,
 		&vm.BlockInfo{
 			Header:                pending.Block.Header,
-			BlockHashToBeRevealed: blockHashToBeRevealed,
+			BlockHashToBeRevealed: b.revealedBlockHash,
 		},
 		state,
 		b.blockchain.Network(),
-		b.disableFees, false, false, true, false)
+		b.disableFees, b.skipValidate, false, true, false)
 	if err != nil {
 		return err
 	}
@@ -217,6 +238,9 @@ func (b *Builder) RunTxns(txns []mempool.BroadcastedTransaction, blockHashToBeRe
 	// Update pending block with transaction results
 	updatePendingBlock(pending, receipts, coreTxns, mergedStateDiff)
 
+	for i := range vmResults.GasConsumed {
+		b.l2GasConsumed += vmResults.GasConsumed[i].L2Gas
+	}
 	return b.storePending(pending)
 }
 
@@ -266,7 +290,7 @@ func (b *Builder) storePending(newPending *sync.Pending) error {
 	if !expectedParentHash.Equal(newPending.Block.ParentHash) {
 		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
 	}
-	b.pendingBlock.Store(newPending)
+	b.pendingBlock = newPending
 	return nil
 }
 
@@ -275,20 +299,27 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	if err != nil {
 		return err
 	}
-	if header.Number+1 != pInit.BlockNum {
+	if header.Number+1 != uint64(pInit.BlockNum) {
 		return fmt.Errorf("proposed block number is not head.Number +1")
 	}
 
 	pendingBlock := core.Block{
 		Header: &core.Header{
-			Number:           pInit.BlockNum,
+			Number:           uint64(pInit.BlockNum),
 			SequencerAddress: &pInit.Proposer,
 			ParentHash:       header.Hash,
 			// Todo: we need a mapping of protocolversion to block versions from SN
 			ProtocolVersion: blockchain.SupportedStarknetVersion.String(),
 			// Todo: once the spec is finalised, handle these fields (if they still exist)
 			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
-			L1GasPriceETH: header.L1GasPriceETH,
+			// Note: we use the header values by default, since the proposer only
+			// sends over a subset of the gas prices (eg for L1DataGasPrice it
+			// only sends the L1DataGasPriceWEI, but not the price in FRI, but
+			// we need both for the block hash)
+			L1GasPriceETH:  header.L1GasPriceETH,
+			L1GasPriceSTRK: header.L1GasPriceSTRK,
+			L1DataGasPrice: header.L1DataGasPrice,
+			L2GasPrice:     header.L2GasPrice,
 		},
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
@@ -304,56 +335,68 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 		StateUpdate: &su,
 		NewClasses:  newClasses,
 	}
-	b.pendingBlock.Store(&pending)
+	b.pendingBlock = &pending
 	b.headState, b.headCloser, err = b.blockchain.HeadState()
 	return err
 }
 
 func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
-	pending := b.pendingBlock.Load()
-	pending.Block.Header.Number = blockInfo.BlockNumber
-	pending.Block.Header.SequencerAddress = &blockInfo.Builder
-	pending.Block.Header.Timestamp = blockInfo.Timestamp
-	pending.Block.Header.L2GasPrice = &core.GasPrice{PriceInFri: &blockInfo.L2GasPriceFRI}
-	pending.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
-	pending.Block.Header.L1DataGasPrice = &core.GasPrice{PriceInWei: &blockInfo.L1DataGasPriceWEI}
-	pending.Block.Header.L1DAMode = blockInfo.L1DAMode
-	b.pendingBlock.Store(pending)
+	b.pendingBlock.Block.Header.Number = blockInfo.BlockNumber
+	b.pendingBlock.Block.Header.SequencerAddress = &blockInfo.Builder
+	b.pendingBlock.Block.Header.Timestamp = blockInfo.Timestamp
+	b.pendingBlock.Block.Header.L2GasPrice.PriceInFri = &blockInfo.L2GasPriceFRI
+	b.pendingBlock.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
+	b.pendingBlock.Block.Header.L1DataGasPrice.PriceInWei = &blockInfo.L1DataGasPriceWEI
+	b.pendingBlock.Block.Header.L1DAMode = blockInfo.L1DAMode
 }
 
-func (b *Builder) ExecuteTxns(txns []mempool.BroadcastedTransaction) error {
-	b.log.Debugw("calling ExecuteTxns")
-	blockHashToBeRevealed, err := b.GetRevealedBlockHash()
+func (b *Builder) Finish() (BuildResult, error) {
+	pending, err := b.Pending()
 	if err != nil {
-		return err
+		return BuildResult{}, err
 	}
-	if err := b.RunTxns(txns, blockHashToBeRevealed); err != nil {
-		b.log.Debugw("failed running txn", "err", err.Error())
-		var txnExecutionError vm.TransactionExecutionError
-		if !errors.As(err, &txnExecutionError) {
-			return err
+
+	simulatedResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
+	if err != nil {
+		return BuildResult{}, err
+	}
+
+	if simulatedResult.ConcatCount.IsZero() {
+		simulatedResult.BlockCommitments = &core.BlockCommitments{
+			TransactionCommitment: new(felt.Felt).SetUint64(0),
+			EventCommitment:       new(felt.Felt).SetUint64(0),
+			ReceiptCommitment:     new(felt.Felt).SetUint64(0),
+			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 		}
 	}
-	b.log.Debugw("running txns success")
-	return nil
-}
 
-// ExecutePending updates the pending block and state-update
-func (b *Builder) ExecutePending() (*core.BlockCommitments, *felt.Felt, error) {
-	pending, err := b.Pending()
+	version, err := semver.NewVersion(pending.Block.ProtocolVersion)
 	if err != nil {
-		return nil, nil, err
+		return BuildResult{}, err
 	}
-	simulateResult, err := b.blockchain.Simulate(pending.Block, pending.StateUpdate, pending.NewClasses, nil)
-	b.pendingBlock.Store(pending)
-	return simulateResult.BlockCommitments, simulateResult.ConcatCount, err
-}
 
-// StoredExecutedPending stores the executed pending block
-func (b *Builder) StoredExecutedPending(commitments *core.BlockCommitments) error {
-	pending, err := b.Pending()
-	if err != nil {
-		return err
+	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
+	buildResult := BuildResult{
+		Pending: *pending,
+		ProposalCommitment: types.ProposalCommitment{
+			BlockNumber:           pending.Block.Number,
+			Builder:               *pending.Block.SequencerAddress,
+			ParentCommitment:      *pending.Block.ParentHash,
+			Timestamp:             pending.Block.Timestamp,
+			ProtocolVersion:       *version,
+			OldStateRoot:          *pending.StateUpdate.OldRoot,
+			StateDiffCommitment:   *simulatedResult.BlockCommitments.StateDiffCommitment,
+			TransactionCommitment: *simulatedResult.BlockCommitments.TransactionCommitment,
+			EventCommitment:       *simulatedResult.BlockCommitments.EventCommitment,
+			ReceiptCommitment:     *simulatedResult.BlockCommitments.ReceiptCommitment,
+			ConcatenatedCounts:    simulatedResult.ConcatCount,
+			L1GasPriceFRI:         *pending.Block.L1GasPriceSTRK,
+			L1DataGasPriceFRI:     *pending.Block.L1DataGasPrice.PriceInFri,
+			L2GasPriceFRI:         *pending.Block.L2GasPrice.PriceInFri,
+			L2GasUsed:             *new(felt.Felt).SetUint64(b.l2GasConsumed),
+			L1DAMode:              pending.Block.L1DAMode,
+		},
 	}
-	return b.blockchain.StoreSimulated(pending.Block, pending.StateUpdate, pending.NewClasses, commitments, nil)
+
+	return buildResult, nil
 }

@@ -15,18 +15,18 @@ import (
 // Implements Hashable interface
 // Implements Application[value, felt.Felt] interface
 type app struct {
-	cur starknet.Value
+	cur uint64
 }
 
 func newApp() *app { return &app{} }
 
 func (a *app) Value() starknet.Value {
 	a.cur = (a.cur + 1) % 100
-	return a.cur
+	return starknet.Value(felt.FromUint64(a.cur))
 }
 
 func (a *app) Valid(v starknet.Value) bool {
-	return v < 100
+	return v != starknet.Value(felt.Zero)
 }
 
 // Implements Validators[felt.Felt] interface

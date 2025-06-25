@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
 )
@@ -34,8 +33,7 @@ type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type validator[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	builder     *builder.Builder // Builder manages the pending block and state
-	commitments *core.BlockCommitments
+	builder *builder.Builder // Builder manages the pending block and state
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) Validator[V, H, A] {
@@ -65,7 +63,7 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 		}
 	}
 
-	if err := v.builder.ExecuteTxns(txnsToExecute); err != nil {
+	if err := v.builder.RunTxns(txnsToExecute); err != nil {
 		return err
 	}
 
@@ -74,25 +72,12 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 
 // ProposalCommitment checks the set of proposed commitments against those generated locally.
 func (v *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment) error {
-	commitments, concatCount, err := v.builder.ExecutePending()
+	buildResult, err := v.builder.Finish()
 	if err != nil {
 		return err
 	}
-	// Starknet consensus requires zero values for empty blocks
-	if concatCount.IsZero() {
-		commitments = &core.BlockCommitments{
-			TransactionCommitment: new(felt.Felt).SetUint64(0),
-			EventCommitment:       new(felt.Felt).SetUint64(0),
-			ReceiptCommitment:     new(felt.Felt).SetUint64(0),
-			StateDiffCommitment:   new(felt.Felt).SetUint64(0),
-		}
-	}
-	pendingBlock := v.builder.PendingBlock()
-	v.commitments = commitments
-	if err := compareProposalCommitment(proCom, pendingBlock.Header, commitments, concatCount); err != nil {
-		return err
-	}
-	return nil
+
+	return compareProposalCommitment(&buildResult.ProposalCommitment, proCom)
 }
 
 // ProposalFin executes the provided transactions, and stores the result in the pending state
@@ -122,52 +107,47 @@ func compareFeltField(name string, a, b *felt.Felt) error {
 //  1. Some fields we can't get / compute: VersionConstantCommitment, NextL2GasPriceFRI
 //  2. The gas prices. Currently the spec sets eth gas prices, but in v1, these will be dropped
 //     for fri prices.
-func compareProposalCommitment(
-	p *types.ProposalCommitment,
-	h *core.Header,
-	c *core.BlockCommitments,
-	concatCount *felt.Felt,
-) error {
-	if p.BlockNumber != h.Number {
-		return fmt.Errorf("block number mismatch: proposal=%d header=%d", p.BlockNumber, h.Number)
+func compareProposalCommitment(computed, proposal *types.ProposalCommitment) error {
+	if proposal.BlockNumber != computed.BlockNumber {
+		return fmt.Errorf("block number mismatch: proposal=%d header=%d", proposal.BlockNumber, computed.BlockNumber)
 	}
 
-	if !p.ParentCommitment.Equal(h.ParentHash) {
-		return fmt.Errorf("parent hash mismatch: proposal=%s header=%s", p.ParentCommitment.String(), h.ParentHash.String())
+	if !proposal.ParentCommitment.Equal(&computed.ParentCommitment) {
+		return fmt.Errorf("parent hash mismatch: proposal=%s header=%s", proposal.ParentCommitment.String(), computed.ParentCommitment.String())
 	}
 
-	if err := compareFeltField("proposer address", &p.Builder, h.SequencerAddress); err != nil {
+	if err := compareFeltField("proposer address", &proposal.Builder, &computed.Builder); err != nil {
 		return err
 	}
 
 	// Todo: ask the SN guys about the precise checks we should perform with the timestamps
-	if p.Timestamp > h.Timestamp {
-		return fmt.Errorf("invalid timestamp: proposal timestamp (%d) is later than header timestamp (%d)", p.Timestamp, h.Timestamp)
+	if proposal.Timestamp > computed.Timestamp {
+		return fmt.Errorf("invalid timestamp: proposal (%d) is later than header (%d)", proposal.Timestamp, computed.Timestamp)
 	}
 
-	if !p.ProtocolVersion.LessThanEqual(blockchain.SupportedStarknetVersion) {
-		return fmt.Errorf("protocol version mismatch: proposal=%s header=%s", p.ProtocolVersion, h.ProtocolVersion)
+	if !proposal.ProtocolVersion.LessThanEqual(blockchain.SupportedStarknetVersion) {
+		return fmt.Errorf("protocol version mismatch: proposal=%s header=%s", proposal.ProtocolVersion, computed.ProtocolVersion)
 	}
 
-	if err := compareFeltField("concat counts", &p.ConcatenatedCounts, concatCount); err != nil {
-		return err
-	}
-
-	if err := compareFeltField("state diff", &p.StateDiffCommitment, c.StateDiffCommitment); err != nil {
-		return err
-	}
-	if err := compareFeltField("transaction", &p.TransactionCommitment, c.TransactionCommitment); err != nil {
-		return err
-	}
-	if err := compareFeltField("event", &p.EventCommitment, c.EventCommitment); err != nil {
-		return err
-	}
-	if err := compareFeltField("receipt", &p.ReceiptCommitment, c.ReceiptCommitment); err != nil {
+	if err := compareFeltField("concat counts", &proposal.ConcatenatedCounts, &computed.ConcatenatedCounts); err != nil {
 		return err
 	}
 
-	if p.L1DAMode != h.L1DAMode {
-		return fmt.Errorf("L1 DA mode mismatch: proposal=%d header=%d", p.L1DAMode, h.L1DAMode)
+	if err := compareFeltField("state diff", &proposal.StateDiffCommitment, &computed.StateDiffCommitment); err != nil {
+		return err
+	}
+	if err := compareFeltField("transaction", &proposal.TransactionCommitment, &computed.TransactionCommitment); err != nil {
+		return err
+	}
+	if err := compareFeltField("event", &proposal.EventCommitment, &computed.EventCommitment); err != nil {
+		return err
+	}
+	if err := compareFeltField("receipt", &proposal.ReceiptCommitment, &computed.ReceiptCommitment); err != nil {
+		return err
+	}
+
+	if proposal.L1DAMode != computed.L1DAMode {
+		return fmt.Errorf("L1 DA mode mismatch: proposal=%d header=%d", proposal.L1DAMode, computed.L1DAMode)
 	}
 
 	return nil

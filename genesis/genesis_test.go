@@ -35,13 +35,19 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.Empty(t, stateDiff.ReplacedClasses)
 		require.Equal(t, len(genesisConfig.BootstrapAccounts)+3, len(stateDiff.DeployedContracts)) // num_accounts + strk token + udc + udacnt
 		numFundedAccounts := 0
+		v3InvokeTxnTransferAmount := "0x1111111"
+		v3InvokeTxnTriggered := false
 		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
 			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
+			if v.Equal(utils.HexToFelt(t, v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
+				v3InvokeTxnTriggered = true
+			}
 		}
-		require.Equal(t, len(genesisConfig.BootstrapAccounts)+1, numFundedAccounts) // Also fund udacnt
+		require.Equal(t, len(genesisConfig.BootstrapAccounts), numFundedAccounts)
+		require.True(t, v3InvokeTxnTriggered)
 	})
 }

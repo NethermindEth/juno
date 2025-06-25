@@ -23,8 +23,8 @@ type stateObject struct {
 	storageTrie  *trie2.Trie // storage trie
 }
 
-func newStateObject(state *State, addr *felt.Felt, contract *stateContract) *stateObject {
-	return &stateObject{
+func newStateObject(state *State, addr *felt.Felt, contract *stateContract) stateObject {
+	return stateObject{
 		state:        state,
 		addr:         *addr,
 		contract:     contract,
@@ -50,7 +50,6 @@ func (s *stateObject) getStorage(key *felt.Felt) (felt.Felt, error) {
 		return felt.Zero, err
 	}
 
-	// TODO(weiihann): there must be a better way to do this
 	path := tr.FeltToPath(key)
 	v, err := trieutils.GetNodeByPath(s.state.db.disk, db.ContractTrieStorage, &s.addr, &path, true)
 	if err != nil {
@@ -68,7 +67,7 @@ func (s *stateObject) getStorageTrie() (*trie2.Trie, error) {
 		return s.storageTrie, nil
 	}
 
-	storageTrie, err := s.state.db.ContractStorageTrie(s.state.initRoot, s.addr)
+	storageTrie, err := s.state.db.ContractStorageTrie(&s.state.initRoot, &s.addr)
 	if err != nil {
 		return nil, err
 	}

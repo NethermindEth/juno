@@ -119,7 +119,7 @@ func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
 func getRandProposal(random *rand.Rand) starknet.Proposal {
 	return starknet.Proposal{
 		MessageHeader: getRandMessageHeader(random),
-		Value:         utils.HeapPtr(starknet.Value(random.Uint64())),
+		Value:         utils.HeapPtr(starknet.Value(felt.FromUint64(random.Uint64()))),
 		ValidRound:    types.Round(random.Int()),
 	}
 }

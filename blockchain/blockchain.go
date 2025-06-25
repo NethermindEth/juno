@@ -506,6 +506,11 @@ func (b *Blockchain) revertHead(txn db.IndexedBatch) error {
 	return b.runningFilter.OnReorg()
 }
 
+type SimulateResult struct {
+	BlockCommitments *core.BlockCommitments
+	ConcatCount      felt.Felt
+}
+
 // Simulate returns what the new completed header and state update would be if the
 // provided block was added to the chain.
 func (b *Blockchain) Simulate(
@@ -514,9 +519,6 @@ func (b *Blockchain) Simulate(
 	newClasses map[felt.Felt]core.Class,
 	sign utils.BlockSignFunc,
 ) (SimulateResult, error) {
-	var newCommitments *core.BlockCommitments
-	var concatCount *felt.Felt
-
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
 	defer txn.Reset()
@@ -524,62 +526,27 @@ func (b *Blockchain) Simulate(
 	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 		return SimulateResult{}, err
 	}
-	blockHash, commitments, err := core.BlockHash(
-		block,
-		stateUpdate.StateDiff,
-		b.network,
-		block.SequencerAddress)
+
+	commitments, err := b.updateBlockHash(block, stateUpdate)
 	if err != nil {
 		return SimulateResult{}, err
 	}
-	block.Hash = blockHash
-	stateUpdate.BlockHash = blockHash
-	newCommitments = commitments
 
-	concatCount = core.ConcatCounts(
+	concatCount := core.ConcatCounts(
 		block.TransactionCount,
 		block.EventCount,
 		stateUpdate.StateDiff.Length(),
-		block.L1DAMode)
+		block.L1DAMode,
+	)
 
 	if err := b.signBlock(block, stateUpdate, sign); err != nil {
 		return SimulateResult{}, err
 	}
 
 	return SimulateResult{
-		Block:            block,
-		StateUpdate:      stateUpdate,
-		BlockCommitments: newCommitments,
+		BlockCommitments: commitments,
 		ConcatCount:      concatCount,
 	}, nil
-}
-
-// StoreSimulated stores the simulated block. There is no need to recomute the state roots etc
-func (b *Blockchain) StoreSimulated(
-	block *core.Block,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
-	commitments *core.BlockCommitments,
-	sign utils.BlockSignFunc,
-) error {
-	finaliseFn := func(txn db.IndexedBatch) error {
-		if err := b.signBlock(block, stateUpdate, sign); err != nil {
-			return err
-		}
-		if err := b.storeBlockData(txn, block, stateUpdate, commitments); err != nil {
-			return err
-		}
-		return core.WriteChainHeight(txn, block.Number)
-	}
-
-	return b.database.Update(finaliseFn)
-}
-
-type SimulateResult struct {
-	Block            *core.Block
-	StateUpdate      *core.StateUpdate
-	BlockCommitments *core.BlockCommitments
-	ConcatCount      *felt.Felt
 }
 
 // Finalise checks the block correctness and appends it to the chain
@@ -593,7 +560,7 @@ func (b *Blockchain) Finalise(
 		if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
 			return err
 		}
-		commitments, err := b.calculateBlockHash(block, stateUpdate)
+		commitments, err := b.updateBlockHash(block, stateUpdate)
 		if err != nil {
 			return err
 		}
@@ -645,13 +612,14 @@ func (b *Blockchain) updateStateRoots(
 	return nil
 }
 
-// calculateBlockHash computes and sets the block hash and commitments
-func (b *Blockchain) calculateBlockHash(block *core.Block, stateUpdate *core.StateUpdate) (*core.BlockCommitments, error) {
+// updateBlockHash computes and sets the block hash and commitments
+func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateUpdate) (*core.BlockCommitments, error) {
 	blockHash, commitments, err := core.BlockHash(
 		block,
 		stateUpdate.StateDiff,
 		b.network,
-		block.SequencerAddress)
+		block.SequencerAddress,
+	)
 	if err != nil {
 		return nil, err
 	}

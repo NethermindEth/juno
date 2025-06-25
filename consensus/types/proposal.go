@@ -6,20 +6,16 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// Note / Todo: these are place holders for the concrete types we should autogen from the spec
-
 type Transaction struct {
 	Transaction core.Transaction
 	Class       core.Class
 	PaidFeeOnL1 *felt.Felt
-	Index       int // to order txns in the block
 }
 
 type ProposalFin felt.Felt
 
 type ValueID felt.Felt
 
-// This is a subset of the block header used in consensus
 type BlockInfo struct {
 	BlockNumber       uint64
 	Builder           felt.Felt
@@ -31,14 +27,14 @@ type BlockInfo struct {
 	L1DAMode          core.L1DAMode
 }
 
-// The fields of the Tendermint proposal which can be known before the proposer completes block building.
 type ProposalInit struct {
-	BlockNum uint64
-	Proposer felt.Felt
+	BlockNum   Height
+	Round      Round
+	ValidRound Round
+	Proposer   felt.Felt
 }
 
 type ProposalCommitment struct {
-	// BlockNumber is set by the proposer in ProposalInit
 	BlockNumber uint64
 	Builder     felt.Felt
 

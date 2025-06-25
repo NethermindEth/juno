@@ -233,7 +233,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GlobalStateRoot,                     // global state root
 			b.SequencerAddress,                    // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			concatCounts,
+			&concatCounts,
 			sdCommitment,
 			txCommitment, // transaction commitment
 			eCommitment,  // event commitment
@@ -313,7 +313,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GlobalStateRoot,                     // global state root
 			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			concatCounts,
+			&concatCounts,
 			sdCommitment,
 			txCommitment,    // transaction commitment
 			eCommitment,     // event commitment
@@ -401,7 +401,7 @@ func UnmarshalBlockNumber(val []byte) uint64 {
 	return binary.BigEndian.Uint64(val)
 }
 
-func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
+func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {
 		l1DAByte = 0b10000000
@@ -421,7 +421,7 @@ func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *fe
 		[]byte{l1DAByte},
 		zeroPadding,
 	)
-	return new(felt.Felt).SetBytes(concatBytes)
+	return *new(felt.Felt).SetBytes(concatBytes)
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) *felt.Felt {

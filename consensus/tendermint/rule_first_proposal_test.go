@@ -3,7 +3,6 @@ package tendermint
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.start()
 
 		// Receive a valid proposal with lockedRound = -1
-		proposalValue := starknet.Value(42)
+		proposalValue := value(42)
 		currentRound.validator(0).proposal(proposalValue, -1).expectActions(currentRound.action().broadcastPrevote(&proposalValue))
 
 		// Assertions - We should be in prevote step
@@ -30,7 +29,7 @@ func TestFirstProposal(t *testing.T) {
 		previousRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
-		expectedValue := starknet.Value(42)
+		expectedValue := value(42)
 
 		// Simulate the previous round such that it times out in the precommit step
 		// Validator 0 is a faulty proposer, proposing an invalid value to validator 1
@@ -62,7 +61,7 @@ func TestFirstProposal(t *testing.T) {
 		previousRound := newTestRound(t, stateMachine, 0, 0)
 		nextRound := newTestRound(t, stateMachine, 0, 1)
 
-		expectedValue := starknet.Value(42)
+		expectedValue := value(42)
 
 		// Simulate the previous round such that it times out in the precommit step
 		// Validator 0 is a faulty proposer, proposing an invalid value to validator 1
@@ -84,7 +83,7 @@ func TestFirstProposal(t *testing.T) {
 		previousRound.processTimeout(types.StepPrecommit)
 
 		// Validator 1 proposes an unexpected value, because it hasn't received a proposal in the previous round.
-		nextRound.validator(1).proposal(starknet.Value(43), -1).expectActions(nextRound.action().broadcastPrevote(nil))
+		nextRound.validator(1).proposal(value(43), -1).expectActions(nextRound.action().broadcastPrevote(nil))
 		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPrevote)
 	})
 
@@ -96,7 +95,7 @@ func TestFirstProposal(t *testing.T) {
 		currentRound.start()
 
 		// Receive an invalid proposal
-		currentRound.validator(0).proposal(starknet.Value(1e9), -1).expectActions(currentRound.action().broadcastPrevote(nil))
+		currentRound.validator(0).proposal(value(0), -1).expectActions(currentRound.action().broadcastPrevote(nil))
 
 		// Assertions - We should be in prevote step
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -118,7 +117,7 @@ func TestFirstProposal(t *testing.T) {
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Receive a proposal while not in propose step
-		currentRound.validator(0).proposal(starknet.Value(42), -1).expectActions()
+		currentRound.validator(0).proposal(value(42), -1).expectActions()
 
 		// Assertions - We should still be in precommit step, nothing changed
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
