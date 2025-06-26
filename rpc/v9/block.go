@@ -15,7 +15,7 @@ import (
 type BlockStatus uint8
 
 const (
-	BlockPreConfirmed BlockStatus = iota
+	BlockPreConfirmed BlockStatus = iota + 1
 	BlockAcceptedL2
 	BlockAcceptedL1
 	BlockRejected
