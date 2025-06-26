@@ -258,11 +258,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus
 }
 
 func adaptBlockHeader(header *core.Header) BlockHeader {
-	var blockNumber *uint64
-	// if header.Hash == nil it's a pending block
-	if header.Hash != nil {
-		blockNumber = &header.Number
-	}
+	blockNumber := &header.Number
 
 	sequencerAddress := header.SequencerAddress
 	if sequencerAddress == nil {

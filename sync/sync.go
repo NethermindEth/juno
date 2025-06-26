@@ -818,13 +818,13 @@ func (s *Synchronizer) PendingData() (*PendingData, error) {
 		}
 
 		return nil, ErrPendingBlockNotFound
+	} else {
+		// pre_confirmed
+		if head, err := s.blockchain.HeadsHeader(); err == nil {
+			p.StateUpdate.OldRoot = head.GlobalStateRoot
+			return p, nil
+		}
 	}
-	// pre_confirmed
-	if head, err := s.blockchain.HeadsHeader(); err == nil {
-		p.StateUpdate.OldRoot = head.GlobalStateRoot
-		return p, nil
-	}
-
 	return nil, ErrPendingBlockNotFound
 }
 
@@ -889,8 +889,8 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
 	receipts := make([]*core.TransactionReceipt, 0)
 	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
 		Header: &core.Header{
-			ParentHash:       latestHeader.Hash,
 			SequencerAddress: latestHeader.SequencerAddress,
 			Number:           latestHeader.Number + 1,
 			Timestamp:        uint64(time.Now().Unix()),
