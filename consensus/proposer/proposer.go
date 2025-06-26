@@ -139,7 +139,7 @@ func (p *proposer) BlockInfo(ctx context.Context) (types.BlockInfo, bool) {
 		Timestamp:     uint64(time.Now().Unix()),
 		L2GasPriceFRI: *pBlock.L2GasPrice.PriceInFri,
 		L1GasPriceWEI: *pBlock.L1GasPriceETH,
-		EthToStrkRate: *new(felt.Felt).SetUint64(1), // Todo: SN plan to drop this
+		EthToStrkRate: *new(felt.Felt).SetUint64(1), // TODO: Implement this properly
 		L1DAMode:      core.Blob,
 	}, true
 }
