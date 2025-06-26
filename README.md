@@ -108,6 +108,8 @@ docker logs -f juno
 
 You can find the full documentation [here](https://juno.nethermind.io/).
 
+If you are looking to become a Starknet Validator, follow the guide [here](https://nethermindeth.github.io/starknet-staking-v2/).
+
 ## 📸 Snapshots
 
 Use the provided snapshots to quickly sync your Juno node with the current state of the network. Fresh snapshots are automatically uploaded once a week and are available under the links below.
