@@ -141,10 +141,23 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1072
+// Allows omitting ParentHash, pre_confirmed block does not have parentHash
+// BLOCK_HEADER
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L1622
+// PRE_CONFIRMED_BLOCK_HEADER
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L1636
 type BlockHeader struct {
-	rpcv6.BlockHeader
-	L2GasPrice *rpcv6.ResourcePrice `json:"l2_gas_price"`
+	Hash             *felt.Felt           `json:"block_hash,omitempty"`
+	ParentHash       *felt.Felt           `json:"parent_hash,omitempty"`
+	Number           *uint64              `json:"block_number,omitempty"`
+	NewRoot          *felt.Felt           `json:"new_root,omitempty"`
+	Timestamp        uint64               `json:"timestamp"`
+	SequencerAddress *felt.Felt           `json:"sequencer_address,omitempty"`
+	L1GasPrice       *rpcv6.ResourcePrice `json:"l1_gas_price"`
+	L1DataGasPrice   *rpcv6.ResourcePrice `json:"l1_data_gas_price,omitempty"`
+	L1DAMode         *rpcv6.L1DAMode      `json:"l1_da_mode,omitempty"`
+	StarknetVersion  string               `json:"starknet_version"`
+	L2GasPrice       *rpcv6.ResourcePrice `json:"l2_gas_price"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
@@ -327,22 +340,20 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 	}
 
 	return BlockHeader{
-		BlockHeader: rpcv6.BlockHeader{
-			Hash:             header.Hash,
-			ParentHash:       header.ParentHash,
-			Number:           blockNumber,
-			NewRoot:          header.GlobalStateRoot,
-			Timestamp:        header.Timestamp,
-			SequencerAddress: sequencerAddress,
-			L1GasPrice: &rpcv6.ResourcePrice{
-				InWei: header.L1GasPriceETH,
-				InFri: nilToZero(header.L1GasPriceSTRK),
-			},
-			L1DataGasPrice:  &l1DataGasPrice,
-			L1DAMode:        &l1DAMode,
-			StarknetVersion: header.ProtocolVersion,
+		Hash:             header.Hash,
+		ParentHash:       header.ParentHash,
+		Number:           blockNumber,
+		NewRoot:          header.GlobalStateRoot,
+		Timestamp:        header.Timestamp,
+		SequencerAddress: sequencerAddress,
+		L1GasPrice: &rpcv6.ResourcePrice{
+			InWei: header.L1GasPriceETH,
+			InFri: nilToZero(header.L1GasPriceSTRK),
 		},
-		L2GasPrice: &l2GasPrice,
+		L1DataGasPrice:  &l1DataGasPrice,
+		L1DAMode:        &l1DAMode,
+		StarknetVersion: header.ProtocolVersion,
+		L2GasPrice:      &l2GasPrice,
 	}
 }
 
