@@ -504,7 +504,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	s.listener.OnReorg(head.Number)
 }
 
-func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) { //nolint:dupl
+func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
@@ -512,10 +512,9 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 	go s.pollPending(ctx, sem)
 	s.log.Infow("Switch polling pre_confirmed blocks")
 	go s.pollPreConfirmed(ctx, sem)
-
 }
 
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) { //nolint:dupl
+func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
@@ -556,7 +555,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) { //n
 	}
 }
 
-func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) { //nolint:dupl
+func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
@@ -827,7 +826,6 @@ func (s *Synchronizer) PendingData() (*PendingData, error) {
 	}
 
 	return nil, ErrPendingBlockNotFound
-
 }
 
 func (s *Synchronizer) PendingBlock() *core.Block {

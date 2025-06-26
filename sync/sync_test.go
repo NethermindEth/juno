@@ -215,11 +215,16 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
+
 		require.NoError(t, synchronizer.StorePending(pendingGenesis))
 
 		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
-		assert.Equal(t, pendingGenesis, gotPending)
+		assert.Equal(t, &sync.PendingData{
+			Block:       pendingGenesis.Block,
+			StateUpdate: pendingGenesis.StateUpdate,
+			IsPending:   true,
+		}, gotPending)
 	})
 
 	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
@@ -247,11 +252,17 @@ func TestPending(t *testing.T) {
 			Block:       b,
 			StateUpdate: su,
 		}
+
+		expectedPendingData := &sync.PendingData{
+			Block:       expectedPending.Block,
+			StateUpdate: expectedPending.StateUpdate,
+			IsPending:   true,
+		}
 		require.NoError(t, synchronizer.StorePending(expectedPending))
 
 		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
-		assert.Equal(t, expectedPending, gotPending)
+		assert.Equal(t, expectedPendingData, gotPending)
 	})
 
 	t.Run("get pending state", func(t *testing.T) {
