@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -44,7 +45,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
-func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
+func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -53,14 +54,14 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 	searchTxHash := utils.HexToFelt(t, "0x123456")
 
 	otherTxHash := utils.HexToFelt(t, "0x789abc")
-	pendingTx := &core.InvokeTransaction{
+	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         new(core.TransactionVersion).SetUint64(1),
 	}
 
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingBlock().Return(&core.Block{
-		Transactions: []core.Transaction{pendingTx},
+		Transactions: []core.Transaction{preConfirmedTx},
 	})
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
@@ -575,7 +576,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
+	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		latestBlock.Hash = nil
@@ -588,7 +589,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		blockID := blockIDPending(t)
+		blockID := blockIDPreConfirmed(t)
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
@@ -705,13 +706,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		})
 	}
 
-	t.Run("pending receipt", func(t *testing.T) {
+	t.Run("pre_confirmed receipt", func(t *testing.T) {
 		i := 2
 		expected := `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
-					"finality_status": "ACCEPTED_ON_L2",
+					"finality_status": "PRE_CONFIRMED",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
 						{
@@ -1420,6 +1421,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
+						mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPreConfirmedBlockNotFound).Times(2)
 						mockSyncReader.EXPECT().PendingBlock().Return(nil).Times(2)
 						handler := rpc.New(mockReader, mockSyncReader, nil, "", log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1434,17 +1436,57 @@ func TestTransactionStatus(t *testing.T) {
 				}
 			})
 
-			// transaction no† found in db and feeder
 			t.Run("transaction not found in db and feeder  ", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPreConfirmedBlockNotFound)
 				mockSyncReader.EXPECT().PendingBlock().Return(nil)
 				handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
 				require.Equal(t, err, rpccore.ErrTxnHashNotFound)
+			})
+
+			t.Run("transaction found in preconfirmed block", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+				preConfirmed := getTestPreConfirmed(t)
+				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
+				mockReader.EXPECT().TransactionByHash(preConfirmedTx).Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PendingBlock().Return(preConfirmed.Block)
+				handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
+
+				status, err := handler.TransactionStatus(ctx, *preConfirmedTx)
+				require.Nil(t, err)
+				require.Equal(t, rpc.TxnStatusPreConfirmed, status.Finality)
+				require.Equal(t, rpc.TxnSuccess, status.Execution)
+			})
+
+			t.Run("transaction found in preconfirmed block candidates", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+				preConfirmed := getTestPreConfirmed(t)
+				for _, candidateTx := range preConfirmed.CandidateTxs {
+					mockReader.EXPECT().TransactionByHash(candidateTx.Hash()).Return(nil, db.ErrKeyNotFound)
+					mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
+						Block:                 preConfirmed.Block,
+						StateUpdate:           preConfirmed.StateUpdate,
+						NewClasses:            preConfirmed.NewClasses,
+						TransactionStateDiffs: preConfirmed.TransactionStateDiffs,
+						CandidateTxs:          preConfirmed.CandidateTxs,
+					}, nil)
+					mockSyncReader.EXPECT().PendingBlock().Return(preConfirmed.Block)
+					handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
+
+					status, err := handler.TransactionStatus(ctx, *candidateTx.Hash())
+					require.Nil(t, err)
+					require.Equal(t, rpc.TxnStatusCandidate, status.Finality)
+					require.Equal(t, rpc.UnknownExecution, status.Execution)
+				}
 			})
 		})
 	}
@@ -1900,11 +1942,13 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPreConfirmedBlockNotFound)
 		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
+		require.Equal(t, rpc.UnknownExecution, status.Execution)
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
@@ -1918,6 +1962,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPreConfirmedBlockNotFound)
 		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 		// Expire cache entry
 		time.Sleep(cacheEntryTimeOut)
@@ -1925,4 +1970,185 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Nil(t, status)
 	})
+}
+
+func getTestPreConfirmed(t *testing.T) *core.PreConfirmed {
+	t.Helper()
+
+	preConfirmedJSONStr := `{
+    "status": "PRE_CONFIRMED",
+    "starknet_version": "0.14.0",
+    "l1_da_mode": "BLOB",
+    "l1_gas_price": {
+        "price_in_fri": "0xe8d4a51000",
+        "price_in_wei": "0x3b9aca00"
+    },
+    "l1_data_gas_price": {
+        "price_in_fri": "0x3e8",
+        "price_in_wei": "0x1"
+    },
+    "l2_gas_price": {
+        "price_in_fri": "0x186a0",
+        "price_in_wei": "0x64"
+    },
+    "timestamp": 1750157184,
+    "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+    "transactions": [
+        {
+            "type": "INVOKE_FUNCTION",
+            "resource_bounds": {
+                "L1_GAS": {
+                    "max_amount": "0x11170",
+                    "max_price_per_unit": "0x2d79883d20000"
+                },
+                "L2_GAS": {
+                    "max_amount": "0x5f5e100",
+                    "max_price_per_unit": "0xba43b7400"
+                },
+                "L1_DATA_GAS": {
+                    "max_amount": "0x2710",
+                    "max_price_per_unit": "0x2d79883d20000"
+                }
+            },
+            "tip": "0x0",
+            "calldata": [
+                "0x2",
+                "0x4ed90820844c31bbec1995996767f3e3f2a78f0bbb3289ee381f8efe40d80b2",
+                "0x2468d193cd15b621b24c2a602b8dbcfa5eaa14f88416c40c09d7fd12592cb4b",
+                "0x0",
+                "0x4ed90820844c31bbec1995996767f3e3f2a78f0bbb3289ee381f8efe40d80b2",
+                "0x31aafc75f498fdfa7528880ad27246b4c15af4954f96228c9a132b328de1c92",
+                "0x6",
+                "0x25b019aa77b0c2b8d1c8039e145993e761eb466c683899821361ef5cca79045",
+                "0x3",
+                "0x525f6c2f38ca502b110f75ee2fbd9c90b5fe249590331c2fe2107c88bc3c3bf",
+                "0x302e4cd1e8c5b26c0df536e4039373b761cf035125cc2761d21603a12c4f9c5",
+                "0x57cdc35ae42f4afcac71b308658aabc375ef852be5c4a8c7e37e474510a966b",
+                "0x7f3f817b69bf989b100f4e194b939edbe7b2049a05695fce9cab4a83b6d5f0d"
+            ],
+            "sender_address": "0x352057331d5ad77465315d30b98135ddb815b86aa485d659dfeef59a904f88d",
+            "nonce": "0x2dc88c",
+            "signature": [
+                "0xac616ba95b63b87ac84e23dae4a68730716b32daee0bf1a23941ee43fd7fe3",
+                "0x34fbea4bccfd668de816fa8ca2f7fea6c16a1d3749ebb68bf058edd5a139c3c"
+            ],
+            "nonce_data_availability_mode": 0,
+            "fee_data_availability_mode": 0,
+            "paymaster_data": [],
+            "account_deployment_data": [],
+            "transaction_hash": "0x51188824aab8a9d7213d7e359538c0513c6d3e63d214dca076b34c5895a4ee8",
+            "version": "0x3"
+        },
+        {
+            "type": "INVOKE_FUNCTION",
+            "resource_bounds": {
+                "L1_GAS": {
+                    "max_amount": "0x11170",
+                    "max_price_per_unit": "0x2d79883d20000"
+                },
+                "L2_GAS": {
+                    "max_amount": "0x5f5e100",
+                    "max_price_per_unit": "0xba43b7400"
+                },
+                "L1_DATA_GAS": {
+                    "max_amount": "0x2710",
+                    "max_price_per_unit": "0x2d79883d20000"
+                }
+            },
+            "tip": "0x0",
+            "calldata": [
+                "0x1",
+                "0x4ed90820844c31bbec1995996767f3e3f2a78f0bbb3289ee381f8efe40d80b2",
+                "0x2468d193cd15b621b24c2a602b8dbcfa5eaa14f88416c40c09d7fd12592cb4b",
+                "0x0"
+            ],
+            "sender_address": "0x352057331d5ad77465315d30b98135ddb815b86aa485d659dfeef59a904f88d",
+            "nonce": "0x2dc88d",
+            "signature": [
+                "0x3ff77a14422c44f03510b0ea71c4d0c3816d779e1fa8d8a93fca171910987b2",
+                "0x1a4010147747cb66acb0be0307ca15e3339bfb1d9eeac9f8ad866b8464f3ef9"
+            ],
+            "nonce_data_availability_mode": 0,
+            "fee_data_availability_mode": 0,
+            "paymaster_data": [],
+            "account_deployment_data": [],
+            "transaction_hash": "0x42cba529ecbeb42e26018d83e360f8faae55541a5e9f9d56b4dc8374059371c",
+            "version": "0x3"
+        }
+    ],
+    "transaction_receipts": [
+        {
+            "transaction_index": 0,
+            "transaction_hash": "0x51188824aab8a9d7213d7e359538c0513c6d3e63d214dca076b34c5895a4ee8",
+            "l2_to_l1_messages": [],
+            "events": [
+                {
+                    "from_address": "0x352057331d5ad77465315d30b98135ddb815b86aa485d659dfeef59a904f88d",
+                    "keys": [
+                        "0x15bd0500dc9d7e69ab9577f73a8d753e8761bed10f25ba0f124254dc4edb8b4"
+                    ],
+                    "data": [
+                        "0x25b019aa77b0c2b8d1c8039e145993e761eb466c683899821361ef5cca79045",
+                        "0x3",
+                        "0x525f6c2f38ca502b110f75ee2fbd9c90b5fe249590331c2fe2107c88bc3c3bf",
+                        "0x302e4cd1e8c5b26c0df536e4039373b761cf035125cc2761d21603a12c4f9c5",
+                        "0x57cdc35ae42f4afcac71b308658aabc375ef852be5c4a8c7e37e474510a966b"
+                    ]
+                }
+            ],
+            "execution_resources": {
+                "n_steps": 4929,
+                "builtin_instance_counter": {
+                    "range_check_builtin": 158,
+                    "poseidon_builtin": 22,
+                    "pedersen_builtin": 4
+                },
+                "n_memory_holes": 0,
+                "data_availability": {
+                    "l1_gas": 0,
+                    "l1_data_gas": 128,
+                    "l2_gas": 0
+                },
+                "total_gas_consumed": {
+                    "l1_gas": 0,
+                    "l1_data_gas": 128,
+                    "l2_gas": 1023436
+                }
+            },
+            "actual_fee": "0x17d4295b80",
+            "execution_status": "SUCCEEDED"
+        },
+		null
+    ],
+    "transaction_state_diffs": [
+        {
+            "storage_diffs": {
+                "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d": [
+                    {
+                        "key": "0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a",
+                        "value": "0x1cfb4c453de6b9fe6054"
+                    },
+                    {
+                        "key": "0x3c204dd68b8e800b4f42e438d9ed4ccbba9f8e436518758cd36553715c1d6ab",
+                        "value": "0x154a0b181701af533d0"
+                    }
+                ]
+            },
+            "deployed_contracts": [],
+            "declared_classes": [],
+            "old_declared_contracts": [],
+            "nonces": {
+                "0x352057331d5ad77465315d30b98135ddb815b86aa485d659dfeef59a904f88d": "0x2dc88d"
+            },
+            "replaced_classes": []
+        },
+		null
+    ]
+}`
+
+	preConfirmedlock := new(starknet.PreConfirmedBlock)
+	require.NoError(t, json.Unmarshal([]byte(preConfirmedJSONStr), preConfirmedlock))
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedlock)
+	require.NoError(t, err)
+	return adaptedPreConfirmed
 }

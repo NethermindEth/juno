@@ -36,7 +36,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	var err error
 
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		var pending *sync.PendingData
 		pending, err = h.syncReader.PendingData()
 		if err == nil {
@@ -66,7 +66,7 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var header *core.Header
 	var err error
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		var pending *sync.PendingData
 		pending, err = h.syncReader.PendingData()
 		if err == nil {
@@ -142,7 +142,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 	var closer blockchain.StateCloser
 	var err error
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		reader, closer, err = h.syncReader.PendingState()
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()

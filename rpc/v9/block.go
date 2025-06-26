@@ -11,10 +11,35 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
+// https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
+type BlockStatus uint8
+
+const (
+	BlockPreConfirmed BlockStatus = iota
+	BlockAcceptedL2
+	BlockAcceptedL1
+	BlockRejected
+)
+
+func (s BlockStatus) MarshalText() ([]byte, error) {
+	switch s {
+	case BlockPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
+	case BlockAcceptedL2:
+		return []byte("ACCEPTED_ON_L2"), nil
+	case BlockAcceptedL1:
+		return []byte("ACCEPTED_ON_L1"), nil
+	case BlockRejected:
+		return []byte("REJECTED"), nil
+	default:
+		return nil, fmt.Errorf("unknown block status %v", s)
+	}
+}
+
 type blockIDType uint8
 
 const (
-	pending blockIDType = iota + 1
+	preConfirmed blockIDType = iota + 1
 	latest
 	hash
 	number
@@ -22,8 +47,8 @@ const (
 
 func (b *blockIDType) String() string {
 	switch *b {
-	case pending:
-		return "pending"
+	case preConfirmed:
+		return "pre_confirmed"
 	case latest:
 		return "latest"
 	case hash:
@@ -59,8 +84,8 @@ func (b *BlockID) Type() blockIDType {
 	return b.typeID
 }
 
-func (b *BlockID) IsPending() bool {
-	return b.typeID == pending
+func (b *BlockID) IsPreConfirmed() bool {
+	return b.typeID == preConfirmed
 }
 
 func (b *BlockID) IsLatest() bool {
@@ -92,8 +117,8 @@ func (b *BlockID) Number() uint64 {
 func (b *BlockID) UnmarshalJSON(data []byte) error {
 	if string(data) == `"latest"` {
 		b.typeID = latest
-	} else if string(data) == `"pending"` {
-		b.typeID = pending
+	} else if string(data) == `"pre_confirmed"` {
+		b.typeID = preConfirmed
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {
@@ -124,14 +149,14 @@ type BlockHeader struct {
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1131
 type BlockWithTxs struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []*Transaction `json:"transactions"`
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
 type BlockWithTxHashes struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	TxnHashes []*felt.Felt `json:"transactions"`
 }
@@ -142,7 +167,7 @@ type TransactionWithReceipt struct {
 }
 
 type BlockWithReceipts struct {
-	Status rpcv6.BlockStatus `json:"status,omitempty"`
+	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
 	Transactions []TransactionWithReceipt `json:"transactions"`
 }
@@ -189,9 +214,11 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 		return nil, rpcErr
 	}
 
-	finalityStatus := TxnAcceptedOnL2
-	if blockStatus == rpcv6.BlockAcceptedL1 {
+	finalityStatus := TxnPreConfirmed
+	if blockStatus == BlockAcceptedL1 {
 		finalityStatus = TxnAcceptedOnL1
+	} else if blockStatus == BlockAcceptedL2 {
+		finalityStatus = TxnAcceptedOnL2
 	}
 
 	txsWithReceipts := make([]TransactionWithReceipt, len(block.Transactions))
@@ -241,17 +268,17 @@ func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error)
 	}, nil
 }
 
-func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus, *jsonrpc.Error) {
+func (h *Handler) blockStatus(id *BlockID, block *core.Block) (BlockStatus, *jsonrpc.Error) {
 	l1H, jsonErr := h.l1Head()
 	if jsonErr != nil {
 		return 0, jsonErr
 	}
 
-	status := rpcv6.BlockAcceptedL2
-	if id.IsPending() {
-		status = rpcv6.BlockPending
+	status := BlockAcceptedL2
+	if id.IsPreConfirmed() {
+		status = BlockPreConfirmed
 	} else if isL1Verified(block.Number, l1H) {
-		status = rpcv6.BlockAcceptedL1
+		status = BlockAcceptedL1
 	}
 
 	return status, nil
@@ -259,7 +286,7 @@ func (h *Handler) blockStatus(id *BlockID, block *core.Block) (rpcv6.BlockStatus
 
 func adaptBlockHeader(header *core.Header) BlockHeader {
 	var blockNumber *uint64
-	// if header.Hash == nil it's a pending block
+	// if header.Hash == nil it's a preconfirmed block
 	if header.Hash != nil {
 		blockNumber = &header.Number
 	}

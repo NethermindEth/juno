@@ -32,7 +32,7 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 		}
 
 		switch blockID.Type() {
-		case pending:
+		case preConfirmed:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
 		case latest:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight)
