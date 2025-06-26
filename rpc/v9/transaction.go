@@ -480,38 +480,42 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 // TransactionByHash returns the details of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err == nil {
+		return AdaptTransaction(txn), nil
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+	// Check pending data
+	preConfirmed, err := h.syncReader.PendingData()
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
 
-		preConfirmedB := h.syncReader.PendingBlock()
-		if preConfirmedB == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-
-		for _, t := range preConfirmedB.Transactions {
-			if hash.Equal(t.Hash()) {
-				txn = t
-				break
-			}
-		}
-
-		if txn == nil {
-			return nil, rpccore.ErrTxnHashNotFound
+	// Check pre_confirmed transactions
+	for _, t := range preConfirmed.Block.Transactions {
+		if hash.Equal(t.Hash()) {
+			return AdaptTransaction(t), nil
 		}
 	}
-	return AdaptTransaction(txn), nil
+
+	// Check candidate transactions
+	for _, t := range preConfirmed.CandidateTxs {
+		if hash.Equal(t.Hash()) {
+			return AdaptTransaction(t), nil
+		}
+	}
+
+	return nil, rpccore.ErrTxnHashNotFound
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
 // BlockID and index.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int,
 ) (*Transaction, *jsonrpc.Error) {

@@ -36,7 +36,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingBlock().Return(nil)
+	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
@@ -60,9 +60,12 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	}
 
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingBlock().Return(&core.Block{
-		Transactions: []core.Transaction{preConfirmedTx},
-	})
+	mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
+		Block: &core.Block{
+			Transactions: []core.Transaction{preConfirmedTx},
+		},
+		CandidateTxs: []core.Transaction{},
+	}, nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
