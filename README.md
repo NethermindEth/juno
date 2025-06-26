@@ -41,7 +41,7 @@
   If looking to become a <b>Starknet Validator</b> you will additionally need to run a <a href="https://starknet.io/">validation tool</a>. We provide <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with full instructions but if you have any questions feel free to <a href="">reach out</a>. 
 </p>
 
-  If looking to become a <b>Starknet Validator</b> you will additionally need to run a <a href="https://starknet.io/">validation tool</a>. We provide <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with full instructions but if you have any questions feel free to <a href="">reach out</a>. 
+> If looking to become a <b>Starknet Validator</b> you will additionally need to run a <a href="https://starknet.io/">validation tool</a>. We provide <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with full instructions but if you have any questions feel free to <a href="">reach out</a>. 
 
 > ℹ️ Want to become a Starknet validator. You will also need the validator tool provided [here](https://github.com/NethermindEth/starknet-staking-v2)
 
