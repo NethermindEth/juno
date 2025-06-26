@@ -192,18 +192,6 @@ func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
 	return s.builder.PendingState()
 }
 
-func (s *Sequencer) PreConfirmed() (*core.PreConfirmed, error) {
-	return s.builder.PreConfirmed()
-}
-
-func (s *Sequencer) PreConfirmedBlock() *core.Block {
-	return s.builder.PreConfirmedBlock()
-}
-
-func (s *Sequencer) PreConfirmedState() (core.StateReader, func() error, error) {
-	return s.builder.PreConfirmedState()
-}
-
 func (s *Sequencer) HighestBlockHeader() *core.Header {
 	return nil // Not relevant for Sequencer. Todo: clean Reader
 }

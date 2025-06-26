@@ -394,15 +394,3 @@ func (b *Builder) ProposalCommitment() (types.ProposalCommitment, error) {
 		L1DAMode:              pending.Block.L1DAMode,
 	}, nil
 }
-
-func (b *Builder) PreConfirmed() (*core.PreConfirmed, error) {
-	return nil, nil
-}
-
-func (b *Builder) PreConfirmedBlock() *core.Block {
-	return nil
-}
-
-func (b *Builder) PreConfirmedState() (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
