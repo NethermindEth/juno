@@ -27,6 +27,7 @@ var (
 
 type Sequencer struct {
 	builder          *builder.Builder
+	buildState       *builder.BuildState
 	sequencerAddress *felt.Felt
 	privKey          *ecdsa.PrivateKey
 	log              utils.Logger
@@ -42,7 +43,7 @@ type Sequencer struct {
 }
 
 func New(
-	builder *builder.Builder,
+	b *builder.Builder,
 	mempool *mempool.Pool,
 	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
@@ -50,7 +51,8 @@ func New(
 	log utils.Logger,
 ) Sequencer {
 	return Sequencer{
-		builder:          builder,
+		builder:          b,
+		buildState:       &builder.BuildState{},
 		mempool:          mempool,
 		sequencerAddress: sequencerAddress,
 		privKey:          privKey,
@@ -72,12 +74,12 @@ func (s *Sequencer) Run(ctx context.Context) error {
 
 	// Clear pending state on shutdown
 	defer func() {
-		if pErr := s.builder.ClearPending(); pErr != nil {
+		if pErr := s.buildState.ClearPending(); pErr != nil {
 			s.log.Errorw("clearing pending", "err", pErr)
 		}
 	}()
 
-	if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
+	if err := s.initPendingBlock(); err != nil {
 		return err
 	}
 
@@ -116,15 +118,34 @@ func (s *Sequencer) Run(ctx context.Context) error {
 			// push the new head to the feed
 			s.subNewHeads.Send(pending.Block)
 
-			if err := s.builder.ClearPending(); err != nil {
-				return err
-			}
-			if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
+			if err := s.initPendingBlock(); err != nil {
 				return err
 			}
 			s.mu.Unlock()
 		}
 	}
+}
+
+func (s *Sequencer) initPendingBlock() error {
+	buildParams := builder.BuildParams{
+		Builder:           *s.sequencerAddress,
+		L2GasPriceFRI:     felt.One,
+		L1GasPriceWEI:     felt.One,
+		L1DataGasPriceWEI: felt.One,
+		EthToStrkRate:     felt.One,
+		L1DAMode:          core.Calldata,
+	}
+
+	var err error
+	if err = s.buildState.ClearPending(); err != nil {
+		return err
+	}
+
+	if s.buildState, err = s.builder.InitPendingBlock(&buildParams); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // listenPool waits until the mempool has transactions, then
@@ -138,7 +159,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the pending block to the feed
-		s.subPendingBlock.Send(s.builder.PendingBlock())
+		s.subPendingBlock.Send(s.buildState.PendingBlock())
 		select {
 		case <-ctx.Done():
 			return nil
@@ -162,7 +183,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 			return err
 		}
 		s.log.Debugw("running txns", userTxns)
-		if err = s.builder.RunTxns(userTxns); err != nil {
+		if err = s.builder.RunTxns(s.buildState, userTxns); err != nil {
 			s.log.Debugw("failed running txn", "err", err.Error())
 			var txnExecutionError vm.TransactionExecutionError
 			if !errors.As(err, &txnExecutionError) {
@@ -179,15 +200,15 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 }
 
 func (s *Sequencer) Pending() (*sync.Pending, error) {
-	return s.builder.Pending()
+	return s.buildState.Pending, nil
 }
 
 func (s *Sequencer) PendingBlock() *core.Block {
-	return s.builder.PendingBlock()
+	return s.buildState.PendingBlock()
 }
 
 func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
-	return s.builder.PendingState()
+	return s.builder.PendingState(s.buildState)
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {
