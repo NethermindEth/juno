@@ -10,11 +10,12 @@ import (
 
 // Execute a single block. Useful for tests.
 func (s *Sequencer) RunOnce() (*core.Header, error) {
-	if err := s.builder.ClearPending(); err != nil {
+	err := s.buildState.ClearPending()
+	if err != nil {
 		s.log.Errorw("clearing pending", "err", err)
 	}
 
-	if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
+	if err := s.initPendingBlock(); err != nil {
 		return nil, err
 	}
 
@@ -43,10 +44,7 @@ func (s *Sequencer) RunOnce() (*core.Header, error) {
 	// push the new head to the feed
 	s.subNewHeads.Send(pending.Block)
 
-	if err := s.builder.ClearPending(); err != nil {
-		return nil, err
-	}
-	if err := s.builder.InitPendingBlock(s.sequencerAddress); err != nil {
+	if err := s.initPendingBlock(); err != nil {
 		return nil, err
 	}
 	return pending.Block.Header, nil

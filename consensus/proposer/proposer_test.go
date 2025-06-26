@@ -45,7 +45,8 @@ func getCustomBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *rpc.
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	testBuilder := builder.New(bc, executor)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log)
 	rpcHandler := rpc.New(bc, nil, nil, "", log).WithMempool(txnPool)

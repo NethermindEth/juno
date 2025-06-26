@@ -19,7 +19,7 @@ type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ProposalInit(pInit *types.ProposalInit) error
 
 	// BlockInfo sets the pending header according to the proposal header
-	BlockInfo(blockInfo *types.BlockInfo)
+	BlockInfo(blockInfo *types.BlockInfo) error
 
 	// TransactionBatch executes the provided transactions, and stores the result in the pending state
 	TransactionBatch(txn []types.Transaction) error
@@ -32,23 +32,38 @@ type Validator[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type validator[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	builder *builder.Builder // Builder manages the pending block and state
+	builder    *builder.Builder // Builder manages the pending block and state
+	buildState *builder.BuildState
 }
 
-func New[V types.Hashable[H], H types.Hash, A types.Addr](builder *builder.Builder) Validator[V, H, A] {
+func New[V types.Hashable[H], H types.Hash, A types.Addr](b *builder.Builder) Validator[V, H, A] {
 	return &validator[V, H, A]{
-		builder: builder,
+		builder:    b,
+		buildState: &builder.BuildState{},
 	}
 }
 
 // ProposalInit initialises the pending header according to ProposalInit
-func (v *validator[V, H, A]) ProposalInit(pInit *types.ProposalInit) error {
-	return v.builder.ProposalInit(pInit)
+// TODO: We shouldn't initialse the build state here
+func (v *validator[V, H, A]) ProposalInit(pInit *types.ProposalInit) (err error) {
+	v.buildState, err = v.builder.InitPendingBlock(&builder.BuildParams{
+		Builder: pInit.Proposer,
+	})
+	return
 }
 
 // BlockInfo sets the pending header according to BlockInfo
-func (v *validator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) {
-	v.builder.SetBlockInfo(blockInfo)
+func (v *validator[V, H, A]) BlockInfo(blockInfo *types.BlockInfo) (err error) {
+	v.buildState, err = v.builder.InitPendingBlock(&builder.BuildParams{
+		Builder:           blockInfo.Builder,
+		Timestamp:         blockInfo.Timestamp,
+		L2GasPriceFRI:     blockInfo.L2GasPriceFRI,
+		L1GasPriceWEI:     blockInfo.L1GasPriceWEI,
+		L1DataGasPriceWEI: blockInfo.L1DataGasPriceWEI,
+		EthToStrkRate:     blockInfo.EthToStrkRate,
+		L1DAMode:          blockInfo.L1DAMode,
+	})
+	return
 }
 
 // TransactionBatch executes the provided transactions, and stores the result in the pending state
@@ -62,7 +77,7 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 		}
 	}
 
-	if err := v.builder.RunTxns(txnsToExecute); err != nil {
+	if err := v.builder.RunTxns(v.buildState, txnsToExecute); err != nil {
 		return err
 	}
 
@@ -70,18 +85,23 @@ func (v *validator[V, H, A]) TransactionBatch(txns []types.Transaction) error {
 }
 
 // ProposalCommitment checks the set of proposed commitments against those generated locally.
-func (v *validator[V, H, A]) ProposalCommitment(proCom *types.ProposalCommitment) error {
-	buildResult, err := v.builder.Finish()
+func (v *validator[V, H, A]) ProposalCommitment(received *types.ProposalCommitment) error {
+	buildResult, err := v.builder.Finish(v.buildState)
 	if err != nil {
 		return err
 	}
 
-	return compareProposalCommitment(&buildResult.ProposalCommitment, proCom)
+	computed, err := buildResult.ProposalCommitment()
+	if err != nil {
+		return err
+	}
+
+	return compareProposalCommitment(&computed, received)
 }
 
 // ProposalFin executes the provided transactions, and stores the result in the pending state
 func (v *validator[V, H, A]) ProposalFin(proposalFin types.ProposalFin) error {
-	pendingBlock := v.builder.PendingBlock()
+	pendingBlock := v.buildState.PendingBlock()
 
 	proposerCommitmentFelt := felt.Felt(proposalFin)
 	if !proposerCommitmentFelt.Equal(pendingBlock.Hash) {
