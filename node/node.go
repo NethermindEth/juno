@@ -285,6 +285,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if cfg.HTTP {
 		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
 		httpHandlers := map[string]http.HandlerFunc{
+			"/live":       readinessHandlers.HandleLive,
+			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
@@ -428,7 +430,13 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
+	migrationHTTPConfig := migration.HTTPConfig{
+		Enabled: n.cfg.HTTP,
+		Host:    n.cfg.HTTPHost,
+		Port:    n.cfg.HTTPPort,
+	}
+
+	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log, &migrationHTTPConfig); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
