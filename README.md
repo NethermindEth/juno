@@ -106,9 +106,9 @@ docker logs -f juno
 
 ## 📚 Documentation
 
-You can find the full documentation [here](https://juno.nethermind.io/).
+You can find Juno's full documentation [here](https://juno.nethermind.io/).
 
-If you are looking to become a Starknet Validator, follow the guide [here](https://nethermindeth.github.io/starknet-staking-v2/).
+If you are looking to become a **Starknet Validator**, follow our guide [here](https://nethermindeth.github.io/starknet-staking-v2/).
 
 ## 📸 Snapshots
 
