@@ -152,7 +152,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		if latestBlock.Hash != nil {
 			assert.Equal(t, latestBlock.Number, *b.Number)
 		} else {
-			assert.Nil(t, b.Number)
+			assert.Equal(t, latestBlock.Number, *b.Number)
 			assert.Equal(t, rpcv6.BlockPending, b.Status)
 		}
 		checkBlock(t, b)
@@ -400,24 +400,22 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	require.Equal(t, &rpcv9.BlockWithTxs{
 		BlockHeader: rpcv9.BlockHeader{
-			BlockHeader: rpcv6.BlockHeader{
-				Hash:            coreBlock.Hash,
-				StarknetVersion: coreBlock.ProtocolVersion,
-				NewRoot:         coreBlock.GlobalStateRoot,
-				Number:          &coreBlock.Number,
-				ParentHash:      coreBlock.ParentHash,
-				L1DAMode:        utils.HeapPtr(rpcv6.Blob),
-				L1GasPrice: &rpcv6.ResourcePrice{
-					InFri: utils.HexToFelt(t, "0x17882b6aa74"),
-					InWei: utils.HexToFelt(t, "0x3b9aca10"),
-				},
-				L1DataGasPrice: &rpcv6.ResourcePrice{
-					InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
-					InWei: utils.HexToFelt(t, "0x716a8f6dd"),
-				},
-				SequencerAddress: coreBlock.SequencerAddress,
-				Timestamp:        coreBlock.Timestamp,
+			Hash:            coreBlock.Hash,
+			StarknetVersion: coreBlock.ProtocolVersion,
+			NewRoot:         coreBlock.GlobalStateRoot,
+			Number:          &coreBlock.Number,
+			ParentHash:      coreBlock.ParentHash,
+			L1DAMode:        utils.HeapPtr(rpcv6.Blob),
+			L1GasPrice: &rpcv6.ResourcePrice{
+				InFri: utils.HexToFelt(t, "0x17882b6aa74"),
+				InWei: utils.HexToFelt(t, "0x3b9aca10"),
 			},
+			L1DataGasPrice: &rpcv6.ResourcePrice{
+				InFri: utils.HexToFelt(t, "0x2cc6d7f596e1"),
+				InWei: utils.HexToFelt(t, "0x716a8f6dd"),
+			},
+			SequencerAddress: coreBlock.SequencerAddress,
+			Timestamp:        coreBlock.Timestamp,
 			L2GasPrice: &rpcv6.ResourcePrice{
 				InFri: &felt.Zero,
 				InWei: &felt.Zero,
@@ -500,6 +498,10 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
+		// pre_confirmed block does not have, hash, parent_hash, global_state_root
+		block0.Hash = nil
+		block0.ParentHash = nil
+		block0.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: block0}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
@@ -523,19 +525,14 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, &rpcv9.BlockWithReceipts{
 			Status: rpcv6.BlockPending,
 			BlockHeader: rpcv9.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					Hash:             header.Hash,
-					ParentHash:       header.ParentHash,
-					Number:           header.Number,
-					NewRoot:          header.NewRoot,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1GasPrice:       header.L1GasPrice,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					L1DAMode:         header.L1DAMode,
-					StarknetVersion:  header.StarknetVersion,
-				},
-				L2GasPrice: header.L2GasPrice,
+				Number:           header.Number,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1GasPrice:       header.L1GasPrice,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				L1DAMode:         header.L1DAMode,
+				StarknetVersion:  header.StarknetVersion,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			Transactions: txsWithReceipt,
 		}, resp)
@@ -571,19 +568,17 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Equal(t, &rpcv9.BlockWithReceipts{
 			Status: rpcv6.BlockAcceptedL1,
 			BlockHeader: rpcv9.BlockHeader{
-				BlockHeader: rpcv6.BlockHeader{
-					Hash:             header.Hash,
-					ParentHash:       header.ParentHash,
-					Number:           header.Number,
-					NewRoot:          header.NewRoot,
-					Timestamp:        header.Timestamp,
-					SequencerAddress: header.SequencerAddress,
-					L1DAMode:         header.L1DAMode,
-					L1GasPrice:       header.L1GasPrice,
-					L1DataGasPrice:   header.L1DataGasPrice,
-					StarknetVersion:  header.StarknetVersion,
-				},
-				L2GasPrice: header.L2GasPrice,
+				Hash:             header.Hash,
+				ParentHash:       header.ParentHash,
+				Number:           header.Number,
+				NewRoot:          header.NewRoot,
+				Timestamp:        header.Timestamp,
+				SequencerAddress: header.SequencerAddress,
+				L1DAMode:         header.L1DAMode,
+				L1GasPrice:       header.L1GasPrice,
+				L1DataGasPrice:   header.L1DataGasPrice,
+				StarknetVersion:  header.StarknetVersion,
+				L2GasPrice:       header.L2GasPrice,
 			},
 			Transactions: transactions,
 		}, resp)
