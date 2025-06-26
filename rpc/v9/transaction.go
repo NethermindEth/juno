@@ -120,26 +120,23 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L3134
 type TxnFinalityStatus uint8
 
 const (
-	TxnReceived TxnFinalityStatus = iota + 2
-	TxnCandidate
-	TxnPreConfirmed
+	TxnPreConfirmed TxnFinalityStatus = iota + 4
 	TxnAcceptedOnL2
 	TxnAcceptedOnL1
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 	switch fs {
+	case TxnPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
 	case TxnAcceptedOnL1:
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
-	case TxnCandidate:
-		return []byte("CANDIDATE"), nil
-	case TxnPreConfirmed:
-		return []byte("PRE_CONFIRMED"), nil
 	default:
 		return nil, fmt.Errorf("unknown FinalityStatus %v", fs)
 	}
