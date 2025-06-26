@@ -37,13 +37,7 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
-<p align="center">
-  If looking to become a <b>Starknet Validator</b> you will additionally need to run a <a href="https://starknet.io/">validation tool</a>. We provide <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with full instructions but if you have any questions feel free to <a href="">reach out</a>. 
-</p>
-
-> ⚠️ If looking to become a <b>Starknet Validator</b> you will additionally need to run a <a href="https://starknet.io/">validation tool</a>. We have prepared a  <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with detailed instructions but if you hit any obstacles [reach us out](#📞-contact-us). 
-
-> ℹ️ Want to become a Starknet validator. You will also need the validator tool provided [here](https://github.com/NethermindEth/starknet-staking-v2)
+> ⚠️ If you're looking to become a <b>Starknet Validator</b>, you’ll also need to run a <a href="https://starknet.io/">validation tool</a>. We’ve prepared a <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with detailed instructions. If you run into any issues, feel free to <a href="#📞-contact-us">reach out to us</a>.
 
 ## ⚙️ Installation
 
