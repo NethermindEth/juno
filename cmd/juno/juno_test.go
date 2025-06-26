@@ -63,7 +63,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultMaxHandles := 1024
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultSeqBlockTime := uint(60)
-	defaultGwTimeout := "5s,"
+	defaultGwTimeout := "5s"
 
 	expectedConfig1 := node.Config{
 		LogLevel:            "debug",
