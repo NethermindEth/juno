@@ -227,7 +227,8 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: latestBlock,
+			Block:     latestBlock,
+			IsPending: true,
 		}, nil)
 
 		count, rpcErr := handler.BlockTransactionCount(rpc.BlockID{Pending: true})
@@ -350,7 +351,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: latestBlock,
+			Block:     latestBlock,
+			IsPending: true,
 		}, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 		block, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Pending: true})
@@ -491,7 +493,8 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: latestBlock,
+			Block:     latestBlock,
+			IsPending: true,
 		}, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpc.BlockID{Pending: true})
@@ -612,7 +615,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		blockID := rpc.BlockID{Pending: true}
 
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: block0}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: block0, IsPending: true}, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
 		resp, rpcErr := handler.BlockWithReceipts(blockID)

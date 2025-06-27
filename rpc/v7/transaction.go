@@ -397,7 +397,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.syncReader.PendingData()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
@@ -438,7 +438,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
