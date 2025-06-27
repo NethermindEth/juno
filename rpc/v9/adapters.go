@@ -39,7 +39,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 			executeInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	case vm.TxnL1Handler:
-		if trace.FunctionInvocation != nil {
+		if trace.ExecuteInvocation != nil {
 			functionInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.ExecuteInvocation))
 		}
 	}
