@@ -173,7 +173,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 
 	validL1HandlerTransactionTrace := rpc.TransactionTrace{
 		Type:               rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.FunctionInvocation{},
+		FunctionInvocation: &rpc.ExecuteInvocation{},
 	}
 
 	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
@@ -214,7 +214,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 			name:     "valid L1_HANDLER tx",
 			trace:    validL1HandlerTransactionTrace,
 			wantErr:  false,
-			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":""},"execution_resources":null}`,
 		},
 		{
 			name:     "invalid L1_HANDLER tx",
@@ -587,16 +587,16 @@ func TestTraceBlockTransactions(t *testing.T) {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
-				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-
-				handler = rpc.New(chain, mockSyncReader, nil, "", log)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
+			} else {
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
-
-			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-			assert.Nil(t, update)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -1051,10 +1051,14 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnL1Handler,
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+			FunctionInvocation: &rpc.ExecuteInvocation{
+				RevertReason: "",
+				FunctionInvocation: &rpc.FunctionInvocation{
+					Calls:      []rpc.FunctionInvocation{},
+					Events:     []rpcv6.OrderedEvent{},
+					Messages:   []rpcv6.OrderedL2toL1Message{},
+					IsReverted: false,
+				},
 			},
 		}
 
@@ -1123,17 +1127,20 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
-					FunctionInvocation: &rpc.FunctionInvocation{
-						Calls: []rpc.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{{
-							Order: 1,
-							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
-							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-						}},
-						Messages: []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{
-							L1Gas: 10,
-							L2Gas: 11,
+					FunctionInvocation: &rpc.ExecuteInvocation{
+						RevertReason: "",
+						FunctionInvocation: &rpc.FunctionInvocation{
+							Calls: []rpc.FunctionInvocation{},
+							Events: []rpcv6.OrderedEvent{{
+								Order: 1,
+								Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
+								Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+							}},
+							Messages: []rpcv6.OrderedL2toL1Message{},
+							ExecutionResources: &rpc.InnerExecutionResources{
+								L1Gas: 10,
+								L2Gas: 11,
+							},
 						},
 					},
 				},
