@@ -224,11 +224,9 @@ func TestHelpers(t *testing.T) {
 	block := seq.PendingBlock()
 	require.NotNil(t, block)
 
-	state, closer, err := seq.PendingState()
+	state, err := seq.PendingState()
 	require.NoError(t, err)
 	require.NotNil(t, state)
-	require.NotNil(t, closer)
-	require.NoError(t, closer())
 
 	header := seq.HighestBlockHeader()
 	require.Nil(t, header)

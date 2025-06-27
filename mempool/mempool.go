@@ -267,23 +267,17 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 		return ErrTxnPoolFull
 	}
 
-	state, closer, err := p.bc.HeadState()
+	state, err := p.bc.HeadState()
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err := closer(); err != nil {
-			p.log.Errorw("closing state in mempool validate", "err", err)
-		}
-	}()
 
 	switch t := userTxn.Transaction.(type) {
 	case *core.DeployTransaction:
 		return fmt.Errorf("deploy transactions are not supported")
 	case *core.DeployAccountTransaction:
 		if !t.Nonce.IsZero() {
-			return fmt.Errorf("validation failed, received non-zero nonce %s", t.Nonce)
+			return fmt.Errorf("validation failed, received non-zero nonce %v", t.Nonce)
 		}
 	case *core.DeclareTransaction:
 		nonce, err := state.ContractNonce(t.SenderAddress)
@@ -291,7 +285,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+			return fmt.Errorf("validation failed, existing nonce %v, but received nonce %v", nonce, t.Nonce)
 		}
 	case *core.InvokeTransaction:
 		if t.TxVersion().Is(0) { // cant verify nonce since SenderAddress was only added in v1
@@ -302,7 +296,7 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 			return fmt.Errorf("validation failed, error when retrieving nonce, %v", err)
 		}
 		if nonce.Cmp(t.Nonce) > 0 {
-			return fmt.Errorf("validation failed, existing nonce %s, but received nonce %s", nonce, t.Nonce)
+			return fmt.Errorf("validation failed, existing nonce %v, but received nonce %v", nonce, t.Nonce)
 		}
 	case *core.L1HandlerTransaction:
 		// todo: verification of the L1 handler nonce requires checking the

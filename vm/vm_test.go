@@ -7,6 +7,8 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -17,7 +19,6 @@ import (
 
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -27,7 +28,11 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	testState, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -38,7 +43,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}, false))
+	}))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -60,7 +65,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil, false))
+	}, nil))
 
 	ret, err = New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -73,7 +78,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
@@ -83,7 +87,11 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	testState, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -94,7 +102,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}, false))
+	}))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -108,7 +116,6 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 
 func TestCallCairo(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Goerli)
 	gw := adaptfeeder.New(client)
 
@@ -118,7 +125,11 @@ func TestCallCairo(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	testState, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
@@ -129,7 +140,7 @@ func TestCallCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}, false))
+	}))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -158,7 +169,7 @@ func TestCallCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil, false))
+	}, nil))
 
 	ret, err = New(false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -173,7 +184,6 @@ func TestCallCairo(t *testing.T) {
 
 func TestCallInfoErrorHandling(t *testing.T) {
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 
@@ -182,7 +192,11 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	simpleClass, err := gw.Class(t.Context(), classHash)
 	require.NoError(t, err)
 
-	testState := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	testState, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
 		NewRoot: utils.HexToFelt(t, "0xa6258de574e5540253c4a52742137d58b9e8ad8f584115bee46d9d18255c42"),
@@ -193,7 +207,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}, false))
+	}))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -227,9 +241,11 @@ func TestExecute(t *testing.T) {
 	network := utils.Goerli2
 
 	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-
-	state := core.NewState(txn)
+	triedb, err := triedb.New(testDB, nil)
+	require.NoError(t, err)
+	stateDB := state.NewStateDB(testDB, triedb)
+	state, err := state.New(&felt.Zero, stateDB)
+	require.NoError(t, err)
 
 	t.Run("empty transaction list", func(t *testing.T) {
 		_, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
