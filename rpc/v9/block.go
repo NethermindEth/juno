@@ -11,6 +11,31 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
+// https://github.com/starkware-libs/starknet-specs/blob/fbf8710c2d2dcdb70a95776f257d080392ad0816/api/starknet_api_openrpc.json#L2353-L2363
+type BlockStatus uint8
+
+const (
+	BlockPreConfirmed BlockStatus = iota
+	BlockAcceptedL2
+	BlockAcceptedL1
+	BlockRejected
+)
+
+func (s BlockStatus) MarshalText() ([]byte, error) {
+	switch s {
+	case BlockPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
+	case BlockAcceptedL2:
+		return []byte("ACCEPTED_ON_L2"), nil
+	case BlockAcceptedL1:
+		return []byte("ACCEPTED_ON_L1"), nil
+	case BlockRejected:
+		return []byte("REJECTED"), nil
+	default:
+		return nil, fmt.Errorf("unknown block status %v", s)
+	}
+}
+
 type blockIDType uint8
 
 const (
