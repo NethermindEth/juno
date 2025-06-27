@@ -49,9 +49,10 @@ func (l *logMessageToL2) hashMessage() *common.Hash {
 }
 
 type MsgStatus struct {
-	L1HandlerHash  *felt.Felt `json:"transaction_hash"`
-	FinalityStatus TxnStatus  `json:"finality_status"`
-	FailureReason  string     `json:"failure_reason,omitempty"`
+	L1HandlerHash   *felt.Felt         `json:"transaction_hash"`
+	FinalityStatus  TxnStatus          `json:"finality_status"`
+	ExecutionStatus TxnExecutionStatus `json:"execution_status"`
+	FailureReason   string             `json:"failure_reason,omitempty"`
 }
 
 func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
@@ -71,10 +72,18 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 		if rpcErr != nil {
 			return nil, rpcErr
 		}
+
+		// Skip if execution status is not present since it is required by the spec, thus finality status cannot be RECEIVED or CANDIDATE
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L284
+		if status.Execution == UnknownExecution {
+			continue
+		}
+
 		results[i] = MsgStatus{
-			L1HandlerHash:  hash,
-			FinalityStatus: status.Finality,
-			FailureReason:  status.FailureReason,
+			L1HandlerHash:   hash,
+			FinalityStatus:  status.Finality,
+			FailureReason:   status.FailureReason,
+			ExecutionStatus: status.Execution,
 		}
 	}
 	return results, nil
