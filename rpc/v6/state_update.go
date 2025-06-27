@@ -76,8 +76,8 @@ func (h *Handler) StateUpdate(id BlockID) (*StateUpdate, *jsonrpc.Error) {
 			update, err = h.bcReader.StateUpdateByNumber(height)
 		}
 	} else if id.Pending {
-		var pending *sync.PendingData
-		pending, err = h.syncReader.PendingData()
+		var pending *sync.Pending
+		pending, err = h.PendingData()
 		if err == nil {
 			update = pending.StateUpdate
 		}

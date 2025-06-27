@@ -147,6 +147,7 @@ func TestStateUpdate(t *testing.T) {
 		update21656.NewRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
 			StateUpdate: update21656,
+			IsPending:   true,
 		}, nil)
 
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})

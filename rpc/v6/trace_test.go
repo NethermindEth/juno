@@ -334,7 +334,8 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: block,
+			Block:     block,
+			IsPending: true,
 		}, nil)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)

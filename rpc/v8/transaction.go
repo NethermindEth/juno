@@ -477,7 +477,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB := h.syncReader.PendingBlock()
+		pendingB := h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -509,7 +509,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if blockID.IsPending() {
-		pending, err := h.syncReader.PendingData()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
@@ -550,7 +550,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}

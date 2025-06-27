@@ -93,8 +93,8 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		var pending *sync.PendingData
-		pending, err = h.syncReader.PendingData()
+		var pending *sync.Pending
+		pending, err = h.PendingData()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
 			return nil, httpHeader, rpccore.ErrTxnHashNotFound
