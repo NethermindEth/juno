@@ -22,9 +22,9 @@ func TestHandleReadySync(t *testing.T) {
 	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer)
 	ctx := t.Context()
 
-	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
+	t.Run("not ready when blockNumber is behind highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
-		highestBlock := blockNum + node.SyncBlockRange + 1
+		highestBlock := blockNum + 1
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
@@ -38,7 +38,7 @@ func TestHandleReadySync(t *testing.T) {
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	})
 
-	t.Run("ready & blockNumber is larger than highestBlock", func(t *testing.T) {
+	t.Run("not ready when blockNumber is ahead of highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
 		highestBlock := uint64(1)
 
@@ -55,9 +55,9 @@ func TestHandleReadySync(t *testing.T) {
 		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 	})
 
-	t.Run("ready & blockNumber is in blockRange of highestBlock", func(t *testing.T) {
+	t.Run("ready when blockNumber equals highestBlock", func(t *testing.T) {
 		blockNum := uint64(3)
-		highestBlock := blockNum + node.SyncBlockRange
+		highestBlock := blockNum
 
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
