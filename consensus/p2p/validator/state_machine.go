@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/NethermindEth/juno/adapters/p2p2consensus"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -27,7 +29,11 @@ func (s *InitialState) OnEvent(
 ) (ProposalStateMachine, error) {
 	switch part := part.GetMessages().(type) {
 	case *consensus.ProposalPart_Init:
-		return transition.OnProposalInit(ctx, s, part.Init)
+		proposalInit, err := p2p2consensus.AdaptProposalInit(part.Init)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnProposalInit(ctx, s, &proposalInit)
 	default:
 		return nil, errInvalidMessage
 	}
@@ -47,9 +53,17 @@ func (s *AwaitingBlockInfoOrCommitmentState) OnEvent(
 ) (ProposalStateMachine, error) {
 	switch part := part.GetMessages().(type) {
 	case *consensus.ProposalPart_BlockInfo:
-		return transition.OnBlockInfo(ctx, s, part.BlockInfo)
+		blockInfo, err := p2p2consensus.AdaptBlockInfo(part.BlockInfo)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnBlockInfo(ctx, s, &blockInfo)
 	case *consensus.ProposalPart_Commitment:
-		return transition.OnEmptyBlockCommitment(ctx, s, part.Commitment)
+		proposalCommitment, err := p2p2consensus.AdaptProposalCommitment(part.Commitment)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnEmptyBlockCommitment(ctx, s, &proposalCommitment)
 	default:
 		return nil, errInvalidMessage
 	}
@@ -60,7 +74,7 @@ func (s *AwaitingBlockInfoOrCommitmentState) OnEvent(
 type ReceivingTransactionsState struct {
 	Header     *starknet.MessageHeader
 	ValidRound types.Round
-	Value      *starknet.Value
+	BuildState *builder.BuildState
 }
 
 func (s *ReceivingTransactionsState) OnEvent(
@@ -70,9 +84,17 @@ func (s *ReceivingTransactionsState) OnEvent(
 ) (ProposalStateMachine, error) {
 	switch part := part.GetMessages().(type) {
 	case *consensus.ProposalPart_Transactions:
-		return transition.OnTransactions(ctx, s, part.Transactions.Transactions)
+		transactions, err := p2p2consensus.AdaptProposalTransaction(part.Transactions)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnTransactions(ctx, s, transactions)
 	case *consensus.ProposalPart_Commitment:
-		return transition.OnProposalCommitment(ctx, s, part.Commitment)
+		proposalCommitment, err := p2p2consensus.AdaptProposalCommitment(part.Commitment)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnProposalCommitment(ctx, s, &proposalCommitment)
 	default:
 		return nil, errInvalidMessage
 	}
@@ -81,9 +103,8 @@ func (s *ReceivingTransactionsState) OnEvent(
 // AwaitingProposalFinState handles the final phase of the proposal flow,
 // waiting for a ProposalFin message that commits the hash of the proposed value.
 type AwaitingProposalFinState struct {
-	Header     *starknet.MessageHeader
-	ValidRound types.Round
-	Value      *starknet.Value
+	Proposal    *starknet.Proposal
+	BuildResult *builder.BuildResult
 }
 
 func (s *AwaitingProposalFinState) OnEvent(
@@ -93,14 +114,21 @@ func (s *AwaitingProposalFinState) OnEvent(
 ) (ProposalStateMachine, error) {
 	switch part := part.GetMessages().(type) {
 	case *consensus.ProposalPart_Fin:
-		return transition.OnProposalFin(ctx, s, part.Fin)
+		proposalFin, err := p2p2consensus.AdaptProposalFin(part.Fin)
+		if err != nil {
+			return nil, err
+		}
+		return transition.OnProposalFin(ctx, s, &proposalFin)
 	default:
 		return nil, errInvalidMessage
 	}
 }
 
 // FinState contains the output of the proposal flow.
-type FinState starknet.Proposal
+type FinState struct {
+	Proposal    *starknet.Proposal
+	BuildResult *builder.BuildResult
+}
 
 func (s *FinState) OnEvent(
 	ctx context.Context,
