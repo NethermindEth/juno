@@ -260,7 +260,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().PendingData().Return(
-				core.NewPending(&core.Block{}, nil, nil).AsPendingData(),
+				sync.NewPending(&core.Block{}, nil, nil).AsPendingData(),
 				nil,
 			)
 
@@ -390,7 +390,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(block, nil, nil).AsPendingData(),
+			sync.NewPending(block, nil, nil).AsPendingData(),
 			nil,
 		)
 

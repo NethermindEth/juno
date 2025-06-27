@@ -146,7 +146,7 @@ func TestStateUpdate(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(nil, update21656, nil).AsPendingData(),
+			sync.NewPending(nil, update21656, nil).AsPendingData(),
 			nil,
 		)
 

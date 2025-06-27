@@ -61,7 +61,7 @@ func New(
 	}
 }
 
-func (b *Builder) Finalise(pending *core.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
+func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
 	return b.blockchain.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, signer)
 }
 
@@ -150,7 +150,7 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 	su := core.StateUpdate{
 		StateDiff: &emptyStateDiff,
 	}
-	pending := core.Pending{
+	pending := sync.Pending{
 		Block:       &pendingBlock,
 		StateUpdate: &su,
 		NewClasses:  newClasses,
@@ -264,7 +264,7 @@ func (b *Builder) processClassDeclaration(txn *mempool.BroadcastedTransaction, s
 
 // updatePendingBlock updates the pending block with transaction results
 func updatePendingBlock(
-	pending *core.Pending,
+	pending *sync.Pending,
 	receipts []*core.TransactionReceipt,
 	transactions []core.Transaction,
 	stateDiff core.StateDiff,
@@ -279,7 +279,7 @@ func updatePendingBlock(
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (b *Builder) storePending(newPending *core.Pending) error {
+func (b *Builder) storePending(newPending *sync.Pending) error {
 	expectedParentHash := new(felt.Felt)
 	h, err := b.blockchain.HeadsHeader()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -330,7 +330,7 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 	su := core.StateUpdate{
 		StateDiff: &emptyStateDiff,
 	}
-	pending := core.Pending{
+	pending := sync.Pending{
 		Block:       &pendingBlock,
 		StateUpdate: &su,
 		NewClasses:  newClasses,

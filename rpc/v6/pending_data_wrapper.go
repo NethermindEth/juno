@@ -3,6 +3,7 @@ package rpcv6
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/sync"
 )
 
 func (h *Handler) PendingData() (*core.PendingData, error) {
@@ -47,7 +48,7 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 			newClasses[*classHash] = declaredClass.Class
 		}
 
-		return core.NewPending(
+		return sync.NewPending(
 			latestB,
 			stateUpdate,
 			newClasses,

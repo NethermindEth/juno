@@ -180,7 +180,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) Pending() (*core.Pending, error) {
+func (s *Sequencer) Pending() (*sync.Pending, error) {
 	return s.builder.Pending()
 }
 

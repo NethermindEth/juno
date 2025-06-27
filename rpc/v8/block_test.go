@@ -211,7 +211,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(latestBlock, nil, nil).AsPendingData(),
+			sync.NewPending(latestBlock, nil, nil).AsPendingData(),
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
@@ -362,7 +362,7 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(latestBlock, nil, nil).AsPendingData(),
+			sync.NewPending(latestBlock, nil, nil).AsPendingData(),
 			nil,
 		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -503,7 +503,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(block0, nil, nil).AsPendingData(),
+			sync.NewPending(block0, nil, nil).AsPendingData(),
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)

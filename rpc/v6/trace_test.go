@@ -17,6 +17,7 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -333,7 +334,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPending(block, nil, nil).AsPendingData(),
+			sync.NewPending(block, nil, nil).AsPendingData(),
 			nil,
 		)
 

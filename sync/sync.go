@@ -663,7 +663,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.StorePending(core.NewPending(pendingBlock, pendingStateUpdate, newClasses))
+	return s.StorePending(NewPending(pendingBlock, pendingStateUpdate, newClasses))
 }
 
 func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context) error {
@@ -718,7 +718,7 @@ func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedSubscription {
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *core.Pending) error {
+func (s *Synchronizer) StorePending(p *Pending) error {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
 		return err
@@ -866,7 +866,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		return err
 	}
 
-	pending := &core.Pending{
+	pending := &Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   latestHeader.GlobalStateRoot,
