@@ -501,13 +501,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 		Transactions: txns,
 		Receipts:     receipts,
 	}
-	return &core.PreConfirmed{
-		Block:                 adaptedBlock,
-		TransactionStateDiffs: txStateDiffs,
-		CandidateTxs:          candidateTxs,
-		StateUpdate:           &stateUpdate,
-		NewClasses:            make(map[felt.Felt]core.Class),
-	}, nil
+	return core.NewPreConfirmed(adaptedBlock, &stateUpdate, txStateDiffs, candidateTxs), nil
 }
 
 func safeFeltToUint64(f *felt.Felt) uint64 {

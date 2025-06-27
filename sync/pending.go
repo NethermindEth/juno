@@ -12,21 +12,6 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
-type PendingData struct {
-	Block                 *core.Block
-	StateUpdate           *core.StateUpdate
-	NewClasses            map[felt.Felt]core.Class
-	TransactionStateDiffs []*core.StateDiff
-	CandidateTxs          []core.Transaction
-	IsPending             bool
-}
-
-type Pending struct {
-	Block       *core.Block
-	StateUpdate *core.StateUpdate
-	NewClasses  map[felt.Felt]core.Class
-}
-
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class

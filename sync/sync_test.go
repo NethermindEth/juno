@@ -206,12 +206,12 @@ func TestPending(t *testing.T) {
 	})
 
 	t.Run("cannot store unsupported pending block version", func(t *testing.T) {
-		pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+		pending := &core.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
 		require.Error(t, synchronizer.StorePending(pending))
 	})
 
 	t.Run("store genesis as pending", func(t *testing.T) {
-		pendingGenesis := &sync.Pending{
+		pendingGenesis := &core.Pending{
 			Block:       b,
 			StateUpdate: su,
 		}
@@ -220,11 +220,8 @@ func TestPending(t *testing.T) {
 
 		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
-		assert.Equal(t, &sync.PendingData{
-			Block:       pendingGenesis.Block,
-			StateUpdate: pendingGenesis.StateUpdate,
-			IsPending:   true,
-		}, gotPending)
+		expectedPending := core.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil).AsPendingData()
+		assert.Equal(t, expectedPending, gotPending)
 	})
 
 	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
@@ -235,11 +232,9 @@ func TestPending(t *testing.T) {
 		su, err = gw.StateUpdate(t.Context(), 2)
 		require.NoError(t, err)
 
-		notExpectedPending := sync.Pending{
-			Block:       b,
-			StateUpdate: su,
-		}
-		require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+		notExpectedPending := core.NewPending(b, su, nil)
+
+		require.ErrorIs(t, synchronizer.StorePending(notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
 	})
 
 	t.Run("store expected pending block", func(t *testing.T) {
@@ -248,21 +243,16 @@ func TestPending(t *testing.T) {
 		su, err = gw.StateUpdate(t.Context(), 1)
 		require.NoError(t, err)
 
-		expectedPending := &sync.Pending{
+		expectedPending := &core.Pending{
 			Block:       b,
 			StateUpdate: su,
 		}
 
-		expectedPendingData := &sync.PendingData{
-			Block:       expectedPending.Block,
-			StateUpdate: expectedPending.StateUpdate,
-			IsPending:   true,
-		}
 		require.NoError(t, synchronizer.StorePending(expectedPending))
 
 		gotPending, pErr := synchronizer.PendingData()
 		require.NoError(t, pErr)
-		assert.Equal(t, expectedPendingData, gotPending)
+		assert.Equal(t, expectedPending.AsPendingData(), gotPending)
 	})
 
 	t.Run("get pending state", func(t *testing.T) {
@@ -320,6 +310,6 @@ func TestSubscribePending(t *testing.T) {
 	require.NoError(t, err)
 	pendingBlock, ok := <-sub.Recv()
 	require.True(t, ok)
-	require.Equal(t, pending.Block, pendingBlock)
+	require.Equal(t, pending.GetBlock(), pendingBlock)
 	sub.Unsubscribe()
 }

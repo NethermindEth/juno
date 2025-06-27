@@ -180,7 +180,7 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) Pending() (*sync.Pending, error) {
+func (s *Sequencer) Pending() (*core.Pending, error) {
 	return s.builder.Pending()
 }
 
@@ -229,6 +229,6 @@ func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
 	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
 }
 
-func (s *Sequencer) PendingData() (*sync.PendingData, error) {
+func (s *Sequencer) PendingData() (*core.PendingData, error) {
 	return nil, nil
 }
