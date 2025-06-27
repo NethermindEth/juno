@@ -59,12 +59,14 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 	}
 
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-		Block: &core.Block{
-			Transactions: []core.Transaction{pendingTx},
-		},
-		IsPending: true,
-	}, nil)
+
+	pendingBlock := &core.Block{
+		Transactions: []core.Transaction{pendingTx},
+	}
+	mockSyncReader.EXPECT().PendingData().Return(
+		core.NewPending(pendingBlock, nil, nil).AsPendingData(),
+		nil,
+	)
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
 	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
@@ -582,10 +584,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block:     latestBlock,
-			IsPending: true,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(latestBlock, nil, nil).AsPendingData(),
+			nil,
+		)
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
 			func(hash *felt.Felt) (core.Transaction, error) {
 				return latestBlock.Transactions[index], nil
@@ -736,10 +738,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block:     block0,
-			IsPending: true,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(block0, nil, nil).AsPendingData(),
+			nil,
+		)
 		checkTxReceipt(t, txHash, expected)
 	})
 

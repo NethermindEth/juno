@@ -259,7 +259,10 @@ func TestTraceTransaction(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: &core.Block{}, IsPending: true}, nil)
+			mockSyncReader.EXPECT().PendingData().Return(
+				core.NewPending(&core.Block{}, nil, nil).AsPendingData(),
+				nil,
+			)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
@@ -401,11 +404,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block:     block,
-			IsPending: true,
-		}, nil)
-
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(block, nil, nil).AsPendingData(),
+			nil,
+		)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)

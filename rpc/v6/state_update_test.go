@@ -145,10 +145,10 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			StateUpdate: update21656,
-			IsPending:   true,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(nil, update21656, nil).AsPendingData(),
+			nil,
+		)
 
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)

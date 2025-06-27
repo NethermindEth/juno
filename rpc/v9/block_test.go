@@ -207,12 +207,14 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkBlock(t, block)
 	})
 
+	// TODO(Ege): add case for preconfirmed, this is to check if we support data from pending,
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: latestBlock,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(latestBlock, nil, nil).AsPendingData(),
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
 		pending := blockIDPending(t)
@@ -360,9 +362,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
-			Block: latestBlock,
-		}, nil).Times(2)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(latestBlock, nil, nil).AsPendingData(),
+			nil,
+		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
 		pending := blockIDPending(t)
@@ -502,7 +505,10 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.Hash = nil
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{Block: block0}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPending(block0, nil, nil).AsPendingData(),
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
 		blockID := blockIDPending(t)
