@@ -5,10 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -24,13 +29,12 @@ import (
 const (
 	logLevel      = zapcore.DebugLevel
 	topicName     = "proposal-stream-demux-test"
-	block0        = block1 - 1
-	block1        = 1337
-	block2        = block1 + 1
-	block3        = block2 + 1
+	block0        = block1 - 1 // Block 1164618 uses block 1164617 as head block and 1164607 as revealed block
+	block1        = 1164619    // Block 1164619 uses block 1164618 as head block and 1164608 as revealed block
+	block2        = block1 + 1 // Block 1164620 uses block 1164619 as head block and 1164609 as revealed block
+	block3        = block2 + 1 // Block 1164621 uses block 1164620 as head block and 1164610 as revealed block
 	delay         = 10 * time.Millisecond
-	txnPartCount  = 3
-	firstHalfSize = 4
+	firstHalfSize = 2
 )
 
 func TestProposalStreamDemux(t *testing.T) {
@@ -56,7 +60,14 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	commitNotifier := make(chan types.Height)
 
-	demux := NewProposalStreamDemux(logger, NewTransition(), &config.DefaultBufferSizes, commitNotifier, block1)
+	network := &utils.SepoliaIntegration
+	executor := NewMockExecutor(t, network)
+	database := memory.New()
+	bc := blockchain.New(database, network)
+	builder := builder.New(bc, executor)
+	transition := NewTransition(&builder)
+	proposalStore := proposal.ProposalStore[starknet.Hash]{}
+	demux := NewProposalStreamDemux(logger, &proposalStore, transition, &config.DefaultBufferSizes, commitNotifier, block1)
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
@@ -67,24 +78,25 @@ func TestProposalStreamDemux(t *testing.T) {
 	})
 
 	// Validate that old proposal is dropped
-	messages0, _ := createProposal(t, block0)
+	messages0, _ := createProposal(t, executor, database, block0)
 	// Validate that proposal sent in 2 halves is still captured
-	messages1a, proposal1a := createProposal(t, block1)
+	messages1a, proposal1a := createProposal(t, executor, database, block1)
 	// Validate that proposal sent in 1 sequence is captured
-	messages1b, proposal1b := createProposal(t, block1)
+	messages1b, proposal1b := createProposal(t, executor, database, block1)
 	// Validate that proposal not fully sent before commit is dropped
-	messages1c, _ := createProposal(t, block1)
+	messages1c, _ := createProposal(t, executor, database, block1)
 	// Validate that proposal fully sent during the previous block is captured
-	messages2a, proposal2a := createProposal(t, block2)
+	messages2a, proposal2a := createProposal(t, executor, database, block2)
 	// Validate that proposal sent in 2 halves before and after previous block commit is still captured
-	messages2b, proposal2b := createProposal(t, block2)
+	messages2b, proposal2b := createProposal(t, executor, database, block2)
 	// Validate that proposal fully sent after previous block commit is captured
-	messages2c, proposal2c := createProposal(t, block2)
+	messages2c, proposal2c := createProposal(t, executor, database, block2)
 	// Validate that proposal fully sent several blocks ago is captured
-	messages3, proposal3 := createProposal(t, block3)
+	messages3, proposal3 := createProposal(t, executor, database, block3)
 
 	outputs := demux.Listen()
 
+	SetChainHeight(t, database, block0)
 	t.Run("send full proposal 0", func(t *testing.T) {
 		messages0 = sendParts(t, topic, messages0, len(messages0))
 		assertNoExpectedProposal(t, outputs)
@@ -127,6 +139,7 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	t.Run("commit block 1", func(t *testing.T) {
 		commitNotifier <- block1
+		SetChainHeight(t, database, block1)
 		assertExpectedProposal(t, outputs, proposal2a)
 	})
 
@@ -142,6 +155,7 @@ func TestProposalStreamDemux(t *testing.T) {
 
 	t.Run("commit block 2", func(t *testing.T) {
 		commitNotifier <- block2
+		SetChainHeight(t, database, block2)
 		assertExpectedProposal(t, outputs, proposal3)
 	})
 }
@@ -170,77 +184,21 @@ func sendParts(t *testing.T, topic *pubsub.Topic, parts [][]byte, count int) [][
 	return parts[count:]
 }
 
-func createProposal(t *testing.T, height types.Height) ([][]byte, starknet.Proposal) {
-	proposer, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-	proposerBytes := proposer.Bytes()
-
-	round := rand.Uint32()
-	timestamp := uint64(time.Now().Unix())
-
-	builder := newProposalBuilder(t)
-	builder.addPart(&consensus.ProposalPart{
-		Messages: &consensus.ProposalPart_Init{
-			Init: &consensus.ProposalInit{
-				BlockNumber: uint64(height),
-				Round:       round,
-				Proposer:    &common.Address{Elements: proposerBytes[:]},
-			},
-		},
-	})
-
-	builder.addPart(&consensus.ProposalPart{
-		Messages: &consensus.ProposalPart_BlockInfo{
-			BlockInfo: &consensus.BlockInfo{
-				BlockNumber: uint64(height),
-				Timestamp:   timestamp,
-			},
-		},
-	})
-
-	for range txnPartCount {
-		builder.addPart(&consensus.ProposalPart{
-			Messages: &consensus.ProposalPart_Transactions{
-				Transactions: &consensus.TransactionBatch{
-					Transactions: []*consensus.ConsensusTransaction{},
-				},
-			},
-		})
+func createProposal(t *testing.T, executor *mockExecutor, database db.KeyValueStore, height types.Height) ([][]byte, starknet.Proposal) {
+	testCase := TestCase{
+		Height:     height,
+		Round:      types.Round(rand.Uint32()),
+		ValidRound: types.Round(rand.Uint32()),
+		Network:    &utils.SepoliaIntegration,
 	}
-
-	builder.addPart(&consensus.ProposalPart{
-		Messages: &consensus.ProposalPart_Commitment{
-			Commitment: &consensus.ProposalCommitment{
-				BlockNumber: uint64(height),
-				Timestamp:   timestamp,
-			},
-		},
-	})
-
-	valueHash := felt.FromUint64(timestamp)
-	valueHashBytes := valueHash.Bytes()
-
-	builder.addPart(&consensus.ProposalPart{
-		Messages: &consensus.ProposalPart_Fin{
-			Fin: &consensus.ProposalFin{
-				ProposalCommitment: &common.Hash{Elements: valueHashBytes[:]},
-			},
-		},
-	})
-
+	fixture := NewEmptyTestFixture(t, executor, database, testCase)
+	builder := newProposalBuilder(t)
+	builder.addPart(fixture.ProposalInit)
+	builder.addPart(fixture.ProposalCommitment)
+	builder.addPart(fixture.ProposalFin)
 	builder.addFin()
 
-	proposal := starknet.Proposal{
-		MessageHeader: starknet.MessageHeader{
-			Height: height,
-			Round:  types.Round(round),
-			Sender: starknet.Address(*proposer),
-		},
-		Value:      (*starknet.Value)(&valueHash),
-		ValidRound: -1,
-	}
-
-	return builder.messages, proposal
+	return builder.messages, *fixture.Proposal
 }
 
 type proposalBuilder struct {

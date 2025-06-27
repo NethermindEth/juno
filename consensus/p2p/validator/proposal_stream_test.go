@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/builder"
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -78,7 +80,8 @@ func buildMessage(t *testing.T, sequenceNumber uint64, proposalPart *consensus.P
 
 func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expectedErrorMsg string, message *consensus.StreamMessage) {
 	t.Helper()
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition(), 0, nil)
+	proposalStore := proposal.ProposalStore[starknet.Hash]{}
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(nil), 0, nil)
 	height, err := stream.start(t.Context(), message)
 	assert.Equal(t, expectedHeight, height)
 	if expectedErrorMsg != "" {
@@ -149,61 +152,43 @@ type step struct {
 }
 
 func TestProposalStream_ProcessMessage(t *testing.T) {
-	height := types.Height(1337)
-	round := types.Round(1338)
-	validRound := types.Round(1339)
-	timestamp := uint64(1340)
-	value := starknet.Value(felt.FromUint64(timestamp))
-	sender := GetRandomAddress(t)
-	expectedHeader := &starknet.MessageHeader{
-		Height: height,
-		Round:  round,
-		Sender: starknet.Address(*new(felt.Felt).SetBytes(sender.Elements)),
+	testCase := TestCase{
+		Height:       1164618,
+		Round:        1339,
+		ValidRound:   1338,
+		Network:      &utils.SepoliaIntegration,
+		TxBatchCount: 2,
 	}
 
 	t.Run("valid proposal", func(t *testing.T) {
-		expectedHash := &common.Hash{Elements: ToBytes(felt.Felt(value.Hash()))}
-		expectedProposal := &starknet.Proposal{
-			MessageHeader: *expectedHeader,
-			ValidRound:    validRound,
-			Value:         &value,
-		}
-		testProposalStreamProcessMessage(t, sender, []step{
+		database := memory.New()
+		SetChainHeight(t, database, testCase.Height-1)
+		executor := NewMockExecutor(t, testCase.Network)
+		fixture := BuildTestFixture(t, executor, database, testCase)
+
+		testProposalStreamProcessMessage(t, fixture.Builder, fixture.ProposalInit, []step{
 			{
-				message: buildMessage(t, 3, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: GetRandomTransactions(t, 5),
-					}},
-				}),
+				message:        buildMessage(t, 3, fixture.Transactions[1]),
 				expectedResult: messageStoredStepResult{},
 			},
 			{
-				message: buildMessage(t, 1, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_BlockInfo{BlockInfo: &consensus.BlockInfo{
-						BlockNumber: uint64(height),
-						Timestamp:   timestamp,
-					}},
-				}),
+				message: buildMessage(t, 1, fixture.BlockInfo),
 				expectedResult: streamPostStateStepResult{
 					stateMachine: &ReceivingTransactionsState{
-						Header:     expectedHeader,
-						ValidRound: validRound,
-						Value:      &value,
+						Header:     &fixture.Proposal.MessageHeader,
+						ValidRound: testCase.ValidRound,
+						BuildState: fixture.PreState,
 					},
 					nextSequenceNumber: 2,
 				},
 			},
 			{
-				message: buildMessage(t, 2, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: GetRandomTransactions(t, 10),
-					}},
-				}),
+				message: buildMessage(t, 2, fixture.Transactions[0]),
 				expectedResult: streamPostStateStepResult{
 					stateMachine: &ReceivingTransactionsState{
-						Header:     expectedHeader,
-						ValidRound: validRound,
-						Value:      &value,
+						Header:     &fixture.Proposal.MessageHeader,
+						ValidRound: testCase.ValidRound,
+						BuildState: fixture.PreState,
 					},
 					nextSequenceNumber: 4,
 				},
@@ -218,65 +203,47 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 				expectedResult: messageStoredStepResult{},
 			},
 			{
-				message: buildMessage(t, 4, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: uint64(height),
-							Timestamp:   timestamp,
-						},
-					},
-				}),
+				message: buildMessage(t, 4, fixture.ProposalCommitment),
 				expectedResult: streamPostStateStepResult{
 					stateMachine: &AwaitingProposalFinState{
-						Header:     expectedHeader,
-						ValidRound: validRound,
-						Value:      &value,
+						Proposal:    fixture.Proposal,
+						BuildResult: fixture.BuildResult,
 					},
 					nextSequenceNumber: 5,
 				},
 			},
 			{
-				message: buildMessage(t, 5, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Fin{
-						Fin: &consensus.ProposalFin{
-							ProposalCommitment: expectedHash,
-						},
-					},
-				}),
+				message: buildMessage(t, 5, fixture.ProposalFin),
 				expectedResult: streamPostStateStepResult{
-					stateMachine:       (*FinState)(expectedProposal),
+					stateMachine: &FinState{
+						Proposal:    fixture.Proposal,
+						BuildResult: fixture.BuildResult,
+					},
 					nextSequenceNumber: 7,
-					output:             expectedProposal,
+					output:             fixture.Proposal,
 				},
 			},
 		})
 	})
 
 	t.Run("empty proposal", func(t *testing.T) {
-		expectedProposal := &starknet.Proposal{
-			MessageHeader: *expectedHeader,
-			ValidRound:    validRound,
-		}
-		testProposalStreamProcessMessage(t, sender, []step{
+		database := memory.New()
+		SetChainHeight(t, database, testCase.Height-1)
+		executor := NewMockExecutor(t, testCase.Network)
+		fixture := NewEmptyTestFixture(t, executor, database, testCase)
+
+		testProposalStreamProcessMessage(t, fixture.Builder, fixture.ProposalInit, []step{
 			{
-				message: buildMessage(t, 2, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Fin{
-						Fin: &consensus.ProposalFin{},
-					},
-				}),
+				message:        buildMessage(t, 2, fixture.ProposalFin),
 				expectedResult: messageStoredStepResult{},
 			},
 			{
-				message: buildMessage(t, 1, &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: 1337,
-							Timestamp:   1338,
-						},
-					},
-				}),
+				message: buildMessage(t, 1, fixture.ProposalCommitment),
 				expectedResult: streamPostStateStepResult{
-					stateMachine:       (*FinState)(expectedProposal),
+					stateMachine: &FinState{
+						Proposal:    fixture.Proposal,
+						BuildResult: fixture.BuildResult,
+					},
 					nextSequenceNumber: 3,
 				},
 			},
@@ -288,51 +255,60 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 					},
 				},
 				expectedResult: streamPostStateStepResult{
-					stateMachine:       (*FinState)(expectedProposal),
-					nextSequenceNumber: 4,
-					output:             expectedProposal,
-				},
-			},
-		})
-	})
-
-	t.Run("not end with proposal fin", func(t *testing.T) {
-		testProposalStreamProcessMessage(t, sender, []step{
-			{
-				message: &consensus.StreamMessage{
-					SequenceNumber: 1,
-					Message: &consensus.StreamMessage_Fin{
-						Fin: &common.Fin{},
+					stateMachine: &FinState{
+						Proposal:    fixture.Proposal,
+						BuildResult: fixture.BuildResult,
 					},
+					nextSequenceNumber: 4,
+					output:             fixture.Proposal,
 				},
-				expectedResult: errorStepResult("stream does not end with proposal fin"),
 			},
 		})
 	})
 
-	t.Run("nil message", func(t *testing.T) {
-		testProposalStreamProcessMessage(t, sender, []step{
-			{
-				message: &consensus.StreamMessage{
-					SequenceNumber: 1,
+	t.Run("invalid cases", func(t *testing.T) {
+		proposalInit := &consensus.ProposalPart{
+			Messages: &consensus.ProposalPart_Init{
+				Init: &consensus.ProposalInit{
+					BlockNumber: 1337,
+					Round:       1338,
+					Proposer:    &common.Address{Elements: getRandomFelt(t)},
 				},
-				expectedResult: errorStepResult("unknown message type"),
 			},
+		}
+
+		t.Run("not end with proposal fin", func(t *testing.T) {
+			testProposalStreamProcessMessage(t, nil, proposalInit, []step{
+				{
+					message: &consensus.StreamMessage{
+						SequenceNumber: 1,
+						Message: &consensus.StreamMessage_Fin{
+							Fin: &common.Fin{},
+						},
+					},
+					expectedResult: errorStepResult("stream does not end with proposal fin"),
+				},
+			})
+		})
+
+		t.Run("nil message", func(t *testing.T) {
+			testProposalStreamProcessMessage(t, nil, proposalInit, []step{
+				{
+					message: &consensus.StreamMessage{
+						SequenceNumber: 1,
+					},
+					expectedResult: errorStepResult("unknown message type"),
+				},
+			})
 		})
 	})
 }
 
-func testProposalStreamProcessMessage(t *testing.T, sender *common.Address, steps []step) {
+func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, proposalInit *consensus.ProposalPart, steps []step) {
 	outputs := make(chan starknet.Proposal, 1)
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), NewTransition(), 0, outputs)
-	_, err := stream.start(t.Context(), buildMessage(t, 1, &consensus.ProposalPart{
-		Messages: &consensus.ProposalPart_Init{Init: &consensus.ProposalInit{
-			BlockNumber: 1337,
-			Round:       1338,
-			ValidRound:  utils.HeapPtr(uint32(1339)),
-			Proposer:    sender,
-		}},
-	}))
+	proposalStore := proposal.ProposalStore[starknet.Hash]{}
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(builder), 0, outputs)
+	_, err := stream.start(t.Context(), buildMessage(t, 1, proposalInit))
 	require.NoError(t, err)
 
 	for _, step := range steps {

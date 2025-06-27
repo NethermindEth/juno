@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
 	"github.com/NethermindEth/juno/consensus/p2p/config"
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
@@ -47,6 +48,7 @@ type ProposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr] interf
 // the streams run concurrently.
 type proposalStreamDemux struct {
 	log                  utils.Logger
+	proposalStore        *proposal.ProposalStore[starknet.Hash]
 	transition           Transition
 	bufferSizeConfig     *config.BufferSizes
 	commitNotifier       <-chan types.Height
@@ -60,6 +62,7 @@ type proposalStreamDemux struct {
 
 func NewProposalStreamDemux(
 	log utils.Logger,
+	proposalStore *proposal.ProposalStore[starknet.Hash],
 	transition Transition,
 	bufferSizeConfig *config.BufferSizes,
 	commitNotifier <-chan types.Height,
@@ -67,6 +70,7 @@ func NewProposalStreamDemux(
 ) ProposalStreamDemux[starknet.Value, starknet.Hash, starknet.Address] {
 	return &proposalStreamDemux{
 		log:              log,
+		proposalStore:    proposalStore,
 		transition:       transition,
 		bufferSizeConfig: bufferSizeConfig,
 		commitNotifier:   commitNotifier,
@@ -236,7 +240,7 @@ func (t *proposalStreamDemux) getStream(id streamID) *proposalStream {
 	if stream, exists := t.streams[id]; exists {
 		return stream
 	}
-	stream := newSingleProposalStream(t.log, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs)
+	stream := newSingleProposalStream(t.log, t.proposalStore, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs)
 	t.streams[id] = stream
 	return stream
 }
