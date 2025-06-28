@@ -76,6 +76,8 @@ type TxnStatus uint8
 const (
 	TxnStatusReceived TxnStatus = iota + 1
 	TxnStatusRejected
+	TxnStatusCandidate
+	TxnStatusPreConfirmed
 	TxnStatusAcceptedOnL2
 	TxnStatusAcceptedOnL1
 )
@@ -90,6 +92,10 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnStatusCandidate:
+		return []byte("CANDIDATE"), nil
+	case TxnStatusPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
 	default:
 		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
 	}
@@ -98,7 +104,8 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 type TxnExecutionStatus uint8
 
 const (
-	TxnSuccess TxnExecutionStatus = iota + 1
+	UnknownExecution TxnExecutionStatus = iota
+	TxnSuccess
 	TxnFailure
 )
 
