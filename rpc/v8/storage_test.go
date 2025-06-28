@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
@@ -67,7 +68,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, db.ErrKeyNotFound)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, state.ErrContractNotDeployed)
 
 		blockID := blockIDLatest(t)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
@@ -305,8 +306,8 @@ func TestStorageProof(t *testing.T) {
 		verifyIf(t, &trieRoot, key2, value2, proof.ClassesProof, classTrie.HashFn())
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
-		mockState.EXPECT().ContractNonce(noSuchKey).Return(nil, db.ErrKeyNotFound).Times(1)
-		mockState.EXPECT().ContractClassHash(noSuchKey).Return(nil, db.ErrKeyNotFound).Times(0)
+		mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(1)
+		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(0)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
 		require.Nil(t, rpcErr)
@@ -318,9 +319,9 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
-		mockState.EXPECT().ContractNonce(key).Return(nonce, nil).Times(1)
+		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
 		classHasah := new(felt.Felt).SetUint64(1234)
-		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil).Times(1)
+		mockState.EXPECT().ContractClassHash(key).Return(*classHasah, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
@@ -375,9 +376,9 @@ func TestStorageProof(t *testing.T) {
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
-		mockState.EXPECT().ContractNonce(key).Return(nonce, nil)
+		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil)
 		classHasah := new(felt.Felt).SetUint64(1234)
-		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil)
+		mockState.EXPECT().ContractClassHash(key).Return(*classHasah, nil)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)

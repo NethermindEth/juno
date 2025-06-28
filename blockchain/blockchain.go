@@ -580,26 +580,38 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 ) error {
-	// TODO(maksym): how to retrieve the state root, that we want to use
-	state, err := state.New(stateUpdate.OldRoot, b.StateDB)
+	var height uint64
+	var err error
+	if height, err = core.GetChainHeight(b.database); err != nil {
+		height = 0
+	}
+
+	header, _ := core.GetBlockHeaderByNumber(b.database, height)
+	var st *state.State
+	if header != nil {
+		st, err = state.New(header.GlobalStateRoot, b.StateDB)
+	} else {
+		st, err = state.New(&felt.Zero, b.StateDB)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	// Get old state root
-	oldStateRoot, err := state.Commitment()
+	oldStateRoot, err := st.Commitment()
 	if err != nil {
 		return err
 	}
 	stateUpdate.OldRoot = &oldStateRoot
 
 	// Apply state update
-	if err = state.Update(block.Number, stateUpdate, newClasses); err != nil {
+	if err = st.Update(block.Number, stateUpdate, newClasses); err != nil {
 		return err
 	}
 
 	// Get new state root
-	newStateRoot, err := state.Commitment()
+	newStateRoot, err := st.Commitment()
 	if err != nil {
 		return err
 	}
@@ -730,4 +742,11 @@ func (b *Blockchain) StoreGenesis(
 
 func (b *Blockchain) WriteRunningEventFilter() error {
 	return b.runningFilter.Write()
+}
+
+func (b *Blockchain) Stop(root *felt.Felt) error {
+	if b.trieDB.Scheme() == triedb.PathScheme {
+		return b.trieDB.Journal(root)
+	}
+	return nil
 }
