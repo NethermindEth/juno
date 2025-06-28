@@ -178,5 +178,11 @@
     "block_target": 800000,
     "duration_seconds": 86883.250293,
     "timestamp": "2025-06-27T14:54:08.727820+00:00"
+  },
+  {
+    "version": "v0.14.6-6-gba717e76",
+    "block_target": 800000,
+    "duration_seconds": 86223.56372,
+    "timestamp": "2025-06-28T14:52:35.464689+00:00"
   }
 ]
