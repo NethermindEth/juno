@@ -798,7 +798,6 @@ func (s *Synchronizer) PendingData() (*core.PendingData, error) {
 		if head, err := s.blockchain.HeadsHeader(); err == nil {
 			expectedOldRoot = head.GlobalStateRoot
 			expectedBlockNumber = head.Number
-			return p, nil
 		}
 
 		if p.GetStateUpdate().OldRoot.Equal(expectedOldRoot) &&
