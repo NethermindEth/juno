@@ -31,7 +31,7 @@ func isL1Verified(n uint64, l1 *core.L1Head) bool {
 	return false
 }
 
-func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
+func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) { //nolint:dupl
 	var block *core.Block
 	var err error
 	switch {
@@ -61,7 +61,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) { //nolint:dupl
 	var header *core.Header
 	var err error
 	switch {

@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -223,7 +222,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkLatestBlock(t, block)
 	})
 
-	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) {
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
@@ -413,7 +412,7 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) {
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
@@ -443,7 +442,7 @@ func TestBlockWithTxs(t *testing.T) {
 				},
 				L2GasPrice: header.L2GasPrice,
 			},
-			Transactions: []*rpc.Transaction{},
+			Transactions: []*rpcv8.Transaction{},
 		}, blockWithTxs)
 	})
 }
@@ -632,7 +631,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		assert.Nil(t, rpcErr)
 		header := resp.BlockHeader
 
-		assert.Equal(t, &rpc.BlockWithReceipts{
+		assert.Equal(t, &rpcv8.BlockWithReceipts{
 			Status: rpcv6.BlockPending,
 			BlockHeader: rpcv8.BlockHeader{
 				BlockHeader: rpcv6.BlockHeader{
@@ -646,7 +645,7 @@ func TestBlockWithReceipts(t *testing.T) {
 				},
 				L2GasPrice: header.L2GasPrice,
 			},
-			Transactions: []rpc.TransactionWithReceipt{},
+			Transactions: []rpcv8.TransactionWithReceipt{},
 		}, resp)
 	})
 

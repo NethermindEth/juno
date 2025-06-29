@@ -624,7 +624,7 @@ func TestAdaptCompiledClass(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestAdaptPreConfirmed(t *testing.T) {
+func TestAdaptPreConfirmed(t *testing.T) { //nolint:gocyclo
 	n := utils.HeapPtr(utils.SepoliaIntegration)
 	client := feeder.NewTestClient(t, n)
 	emptyPreConfirmedBlock := uint64(1201960)
@@ -685,6 +685,7 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		assert.Empty(t, block.GlobalStateRoot)
 		assert.Empty(t, adapted.StateUpdate.NewRoot)
 		assert.Empty(t, adapted.StateUpdate.BlockHash)
+		assert.Empty(t, block.Signatures)
 
 		assert.Equal(t, response.Timestamp, block.Timestamp)
 
@@ -704,8 +705,6 @@ func TestAdaptPreConfirmed(t *testing.T) {
 		}
 		assert.Equal(t, expectedEventCount, block.EventCount)
 		assert.Equal(t, response.Version, block.ProtocolVersion)
-
-		assert.Empty(t, block.Signatures)
 
 		assert.Equal(t, response.L1GasPriceSTRK(), block.L1GasPriceSTRK)
 		assert.Equal(t, response.L1GasPriceETH(), block.L1GasPriceETH)

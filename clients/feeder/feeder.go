@@ -127,7 +127,7 @@ func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
+func newTestServer(t testing.TB, network *utils.Network) *httptest.Server { //nolint:gocyclo
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {

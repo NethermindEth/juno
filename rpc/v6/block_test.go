@@ -376,7 +376,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkLatestBlock(t, block)
 	})
 
-	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) {
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
@@ -551,7 +551,7 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) {
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
