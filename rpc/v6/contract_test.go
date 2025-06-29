@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,6 +91,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
@@ -175,7 +177,7 @@ func TestStorageAt(t *testing.T) {
 
 	expectedStorage := new(felt.Felt).SetUint64(1)
 
-	t.Run("blockID - latest", func(t *testing.T) { //nolint:dupl
+	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
@@ -205,7 +207,8 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, expectedStorage, storageValue)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) { //nolint:dupl
+	t.Run("blockID - pending", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)

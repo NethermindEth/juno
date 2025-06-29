@@ -162,7 +162,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		headStateCloser blockchain.StateCloser
 	)
 	if isPending {
-		headState, headStateCloser, err = h.syncReader.PendingState()
+		headState, headStateCloser, err = h.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
 	}

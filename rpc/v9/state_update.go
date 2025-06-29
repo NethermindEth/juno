@@ -18,8 +18,7 @@ import (
 // StateUpdate returns the state update identified by the given BlockID.
 //
 // It follows the specification defined here:
-// TODO(Ege): Update spec
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L77
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
 func (h *Handler) StateUpdate(id BlockID) (*rpcv6.StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {

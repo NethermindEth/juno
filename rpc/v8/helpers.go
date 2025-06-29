@@ -143,7 +143,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 	var err error
 	switch blockID.Type() {
 	case pending:
-		reader, closer, err = h.syncReader.PendingState()
+		reader, closer, err = h.PendingState()
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()
 	case hash:

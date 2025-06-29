@@ -166,7 +166,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	case id.Hash != nil:
 		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.syncReader.PendingState()
+		reader, closer, err = h.PendingState()
 	default:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}

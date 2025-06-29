@@ -407,7 +407,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			sync.NewPending(block, nil, nil).AsPendingData(),
 			nil,
-		)
+		).Times(2)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
@@ -682,6 +682,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}

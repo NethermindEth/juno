@@ -73,3 +73,16 @@ func emptyPendingForParent(parentHeader *core.Header) *sync.Pending {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 }
+
+func (h *Handler) PendingState() (core.StateReader, func() error, error) {
+	pending, err := h.PendingData()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if pending.Variant() == core.PendingBlockVariant {
+		return h.syncReader.PendingState()
+	} else {
+		return h.bcReader.HeadState()
+	}
+}
