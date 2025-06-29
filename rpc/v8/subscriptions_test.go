@@ -150,7 +150,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(mockEventFilterer, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
@@ -178,7 +178,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
@@ -200,7 +200,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
@@ -223,7 +223,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -641,7 +641,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
-	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 
 	for _, tc := range testCases {

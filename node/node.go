@@ -205,7 +205,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(seq.PendingBlock)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
 		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, &seq)
@@ -224,7 +223,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
 		synchronizer.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(synchronizer.PendingBlock)
+
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {

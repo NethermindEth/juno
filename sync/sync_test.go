@@ -332,7 +332,6 @@ func TestPendingData(t *testing.T) {
 			t.Cleanup(func() {
 				require.NoError(t, pendingStateCloser())
 			})
-
 		})
 	})
 }

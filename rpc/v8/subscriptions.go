@@ -345,7 +345,7 @@ func (h *Handler) checkTxStatus(
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to uint64, fromAddr *felt.Felt,
 	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
 		h.log.Warnw("Error creating event filter", "err", err)
 		return err
