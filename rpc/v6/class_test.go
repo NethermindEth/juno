@@ -152,8 +152,9 @@ func TestClassHashAt(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -215,6 +216,15 @@ func TestClassHashAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedClassHash, classHash)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Pending: true}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})

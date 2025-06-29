@@ -142,7 +142,7 @@ func TestStateUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("pending", func(t *testing.T) {
+	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(
@@ -153,5 +153,34 @@ func TestStateUpdate(t *testing.T) {
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
+	})
+
+	t.Run("pending starknet version >= 0.14.0", func(t *testing.T) {
+		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
+		require.NoError(t, err)
+
+		block21656, err := mainnetGw.BlockByNumber(t.Context(), 21656)
+		require.NoError(t, err)
+
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPreConfirmed(nil, nil, nil, nil).AsPendingData(),
+			nil,
+		)
+
+		mockReader.EXPECT().HeadsHeader().Return(block21656.Header, nil)
+
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+		checkUpdate(t, &core.StateUpdate{
+			OldRoot: update21656.NewRoot,
+			StateDiff: &core.StateDiff{
+				StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+				Nonces:            make(map[felt.Felt]*felt.Felt),
+				DeployedContracts: make(map[felt.Felt]*felt.Felt),
+				DeclaredV0Classes: make([]*felt.Felt, 0),
+				DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+				ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+			},
+		}, update)
 	})
 }
