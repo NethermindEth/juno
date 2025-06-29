@@ -34,11 +34,12 @@ type Handler struct {
 	log           utils.Logger
 	memPool       *mempool.Pool
 
-	version      string
-	newHeads     *feed.Feed[*core.Block]
-	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	pendingBlock *feed.Feed[*core.Block]
-	l1Heads      *feed.Feed[*core.L1Head]
+	version  string
+	newHeads *feed.Feed[*core.Block]
+	reorgs   *feed.Feed[*sync.ReorgBlockRange]
+
+	l1Heads          *feed.Feed[*core.L1Head]
+	preConfirmedFeed *feed.Feed[*core.PreConfirmed]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -81,11 +82,11 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		version:      version,
-		newHeads:     feed.New[*core.Block](),
-		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		pendingBlock: feed.New[*core.Block](),
-		l1Heads:      feed.New[*core.L1Head](),
+		version:          version,
+		newHeads:         feed.New[*core.Block](),
+		reorgs:           feed.New[*sync.ReorgBlockRange](),
+		l1Heads:          feed.New[*core.L1Head](),
+		preConfirmedFeed: feed.New[*core.PreConfirmed](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -138,15 +139,15 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransac
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingBlock := h.syncReader.SubscribePending().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingBlock.Unsubscribe()
+	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingBlock, h.pendingBlock)
+	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()

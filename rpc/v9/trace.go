@@ -132,8 +132,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	isPending := block.Hash == nil
-	if !isPending {
+	isPreConfirmed := block.Hash == nil
+	if !isPreConfirmed {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
@@ -193,7 +193,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-	if isPending {
+	if isPreConfirmed {
 		headState, headStateCloser, err = h.syncReader.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
@@ -264,7 +264,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		}
 	}
 
-	if !isPending {
+	if !isPreConfirmed {
 		h.blockTraceCache.Add(rpccore.TraceCacheKey{
 			BlockHash: *block.Hash,
 		}, result)

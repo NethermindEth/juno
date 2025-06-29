@@ -260,7 +260,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().PendingData().Return(
-				sync.NewPending(&core.Block{}, nil, nil).AsPendingData(),
+				core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
 				nil,
 			)
 
@@ -362,7 +362,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("pre_confirmed block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
@@ -377,7 +377,7 @@ func TestTraceTransaction(t *testing.T) {
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pending block")
+		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
 
 		block := &core.Block{
 			Header:       header,
@@ -390,7 +390,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(block, nil, nil).AsPendingData(),
+			core.NewPreConfirmed(block, nil, nil, nil).AsPendingData(),
 			nil,
 		)
 
@@ -574,10 +574,10 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
-		"latest":  blockIDLatest(t),
-		"pending": blockIDPending(t),
-		"hash":    blockIDHash(t, new(felt.Felt).SetUint64(1)),
-		"number":  blockIDNumber(t, 2),
+		"latest":        blockIDLatest(t),
+		"pre_confirmed": blockIDPreConfirmed(t),
+		"hash":          blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"number":        blockIDNumber(t, 2),
 	}
 
 	for description, blockID := range errTests {
@@ -587,7 +587,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, "", log)
 
-			if description == "pending" {
+			if description == "pre_confirmed" {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
@@ -616,10 +616,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", log)
 
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("pre_confirmed block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		header := &core.Header{
-			// hash is not set because it's pending block
+			// hash is not set because it's pre_confirmed block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
