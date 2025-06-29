@@ -623,3 +623,113 @@ func TestAdaptCompiledClass(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
+
+func TestAdaptPreConfirmed(t *testing.T) {
+	n := utils.HeapPtr(utils.SepoliaIntegration)
+	client := feeder.NewTestClient(t, n)
+	emptyPreConfirmedBlock := uint64(1201960)
+	blockWithCandidates := uint64(1204672)
+	blockWithNoCandidates := uint64(1204673)
+	blockFullOfCandidates := uint64(1204674)
+
+	type preConfirmedTest struct {
+		description string
+		blockNumber uint64
+	}
+
+	tests := []preConfirmedTest{
+		{
+			description: "PreConfirmedBlock when there is no candidates",
+			blockNumber: blockWithNoCandidates,
+		},
+		{
+			description: "PreConfirmedBlock with candidates",
+			blockNumber: blockWithCandidates,
+		},
+		{
+			description: "PreConfirmedBlock when full of candidates",
+			blockNumber: blockFullOfCandidates,
+		},
+		{
+			description: "PreConfirmedBlock when empty",
+			blockNumber: emptyPreConfirmedBlock,
+		},
+	}
+
+	for _, test := range tests {
+		response, err := client.PreConfirmedBlock(t.Context(), strconv.FormatUint(test.blockNumber, 10))
+		require.NoError(t, err)
+
+		expectedEventCount := uint64(0)
+
+		expectedPreConfirmedTxCount := 0
+		for _, r := range response.Receipts {
+			if r == nil {
+				break
+			}
+			expectedPreConfirmedTxCount += 1
+			expectedEventCount += uint64(len(r.Events))
+		}
+		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
+
+		adapted, err := sn2core.AdaptPreConfirmedBlock(response)
+		require.NoError(t, err)
+
+		block := adapted.Block
+
+		assert.NotNil(t, block.EventsBloom)
+		// Adapter does not have access to latest block, block number is assigned later
+		assert.Empty(t, block.Hash)
+		assert.Empty(t, block.ParentHash)
+		assert.Empty(t, block.Number)
+		assert.Empty(t, block.GlobalStateRoot)
+		assert.Empty(t, adapted.StateUpdate.NewRoot)
+		assert.Empty(t, adapted.StateUpdate.BlockHash)
+
+		assert.Equal(t, response.Timestamp, block.Timestamp)
+
+		assert.Equal(t, expectedPreConfirmedTxCount, len(block.Transactions))
+		assert.Equal(t, uint64(expectedPreConfirmedTxCount), block.TransactionCount)
+		assert.Equal(t, expectedCandidateCount, len(adapted.CandidateTxs))
+		if assert.Equal(t, expectedPreConfirmedTxCount, len(block.Receipts)) {
+			for i := range expectedPreConfirmedTxCount {
+				receipt := response.Receipts[i]
+				assert.Equal(t, receipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
+				assert.Equal(t, receipt.RevertError, block.Receipts[i].RevertReason)
+				if receipt.ExecutionResources != nil {
+					assert.Equal(t, (*core.DataAvailability)(receipt.ExecutionResources.DataAvailability),
+						block.Receipts[i].ExecutionResources.DataAvailability)
+				}
+			}
+		}
+		assert.Equal(t, expectedEventCount, block.EventCount)
+		assert.Equal(t, response.Version, block.ProtocolVersion)
+
+		assert.Empty(t, block.Signatures)
+
+		assert.Equal(t, response.L1GasPriceSTRK(), block.L1GasPriceSTRK)
+		assert.Equal(t, response.L1GasPriceETH(), block.L1GasPriceETH)
+		if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInFri != nil {
+			assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
+		}
+		if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInWei != nil {
+			assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
+		}
+		if response.L2GasPrice != nil && response.L2GasPrice.PriceInFri != nil {
+			assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
+		}
+		if response.L2GasPrice != nil && response.L2GasPrice.PriceInWei != nil {
+			assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
+		}
+
+		if len(adapted.CandidateTxs) > 0 {
+			for i, txn := range adapted.CandidateTxs {
+				adaptedTx, err := sn2core.AdaptTransaction(response.Transactions[expectedPreConfirmedTxCount+i])
+				require.NoError(t, err)
+				assert.Equal(t, adaptedTx, txn)
+			}
+		}
+
+		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
+	}
+}
