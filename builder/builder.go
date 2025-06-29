@@ -400,15 +400,3 @@ func (b *Builder) Finish() (BuildResult, error) {
 
 	return buildResult, nil
 }
-
-func (b *Builder) PreConfirmed() (*core.PreConfirmed, error) {
-	return nil, nil
-}
-
-func (b *Builder) PreConfirmedBlock() *core.Block {
-	return nil
-}
-
-func (b *Builder) PreConfirmedState() (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
