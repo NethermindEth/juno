@@ -167,7 +167,7 @@ type BlockWithTxs struct {
 	Transactions []*Transaction `json:"transactions"`
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1109
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L43
 type BlockWithTxHashes struct {
 	Status BlockStatus `json:"status,omitempty"`
 	BlockHeader
@@ -189,10 +189,23 @@ type BlockWithReceipts struct {
 		Block Handlers
 *****************************************************/
 
+// BlockTransactionCount returns the number of transactions in a block
+// identified by the given BlockID.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L548
+func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
+	header, rpcErr := h.blockHeaderByID(&id)
+	if rpcErr != nil {
+		return 0, rpcErr
+	}
+	return header.TransactionCount, nil
+}
+
 // BlockWithTxHashes returns the block information with transaction hashes given a block ID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L11
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L25
 func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
@@ -216,6 +229,10 @@ func (h *Handler) BlockWithTxHashes(id *BlockID) (*BlockWithTxHashes, *jsonrpc.E
 	}, nil
 }
 
+// BlockWithTxHashes returns the block information with transaction receipts given a block ID.
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L99
 func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
@@ -257,7 +274,7 @@ func (h *Handler) BlockWithReceipts(id *BlockID) (*BlockWithReceipts, *jsonrpc.E
 // BlockWithTxs returns the block information with full transactions given a block ID.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L44
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L62
 func (h *Handler) BlockWithTxs(blockID *BlockID) (*BlockWithTxs, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(blockID)
 	if rpcErr != nil {

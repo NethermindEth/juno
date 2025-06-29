@@ -21,6 +21,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -1116,7 +1117,7 @@ func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash 
 	})
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*rpcv6.EmittedEvent) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -1147,11 +1148,11 @@ func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) 
 	return &preConfirmed
 }
 
-func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*EmittedEvent) {
+func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*rpcv6.EmittedEvent) {
 	t.Helper()
 
 	var filtered []*blockchain.FilteredEvent
-	var emitted []*EmittedEvent
+	var emitted []*rpcv6.EmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			filtered = append(filtered, &blockchain.FilteredEvent{
@@ -1161,8 +1162,8 @@ func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
-			emitted = append(emitted, &EmittedEvent{
-				Event: &Event{
+			emitted = append(emitted, &rpcv6.EmittedEvent{
+				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,

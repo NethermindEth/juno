@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -416,11 +417,11 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 				}
 			}
 
-			emittedEvent := &EmittedEvent{
+			emittedEvent := &rpcv6.EmittedEvent{
 				BlockNumber:     event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending/pre_confirmed block
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
-				Event: &Event{
+				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
