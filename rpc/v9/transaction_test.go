@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -59,13 +60,15 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		Version:         new(core.TransactionVersion).SetUint64(1),
 	}
 
-	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-	mockSyncReader.EXPECT().PendingData().Return(&sync.PendingData{
+	preConfirmed := &core.PreConfirmed{
 		Block: &core.Block{
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
 		CandidateTxs: []core.Transaction{},
-	}, nil)
+	}
+
+	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PendingData().Return(preConfirmed.AsPendingData(), nil)
 
 	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
 
@@ -447,6 +450,41 @@ func TestTransactionByHash(t *testing.T) {
 			assert.Equal(t, expectedMap, resMap, string(resJSON))
 		})
 	}
+}
+
+func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
+	gw := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(1204672, 10))
+	require.NoError(t, err)
+
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates)
+	require.NoError(t, err)
+
+	mockSyncReader.EXPECT().PendingData().Return(adaptedPreConfirmed.AsPendingData(), nil).Times(2)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
+	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
+		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
+		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
+
+		foundTxn, err := handler.TransactionByHash(*searchTxn.Hash())
+		require.Nil(t, err)
+		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
+	})
+
+	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
+		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
+		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
+
+		foundTxn, err := handler.TransactionByHash(*searchTxn.Hash())
+		require.Nil(t, err)
+		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
+	})
 }
 
 func TestTransactionByBlockIdAndIndex(t *testing.T) {

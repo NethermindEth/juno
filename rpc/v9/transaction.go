@@ -496,14 +496,14 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 	}
 
 	// Check pre_confirmed transactions
-	for _, t := range preConfirmed.Block.Transactions {
+	for _, t := range preConfirmed.GetTransactions() {
 		if hash.Equal(t.Hash()) {
 			return AdaptTransaction(t), nil
 		}
 	}
 
 	// Check candidate transactions
-	for _, t := range preConfirmed.CandidateTxs {
+	for _, t := range preConfirmed.GetCandidateTransaction() {
 		if hash.Equal(t.Hash()) {
 			return AdaptTransaction(t), nil
 		}
