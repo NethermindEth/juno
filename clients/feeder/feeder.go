@@ -173,6 +173,9 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_block_traces"):
 			dir = "traces"
 			queryArg = "blockHash"
+		case strings.HasSuffix(r.URL.Path, "get_preconfirmed_block"):
+			dir = "pre_confirmed"
+			queryArg = blockNumberArg
 		}
 
 		fileName, found := queryMap[queryArg]
