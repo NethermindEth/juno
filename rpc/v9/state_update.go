@@ -19,61 +19,73 @@ import (
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
-func (h *Handler) StateUpdate(id *BlockID) (*rpcv6.StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id *BlockID) (rpcv6.StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, rpccore.ErrBlockNotFound
+			return rpcv6.StateUpdate{}, rpccore.ErrBlockNotFound
 		}
-		return nil, rpccore.ErrInternal.CloneWithData(err)
+		return rpcv6.StateUpdate{}, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	nonces := make([]rpcv6.Nonce, 0, len(update.StateDiff.Nonces))
+	index := 0
+	nonces := make([]rpcv6.Nonce, len(update.StateDiff.Nonces))
 	for addr, nonce := range update.StateDiff.Nonces {
-		nonces = append(nonces, rpcv6.Nonce{ContractAddress: addr, Nonce: *nonce})
+		nonces[index] = rpcv6.Nonce{ContractAddress: addr, Nonce: *nonce}
+		index++
 	}
 
-	storageDiffs := make([]rpcv6.StorageDiff, 0, len(update.StateDiff.StorageDiffs))
+	index = 0
+	storageDiffs := make([]rpcv6.StorageDiff, len(update.StateDiff.StorageDiffs))
 	for addr, diffs := range update.StateDiff.StorageDiffs {
-		entries := make([]rpcv6.Entry, 0, len(diffs))
+		entries := make([]rpcv6.Entry, len(diffs))
+		entryIdx := 0
 		for key, value := range diffs {
-			entries = append(entries, rpcv6.Entry{
+			entries[entryIdx] = rpcv6.Entry{
 				Key:   key,
 				Value: *value,
-			})
+			}
+			entryIdx++
 		}
 
-		storageDiffs = append(storageDiffs, rpcv6.StorageDiff{
+		storageDiffs[index] = rpcv6.StorageDiff{
 			Address:        addr,
 			StorageEntries: entries,
-		})
+		}
+		index++
 	}
 
-	deployedContracts := make([]rpcv6.DeployedContract, 0, len(update.StateDiff.DeployedContracts))
+	index = 0
+	deployedContracts := make([]rpcv6.DeployedContract, len(update.StateDiff.DeployedContracts))
 	for addr, classHash := range update.StateDiff.DeployedContracts {
-		deployedContracts = append(deployedContracts, rpcv6.DeployedContract{
+		deployedContracts[index] = rpcv6.DeployedContract{
 			Address:   addr,
 			ClassHash: *classHash,
-		})
+		}
+		index++
 	}
 
-	declaredClasses := make([]rpcv6.DeclaredClass, 0, len(update.StateDiff.DeclaredV1Classes))
+	index = 0
+	declaredClasses := make([]rpcv6.DeclaredClass, len(update.StateDiff.DeclaredV1Classes))
 	for classHash, compiledClassHash := range update.StateDiff.DeclaredV1Classes {
-		declaredClasses = append(declaredClasses, rpcv6.DeclaredClass{
+		declaredClasses[index] = rpcv6.DeclaredClass{
 			ClassHash:         classHash,
 			CompiledClassHash: *compiledClassHash,
-		})
+		}
+		index++
 	}
 
-	replacedClasses := make([]rpcv6.ReplacedClass, 0, len(update.StateDiff.ReplacedClasses))
+	index = 0
+	replacedClasses := make([]rpcv6.ReplacedClass, len(update.StateDiff.ReplacedClasses))
 	for addr, classHash := range update.StateDiff.ReplacedClasses {
-		replacedClasses = append(replacedClasses, rpcv6.ReplacedClass{
+		replacedClasses[index] = rpcv6.ReplacedClass{
 			ClassHash:       *classHash,
 			ContractAddress: addr,
-		})
+		}
+		index++
 	}
 
-	return &rpcv6.StateUpdate{
+	return rpcv6.StateUpdate{
 		BlockHash: update.BlockHash,
 		OldRoot:   update.OldRoot,
 		NewRoot:   update.NewRoot,

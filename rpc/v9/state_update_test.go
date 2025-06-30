@@ -43,7 +43,7 @@ func TestStateUpdate(t *testing.T) {
 			handler := rpcv9.New(chain, mockSyncReader, nil, "", log)
 
 			update, rpcErr := handler.StateUpdate(&id)
-			assert.Nil(t, update)
+			assert.Empty(t, update)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
@@ -103,7 +103,7 @@ func TestStateUpdate(t *testing.T) {
 		latest := blockIDLatest(t)
 		update, rpcErr := handler.StateUpdate(&latest)
 		require.Nil(t, rpcErr)
-		checkUpdate(t, update21656, update)
+		checkUpdate(t, update21656, &update)
 	})
 
 	t.Run("by height", func(t *testing.T) {
@@ -111,7 +111,7 @@ func TestStateUpdate(t *testing.T) {
 		number := blockIDNumber(t, 21656)
 		update, rpcErr := handler.StateUpdate(&number)
 		require.Nil(t, rpcErr)
-		checkUpdate(t, update21656, update)
+		checkUpdate(t, update21656, &update)
 	})
 
 	t.Run("by hash", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestStateUpdate(t *testing.T) {
 		hash := blockIDHash(t, update21656.BlockHash)
 		update, rpcErr := handler.StateUpdate(&hash)
 		require.Nil(t, rpcErr)
-		checkUpdate(t, update21656, update)
+		checkUpdate(t, update21656, &update)
 	})
 
 	t.Run("post v0.11.0", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestStateUpdate(t *testing.T) {
 				update, rpcErr := handler.StateUpdate(&number)
 				require.Nil(t, rpcErr)
 
-				checkUpdate(t, gwUpdate, update)
+				checkUpdate(t, gwUpdate, &update)
 			})
 		}
 	})
@@ -157,6 +157,6 @@ func TestStateUpdate(t *testing.T) {
 		preConfirmedID := blockIDPreConfirmed(t)
 		update, rpcErr := handler.StateUpdate(&preConfirmedID)
 		require.Nil(t, rpcErr)
-		checkUpdate(t, update21656, update)
+		checkUpdate(t, update21656, &update)
 	})
 }
