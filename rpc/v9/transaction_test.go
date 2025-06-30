@@ -459,10 +459,11 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(1204672, 10))
+	blockNumber := uint64(1204672)
+	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10))
 	require.NoError(t, err)
 
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
 	require.NoError(t, err)
 
 	mockSyncReader.EXPECT().PendingData().Return(adaptedPreConfirmed.AsPendingData(), nil).Times(2)
@@ -2184,7 +2185,7 @@ func getTestPreConfirmed(t *testing.T) *core.PreConfirmed {
 
 	preConfirmedlock := new(starknet.PreConfirmedBlock)
 	require.NoError(t, json.Unmarshal([]byte(preConfirmedJSONStr), preConfirmedlock))
-	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedlock)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedlock, 0)
 	require.NoError(t, err)
 	return adaptedPreConfirmed
 }

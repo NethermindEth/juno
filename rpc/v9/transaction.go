@@ -589,10 +589,10 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		blockHash   *felt.Felt
 		blockNumber uint64
 	)
-	status := TxnPreConfirmed
-
+	var status TxnFinalityStatus
 	if preconfirmedB != nil {
 		receipt = preconfirmedB.Receipts[preconfirmedBIndex]
+		status = h.PendingBlockFinalityStatus()
 	} else {
 		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
 		if err != nil {
