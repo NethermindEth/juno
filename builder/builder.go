@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	NumTxnsToBatchExecute = 10
-	ErrPendingParentHash  = errors.New("pending block parent hash does not match chain head")
+	NumTxnsToBatchExecute  = 10
+	ErrPendingParentHash   = errors.New("pending block parent hash does not match chain head")
+	CurrentStarknetVersion = semver.MustParse("0.14.0")
 )
 
 type BuildResult struct {
@@ -129,7 +130,7 @@ func (b *Builder) InitPendingBlock(sequencerAddress *felt.Felt) error {
 			ParentHash:       header.Hash,
 			Number:           header.Number + 1,
 			SequencerAddress: sequencerAddress,
-			ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
+			ProtocolVersion:  CurrentStarknetVersion.String(),
 			L1GasPriceETH:    felt.One.Clone(),
 			L1GasPriceSTRK:   felt.One.Clone(),
 			L1DAMode:         core.Calldata,
@@ -309,17 +310,20 @@ func (b *Builder) ProposalInit(pInit *types.ProposalInit) error {
 			SequencerAddress: &pInit.Proposer,
 			ParentHash:       header.Hash,
 			// Todo: we need a mapping of protocolversion to block versions from SN
-			ProtocolVersion: blockchain.SupportedStarknetVersion.String(),
+			ProtocolVersion: CurrentStarknetVersion.String(),
 			// Todo: once the spec is finalised, handle these fields (if they still exist)
 			// OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
-			// Note: we use the header values by default, since the proposer only
-			// sends over a subset of the gas prices (eg for L1DataGasPrice it
-			// only sends the L1DataGasPriceWEI, but not the price in FRI, but
-			// we need both for the block hash)
-			L1GasPriceETH:  header.L1GasPriceETH,
-			L1GasPriceSTRK: header.L1GasPriceSTRK,
-			L1DataGasPrice: header.L1DataGasPrice,
-			L2GasPrice:     header.L2GasPrice,
+			// Note: All values should be set to 0 according to the specs
+			L1GasPriceETH:  felt.Zero.Clone(),
+			L1GasPriceSTRK: felt.Zero.Clone(),
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: felt.Zero.Clone(),
+				PriceInFri: felt.Zero.Clone(),
+			},
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: felt.Zero.Clone(),
+				PriceInFri: felt.Zero.Clone(),
+			},
 		},
 		Transactions: []core.Transaction{},
 		Receipts:     []*core.TransactionReceipt{},
@@ -345,8 +349,11 @@ func (b *Builder) SetBlockInfo(blockInfo *types.BlockInfo) {
 	b.pendingBlock.Block.Header.SequencerAddress = &blockInfo.Builder
 	b.pendingBlock.Block.Header.Timestamp = blockInfo.Timestamp
 	b.pendingBlock.Block.Header.L2GasPrice.PriceInFri = &blockInfo.L2GasPriceFRI
+	b.pendingBlock.Block.Header.L2GasPrice.PriceInWei = new(felt.Felt).Div(&blockInfo.L2GasPriceFRI, &blockInfo.EthToStrkRate)
 	b.pendingBlock.Block.Header.L1GasPriceETH = &blockInfo.L1GasPriceWEI
+	b.pendingBlock.Block.Header.L1GasPriceSTRK = new(felt.Felt).Mul(&blockInfo.L1GasPriceWEI, &blockInfo.EthToStrkRate)
 	b.pendingBlock.Block.Header.L1DataGasPrice.PriceInWei = &blockInfo.L1DataGasPriceWEI
+	b.pendingBlock.Block.Header.L1DataGasPrice.PriceInFri = new(felt.Felt).Mul(&blockInfo.L1DataGasPriceWEI, &blockInfo.EthToStrkRate)
 	b.pendingBlock.Block.Header.L1DAMode = blockInfo.L1DAMode
 }
 

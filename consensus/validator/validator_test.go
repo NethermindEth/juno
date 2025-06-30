@@ -85,7 +85,8 @@ func TestEmptyProposal(t *testing.T) {
 		ParentCommitment: *head.Hash,
 		Builder:          *proposerAddr,
 		Timestamp:        0,
-		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
+		ProtocolVersion:  *builder.CurrentStarknetVersion,
+		OldStateRoot:     *utils.HexToFelt(t, "0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72"),
 		// Other fields are set to 0 as expected by the validator
 		ConcatenatedCounts:    *new(felt.Felt).SetUint64(0),
 		StateDiffCommitment:   *new(felt.Felt).SetUint64(0),
@@ -100,7 +101,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x26029592e4514e487be4aa2219be1e4ab50db9c630f2000d05b077d533de262")
+	block1Hash, err := new(felt.Felt).SetString("0x707b1c40b82913d91d7cde74107be9cfa48b9080c49e95dd0ba7b00cd1125c")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	require.NoError(t, validator.ProposalFin(proposalFin))
@@ -111,8 +112,15 @@ func TestEmptyProposal(t *testing.T) {
 // The validator should re-execute it, and come to agreement on the resulting commitments.
 func TestProposal(t *testing.T) {
 	proposerAddr := utils.HexToFelt(t, "0xDEADBEEF")
-	builder, _, head := getCustomBC(t, proposerAddr)
-	validator := New[value, felt.Felt, felt.Felt](builder)
+	b, _, head := getCustomBC(t, proposerAddr)
+	validator := New[value, felt.Felt, felt.Felt](b)
+
+	l2GasPriceFri := uint64(10)
+	l1GasPriceWei := uint64(11)
+	l1DataGasPriceWei := uint64(12)
+	ethToStrkRate := uint64(13)
+	l1GasPriceFri := l1GasPriceWei * ethToStrkRate
+	l1DataGasPriceFri := l1DataGasPriceWei * ethToStrkRate
 
 	// Step 1: ProposalInit
 	proposalInit := types.ProposalInit{
@@ -126,10 +134,10 @@ func TestProposal(t *testing.T) {
 		BlockNumber:       head.Number + 1,
 		Builder:           *proposerAddr,
 		Timestamp:         1700474724,
-		L2GasPriceFRI:     *new(felt.Felt).SetUint64(10),
-		L1GasPriceWEI:     *new(felt.Felt).SetUint64(11),
-		L1DataGasPriceWEI: *new(felt.Felt).SetUint64(12),
-		EthToStrkRate:     *new(felt.Felt).SetUint64(13),
+		L2GasPriceFRI:     felt.FromUint64(l2GasPriceFri),
+		L1GasPriceWEI:     felt.FromUint64(l1GasPriceWei),
+		L1DataGasPriceWEI: felt.FromUint64(l1DataGasPriceWei),
+		EthToStrkRate:     felt.FromUint64(ethToStrkRate),
 		L1DAMode:          core.Blob,
 	}
 	validator.BlockInfo(&blockInfo)
@@ -157,15 +165,15 @@ func TestProposal(t *testing.T) {
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
 				MaxAmount:       4,
-				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1GasPriceFri + 1)),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       440001,
-				MaxPricePerUnit: utils.HexToFelt(t, "0x11"),
+				MaxAmount:       500000,
+				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l2GasPriceFri + 1)),
 			},
 			core.ResourceL1DataGas: {
 				MaxAmount:       296,
-				MaxPricePerUnit: utils.HexToFelt(t, "0x3"),
+				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1DataGasPriceFri + 1)),
 			},
 		},
 		Tip:                   utils.HexToUint64(t, "0x0"),
@@ -181,25 +189,24 @@ func TestProposal(t *testing.T) {
 		Builder:          *proposerAddr,
 		ParentCommitment: *head.Hash,
 		Timestamp:        blockInfo.Timestamp,
-		ProtocolVersion:  *blockchain.SupportedStarknetVersion,
+		ProtocolVersion:  *builder.CurrentStarknetVersion,
 
-		StateDiffCommitment:   *utils.HexToFelt(t, "0x7506a5f11e6261ac1d49e718d4d7e32fb2f6f82054792e5c3ae99af54e6d2af"),
+		OldStateRoot:          *utils.HexToFelt(t, "0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72"),
+		StateDiffCommitment:   *utils.HexToFelt(t, "0x4cef1c56b11255e30104420e8af41aff2ffe015ddd1eebc7acb28c42ffc3a0"),
 		TransactionCommitment: *utils.HexToFelt(t, "0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd"),
-		EventCommitment:       *utils.HexToFelt(t, "0x203d16245ccf912948cac8d15f68e2a0e6ddef8fcff360785ecd4a746b8310c"),
-		ReceiptCommitment:     *utils.HexToFelt(t, "0x5cb7e16c82ae5167290de76ab5704ccde608327b5edd37527fdd74d82acb21c"),
+		EventCommitment:       *utils.HexToFelt(t, "0x7e7140ab1993f5f3b9050104fcf65b462a6d9e5d1b4aa5d7fb29a177e5f960e"),
+		ReceiptCommitment:     *utils.HexToFelt(t, "0x644551c17735bb6679bc4782fc95154d013b73b359bb95b33ea26f170d03cf1"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
-		L1DataGasPriceFRI:     *new(felt.Felt).SetUint64(1),
+		L1GasPriceFRI:         felt.FromUint64(l1GasPriceFri),
+		L1DataGasPriceFRI:     felt.FromUint64(l1DataGasPriceFri),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
+		L2GasUsed:             *utils.HexToFelt(t, "0x93f80"),
 		L1DAMode:              blockInfo.L1DAMode,
 	}
 	require.NoError(t, validator.ProposalCommitment(&nonEmptyCommitment))
 
 	// Step 5: ProposalFin
-	// The custom chain may generate a different number of blocks before we run this test, which means
-	// the proposed block hash can't be known ahead of time.
-	// Ideally we would check against Sepolia/Mainnet, but this isn't possible yet.
-	proposedBlock := builder.PendingBlock()
-	proposalFin := types.ProposalFin(*proposedBlock.Hash)
+	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x302789a08a44329b02a6dc13fe837f9719fdce7607d3bd5c872d5ca9b5cdbbd"))
 	require.NoError(t, validator.ProposalFin(proposalFin))
 }
 
@@ -247,7 +254,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 			ParentCommitment:      *new(felt.Felt).SetUint64(111),
 			Builder:               *proposer,
 			Timestamp:             1000,
-			ProtocolVersion:       *blockchain.SupportedStarknetVersion,
+			ProtocolVersion:       *builder.CurrentStarknetVersion,
 			ConcatenatedCounts:    *new(felt.Felt).SetUint64(1),
 			StateDiffCommitment:   *stateDiffCommitment,
 			TransactionCommitment: *transactionCommitment,
@@ -262,7 +269,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 		ParentHash:       utils.HexToFelt(t, "111"),
 		SequencerAddress: proposer,
 		Timestamp:        1000,
-		ProtocolVersion:  blockchain.SupportedStarknetVersion.String(),
+		ProtocolVersion:  builder.CurrentStarknetVersion.String(),
 		L1DAMode:         core.Blob,
 	}
 	t.Run("ValidCommitment", func(t *testing.T) {
@@ -303,13 +310,6 @@ func TestCompareProposalCommitment(t *testing.T) {
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
-	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
-		p := newDefaultProposalCommitment()
-		expected := newDefaultProposalCommitment()
-		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
-		require.Error(t, compareProposalCommitment(expected, p))
-	})
-
 	t.Run("MismatchedStateDiffCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
@@ -343,6 +343,41 @@ func TestCompareProposalCommitment(t *testing.T) {
 		other := &felt.Felt{}
 		other.SetUint64(99)
 		p.ReceiptCommitment = *other
+		require.Error(t, compareProposalCommitment(expected, p))
+	})
+
+	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
+		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
+		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
+		require.Error(t, compareProposalCommitment(expected, p))
+	})
+
+	t.Run("MismatchedL1GasPriceFRI", func(t *testing.T) {
+		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
+		p.L1GasPriceFRI = felt.FromUint64(3)
+		require.Error(t, compareProposalCommitment(expected, p))
+	})
+
+	t.Run("MismatchedL1DataGasPriceFRI", func(t *testing.T) {
+		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
+		p.L1DataGasPriceFRI = felt.FromUint64(4)
+		require.Error(t, compareProposalCommitment(expected, p))
+	})
+
+	t.Run("MismatchedL2GasPriceFRI", func(t *testing.T) {
+		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
+		p.L2GasPriceFRI = felt.FromUint64(5)
+		require.Error(t, compareProposalCommitment(expected, p))
+	})
+
+	t.Run("MismatchedL2GasUsed", func(t *testing.T) {
+		p := newDefaultProposalCommitment()
+		expected := newDefaultProposalCommitment()
+		p.L2GasUsed = felt.FromUint64(6)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 

@@ -3,7 +3,6 @@ package validator
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
@@ -107,6 +106,8 @@ func compareFeltField(name string, a, b *felt.Felt) error {
 //  1. Some fields we can't get / compute: VersionConstantCommitment, NextL2GasPriceFRI
 //  2. The gas prices. Currently the spec sets eth gas prices, but in v1, these will be dropped
 //     for fri prices.
+//
+//nolint:gocyclo // Currently this is only containing simple equality checks.
 func compareProposalCommitment(computed, proposal *types.ProposalCommitment) error {
 	if proposal.BlockNumber != computed.BlockNumber {
 		return fmt.Errorf("block number mismatch: proposal=%d header=%d", proposal.BlockNumber, computed.BlockNumber)
@@ -125,13 +126,11 @@ func compareProposalCommitment(computed, proposal *types.ProposalCommitment) err
 		return fmt.Errorf("invalid timestamp: proposal (%d) is later than header (%d)", proposal.Timestamp, computed.Timestamp)
 	}
 
-	if !proposal.ProtocolVersion.LessThanEqual(blockchain.SupportedStarknetVersion) {
+	if !proposal.ProtocolVersion.LessThanEqual(builder.CurrentStarknetVersion) {
 		return fmt.Errorf("protocol version mismatch: proposal=%s header=%s", proposal.ProtocolVersion, computed.ProtocolVersion)
 	}
 
-	if err := compareFeltField("concat counts", &proposal.ConcatenatedCounts, &computed.ConcatenatedCounts); err != nil {
-		return err
-	}
+	// TODO: Validate OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
 
 	if err := compareFeltField("state diff", &proposal.StateDiffCommitment, &computed.StateDiffCommitment); err != nil {
 		return err
@@ -143,6 +142,21 @@ func compareProposalCommitment(computed, proposal *types.ProposalCommitment) err
 		return err
 	}
 	if err := compareFeltField("receipt", &proposal.ReceiptCommitment, &computed.ReceiptCommitment); err != nil {
+		return err
+	}
+	if err := compareFeltField("concat counts", &proposal.ConcatenatedCounts, &computed.ConcatenatedCounts); err != nil {
+		return err
+	}
+	if err := compareFeltField("l1 gas price", &proposal.L1GasPriceFRI, &computed.L1GasPriceFRI); err != nil {
+		return err
+	}
+	if err := compareFeltField("l1 data gas price", &proposal.L1DataGasPriceFRI, &computed.L1DataGasPriceFRI); err != nil {
+		return err
+	}
+	if err := compareFeltField("l2 gas price", &proposal.L2GasPriceFRI, &computed.L2GasPriceFRI); err != nil {
+		return err
+	}
+	if err := compareFeltField("l2 gas used", &proposal.L2GasUsed, &computed.L2GasUsed); err != nil {
 		return err
 	}
 
