@@ -915,7 +915,9 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.ExecuteInvocation{},
+			FunctionInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
