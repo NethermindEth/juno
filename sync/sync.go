@@ -347,12 +347,19 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					}
 
 					if head != nil {
-						if err := s.storeEmptyPending(block.Header); err != nil {
-							s.log.Errorw("Failed to store empty pending block", "number", block.Number)
-						}
-
-						if err := s.storeEmptyPreConfirmed(head); err != nil {
-							s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+						blockVer, err := core.ParseBlockVersion(head.ProtocolVersion)
+						if err == nil {
+							if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+								if err := s.storeEmptyPreConfirmed(head); err != nil {
+									s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+								}
+							} else {
+								if err := s.storeEmptyPending(head); err != nil {
+									s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+								}
+							}
+						} else {
+							s.log.Errorw("Failed to parse block version", "err", err)
 						}
 					}
 				} else {
@@ -363,12 +370,19 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			if err := s.storeEmptyPending(block.Header); err != nil {
-				s.log.Errorw("Failed to store empty pending block", "number", block.Number)
-			}
-
-			if err := s.storeEmptyPreConfirmed(block.Header); err != nil {
-				s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+			blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+			if err == nil {
+				if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+					if err := s.storeEmptyPreConfirmed(block.Header); err != nil {
+						s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+					}
+				} else {
+					if err := s.storeEmptyPending(block.Header); err != nil {
+						s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+					}
+				}
+			} else {
+				s.log.Errorw("Failed to parse block version", "err", err)
 			}
 
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
