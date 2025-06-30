@@ -220,7 +220,7 @@ func TestPendingData(t *testing.T) {
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
 			expectedPending := sync.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil)
-			assert.Equal(t, expectedPending.AsPendingData(), gotPending)
+			assert.Equal(t, expectedPending.AsPendingData(), *gotPending)
 		})
 
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
@@ -233,7 +233,7 @@ func TestPendingData(t *testing.T) {
 
 			notExpectedPending := sync.NewPending(b, su, nil)
 
-			require.ErrorIs(t, synchronizer.StorePending(notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+			require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
 		})
 
 		t.Run("store expected pending block", func(t *testing.T) {
@@ -251,7 +251,7 @@ func TestPendingData(t *testing.T) {
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			assert.Equal(t, expectedPending.AsPendingData(), gotPending)
+			assert.Equal(t, expectedPending.AsPendingData(), *gotPending)
 		})
 
 		t.Run("get pending state", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestPendingData(t *testing.T) {
 				Block:       preConfirmedGenesis.Block,
 				StateUpdate: preConfirmedGenesis.StateUpdate,
 			}
-			assert.Equal(t, expectedPreConfirmed.AsPendingData(), gotPendingData)
+			assert.Equal(t, expectedPreConfirmed.AsPendingData(), *gotPendingData)
 		})
 
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
@@ -323,7 +323,7 @@ func TestPendingData(t *testing.T) {
 
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			assert.Equal(t, expectedPreConfirmed.AsPendingData(), gotPendingData)
+			assert.Equal(t, expectedPreConfirmed.AsPendingData(), *gotPendingData)
 		})
 
 		t.Run("get pending state", func(t *testing.T) {

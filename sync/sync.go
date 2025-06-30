@@ -679,7 +679,8 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.StorePending(NewPending(pendingBlock, pendingStateUpdate, newClasses))
+	newPending := NewPending(pendingBlock, pendingStateUpdate, newClasses)
+	return s.StorePending(&newPending)
 }
 
 func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context) error {
@@ -761,7 +762,8 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return err
 	}
 
-	s.pendingData.Store(p.AsPendingData())
+	pendingData := p.AsPendingData()
+	s.pendingData.Store(&pendingData)
 
 	s.pendingFeed.Send(p.Block)
 
@@ -793,7 +795,8 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
 		p.StateUpdate.OldRoot = h.GlobalStateRoot
 	}
 
-	s.pendingData.Store(p.AsPendingData())
+	pendingData := p.AsPendingData()
+	s.pendingData.Store(&pendingData)
 
 	s.preConfirmedFeed.Send(p)
 
@@ -890,7 +893,8 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	s.pendingData.Store(pending.AsPendingData())
+	pendingData := pending.AsPendingData()
+	s.pendingData.Store(&pendingData)
 	return nil
 }
 
@@ -930,7 +934,8 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
 		CandidateTxs:          make([]core.Transaction, 0),
 	}
 
-	s.pendingData.Store(preConfirmed.AsPendingData())
+	pendingData := preConfirmed.AsPendingData()
+	s.pendingData.Store(&pendingData)
 	return nil
 }
 

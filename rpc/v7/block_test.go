@@ -205,8 +205,10 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		pending := sync.NewPending(latestBlock, nil, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(latestBlock, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
@@ -219,8 +221,10 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 
@@ -388,8 +392,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		pending := sync.NewPending(latestBlock, nil, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(latestBlock, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -406,8 +412,10 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 
@@ -547,8 +555,10 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
+		pending := sync.NewPending(block0, nil, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(block0, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
@@ -590,8 +600,10 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 

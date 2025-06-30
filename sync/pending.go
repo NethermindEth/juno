@@ -18,15 +18,15 @@ type Pending struct {
 	NewClasses  map[felt.Felt]core.Class
 }
 
-func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) *Pending {
-	return &Pending{
+func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) Pending {
+	return Pending{
 		Block:       block,
 		StateUpdate: stateUpdate,
 		NewClasses:  newClasses,
 	}
 }
 
-func (p *Pending) AsPendingData() *core.PendingData {
+func (p *Pending) AsPendingData() core.PendingData {
 	return core.NewPendingData(p)
 }
 

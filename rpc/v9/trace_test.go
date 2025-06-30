@@ -259,8 +259,10 @@ func TestTraceTransaction(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+			pendingData := preConfirmed.AsPendingData()
 			mockSyncReader.EXPECT().PendingData().Return(
-				core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
+				&pendingData,
 				nil,
 			)
 
@@ -389,8 +391,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(block, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 

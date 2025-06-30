@@ -25,8 +25,8 @@ type PendingData struct {
 	data PendingDataInterface
 }
 
-func NewPendingData(data PendingDataInterface) *PendingData {
-	return &PendingData{
+func NewPendingData(data PendingDataInterface) PendingData {
+	return PendingData{
 		data: data,
 	}
 }
@@ -69,8 +69,8 @@ type PreConfirmed struct {
 	CandidateTxs          []Transaction
 }
 
-func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) *PreConfirmed {
-	return &PreConfirmed{
+func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) PreConfirmed {
+	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
 		NewClasses:            make(map[felt.Felt]Class),
@@ -79,8 +79,8 @@ func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDif
 	}
 }
 
-func (p *PreConfirmed) AsPendingData() *PendingData {
-	return &PendingData{data: p}
+func (p *PreConfirmed) AsPendingData() PendingData {
+	return PendingData{data: p}
 }
 
 func (p *PreConfirmed) GetBlock() *Block {

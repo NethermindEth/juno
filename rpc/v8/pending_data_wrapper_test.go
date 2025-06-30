@@ -34,21 +34,24 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
 		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			expectedPending.AsPendingData(),
+			&expectedPendingData,
 			nil,
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
-		require.Equal(t, expectedPending, &sync.Pending{
+		require.Equal(t, expectedPending, sync.Pending{
 			Block:       pending.GetBlock(),
 			StateUpdate: pending.GetStateUpdate(),
 			NewClasses:  pending.GetNewClasses(),
 		})
 	})
 	t.Run("Returns empty pending block when starknet version >= 0.14.0", func(t *testing.T) {
+		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(nil, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
@@ -91,7 +94,7 @@ func TestPendingDataWrapper(t *testing.T) {
 
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
-		require.Equal(t, expectedPending, sync.NewPending(
+		require.Equal(t, *expectedPending, sync.NewPending(
 			pending.GetBlock(),
 			pending.GetStateUpdate(),
 			pending.GetNewClasses(),

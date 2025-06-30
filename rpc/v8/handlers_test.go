@@ -104,7 +104,9 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
+		pending := sync.NewPending(nil, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		blockID := blockIDHash(t, blockHash)

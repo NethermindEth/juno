@@ -170,13 +170,15 @@ func TestBlockTransactionCount(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(latestBlock, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 
-		preConfirmed := blockIDPreConfirmed(t)
-		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
+		preConfirmedID := blockIDPreConfirmed(t)
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmedID)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -301,14 +303,16 @@ func TestBlockWithTxHashes(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(latestBlock, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		preConfirmed := blockIDPreConfirmed(t)
-		block, rpcErr := handler.BlockWithTxHashes(&preConfirmed)
+		preConfirmedID := blockIDPreConfirmed(t)
+		block, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)
 		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
 	})
@@ -452,17 +456,19 @@ func TestBlockWithTxs(t *testing.T) {
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(latestBlock, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		preConfirmed := blockIDPreConfirmed(t)
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&preConfirmed)
+		preConfirmedID := blockIDPreConfirmed(t)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&preConfirmedID)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(&preConfirmed)
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&preConfirmedID)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -595,8 +601,10 @@ func TestBlockWithReceipts(t *testing.T) {
 		block0.Hash = nil
 		block0.ParentHash = nil
 		block0.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(block0, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(block0, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)

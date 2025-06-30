@@ -276,5 +276,5 @@ func TestPreConfirmedBlock(t *testing.T) {
 
 	preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber)
 	require.NoError(t, err)
-	assert.Equal(t, preConfirmed, adaptedPreConfirmed)
+	assert.Equal(t, preConfirmed, &adaptedPreConfirmed)
 }

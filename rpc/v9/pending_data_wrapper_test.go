@@ -31,14 +31,15 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
 		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			expectedPending.AsPendingData(),
+			&expectedPendingData,
 			nil,
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
 		require.Equal(t, core.PendingBlockVariant, pending.Variant())
-		require.Equal(t, expectedPending, &sync.Pending{
+		require.Equal(t, expectedPending, sync.Pending{
 			Block:       pending.GetBlock(),
 			StateUpdate: pending.GetStateUpdate(),
 			NewClasses:  pending.GetNewClasses(),
@@ -47,14 +48,15 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Returns pre_confirmed block data when starknet version >= 0.14.0", func(t *testing.T) {
 		expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			expectedPending.AsPendingData(),
+			&expectedPendingData,
 			nil,
 		)
 		pending, err := handler.PendingData()
 		require.NoError(t, err)
 		require.Equal(t, core.PreConfirmedBlockVariant, pending.Variant())
-		require.Equal(t, expectedPending, &core.PreConfirmed{
+		require.Equal(t, expectedPending, core.PreConfirmed{
 			Block:                 pending.GetBlock(),
 			StateUpdate:           pending.GetStateUpdate(),
 			NewClasses:            pending.GetNewClasses(),
@@ -65,8 +67,9 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Finality status is ACCEPTED_ON_L2 when pending block", func(t *testing.T) {
 		expectedPending := sync.NewPending(latestBlock, nil, nil)
+		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			expectedPending.AsPendingData(),
+			&expectedPendingData,
 			nil,
 		).Times(2)
 		pending, err := handler.PendingData()
@@ -77,8 +80,9 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Finality status is PRE_CONFIRMED when pre_confirmed block", func(t *testing.T) {
 		expectedPending := core.NewPreConfirmed(latestBlock, nil, nil, nil)
+		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			expectedPending.AsPendingData(),
+			&expectedPendingData,
 			nil,
 		).Times(2)
 		pending, err := handler.PendingData()

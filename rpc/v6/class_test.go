@@ -222,7 +222,9 @@ func TestClassHashAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pending", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
+		pending := sync.NewPending(nil, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 

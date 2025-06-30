@@ -259,8 +259,10 @@ func TestTraceTransaction(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+			pending := sync.NewPending(&core.Block{}, nil, nil)
+			pendingData := pending.AsPendingData()
 			mockSyncReader.EXPECT().PendingData().Return(
-				sync.NewPending(&core.Block{}, nil, nil).AsPendingData(),
+				&pendingData,
 				nil,
 			)
 
@@ -389,8 +391,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		pending := sync.NewPending(block, nil, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(block, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 
@@ -646,7 +650,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingData().Return(sync.NewPending(nil, nil, nil).AsPendingData(), nil)
+		pending := sync.NewPending(nil, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}

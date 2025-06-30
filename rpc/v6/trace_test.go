@@ -333,8 +333,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		pending := sync.NewPending(block, nil, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(block, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 

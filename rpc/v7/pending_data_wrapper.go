@@ -23,7 +23,8 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 			return nil, err
 		}
 
-		return emptyPendingForParent(latestHeader).AsPendingData(), nil
+		emptyPending := emptyPendingForParent(latestHeader).AsPendingData()
+		return &emptyPending, nil
 	}
 }
 

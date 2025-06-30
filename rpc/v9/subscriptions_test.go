@@ -360,12 +360,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
 		// Candidate Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		preConfirmed := core.NewPreConfirmed(
+			&core.Block{Header: block.Header},
+			nil,
+			nil,
+			[]core.Transaction{block.Transactions[0]})
+
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncer.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(
-				&core.Block{Header: block.Header},
-				nil,
-				nil,
-				[]core.Transaction{block.Transactions[0]}).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(2)
 		mockSyncer.EXPECT().PendingBlock().Return(nil)
@@ -381,7 +384,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		rpcTx.Hash = txHash
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		preConfirmed := &core.PreConfirmed{
+		preConfirmed = core.PreConfirmed{
 			Block: &core.Block{
 				Transactions: []core.Transaction{
 					block.Transactions[0],
@@ -392,7 +395,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		}
 
 		mockSyncer.EXPECT().PendingBlock().Return(preConfirmed.Block)
-		handler.preConfirmedFeed.Send(preConfirmed)
+		handler.preConfirmedFeed.Send(&preConfirmed)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
 		// Accepted on l1 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)

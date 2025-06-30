@@ -22,8 +22,8 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		return emptyPendingForParent(latestHeader).AsPendingData(), nil
+		emptyPending := emptyPendingForParent(latestHeader).AsPendingData()
+		return &emptyPending, nil
 	}
 }
 

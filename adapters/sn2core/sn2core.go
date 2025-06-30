@@ -414,9 +414,9 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (*core.PreConfirmed, error) {
+func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (core.PreConfirmed, error) {
 	if response == nil {
-		return nil, errors.New("nil preconfirmed block")
+		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}
 
 	var adaptedStateDiff *core.StateDiff
@@ -429,7 +429,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		}
 
 		if adaptedStateDiff, err = AdaptStateDiff(stateDiff); err != nil {
-			return nil, err
+			return core.PreConfirmed{}, err
 		}
 		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
 	}
@@ -440,7 +440,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 	for i, txn := range response.Transactions[:lastPreconfirmedIndex+1] {
 		adaptedTxn, err := AdaptTransaction(txn)
 		if err != nil {
-			return nil, err
+			return core.PreConfirmed{}, err
 		}
 		txns[i] = adaptedTxn
 	}
@@ -449,7 +449,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 	for i, txn := range response.Transactions[lastPreconfirmedIndex+1:] {
 		adaptedTxn, err := AdaptTransaction(txn)
 		if err != nil {
-			return nil, err
+			return core.PreConfirmed{}, err
 		}
 		candidateTxs[i] = adaptedTxn
 	}

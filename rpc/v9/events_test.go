@@ -47,9 +47,10 @@ func TestEvents(t *testing.T) {
 			preConfirmedB = b
 		}
 	}
-
+	preConfirmed := core.NewPreConfirmed(preConfirmedB, nil, nil, nil)
+	pendingData := preConfirmed.AsPendingData()
 	mockSyncReader.EXPECT().PendingData().Return(
-		core.NewPreConfirmed(preConfirmedB, nil, nil, nil).AsPendingData(),
+		&pendingData,
 		nil,
 	).Times(2)
 
@@ -226,11 +227,11 @@ func TestEvents(t *testing.T) {
 		var err error
 		preConfirmedB, err = gw.BlockByNumber(t.Context(), 5)
 		require.Nil(t, err)
-		preConfirmed := blockIDPreConfirmed(t)
+		preConfirmedID := blockIDPreConfirmed(t)
 		args = rpc.EventsArg{
 			EventFilter: rpc.EventFilter{
-				FromBlock: &preConfirmed,
-				ToBlock:   &preConfirmed,
+				FromBlock: &preConfirmedID,
+				ToBlock:   &preConfirmedID,
 			},
 			ResultPageRequest: rpcv6.ResultPageRequest{
 				ChunkSize: 1,
@@ -243,8 +244,10 @@ func TestEvents(t *testing.T) {
 			allEvents = append(allEvents, receipt.Events...)
 		}
 
+		preConfirmed := core.NewPreConfirmed(preConfirmedB, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(preConfirmedB, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		).Times(len(allEvents))
 

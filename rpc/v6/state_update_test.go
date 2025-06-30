@@ -145,8 +145,10 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
+		pending := sync.NewPending(nil, update21656, nil)
+		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			sync.NewPending(nil, update21656, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 
@@ -159,8 +161,10 @@ func TestStateUpdate(t *testing.T) {
 		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 		require.NoError(t, err)
 
+		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			core.NewPreConfirmed(nil, nil, nil, nil).AsPendingData(),
+			&pendingData,
 			nil,
 		)
 
