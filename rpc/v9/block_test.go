@@ -111,16 +111,16 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDLatest(t))
+		latest := blockIDLatest(t)
+		count, rpcErr := handler.BlockTransactionCount(&latest)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDHash(t, new(felt.Felt).SetBytes([]byte("random"))))
+		hash := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
+		count, rpcErr := handler.BlockTransactionCount(&hash)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -129,40 +129,40 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDPreConfirmed(t))
+		preConfirmed := blockIDPreConfirmed(t)
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		assert.Equal(t, uint64(0), count)
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDNumber(t, uint64(328476)))
+		number := blockIDNumber(t, uint64(328476))
+		count, rpcErr := handler.BlockTransactionCount(&number)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDLatest(t))
+		latest := blockIDLatest(t)
+		count, rpcErr := handler.BlockTransactionCount(&latest)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDHash(t, latestBlockHash))
+		hash := blockIDHash(t, latestBlockHash)
+		count, rpcErr := handler.BlockTransactionCount(&hash)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
-
-		count, rpcErr := handler.BlockTransactionCount(blockIDNumber(t, latestBlockNumber))
+		number := blockIDNumber(t, latestBlockNumber)
+		count, rpcErr := handler.BlockTransactionCount(&number)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -175,7 +175,8 @@ func TestBlockTransactionCount(t *testing.T) {
 			nil,
 		)
 
-		count, rpcErr := handler.BlockTransactionCount(blockIDPreConfirmed(t))
+		preConfirmed := blockIDPreConfirmed(t)
+		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})

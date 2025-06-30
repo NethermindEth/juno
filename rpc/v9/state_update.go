@@ -19,7 +19,7 @@ import (
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L136
-func (h *Handler) StateUpdate(id BlockID) (*rpcv6.StateUpdate, *jsonrpc.Error) {
+func (h *Handler) StateUpdate(id *BlockID) (*rpcv6.StateUpdate, *jsonrpc.Error) {
 	update, err := h.stateUpdateByID(id)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
@@ -88,7 +88,7 @@ func (h *Handler) StateUpdate(id BlockID) (*rpcv6.StateUpdate, *jsonrpc.Error) {
 	}, nil
 }
 
-func (h *Handler) stateUpdateByID(id BlockID) (*core.StateUpdate, error) {
+func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 	switch id.Type() {
 	case latest:
 		if height, heightErr := h.bcReader.Height(); heightErr != nil {

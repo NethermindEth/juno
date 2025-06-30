@@ -42,7 +42,7 @@ func TestStateUpdate(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			handler := rpcv9.New(chain, mockSyncReader, nil, "", log)
 
-			update, rpcErr := handler.StateUpdate(id)
+			update, rpcErr := handler.StateUpdate(&id)
 			assert.Nil(t, update)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
@@ -100,24 +100,24 @@ func TestStateUpdate(t *testing.T) {
 	t.Run("latest", func(t *testing.T) {
 		mockReader.EXPECT().Height().Return(uint64(21656), nil)
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
-
-		update, rpcErr := handler.StateUpdate(blockIDLatest(t))
+		latest := blockIDLatest(t)
+		update, rpcErr := handler.StateUpdate(&latest)
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
 
 	t.Run("by height", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
-
-		update, rpcErr := handler.StateUpdate(blockIDNumber(t, 21656))
+		number := blockIDNumber(t, 21656)
+		update, rpcErr := handler.StateUpdate(&number)
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
 
 	t.Run("by hash", func(t *testing.T) {
 		mockReader.EXPECT().StateUpdateByHash(update21656.BlockHash).Return(update21656, nil)
-
-		update, rpcErr := handler.StateUpdate(blockIDHash(t, update21656.BlockHash))
+		hash := blockIDHash(t, update21656.BlockHash)
+		update, rpcErr := handler.StateUpdate(&hash)
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
@@ -134,10 +134,10 @@ func TestStateUpdate(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				gwUpdate, err := integGw.StateUpdate(t.Context(), height)
 				require.NoError(t, err)
-
+				number := blockIDNumber(t, height)
 				mockReader.EXPECT().StateUpdateByNumber(height).Return(gwUpdate, nil)
 				blockIDNumber(t, height)
-				update, rpcErr := handler.StateUpdate(blockIDNumber(t, height))
+				update, rpcErr := handler.StateUpdate(&number)
 				require.Nil(t, rpcErr)
 
 				checkUpdate(t, gwUpdate, update)
@@ -152,8 +152,8 @@ func TestStateUpdate(t *testing.T) {
 			core.NewPreConfirmed(nil, update21656, nil, nil).AsPendingData(),
 			nil,
 		)
-
-		update, rpcErr := handler.StateUpdate(blockIDPreConfirmed(t))
+		preConfirmed := blockIDPreConfirmed(t)
+		update, rpcErr := handler.StateUpdate(&preConfirmed)
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
 	})
