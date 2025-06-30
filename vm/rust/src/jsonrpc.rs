@@ -50,7 +50,7 @@ pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    function_invocation: Option<FunctionInvocation>,
+    function_invocation: Option<ExecuteInvocation>,
     r#type: TransactionType,
     state_diff: StateDiff,
 }
@@ -199,7 +199,14 @@ pub fn new_transaction_trace(
     let mut deprecated_declared_class_hash: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
-            trace.function_invocation = info.execute_call_info.map(|v| v.into());
+            trace.function_invocation = match info.revert_error {
+                Some(err) => Some(ExecuteInvocation::Revert {
+                    revert_reason: err.to_string(),
+                }),
+                None => info
+                    .execute_call_info
+                    .map(|v| ExecuteInvocation::Ok(v.into())),
+            };
             trace.r#type = TransactionType::L1Handler;
         }
         StarknetApiTransaction::DeployAccount(_) => {
