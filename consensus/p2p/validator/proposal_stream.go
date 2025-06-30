@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
@@ -16,6 +17,7 @@ import (
 // Once a complete and valid proposal is assembled, it is sent to the caller via the outputs channel.
 type proposalStream struct {
 	log                utils.Logger
+	proposalStore      *proposal.ProposalStore[starknet.Hash]
 	input              chan *consensus.StreamMessage
 	outputs            chan<- starknet.Proposal
 	messages           map[uint64]*consensus.StreamMessage
@@ -26,12 +28,14 @@ type proposalStream struct {
 
 func newSingleProposalStream(
 	log utils.Logger,
+	proposalStore *proposal.ProposalStore[starknet.Hash],
 	transition Transition,
 	inputBufferSize int,
 	outputs chan<- starknet.Proposal,
 ) *proposalStream {
 	return &proposalStream{
 		log:                log,
+		proposalStore:      proposalStore,
 		input:              make(chan *consensus.StreamMessage, inputBufferSize),
 		outputs:            outputs,
 		messages:           make(map[uint64]*consensus.StreamMessage),
@@ -108,10 +112,12 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 					return nil
 				}
 
+				s.proposalStore.Store(state.Proposal.Value.Hash(), state.BuildResult)
+
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
-				case s.outputs <- starknet.Proposal(*state):
+				case s.outputs <- *state.Proposal:
 					return nil
 				}
 			default:
