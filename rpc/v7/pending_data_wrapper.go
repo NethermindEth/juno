@@ -13,12 +13,11 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If IsPending == true, network is still polling pending block and running on < 0.14.0
+	// If pending network is polling pending block and running on < 0.14.0
 	if pending.Variant() == core.PendingBlockVariant {
 		return pending, nil
 	} else {
-		// If IsPending == false, network is still polling pre_confirmed block and running on >= 0.14.0
-		// pendingID == latest
+		// If pre_confirmed, network is polling pre_confirmed block and running on >= 0.14.0
 		latestHeader, err := h.bcReader.HeadsHeader()
 		if err != nil {
 			return nil, err
