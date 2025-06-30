@@ -827,13 +827,17 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InsufficientAccountBalance:
 		return rpccore.ErrInsufficientAccountBalanceV0_8
 	case gateway.ValidateFailure:
-		return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+		if strings.Contains(gatewayErr.Message, rpccore.ErrInvalidTransactionNonce.Message) {
+			return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
+		} else {
+			return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+		}
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
 		return rpccore.ErrContractClassSizeTooLarge
 	case gateway.DuplicatedTransaction:
 		return rpccore.ErrDuplicateTx
 	case gateway.InvalidTransactionNonce:
-		return rpccore.ErrInvalidTransactionNonce
+		return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
 	case gateway.CompilationFailed:
 		return rpccore.ErrCompilationFailed
 	case gateway.InvalidCompiledClassHash:
