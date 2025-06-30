@@ -61,27 +61,27 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L813
-func (h *Handler) Events(args EventArgs) (*rpcv6.EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > rpccore.MaxEventChunkSize {
-		return nil, rpccore.ErrPageSizeTooBig
+		return rpcv6.EventsChunk{}, rpccore.ErrPageSizeTooBig
 	} else {
 		lenKeys := len(args.Keys)
 		for _, keys := range args.Keys {
 			lenKeys += len(keys)
 		}
 		if lenKeys > rpccore.MaxEventFilterKeys {
-			return nil, rpccore.ErrTooManyKeysInFilter
+			return rpcv6.EventsChunk{}, rpccore.ErrTooManyKeysInFilter
 		}
 	}
 
 	height, err := h.bcReader.Height()
 	if err != nil {
-		return nil, rpccore.ErrInternal
+		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
 	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
 	if err != nil {
-		return nil, rpccore.ErrInternal
+		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 	filter = filter.WithLimit(h.filterLimit)
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events")
@@ -90,17 +90,17 @@ func (h *Handler) Events(args EventArgs) (*rpcv6.EventsChunk, *jsonrpc.Error) {
 	if args.ContinuationToken != "" {
 		cToken = new(blockchain.ContinuationToken)
 		if err = cToken.FromString(args.ContinuationToken); err != nil {
-			return nil, rpccore.ErrInvalidContinuationToken
+			return rpcv6.EventsChunk{}, rpccore.ErrInvalidContinuationToken
 		}
 	}
 
 	if err = setEventFilterRange(filter, args.EventFilter.FromBlock, args.EventFilter.ToBlock, height); err != nil {
-		return nil, rpccore.ErrBlockNotFound
+		return rpcv6.EventsChunk{}, rpccore.ErrBlockNotFound
 	}
 
 	filteredEvents, cToken, err := filter.Events(cToken, args.ChunkSize)
 	if err != nil {
-		return nil, rpccore.ErrInternal
+		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
 	emittedEvents := make([]*rpcv6.EmittedEvent, len(filteredEvents))
@@ -125,5 +125,5 @@ func (h *Handler) Events(args EventArgs) (*rpcv6.EventsChunk, *jsonrpc.Error) {
 	if cToken != nil {
 		cTokenStr = cToken.String()
 	}
-	return &rpcv6.EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
+	return rpcv6.EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }

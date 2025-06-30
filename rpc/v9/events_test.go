@@ -172,7 +172,7 @@ func TestEvents(t *testing.T) {
 		args.ChunkSize = 10240 + 1
 		events, err := handler.Events(args)
 		require.Equal(t, rpccore.ErrPageSizeTooBig, err)
-		require.Nil(t, events)
+		require.Empty(t, events)
 	})
 
 	t.Run("too many keys", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestEvents(t *testing.T) {
 		args.Keys = make([][]felt.Felt, 1024+1)
 		events, err := handler.Events(args)
 		require.Equal(t, rpccore.ErrTooManyKeysInFilter, err)
-		require.Nil(t, events)
+		require.Empty(t, events)
 	})
 
 	t.Run("filter with limit", func(t *testing.T) {
