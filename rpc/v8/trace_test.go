@@ -880,7 +880,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -1020,7 +1020,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
@@ -1057,7 +1057,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
