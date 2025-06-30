@@ -777,6 +777,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPreConfirmed(block0, nil, nil, nil).AsPendingData(),
+			nil,
+		)
 		mockSyncReader.EXPECT().PendingBlock().Return(block0)
 
 		checkTxReceipt(t, txHash, expected)
@@ -1499,6 +1503,7 @@ func TestTransactionStatus(t *testing.T) {
 				preConfirmed := getTestPreConfirmed(t)
 				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
 				mockReader.EXPECT().TransactionByHash(preConfirmedTx).Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(preConfirmed.AsPendingData(), nil)
 				mockSyncReader.EXPECT().PendingBlock().Return(preConfirmed.Block)
 				handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
 

@@ -282,7 +282,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return nil
 		},
 		onPreConfirmed: func(ctx context.Context, id string, sub *subscription, preConfirmed *core.PreConfirmed) error {
-			if lastStatus < TxnStatusAcceptedOnL2 {
+			if lastStatus < TxnStatusPreConfirmed {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
 				}
@@ -503,6 +503,9 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			pendingData, err := h.syncReader.PendingData()
 			if err != nil {
+				if errors.Is(err, sync.ErrPendingBlockNotFound) {
+					return nil
+				}
 				return err
 			}
 			switch v := pendingData.Variant(); v {
