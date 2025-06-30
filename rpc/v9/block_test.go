@@ -597,7 +597,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			core.NewPreConfirmed(block0, nil, nil, nil).AsPendingData(),
 			nil,
-		)
+		).Times(2)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
 		blockID := blockIDPreConfirmed(t)
