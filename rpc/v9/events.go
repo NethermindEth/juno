@@ -8,7 +8,7 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 )
 
-type EventsArg struct {
+type EventArgs struct {
 	EventFilter
 	rpcv6.ResultPageRequest
 }
@@ -61,7 +61,7 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L813
-func (h *Handler) Events(args EventsArg) (*rpcv6.EventsChunk, *jsonrpc.Error) {
+func (h *Handler) Events(args EventArgs) (*rpcv6.EventsChunk, *jsonrpc.Error) {
 	if args.ChunkSize > rpccore.MaxEventChunkSize {
 		return nil, rpccore.ErrPageSizeTooBig
 	} else {
