@@ -1353,6 +1353,15 @@ func TestAddTransaction(t *testing.T) {
 				expectedError: rpccore.ErrInvalidTransactionNonce.
 					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
 			},
+			{
+				name: "InvalidTransactionNonce error as ErrValidationFailure",
+				gatewayError: &gateway.Error{
+					Code:    gateway.ValidateFailure,
+					Message: "Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1.",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
+			},
 		}
 
 		for _, tc := range errorTests {
