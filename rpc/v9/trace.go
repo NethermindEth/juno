@@ -71,7 +71,7 @@ type FunctionInvocation struct {
 // TraceTransaction returns the trace for a given executed transaction, including internal calls
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L11
 func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	httpHeader := http.Header{}
@@ -114,6 +114,10 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	return traceResults[txIndex].TraceRoot, header, nil
 }
 
+// TraceBlockTransactions returns the trace for a given blockID
+//
+// It follows the specification defined here:
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_trace_api_openrpc.json#L108
 func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
@@ -303,7 +307,7 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 	return traces, nil
 }
 
-// https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L579
 func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
