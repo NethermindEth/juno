@@ -40,7 +40,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			if !trace.FunctionInvocation.IsReverted {
+			if trace.FunctionInvocation.FunctionInvocation != nil {
 				functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
 			} else {
 				defaultResult := defaultL1HandlerFunctionInvocation()
