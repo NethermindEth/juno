@@ -125,6 +125,7 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 type TxnFinalityStatus uint8
 
 const (
+	// Starts from 4 for TxnFinalityStatuses to match same numbers on TxnStatus
 	TxnPreConfirmed TxnFinalityStatus = iota + 4
 	TxnAcceptedOnL2
 	TxnAcceptedOnL1
