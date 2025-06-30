@@ -1415,7 +1415,7 @@ func TestTransactionStatus(t *testing.T) {
 					require.Nil(t, rpcErr)
 					require.Equal(t, *want, status)
 				})
-				t.Run("verified", func(t *testing.T) { //nolint:dupl
+				t.Run("verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
@@ -1433,7 +1433,7 @@ func TestTransactionStatus(t *testing.T) {
 					require.Nil(t, rpcErr)
 					require.Equal(t, *want, status)
 				})
-				t.Run("verified v0.7.0", func(t *testing.T) { //nolint:dupl
+				t.Run("verified v0.7.0", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
