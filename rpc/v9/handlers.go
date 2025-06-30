@@ -40,6 +40,9 @@ type Handler struct {
 
 	l1Heads          *feed.Feed[*core.L1Head]
 	preConfirmedFeed *feed.Feed[*core.PreConfirmed]
+	// Remove pendingBlock feed later,
+	// its kept to support subscriptions on RPCv9 when starknet_version < 0.14.0
+	pendingBlock *feed.Feed[*core.Block]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -87,6 +90,7 @@ func New(
 		reorgs:           feed.New[*sync.ReorgBlockRange](),
 		l1Heads:          feed.New[*core.L1Head](),
 		preConfirmedFeed: feed.New[*core.PreConfirmed](),
+		pendingBlock:     feed.New[*core.Block](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -141,14 +145,17 @@ func (h *Handler) Run(ctx context.Context) error {
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
+	pendingSub := h.syncReader.SubscribePending().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
 	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+	defer pendingSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
 	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(pendingSub, h.pendingBlock)
 
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {
