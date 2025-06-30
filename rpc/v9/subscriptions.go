@@ -227,7 +227,9 @@ func (h *Handler) SubscribeEvents(
 			nextBlock = reorg.StartBlockNum
 			return nil
 		},
-		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
+		onNewHead: func(
+			ctx context.Context, id string, _ *subscription, head *core.Block,
+		) error {
 			err := h.processEvents(
 				ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent,
 			)
@@ -237,12 +239,16 @@ func (h *Handler) SubscribeEvents(
 			nextBlock = head.Number + 1
 			return nil
 		},
-		onPreConfirmed: func(ctx context.Context, id string, _ *subscription, preConfirmed *core.PreConfirmed) error {
+		onPreConfirmed: func(
+			ctx context.Context, id string, _ *subscription, preConfirmed *core.PreConfirmed,
+		) error {
 			return h.processEvents(
 				ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent,
 			)
 		},
-		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
+		onPending: func(
+			ctx context.Context, id string, _ *subscription, pending *core.Block,
+		) error {
 			return h.processEvents(
 				ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent,
 			)
@@ -264,16 +270,22 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 	var err error
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id string, sub *subscription, _ any) error {
+		onStart: func(
+			ctx context.Context, id string, sub *subscription, _ any,
+		) error {
 			if lastStatus, err = h.getInitialTxStatus(ctx, sub, id, txHash); err != nil {
 				return err
 			}
 			return nil
 		},
-		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(
+			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
+		) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
+		onNewHead: func(
+			ctx context.Context, id string, sub *subscription, head *core.Block,
+		) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -281,7 +293,9 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onPreConfirmed: func(ctx context.Context, id string, sub *subscription, preConfirmed *core.PreConfirmed) error {
+		onPreConfirmed: func(
+			ctx context.Context, id string, sub *subscription, preConfirmed *core.PreConfirmed,
+		) error {
 			if lastStatus < TxnStatusPreConfirmed {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -289,7 +303,9 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onPending: func(ctx context.Context, id string, sub *subscription, pending *core.Block) error {
+		onPending: func(
+			ctx context.Context, id string, sub *subscription, pending *core.Block,
+		) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -297,7 +313,9 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onL1Head: func(ctx context.Context, id string, sub *subscription, l1Head *core.L1Head) error {
+		onL1Head: func(
+			ctx context.Context, id string, sub *subscription, l1Head *core.L1Head,
+		) error {
 			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 				return err
 			}
@@ -472,10 +490,14 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return h.sendHistoricalHeaders(ctx, startHeader, latestHeader, w, id)
 		},
-		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+		onReorg: func(
+			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
+		) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
+		onNewHead: func(
+			ctx context.Context, id string, _ *subscription, head *core.Block,
+		) error {
 			return sendHeader(w, head.Header, id)
 		},
 	}
@@ -485,7 +507,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 // SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
 // The getDetails flag controls if the response will contain the transaction details or just the transaction hashes.
 // The senderAddr flag is used to filter the transactions by sender address.
-func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -510,19 +532,55 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 			}
 			switch v := pendingData.Variant(); v {
 			case core.PendingBlockVariant:
-				return h.onPendingBlock(id, w, getDetails, senderAddr, pendingData.GetBlock(), &lastParentHash, sentTxHashes)
+				return h.onPendingBlock(
+					id,
+					w,
+					getDetails,
+					senderAddr,
+					pendingData.GetBlock(),
+					&lastParentHash,
+					sentTxHashes,
+				)
 			case core.PreConfirmedBlockVariant:
-				return h.onPreConfirmedBlock(id, w, getDetails, senderAddr, pendingData.GetBlock(), &lastBlockNumber, sentTxHashes)
+				return h.onPreConfirmedBlock(
+					id,
+					w,
+					getDetails,
+					senderAddr,
+					pendingData.GetBlock(),
+					&lastBlockNumber,
+					sentTxHashes,
+				)
 
 			default:
 				panic(fmt.Errorf("unknown PendingDataVariant %v", v))
 			}
 		},
-		onPreConfirmed: func(ctx context.Context, id string, _ *subscription, preConfirmed *core.PreConfirmed) error {
-			return h.onPreConfirmedBlock(id, w, getDetails, senderAddr, preConfirmed.Block, &lastBlockNumber, sentTxHashes)
+		onPreConfirmed: func(
+			ctx context.Context, id string, _ *subscription, preConfirmed *core.PreConfirmed,
+		) error {
+			return h.onPreConfirmedBlock(
+				id,
+				w,
+				getDetails,
+				senderAddr,
+				preConfirmed.Block,
+				&lastBlockNumber,
+				sentTxHashes,
+			)
 		},
-		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
-			return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
+		onPending: func(
+			ctx context.Context, id string, _ *subscription, pending *core.Block,
+		) error {
+			return h.onPendingBlock(
+				id,
+				w,
+				getDetails,
+				senderAddr,
+				pending,
+				&lastParentHash,
+				sentTxHashes,
+			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
@@ -533,7 +591,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 func (h *Handler) onPendingBlock(
 	id string,
 	w jsonrpc.Conn,
-	getDetails *bool,
+	getDetails bool,
 	senderAddr []felt.Felt,
 	pending *core.Block,
 	lastParentHash *felt.Felt,
@@ -545,7 +603,7 @@ func (h *Handler) onPendingBlock(
 	}
 
 	var toResult func(txn core.Transaction) any
-	if getDetails != nil && *getDetails {
+	if getDetails {
 		toResult = toFullTx
 	} else {
 		toResult = toHash
@@ -569,7 +627,7 @@ func (h *Handler) onPendingBlock(
 func (h *Handler) onPreConfirmedBlock(
 	id string,
 	w jsonrpc.Conn,
-	getDetails *bool,
+	getDetails bool,
 	senderAddr []felt.Felt,
 	preConfirmed *core.Block,
 	lastBlockNumber *uint64,
@@ -581,7 +639,7 @@ func (h *Handler) onPreConfirmedBlock(
 	}
 
 	var toResult func(txn core.Transaction) any
-	if getDetails != nil && *getDetails {
+	if getDetails {
 		toResult = toFullTx
 	} else {
 		toResult = toHash

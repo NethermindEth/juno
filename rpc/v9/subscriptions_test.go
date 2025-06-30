@@ -905,7 +905,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
+		id, rpcErr := handler.SubscribePendingTxs(subCtx, false, addresses)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
 	})
