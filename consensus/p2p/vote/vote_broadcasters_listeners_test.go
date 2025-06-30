@@ -30,7 +30,7 @@ const (
 	logLevel      = zapcore.PanicLevel
 	voteCount     = 1000
 	invalidCount  = 100
-	throttledRate = 5 * time.Millisecond
+	throttledRate = 10 * time.Millisecond
 )
 
 type node struct {
