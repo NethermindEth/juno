@@ -221,8 +221,6 @@ func makePPROF(host string, port uint16) *httpService {
 	return makeHTTPService(host, port, mux)
 }
 
-const SyncBlockRange = 6
-
 // TODO: remember to delete this
 type readinessHandlers struct {
 	bcReader   blockchain.Reader
@@ -260,7 +258,7 @@ func (h *readinessHandlers) isSynced() bool {
 		return false
 	}
 
-	return head.Number+SyncBlockRange >= highestBlockHeader.Number
+	return head.Number >= highestBlockHeader.Number
 }
 
 func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
