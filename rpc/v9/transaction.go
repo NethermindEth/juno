@@ -809,7 +809,7 @@ func (h *Handler) TransactionStatusV0_7(
 	}, nil
 }
 
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
+func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
