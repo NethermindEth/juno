@@ -98,7 +98,8 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 type TxnExecutionStatus uint8
 
 const (
-	TxnSuccess TxnExecutionStatus = iota + 1
+	UnknownExecution TxnExecutionStatus = iota
+	TxnSuccess
 	TxnFailure
 )
 
