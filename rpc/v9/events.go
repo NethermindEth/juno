@@ -103,13 +103,13 @@ func (h *Handler) Events(args EventsArg) (*rpcv6.EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*rpcv6.EmittedEvent, 0, len(filteredEvents))
-	for _, fEvent := range filteredEvents {
+	emittedEvents := make([]*rpcv6.EmittedEvent, len(filteredEvents))
+	for i, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = fEvent.BlockNumber
 		}
-		emittedEvents = append(emittedEvents, &rpcv6.EmittedEvent{
+		emittedEvents[i] = &rpcv6.EmittedEvent{
 			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
@@ -118,7 +118,7 @@ func (h *Handler) Events(args EventsArg) (*rpcv6.EventsChunk, *jsonrpc.Error) {
 				Keys: fEvent.Keys,
 				Data: fEvent.Data,
 			},
-		})
+		}
 	}
 
 	cTokenStr := ""
