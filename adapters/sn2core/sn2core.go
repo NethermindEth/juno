@@ -414,7 +414,7 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConfirmed, error) {
+func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (*core.PreConfirmed, error) {
 	if response == nil {
 		return nil, errors.New("nil preconfirmed block")
 	}
@@ -470,7 +470,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	stateUpdate := core.StateUpdate{
 		BlockHash: nil,
 		NewRoot:   nil,
-		// Must be set to previous global state root
+		// Must be set to previous global state root, when have access to latest header
 		OldRoot:   nil,
 		StateDiff: &stateDiff,
 	}
@@ -478,8 +478,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock) (*core.PreConf
 	adaptedBlock := &core.Block{
 		// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L1636
 		Header: &core.Header{
-			// Must set the number to latest known block number + 1
-			Number:           0,
+			Number:           number,
 			Timestamp:        response.Timestamp,
 			ProtocolVersion:  response.Version,
 			SequencerAddress: response.SequencerAddress,

@@ -672,16 +672,16 @@ func TestAdaptPreConfirmed(t *testing.T) { //nolint:gocyclo
 		}
 		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
 
-		adapted, err := sn2core.AdaptPreConfirmedBlock(response)
+		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
 
 		block := adapted.Block
+		assert.Equal(t, test.blockNumber, block.Number)
 
 		assert.NotNil(t, block.EventsBloom)
 		// Adapter does not have access to latest block, block number is assigned later
 		assert.Empty(t, block.Hash)
 		assert.Empty(t, block.ParentHash)
-		assert.Empty(t, block.Number)
 		assert.Empty(t, block.GlobalStateRoot)
 		assert.Empty(t, adapted.StateUpdate.NewRoot)
 		assert.Empty(t, adapted.StateUpdate.BlockHash)
