@@ -846,6 +846,10 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
 		return rpccore.ErrUnsupportedTxVersion
 	case gateway.InvalidContractClassVersion:
 		return rpccore.ErrUnsupportedContractClassVersion
+	case gateway.ReplacementTransactionUnderPriced:
+		return rpccore.ErrReplacementTransactionUnderPriced
+	case gateway.FeeBelowMinimum:
+		return rpccore.ErrFeeBelowMinimum
 	default:
 		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}
