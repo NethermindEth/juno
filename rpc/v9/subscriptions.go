@@ -371,7 +371,7 @@ func (h *Handler) checkTxStatus(
 		return lastStatus, nil
 	}
 
-	if err := sendTxnStatus(sub.conn, SubscriptionTransactionStatus{txHash, *status}, id); err != nil {
+	if err := sendTxnStatus(sub.conn, SubscriptionTransactionStatus{txHash, status}, id); err != nil {
 		return lastStatus, err
 	}
 

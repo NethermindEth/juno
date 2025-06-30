@@ -729,11 +729,11 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 
 var errTransactionNotFound = errors.New("transaction not found")
 
-func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:
-		return &TransactionStatus{
+		return TransactionStatus{
 			Finality:      TxnStatus(receipt.FinalityStatus),
 			Execution:     receipt.ExecutionStatus,
 			FailureReason: receipt.RevertReason,
@@ -760,7 +760,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 
 			txStatus, err = h.feederClient.Transaction(ctx, &hash)
 			if err != nil {
-				return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+				return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 			}
 
 			if h.submittedTransactionsCache != nil {
@@ -780,11 +780,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			if !errors.Is(err, errTransactionNotFound) {
 				h.log.Errorw("Failed to adapt transaction status", "err", err)
 			}
-			return nil, rpccore.ErrTxnHashNotFound
+			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}
 		return status, nil
 	}
-	return nil, txErr
+	return TransactionStatus{}, txErr
 }
 
 // In 0.7.0, the failure reason is not returned in the TransactionStatus response.
@@ -955,7 +955,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	}
 }
 
-func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
+func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionStatus, error) {
 	var status TransactionStatus
 
 	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
@@ -965,16 +965,16 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
-		return &status, nil
+		return status, nil
 	case starknet.PreConfirmed:
 		status.Finality = TxnStatusPreConfirmed
 	case starknet.Candidate:
 		status.Finality = TxnStatusCandidate
-		return &status, nil
+		return status, nil
 	case starknet.NotReceived:
-		return nil, errTransactionNotFound
+		return TransactionStatus{}, errTransactionNotFound
 	default:
-		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
+		return TransactionStatus{}, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
 
 	switch txStatus.ExecutionStatus {
@@ -989,7 +989,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
-	return &status, nil
+	return status, nil
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605

@@ -1413,7 +1413,7 @@ func TestTransactionStatus(t *testing.T) {
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
+					require.Equal(t, *want, status)
 				})
 				t.Run("verified", func(t *testing.T) { //nolint:dupl
 					mockReader := mocks.NewMockReader(mockCtrl)
@@ -1431,7 +1431,7 @@ func TestTransactionStatus(t *testing.T) {
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
+					require.Equal(t, *want, status)
 				})
 				t.Run("verified v0.7.0", func(t *testing.T) { //nolint:dupl
 					mockReader := mocks.NewMockReader(mockCtrl)
@@ -2016,7 +2016,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		time.Sleep(cacheEntryTimeOut)
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
-		require.Nil(t, status)
+		require.Empty(t, status)
 	})
 }
 
