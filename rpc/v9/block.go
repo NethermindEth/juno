@@ -194,8 +194,8 @@ type BlockWithReceipts struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L548
-func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
-	header, rpcErr := h.blockHeaderByID(&id)
+func (h *Handler) BlockTransactionCount(id *BlockID) (uint64, *jsonrpc.Error) {
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return 0, rpcErr
 	}
