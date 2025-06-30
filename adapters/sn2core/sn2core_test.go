@@ -624,7 +624,7 @@ func TestAdaptCompiledClass(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestAdaptPreConfirmed(t *testing.T) { //nolint:gocyclo
+func TestAdaptPreConfirmed(t *testing.T) {
 	n := utils.HeapPtr(utils.SepoliaIntegration)
 	client := feeder.NewTestClient(t, n)
 	emptyPreConfirmedBlock := uint64(1201960)
@@ -660,75 +660,111 @@ func TestAdaptPreConfirmed(t *testing.T) { //nolint:gocyclo
 		response, err := client.PreConfirmedBlock(t.Context(), strconv.FormatUint(test.blockNumber, 10))
 		require.NoError(t, err)
 
-		expectedEventCount := uint64(0)
-
-		expectedPreConfirmedTxCount := 0
-		for _, r := range response.Receipts {
-			if r == nil {
-				break
-			}
-			expectedPreConfirmedTxCount += 1
-			expectedEventCount += uint64(len(r.Events))
-		}
+		expectedEventCount, expectedPreConfirmedTxCount := countEventsAndTxs(response.Receipts)
 		expectedCandidateCount := len(response.Transactions) - expectedPreConfirmedTxCount
 
 		adapted, err := sn2core.AdaptPreConfirmedBlock(response, test.blockNumber)
 		require.NoError(t, err)
 
-		block := adapted.Block
-		assert.Equal(t, test.blockNumber, block.Number)
-
-		assert.NotNil(t, block.EventsBloom)
-		// Adapter does not have access to latest block, block number is assigned later
-		assert.Empty(t, block.Hash)
-		assert.Empty(t, block.ParentHash)
-		assert.Empty(t, block.GlobalStateRoot)
-		assert.Empty(t, adapted.StateUpdate.NewRoot)
-		assert.Empty(t, adapted.StateUpdate.BlockHash)
-		assert.Empty(t, block.Signatures)
-
-		assert.Equal(t, response.Timestamp, block.Timestamp)
-
-		assert.Equal(t, expectedPreConfirmedTxCount, len(block.Transactions))
-		assert.Equal(t, uint64(expectedPreConfirmedTxCount), block.TransactionCount)
-		assert.Equal(t, expectedCandidateCount, len(adapted.CandidateTxs))
-		if assert.Equal(t, expectedPreConfirmedTxCount, len(block.Receipts)) {
-			for i := range expectedPreConfirmedTxCount {
-				receipt := response.Receipts[i]
-				assert.Equal(t, receipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
-				assert.Equal(t, receipt.RevertError, block.Receipts[i].RevertReason)
-				if receipt.ExecutionResources != nil {
-					assert.Equal(t, (*core.DataAvailability)(receipt.ExecutionResources.DataAvailability),
-						block.Receipts[i].ExecutionResources.DataAvailability)
-				}
-			}
-		}
-		assert.Equal(t, expectedEventCount, block.EventCount)
-		assert.Equal(t, response.Version, block.ProtocolVersion)
-
-		assert.Equal(t, response.L1GasPriceSTRK(), block.L1GasPriceSTRK)
-		assert.Equal(t, response.L1GasPriceETH(), block.L1GasPriceETH)
-		if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInFri != nil {
-			assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
-		}
-		if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInWei != nil {
-			assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
-		}
-		if response.L2GasPrice != nil && response.L2GasPrice.PriceInFri != nil {
-			assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
-		}
-		if response.L2GasPrice != nil && response.L2GasPrice.PriceInWei != nil {
-			assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
-		}
-
-		if len(adapted.CandidateTxs) > 0 {
-			for i, txn := range adapted.CandidateTxs {
-				adaptedTx, err := sn2core.AdaptTransaction(response.Transactions[expectedPreConfirmedTxCount+i])
-				require.NoError(t, err)
-				assert.Equal(t, adaptedTx, txn)
-			}
-		}
-
+		assertPreConfirmedBlockBasics(t, &adapted, test.blockNumber, response, expectedPreConfirmedTxCount, expectedCandidateCount, expectedEventCount)
+		assertPreConfirmedBlockReceipts(t, response.Receipts, adapted.Block.Receipts, expectedPreConfirmedTxCount)
+		assertPreConfirmedBlockGasPrices(t, response, adapted.Block)
+		assertCandidateTxs(t, response.Transactions, adapted.CandidateTxs, expectedPreConfirmedTxCount)
 		assert.Equal(t, len(adapted.TransactionStateDiffs), expectedPreConfirmedTxCount)
+	}
+}
+
+func assertPreConfirmedBlockBasics(
+	t *testing.T,
+	preConfirmed *core.PreConfirmed,
+	blockNum uint64,
+	response *starknet.PreConfirmedBlock,
+	expectedTxCount int,
+	expectedCandidateCount int,
+	expectedEventCount uint64,
+) {
+	assert.Equal(t, blockNum, preConfirmed.Block.Number)
+	assert.NotNil(t, preConfirmed.Block.EventsBloom)
+	assert.Empty(t, preConfirmed.Block.Hash)
+	assert.Empty(t, preConfirmed.Block.ParentHash)
+	assert.Empty(t, preConfirmed.Block.GlobalStateRoot)
+	assert.Empty(t, preConfirmed.Block.Signatures)
+	assert.Empty(t, preConfirmed.StateUpdate.NewRoot)
+	assert.Empty(t, preConfirmed.StateUpdate.BlockHash)
+	assert.Equal(t, response.Timestamp, preConfirmed.Block.Timestamp)
+	assert.Equal(t, expectedTxCount, len(preConfirmed.Block.Transactions))
+	assert.Equal(t, expectedCandidateCount, len(preConfirmed.CandidateTxs))
+	assert.Equal(t, uint64(expectedTxCount), preConfirmed.Block.TransactionCount)
+	assert.Equal(t, expectedEventCount, preConfirmed.Block.EventCount)
+	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
+	assert.Equal(t, response.L1GasPriceSTRK(), preConfirmed.Block.L1GasPriceSTRK)
+	assert.Equal(t, response.L1GasPriceETH(), preConfirmed.Block.L1GasPriceETH)
+}
+
+func assertCandidateTxs(
+	t *testing.T,
+	transactions []*starknet.Transaction,
+	candidateTxs []core.Transaction,
+	offset int,
+) {
+	t.Helper()
+	if len(candidateTxs) > 0 {
+		for i, txn := range candidateTxs {
+			adaptedTx, err := sn2core.AdaptTransaction(transactions[offset+i])
+			require.NoError(t, err)
+			assert.Equal(t, adaptedTx, txn)
+		}
+	}
+}
+
+func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
+	t.Helper()
+	if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInFri != nil {
+		assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
+	}
+	if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInWei != nil {
+		assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
+	}
+	if response.L2GasPrice != nil && response.L2GasPrice.PriceInFri != nil {
+		assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
+	}
+	if response.L2GasPrice != nil && response.L2GasPrice.PriceInWei != nil {
+		assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
+	}
+}
+
+func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
+	var evCount uint64
+	txCount := 0
+	for _, r := range receipts {
+		if r == nil {
+			break
+		}
+		evCount += uint64(len(r.Events))
+		txCount++
+	}
+	return evCount, txCount
+}
+
+func assertPreConfirmedBlockReceipts(
+	t *testing.T,
+	expectedReceipts []*starknet.TransactionReceipt,
+	blockReceipts []*core.TransactionReceipt,
+	expectedPreConfirmedTxCount int,
+) {
+	t.Helper()
+	if assert.Equal(t, expectedPreConfirmedTxCount, len(blockReceipts)) {
+		for i := range expectedPreConfirmedTxCount {
+			r := expectedReceipts[i]
+			assert.Equal(t, r.ExecutionStatus == starknet.Reverted, blockReceipts[i].Reverted)
+			assert.Equal(t, r.RevertError, blockReceipts[i].RevertReason)
+			if r.ExecutionResources != nil {
+				assert.Equal(
+					t,
+					(*core.DataAvailability)(r.ExecutionResources.DataAvailability),
+					blockReceipts[i].ExecutionResources.DataAvailability,
+				)
+			}
+		}
 	}
 }
