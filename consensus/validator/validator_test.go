@@ -54,7 +54,8 @@ func getCustomBC(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *blockchai
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	testBuilder := builder.New(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	testBuilder := builder.New(bc, executor)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
 	head, err := seq.RunOnce()
@@ -69,7 +70,8 @@ func TestEmptyProposal(t *testing.T) {
 	_, chain, head := getCustomBC(t, proposerAddr)
 	log := utils.NewNopZapLogger()
 	vm := vm.New(false, log)
-	testBuilder := builder.New(chain, vm, log, false, false)
+	executor := builder.NewExecutor(chain, vm, log, false, false)
+	testBuilder := builder.New(chain, executor)
 
 	validator := New[value, felt.Felt, felt.Felt](&testBuilder)
 
@@ -140,7 +142,7 @@ func TestProposal(t *testing.T) {
 		EthToStrkRate:     felt.FromUint64(ethToStrkRate),
 		L1DAMode:          core.Blob,
 	}
-	validator.BlockInfo(&blockInfo)
+	require.NoError(t, validator.BlockInfo(&blockInfo))
 
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"

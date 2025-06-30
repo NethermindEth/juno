@@ -4,9 +4,9 @@ import (
 	"math/rand/v2"
 	"testing"
 
+	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/starknet"
-	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	syncpkg "github.com/NethermindEth/juno/sync"
@@ -29,16 +29,22 @@ func createTestHash(value uint64) starknet.Hash {
 func createTestBuildResult() *builder.BuildResult {
 	blockNumber := rand.Uint64()
 	return &builder.BuildResult{
-		Pending: syncpkg.Pending{
+		Pending: &syncpkg.Pending{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: blockNumber,
 				},
 			},
 		},
-		ProposalCommitment: types.ProposalCommitment{
-			BlockNumber: blockNumber,
+		SimulateResult: &blockchain.SimulateResult{
+			BlockCommitments: &core.BlockCommitments{
+				TransactionCommitment: new(felt.Felt).SetUint64(1),
+				EventCommitment:       new(felt.Felt).SetUint64(2),
+				ReceiptCommitment:     new(felt.Felt).SetUint64(3),
+				StateDiffCommitment:   new(felt.Felt).SetUint64(4),
+			},
 		},
+		L2GasConsumed: 5,
 	}
 }
 
