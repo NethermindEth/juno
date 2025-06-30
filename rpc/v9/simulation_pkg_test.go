@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//nolint:dupl
 func TestCreateSimulatedTransactions(t *testing.T) {
 	executionResults := vm.ExecutionResults{
 		OverallFees: []*felt.Felt{new(felt.Felt).SetUint64(10), new(felt.Felt).SetUint64(20)},
