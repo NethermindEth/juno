@@ -159,15 +159,15 @@ func TestStateUpdate(t *testing.T) {
 		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
 		require.NoError(t, err)
 
-		block21656, err := mainnetGw.BlockByNumber(t.Context(), 21656)
-		require.NoError(t, err)
-
 		mockSyncReader.EXPECT().PendingData().Return(
 			core.NewPreConfirmed(nil, nil, nil, nil).AsPendingData(),
 			nil,
 		)
 
-		mockReader.EXPECT().HeadsHeader().Return(block21656.Header, nil)
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{
+			GlobalStateRoot: update21656.NewRoot,
+			Number:          21656,
+		}, nil)
 
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
