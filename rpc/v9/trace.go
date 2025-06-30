@@ -30,7 +30,7 @@ type TransactionTrace struct {
 	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
@@ -117,6 +117,12 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+	if id.IsPreConfirmed() {
+		httpHeader := http.Header{}
+		httpHeader.Set(ExecutionStepsHeader, "0")
+		return nil, httpHeader, rpccore.ErrCallOnPreConfirmed
+	}
+
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
 		httpHeader := http.Header{}
