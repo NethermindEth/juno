@@ -26,7 +26,9 @@ var (
 
 	ErrPendingBlockNotFound          = errors.New("pending block not found")
 	ErrPreConfirmedBlockNotFound     = errors.New("pre_confirmed block not found")
-	ErrMustSwitchPollingPreConfirmed = errors.New("must switch to polling pre_confirmed block")
+	ErrMustSwitchPollingPreConfirmed = errors.New(
+		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
+	)
 )
 
 const (
@@ -510,7 +512,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 	}
 
 	go s.pollPending(ctx, sem)
-	s.log.Infow("Switch polling pre_confirmed blocks")
+	s.log.Infow("Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks")
 	go s.pollPreConfirmed(ctx, sem)
 }
 
