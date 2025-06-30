@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -85,13 +84,13 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending *core.PendingData
+		pending, err = h.syncReader.PendingData()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
 			return nil, httpHeader, rpccore.ErrTxnHashNotFound
 		}
-		block = pending.Block
+		block = pending.GetBlock()
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
@@ -133,8 +132,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	isPending := block.Hash == nil
-	if !isPending {
+	isPreConfirmed := block.Hash == nil
+	if !isPreConfirmed {
 		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
 			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
@@ -194,7 +193,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
-	if isPending {
+	if isPreConfirmed {
 		headState, headStateCloser, err = h.syncReader.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
@@ -265,7 +264,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		}
 	}
 
-	if !isPending {
+	if !isPreConfirmed {
 		h.blockTraceCache.Add(rpccore.TraceCacheKey{
 			BlockHash: *block.Hash,
 		}, result)

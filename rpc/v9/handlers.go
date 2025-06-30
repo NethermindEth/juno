@@ -34,11 +34,15 @@ type Handler struct {
 	log           utils.Logger
 	memPool       *mempool.Pool
 
-	version      string
-	newHeads     *feed.Feed[*core.Block]
-	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	version  string
+	newHeads *feed.Feed[*core.Block]
+	reorgs   *feed.Feed[*sync.ReorgBlockRange]
+
+	l1Heads          *feed.Feed[*core.L1Head]
+	preConfirmedFeed *feed.Feed[*core.PreConfirmed]
+	// Remove pendingBlock feed later,
+	// its kept to support subscriptions on RPCv9 when starknet_version < 0.14.0
 	pendingBlock *feed.Feed[*core.Block]
-	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -81,11 +85,12 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		version:      version,
-		newHeads:     feed.New[*core.Block](),
-		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		pendingBlock: feed.New[*core.Block](),
-		l1Heads:      feed.New[*core.L1Head](),
+		version:          version,
+		newHeads:         feed.New[*core.Block](),
+		reorgs:           feed.New[*sync.ReorgBlockRange](),
+		l1Heads:          feed.New[*core.L1Head](),
+		preConfirmedFeed: feed.New[*core.PreConfirmed](),
+		pendingBlock:     feed.New[*core.Block](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -138,16 +143,19 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransac
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingBlock := h.syncReader.SubscribePending().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+	preConfirmedSub := h.syncReader.SubscribePreConfirmed().Subscription
+	pendingSub := h.syncReader.SubscribePending().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingBlock.Unsubscribe()
+	defer preConfirmedSub.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+	defer pendingSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingBlock, h.pendingBlock)
+	feed.Tee(preConfirmedSub, h.preConfirmedFeed)
 	feed.Tee(l1HeadsSub, h.l1Heads)
+	feed.Tee(pendingSub, h.pendingBlock)
 
 	<-ctx.Done()
 	h.subscriptions.Range(func(key, value any) bool {
@@ -190,14 +198,39 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.TransactionReceiptByHash,
 		},
 		{
+			Name:    "starknet_getBlockTransactionCount",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.BlockTransactionCount,
+		},
+		{
 			Name:    "starknet_getTransactionByBlockIdAndIndex",
 			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
 			Handler: h.TransactionByBlockIDAndIndex,
 		},
 		{
+			Name:    "starknet_getStateUpdate",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.StateUpdate,
+		},
+		{
 			Name:    "starknet_getStorageAt",
 			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
 			Handler: h.StorageAt,
+		},
+		{
+			Name:    "starknet_getClassHashAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.ClassHashAt,
+		},
+		{
+			Name:    "starknet_getClass",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
+			Handler: h.Class,
+		},
+		{
+			Name:    "starknet_getClassAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.ClassAt,
 		},
 		{
 			Name:    "starknet_addInvokeTransaction",
@@ -213,6 +246,11 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.AddTransaction,
+		},
+		{
+			Name:    "starknet_getEvents",
+			Params:  []jsonrpc.Parameter{{Name: "filter"}},
+			Handler: h.Events,
 		},
 		{
 			Name:    "juno_version",
