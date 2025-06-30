@@ -76,7 +76,7 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 	}
 
 	if blockID.IsPreConfirmed() {
-		return errors.New("subscription block id cannot be pending")
+		return errors.New("subscription block id cannot be pre_confirmed")
 	}
 
 	return nil
