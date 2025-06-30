@@ -71,7 +71,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
+	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}

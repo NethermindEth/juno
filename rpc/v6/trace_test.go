@@ -333,9 +333,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: block,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			sync.NewPending(block, nil, nil).AsPendingData(),
+			nil,
+		).Times(2)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -730,7 +731,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -875,7 +876,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
@@ -912,7 +913,9 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{

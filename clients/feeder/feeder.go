@@ -127,7 +127,7 @@ func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	return c
 }
 
-func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
+func newTestServer(t testing.TB, network *utils.Network) *httptest.Server { //nolint:gocyclo
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queryMap, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
@@ -173,6 +173,9 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 		case strings.HasSuffix(r.URL.Path, "get_block_traces"):
 			dir = "traces"
 			queryArg = "blockHash"
+		case strings.HasSuffix(r.URL.Path, "get_preconfirmed_block"):
+			dir = "pre_confirmed"
+			queryArg = blockNumberArg
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -489,6 +492,24 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 		return nil, err
 	}
 	return traces, nil
+}
+
+func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
+		"blockNumber": blockNumber,
+	})
+
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	preConfirmedBlock := new(starknet.PreConfirmedBlock)
+	if err = json.NewDecoder(body).Decode(preConfirmedBlock); err != nil {
+		return nil, err
+	}
+	return preConfirmedBlock, nil
 }
 
 func findTargetDirectory(targetRelPath string) (string, error) {

@@ -76,7 +76,7 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("trace", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		header := &core.Header{
-			// hash is not set because it's pending block
+			// hash is not set because it's pre_confirmed block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),

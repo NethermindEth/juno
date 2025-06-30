@@ -262,3 +262,19 @@ func TestStateUpdatePendingWithBlock(t *testing.T) {
 	assert.Equal(t, block, adaptedBlock)
 	assert.Equal(t, stateUpdate, adaptedStateUpdate)
 }
+
+func TestPreConfirmedBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+	adapter := adaptfeeder.New(client)
+	ctx := t.Context()
+	blockNumber := uint64(1204672)
+	blockNumberStr := strconv.FormatUint(blockNumber, 10)
+	response, err := client.PreConfirmedBlock(ctx, blockNumberStr)
+	require.NoError(t, err)
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
+	require.NoError(t, err)
+
+	preConfirmed, err := adapter.PreConfirmedBlockByNumber(ctx, blockNumber)
+	require.NoError(t, err)
+	assert.Equal(t, preConfirmed, adaptedPreConfirmed)
+}

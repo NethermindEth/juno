@@ -150,7 +150,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(mockEventFilterer, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
@@ -178,7 +178,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
@@ -200,7 +200,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
@@ -223,7 +223,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -267,7 +267,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
+
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
 		_, hasSubscription := handler.subscriptions.Load(string(id))
@@ -286,13 +287,12 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
-
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
@@ -302,7 +302,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "")
 		})
@@ -312,7 +311,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 		})
@@ -336,7 +334,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingBlock().Return(nil)
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")
 
@@ -360,16 +358,18 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads *feed.Feed[*core.Block]
-	reorgs   *feed.Feed[*sync.ReorgBlockRange]
-	pending  *feed.Feed[*core.Block]
+	newHeads     *feed.Feed[*core.Block]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pending      *feed.Feed[*core.Block]
+	preConfirmed *feed.Feed[*core.PreConfirmed]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads: feed.New[*core.Block](),
-		reorgs:   feed.New[*sync.ReorgBlockRange](),
-		pending:  feed.New[*core.Block](),
+		newHeads:     feed.New[*core.Block](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pending:      feed.New[*core.Block](),
+		preConfirmed: feed.New[*core.PreConfirmed](),
 	}
 }
 
@@ -385,6 +385,10 @@ func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
 }
 
+func (fs *fakeSyncer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
+	return sync.PreConfirmedSubscription{Subscription: fs.preConfirmed.Subscribe()}
+}
+
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
 	return 0, nil
 }
@@ -393,7 +397,9 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) Pending() (*sync.Pending, error)                       { return nil, nil }
+func (fs *fakeSyncer) PendingData() (*core.PendingData, error) {
+	return nil, sync.ErrPendingBlockNotFound
+}
 func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
 func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
 
@@ -635,7 +641,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
-	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 
 	for _, tc := range testCases {

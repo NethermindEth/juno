@@ -18,7 +18,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -173,7 +172,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 
 	validL1HandlerTransactionTrace := rpc.TransactionTrace{
 		Type:               rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.FunctionInvocation{},
+		FunctionInvocation: &rpc.ExecuteInvocation{},
 	}
 
 	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
@@ -214,7 +213,7 @@ func TestTransactionTraceValidation(t *testing.T) {
 			name:     "valid L1_HANDLER tx",
 			trace:    validL1HandlerTransactionTrace,
 			wantErr:  false,
-			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":""},"execution_resources":null}`,
 		},
 		{
 			name:     "invalid L1_HANDLER tx",
@@ -259,7 +258,10 @@ func TestTraceTransaction(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
+			mockSyncReader.EXPECT().PendingData().Return(
+				core.NewPreConfirmed(&core.Block{}, nil, nil, nil).AsPendingData(),
+				nil,
+			)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
@@ -359,7 +361,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("pre_confirmed block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
@@ -374,7 +376,7 @@ func TestTraceTransaction(t *testing.T) {
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pending block")
+		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
 
 		block := &core.Block{
 			Header:       header,
@@ -386,9 +388,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: block,
-		}, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			core.NewPreConfirmed(block, nil, nil, nil).AsPendingData(),
+			nil,
+		)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -570,10 +573,10 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
-		"latest":  blockIDLatest(t),
-		"pending": blockIDPending(t),
-		"hash":    blockIDHash(t, new(felt.Felt).SetUint64(1)),
-		"number":  blockIDNumber(t, 2),
+		"latest":        blockIDLatest(t),
+		"pre_confirmed": blockIDPreConfirmed(t),
+		"hash":          blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"number":        blockIDNumber(t, 2),
 	}
 
 	for description, blockID := range errTests {
@@ -583,20 +586,20 @@ func TestTraceBlockTransactions(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, "", log)
 
-			if description == "pending" {
+			if description == "pre_confirmed" {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
-				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
-
-				handler = rpc.New(chain, mockSyncReader, nil, "", log)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
+			} else {
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
-
-			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-			assert.Nil(t, update)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -612,10 +615,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", log)
 
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("pre_confirmed block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
 		header := &core.Header{
-			// hash is not set because it's pending block
+			// hash is not set because it's pre_confirmed block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
@@ -869,7 +872,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -1009,7 +1012,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
@@ -1046,15 +1049,21 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnL1Handler,
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
+			FunctionInvocation: &rpc.ExecuteInvocation{
+				RevertReason: "",
+				FunctionInvocation: &rpc.FunctionInvocation{
+					Calls:      []rpc.FunctionInvocation{},
+					Events:     []rpcv6.OrderedEvent{},
+					Messages:   []rpcv6.OrderedL2toL1Message{},
+					IsReverted: false,
+				},
 			},
 		}
 
@@ -1123,17 +1132,20 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
-					FunctionInvocation: &rpc.FunctionInvocation{
-						Calls: []rpc.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{{
-							Order: 1,
-							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
-							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-						}},
-						Messages: []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{
-							L1Gas: 10,
-							L2Gas: 11,
+					FunctionInvocation: &rpc.ExecuteInvocation{
+						RevertReason: "",
+						FunctionInvocation: &rpc.FunctionInvocation{
+							Calls: []rpc.FunctionInvocation{},
+							Events: []rpcv6.OrderedEvent{{
+								Order: 1,
+								Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
+								Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+							}},
+							Messages: []rpcv6.OrderedL2toL1Message{},
+							ExecutionResources: &rpc.InnerExecutionResources{
+								L1Gas: 10,
+								L2Gas: 11,
+							},
 						},
 					},
 				},
