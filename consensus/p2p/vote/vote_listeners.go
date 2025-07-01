@@ -32,9 +32,11 @@ func (l voteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
 
 type voteListeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	buffered.TopicSubscription
-	log               utils.Logger
-	PrevoteListener   voteListener[types.Prevote[H, A], V, H, A]
-	PrecommitListener voteListener[types.Precommit[H, A], V, H, A]
+	log                   utils.Logger
+	PrevoteListener       voteListener[types.Prevote[H, A], V, H, A]
+	PrecommitListener     voteListener[types.Precommit[H, A], V, H, A]
+	SyncPrevoteListener   voteListener[types.Prevote[H, A], V, H, A]
+	SyncPrecommitListener voteListener[types.Precommit[H, A], V, H, A]
 }
 
 func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -44,6 +46,9 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 ) voteListeners[V, H, A] {
 	prevoteListener := newListener[types.Prevote[H, A], V, H, A](bufferSizeConfig.PrevoteOutput)
 	precommitListener := newListener[types.Precommit[H, A], V, H, A](bufferSizeConfig.PrecommitOutput)
+
+	syncPrevoteListener := newListener[types.Prevote[H, A], V, H, A](bufferSizeConfig.PrevoteOutput)
+	syncPrecommitListener := newListener[types.Precommit[H, A], V, H, A](bufferSizeConfig.PrecommitOutput)
 
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
@@ -64,12 +69,21 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 		case consensus.Vote_Precommit:
 			precommitListener.Receive(ctx, types.Precommit[H, A](vote))
 		}
+
+		switch p2pVote.VoteType {
+		case consensus.Vote_Prevote:
+			syncPrevoteListener.Receive(ctx, types.Prevote[H, A](vote))
+		case consensus.Vote_Precommit:
+			syncPrecommitListener.Receive(ctx, types.Precommit[H, A](vote))
+		}
 	}
 
 	return voteListeners[V, H, A]{
-		TopicSubscription: buffered.NewTopicSubscription(log, bufferSizeConfig.VoteSubscription, onMessage),
-		log:               log,
-		PrevoteListener:   prevoteListener,
-		PrecommitListener: precommitListener,
+		TopicSubscription:     buffered.NewTopicSubscription(log, bufferSizeConfig.VoteSubscription, onMessage),
+		log:                   log,
+		PrevoteListener:       prevoteListener,
+		PrecommitListener:     precommitListener,
+		SyncPrevoteListener:   syncPrevoteListener,
+		SyncPrecommitListener: syncPrecommitListener,
 	}
 }

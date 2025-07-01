@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
+	"github.com/NethermindEth/juno/p2p/sync"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -247,6 +248,10 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Warnw("Failed stopping DHT", "err", err.Error())
 	}
 	return nil
+}
+
+func (s *Service) GetBlock(ctx context.Context, nBlocks uint64) (<-chan sync.BlockBody, error) {
+	return s.synchroniser.GetBlock(ctx, nBlocks)
 }
 
 func (s *Service) setProtocolHandlers() {
