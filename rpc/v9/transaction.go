@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -76,6 +77,8 @@ type TxnStatus uint8
 const (
 	TxnStatusReceived TxnStatus = iota + 1
 	TxnStatusRejected
+	TxnStatusCandidate
+	TxnStatusPreConfirmed
 	TxnStatusAcceptedOnL2
 	TxnStatusAcceptedOnL1
 )
@@ -90,6 +93,10 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
 		return []byte("ACCEPTED_ON_L2"), nil
+	case TxnStatusCandidate:
+		return []byte("CANDIDATE"), nil
+	case TxnStatusPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
 	default:
 		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
 	}
@@ -98,7 +105,8 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 type TxnExecutionStatus uint8
 
 const (
-	TxnSuccess TxnExecutionStatus = iota + 1
+	UnknownExecution TxnExecutionStatus = iota
+	TxnSuccess
 	TxnFailure
 )
 
@@ -113,15 +121,20 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 	}
 }
 
+// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L3134
 type TxnFinalityStatus uint8
 
 const (
-	TxnAcceptedOnL2 TxnFinalityStatus = iota + 3
+	// Starts from 4 for TxnFinalityStatuses to match same numbers on TxnStatus
+	TxnPreConfirmed TxnFinalityStatus = iota + 4
+	TxnAcceptedOnL2
 	TxnAcceptedOnL1
 )
 
 func (fs TxnFinalityStatus) MarshalText() ([]byte, error) {
 	switch fs {
+	case TxnPreConfirmed:
+		return []byte("PRE_CONFIRMED"), nil
 	case TxnAcceptedOnL1:
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnAcceptedOnL2:
@@ -301,7 +314,7 @@ type TransactionReceipt struct {
 	BlockHash          *felt.Felt          `json:"block_hash,omitempty"`
 	BlockNumber        *uint64             `json:"block_number,omitempty"`
 	MessagesSent       []*MsgToL1          `json:"messages_sent"`
-	Events             []*Event            `json:"events"`
+	Events             []*rpcv6.Event      `json:"events"`
 	ContractAddress    *felt.Felt          `json:"contract_address,omitempty"`
 	RevertReason       string              `json:"revert_reason,omitempty"`
 	ExecutionResources *ExecutionResources `json:"execution_resources,omitempty"`
@@ -469,38 +482,42 @@ func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
 // TransactionByHash returns the details of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L158
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L315
 func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Error) {
 	txn, err := h.bcReader.TransactionByHash(&hash)
+	if err == nil {
+		return AdaptTransaction(txn), nil
+	} else if !errors.Is(err, db.ErrKeyNotFound) {
+		return nil, rpccore.ErrInternal.CloneWithData(err)
+	}
+	// Check pending data
+	preConfirmed, err := h.syncReader.PendingData()
 	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, rpccore.ErrInternal.CloneWithData(err)
-		}
+		return nil, rpccore.ErrTxnHashNotFound
+	}
 
-		pendingB := h.syncReader.PendingBlock()
-		if pendingB == nil {
-			return nil, rpccore.ErrTxnHashNotFound
-		}
-
-		for _, t := range pendingB.Transactions {
-			if hash.Equal(t.Hash()) {
-				txn = t
-				break
-			}
-		}
-
-		if txn == nil {
-			return nil, rpccore.ErrTxnHashNotFound
+	// Check pre_confirmed transactions
+	for _, t := range preConfirmed.GetTransactions() {
+		if hash.Equal(t.Hash()) {
+			return AdaptTransaction(t), nil
 		}
 	}
-	return AdaptTransaction(txn), nil
+
+	// Check candidate transactions
+	for _, t := range preConfirmed.GetCandidateTransaction() {
+		if hash.Equal(t.Hash()) {
+			return AdaptTransaction(t), nil
+		}
+	}
+
+	return nil, rpccore.ErrTxnHashNotFound
 }
 
 // TransactionByBlockIDAndIndex returns the details of a transaction identified by the given
 // BlockID and index.
 //
 // It follows the specification defined here:
-// https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
+// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L342
 func (h *Handler) TransactionByBlockIDAndIndex(
 	blockID *BlockID, txIndex int,
 ) (*Transaction, *jsonrpc.Error) {
@@ -508,17 +525,17 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	if blockID.IsPending() {
-		pending, err := h.syncReader.Pending()
+	if blockID.IsPreConfirmed() {
+		pending, err := h.syncReader.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) > pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(blockID)
@@ -540,8 +557,8 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
 	var (
-		pendingB      *core.Block
-		pendingBIndex int
+		preconfirmedB      *core.Block
+		preconfirmedBIndex int
 	)
 
 	txn, err := h.bcReader.TransactionByHash(&hash)
@@ -550,14 +567,14 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
-		if pendingB == nil {
+		preconfirmedB = h.syncReader.PendingBlock()
+		if preconfirmedB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
 
-		for i, t := range pendingB.Transactions {
+		for i, t := range preconfirmedB.Transactions {
 			if hash.Equal(t.Hash()) {
-				pendingBIndex = i
+				preconfirmedBIndex = i
 				txn = t
 				break
 			}
@@ -573,17 +590,17 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 		blockHash   *felt.Felt
 		blockNumber uint64
 	)
-
-	if pendingB != nil {
-		receipt = pendingB.Receipts[pendingBIndex]
+	var status TxnFinalityStatus
+	if preconfirmedB != nil {
+		receipt = preconfirmedB.Receipts[preconfirmedBIndex]
+		status = h.PendingBlockFinalityStatus()
 	} else {
 		receipt, blockHash, blockNumber, err = h.bcReader.Receipt(&hash)
 		if err != nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
+		status = TxnAcceptedOnL2
 	}
-
-	status := TxnAcceptedOnL2
 
 	if blockHash != nil {
 		l1H, jsonErr := h.l1Head()
@@ -713,33 +730,49 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 
 var errTransactionNotFound = errors.New("transaction not found")
 
-func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:
-		return &TransactionStatus{
+		return TransactionStatus{
 			Finality:      TxnStatus(receipt.FinalityStatus),
 			Execution:     receipt.ExecutionStatus,
 			FailureReason: receipt.RevertReason,
 		}, nil
 	case rpccore.ErrTxnHashNotFound:
-		if h.feederClient == nil {
-			break
-		}
+		// Search pre-confirmed block for 'CANDIDATE' status
+		var txStatus *starknet.TransactionStatus
+		var err error
+		preConfirmedB, err := h.syncReader.PendingData()
 
-		txStatus, err := h.feederClient.Transaction(ctx, &hash)
-		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-
-		if h.submittedTransactionsCache != nil {
-			switch txStatus.FinalityStatus {
-			case starknet.NotReceived:
-				if h.submittedTransactionsCache.Contains(&hash) {
-					txStatus.FinalityStatus = starknet.Received
+		if err == nil {
+			for _, txn := range preConfirmedB.GetCandidateTransaction() {
+				if *txn.Hash() == hash {
+					txStatus = &starknet.TransactionStatus{FinalityStatus: starknet.Candidate}
+					break
 				}
-			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
-				h.submittedTransactionsCache.Remove(&hash)
+			}
+		}
+		// Not Candidate
+		if txStatus == nil {
+			if h.feederClient == nil {
+				break
+			}
+
+			txStatus, err = h.feederClient.Transaction(ctx, &hash)
+			if err != nil {
+				return TransactionStatus{}, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+			}
+
+			if h.submittedTransactionsCache != nil {
+				switch txStatus.FinalityStatus {
+				case starknet.NotReceived:
+					if h.submittedTransactionsCache.Contains(&hash) {
+						txStatus.FinalityStatus = starknet.Received
+					}
+				case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
+					h.submittedTransactionsCache.Remove(&hash)
+				}
 			}
 		}
 
@@ -748,11 +781,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			if !errors.Is(err, errTransactionNotFound) {
 				h.log.Errorw("Failed to adapt transaction status", "err", err)
 			}
-			return nil, rpccore.ErrTxnHashNotFound
+			return TransactionStatus{}, rpccore.ErrTxnHashNotFound
 		}
 		return status, nil
 	}
-	return nil, txErr
+	return TransactionStatus{}, txErr
 }
 
 // In 0.7.0, the failure reason is not returned in the TransactionStatus response.
@@ -870,9 +903,9 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 		}
 	}
 
-	events := make([]*Event, len(receipt.Events))
+	events := make([]*rpcv6.Event, len(receipt.Events))
 	for idx, event := range receipt.Events {
-		events[idx] = &Event{
+		events[idx] = &rpcv6.Event{
 			From: event.From,
 			Keys: event.Keys,
 			Data: event.Data,
@@ -891,7 +924,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	}
 
 	var receiptBlockNumber *uint64
-	// case for pending blocks: they don't have blockHash and therefore no block number
+	// case for preconfirmed blocks: they don't have blockHash and therefore no block number
 	if blockHash != nil {
 		receiptBlockNumber = &blockNumber
 	}
@@ -923,7 +956,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	}
 }
 
-func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionStatus, error) {
+func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionStatus, error) {
 	var status TransactionStatus
 
 	switch finalityStatus := txStatus.FinalityStatus; finalityStatus {
@@ -933,10 +966,16 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
+		return status, nil
+	case starknet.PreConfirmed:
+		status.Finality = TxnStatusPreConfirmed
+	case starknet.Candidate:
+		status.Finality = TxnStatusCandidate
+		return status, nil
 	case starknet.NotReceived:
-		return nil, errTransactionNotFound
+		return TransactionStatus{}, errTransactionNotFound
 	default:
-		return nil, fmt.Errorf("unknown finality status: %v", finalityStatus)
+		return TransactionStatus{}, fmt.Errorf("unknown finality status: %v", finalityStatus)
 	}
 
 	switch txStatus.ExecutionStatus {
@@ -951,7 +990,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
-	return &status, nil
+	return status, nil
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1605
