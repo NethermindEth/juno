@@ -55,28 +55,29 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel               string        `mapstructure:"log-level"`
-	HTTP                   bool          `mapstructure:"http"`
-	HTTPHost               string        `mapstructure:"http-host"`
-	HTTPPort               uint16        `mapstructure:"http-port"`
-	RPCCorsEnable          bool          `mapstructure:"rpc-cors-enable"`
-	Websocket              bool          `mapstructure:"ws"`
-	WebsocketHost          string        `mapstructure:"ws-host"`
-	WebsocketPort          uint16        `mapstructure:"ws-port"`
-	GRPC                   bool          `mapstructure:"grpc"`
-	GRPCHost               string        `mapstructure:"grpc-host"`
-	GRPCPort               uint16        `mapstructure:"grpc-port"`
-	DatabasePath           string        `mapstructure:"db-path"`
-	Network                utils.Network `mapstructure:"network"`
-	EthNode                string        `mapstructure:"eth-node"`
-	DisableL1Verification  bool          `mapstructure:"disable-l1-verification"`
-	Pprof                  bool          `mapstructure:"pprof"`
-	PprofHost              string        `mapstructure:"pprof-host"`
-	PprofPort              uint16        `mapstructure:"pprof-port"`
-	Colour                 bool          `mapstructure:"colour"`
-	PendingPollInterval    time.Duration `mapstructure:"pending-poll-interval"`
-	RemoteDB               string        `mapstructure:"remote-db"`
-	VersionedConstantsFile string        `mapstructure:"versioned-constants-file"`
+	LogLevel                 string        `mapstructure:"log-level"`
+	HTTP                     bool          `mapstructure:"http"`
+	HTTPHost                 string        `mapstructure:"http-host"`
+	HTTPPort                 uint16        `mapstructure:"http-port"`
+	RPCCorsEnable            bool          `mapstructure:"rpc-cors-enable"`
+	Websocket                bool          `mapstructure:"ws"`
+	WebsocketHost            string        `mapstructure:"ws-host"`
+	WebsocketPort            uint16        `mapstructure:"ws-port"`
+	GRPC                     bool          `mapstructure:"grpc"`
+	GRPCHost                 string        `mapstructure:"grpc-host"`
+	GRPCPort                 uint16        `mapstructure:"grpc-port"`
+	DatabasePath             string        `mapstructure:"db-path"`
+	Network                  utils.Network `mapstructure:"network"`
+	EthNode                  string        `mapstructure:"eth-node"`
+	DisableL1Verification    bool          `mapstructure:"disable-l1-verification"`
+	Pprof                    bool          `mapstructure:"pprof"`
+	PprofHost                string        `mapstructure:"pprof-host"`
+	PprofPort                uint16        `mapstructure:"pprof-port"`
+	Colour                   bool          `mapstructure:"colour"`
+	PendingPollInterval      time.Duration `mapstructure:"pending-poll-interval"`
+	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
+	RemoteDB                 string        `mapstructure:"remote-db"`
+	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`
 
 	Sequencer      bool   `mapstructure:"seq-enable"`
 	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
@@ -222,7 +223,15 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
-		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+		synchronizer = sync.New(
+			chain,
+			adaptfeeder.New(client),
+			log,
+			cfg.PendingPollInterval,
+			cfg.PreConfirmedPollInterval,
+			dbIsRemote,
+			database,
+		)
 		synchronizer.WithPlugin(junoPlugin)
 
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
