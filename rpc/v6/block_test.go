@@ -163,7 +163,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
-	expectedCount := latestBlock.TransactionCount
+	expectedCount := uint64(latestBlock.TransactionCount)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)

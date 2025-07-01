@@ -9,13 +9,11 @@ type Bucket byte
 // keys like Bolt or MDBX does. We use a global prefix list as a poor
 // man's bucket alternative.
 const (
-	StateTrie         Bucket = iota // state metadata (e.g., the state root)
-	Peer                            // maps peer ID to peer multiaddresses
-	ContractClassHash               // maps contract addresses and class hashes
-	ContractStorage                 // contract storages
-	Class                           // maps class hashes to classes
-	ContractNonce                   // contract nonce
-	ChainHeight                     // Latest height of the blockchain
+	StateTrie       Bucket = iota // state metadata (e.g., the state root)
+	Peer                          // maps peer ID to peer multiaddresses
+	ContractStorage               // contract storages
+	Class                         // maps class hashes to classes
+	ChainHeight                   // Latest height of the blockchain
 	BlockHeaderNumbersByHash
 	BlockHeadersByNumber
 	TransactionBlockNumbersAndIndicesByHash // maps transaction hashes to block number and index
@@ -26,7 +24,6 @@ const (
 	ContractStorageHistory
 	ContractNonceHistory
 	ContractClassHashHistory
-	ContractDeploymentHeight
 	L1Height
 	SchemaVersion
 	Unused // Previously used for storing Pending Block

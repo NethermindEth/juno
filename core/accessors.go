@@ -20,32 +20,6 @@ State-related accessors
 
 **/
 
-func GetContractClassHash(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
-	var classHash felt.Felt
-	err := r.Get(db.ContractClassHashKey(addr), func(data []byte) error {
-		classHash.SetBytes(data)
-		return nil
-	})
-	return classHash, err
-}
-
-func WriteContractClassHash(w db.KeyValueWriter, addr, classHash *felt.Felt) error {
-	return w.Put(db.ContractClassHashKey(addr), classHash.Marshal())
-}
-
-func GetContractNonce(r db.KeyValueReader, addr *felt.Felt) (felt.Felt, error) {
-	var nonce felt.Felt
-	err := r.Get(db.ContractNonceKey(addr), func(data []byte) error {
-		nonce.SetBytes(data)
-		return nil
-	})
-	return nonce, err
-}
-
-func WriteContractNonce(w db.KeyValueWriter, addr, nonce *felt.Felt) error {
-	return w.Put(db.ContractNonceKey(addr), nonce.Marshal())
-}
-
 func HasClass(r db.KeyValueReader, classHash *felt.Felt) (bool, error) {
 	return r.Has(db.ClassKey(classHash))
 }
@@ -69,24 +43,6 @@ func WriteClass(w db.KeyValueWriter, classHash *felt.Felt, class *DeclaredClass)
 
 func DeleteClass(w db.KeyValueWriter, classHash *felt.Felt) error {
 	return w.Delete(db.ClassKey(classHash))
-}
-
-func WriteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt, height uint64) error {
-	enc := MarshalBlockNumber(height)
-	return w.Put(db.ContractDeploymentHeightKey(addr), enc)
-}
-
-func GetContractDeploymentHeight(r db.KeyValueReader, addr *felt.Felt) (uint64, error) {
-	var height uint64
-	err := r.Get(db.ContractDeploymentHeightKey(addr), func(data []byte) error {
-		height = binary.BigEndian.Uint64(data)
-		return nil
-	})
-	return height, err
-}
-
-func DeleteContractDeploymentHeight(w db.KeyValueWriter, addr *felt.Felt) error {
-	return w.Delete(db.ContractDeploymentHeightKey(addr))
 }
 
 func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdate, error) {
@@ -200,7 +156,7 @@ func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*Trans
 	return receipt, nil
 }
 
-func WriteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64, receipt *TransactionReceipt) error {
+func WriteReceiptByBlockNumIndex(w db.KeyValueWriter, num uint64, index uint32, receipt *TransactionReceipt) error {
 	data, err := encoder.Marshal(receipt)
 	if err != nil {
 		return err
@@ -208,7 +164,7 @@ func WriteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64, receipt
 	return w.Put(db.ReceiptByBlockNumIndexKey(num, index), data)
 }
 
-func DeleteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error {
+func DeleteReceiptByBlockNumIndex(w db.KeyValueWriter, num uint64, index uint32) error {
 	return w.Delete(db.ReceiptByBlockNumIndexKey(num, index))
 }
 
@@ -225,7 +181,7 @@ func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*TransactionReceipt
 	return GetReceiptByBlockNumIndexBytes(r, val)
 }
 
-func DeleteTxsAndReceipts(r db.KeyValueReader, w db.KeyValueWriter, blockNum, numTxs uint64) error {
+func DeleteTxsAndReceipts(r db.KeyValueReader, w db.KeyValueWriter, blockNum uint64, numTxs uint32) error {
 	// remove txs and receipts
 	for i := range numTxs {
 		reorgedTxn, err := GetTxByBlockNumIndex(r, blockNum, i)
@@ -435,7 +391,7 @@ func GetTxBlockNumIndexByHash(r db.KeyValueReader, hash *felt.Felt) (db.BlockNum
 	return bnIndex, err
 }
 
-func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, num, index uint64, hash *felt.Felt) error {
+func WriteTxBlockNumIndexByHash(w db.KeyValueWriter, num uint64, index uint32, hash *felt.Felt) error {
 	val := db.BlockNumIndexKey{
 		Number: num,
 		Index:  index,
@@ -447,7 +403,7 @@ func DeleteTxBlockNumIndexByHash(w db.KeyValueWriter, hash *felt.Felt) error {
 	return w.Delete(db.TxBlockNumIndexByHashKey(hash))
 }
 
-func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum, index uint64) (Transaction, error) {
+func GetTxByBlockNumIndex(r db.KeyValueReader, blockNum uint64, index uint32) (Transaction, error) {
 	var tx Transaction
 	err := r.Get(db.TxByBlockNumIndexKey(blockNum, index), func(data []byte) error {
 		return encoder.Unmarshal(data, &tx)
@@ -469,7 +425,7 @@ func GetTxByBlockNumIndexBytes(r db.KeyValueReader, val []byte) (Transaction, er
 	return tx, nil
 }
 
-func WriteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64, tx Transaction) error {
+func WriteTxByBlockNumIndex(w db.KeyValueWriter, num uint64, index uint32, tx Transaction) error {
 	enc, err := encoder.Marshal(tx)
 	if err != nil {
 		return err
@@ -477,11 +433,11 @@ func WriteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64, tx Transacti
 	return w.Put(db.TxByBlockNumIndexKey(num, index), enc)
 }
 
-func DeleteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error {
+func DeleteTxByBlockNumIndex(w db.KeyValueWriter, num uint64, index uint32) error {
 	return w.Delete(db.TxByBlockNumIndexKey(num, index))
 }
 
-func WriteTxAndReceipt(w db.KeyValueWriter, num, index uint64, tx Transaction, receipt *TransactionReceipt) error {
+func WriteTxAndReceipt(w db.KeyValueWriter, num uint64, index uint32, tx Transaction, receipt *TransactionReceipt) error {
 	if err := WriteTxBlockNumIndexByHash(w, num, index, receipt.TransactionHash); err != nil {
 		return err
 	}

@@ -31,7 +31,7 @@ func AdaptBlockHeader(h *header.SignedBlockHeader, eventsBloom *bloom.BloomFilte
 		Number:           h.Number,
 		GlobalStateRoot:  AdaptHash(h.StateRoot),
 		SequencerAddress: AdaptAddress(h.SequencerAddress),
-		TransactionCount: h.Transactions.NLeaves,
+		TransactionCount: uint32(h.Transactions.NLeaves),
 		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
 		ProtocolVersion:  h.ProtocolVersion,

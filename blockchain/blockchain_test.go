@@ -365,7 +365,7 @@ func TestTransactionAndReceipt(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, expectedTx, gotTx)
 
-					gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j))
+					gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint32(j))
 					require.NoError(t, err)
 					assert.Equal(t, expectedTx, gotTx)
 				}

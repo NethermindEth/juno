@@ -35,7 +35,7 @@ type Reader interface {
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
-	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
+	TransactionByBlockNumberAndIndex(blockNumber uint64, index uint32) (transaction core.Transaction, err error)
 	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
@@ -215,7 +215,7 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
-func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
+func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber uint64, index uint32) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
 	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
 }
@@ -281,7 +281,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 		return err
 	}
 	for i, tx := range block.Transactions {
-		if err := core.WriteTxAndReceipt(batch, block.Number, uint64(i), tx,
+		if err := core.WriteTxAndReceipt(batch, block.Number, uint32(i), tx,
 			block.Receipts[i]); err != nil {
 			return err
 		}
@@ -685,7 +685,7 @@ func (b *Blockchain) storeBlockData(
 
 	// Store transactions and receipts
 	for i, tx := range block.Transactions {
-		if err := core.WriteTxAndReceipt(b.database, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
+		if err := core.WriteTxAndReceipt(b.database, block.Number, uint32(i), tx, block.Receipts[i]); err != nil {
 			return err
 		}
 	}

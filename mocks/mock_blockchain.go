@@ -331,7 +331,7 @@ func (mr *MockReaderMockRecorder) SubscribeL1Head() *gomock.Call {
 }
 
 // TransactionByBlockNumberAndIndex mocks base method.
-func (m *MockReader) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
+func (m *MockReader) TransactionByBlockNumberAndIndex(blockNumber uint64, index uint32) (core.Transaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionByBlockNumberAndIndex", blockNumber, index)
 	ret0, _ := ret[0].(core.Transaction)

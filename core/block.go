@@ -25,7 +25,7 @@ type Header struct {
 	// The Starknet address of the sequencer who created this block
 	SequencerAddress *felt.Felt
 	// The amount Transactions and Receipts stored in this block
-	TransactionCount uint64
+	TransactionCount uint32
 	// The amount of events stored in transaction receipts
 	EventCount uint64
 	// The time the sequencer created this block before executing transactions
@@ -172,7 +172,7 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 		b.GlobalStateRoot,                  // global state root
 		&felt.Zero,                         // reserved: sequencer address
 		&felt.Zero,                         // reserved: block timestamp
-		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
+		new(felt.Felt).SetUint64(uint64(b.TransactionCount)), // number of transactions
 		txCommitment, // transaction commitment
 		&felt.Zero,   // reserved: number of events
 		&felt.Zero,   // reserved: event commitment
@@ -374,17 +374,17 @@ func post07Hash(b *Block, overrideSeqAddr *felt.Felt) (*felt.Felt, *BlockCommitm
 	// - number of events
 	// - event commitment
 	return crypto.PedersenArray(
-		new(felt.Felt).SetUint64(b.Number),           // block number
-		b.GlobalStateRoot,                            // global state root
-		seqAddr,                                      // sequencer address
-		new(felt.Felt).SetUint64(b.Timestamp),        // block timestamp
-		new(felt.Felt).SetUint64(b.TransactionCount), // number of transactions
-		txCommitment,                                 // transaction commitment
-		new(felt.Felt).SetUint64(b.EventCount),       // number of events
-		eCommitment,                                  // event commitment
-		&felt.Zero,                                   // reserved: protocol version
-		&felt.Zero,                                   // reserved: extra data
-		b.ParentHash,                                 // parent block hash
+		new(felt.Felt).SetUint64(b.Number),    // block number
+		b.GlobalStateRoot,                     // global state root
+		seqAddr,                               // sequencer address
+		new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
+		new(felt.Felt).SetUint64(uint64(b.TransactionCount)), // number of transactions
+		txCommitment,                           // transaction commitment
+		new(felt.Felt).SetUint64(b.EventCount), // number of events
+		eCommitment,                            // event commitment
+		&felt.Zero,                             // reserved: protocol version
+		&felt.Zero,                             // reserved: extra data
+		b.ParentHash,                           // parent block hash
 	), &BlockCommitments{TransactionCommitment: txCommitment, EventCommitment: eCommitment, ReceiptCommitment: rCommitment}, nil
 }
 
@@ -401,14 +401,14 @@ func UnmarshalBlockNumber(val []byte) uint64 {
 	return binary.BigEndian.Uint64(val)
 }
 
-func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) felt.Felt {
+func ConcatCounts(txCount uint32, eventCount, stateDiffLen uint64, l1Mode L1DAMode) felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {
 		l1DAByte = 0b10000000
 	}
 
 	var txCountBytes, eventCountBytes, stateDiffLenBytes [8]byte
-	binary.BigEndian.PutUint64(txCountBytes[:], txCount)
+	binary.BigEndian.PutUint64(txCountBytes[:], uint64(txCount))
 	binary.BigEndian.PutUint64(eventCountBytes[:], eventCount)
 	binary.BigEndian.PutUint64(stateDiffLenBytes[:], stateDiffLen)
 
