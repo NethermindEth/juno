@@ -802,7 +802,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidTransactionNonce:
 		return rpccore.ErrInvalidTransactionNonce
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
 		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
