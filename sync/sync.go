@@ -525,9 +525,9 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 		return
 	}
 
-	go s.pollPending(ctx, sem)
+	s.pollPending(ctx, sem)
 	s.log.Infow("Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks")
-	go s.pollPreConfirmed(ctx, sem)
+	s.pollPreConfirmed(ctx, sem)
 }
 
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
