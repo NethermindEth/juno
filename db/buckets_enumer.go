@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const _BucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieContractStorageHistoryContractNonceHistoryContractClassHashHistoryContractDeploymentHeightL1HeightSchemaVersionUnusedBlockCommitmentsTemporarySchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilter"
+const _BucketName = "StateTriePeerContractClassHashContractStorageClassContractNonceChainHeightBlockHeaderNumbersByHashBlockHeadersByNumberTransactionBlockNumbersAndIndicesByHashTransactionsByBlockNumberAndIndexReceiptsByBlockNumberAndIndexStateUpdatesByBlockNumberClassesTrieContractStorageHistoryContractNonceHistoryContractClassHashHistoryContractDeploymentHeightL1HeightSchemaVersionUnusedBlockCommitmentsTemporarySchemaIntermediateStateL1HandlerTxnHashByMsgHashMempoolHeadMempoolTailMempoolLengthMempoolNodeClassTrieContractTrieContractContractTrieStorageContractStateHashToTrieRootsStateIDPersistedStateIDTrieJournalAggregatedBloomFiltersRunningEventFilter"
 
-var _BucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 277, 297, 321, 345, 353, 366, 372, 388, 397, 420, 445, 456, 467, 480, 491, 500, 520, 539, 559, 566, 582, 593, 615, 633}
+var _BucketIndex = [...]uint16{0, 9, 13, 30, 45, 50, 63, 74, 98, 118, 157, 190, 219, 244, 255, 277, 297, 321, 345, 353, 366, 372, 388, 397, 420, 445, 456, 467, 480, 491, 500, 520, 539, 547, 567, 574, 590, 601, 623, 641}
 
-const _BucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriecontractstoragehistorycontractnoncehistorycontractclasshashhistorycontractdeploymentheightl1heightschemaversionunusedblockcommitmentstemporaryschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragestatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilter"
+const _BucketLowerName = "statetriepeercontractclasshashcontractstorageclasscontractnoncechainheightblockheadernumbersbyhashblockheadersbynumbertransactionblocknumbersandindicesbyhashtransactionsbyblocknumberandindexreceiptsbyblocknumberandindexstateupdatesbyblocknumberclassestriecontractstoragehistorycontractnoncehistorycontractclasshashhistorycontractdeploymentheightl1heightschemaversionunusedblockcommitmentstemporaryschemaintermediatestatel1handlertxnhashbymsghashmempoolheadmempooltailmempoollengthmempoolnodeclasstriecontracttriecontractcontracttriestoragecontractstatehashtotrierootsstateidpersistedstateidtriejournalaggregatedbloomfiltersrunningeventfilter"
 
 func (i Bucket) String() string {
 	if i >= Bucket(len(_BucketIndex)-1) {
@@ -65,7 +65,7 @@ func _BucketNoOp() {
 	_ = x[RunningEventFilter-(38)]
 }
 
-var _BucketValues = []Bucket{StateTrie, Peer, ContractClassHash, ContractStorage, Class, ContractNonce, ChainHeight, BlockHeaderNumbersByHash, BlockHeadersByNumber, TransactionBlockNumbersAndIndicesByHash, TransactionsByBlockNumberAndIndex, ReceiptsByBlockNumberAndIndex, StateUpdatesByBlockNumber, ClassesTrie, ContractStorageHistory, ContractNonceHistory, ContractClassHashHistory, ContractDeploymentHeight, L1Height, SchemaVersion, Unused, BlockCommitments, Temporary, SchemaIntermediateState, L1HandlerTxnHashByMsgHash, MempoolHead, MempoolTail, MempoolLength, MempoolNode, ClassTrie, ContractTrieContract, ContractTrieStorage, StateHashToTrieRoots, StateID, PersistedStateID, TrieJournal, AggregatedBloomFilters, RunningEventFilter}
+var _BucketValues = []Bucket{StateTrie, Peer, ContractClassHash, ContractStorage, Class, ContractNonce, ChainHeight, BlockHeaderNumbersByHash, BlockHeadersByNumber, TransactionBlockNumbersAndIndicesByHash, TransactionsByBlockNumberAndIndex, ReceiptsByBlockNumberAndIndex, StateUpdatesByBlockNumber, ClassesTrie, ContractStorageHistory, ContractNonceHistory, ContractClassHashHistory, ContractDeploymentHeight, L1Height, SchemaVersion, Unused, BlockCommitments, Temporary, SchemaIntermediateState, L1HandlerTxnHashByMsgHash, MempoolHead, MempoolTail, MempoolLength, MempoolNode, ClassTrie, ContractTrieContract, ContractTrieStorage, Contract, StateHashToTrieRoots, StateID, PersistedStateID, TrieJournal, AggregatedBloomFilters, RunningEventFilter}
 
 var _BucketNameToValueMap = map[string]Bucket{
 	_BucketName[0:9]:          StateTrie,
@@ -132,18 +132,20 @@ var _BucketNameToValueMap = map[string]Bucket{
 	_BucketLowerName[500:520]: ContractTrieContract,
 	_BucketName[520:539]:      ContractTrieStorage,
 	_BucketLowerName[520:539]: ContractTrieStorage,
-	_BucketName[539:559]:      StateHashToTrieRoots,
-	_BucketLowerName[539:559]: StateHashToTrieRoots,
-	_BucketName[559:566]:      StateID,
-	_BucketLowerName[559:566]: StateID,
-	_BucketName[566:582]:      PersistedStateID,
-	_BucketLowerName[566:582]: PersistedStateID,
-	_BucketName[582:593]:      TrieJournal,
-	_BucketLowerName[582:593]: TrieJournal,
-	_BucketName[593:615]:      AggregatedBloomFilters,
-	_BucketLowerName[593:615]: AggregatedBloomFilters,
-	_BucketName[615:633]:      RunningEventFilter,
-	_BucketLowerName[615:633]: RunningEventFilter,
+	_BucketName[539:547]:      Contract,
+	_BucketLowerName[539:547]: Contract,
+	_BucketName[547:567]:      StateHashToTrieRoots,
+	_BucketLowerName[547:567]: StateHashToTrieRoots,
+	_BucketName[567:574]:      StateID,
+	_BucketLowerName[567:574]: StateID,
+	_BucketName[574:590]:      PersistedStateID,
+	_BucketLowerName[574:590]: PersistedStateID,
+	_BucketName[590:601]:      TrieJournal,
+	_BucketLowerName[590:601]: TrieJournal,
+	_BucketName[601:623]:      AggregatedBloomFilters,
+	_BucketLowerName[601:623]: AggregatedBloomFilters,
+	_BucketName[623:641]:      RunningEventFilter,
+	_BucketLowerName[623:641]: RunningEventFilter,
 }
 
 var _BucketNames = []string{
@@ -179,12 +181,13 @@ var _BucketNames = []string{
 	_BucketName[491:500],
 	_BucketName[500:520],
 	_BucketName[520:539],
-	_BucketName[539:559],
-	_BucketName[559:566],
-	_BucketName[566:582],
-	_BucketName[582:593],
-	_BucketName[593:615],
-	_BucketName[615:633],
+	_BucketName[539:547],
+	_BucketName[547:567],
+	_BucketName[567:574],
+	_BucketName[574:590],
+	_BucketName[590:601],
+	_BucketName[601:623],
+	_BucketName[623:641],
 }
 
 // BucketString retrieves an enum value from the enum constants string name.

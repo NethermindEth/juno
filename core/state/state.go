@@ -166,6 +166,7 @@ func (s *State) Update(
 	blockNum uint64,
 	update *core.StateUpdate,
 	declaredClasses map[felt.Felt]core.Class,
+	skipVerifyNewRoot bool,
 ) error {
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
@@ -217,8 +218,11 @@ func (s *State) Update(
 	}
 
 	// Check if the new commitment matches the one in state diff
-	if !newComm.Equal(update.NewRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+	// The following check isn't relevant for the centralised Juno sequencer
+	if !skipVerifyNewRoot {
+		if !newComm.Equal(update.NewRoot) {
+			return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+		}
 	}
 
 	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
