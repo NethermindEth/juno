@@ -54,6 +54,7 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	pendingPollIntervalF                = "pending-poll-interval"
+	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -106,6 +107,7 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPendingPollInterval                = 5 * time.Second
+	defaultPreConfirmedPollInterval           = time.Second
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -163,12 +165,14 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
-	pendingPollIntervalUsage   = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
-	p2pUsage                   = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage               = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
-	p2pPublicAddrUsage         = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
-	p2pPeersUsage              = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
+	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
+	pendingPollIntervalUsage      = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
+	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
+		"(0s will disable fetching of pre_confirmed block)."
+	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
+	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
+	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
+	p2pPeersUsage      = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
@@ -368,6 +372,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
+	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)

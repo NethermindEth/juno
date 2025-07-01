@@ -73,12 +73,15 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			require.NoError(t, err)
 			chain := blockchain.New(database, &network)
 			ctx, cancel := context.WithCancel(t.Context())
-			syncer := sync.New(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)), log, 0, false, database).WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
-				// Stop the syncer after we successfully stored block.
-				if op == sync.OpStore {
-					cancel()
-				}
-			}})
+			syncer := sync.New(
+				chain,
+				adaptfeeder.New(feeder.NewTestClient(t, &network)), log, 0, 0, false, database).
+				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
+					// Stop the syncer after we successfully stored block.
+					if op == sync.OpStore {
+						cancel()
+					}
+				}})
 			require.NoError(t, syncer.Run(ctx))
 			cancel()
 			require.NoError(t, database.Close())

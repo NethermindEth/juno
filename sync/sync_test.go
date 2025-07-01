@@ -56,7 +56,7 @@ func TestSyncBlocks(t *testing.T) {
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
 		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -74,7 +74,7 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, gw, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -126,7 +126,7 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.BlockLatest(t.Context())
 		}).AnyTimes()
 
-		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), false, testDB)
+		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -147,7 +147,7 @@ func TestReorg(t *testing.T) {
 
 	// sync to Sepolia for 2 blocks
 	bc := blockchain.New(testDB, &utils.Sepolia)
-	synchronizer := sync.New(bc, sepoliaGw, utils.NewNopZapLogger(), 0, false, testDB)
+	synchronizer := sync.New(bc, sepoliaGw, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -164,7 +164,7 @@ func TestReorg(t *testing.T) {
 		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
+		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
@@ -193,7 +193,7 @@ func TestPendingData(t *testing.T) {
 		var synchronizer *sync.Synchronizer
 		testDB := memory.New()
 		chain := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
+		synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
 		b, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
@@ -267,7 +267,7 @@ func TestPendingData(t *testing.T) {
 		var synchronizer *sync.Synchronizer
 		testDB := memory.New()
 		chain := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
+		synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
 		b, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 	chain := blockchain.New(testDB, &network)
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
-	syncer := sync.New(chain, gw, log, 0, false, testDB)
+	syncer := sync.New(chain, gw, log, 0, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -370,7 +370,7 @@ func TestSubscribePending(t *testing.T) {
 	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, &utils.Mainnet)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
+	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, 0, false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 
 	sub := synchronizer.SubscribePending()

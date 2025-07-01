@@ -592,7 +592,7 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &utils.Mainnet)
-	synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
+	synchronizer := sync.New(bc, gw, log, time.Duration(0), time.Duration(0), false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 
 	require.NoError(t, synchronizer.Run(ctx))
