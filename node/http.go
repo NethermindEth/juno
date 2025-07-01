@@ -239,6 +239,7 @@ func NewReadinessHandlers(bcReader blockchain.Reader, syncReader sync.Reader) *r
 func (h *readinessHandlers) HandleReadySync(w http.ResponseWriter, r *http.Request) {
 	if !h.isSynced() {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Node not synced yet.")) //nolint:errcheck
 		return
 	}
 
@@ -260,4 +261,8 @@ func (h *readinessHandlers) isSynced() bool {
 	}
 
 	return head.Number+SyncBlockRange >= highestBlockHeader.Number
+}
+
+func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }

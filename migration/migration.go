@@ -8,8 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
+	"net/http"
 	"runtime"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
@@ -27,6 +31,12 @@ import (
 type schemaMetadata struct {
 	Version           uint64
 	IntermediateState []byte
+}
+
+type HTTPConfig struct {
+	Enabled bool
+	Host    string
+	Port    uint16
 }
 
 type Migration interface {
@@ -76,8 +86,10 @@ var defaultMigrations = []Migration{
 
 var ErrCallWithNewTransaction = errors.New("call with new transaction")
 
-func MigrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *utils.Network, log utils.SimpleLogger) error {
-	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations)
+func MigrateIfNeeded(ctx context.Context, targetDB db.KeyValueStore, network *utils.Network,
+	log utils.SimpleLogger, httpConfig *HTTPConfig,
+) error {
+	return migrateIfNeeded(ctx, targetDB, network, log, defaultMigrations, httpConfig)
 }
 
 func migrateIfNeeded(
@@ -86,6 +98,7 @@ func migrateIfNeeded(
 	network *utils.Network,
 	log utils.SimpleLogger,
 	migrations []Migration,
+	httpConfig *HTTPConfig,
 ) error {
 	/*
 		Schema metadata of the targetDB determines which set of migrations need to be applied to the database.
@@ -111,6 +124,11 @@ func migrateIfNeeded(
 	currentVersion := uint64(len(migrations))
 	if metadata.Version > currentVersion {
 		return errors.New("db is from a newer, incompatible version of Juno; upgrade to use this database")
+	}
+
+	if httpConfig.Enabled {
+		migrationSrv := startMigrationStatusServer(log, httpConfig.Host, httpConfig.Port)
+		defer closeMigrationServer(migrationSrv, log)
 	}
 
 	for i := metadata.Version; i < currentVersion; i++ {
@@ -153,6 +171,13 @@ func migrateIfNeeded(
 	}
 
 	return nil
+}
+
+func closeMigrationServer(srv *http.Server, log utils.SimpleLogger) {
+	log.Debugw("Closing migration status server immediately...")
+	if err := srv.Close(); err != nil {
+		log.Errorw("Migration status server close failed", "err", err)
+	}
 }
 
 // SchemaMetadata retrieves metadata about a database schema from the given database.
@@ -868,4 +893,36 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 	}
 
 	return core.WriteRunningEventFilter(txn, runningFilter)
+}
+
+func startMigrationStatusServer(log utils.SimpleLogger, host string, port uint16) *http.Server {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, err := w.Write([]byte("Database migration in progress."))
+		if err != nil {
+			log.Errorw("Failed to write migration status response", "err", err)
+		}
+	})
+
+	portStr := strconv.FormatUint(uint64(port), 10)
+	addr := net.JoinHostPort(host, portStr)
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 30 * time.Second,
+	}
+
+	go func() {
+		log.Debugw("Starting migration status server on " + addr)
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			log.Errorw("Migration status server failed", "err", err)
+		}
+	}()
+	return srv
 }

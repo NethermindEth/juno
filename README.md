@@ -37,6 +37,10 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
+
+> ℹ️ **Note**: 
+> If you're looking to become a <b>Starknet Validator</b>, you’ll also need to run a <a href="https://starknet.io/">validation tool</a>. We’ve prepared a <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with detailed instructions. If you run into any issues, feel free to <a href="#📞-contact-us">reach out to us</a>.
+
 ## ⚙️ Installation
 
 ### Prerequisites
@@ -102,7 +106,9 @@ docker logs -f juno
 
 ## 📚 Documentation
 
-You can find the full documentation [here](https://juno.nethermind.io/).
+You can find Juno's full documentation [here](https://juno.nethermind.io/).
+
+If you are looking to become a **Starknet Validator**, follow our guide [here](https://nethermindeth.github.io/starknet-staking-v2/).
 
 ## 📸 Snapshots
 
@@ -368,6 +374,16 @@ There are also many other ways to contribute. Here are some ideas:
 * Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
 * [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
 * Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
+
+## 📞 Contact us
+
+For questions or feedback, please don't hesitate to reach out to us:
+
+- [Telegram](https://t.me/StarknetJuno)
+- [Discord](https://discord.com/invite/TcHbSZ9ATd)
+- [X(Formerly Twitter)](https://x.com/NethermindStark)
+
+
 
 ## 🤝 Partnerships
 

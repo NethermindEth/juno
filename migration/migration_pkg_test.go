@@ -502,7 +502,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "bar")
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}), "bar")
 	})
 
 	t.Run("call with new tx", func(t *testing.T) {
@@ -522,7 +522,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}))
 	})
 
 	t.Run("error during migration", func(t *testing.T) {
@@ -537,7 +537,7 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations), "foo")
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}), "foo")
 	})
 
 	t.Run("error if using new db on old version of juno", func(t *testing.T) {
@@ -552,9 +552,9 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations))
+		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}))
 		want := "db is from a newer, incompatible version of Juno"
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}), want)
+		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}, &HTTPConfig{}), want)
 	})
 }
 

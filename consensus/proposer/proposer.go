@@ -76,37 +76,54 @@ type Proposer interface {
 type proposer struct {
 	sequencerAddress *felt.Felt
 	builder          *builder.Builder
+	buildState       *builder.BuildState
 	mempool          *mempool.Pool
 	log              utils.Logger
 }
 
 func New(
-	builder *builder.Builder,
+	b *builder.Builder,
 	mempool *mempool.Pool,
 	sequencerAddress *felt.Felt,
 	log utils.Logger,
 ) Proposer {
 	return &proposer{
 		sequencerAddress: sequencerAddress,
-		builder:          builder,
+		builder:          b,
+		buildState:       &builder.BuildState{},
 		mempool:          mempool,
 		log:              log,
 	}
 }
 
+func (p *proposer) getDefaultBuildParams() builder.BuildParams {
+	return builder.BuildParams{
+		Builder:           *p.sequencerAddress,
+		Timestamp:         uint64(time.Now().Unix()),
+		L2GasPriceFRI:     felt.One,  // TODO: Implement this properly
+		L1GasPriceWEI:     felt.One,  // TODO: Implement this properly
+		L1DataGasPriceWEI: felt.One,  // TODO: Implement this properly
+		EthToStrkRate:     felt.One,  // TODO: Implement this properly
+		L1DAMode:          core.Blob, // TODO: Implement this properly
+	}
+}
+
 func (p *proposer) ProposalInit() (types.ProposalInit, error) {
-	if err := p.builder.ClearPending(); err != nil {
+	err := p.buildState.ClearPending()
+	if err != nil {
 		return types.ProposalInit{}, err
 	}
 
-	if err := p.builder.InitPendingBlock(p.sequencerAddress); err != nil {
+	buildParams := p.getDefaultBuildParams()
+
+	p.buildState, err = p.builder.InitPendingBlock(&buildParams)
+	if err != nil {
 		return types.ProposalInit{}, err
 	}
-	pendingBlock := p.builder.PendingBlock()
 
 	return types.ProposalInit{
-		BlockNum: types.Height(pendingBlock.Number),
-		Proposer: *pendingBlock.SequencerAddress,
+		BlockNum: types.Height(p.buildState.PendingBlock().Number),
+		Proposer: *p.buildState.PendingBlock().SequencerAddress,
 	}, nil
 }
 
@@ -131,7 +148,7 @@ func (p *proposer) BlockInfo(ctx context.Context) (types.BlockInfo, bool) {
 		}
 	}
 
-	pBlock := p.builder.PendingBlock()
+	pBlock := p.buildState.PendingBlock()
 
 	return types.BlockInfo{
 		BlockNumber:   pBlock.Number,
@@ -139,7 +156,7 @@ func (p *proposer) BlockInfo(ctx context.Context) (types.BlockInfo, bool) {
 		Timestamp:     uint64(time.Now().Unix()),
 		L2GasPriceFRI: *pBlock.L2GasPrice.PriceInFri,
 		L1GasPriceWEI: *pBlock.L1GasPriceETH,
-		EthToStrkRate: *new(felt.Felt).SetUint64(1), // Todo: SN plan to drop this
+		EthToStrkRate: *new(felt.Felt).SetUint64(1), // TODO: Implement this properly
 		L1DAMode:      core.Blob,
 	}, true
 }
@@ -168,7 +185,7 @@ func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Tod
 				return
 			}
 
-			if err := p.builder.RunTxns(txns); err != nil {
+			if err := p.builder.RunTxns(p.buildState, txns); err != nil {
 				p.log.Errorw("failed to execute transactions", "err", err)
 				return
 			}
@@ -188,16 +205,21 @@ func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Tod
 }
 
 func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
-	buildResult, err := p.builder.Finish()
+	buildResult, err := p.builder.Finish(p.buildState)
 	if err != nil {
 		return types.ProposalCommitment{}, err
 	}
 
-	return buildResult.ProposalCommitment, nil
+	proposalCommitment, err := buildResult.ProposalCommitment()
+	if err != nil {
+		return types.ProposalCommitment{}, err
+	}
+
+	return proposalCommitment, nil
 }
 
 // ProposalFin() returns the block hash of the pending block
 func (p *proposer) ProposalFin() (types.ProposalFin, error) {
-	pblock := p.builder.PendingBlock()
+	pblock := p.buildState.PendingBlock()
 	return types.ProposalFin(*pblock.Hash), nil
 }
