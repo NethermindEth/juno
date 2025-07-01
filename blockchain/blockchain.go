@@ -273,7 +273,7 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	if err != nil {
 		return err
 	}
-	if err := state.Update(block.Number, stateUpdate, newClasses); err != nil {
+	if err := state.Update(block.Number, stateUpdate, newClasses, false); err != nil {
 		return err
 	}
 	batch := b.database.NewBatch()
@@ -606,7 +606,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate.OldRoot = &oldStateRoot
 
 	// Apply state update
-	if err = st.Update(block.Number, stateUpdate, newClasses); err != nil {
+	if err = st.Update(block.Number, stateUpdate, newClasses, true); err != nil {
 		return err
 	}
 

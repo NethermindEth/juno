@@ -33,9 +33,10 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	stateDB := state.NewStateDB(testDB, triedb)
 	testState, err := state.New(&felt.Zero, stateDB)
 	require.NoError(t, err)
+	newRoot := utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8")
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -43,7 +44,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}))
+	}, false))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -55,6 +56,8 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
+	testState, err = state.New(newRoot, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
 		NewRoot: utils.HexToFelt(t, "0x4a948783e8786ba9d8edaf42de972213bd2deb1b50c49e36647f1fef844890f"),
@@ -65,7 +68,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil))
+	}, nil, false))
 
 	ret, err = New(false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -102,7 +105,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}))
+	}, false))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
@@ -130,9 +133,10 @@ func TestCallCairo(t *testing.T) {
 	stateDB := state.NewStateDB(testDB, triedb)
 	testState, err := state.New(&felt.Zero, stateDB)
 	require.NoError(t, err)
+	newRoot := utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84")
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -140,7 +144,7 @@ func TestCallCairo(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}))
+	}, false))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)
@@ -159,6 +163,8 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
+	testState, err = state.New(newRoot, stateDB)
+	require.NoError(t, err)
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
 		NewRoot: utils.HexToFelt(t, "0x7a9da0a7471a8d5118d3eefb8c26a6acbe204eb1eaa934606f4757a595fe552"),
@@ -169,7 +175,7 @@ func TestCallCairo(t *testing.T) {
 				},
 			},
 		},
-	}, nil))
+	}, nil, false))
 
 	ret, err = New(false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -207,7 +213,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		},
 	}, map[felt.Felt]core.Class{
 		*classHash: simpleClass,
-	}))
+	}, false))
 
 	logLevel := utils.NewLogLevel(utils.ERROR)
 	log, err := utils.NewZapLogger(logLevel, false)

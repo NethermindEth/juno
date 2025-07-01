@@ -7,6 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -33,8 +34,11 @@ func TestPlugin(t *testing.T) {
 	testDB := memory.New()
 
 	// sync to integration for 2 blocks
+	var su *core.StateUpdate
+	var block *core.Block
+	var err error
 	for i := range 2 {
-		su, block, err := integGw.StateUpdateWithBlock(t.Context(), uint64(i))
+		su, block, err = integGw.StateUpdateWithBlock(t.Context(), uint64(i))
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
@@ -44,7 +48,7 @@ func TestPlugin(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
-
+	bc.Stop(su.NewRoot)
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		bc := blockchain.New(testDB, &utils.Mainnet)
 
