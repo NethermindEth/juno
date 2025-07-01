@@ -1077,32 +1077,60 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 	})
 
 	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
-		vmTrace := vm.TransactionTrace{
-			Type:                  vm.TxnL1Handler,
-			ValidateInvocation:    &vm.FunctionInvocation{},
-			FeeTransferInvocation: &vm.FunctionInvocation{},
-			ExecuteInvocation: &vm.ExecuteInvocation{
-				RevertReason:       "",
-				FunctionInvocation: &vm.FunctionInvocation{},
-			},
-			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation: &vm.ExecuteInvocation{
-				FunctionInvocation: &vm.FunctionInvocation{},
-			},
-		}
+		t.Run("Execution succeed", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+			}
 
-		expectedAdaptedTrace := rpcv7.TransactionTrace{
-			Type: rpcv7.TxnL1Handler,
-			FunctionInvocation: &rpcv6.FunctionInvocation{
-				Calls:    []rpcv6.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
-			},
-		}
+			expectedAdaptedTrace := rpcv7.TransactionTrace{
+				Type: rpcv7.TxnL1Handler,
+				FunctionInvocation: &rpcv6.FunctionInvocation{
+					Calls:    []rpcv6.FunctionInvocation{},
+					Events:   []rpcv6.OrderedEvent{},
+					Messages: []rpcv6.OrderedL2toL1Message{},
+				},
+			}
 
-		adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
+			adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
 
-		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
+
+		t.Run("Execution reverted", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					RevertReason: "Reverted",
+				},
+			}
+
+			defaultL1HandlerInvocation := rpcv6.DefaultL1HandlerFunctionInvocation()
+			expectedAdaptedTrace := rpcv7.TransactionTrace{
+				Type:               rpcv7.TxnL1Handler,
+				FunctionInvocation: &defaultL1HandlerInvocation,
+			}
+
+			adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
+
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
 	})
 
 	t.Run("successfully adapt DECLARE tx from vm", func(t *testing.T) {

@@ -43,7 +43,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 			if trace.FunctionInvocation.FunctionInvocation != nil {
 				functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
 			} else {
-				defaultResult := defaultL1HandlerFunctionInvocation()
+				defaultResult := DefaultL1HandlerFunctionInvocation()
 				functionInvocation = &defaultResult
 			}
 		}
@@ -275,7 +275,7 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Inner
 	}
 }
 
-func defaultL1HandlerFunctionInvocation() FunctionInvocation {
+func DefaultL1HandlerFunctionInvocation() FunctionInvocation {
 	return FunctionInvocation{
 		CallType:           "CALL",
 		Calldata:           []felt.Felt{},
