@@ -52,7 +52,7 @@ pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    function_invocation: Option<FunctionInvocation>,
+    function_invocation: Option<ExecuteInvocation>,
     r#type: TransactionType,
     state_diff: StateDiff,
 }
