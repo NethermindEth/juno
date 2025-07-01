@@ -141,8 +141,9 @@ type Synchronizer struct {
 	log      utils.SimpleLogger
 	listener EventListener
 
-	pendingData         atomic.Pointer[core.PendingData]
-	pendingPollInterval time.Duration
+	pendingData              atomic.Pointer[core.PendingData]
+	pendingPollInterval      time.Duration
+	preConfirmedPollInterval time.Duration
 
 	catchUpMode bool
 	plugin      junoplugin.JunoPlugin
@@ -151,20 +152,21 @@ type Synchronizer struct {
 }
 
 func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
-	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.KeyValueStore,
+	pendingPollInterval, preConfirmedPollInterval time.Duration, readOnlyBlockchain bool, database db.KeyValueStore,
 ) *Synchronizer {
 	s := &Synchronizer{
-		blockchain:          bc,
-		db:                  database,
-		starknetData:        starkNetData,
-		log:                 log,
-		newHeads:            feed.New[*core.Block](),
-		reorgFeed:           feed.New[*ReorgBlockRange](),
-		pendingFeed:         feed.New[*core.Block](),
-		pendingPollInterval: pendingPollInterval,
-		preConfirmedFeed:    feed.New[*core.PreConfirmed](),
-		listener:            &SelectiveListener{},
-		readOnlyBlockchain:  readOnlyBlockchain,
+		blockchain:               bc,
+		db:                       database,
+		starknetData:             starkNetData,
+		log:                      log,
+		newHeads:                 feed.New[*core.Block](),
+		reorgFeed:                feed.New[*ReorgBlockRange](),
+		pendingFeed:              feed.New[*core.Block](),
+		pendingPollInterval:      pendingPollInterval,
+		preConfirmedPollInterval: preConfirmedPollInterval,
+		preConfirmedFeed:         feed.New[*core.PreConfirmed](),
+		listener:                 &SelectiveListener{},
+		readOnlyBlockchain:       readOnlyBlockchain,
 	}
 	return s
 }
@@ -521,11 +523,6 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 }
 
 func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
-	// TODO: Investigate if this check is needed
-	if s.pendingPollInterval == time.Duration(0) {
-		return
-	}
-
 	s.pollPending(ctx, sem)
 	s.log.Infow("Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks")
 	s.pollPreConfirmed(ctx, sem)
@@ -573,12 +570,11 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
-	// TODO: Investigate if this check is needed
-	if s.pendingPollInterval == time.Duration(0) {
+	if s.preConfirmedPollInterval == time.Duration(0) {
 		return
 	}
 
-	preConfirmedPollTicker := time.NewTicker(s.pendingPollInterval)
+	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
 	for {
 		select {
 		case <-ctx.Done():
