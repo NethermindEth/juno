@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -122,14 +123,14 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func() error, error) {
+func (b *Builder) PendingState(buildState *BuildState) (state.StateReader, error) {
 	if buildState.Pending == nil {
-		return nil, nil, sync.ErrPendingBlockNotFound
+		return nil, sync.ErrPendingBlockNotFound
 	}
 
 	headState, err := b.blockchain.HeadState()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	return sync.NewPendingState(buildState.Pending.StateUpdate.StateDiff, buildState.Pending.NewClasses, headState), nil
