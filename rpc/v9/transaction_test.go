@@ -1331,6 +1331,34 @@ func TestAddTransaction(t *testing.T) {
 				gatewayError:  &gateway.Error{Code: gateway.InsufficientAccountBalance},
 				expectedError: rpccore.ErrInsufficientAccountBalanceV0_8,
 			},
+			{
+				name:          "FeeBelowMinimum error",
+				gatewayError:  &gateway.Error{Code: gateway.FeeBelowMinimum},
+				expectedError: rpccore.ErrFeeBelowMinimum,
+			},
+			{
+				name:          "ReplacementTransactionUnderPriced error",
+				gatewayError:  &gateway.Error{Code: gateway.ReplacementTransactionUnderPriced},
+				expectedError: rpccore.ErrReplacementTransactionUnderPriced,
+			},
+			{
+				name: "InvalidTransactionNonce error",
+				gatewayError: &gateway.Error{
+					Code:    gateway.InvalidTransactionNonce,
+					Message: "Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1.",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
+			},
+			{
+				name: "InvalidTransactionNonce error as ErrValidationFailure",
+				gatewayError: &gateway.Error{
+					Code:    gateway.ValidateFailure,
+					Message: "Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1.",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
+			},
 		}
 
 		for _, tc := range errorTests {
