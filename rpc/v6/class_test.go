@@ -108,8 +108,8 @@ func TestClassAt(t *testing.T) {
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(*cairo1ClassHash, nil)
 
-	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash felt.Felt) (*core.DeclaredClass, error) {
-		class, err := integGw.Class(t.Context(), &classHash)
+	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
+		class, err := integGw.Class(t.Context(), classHash)
 		return &core.DeclaredClass{Class: class, At: 0}, err
 	}).AnyTimes()
 	mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
