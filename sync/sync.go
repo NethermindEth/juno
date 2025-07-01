@@ -521,6 +521,7 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 }
 
 func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
+	// TODO: Investigate if this check is needed
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
@@ -572,6 +573,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 }
 
 func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
+	// TODO: Investigate if this check is needed
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
