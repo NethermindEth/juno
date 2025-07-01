@@ -211,10 +211,10 @@ func TestStorageProof(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error for pending block", func(t *testing.T) {
-		blockID := blockIDPending(t)
+	t.Run("error for pre_confirmed block", func(t *testing.T) {
+		blockID := blockIDPreConfirmed(t)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
-		assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
+		assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("no error when block number matches head", func(t *testing.T) {

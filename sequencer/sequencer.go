@@ -34,10 +34,11 @@ type Sequencer struct {
 	blockTime        time.Duration
 	mempool          *mempool.Pool
 
-	subNewHeads     *feed.Feed[*core.Block]
-	subPendingBlock *feed.Feed[*core.Block]
-	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
-	plugin          plugin.JunoPlugin
+	subNewHeads          *feed.Feed[*core.Block]
+	subPendingBlock      *feed.Feed[*core.Block]
+	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
+	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
+	plugin               plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
@@ -51,16 +52,17 @@ func New(
 	log utils.Logger,
 ) Sequencer {
 	return Sequencer{
-		builder:          b,
-		buildState:       &builder.BuildState{},
-		mempool:          mempool,
-		sequencerAddress: sequencerAddress,
-		privKey:          privKey,
-		log:              log,
-		blockTime:        blockTime,
-		subNewHeads:      feed.New[*core.Block](),
-		subPendingBlock:  feed.New[*core.Block](),
-		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
+		builder:              b,
+		buildState:           &builder.BuildState{},
+		mempool:              mempool,
+		sequencerAddress:     sequencerAddress,
+		privKey:              privKey,
+		log:                  log,
+		blockTime:            blockTime,
+		subNewHeads:          feed.New[*core.Block](),
+		subPendingBlock:      feed.New[*core.Block](),
+		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
+		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
 	}
 }
 
@@ -230,4 +232,12 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 
 func (s *Sequencer) SubscribePending() sync.PendingSubscription {
 	return sync.PendingSubscription{Subscription: s.subPendingBlock.Subscribe()}
+}
+
+func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
+	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
+}
+
+func (s *Sequencer) PendingData() (*core.PendingData, error) {
+	return nil, nil
 }

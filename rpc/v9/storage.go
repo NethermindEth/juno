@@ -179,9 +179,8 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 	switch {
 	case blockID.IsLatest():
 		return nil
-	case blockID.IsPending():
-		// TODO: Remove this case when specs replaced BLOCK_ID by another type.
-		return rpccore.ErrCallOnPending
+	case blockID.IsPreConfirmed():
+		return rpccore.ErrCallOnPreConfirmed
 	case blockID.IsHash():
 		header, err := h.bcReader.BlockHeaderByHash(blockID.Hash())
 		if err != nil {

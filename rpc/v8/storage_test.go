@@ -31,8 +31,9 @@ func TestStorageAt(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -127,6 +128,19 @@ func TestStorageAt(t *testing.T) {
 
 		blockID := blockIDNumber(t, 0)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedStorage, storageValue)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		pending := sync.NewPending(nil, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		pendingID := blockIDPending(t)
+		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &pendingID)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})

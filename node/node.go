@@ -206,7 +206,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(seq.PendingBlock)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
 		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, &seq)
@@ -225,7 +224,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
 		synchronizer.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(synchronizer.PendingBlock)
+
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {
@@ -271,6 +270,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
+	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
+		return nil, err
+	}
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
@@ -288,10 +292,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
+		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
