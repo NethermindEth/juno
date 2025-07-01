@@ -171,8 +171,17 @@ func TestTransactionTraceValidation(t *testing.T) {
 	}
 
 	validL1HandlerTransactionTrace := rpc.TransactionTrace{
-		Type:               rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.ExecuteInvocation{},
+		Type: rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.ExecuteInvocation{
+			FunctionInvocation: &rpc.FunctionInvocation{},
+		},
+	}
+
+	validRevertedL1HandlerTransactionTrace := rpc.TransactionTrace{
+		Type: rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.ExecuteInvocation{
+			RevertReason: "Reverted",
+		},
 	}
 
 	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
@@ -213,7 +222,13 @@ func TestTransactionTraceValidation(t *testing.T) {
 			name:     "valid L1_HANDLER tx",
 			trace:    validL1HandlerTransactionTrace,
 			wantErr:  false,
-			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":""},"execution_resources":null}`,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+		},
+		{
+			name:     "valid L1_HANDLER tx reverted",
+			trace:    validRevertedL1HandlerTransactionTrace,
+			wantErr:  false,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":"Reverted"},"execution_resources":null}`,
 		},
 		{
 			name:     "invalid L1_HANDLER tx",
