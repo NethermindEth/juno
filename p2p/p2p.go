@@ -249,6 +249,10 @@ func (s *Service) Run(ctx context.Context) error {
 	return nil
 }
 
+func (s *Service) RunRange(ctx context.Context, numBlocks uint64) {
+	s.synchroniser.RunNTimes(ctx, numBlocks)
+}
+
 func (s *Service) setProtocolHandlers() {
 	s.SetProtocolHandler(p2pSync.HeadersPID(), s.handler.HeadersHandler)
 	s.SetProtocolHandler(p2pSync.EventsPID(), s.handler.EventsHandler)

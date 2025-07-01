@@ -53,16 +53,19 @@ func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.Sim
 }
 
 func (s *Service) Run(ctx context.Context) {
+	s.RunNTimes(ctx, ^uint64(0))
+}
+
+func (s *Service) RunNTimes(ctx context.Context, numBlocks uint64) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	s.client = NewClient(s.randomPeerStream, s.network, s.log)
 
-	for i := 0; ; i++ {
+	for i := uint64(0); i <= numBlocks; i++ {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-		s.log.Debugw("Continuous iteration", "i", i)
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
 		nextHeight, err := s.getNextHeight()

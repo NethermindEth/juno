@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
+	p2pService "github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -28,6 +29,8 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 	listeners    p2p.Listeners[V, H, A]
 	broadcasters p2p.Broadcasters[V, H, A]
+
+	p2pSync p2pService.Service
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
@@ -86,10 +89,10 @@ func (d *Driver[V, H, A]) Start() {
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
 			case p := <-d.listeners.ProposalListener.Listen():
-				actions = d.stateMachine.ProcessProposal(p)
+				actions = d.stateMachine.ProcessProposal(p) // We get the p2p block, we feed it in here, eventually call line 49
 			case p := <-d.listeners.PrevoteListener.Listen():
 				actions = d.stateMachine.ProcessPrevote(p)
-			case p := <-d.listeners.PrecommitListener.Listen():
+			case p := <-d.listeners.PrecommitListener.Listen(): // We get the p2p block, we feed it in here, for signatures
 				actions = d.stateMachine.ProcessPrecommit(p)
 			}
 			d.execute(actions)
@@ -108,6 +111,7 @@ func (d *Driver[V, H, A]) Stop() {
 func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
+		// call catchup
 		case *types.BroadcastProposal[V, H, A]:
 			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
 		case *types.BroadcastPrevote[H, A]:
@@ -133,4 +137,64 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			}
 		}
 	}
+}
+
+// 1. listen to votes and proposals
+// 2. store those from future height
+// 3. Check if we hit f+1 at a future height in processLoop
+// 4. If so, then return a new action (to be defined)
+// 5. Update execute() to call catchup
+// 6. catchup syncs from curheight to futureHeight, and resets the state etc
+
+// Requires Driver to inherit a p2p service.
+// Requires the p2p sync serive to export ProcessBlock
+
+// Need to write set of precommits for the committed block. Will be a dependency. We currently don't do this.
+//
+
+// This is blocking. We may want to unblock the Driver to listening to other msgs.
+func (d *Driver[V, H, A]) catchup(curHeight, futureHeight types.Height) {
+	for i := curHeight; i <= futureHeight; i++ {
+		d.p2pSync.CatchUp(curHeight, futureHeight)
+	}
+	// Dlt WAL
+	// Update/reset the state machine
+
+	// Eg we sync form block 5 to 10. In the meantime the network is at block 15. We are stuck in a loop.
+	// sync time of a block vs consensus time for a height commit
+
+	// consider sync time > consensus time
+	// Distadvantages
+	// 1. We block processing future messages (height vs optimsations vs falling behind)
+	// 2. If we block future msgs then we may fall behind more
+	// 3. If we don't block future messages then we may get race conditions.
+	// 4. We need to reset the state machine (doCommitValue)
+
+	// eg we keep syncing in 2 block sizes, but we are 100 blocks behind
+	// SN block times goes to 2s. I
+
+	// Consider:
+}
+
+// Alternative approach
+// listen to msgs
+// perofrm threashold check
+// request blocks from p2p catch up
+// push the bock to the proposal listener in Driver
+// Q: how we'll commit?
+// Q: are we duplicating messages?
+
+// This is blocking. We may want to unblock the Driver to listening to other msgs.
+func (d *Driver[V, H, A]) catchup2(curHeight, futureHeight types.Height) {
+	for i := curHeight; i <= futureHeight; i++ {
+		d.p2pSync.CatchUp(curHeight, futureHeight)
+	}
+	// listen to msgs on listeners
+	// trigger on messages threshold
+	// feed into the proposal channel for current height
+	//
+
+	// Consider the race condition of the state machine running.
+	// Actually, how would this work, because if we already called proposalBlock....
+	// I think we need to make sure the cachedProposal is actually updated with the new signatures etc.
 }
