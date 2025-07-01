@@ -744,9 +744,19 @@ func (b *Blockchain) WriteRunningEventFilter() error {
 	return b.runningFilter.Write()
 }
 
-func (b *Blockchain) Stop(root *felt.Felt) error {
+func (b *Blockchain) Stop() error {
 	if b.trieDB.Scheme() == triedb.PathScheme {
-		return b.trieDB.Journal(root)
+		head, err := b.HeadsHeader()
+		if err != nil {
+			return err
+		}
+
+		stateUpdate, err := b.StateUpdateByNumber(head.Number)
+		if err != nil {
+			return err
+		}
+
+		return b.trieDB.Journal(stateUpdate.NewRoot)
 	}
 	return nil
 }
