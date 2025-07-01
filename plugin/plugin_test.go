@@ -48,7 +48,8 @@ func TestPlugin(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
-	bc.Stop(su.NewRoot)
+	require.NoError(t, bc.Stop(su.NewRoot))
+
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		bc := blockchain.New(testDB, &utils.Mainnet)
 

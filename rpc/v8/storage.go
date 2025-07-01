@@ -220,7 +220,7 @@ func getContractProof(tr *trie2.Trie, st state.StateReader, contracts []felt.Fel
 
 		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
+			if errors.Is(err, state.ErrContractNotDeployed) { // contract does not exist, skip getting leaf data
 				continue
 			}
 			return nil, err

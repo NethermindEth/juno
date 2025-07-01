@@ -158,9 +158,7 @@ func TestReorg(t *testing.T) {
 
 	stateUpdate, err := bc.StateUpdateByNumber(head.Number)
 	require.NoError(t, err)
-
-	err = bc.Stop(stateUpdate.NewRoot)
-	require.NoError(t, err)
+	require.NoError(t, bc.Stop(stateUpdate.NewRoot))
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
 		bc := blockchain.New(testDB, &utils.Mainnet)
