@@ -27,7 +27,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 
 	var constructorInvocation *FunctionInvocation
 	var executeInvocation *ExecuteInvocation
-	var functionInvocation *FunctionInvocation
+	var functionInvocation *ExecuteInvocation
 
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
@@ -40,7 +40,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
+			functionInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.FunctionInvocation))
 		}
 	}
 
@@ -161,7 +161,7 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	// Adapt every feeder block trace to rpc v8 trace
+	// Adapt every feeder block trace to rpc v9 trace
 	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
@@ -194,7 +194,12 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
 			}
 		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
+			trace.FunctionInvocation = new(ExecuteInvocation)
+			if feederTrace.RevertError != "" {
+				trace.FunctionInvocation.RevertReason = feederTrace.RevertError
+			} else {
+				trace.FunctionInvocation.FunctionInvocation = fnInvocation
+			}
 		}
 
 		adaptedTraces[index] = TracedBlockTransaction{
