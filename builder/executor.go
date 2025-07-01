@@ -138,7 +138,7 @@ func updatePendingBlock(
 ) {
 	pending.Block.Receipts = append(pending.Block.Receipts, receipts...)
 	pending.Block.Transactions = append(pending.Block.Transactions, transactions...)
-	pending.Block.TransactionCount += uint64(len(transactions))
+	pending.Block.TransactionCount += uint32(len(transactions))
 	for _, receipt := range receipts {
 		pending.Block.EventCount += uint64(len(receipt.Events))
 	}

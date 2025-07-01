@@ -56,7 +56,7 @@ func AdaptHeader(blockHeader *core.Header, commitments *core.BlockCommitments,
 		SequencerAddress: AdaptAddress(blockHeader.SequencerAddress),
 		StateRoot:        AdaptHash(blockHeader.GlobalStateRoot),
 		Transactions: &common.Patricia{
-			NLeaves: blockHeader.TransactionCount,
+			NLeaves: uint64(blockHeader.TransactionCount),
 			Root:    AdaptHash(commitments.TransactionCommitment),
 		},
 		Events: &common.Patricia{

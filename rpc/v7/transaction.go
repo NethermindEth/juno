@@ -402,7 +402,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint32(txIndex) > pending.Block.TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
@@ -414,7 +414,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 		return nil, rpcErr
 	}
 
-	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint64(txIndex))
+	txn, err := h.bcReader.TransactionByBlockNumberAndIndex(header.Number, uint32(txIndex))
 	if err != nil {
 		return nil, rpccore.ErrInvalidTxIndex
 	}

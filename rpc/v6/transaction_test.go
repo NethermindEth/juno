@@ -504,7 +504,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
-			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			uint32(index)).DoAndReturn(func(number uint64, index uint32) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
@@ -526,7 +526,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		mockReader.EXPECT().BlockHeaderByHash(latestBlockHash).Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
-			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			uint32(index)).DoAndReturn(func(number uint64, index uint32) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
@@ -548,7 +548,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		mockReader.EXPECT().BlockHeaderByNumber(uint64(latestBlockNumber)).Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
-			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			uint32(index)).DoAndReturn(func(number uint64, index uint32) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
 		})
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
