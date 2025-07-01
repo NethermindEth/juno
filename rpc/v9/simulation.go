@@ -192,7 +192,7 @@ func createSimulatedTransactions(
 
 	simulatedTransactions := make([]SimulatedTransaction, len(overallFees))
 	for i, overallFee := range overallFees {
-		// Adapt transaction trace to rpc v8 trace
+		// Adapt transaction trace to rpc v9 trace
 		trace := utils.HeapPtr(AdaptVMTransactionTrace(&traces[i]))
 
 		// Add root level execution resources
@@ -206,7 +206,16 @@ func createSimulatedTransactions(
 
 		// Compute data for FeeEstimate
 		var l1GasPrice, l2GasPrice, l1DataGasPrice *felt.Felt
-		feeUnit := feeUnit(txns[i])
+
+		// estimateFee only allows FRI as unit
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3586
+		feeUnit := FRI
+		// estimateMessageFee only allow WEI as unit
+		// https://github.com/starkware-libs/starknet-specs/blob/0bf403bfafbfbe0eaa52103a9c7df545bec8f73b/api/starknet_api_openrpc.json#L3605
+		if traces[i].Type == vm.TxnL1Handler {
+			feeUnit = WEI
+		}
+
 		switch feeUnit {
 		case WEI:
 			l1GasPrice = l1GasPriceWei
