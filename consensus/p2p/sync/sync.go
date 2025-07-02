@@ -17,7 +17,21 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-const twofPlus1 = 3 // Todo
+// todo: just some problems with trying to push sync through the state machine
+// 1. Syncing a block over P2P doesn't provide the round. This means we can't obtain the precommits to call d.stateMachine.ProcessPrecommit(p)
+// 2. Similarly, because we don't have the round, we can't construct the proposal and call d.stateMachine.ProcessProposal(p)
+// 3. We can get around this by having an additional flow in the Driver, eg case val := <-d.syncListener:,
+//    which allows us to call doCommitValue(), it defeats the purpose of going through the state machine "as normal"
+// 4. Another problem is that we need to know the value of "2f+1" inorder to know if we should query a block over P2P.
+//    However we can't get this without querying the state machine, which makes things kind of ugly. Plus the state mahcine
+//    might not even have that information (eg how to query the state at height 10 if we are at height 0).
+//
+// A cleaner approach would be to subscribe to NewHeads from our P2P peers, and then check if we are behind the network.
+// If so, then stop consensus (there's no point sending out messages for blocks 5,6,7,8, if the network is at height 9),
+// sync all the blocks to catch up to the chain head, then and re-engage with consensus.
+// To keep the state machine at the correct "state" we should only need to pass the height into doCommitValue()
+
+const twofPlus1 = 3
 
 // Service coordinates the synchronization of block data for a node.
 // It monitors chain height by listening to prevote/precommit votes and proposals.
@@ -91,7 +105,8 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 				return
 			}
 
-			// once we see > f+1 at some height, push it
+			// once we see > 2f+1 at some height, push it
+			// Todo: the problem with this is that we must ask the state machine for it..
 			for height, senders := range s.messages {
 				if len(senders) > twofPlus1 {
 					select {
