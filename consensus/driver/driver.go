@@ -98,6 +98,14 @@ func (d *Driver[V, H, A]) Start() {
 				// Todo: consider blocking consensus altogehter since sending votes for
 				// old heights is a waste of resources, and we can't process the latest height
 				// since we are behind the network (demux can continue though)
+
+				// Todo: consider race conditions and blocking processes
+				// case 1: sync runs ahead of state machine. This means we are behind, and sync will force state machine to jump
+				//         to the latest height. This is good.
+				// case 2: state machine runs ahead of the state machine. This isn't possible since p2p sync checks blockchain.Height()
+				//         before querying peers
+				// case 3: sync breaks. Then we never enter this flow, but consensus could still stay at the chain head in the happy flow.
+				// case 4: consensus breaks. Then the sync keeps the node at the chain head, we just don't engage with consensus.
 				d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
 				d.deleteOldWAL(types.Height(h))
 			}
