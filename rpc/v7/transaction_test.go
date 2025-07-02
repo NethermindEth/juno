@@ -164,9 +164,12 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: latestBlock,
-		}, nil)
+		pending := sync.NewPending(latestBlock, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pendingData,
+			nil,
+		)
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Pending: true}, index)
 		require.Nil(t, rpcErr)
@@ -255,7 +258,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingBlock().Return(nil)
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
@@ -365,7 +368,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingBlock().Return(block0)
+		pending := sync.NewPending(block0, nil, nil)
+		pendingData := pending.AsPendingData()
+		mockSyncer.EXPECT().PendingData().Return(
+			&pendingData,
+			nil,
+		)
 
 		checkTxReceipt(t, txHash, expected)
 	})
@@ -934,7 +942,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
 
 						mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-						mockSyncer.EXPECT().PendingBlock().Return(nil).Times(2)
+						mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
 
 						handler := rpc.New(mockReader, mockSyncer, nil, test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -955,7 +963,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
 
 				mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncer.EXPECT().PendingBlock().Return(nil)
+				mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 
 				handler := rpc.New(mockReader, mockSyncer, nil, test.network, nil).WithFeeder(client)
 

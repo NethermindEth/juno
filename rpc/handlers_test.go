@@ -36,6 +36,7 @@ func TestRun(t *testing.T) {
 	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
 	pendingSub := feed.New[*core.Block]()
+	preConfirmedSub := feed.New[*core.PreConfirmed]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -43,6 +44,7 @@ func TestRun(t *testing.T) {
 	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribePending().Return(sync.PendingSubscription{Subscription: pendingSub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribePreConfirmed().Return(sync.PreConfirmedSubscription{Subscription: preConfirmedSub.Subscribe()}).AnyTimes()
 
 	handler := &Handler{
 		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
