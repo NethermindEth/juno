@@ -23,7 +23,11 @@ var (
 	_ service.Service = (*Synchronizer)(nil)
 	_ Reader          = (*Synchronizer)(nil)
 
-	ErrPendingBlockNotFound = errors.New("pending block not found")
+	ErrPendingBlockNotFound          = errors.New("pending block not found")
+	ErrPreConfirmedBlockNotFound     = errors.New("pre_confirmed block not found")
+	ErrMustSwitchPollingPreConfirmed = errors.New(
+		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
+	)
 )
 
 const (
@@ -49,6 +53,10 @@ type PendingSubscription struct {
 	*feed.Subscription[*core.Block]
 }
 
+type PreConfirmedSubscription struct {
+	*feed.Subscription[*core.PreConfirmed]
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -70,8 +78,9 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePending() PendingSubscription
+	SubscribePreConfirmed() PreConfirmedSubscription
 
-	Pending() (*Pending, error)
+	PendingData() (*core.PendingData, error)
 	PendingBlock() *core.Block
 	PendingState() (core.StateReader, func() error, error)
 }
@@ -99,12 +108,16 @@ func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
 	return PendingSubscription{feed.New[*core.Block]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedSubscription {
+	return PreConfirmedSubscription{feed.New[*core.PreConfirmed]().Subscribe()}
+}
+
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
 
-func (n *NoopSynchronizer) Pending() (*Pending, error) {
-	return nil, errors.New("Pending() is not implemented")
+func (n *NoopSynchronizer) PendingData() (*core.PendingData, error) {
+	return nil, errors.New("PendingData() is not implemented")
 }
 
 func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
@@ -122,14 +135,17 @@ type Synchronizer struct {
 	newHeads            *feed.Feed[*core.Block]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingFeed         *feed.Feed[*core.Block]
+	preConfirmedFeed    *feed.Feed[*core.PreConfirmed]
 
 	log      utils.SimpleLogger
 	listener EventListener
 
-	pending             atomic.Pointer[Pending]
-	pendingPollInterval time.Duration
-	catchUpMode         bool
-	plugin              junoplugin.JunoPlugin
+	pendingData              atomic.Pointer[core.PendingData]
+	pendingPollInterval      time.Duration
+	preConfirmedPollInterval time.Duration
+
+	catchUpMode bool
+	plugin      junoplugin.JunoPlugin
 
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
@@ -138,21 +154,23 @@ func New(
 	bc *blockchain.Blockchain,
 	dataSource DataSource,
 	log utils.SimpleLogger,
-	pendingPollInterval time.Duration,
+	pendingPollInterval, preConfirmedPollInterval time.Duration,
 	readOnlyBlockchain bool,
 	database db.KeyValueStore,
 ) *Synchronizer {
 	s := &Synchronizer{
-		blockchain:          bc,
-		dataSource:          dataSource,
-		db:                  database,
-		log:                 log,
-		newHeads:            feed.New[*core.Block](),
-		reorgFeed:           feed.New[*ReorgBlockRange](),
-		pendingFeed:         feed.New[*core.Block](),
-		pendingPollInterval: pendingPollInterval,
-		listener:            &SelectiveListener{},
-		readOnlyBlockchain:  readOnlyBlockchain,
+		blockchain:               bc,
+		dataSource:               dataSource,
+		db:                       database,
+		log:                      log,
+		newHeads:                 feed.New[*core.Block](),
+		reorgFeed:                feed.New[*ReorgBlockRange](),
+		pendingFeed:              feed.New[*core.Block](),
+		pendingPollInterval:      pendingPollInterval,
+		preConfirmedPollInterval: preConfirmedPollInterval,
+		preConfirmedFeed:         feed.New[*core.PreConfirmed](),
+		listener:                 &SelectiveListener{},
+		readOnlyBlockchain:       readOnlyBlockchain,
 	}
 	return s
 }
@@ -278,8 +296,19 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					}
 
 					if head != nil {
-						if err := s.storeEmptyPending(head); err != nil {
-							s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+						blockVer, err := core.ParseBlockVersion(head.ProtocolVersion)
+						if err == nil {
+							if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+								if err := s.storeEmptyPreConfirmed(head); err != nil {
+									s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+								}
+							} else {
+								if err := s.storeEmptyPending(head); err != nil {
+									s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+								}
+							}
+						} else {
+							s.log.Errorw("Failed to parse block version", "err", err)
 						}
 					}
 				} else {
@@ -290,8 +319,19 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			if err := s.storeEmptyPending(block.Header); err != nil {
-				s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+			blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+			if err == nil {
+				if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+					if err := s.storeEmptyPreConfirmed(block.Header); err != nil {
+						s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
+					}
+				} else {
+					if err := s.storeEmptyPending(block.Header); err != nil {
+						s.log.Errorw("Failed to store empty pending block", "number", block.Number)
+					}
+				}
+			} else {
+				s.log.Errorw("Failed to parse block version", "err", err)
 			}
 
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
@@ -356,7 +396,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 	go s.pollLatest(syncCtx, latestSem)
 	pendingSem := make(chan struct{}, 1)
-	go s.pollPending(syncCtx, pendingSem)
+	go s.pollPendingData(syncCtx, pendingSem)
 
 	for {
 		select {
@@ -429,15 +469,26 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 	s.listener.OnReorg(head.Number)
 }
 
+func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
+	s.pollPending(ctx, sem)
+	s.log.Infow("Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks")
+	s.pollPreConfirmed(ctx, sem)
+}
+
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
 		return
 	}
 
 	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
+
+	switchCh := make(chan struct{}, 1)
 	for {
 		select {
 		case <-ctx.Done():
+			pendingPollTicker.Stop()
+			return
+		case <-switchCh:
 			pendingPollTicker.Stop()
 			return
 		case <-pendingPollTicker.C:
@@ -449,7 +500,44 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 					}()
 					err := s.fetchAndStorePending(ctx)
 					if err != nil {
+						if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
+							select {
+							case switchCh <- struct{}{}:
+							default:
+							}
+							return
+						}
 						s.log.Debugw("Error while trying to poll pending block", "err", err)
+					}
+				}()
+			default:
+			}
+		}
+	}
+}
+
+func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
+	if s.preConfirmedPollInterval == time.Duration(0) {
+		return
+	}
+
+	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
+	for {
+		select {
+		case <-ctx.Done():
+			preConfirmedPollTicker.Stop()
+			return
+		case <-preConfirmedPollTicker.C:
+			select {
+			case sem <- struct{}{}:
+				go func() {
+					defer func() {
+						<-sem
+					}()
+
+					err := s.fetchAndStorePreConfirmed(ctx)
+					if err != nil {
+						s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
 					}
 				}()
 			default:
@@ -502,6 +590,15 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return err
 	}
 
+	blockVer, err := core.ParseBlockVersion(head.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+
+	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+		return ErrMustSwitchPollingPreConfirmed
+	}
+
 	// not at the tip of the chain yet, no need to poll pending
 	if highestBlockHeader.Number > head.Number {
 		return nil
@@ -511,10 +608,41 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	pending.Block.Number = head.Number + 1
 
-	s.log.Debugw("Found pending block", "txns", pending.Block.TransactionCount)
+	blockVer, err = core.ParseBlockVersion(pending.Block.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+
+	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+		return ErrMustSwitchPollingPreConfirmed
+	}
+
 	return s.StorePending(&pending)
+}
+
+func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context) error {
+	highestBlockHeader := s.highestBlockHeader.Load()
+	if highestBlockHeader == nil {
+		return nil
+	}
+
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		return err
+	}
+
+	// not at the tip of the chain yet, no need to poll preconfirmed
+	if highestBlockHeader.Number > head.Number {
+		return nil
+	}
+
+	preConfirmedBlock, err := s.dataSource.PreConfirmedBlockByNumber(ctx, highestBlockHeader.Number+1)
+	if err != nil {
+		return err
+	}
+
+	return s.StorePreConfirmed(&preConfirmedBlock)
 }
 
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
@@ -540,6 +668,10 @@ func (s *Synchronizer) SubscribePending() PendingSubscription {
 	return PendingSubscription{s.pendingFeed.Subscribe()}
 }
 
+func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedSubscription {
+	return PreConfirmedSubscription{s.preConfirmedFeed.Subscribe()}
+}
+
 // StorePending stores a pending block given that it is for the next height
 func (s *Synchronizer) StorePending(p *Pending) error {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
@@ -559,44 +691,96 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
 	}
 
-	if existingPending, err := s.Pending(); err == nil {
-		if existingPending.Block.TransactionCount >= p.Block.TransactionCount {
+	if existingPending, err := s.PendingData(); err == nil {
+		if existingPending.GetBlock().TransactionCount >= p.Block.TransactionCount {
 			// ignore the incoming pending if it has fewer transactions than the one we already have
 			return nil
 		}
 	} else if !errors.Is(err, ErrPendingBlockNotFound) {
 		return err
 	}
-	s.pending.Store(p)
+
+	pendingData := p.AsPendingData()
+	s.pendingData.Store(&pendingData)
 
 	s.pendingFeed.Send(p.Block)
 
 	return nil
 }
 
-func (s *Synchronizer) Pending() (*Pending, error) {
-	p := s.pending.Load()
+// StorePreConfirmed stores a pre_confirmed block given that it is for the next height
+func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
+	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
+	if err != nil {
+		return err
+	}
+
+	if existingPending, err := s.PendingData(); err == nil {
+		existingPendingB := existingPending.GetBlock()
+		if existingPendingB.Number == p.Block.Number &&
+			existingPendingB.TransactionCount >= p.Block.TransactionCount {
+			// ignore the incoming prec_confirmed if it has fewer transactions than the one we already have
+			return nil
+		}
+	} else if !errors.Is(err, ErrPendingBlockNotFound) {
+		return err
+	}
+
+	h, err := s.blockchain.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return err
+	} else if err == nil {
+		p.StateUpdate.OldRoot = h.GlobalStateRoot
+	}
+
+	pendingData := p.AsPendingData()
+	s.pendingData.Store(&pendingData)
+
+	s.preConfirmedFeed.Send(p)
+
+	return nil
+}
+
+func (s *Synchronizer) PendingData() (*core.PendingData, error) {
+	p := s.pendingData.Load()
 	if p == nil {
 		return nil, ErrPendingBlockNotFound
 	}
 
-	expectedParentHash := &felt.Zero
-	if head, err := s.blockchain.HeadsHeader(); err == nil {
-		expectedParentHash = head.Hash
-	}
-	if p.Block.ParentHash.Equal(expectedParentHash) {
-		return p, nil
-	}
+	switch p.Variant() {
+	case core.PreConfirmedBlockVariant:
+		// pre_confirmed
+		expectedOldRoot := &felt.Zero
+		expectedBlockNumber := uint64(0)
+		if head, err := s.blockchain.HeadsHeader(); err == nil {
+			expectedOldRoot = head.GlobalStateRoot
+			expectedBlockNumber = head.Number + 1
+		}
 
+		if p.GetStateUpdate().OldRoot.Equal(expectedOldRoot) &&
+			p.GetBlock().Number == expectedBlockNumber {
+			return p, nil
+		}
+
+	case core.PendingBlockVariant:
+		expectedParentHash := &felt.Zero
+		if head, err := s.blockchain.HeadsHeader(); err == nil {
+			expectedParentHash = head.Hash
+		}
+
+		if p.GetBlock().ParentHash.Equal(expectedParentHash) {
+			return p, nil
+		}
+	}
 	return nil, ErrPendingBlockNotFound
 }
 
 func (s *Synchronizer) PendingBlock() *core.Block {
-	pending, err := s.Pending()
+	pendingData, err := s.PendingData()
 	if err != nil {
 		return nil
 	}
-	return pending.Block
+	return pendingData.GetBlock()
 }
 
 var noop = func() error { return nil }
@@ -605,12 +789,12 @@ var noop = func() error { return nil }
 func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.Pending()
+	pending, err := s.PendingData()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), noop, nil
+	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
@@ -638,7 +822,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		return err
 	}
 
-	emptyPending := &Pending{
+	pending := &Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   latestHeader.GlobalStateRoot,
@@ -647,7 +831,49 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	s.pending.Store(emptyPending)
+	pendingData := pending.AsPendingData()
+	s.pendingData.Store(&pendingData)
+	return nil
+}
+
+func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
+	receipts := make([]*core.TransactionReceipt, 0)
+	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
+		Header: &core.Header{
+			SequencerAddress: latestHeader.SequencerAddress,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  latestHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    latestHeader.L1GasPriceETH,
+			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
+			L2GasPrice:       latestHeader.L2GasPrice,
+			L1DataGasPrice:   latestHeader.L1DataGasPrice,
+			L1DAMode:         latestHeader.L1DAMode,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	if err != nil {
+		return err
+	}
+
+	preConfirmed := core.PreConfirmed{
+		Block: preConfirmedBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   latestHeader.GlobalStateRoot,
+			StateDiff: stateDiff,
+		},
+		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		TransactionStateDiffs: make([]*core.StateDiff, 0),
+		CandidateTxs:          make([]core.Transaction, 0),
+	}
+
+	pendingData := preConfirmed.AsPendingData()
+	s.pendingData.Store(&pendingData)
 	return nil
 }
 
