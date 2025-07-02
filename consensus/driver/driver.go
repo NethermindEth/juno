@@ -139,7 +139,8 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "err", err)
 			}
-			d.syncCommitNotifier <- struct{}{} // Todo: unblock
+			// Blocking call to help prevent StateMachine run ahead of sync
+			d.syncCommitNotifier <- struct{}{}
 		}
 	}
 }

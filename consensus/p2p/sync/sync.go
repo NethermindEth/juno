@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-const fPlus1 = 3 // Todo
+const twofPlus1 = 3 // Todo
 
 type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	driverSyncListener    chan V                     // Notify the Driver that we have fallen behind, and should commit the provided block
@@ -24,9 +24,9 @@ type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	syncPrevoteListener   vote.VoteListener[types.Prevote[H, A], V, H, A]
 	syncPrecommitListener vote.VoteListener[types.Precommit[H, A], V, H, A]
 	p2pSync               p2pSync.Service
-	messages              map[types.Height][]A // height-> []peers
+	messages              map[types.Height]map[A]bool // height-> peer -> bool
 	curHeight             atomic.Uint64
-	driverCommitNotifier  chan struct{} // Prevents this service falling behind the State StateMachine // Todo: Driver needs to ping this
+	driverCommitNotifier  chan struct{} // Prevents this service falling behind the State StateMachine
 	log                   utils.Logger
 }
 
@@ -46,7 +46,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		syncPrecommitListener: syncPrecommitListener,
 		proposalStore:         proposalStore,
 		p2pSync:               p2pSync,
-		messages:              make(map[types.Height][]A),
+		messages:              make(map[types.Height]map[A]bool),
 		driverCommitNotifier:  commitNotifier,
 		log:                   log,
 	}
@@ -58,23 +58,29 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 	networkHeightCh := make(chan uint64)
 
 	// 1) Collect votes & push futureHeight updates
+	// Todo: Ideally we should subscribe to new headers from peers over P2P, instead of
+	// waiting for the network to create 2f+1 messasges at a given height.
+	// This will allow us to sync faster, while (hopefully) simplifiying the logic.
+	// We currently don't have logic to subscribe to new headers over P2P, so continue with this
+	// approach for now.
 	go func() {
 		defer close(networkHeightCh)
 		for {
 			select {
 			// case msg := <-s.syncPrevoteListener.Listen(): // Todo: actually implement this
 			// 	if msg.Height > types.Height(s.curHeight.Load()) {
-			// 		s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
+			// 		s.messages[msg.Height][msg.Sender] = true
 			// 	}
 			case msg := <-s.syncPrevoteListener.Listen():
 				if msg.Height > types.Height(s.curHeight.Load()) {
-					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
+					s.messages[msg.Height][msg.Sender] = true
 				}
 			case msg := <-s.syncPrecommitListener.Listen():
 				if msg.Height > types.Height(s.curHeight.Load()) {
-					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
+					s.messages[msg.Height][msg.Sender] = true
 				}
 			case <-s.driverCommitNotifier:
+				// Only progress the currentHeight counter when the StateMachine commits a block
 				s.deleteOldMessages(types.Height(s.curHeight.Load()))
 				s.curHeight.Add(1)
 			case <-ctx.Done():
@@ -83,7 +89,7 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 
 			// once we see > f+1 at some height, push it
 			for height, senders := range s.messages {
-				if len(senders) > fPlus1 {
+				if len(senders) > twofPlus1 {
 					select {
 					case networkHeightCh <- uint64(height):
 					case <-ctx.Done():
@@ -135,13 +141,6 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 				s.proposalStore.Store(hash, &block)
 
 				s.driverSyncListener <- valueHash
-
-				// Approach 2: somehow reconstruct all the precommits and pass that into the Driver...
-				// 1. we don't know which round the block is associated with. 2. using a fake round is ugly
-				// s.driverPrecommitListener.Receive(ctx,) // Todo: send in all precommit votes, which we don't have.
-				// s.driverProposalListener.Receive(ctx,) // Todo: build proposal
-
-				s.curHeight.Add(1)
 			}
 		}
 	}
