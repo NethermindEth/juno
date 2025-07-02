@@ -19,6 +19,13 @@ import (
 
 const twofPlus1 = 3 // Todo
 
+// Service coordinates the synchronization of block data for a node.
+// It monitors chain height by listening to prevote/precommit votes and proposals.
+// If the node falls behind, it uses the p2pSync service to request missing blocks from peers,
+// stores them in proposalStore, and feeds them into the Driver to be committed.
+// driverCommitNotifier ensures the sync loop does not run ahead of the Driver/StateMachine.
+// Todo: instead of listening to consensus messages, we should ideally use NewHead subscriptions
+// to know when we fall behind. Currently this doesn't exist in P2P, so we continue with this for now.
 type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	driverSyncListener    chan V                     // Notify the Driver that we have fallen behind, and should commit the provided block
 	proposalStore         *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
@@ -60,11 +67,6 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 	networkHeightCh := make(chan uint64)
 
 	// 1) Collect votes & push futureHeight updates
-	// Todo: Ideally we should subscribe to new headers from peers over P2P, instead of
-	// waiting for the network to create 2f+1 messasges at a given height.
-	// This will allow us to sync faster, while (hopefully) simplifiying the logic.
-	// We currently don't have logic to subscribe to new headers over P2P, so continue with this
-	// approach for now.
 	go func() {
 		defer close(networkHeightCh)
 		for {
@@ -141,7 +143,6 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 				hash := H(*block.Pending.Block.Hash)
 				valueHash := *new(V) // Todo: pass in block hash
 				s.proposalStore.Store(hash, &block)
-
 				s.driverSyncListener <- valueHash
 			}
 		}

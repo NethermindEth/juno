@@ -28,16 +28,8 @@ func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []types.Ac
 	})
 }
 
-func (t *stateMachine[V, H, A]) ProcessSyncedBlock(valueID V) []types.Action[V, H, A] {
-	proposal := &types.Proposal[V, H, A]{
-		MessageHeader: types.MessageHeader[A]{
-			// Round isn't provided over sync. We don't know it. And it could be any.
-			// Sender is known. We should populate it. // Todo
-			Height: t.state.height,
-		},
-		Value: &valueID,
-	}
-	return []types.Action[V, H, A]{(*types.Commit[V, H, A])(proposal), t.doCommitValue()}
+func (t *stateMachine[V, H, A]) ProcessSyncedBlock() []types.Action[V, H, A] {
+	return []types.Action[V, H, A]{t.doCommitValue()}
 }
 
 func (t *stateMachine[V, H, A]) ProcessPrecommit(p types.Precommit[H, A]) []types.Action[V, H, A] {

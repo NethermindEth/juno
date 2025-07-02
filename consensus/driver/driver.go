@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
+	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
@@ -33,6 +34,7 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	timeoutsCh   chan types.Timeout
 
 	// indicates that the sync service has updated proposalStore with a block that has been committed by the chain
+	proposalStore      *proposal.ProposalStore[H] // Todo: pass in as arg to New
 	syncListener       chan V
 	syncCommitNotifier chan struct{}
 
@@ -97,8 +99,18 @@ func (d *Driver[V, H, A]) Start() {
 				actions = d.stateMachine.ProcessPrevote(p)
 			case p := <-d.listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
-			case v := <-d.syncListener:
-				actions = d.stateMachine.ProcessSyncedBlock(v)
+			case val := <-d.syncListener:
+				proposal := d.proposalStore.Get(val.Hash())
+				proposalMsg := types.Proposal[V, H, A]{
+					MessageHeader: types.MessageHeader[A]{
+						Height: types.Height(proposal.Pending.Block.Number),
+						Sender: A(*proposal.Pending.Block.SequencerAddress),
+					},
+					Value: &val,
+				}
+				commitAction := (*types.Commit[V, H, A])(&proposalMsg)
+				actions = d.stateMachine.ProcessSyncedBlock()
+				actions = append(actions, commitAction)
 			}
 			d.execute(actions)
 		}

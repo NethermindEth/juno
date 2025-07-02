@@ -97,17 +97,17 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessStart(arg0 any) *gomock.
 }
 
 // ProcessSyncedBlock mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessSyncedBlock(arg0 V) []types.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessSyncedBlock() []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProcessSyncedBlock", arg0)
+	ret := m.ctrl.Call(m, "ProcessSyncedBlock")
 	ret0, _ := ret[0].([]types.Action[V, H, A])
 	return ret0
 }
 
 // ProcessSyncedBlock indicates an expected call of ProcessSyncedBlock.
-func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessSyncedBlock(arg0 any) *gomock.Call {
+func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessSyncedBlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSyncedBlock", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessSyncedBlock), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSyncedBlock", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessSyncedBlock))
 }
 
 // ProcessTimeout mocks base method.
