@@ -120,7 +120,7 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 				case <-ctx.Done():
 					return ctx.Err()
 				case s.outputs <- *state.Proposal:
-					s.syncOutputs <- *state.Proposal
+					go func() { s.syncOutputs <- *state.Proposal }()
 					return nil
 				}
 			default:
