@@ -32,6 +32,9 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
 
+	// indicates that the sync service has updated proposalStore with a block that has been committed by the chain
+	syncListener chan V
+
 	wg   sync.WaitGroup
 	quit chan struct{}
 }
@@ -91,6 +94,8 @@ func (d *Driver[V, H, A]) Start() {
 				actions = d.stateMachine.ProcessPrevote(p)
 			case p := <-d.listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
+			case v := <-d.syncListener:
+				actions = d.stateMachine.ProcessSyncedBlock(v)
 			}
 			d.execute(actions)
 		}
@@ -123,13 +128,13 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			})
 		case *types.Commit[V, H, A]:
 			if err := d.db.Flush(); err != nil {
-				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
+				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "err", err)
 			}
 
 			d.blockchain.Commit(action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
-				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
+				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "err", err)
 			}
 		}
 	}

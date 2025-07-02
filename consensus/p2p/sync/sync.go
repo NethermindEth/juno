@@ -6,11 +6,12 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
-	"github.com/NethermindEth/juno/consensus/p2p"
+	"github.com/NethermindEth/juno/consensus/p2p/vote"
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	p2pSync "github.com/NethermindEth/juno/p2p"
+	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -18,19 +19,22 @@ import (
 const fPlus1 = 3 // Todo
 
 type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	syncListeners   p2p.Listeners[V, H, A]
-	driverListeners p2p.Listeners[V, H, A]
-	p2pSync         p2pSync.Service
-	proposalStore   *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
-	messages        map[types.Height][]A       // height-> []peers
-	curHeight       atomic.Uint64
-	futureHeight    uint64
-	commitNotifier  chan struct{} // Prevents this service falling behind the State StateMachine // Todo: Driver needs to ping this
-	log             utils.Logger
+	driverSyncListener    chan V
+	syncPrevoteListener   vote.VoteListener[types.Prevote[H, A], V, H, A]
+	syncPrecommitListener vote.VoteListener[types.Precommit[H, A], V, H, A]
+	p2pSync               p2pSync.Service
+	proposalStore         *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
+	messages              map[types.Height][]A       // height-> []peers
+	curHeight             atomic.Uint64
+	futureHeight          uint64
+	commitNotifier        chan struct{} // Prevents this service falling behind the State StateMachine // Todo: Driver needs to ping this
+	log                   utils.Logger
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	syncListeners, driverListeners p2p.Listeners[V, H, A],
+	driverSyncListener chan V,
+	syncPrevoteListener vote.VoteListener[types.Prevote[H, A], V, H, A],
+	syncPrecommitListener vote.VoteListener[types.Precommit[H, A], V, H, A],
 	proposalStore *proposal.ProposalStore[H],
 	p2pSync p2pSync.Service,
 	curHeight uint64,
@@ -38,13 +42,14 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 ) *Service[V, H, A] {
 	srv := Service[V, H, A]{
-		syncListeners:   syncListeners,
-		driverListeners: driverListeners,
-		proposalStore:   proposalStore,
-		p2pSync:         p2pSync,
-		messages:        make(map[types.Height][]A),
-		commitNotifier:  commitNotifier,
-		log:             log,
+		driverSyncListener:    driverSyncListener,
+		syncPrevoteListener:   syncPrevoteListener,
+		syncPrecommitListener: syncPrecommitListener,
+		proposalStore:         proposalStore,
+		p2pSync:               p2pSync,
+		messages:              make(map[types.Height][]A),
+		commitNotifier:        commitNotifier,
+		log:                   log,
 	}
 	srv.curHeight.Store(curHeight)
 	return &srv
@@ -58,33 +63,34 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 		defer close(networkHeightCh)
 		for {
 			select {
-			case msg := <-s.syncListeners.ProposalListener.Listen(): // Todo: actually implement this
+			// case msg := <-s.syncPrevoteListener.Listen(): // Todo: actually implement this
+			// 	if msg.Height > types.Height(s.curHeight.Load()) {
+			// 		s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
+			// 	}
+			case msg := <-s.syncPrevoteListener.Listen():
 				if msg.Height > types.Height(s.curHeight.Load()) {
 					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
 				}
-			case msg := <-s.syncListeners.PrevoteListener.Listen():
-				if msg.Height > types.Height(s.curHeight.Load()) {
-					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
-				}
-			case msg := <-s.syncListeners.PrecommitListener.Listen():
+			case msg := <-s.syncPrecommitListener.Listen():
 				if msg.Height > types.Height(s.curHeight.Load()) {
 					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
 				}
 			case <-s.commitNotifier:
-				s.curHeight.Add(1)
 				s.deleteOldMessages(types.Height(s.curHeight.Load()))
+				s.curHeight.Add(1)
 			case <-ctx.Done():
 				return
 			}
 
 			// once we see > f+1 at some height, push it
-			for h, senders := range s.messages {
+			for height, senders := range s.messages {
 				if len(senders) > fPlus1 {
 					select {
-					case networkHeightCh <- uint64(h):
+					case networkHeightCh <- uint64(height):
 					case <-ctx.Done():
+						return
 					}
-					s.deleteOldMessages(h)
+					s.deleteOldMessages(height)
 					break
 				}
 			}
@@ -100,6 +106,7 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 				continue
 			}
 			for b := range blocksCh {
+				// Peers don't send this, so we must recalculate it.
 				concatCount := core.ConcatCounts(
 					b.Block.TransactionCount,
 					b.Block.EventCount,
@@ -122,9 +129,19 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 					// specific check (in Commit()) until the spec is updated (ie or peers communicate it)
 					L2GasConsumed: uint64(0),
 				}
+
+				// Approach 1: store the proposal/block. Notify the Driver that the proposalStore has been updated, and to commit the block
 				hash := H(*block.Pending.Block.Hash)
+				valueHash := *new(V) // Todo: pass in block hash
 				s.proposalStore.Store(hash, &block)
-				s.driverListeners.ProposalListener <- types.Proposal[V, H, A]{} // Todo
+
+				s.driverSyncListener <- valueHash
+
+				// Approach 2: somehow reconstruct all the precommits and pass that into the Driver...
+				// 1. we don't know which round the block is associated with. 2. using a fake round is ugly
+				// s.driverPrecommitListener.Receive(ctx,) // Todo: send in all precommit votes, which we don't have.
+				// s.driverProposalListener.Receive(ctx,) // Todo: build proposal
+
 				s.curHeight.Add(1)
 			}
 		}

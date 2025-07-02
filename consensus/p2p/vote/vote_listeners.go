@@ -12,17 +12,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type voteListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] chan M
+type VoteListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] chan M
 
-func newListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr](bufferSize int) voteListener[M, V, H, A] {
-	return voteListener[M, V, H, A](make(chan M, bufferSize))
+func newListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr](bufferSize int) VoteListener[M, V, H, A] {
+	return VoteListener[M, V, H, A](make(chan M, bufferSize))
 }
 
-func (l voteListener[M, V, H, A]) Listen() <-chan M {
+func (l VoteListener[M, V, H, A]) Listen() <-chan M {
 	return l
 }
 
-func (l voteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
+func (l VoteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
 	select {
 	case <-ctx.Done():
 		return
@@ -30,20 +30,20 @@ func (l voteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
 	}
 }
 
-type voteListeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+type VoteListeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	buffered.TopicSubscription
 	log                   utils.Logger
-	PrevoteListener       voteListener[types.Prevote[H, A], V, H, A]
-	PrecommitListener     voteListener[types.Precommit[H, A], V, H, A]
-	SyncPrevoteListener   voteListener[types.Prevote[H, A], V, H, A]
-	SyncPrecommitListener voteListener[types.Precommit[H, A], V, H, A]
+	PrevoteListener       VoteListener[types.Prevote[H, A], V, H, A]
+	PrecommitListener     VoteListener[types.Precommit[H, A], V, H, A]
+	SyncPrevoteListener   VoteListener[types.Prevote[H, A], V, H, A]
+	SyncPrecommitListener VoteListener[types.Precommit[H, A], V, H, A]
 }
 
 func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	voteAdapter VoteAdapter[H, A],
 	bufferSizeConfig *config.BufferSizes,
-) voteListeners[V, H, A] {
+) VoteListeners[V, H, A] {
 	prevoteListener := newListener[types.Prevote[H, A], V, H, A](bufferSizeConfig.PrevoteOutput)
 	precommitListener := newListener[types.Precommit[H, A], V, H, A](bufferSizeConfig.PrecommitOutput)
 
@@ -78,7 +78,7 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 		}
 	}
 
-	return voteListeners[V, H, A]{
+	return VoteListeners[V, H, A]{
 		TopicSubscription:     buffered.NewTopicSubscription(log, bufferSizeConfig.VoteSubscription, onMessage),
 		log:                   log,
 		PrevoteListener:       prevoteListener,

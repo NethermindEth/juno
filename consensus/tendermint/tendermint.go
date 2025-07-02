@@ -42,6 +42,7 @@ type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ProcessProposal(types.Proposal[V, H, A]) []types.Action[V, H, A]
 	ProcessPrevote(types.Prevote[H, A]) []types.Action[V, H, A]
 	ProcessPrecommit(types.Precommit[H, A]) []types.Action[V, H, A]
+	ProcessSyncedBlock(V) []types.Action[V, H, A] // The StateMachine has fallen behind, but sync has provided the block that has been committed
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
