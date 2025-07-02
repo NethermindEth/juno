@@ -53,7 +53,7 @@ type Service struct {
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+	log utils.SimpleLogger, database db.KeyValueStore, p2pCommitNotifier chan uint64,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -110,11 +110,11 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	// Todo: try to understand what will happen if user passes a multiaddr with p2p public and a private key which doesn't match.
 	// For example, a user passes the following multiaddr: --p2p-addr=/ip4/0.0.0.0/tcp/7778/p2p/(SomePublicKey) and also passes a
 	// --p2p-private-key="SomePrivateKey". However, the private public key pair don't match, in this case what will happen?
-	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
+	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database, p2pCommitNotifier)
 }
 
 func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+	log utils.SimpleLogger, database db.KeyValueStore, p2pCommitNotifier chan uint64,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -145,7 +145,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	// todo: reconsider initialising synchroniser here because if node is a feedernode we shouldn't not create an instance of it.
 
-	synchroniser := p2pSync.New(bc, p2phost, snNetwork, log)
+	synchroniser := p2pSync.New(bc, p2phost, snNetwork, log, p2pCommitNotifier)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,

@@ -32,6 +32,9 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
 
+	p2pCommitNotifier chan uint64 // Todo: pass into New (keeping git-diff small for now)
+	heightPreSync     types.Height
+
 	wg   sync.WaitGroup
 	quit chan struct{}
 }
@@ -91,6 +94,9 @@ func (d *Driver[V, H, A]) Start() {
 				actions = d.stateMachine.ProcessPrevote(p)
 			case p := <-d.listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
+			case h := <-d.p2pCommitNotifier:
+				d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
+				d.deleteOldWAL(types.Height(h))
 			}
 			d.execute(actions)
 		}
@@ -102,6 +108,17 @@ func (d *Driver[V, H, A]) Stop() {
 	d.wg.Wait()
 	for _, tm := range d.scheduledTms {
 		tm.Stop()
+	}
+}
+
+func (d *Driver[V, H, A]) deleteOldWAL(heightPostSync types.Height) {
+	if err := d.db.Flush(); err != nil {
+		d.log.Fatalf("failed to flush WAL during commit", "height", d.heightPreSync, "err", err)
+	}
+	for i := d.heightPreSync; i < heightPostSync; i++ {
+		if err := d.db.DeleteWALEntries(heightPostSync); err != nil {
+			d.log.Errorw("failed to delete WAL messages during commit", "height", i, "err", err)
+		}
 	}
 }
 
