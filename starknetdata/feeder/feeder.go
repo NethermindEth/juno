@@ -190,6 +190,5 @@ func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint
 		return nil, err
 	}
 
-	adaptedPreConfirmed.Block.Number = blockNumber
 	return &adaptedPreConfirmed, nil
 }
