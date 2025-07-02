@@ -67,7 +67,7 @@ func TestProposalStreamDemux(t *testing.T) {
 	builder := builder.New(bc, executor)
 	transition := NewTransition(&builder)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	demux := NewProposalStreamDemux(logger, &proposalStore, transition, &config.DefaultBufferSizes, commitNotifier, block1)
+	demux := NewProposalStreamDemux(logger, &proposalStore, transition, &config.DefaultBufferSizes, commitNotifier, block1, nil) // Todo: use actual channel
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {

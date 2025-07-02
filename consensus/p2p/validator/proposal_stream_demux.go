@@ -54,7 +54,8 @@ type proposalStreamDemux struct {
 	commitNotifier       <-chan types.Height
 	streams              map[streamID]*proposalStream
 	streamHeights        map[types.Height][]streamID
-	outputs              chan starknet.Proposal // Sync intercepts this before Driver receives the proposals
+	outputs              chan starknet.Proposal
+	syncOutputs          chan starknet.Proposal
 	currentHeight        types.Height
 	currentHeightCancel  context.CancelFunc
 	currentHeightCtxPool *pool.ContextPool
@@ -67,6 +68,7 @@ func NewProposalStreamDemux(
 	bufferSizeConfig *config.BufferSizes,
 	commitNotifier <-chan types.Height,
 	currentHeight types.Height,
+	syncOutputs chan starknet.Proposal,
 ) ProposalStreamDemux[starknet.Value, starknet.Hash, starknet.Address] {
 	return &proposalStreamDemux{
 		log:              log,
@@ -77,6 +79,7 @@ func NewProposalStreamDemux(
 		streams:          make(map[streamID]*proposalStream),
 		streamHeights:    make(map[types.Height][]streamID),
 		outputs:          make(chan starknet.Proposal, bufferSizeConfig.ProposalOutputs),
+		syncOutputs:      syncOutputs,
 		currentHeight:    currentHeight,
 	}
 }
@@ -240,7 +243,7 @@ func (t *proposalStreamDemux) getStream(id streamID) *proposalStream {
 	if stream, exists := t.streams[id]; exists {
 		return stream
 	}
-	stream := newSingleProposalStream(t.log, t.proposalStore, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs)
+	stream := newSingleProposalStream(t.log, t.proposalStore, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs, t.syncOutputs)
 	t.streams[id] = stream
 	return stream
 }

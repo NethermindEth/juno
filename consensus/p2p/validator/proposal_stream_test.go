@@ -81,7 +81,7 @@ func buildMessage(t *testing.T, sequenceNumber uint64, proposalPart *consensus.P
 func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expectedErrorMsg string, message *consensus.StreamMessage) {
 	t.Helper()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(nil), 0, nil)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(nil), 0, nil, nil) // Todo: use actual channel
 	height, err := stream.start(t.Context(), message)
 	assert.Equal(t, expectedHeight, height)
 	if expectedErrorMsg != "" {
@@ -307,7 +307,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, proposalInit *consensus.ProposalPart, steps []step) {
 	outputs := make(chan starknet.Proposal, 1)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(builder), 0, outputs)
+	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(builder), 0, outputs, nil) // Todo: use actual channel
 	_, err := stream.start(t.Context(), buildMessage(t, 1, proposalInit))
 	require.NoError(t, err)
 
