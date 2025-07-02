@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/vote"
 	"github.com/NethermindEth/juno/consensus/proposal"
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	p2pSync "github.com/NethermindEth/juno/p2p"
@@ -21,6 +22,8 @@ const twofPlus1 = 3 // Todo
 type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	driverSyncListener    chan V                     // Notify the Driver that we have fallen behind, and should commit the provided block
 	proposalStore         *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
+	proposalDemuxOuputs   chan starknet.Proposal     // Intercept the proposals from the demux, then forward onto the Driver
+	proposalDriverOuputs  chan starknet.Proposal
 	syncPrevoteListener   vote.VoteListener[types.Prevote[H, A], V, H, A]
 	syncPrecommitListener vote.VoteListener[types.Precommit[H, A], V, H, A]
 	p2pSync               p2pSync.Service
@@ -67,10 +70,11 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 		defer close(networkHeightCh)
 		for {
 			select {
-			// case msg := <-s.syncPrevoteListener.Listen(): // Todo: actually implement this
-			// 	if msg.Height > types.Height(s.curHeight.Load()) {
-			// 		s.messages[msg.Height][msg.Sender] = true
-			// 	}
+			case proposal := <-s.proposalDemuxOuputs:
+				if proposal.Height > types.Height(s.curHeight.Load()) {
+					s.messages[proposal.Height][A(proposal.Sender)] = true
+				}
+				s.proposalDriverOuputs <- proposal
 			case msg := <-s.syncPrevoteListener.Listen():
 				if msg.Height > types.Height(s.curHeight.Load()) {
 					s.messages[msg.Height][msg.Sender] = true
@@ -128,7 +132,7 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 						ConcatCount:      concatCount,
 						BlockCommitments: b.Commitments,
 					},
-					// Todo(!) : unless our peers give us this value, we can only get it via re-execution, which
+					// Todo(!) : unless our peers give us this value, we can only estimate this via re-execution, which
 					// we shouldn't do. The spec should be updated. For now, we can set it to zero so that
 					// we can correctly process empty blocks. For non-empty blocks we should ignore this
 					// specific check (in Commit()) until the spec is updated (ie or peers communicate it)

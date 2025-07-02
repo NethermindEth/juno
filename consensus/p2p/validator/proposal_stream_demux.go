@@ -54,7 +54,7 @@ type proposalStreamDemux struct {
 	commitNotifier       <-chan types.Height
 	streams              map[streamID]*proposalStream
 	streamHeights        map[types.Height][]streamID
-	outputs              chan starknet.Proposal
+	outputs              chan starknet.Proposal // Sync intercepts this before Driver receives the proposals
 	currentHeight        types.Height
 	currentHeightCancel  context.CancelFunc
 	currentHeightCtxPool *pool.ContextPool
