@@ -98,6 +98,11 @@ func (d *Driver[V, H, A]) Start() {
 				// Todo: consider blocking consensus altogehter since sending votes for
 				// old heights is a waste of resources, and we can't process the latest height
 				// since we are behind the network (demux can continue though)
+				// Blocking would be simple:
+				// 		case <-d.p2pBehindNetworkNotifier:
+				// 			h := <-d.p2pCommitNotifier
+				//			d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
+				//			...
 
 				// Todo: consider race conditions and blocking processes
 				// case 1: sync runs ahead of state machine. This means we are behind, and sync will force state machine to jump
