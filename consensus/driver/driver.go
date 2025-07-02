@@ -33,7 +33,8 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	timeoutsCh   chan types.Timeout
 
 	// indicates that the sync service has updated proposalStore with a block that has been committed by the chain
-	syncListener chan V
+	syncListener       chan V
+	syncCommitNotifier chan struct{}
 
 	wg   sync.WaitGroup
 	quit chan struct{}
@@ -47,18 +48,20 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	listeners p2p.Listeners[V, H, A],
 	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
+	syncCommitNotifier chan struct{},
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
-		log:          log,
-		db:           db,
-		stateMachine: stateMachine,
-		blockchain:   blockchain,
-		getTimeout:   getTimeout,
-		listeners:    listeners,
-		broadcasters: broadcasters,
-		scheduledTms: make(map[types.Timeout]*time.Timer),
-		timeoutsCh:   make(chan types.Timeout),
-		quit:         make(chan struct{}),
+		log:                log,
+		db:                 db,
+		stateMachine:       stateMachine,
+		blockchain:         blockchain,
+		getTimeout:         getTimeout,
+		listeners:          listeners,
+		broadcasters:       broadcasters,
+		scheduledTms:       make(map[types.Timeout]*time.Timer),
+		timeoutsCh:         make(chan types.Timeout),
+		quit:               make(chan struct{}),
+		syncCommitNotifier: syncCommitNotifier,
 	}
 }
 
@@ -136,6 +139,7 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "err", err)
 			}
+			d.syncCommitNotifier <- struct{}{} // Todo: unblock
 		}
 	}
 }

@@ -19,15 +19,14 @@ import (
 const fPlus1 = 3 // Todo
 
 type Service[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	driverSyncListener    chan V
+	driverSyncListener    chan V                     // Notify the Driver that we have fallen behind, and should commit the provided block
+	proposalStore         *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
 	syncPrevoteListener   vote.VoteListener[types.Prevote[H, A], V, H, A]
 	syncPrecommitListener vote.VoteListener[types.Precommit[H, A], V, H, A]
 	p2pSync               p2pSync.Service
-	proposalStore         *proposal.ProposalStore[H] // So the Driver can see the block we need to commit
-	messages              map[types.Height][]A       // height-> []peers
+	messages              map[types.Height][]A // height-> []peers
 	curHeight             atomic.Uint64
-	futureHeight          uint64
-	commitNotifier        chan struct{} // Prevents this service falling behind the State StateMachine // Todo: Driver needs to ping this
+	driverCommitNotifier  chan struct{} // Prevents this service falling behind the State StateMachine // Todo: Driver needs to ping this
 	log                   utils.Logger
 }
 
@@ -48,7 +47,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		proposalStore:         proposalStore,
 		p2pSync:               p2pSync,
 		messages:              make(map[types.Height][]A),
-		commitNotifier:        commitNotifier,
+		driverCommitNotifier:  commitNotifier,
 		log:                   log,
 	}
 	srv.curHeight.Store(curHeight)
@@ -75,7 +74,7 @@ func (s *Service[V, H, A]) Run(ctx context.Context) {
 				if msg.Height > types.Height(s.curHeight.Load()) {
 					s.messages[msg.Height] = append(s.messages[msg.Height], msg.Sender)
 				}
-			case <-s.commitNotifier:
+			case <-s.driverCommitNotifier:
 				s.deleteOldMessages(types.Height(s.curHeight.Load()))
 				s.curHeight.Add(1)
 			case <-ctx.Done():

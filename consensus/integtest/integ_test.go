@@ -80,6 +80,7 @@ func runTest(t *testing.T, cfg testConfig) {
 			network.getListeners(nodeAddr),
 			network.getBroadcasters(nodeAddr),
 			getTimeoutFn(cfg),
+			make(chan struct{}), // Todo: make sure doesn't block
 		)
 
 		driver.Start()
