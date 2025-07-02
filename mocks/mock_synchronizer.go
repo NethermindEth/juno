@@ -55,21 +55,6 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
-// Pending mocks base method.
-func (m *MockSyncReader) Pending() (*sync.Pending, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Pending")
-	ret0, _ := ret[0].(*sync.Pending)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Pending indicates an expected call of Pending.
-func (mr *MockSyncReaderMockRecorder) Pending() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockSyncReader)(nil).Pending))
-}
-
 // PendingBlock mocks base method.
 func (m *MockSyncReader) PendingBlock() *core.Block {
 	m.ctrl.T.Helper()
@@ -82,6 +67,21 @@ func (m *MockSyncReader) PendingBlock() *core.Block {
 func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingBlock", reflect.TypeOf((*MockSyncReader)(nil).PendingBlock))
+}
+
+// PendingData mocks base method.
+func (m *MockSyncReader) PendingData() (*core.PendingData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingData")
+	ret0, _ := ret[0].(*core.PendingData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingData indicates an expected call of PendingData.
+func (mr *MockSyncReaderMockRecorder) PendingData() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingData", reflect.TypeOf((*MockSyncReader)(nil).PendingData))
 }
 
 // PendingState mocks base method.
@@ -141,6 +141,20 @@ func (m *MockSyncReader) SubscribePending() sync.PendingSubscription {
 func (mr *MockSyncReaderMockRecorder) SubscribePending() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePending", reflect.TypeOf((*MockSyncReader)(nil).SubscribePending))
+}
+
+// SubscribePreConfirmed mocks base method.
+func (m *MockSyncReader) SubscribePreConfirmed() sync.PreConfirmedSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribePreConfirmed")
+	ret0, _ := ret[0].(sync.PreConfirmedSubscription)
+	return ret0
+}
+
+// SubscribePreConfirmed indicates an expected call of SubscribePreConfirmed.
+func (mr *MockSyncReaderMockRecorder) SubscribePreConfirmed() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreConfirmed", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreConfirmed))
 }
 
 // SubscribeReorg mocks base method.
