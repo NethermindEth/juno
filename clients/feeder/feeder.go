@@ -140,39 +140,10 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 
 		require.NoError(t, err)
 
-		queryArg := ""
-		dir := ""
-		const blockNumberArg = "blockNumber"
-		switch {
-		case strings.HasSuffix(r.URL.Path, "get_block"):
-			dir = "block"
-			queryArg = blockNumberArg
-		case strings.HasSuffix(r.URL.Path, "get_state_update"):
-			queryArg = blockNumberArg
-			if includeBlock, ok := queryMap["includeBlock"]; !ok || len(includeBlock) == 0 {
-				dir = "state_update"
-			} else {
-				dir = "state_update_with_block"
-			}
-		case strings.HasSuffix(r.URL.Path, "get_transaction"):
-			dir = "transaction"
-			queryArg = "transactionHash"
-		case strings.HasSuffix(r.URL.Path, "get_class_by_hash"):
-			dir = "class"
-			queryArg = "classHash"
-		case strings.HasSuffix(r.URL.Path, "get_compiled_class_by_class_hash"):
-			dir = "compiled_class"
-			queryArg = "classHash"
-		case strings.HasSuffix(r.URL.Path, "get_public_key"):
-			dir = "public_key"
-			queryArg = "pk"
-			queryMap[queryArg] = []string{queryArg}
-		case strings.HasSuffix(r.URL.Path, "get_signature"):
-			dir = "signature"
-			queryArg = blockNumberArg
-		case strings.HasSuffix(r.URL.Path, "get_block_traces"):
-			dir = "traces"
-			queryArg = "blockHash"
+		dir, queryArg, err := resolveDirAndQueryArg(t, r.URL.Path, queryMap)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 
 		fileName, found := queryMap[queryArg]
@@ -193,6 +164,61 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 		}
 		w.Write(read) //nolint:errcheck
 	}))
+}
+
+func resolveDirAndQueryArg(t testing.TB, path string, queryMap url.Values) (string, string, error) {
+	t.Helper()
+
+	var dir, queryArg string
+	var err error
+	const blockNumberArg = "blockNumber"
+
+	switch {
+	case strings.HasSuffix(path, "get_block"):
+		dir = "block"
+		queryArg = blockNumberArg
+
+	case strings.HasSuffix(path, "get_state_update"):
+		queryArg = blockNumberArg
+		if includeBlock, ok := queryMap["includeBlock"]; !ok || len(includeBlock) == 0 {
+			dir = "state_update"
+		} else {
+			dir = "state_update_with_block"
+		}
+
+	case strings.HasSuffix(path, "get_transaction"):
+		dir = "transaction"
+		queryArg = "transactionHash"
+
+	case strings.HasSuffix(path, "get_class_by_hash"):
+		dir = "class"
+		queryArg = "classHash"
+
+	case strings.HasSuffix(path, "get_compiled_class_by_class_hash"):
+		dir = "compiled_class"
+		queryArg = "classHash"
+
+	case strings.HasSuffix(path, "get_public_key"):
+		dir = "public_key"
+		queryArg = "pk"
+		queryMap[queryArg] = []string{queryArg} // keep previous behaviour
+
+	case strings.HasSuffix(path, "get_signature"):
+		dir = "signature"
+		queryArg = blockNumberArg
+
+	case strings.HasSuffix(path, "get_block_traces"):
+		dir = "traces"
+		queryArg = "blockHash"
+
+	case strings.HasSuffix(path, "get_preconfirmed_block"):
+		dir = "pre_confirmed"
+		queryArg = blockNumberArg
+
+	default:
+		err = errors.New("unknown endpoint")
+	}
+	return dir, queryArg, err
 }
 
 func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
