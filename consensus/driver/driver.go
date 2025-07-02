@@ -95,6 +95,9 @@ func (d *Driver[V, H, A]) Start() {
 			case p := <-d.listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
 			case h := <-d.p2pCommitNotifier:
+				// Todo: consider blocking consensus altogehter since sending votes for
+				// old heights is a waste of resources, and we can't process the latest height
+				// since we are behind the network (demux can continue though)
 				d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
 				d.deleteOldWAL(types.Height(h))
 			}
