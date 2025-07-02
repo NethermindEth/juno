@@ -477,7 +477,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB := h.syncReader.PendingBlock()
+		pendingB := h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -509,16 +509,16 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if blockID.IsPending() {
-		pending, err := h.syncReader.Pending()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) > pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(blockID)
@@ -550,7 +550,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -601,11 +601,25 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	var (
+		res *AddTxResponse
+		err *jsonrpc.Error
+	)
 	if h.memPool != nil {
-		return h.addToMempool(&tx)
+		res, err = h.addToMempool(&tx)
 	} else {
-		return h.pushToFeederGateway(ctx, tx)
+		res, err = h.pushToFeederGateway(ctx, tx)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add(res.TransactionHash)
+	}
+
+	return res, nil
 }
 
 func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
@@ -718,6 +732,17 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
+		if h.submittedTransactionsCache != nil {
+			switch txStatus.FinalityStatus {
+			case starknet.NotReceived:
+				if h.submittedTransactionsCache.Contains(&hash) {
+					txStatus.FinalityStatus = starknet.Received
+				}
+			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
+				h.submittedTransactionsCache.Remove(&hash)
+			}
+		}
+
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
@@ -777,7 +802,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidTransactionNonce:
 		return rpccore.ErrInvalidTransactionNonce
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
 		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:

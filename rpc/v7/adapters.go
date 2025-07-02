@@ -39,7 +39,12 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation))
+			if trace.FunctionInvocation.FunctionInvocation != nil {
+				functionInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
+			} else {
+				defaultResult := rpcv6.DefaultL1HandlerFunctionInvocation()
+				functionInvocation = &defaultResult
+			}
 		}
 	}
 

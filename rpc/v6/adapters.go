@@ -39,7 +39,12 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation))
+			if trace.FunctionInvocation.FunctionInvocation != nil {
+				functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
+			} else {
+				defaultResult := DefaultL1HandlerFunctionInvocation()
+				functionInvocation = &defaultResult
+			}
 		}
 	}
 
@@ -337,5 +342,22 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Compu
 		Keccak:       builtins.Keccak,
 		Poseidon:     builtins.Poseidon,
 		SegmentArena: builtins.SegmentArena,
+	}
+}
+
+func DefaultL1HandlerFunctionInvocation() FunctionInvocation {
+	return FunctionInvocation{
+		CallType:           "CALL",
+		Calldata:           []felt.Felt{},
+		CallerAddress:      felt.Zero,
+		Calls:              []FunctionInvocation{},
+		ClassHash:          &felt.Zero,
+		ContractAddress:    felt.Zero,
+		EntryPointSelector: &felt.Zero,
+		EntryPointType:     "L1_HANDLER",
+		Events:             []OrderedEvent{},
+		ExecutionResources: &ComputationResources{},
+		Messages:           []OrderedL2toL1Message{},
+		Result:             []felt.Felt{},
 	}
 }

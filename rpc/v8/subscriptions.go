@@ -345,7 +345,7 @@ func (h *Handler) checkTxStatus(
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to uint64, fromAddr *felt.Felt,
 	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
 		h.log.Warnw("Error creating event filter", "err", err)
 		return err
@@ -478,7 +478,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			if pending := h.syncReader.PendingBlock(); pending != nil {
+			if pending := h.PendingBlock(); pending != nil {
 				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 			}
 			return nil

@@ -12,6 +12,7 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -25,6 +26,7 @@ func TestRun(t *testing.T) {
 	newHeadsSub := feed.New[*core.Block]()
 	reorgSub := feed.New[*sync.ReorgBlockRange]()
 	pendingSub := feed.New[*core.Block]()
+	preConfirmedSub := feed.New[*core.PreConfirmed]()
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -32,11 +34,13 @@ func TestRun(t *testing.T) {
 	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribePending().Return(sync.PendingSubscription{Subscription: pendingSub.Subscribe()}).AnyTimes()
+	mockSyncReader.EXPECT().SubscribePreConfirmed().Return(sync.PreConfirmedSubscription{Subscription: preConfirmedSub.Subscribe()}).AnyTimes()
 
 	handler := &Handler{
 		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
 		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, "", nil, nil),
 		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, "", nil),
+		rpcv9Handler: rpcv9.New(mockBcReader, mockSyncReader, nil, "", nil),
 	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)

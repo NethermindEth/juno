@@ -50,7 +50,7 @@ pub struct TransactionTrace {
     #[serde(skip_serializing_if = "Option::is_none")]
     constructor_invocation: Option<FunctionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    function_invocation: Option<FunctionInvocation>,
+    function_invocation: Option<ExecuteInvocation>,
     r#type: TransactionType,
     state_diff: StateDiff,
 }
@@ -76,7 +76,7 @@ impl From<StateMaps> for StateDiff {
                     let starkfelt_address = address.into();
                     let entry = Entry {
                         key: key.into(),
-                        value: value.into(),
+                        value,
                     };
 
                     acc.entry(starkfelt_address)
@@ -98,7 +98,7 @@ impl From<StateMaps> for StateDiff {
             .into_iter()
             .map(|(address, nonce)| Nonce {
                 contract_address: address.into(),
-                nonce: (*nonce).into(),
+                nonce: *nonce,
             })
             .collect();
 
@@ -107,7 +107,7 @@ impl From<StateMaps> for StateDiff {
             .into_iter()
             .map(|(address, class_hash)| DeployedContract {
                 address: address.into(),
-                class_hash: (*class_hash).into(),
+                class_hash: *class_hash,
             })
             .collect();
 
@@ -115,15 +115,15 @@ impl From<StateMaps> for StateDiff {
             .declared_contracts
             .into_iter()
             .filter(|(_, is_deprecated)| *is_deprecated)
-            .map(|(class_hash, _)| (*class_hash).into())
+            .map(|(class_hash, _)| *class_hash)
             .collect();
 
         let declared_classes = state_maps
             .compiled_class_hashes
             .into_iter()
             .map(|(class_hash, compiled_class_hash)| DeclaredClass {
-                class_hash: (*class_hash).into(),
-                compiled_class_hash: compiled_class_hash.0.into(),
+                class_hash: *class_hash,
+                compiled_class_hash: compiled_class_hash.0,
             })
             .collect();
 
@@ -181,6 +181,7 @@ struct DeclaredClass {
     compiled_class_hash: StarkFelt,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize)]
 #[serde(untagged)]
 pub enum ExecuteInvocation {
@@ -198,7 +199,14 @@ pub fn new_transaction_trace(
     let mut deprecated_declared_class_hash: Option<ClassHash> = None;
     match tx {
         StarknetApiTransaction::L1Handler(_) => {
-            trace.function_invocation = info.execute_call_info.map(|v| v.into());
+            trace.function_invocation = match info.revert_error {
+                Some(err) => Some(ExecuteInvocation::Revert {
+                    revert_reason: err.to_string(),
+                }),
+                None => info
+                    .execute_call_info
+                    .map(|v| ExecuteInvocation::Ok(v.into())),
+            };
             trace.r#type = TransactionType::L1Handler;
         }
         StarknetApiTransaction::DeployAccount(_) => {
