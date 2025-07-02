@@ -182,7 +182,7 @@ func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint
 	}
 
 	if response.Status != "PRE_CONFIRMED" {
-		return nil, errors.New("invalid status for pre confirmed block")
+		return nil, errors.New("invalid status for pre_confirmed block")
 	}
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
