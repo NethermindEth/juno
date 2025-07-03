@@ -20,6 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+var errTransactionNotFound = errors.New("transaction not found")
+
 type TransactionType uint8
 
 const (
@@ -690,8 +692,6 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 		ClassHash:       gatewayResponse.ClassHash,
 	}, nil
 }
-
-var errTransactionNotFound = errors.New("transaction not found")
 
 func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
