@@ -43,6 +43,10 @@ func NewExecutor(
 // RunTxns executes the provided transaction and applies the state changes
 // to the pending state
 func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) (err error) {
+	if len(txns) == 0 {
+		return nil
+	}
+
 	headState, headCloser, err := e.blockchain.HeadState()
 	if err != nil {
 		return err

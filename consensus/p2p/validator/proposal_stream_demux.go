@@ -201,6 +201,11 @@ func (t *proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMe
 // onFirstMessage is called when the first message is received for a stream.
 func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
 	stream := t.getStream(streamID)
+	if stream.started {
+		// If the stream is already started, then we don't need to start it again
+		return nil
+	}
+
 	// Start the stream and get the height from the first message
 	height, err := stream.start(ctx, message)
 	if err != nil {

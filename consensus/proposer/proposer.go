@@ -2,103 +2,175 @@ package proposer
 
 import (
 	"context"
-	"errors"
+	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/builder"
+	"github.com/NethermindEth/juno/consensus/proposal"
+	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/service"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
-const NumTxnsToBatchExecute = 10 // TODO: Make this configurable
+const (
+	transactionReceiverBufferSize = 1024            // TODO: Make this configurable
+	retryTimeForFailedInit        = 1 * time.Second // TODO: Make this configurable
+)
 
-// Proposer defines the interface for constructing a block proposal in two possible flows:
-//
-// 1. **Empty Block Flow**
-//    - Used when no transactions are available.
-//    - Sequence: ProposalInit() → ProposalCommitment() → ProposalFin()
-//
-// 2. **Non-Empty Block Flow**
-//    - Used when transactions are present in the mempool.
-//    - Sequence: ProposalInit() → BlockInfo(ctx) → Txns(ctx) → ProposalCommitment() → ProposalFin()
-//
-// Method semantics:
-// - ProposalInit and ProposalFin are synchronous.
-// - BlockInfo(ctx) blocks until the mempool is non-empty or the context expires, and indicates if the block is empty.
-// - Txns(ctx) streams executed transaction batches until the context is cancelled.
-// - ProposalCommitment blocks until the proposal is finalised.
-//
-// The caller is responsible for coordinating the flow and enforcing timeouts using context.
-// All blocking methods should be passed a context with an appropriate deadline to avoid indefinite blocking.
-//
-// Example usage:
-//
-//		proposalInit, err := proposer.ProposalInit()
-//		...
-//
-//		blockInfo, isEmpty := proposer.BlockInfo(ctx)
-//		if !isEmpty {
-//			for res := range proposer.Txns(ctx) {
-//				if res.Err != nil {
-//					// handle error
-//					break
-//				}
-//				// handle res.Txns
-//			}
-//		}
-//		...
-//
-//		commitment, err := proposer.ProposalCommitment()
-//		...
-//
-//		fin, err := proposer.ProposalFin()
-//		...
-
-//go:generate mockgen -destination=../mocks/mock_proposer.go -package=mocks github.com/NethermindEth/juno/consensus/Proposer Proposer
-type Proposer interface {
-	ProposalInit() (types.ProposalInit, error)
-
-	// Blocks until BlockInfo is ready, then returns it.
-	BlockInfo(ctx context.Context) (types.BlockInfo, bool)
-
-	// Returns a channel that emits transaction batches (can emit multiple times).
-	Txns(ctx context.Context) <-chan []types.Transaction
-
-	// Blocks until the proposal commitment is ready or context is cancelled.
-	ProposalCommitment() (types.ProposalCommitment, error)
-
-	ProposalFin() (types.ProposalFin, error)
+type Proposer[V types.Hashable[H], H types.Hash] interface {
+	service.Service
+	tendermint.Application[V, H]
+	OnCommit(context.Context, types.Height, V)
+	Submit(transactions []mempool.BroadcastedTransaction)
+	Pending() *sync.Pending
 }
 
-type proposer struct {
-	sequencerAddress *felt.Felt
-	builder          *builder.Builder
-	buildState       *builder.BuildState
-	mempool          *mempool.Pool
-	log              utils.Logger
+type proposer[V types.Hashable[H], H types.Hash] struct {
+	// Dependencies
+	log           utils.Logger
+	builder       *builder.Builder
+	proposalStore *proposal.ProposalStore[H]
+	nodeAddress   starknet.Address
+	toValue       func(*felt.Felt) V
+	// The current state of the pending block being built
+	buildState atomic.Pointer[builder.BuildState]
+	// Transactions that we have seen in order to re-run them if needed
+	seenTransactions []mempool.BroadcastedTransaction
+	// Triggers to commit a block and re-run dropped transactions
+	commitTrigger chan map[H]struct{}
+	// Triggers to finish building the block and return the proposal value
+	valueTrigger chan chan<- V
+	// Receives new transactions from the network
+	transactionReceiver chan []mempool.BroadcastedTransaction
 }
 
-func New(
-	b *builder.Builder,
-	mempool *mempool.Pool,
-	sequencerAddress *felt.Felt,
+func New[V types.Hashable[H], H types.Hash](
 	log utils.Logger,
-) Proposer {
-	return &proposer{
-		sequencerAddress: sequencerAddress,
-		builder:          b,
-		buildState:       &builder.BuildState{},
-		mempool:          mempool,
-		log:              log,
+	b *builder.Builder,
+	proposalStore *proposal.ProposalStore[H],
+	nodeAddress starknet.Address,
+	toValue func(*felt.Felt) V,
+) Proposer[V, H] {
+	return &proposer[V, H]{
+		log:                 log,
+		builder:             b,
+		proposalStore:       proposalStore,
+		nodeAddress:         nodeAddress,
+		toValue:             toValue,
+		buildState:          atomic.Pointer[builder.BuildState]{},
+		seenTransactions:    make([]mempool.BroadcastedTransaction, 0),
+		commitTrigger:       make(chan map[H]struct{}, 1),
+		valueTrigger:        make(chan chan<- V, 1),
+		transactionReceiver: make(chan []mempool.BroadcastedTransaction, transactionReceiverBufferSize),
 	}
 }
 
-func (p *proposer) getDefaultBuildParams() builder.BuildParams {
+func (p *proposer[V, H]) Run(ctx context.Context) error {
+	p.init()
+
+	receiver := p.transactionReceiver
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+
+		case ignoredCommittedTransactions := <-p.commitTrigger:
+			// Re-run the previous transactions if any
+			if err := p.reRunTransactions(ignoredCommittedTransactions); err != nil {
+				p.log.Errorw("Fail to re-run transactions", "error", err)
+				p.init()
+				continue
+			}
+			// Accept new transactions again
+			receiver = p.transactionReceiver
+
+		case response := <-p.valueTrigger:
+			// Finalise the block and store the build result
+			if err := p.finish(response); err != nil {
+				p.log.Errorw("Fail to finish proposer", "error", err)
+				p.init()
+				continue
+			}
+			// Stop accepting new transactions
+			receiver = nil
+
+		case transactions := <-receiver:
+			// Accept new transactions
+			if err := p.receiveTransactions(transactions); err != nil {
+				p.log.Errorw("Fail to receive transactions", "error", err)
+				p.init()
+				continue
+			}
+		}
+	}
+}
+
+func (p *proposer[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
+	proposal := p.proposalStore.Get(value.Hash())
+	if proposal == nil {
+		p.log.Errorw("Proposal not found", "hash", value.Hash())
+		return
+	}
+
+	txHashSet := make(map[H]struct{})
+	for _, tx := range proposal.Pending.Block.Transactions {
+		txHashSet[H(*tx.Hash())] = struct{}{}
+	}
+
+	select {
+	case <-ctx.Done():
+		return
+	case p.commitTrigger <- txHashSet:
+	}
+}
+
+func (p *proposer[V, H]) Valid(value V) bool {
+	return p.proposalStore.Get(value.Hash()) != nil
+}
+
+func (p *proposer[V, H]) Value() V {
+	responseChannel := make(chan V)
+	p.valueTrigger <- responseChannel
+	return <-responseChannel
+}
+
+func (p *proposer[V, H]) Submit(transactions []mempool.BroadcastedTransaction) {
+	p.transactionReceiver <- transactions
+}
+
+// Return the pending block currently guarded by the atomic pointer. The implementation assumes that
+// the referenced value by the atomic pointer is immutable, which means the caller shouldn't modify
+// any fields of the returned pending block.
+func (p *proposer[V, H]) Pending() *sync.Pending {
+	return p.buildState.Load().Pending
+}
+
+func (p *proposer[V, H]) init() {
+	var buildState *builder.BuildState
+	var err error
+	for {
+		buildParams := p.getBuildParams()
+		if buildState, err = p.builder.InitPendingBlock(&buildParams); err != nil {
+			p.log.Errorw("Fail to reinitialize proposer", "error", err)
+			time.Sleep(retryTimeForFailedInit)
+			continue
+		}
+		break
+	}
+
+	p.buildState.Store(buildState)
+}
+
+func (p *proposer[V, H]) getBuildParams() builder.BuildParams {
 	return builder.BuildParams{
-		Builder:           *p.sequencerAddress,
+		Builder:           felt.Felt(p.nodeAddress),
 		Timestamp:         uint64(time.Now().Unix()),
 		L2GasPriceFRI:     felt.One,  // TODO: Implement this properly
 		L1GasPriceWEI:     felt.One,  // TODO: Implement this properly
@@ -108,118 +180,62 @@ func (p *proposer) getDefaultBuildParams() builder.BuildParams {
 	}
 }
 
-func (p *proposer) ProposalInit() (types.ProposalInit, error) {
-	err := p.buildState.ClearPending()
-	if err != nil {
-		return types.ProposalInit{}, err
+func (p *proposer[V, H]) reRunTransactions(ignored map[H]struct{}) error {
+	// Initialise the state back to pending block
+	p.init()
+
+	// Discard the transactions that we have already seen
+	p.seenTransactions = slices.DeleteFunc(p.seenTransactions, func(tx mempool.BroadcastedTransaction) bool {
+		_, ok := ignored[H(*tx.Transaction.Hash())]
+		return ok
+	})
+
+	// If there are no transactions to run, we're done
+	if len(p.seenTransactions) == 0 {
+		return nil
 	}
 
-	buildParams := p.getDefaultBuildParams()
-
-	p.buildState, err = p.builder.InitPendingBlock(&buildParams)
-	if err != nil {
-		return types.ProposalInit{}, err
+	// Run the transactions and discard them if we fail to run them
+	if err := p.runTransactions(p.seenTransactions); err != nil {
+		p.seenTransactions = nil
+		return err
 	}
 
-	return types.ProposalInit{
-		BlockNum: types.Height(p.buildState.PendingBlock().Number),
-		Proposer: *p.buildState.PendingBlock().SequencerAddress,
-	}, nil
+	return nil
 }
 
-// BlockInfo waits until the mempool has transactions and returns block metadata.
-// If the context is cancelled or times out first, it returns a zero-value BlockInfo
-// and false. Without a context deadline, this method may block indefinitely.
-// The boolean return indicates whether the block is non-empty.
-func (p *proposer) BlockInfo(ctx context.Context) (types.BlockInfo, bool) {
-	// Check if there are any txns to create a non-empty block, with
-	// a timeout set by the context
-	ticker := time.NewTicker(100 * time.Millisecond) //nolint:mnd
-	defer ticker.Stop()
-	for {
-		if p.mempool.Len() != 0 {
-			break
-		}
-
-		select {
-		case <-ctx.Done():
-			return types.BlockInfo{}, false
-		case <-ticker.C:
-		}
+func (p *proposer[V, H]) receiveTransactions(transactions []mempool.BroadcastedTransaction) error {
+	if err := p.runTransactions(transactions); err != nil {
+		return err
 	}
 
-	pBlock := p.buildState.PendingBlock()
-
-	return types.BlockInfo{
-		BlockNumber:   pBlock.Number,
-		Builder:       *pBlock.SequencerAddress,
-		Timestamp:     uint64(time.Now().Unix()),
-		L2GasPriceFRI: *pBlock.L2GasPrice.PriceInFri,
-		L1GasPriceWEI: *pBlock.L1GasPriceETH,
-		EthToStrkRate: *new(felt.Felt).SetUint64(1), // TODO: Implement this properly
-		L1DAMode:      core.Blob,
-	}, true
+	p.seenTransactions = append(p.seenTransactions, transactions...)
+	return nil
 }
 
-// Txns streams executed transaction batches until the context is cancelled or an error occurs.
-// Returns a channel of TxnBatchResult, which includes either a batch of transactions or an error.
-// The channel is closed when the stream ends.
-func (p *proposer) Txns(ctx context.Context) <-chan []types.Transaction { // Todo: consider back pressure
-	out := make(chan []types.Transaction)
-
-	go func() {
-		defer close(out)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			txns, err := p.mempool.PopBatch(NumTxnsToBatchExecute)
-			if err != nil {
-				if errors.Is(err, mempool.ErrTxnPoolEmpty) {
-					time.Sleep(100 * time.Millisecond) //nolint:mnd
-					continue
-				}
-				p.log.Errorw("failed to pop transactions from the mempool", "err", err)
-				return
-			}
-
-			if err := p.builder.RunTxns(p.buildState, txns); err != nil {
-				p.log.Errorw("failed to execute transactions", "err", err)
-				return
-			}
-			adaptedTxns := make([]types.Transaction, len(txns))
-			for i := range adaptedTxns {
-				adaptedTxns[i] = types.Transaction{
-					Transaction: txns[i].Transaction,
-					Class:       txns[i].DeclaredClass,
-					PaidFeeOnL1: txns[i].PaidFeeOnL1,
-				}
-			}
-			out <- adaptedTxns
-		}
-	}()
-
-	return out
-}
-
-func (p *proposer) ProposalCommitment() (types.ProposalCommitment, error) {
-	buildResult, err := p.builder.Finish(p.buildState)
+func (p *proposer[V, H]) runTransactions(transaction []mempool.BroadcastedTransaction) error {
+	buildState := p.buildState.Load().Clone()
+	err := p.builder.RunTxns(&buildState, transaction)
 	if err != nil {
-		return types.ProposalCommitment{}, err
+		return err
 	}
 
-	proposalCommitment, err := buildResult.ProposalCommitment()
-	if err != nil {
-		return types.ProposalCommitment{}, err
-	}
-
-	return proposalCommitment, nil
+	p.buildState.Store(&buildState)
+	return nil
 }
 
-// ProposalFin() returns the block hash of the pending block
-func (p *proposer) ProposalFin() (types.ProposalFin, error) {
-	pblock := p.buildState.PendingBlock()
-	return types.ProposalFin(*pblock.Hash), nil
+func (p *proposer[V, H]) finish(responseChannel chan<- V) error {
+	buildState := p.buildState.Load().Clone()
+	buildResult, err := p.builder.Finish(&buildState)
+	if err != nil {
+		return err
+	}
+
+	value := p.toValue(buildResult.Pending.Block.Hash)
+	p.proposalStore.Store(value.Hash(), &buildResult)
+
+	responseChannel <- value
+	close(responseChannel)
+
+	return nil
 }
