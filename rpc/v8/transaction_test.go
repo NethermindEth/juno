@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
@@ -1825,4 +1826,103 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			assert.Equal(t, expectedMap, gotMap)
 		})
 	}
+}
+
+func TestSubmittedTransactionsCache(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	ctx := t.Context()
+	log := utils.NewNopZapLogger()
+	network := utils.Integration
+
+	client := feeder.NewTestClient(t, &network)
+
+	cacheSize := 5
+	cacheEntryTimeOut := time.Second
+
+	txnToAdd := &core.InvokeTransaction{
+		TransactionHash: new(felt.Felt).SetUint64(12345),
+		Version:         new(core.TransactionVersion).SetUint64(3),
+		TransactionSignature: []*felt.Felt{
+			utils.HexToFelt(t, "0x1"),
+			utils.HexToFelt(t, "0x1"),
+		},
+		Nonce:       utils.HexToFelt(t, "0x1"),
+		NonceDAMode: core.DAModeL1,
+		FeeDAMode:   core.DAModeL1,
+		ResourceBounds: map[core.Resource]core.ResourceBounds{
+			core.ResourceL1Gas: {
+				MaxAmount:       utils.HexToUint64(t, "0x1"),
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+			},
+			core.ResourceL1DataGas: {
+				MaxAmount:       utils.HexToUint64(t, "0x1"),
+				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+			},
+			core.ResourceL2Gas: {
+				MaxAmount:       0,
+				MaxPricePerUnit: new(felt.Felt),
+			},
+		},
+		Tip:           0,
+		PaymasterData: []*felt.Felt{},
+		SenderAddress: utils.HexToFelt(t, "0x1"),
+		CallData:      []*felt.Felt{},
+	}
+
+	broadcastedTxn := &rpc.BroadcastedTransaction{Transaction: *rpc.AdaptTransaction(txnToAdd)}
+
+	var gatewayResponse struct {
+		TransactionHash *felt.Felt `json:"transaction_hash"`
+	}
+
+	gatewayResponse.TransactionHash = txnToAdd.TransactionHash
+	rawGatewayResponse, err := json.Marshal(gatewayResponse)
+	require.NoError(t, err)
+
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockGateway := mocks.NewMockGateway(mockCtrl)
+	mockGateway.
+		EXPECT().
+		AddTransaction(gomock.Any(), gomock.Any()).
+		Return(rawGatewayResponse, nil).
+		Times(2)
+	t.Run("transaction not found in db and feeder but found in cache", func(t *testing.T) {
+		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
+
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
+			WithFeeder(client).
+			WithGateway(mockGateway).
+			WithSubmittedTransactionsCache(submittedTransactionCache)
+
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		require.Nil(t, err)
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
+		require.Nil(t, err)
+		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
+	})
+
+	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
+		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
+
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).
+			WithFeeder(client).
+			WithGateway(mockGateway).
+			WithSubmittedTransactionsCache(submittedTransactionCache)
+
+		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		require.Nil(t, err)
+		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+		// Expire cache entry
+		time.Sleep(cacheEntryTimeOut)
+		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
+		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
+		require.Nil(t, status)
+	})
 }
