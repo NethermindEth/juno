@@ -40,15 +40,19 @@ type Service struct {
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
+
+	p2pCommitNotifier chan uint64 // Todo: or just use listener
 }
 
-func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
+func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger,
+	p2pCommitNotifier chan uint64) *Service {
 	return &Service{
-		host:       h,
-		network:    n,
-		blockchain: bc,
-		log:        log,
-		listener:   &junoSync.SelectiveListener{},
+		host:              h,
+		network:           n,
+		blockchain:        bc,
+		log:               log,
+		listener:          &junoSync.SelectiveListener{},
+		p2pCommitNotifier: p2pCommitNotifier,
 	}
 }
 
@@ -139,7 +143,9 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		if err := s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses); err != nil {
 			return fmt.Errorf("failed to store block: %w", err)
 		}
-
+		if s.p2pCommitNotifier != nil {
+			s.p2pCommitNotifier <- b.block.Number
+		}
 		s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
 			"root", b.block.GlobalStateRoot.ShortString())
 		s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))

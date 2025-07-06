@@ -121,3 +121,17 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ReplayWAL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplayWAL", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ReplayWAL))
 }
+
+// RestartAtHeight mocks base method.
+func (m *MockStateMachine[V, H, A]) RestartAtHeight(arg0 types.Height) types.Height {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RestartAtHeight", arg0)
+	ret0, _ := ret[0].(types.Height)
+	return ret0
+}
+
+// RestartAtHeight indicates an expected call of RestartAtHeight.
+func (mr *MockStateMachineMockRecorder[V, H, A]) RestartAtHeight(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestartAtHeight", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).RestartAtHeight), arg0)
+}

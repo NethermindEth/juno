@@ -28,9 +28,11 @@ func (t *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 	return hasQuorum && isValid
 }
 
-func (t *stateMachine[V, H, A]) doCommitValue() types.Action[V, H, A] {
-	t.messages.DeleteHeightMessages(t.state.height)
-	t.state.height++
+func (t *stateMachine[V, H, A]) doCommitValue(newHeight types.Height) types.Action[V, H, A] {
+	for i := t.state.height; i < newHeight; i++ {
+		t.messages.DeleteHeightMessages(i)
+	}
+	t.state.height = newHeight
 	t.state.lockedRound = -1
 	t.state.lockedValue = nil
 	t.state.validRound = -1
