@@ -18,6 +18,7 @@ type PendingDataInterface interface {
 	GetStateUpdate() *StateUpdate
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
+	GetTransactionStateDiffs() []*StateDiff
 	Variant() PendingDataVariant
 }
 
@@ -55,6 +56,10 @@ func (p *PendingData) GetCandidateTransaction() []Transaction {
 	return p.data.GetCandidateTransaction()
 }
 
+func (p *PendingData) GetTransactionStateDiffs() []*StateDiff {
+	return p.data.GetTransactionStateDiffs()
+}
+
 func (p *PendingData) Variant() PendingDataVariant {
 	return p.data.Variant()
 }
@@ -63,8 +68,7 @@ type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
 	// Does not fetch unknown classes. but we keep it for sequencer
-	NewClasses map[felt.Felt]Class
-	// We kept this field for sequencer, else non-sequencer node should use StateUpdate
+	NewClasses            map[felt.Felt]Class
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
 }
@@ -105,6 +109,10 @@ func (p *PreConfirmed) GetNewClasses() map[felt.Felt]Class {
 
 func (p *PreConfirmed) GetCandidateTransaction() []Transaction {
 	return p.CandidateTxs
+}
+
+func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
+	return p.TransactionStateDiffs
 }
 
 func (p *PreConfirmed) Variant() PendingDataVariant {
