@@ -10,13 +10,13 @@ import (
 )
 
 type tx struct {
-	dbTx      db.IndexedBatch
+	dbTx      db.KeyValueStore
 	itCounter atomic.Uint32
 	// index is cursorId for an iterator
 	iterators sync.Map
 }
 
-func newTx(dbTx db.IndexedBatch) *tx {
+func newTx(dbTx db.KeyValueStore) *tx {
 	return &tx{
 		dbTx: dbTx,
 	}

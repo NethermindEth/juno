@@ -79,12 +79,12 @@ func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-func (d *DB) Update(fn func(w db.IndexedBatch) error) error {
+func (d *DB) Update(fn func(w db.Batch) error) error {
 	if d.closed {
 		return pebble.ErrClosed
 	}
 
-	batch := d.NewIndexedBatch()
+	batch := d.NewBatch()
 	if err := fn(batch); err != nil {
 		return err
 	}

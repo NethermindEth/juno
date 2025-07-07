@@ -33,14 +33,8 @@ type KeyValueRangeDeleter interface {
 
 // Helper interface
 type Helper interface {
-	// This will create a read-write transaction, apply the callback to it, and flush the changes
-	Update(func(IndexedBatch) error) error
 	// This will create a read-only snapshot and apply the callback to it
 	View(func(Snapshot) error) error
-	// TODO(weiihann): honestly this doesn't make sense, but it's currently needed for the metrics
-	// remove this once the metrics are refactored
-	// Returns the underlying database
-	Impl() any
 }
 
 // Represents a key-value data store that can handle different operations

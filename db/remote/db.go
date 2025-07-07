@@ -66,7 +66,7 @@ func (d *DB) View(fn func(txn db.Snapshot) error) error {
 	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
-func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
+func (d *DB) Update(fn func(txn db.Batch) error) error {
 	start := time.Now()
 
 	defer func() {

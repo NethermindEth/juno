@@ -23,11 +23,9 @@ func TestBucketMover(t *testing.T) {
 	})
 
 	testDB := memory.New()
-	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
+	require.NoError(t, testDB.Update(func(txn db.Batch) error {
 		for i := byte(0); i < 3; i++ {
-			if err := txn.Put(sourceBucket.Key([]byte{i}), []byte{i}); err != nil {
-				return err
-			}
+			require.NoError(t, txn.Put(sourceBucket.Key([]byte{i}), []byte{i}))
 		}
 		return txn.Put(sourceBucket.Key(), []byte{44})
 	}))
