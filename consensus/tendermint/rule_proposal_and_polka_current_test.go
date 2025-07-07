@@ -63,9 +63,13 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		currentRound.validator(0).precommit(&committedValue)
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().commit(committedValue, -1, 0),
-			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 
+		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
+
+		nextRound.start().expectActions(
+			nextRound.action().scheduleTimeout(types.StepPropose),
+		)
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 	})
 

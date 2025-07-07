@@ -71,28 +71,31 @@ func (d *Driver[V, H, A]) Start() {
 	go func() {
 		defer d.wg.Done()
 
-		actions := d.stateMachine.ProcessStart(0)
-		d.execute(actions)
-
-		// Todo: check message signature everytime a message is received.
-		// For the time being it can be assumed the signature is correct.
-
 		for {
-			select {
-			case <-d.quit:
-				return
-			case tm := <-d.timeoutsCh:
-				// Handling of timeouts is priorities over messages
-				delete(d.scheduledTms, tm)
-				actions = d.stateMachine.ProcessTimeout(tm)
-			case p := <-d.listeners.ProposalListener.Listen():
-				actions = d.stateMachine.ProcessProposal(p)
-			case p := <-d.listeners.PrevoteListener.Listen():
-				actions = d.stateMachine.ProcessPrevote(p)
-			case p := <-d.listeners.PrecommitListener.Listen():
-				actions = d.stateMachine.ProcessPrecommit(p)
+			actions := d.stateMachine.ProcessStart(0)
+			isCommitted := d.execute(actions)
+
+			// Todo: check message signature everytime a message is received.
+			// For the time being it can be assumed the signature is correct.
+
+			for !isCommitted {
+				select {
+				case <-d.quit:
+					return
+				case tm := <-d.timeoutsCh:
+					// Handling of timeouts is priorities over messages
+					delete(d.scheduledTms, tm)
+					actions = d.stateMachine.ProcessTimeout(tm)
+				case p := <-d.listeners.ProposalListener.Listen():
+					actions = d.stateMachine.ProcessProposal(p)
+				case p := <-d.listeners.PrevoteListener.Listen():
+					actions = d.stateMachine.ProcessPrevote(p)
+				case p := <-d.listeners.PrecommitListener.Listen():
+					actions = d.stateMachine.ProcessPrecommit(p)
+				}
+
+				isCommitted = d.execute(actions)
 			}
-			d.execute(actions)
 		}
 	}()
 }
@@ -105,7 +108,9 @@ func (d *Driver[V, H, A]) Stop() {
 	}
 }
 
-func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
+// This function executes the actions returned by the stateMachine.
+// It returns true if a commit action was executed. This is to notify the caller to start a new height with round 0.
+func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) (isCommitted bool) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *types.BroadcastProposal[V, H, A]:
@@ -131,6 +136,9 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
 			}
+
+			return true
 		}
 	}
+	return false
 }

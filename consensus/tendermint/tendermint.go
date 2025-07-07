@@ -104,17 +104,21 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	ID    *H
 }
 
-func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
-	if err := t.db.Flush(); err != nil {
-		t.log.Fatalf("failed to flush WAL at start of round", "height", t.state.height, "round", r, "err", err)
-	}
-
-	t.state.round = r
+func (t *stateMachine[V, H, A]) resetState(round types.Round) {
+	t.state.round = round
 	t.state.step = types.StepPropose
 
 	t.state.timeoutPrevoteScheduled = false
 	t.state.lockedValueAndOrValidValueSet = false
 	t.state.timeoutPrecommitScheduled = false
+}
+
+func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
+	if err := t.db.Flush(); err != nil {
+		t.log.Fatalf("failed to flush WAL at start of round", "height", t.state.height, "round", r, "err", err)
+	}
+
+	t.resetState(r)
 
 	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
 		var proposalValue *V
