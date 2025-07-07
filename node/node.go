@@ -219,7 +219,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
-		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+		synchronizer = sync.New(chain, feederGatewayDataSource, log, cfg.PendingPollInterval, dbIsRemote, database)
 		synchronizer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(synchronizer.PendingBlock)
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
