@@ -437,17 +437,19 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 	lastPreconfirmedIndex := len(txStateDiffs) - 1
 
 	txns := make([]core.Transaction, lastPreconfirmedIndex+1)
-	for i, txn := range response.Transactions[:lastPreconfirmedIndex+1] {
-		adaptedTxn, err := AdaptTransaction(txn)
+	for i := range lastPreconfirmedIndex + 1 {
+		adaptedTxn, err := AdaptTransaction(&response.Transactions[i])
 		if err != nil {
 			return core.PreConfirmed{}, err
 		}
 		txns[i] = adaptedTxn
 	}
 
-	candidateTxs := make([]core.Transaction, len(response.Transactions)-lastPreconfirmedIndex-1)
-	for i, txn := range response.Transactions[lastPreconfirmedIndex+1:] {
-		adaptedTxn, err := AdaptTransaction(txn)
+	rawTxCount := len(response.Transactions)
+	candidateTxs := make([]core.Transaction, rawTxCount-lastPreconfirmedIndex-1)
+
+	for i := range rawTxCount - lastPreconfirmedIndex - 1 {
+		adaptedTxn, err := AdaptTransaction(&response.Transactions[i+lastPreconfirmedIndex+1])
 		if err != nil {
 			return core.PreConfirmed{}, err
 		}

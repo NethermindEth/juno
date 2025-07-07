@@ -5,7 +5,7 @@ import "github.com/NethermindEth/juno/core/felt"
 // Block object returned by the feeder in JSON format for "get_preconfirmed_block" endpoint
 type PreConfirmedBlock struct {
 	Status           string                `json:"status"`
-	Transactions     []*Transaction        `json:"transactions"`
+	Transactions     []Transaction         `json:"transactions"`
 	Timestamp        uint64                `json:"timestamp"`
 	Version          string                `json:"starknet_version"`
 	Receipts         []*TransactionReceipt `json:"transaction_receipts"`

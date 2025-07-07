@@ -703,14 +703,14 @@ func assertPreConfirmedBlockBasics(
 
 func assertCandidateTxs(
 	t *testing.T,
-	transactions []*starknet.Transaction,
+	transactions []starknet.Transaction,
 	candidateTxs []core.Transaction,
 	offset int,
 ) {
 	t.Helper()
 	if len(candidateTxs) > 0 {
 		for i, txn := range candidateTxs {
-			adaptedTx, err := sn2core.AdaptTransaction(transactions[offset+i])
+			adaptedTx, err := sn2core.AdaptTransaction(&transactions[offset+i])
 			require.NoError(t, err)
 			assert.Equal(t, adaptedTx, txn)
 		}
