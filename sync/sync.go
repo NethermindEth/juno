@@ -814,7 +814,6 @@ func (s *Synchronizer) PendingData() (*core.PendingData, error) {
 
 	switch p.Variant() {
 	case core.PreConfirmedBlockVariant:
-		// pre_confirmed
 		expectedOldRoot := &felt.Zero
 		expectedBlockNumber := uint64(0)
 		if head, err := s.blockchain.HeadsHeader(); err == nil {
