@@ -419,6 +419,10 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}
 
+	if response.Status != "PRE_CONFIRMED" {
+		return core.PreConfirmed{}, errors.New("invalid status for pre_confirmed block")
+	}
+
 	var adaptedStateDiff *core.StateDiff
 	var err error
 
