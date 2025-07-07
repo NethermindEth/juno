@@ -697,8 +697,8 @@ func assertPreConfirmedBlockBasics(
 	assert.Equal(t, uint64(expectedTxCount), preConfirmed.Block.TransactionCount)
 	assert.Equal(t, expectedEventCount, preConfirmed.Block.EventCount)
 	assert.Equal(t, response.Version, preConfirmed.Block.ProtocolVersion)
-	assert.Equal(t, response.L1GasPriceSTRK(), preConfirmed.Block.L1GasPriceSTRK)
-	assert.Equal(t, response.L1GasPriceETH(), preConfirmed.Block.L1GasPriceETH)
+	assert.Equal(t, response.L1GasPrice.PriceInFri, preConfirmed.Block.L1GasPriceSTRK)
+	assert.Equal(t, response.L1GasPrice.PriceInWei, preConfirmed.Block.L1GasPriceETH)
 }
 
 func assertCandidateTxs(

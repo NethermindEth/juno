@@ -17,17 +17,3 @@ type PreConfirmedBlock struct {
 
 	TransactionStateDiffs []*StateDiff `json:"transaction_state_diffs"`
 }
-
-func (b *PreConfirmedBlock) L1GasPriceETH() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInWei
-	}
-	return nil
-}
-
-func (b *PreConfirmedBlock) L1GasPriceSTRK() *felt.Felt {
-	if b.L1GasPrice != nil {
-		return b.L1GasPrice.PriceInFri
-	}
-	return nil
-}
