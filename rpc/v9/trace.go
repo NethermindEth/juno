@@ -128,69 +128,75 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (Transac
 		}
 		return *blockTraces[txIndex].TraceRoot, httphttpHeader, nil
 	case core.PreConfirmedBlockVariant:
-		state, stateCloser, err := h.syncReader.PendingStateBeforeIndex(txIndex)
-		if err != nil {
-			return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-		defer h.callAndLogErr(stateCloser, "Failed to close head state in TraceTransaction")
-
-		var classes []core.Class
-		paidFeesOnL1 := []*felt.Felt{}
-
-		transaction := block.Transactions[txIndex]
-		switch tx := transaction.(type) {
-		/// TODO(Ege): decide what to do with this, should be an edge case
-		case *core.DeclareTransaction:
-			class, stateErr := state.Class(tx.ClassHash)
-			if stateErr != nil {
-				return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
-			}
-			classes = append(classes, class.Class)
-		case *core.L1HandlerTransaction:
-			var fee felt.Felt
-			paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
-		}
-
-		blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
-		if err != nil {
-			return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
-		}
-		network := h.bcReader.Network()
-		header := block.Header
-		blockInfo := vm.BlockInfo{
-			Header:                header,
-			BlockHashToBeRevealed: blockHashToBeRevealed,
-		}
-
-		executionResult, err := h.vm.Execute([]core.Transaction{transaction}, classes, paidFeesOnL1,
-			&blockInfo, state, network, false, false, false, true, false)
-
-		httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
-
-		if err != nil {
-			if errors.Is(err, utils.ErrResourceBusy) {
-				return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
-			}
-			// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
-			// report them as unexpected errors
-			return TransactionTrace{}, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-		}
-
-		// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
-		trace := AdaptVMTransactionTrace(&executionResult.Traces[0])
-
-		trace.ExecutionResources = &ExecutionResources{
-			InnerExecutionResources: InnerExecutionResources{
-				L1Gas: executionResult.GasConsumed[0].L1Gas,
-				L2Gas: executionResult.GasConsumed[0].L2Gas,
-			},
-			L1DataGas: executionResult.GasConsumed[0].L1DataGas,
-		}
-
-		return trace, httpHeader, nil
+		return h.tracePreConfirmedTransaction(block, txIndex)
 	default:
 		panic(fmt.Errorf("unknown pending data variant: %v", v))
 	}
+}
+
+func (h *Handler) tracePreConfirmedTransaction(block *core.Block, txIndex int) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	httpHeader := http.Header{}
+	httpHeader.Set(ExecutionStepsHeader, "0")
+	state, stateCloser, err := h.syncReader.PendingStateBeforeIndex(txIndex)
+	if err != nil {
+		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+	}
+	defer h.callAndLogErr(stateCloser, "Failed to close head state in TraceTransaction")
+
+	var classes []core.Class
+	paidFeesOnL1 := []*felt.Felt{}
+
+	transaction := block.Transactions[txIndex]
+	switch tx := transaction.(type) {
+	/// TODO(Ege): decide what to do with this, should be an edge case
+	case *core.DeclareTransaction:
+		class, stateErr := state.Class(tx.ClassHash)
+		if stateErr != nil {
+			return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, stateErr.Error())
+		}
+		classes = append(classes, class.Class)
+	case *core.L1HandlerTransaction:
+		var fee felt.Felt
+		paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
+	}
+
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
+	if err != nil {
+		return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
+	}
+	network := h.bcReader.Network()
+	header := block.Header
+	blockInfo := vm.BlockInfo{
+		Header:                header,
+		BlockHashToBeRevealed: blockHashToBeRevealed,
+	}
+
+	executionResult, err := h.vm.Execute([]core.Transaction{transaction}, classes, paidFeesOnL1,
+		&blockInfo, state, network, false, false, false, true, false)
+
+	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
+
+	if err != nil {
+		if errors.Is(err, utils.ErrResourceBusy) {
+			return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
+		}
+		// Since we are tracing an existing block, we know that there should be no errors during execution. If we encounter any,
+		// report them as unexpected errors
+		return TransactionTrace{}, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+	}
+
+	// Adapt vm transaction trace to rpc v9 trace and add root level execution resources
+	trace := AdaptVMTransactionTrace(&executionResult.Traces[0])
+
+	trace.ExecutionResources = &ExecutionResources{
+		InnerExecutionResources: InnerExecutionResources{
+			L1Gas: executionResult.GasConsumed[0].L1Gas,
+			L2Gas: executionResult.GasConsumed[0].L2Gas,
+		},
+		L1DataGas: executionResult.GasConsumed[0].L1DataGas,
+	}
+
+	return trace, httpHeader, nil
 }
 
 // TraceBlockTransactions returns the trace for a given blockID
