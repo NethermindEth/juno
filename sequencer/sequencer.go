@@ -213,6 +213,10 @@ func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
 	return s.builder.PendingState(s.buildState)
 }
 
+func (s *Sequencer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+	return nil, nil, errors.ErrUnsupported
+}
+
 func (s *Sequencer) HighestBlockHeader() *core.Header {
 	return nil // Not relevant for Sequencer. Todo: clean Reader
 }
