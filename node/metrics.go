@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"math"
 	"strconv"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+const l1MetricsTimeout = 5 * time.Second
 
 func makeDBMetrics() db.EventListener {
 	latencyBuckets := []float64{
@@ -244,11 +247,11 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
-	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.EventListener {
+	l2BlockFinalizedOnL1 := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
-		Name:      "latest_verified_l2_block_number",
-		Help:      "Latest L2 block number that has been finalized on L1",
+		Name:      "l2_finalised_height",
+		Help:      "Latest L2 block number that has been finalised on L1",
 	}, func() float64 {
 		l1Head, err := bcReader.L1Head()
 		if err != nil {
@@ -256,7 +259,38 @@ func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 		}
 		return float64(l1Head.BlockNumber)
 	})
+	prometheus.MustRegister(l2BlockFinalizedOnL1)
+
+	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "finalised_height",
+		Help:      "Current L1 (Ethereum) finalised blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := l1Subscriber.FinalisedHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
 	prometheus.MustRegister(l1Height)
+
+	l1LatestHeight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: "l1",
+		Name:      "latest_height",
+		Help:      "Current latest L1 (Ethereum) blockchain height",
+	}, func() float64 {
+		ctx, cancel := context.WithTimeout(context.Background(), l1MetricsTimeout)
+		defer cancel()
+		height, err := l1Subscriber.LatestHeight(ctx)
+		if err != nil {
+			return 0
+		}
+		return float64(height)
+	})
+	prometheus.MustRegister(l1LatestHeight)
+
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "l1",
 		Subsystem: "client",
