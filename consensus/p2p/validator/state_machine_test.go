@@ -4,175 +4,135 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/p2p/validator"
-	"github.com/NethermindEth/juno/consensus/starknet"
-	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
+	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type validTransitionTestStep struct {
-	event     *consensus.ProposalPart
+	events    []*consensus.ProposalPart
 	postState validator.ProposalStateMachine
 }
 
-func TestProposalStateMachine_ValidTranstions(t *testing.T) {
-	height := uint64(1337)
-	round := uint32(1338)
-	validRound := types.Round(-1)
-	proposer := validator.GetRandomAddress(t)
-
-	expectedHeader := &starknet.MessageHeader{
-		Height: types.Height(height),
-		Round:  types.Round(round),
-		Sender: starknet.Address(*new(felt.Felt).SetBytes(proposer.Elements)),
+func TestProposalStateMachine_EmptyProposalStream(t *testing.T) {
+	testCase := validator.TestCase{
+		Height:     1164618,
+		Round:      2,
+		ValidRound: 1,
+		Network:    &utils.SepoliaIntegration,
 	}
-	t.Run("valid proposal stream", func(t *testing.T) {
-		value := uint64(1339)
-		starknetValue := starknet.Value(felt.FromUint64(value))
-		expectedHash := &common.Hash{Elements: validator.ToBytes(*new(felt.Felt).SetUint64(value))}
-		expectedProposal := &starknet.Proposal{
-			MessageHeader: *expectedHeader,
-			ValidRound:    validRound,
-			Value:         &starknetValue,
-		}
 
-		runTestSteps(t, []validTransitionTestStep{
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Init{Init: &consensus.ProposalInit{
-						BlockNumber: height,
-						Round:       round,
-						Proposer:    proposer,
-					}},
-				},
-				postState: &validator.AwaitingBlockInfoOrCommitmentState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-				},
+	database := memory.New()
+	validator.SetChainHeight(t, database, testCase.Height-1)
+	executor := validator.NewMockExecutor(t, testCase.Network)
+	fixture := validator.NewEmptyTestFixture(t, executor, database, testCase)
+
+	runTestSteps(t, fixture.Builder, []validTransitionTestStep{
+		{
+			events: []*consensus.ProposalPart{fixture.ProposalInit},
+			postState: &validator.AwaitingBlockInfoOrCommitmentState{
+				Header:     &fixture.Proposal.MessageHeader,
+				ValidRound: testCase.ValidRound,
 			},
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_BlockInfo{BlockInfo: &consensus.BlockInfo{
-						BlockNumber: height,
-						Timestamp:   value,
-					}},
-				},
-				postState: &validator.ReceivingTransactionsState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &starknetValue,
-				},
+		},
+		{
+			events: []*consensus.ProposalPart{fixture.ProposalCommitment},
+			postState: &validator.AwaitingProposalFinState{
+				Proposal:    fixture.Proposal,
+				BuildResult: fixture.BuildResult,
 			},
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: validator.GetRandomTransactions(t, 4),
-					}},
-				},
-				postState: &validator.ReceivingTransactionsState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &starknetValue,
-				},
+		},
+		{
+			events: []*consensus.ProposalPart{fixture.ProposalFin},
+			postState: &validator.FinState{
+				Proposal:    fixture.Proposal,
+				BuildResult: fixture.BuildResult,
 			},
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Transactions{Transactions: &consensus.TransactionBatch{
-						Transactions: validator.GetRandomTransactions(t, 5),
-					}},
-				},
-				postState: &validator.ReceivingTransactionsState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &starknetValue,
-				},
-			},
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: height,
-							Timestamp:   value,
-						},
-					},
-				},
-				postState: &validator.AwaitingProposalFinState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
-					Value:      &starknetValue,
-				},
-			},
-			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Fin{
-						Fin: &consensus.ProposalFin{
-							ProposalCommitment: expectedHash,
-						},
-					},
-				},
-				postState: (*validator.FinState)(expectedProposal),
-			},
-		})
+		},
 	})
+}
 
-	t.Run("empty proposal stream", func(t *testing.T) {
-		expectedProposal := &starknet.Proposal{
-			MessageHeader: *expectedHeader,
-			ValidRound:    validRound,
-		}
-		runTestSteps(t, []validTransitionTestStep{
+func TestProposalStateMachine_NonEmptyProposalStream(t *testing.T) {
+	testCases := []validator.TestCase{
+		{
+			Height:       1164618,
+			Round:        2,
+			ValidRound:   -1,
+			Network:      &utils.SepoliaIntegration,
+			TxBatchCount: 3,
+		},
+	}
+	for _, testCase := range testCases {
+		runNonEmptyProposalStream(t, testCase)
+	}
+}
+
+func runNonEmptyProposalStream(t *testing.T, testCase validator.TestCase) {
+	t.Run(fmt.Sprintf("%v-%v", testCase.Network.Name, testCase.Height), func(t *testing.T) {
+		database := memory.New()
+		validator.SetChainHeight(t, database, testCase.Height-1)
+		executor := validator.NewMockExecutor(t, testCase.Network)
+		fixture := validator.BuildTestFixture(t, executor, database, testCase)
+
+		runTestSteps(t, fixture.Builder, []validTransitionTestStep{
 			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Init{Init: &consensus.ProposalInit{
-						BlockNumber: height,
-						Round:       round,
-						Proposer:    proposer,
-					}},
-				},
+				events: []*consensus.ProposalPart{fixture.ProposalInit},
 				postState: &validator.AwaitingBlockInfoOrCommitmentState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
+					Header:     &fixture.Proposal.MessageHeader,
+					ValidRound: testCase.ValidRound,
 				},
 			},
 			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Commitment{
-						Commitment: &consensus.ProposalCommitment{
-							BlockNumber: 1337,
-							Timestamp:   1338,
-						},
-					},
+				events: []*consensus.ProposalPart{fixture.BlockInfo},
+				postState: &validator.ReceivingTransactionsState{
+					Header:     &fixture.Proposal.MessageHeader,
+					ValidRound: testCase.ValidRound,
+					BuildState: fixture.PreState,
 				},
+			},
+			{
+				events: fixture.Transactions,
+				postState: &validator.ReceivingTransactionsState{
+					Header:     &fixture.Proposal.MessageHeader,
+					ValidRound: testCase.ValidRound,
+					BuildState: fixture.PreState,
+				},
+			},
+			{
+				events: []*consensus.ProposalPart{fixture.ProposalCommitment},
 				postState: &validator.AwaitingProposalFinState{
-					Header:     expectedHeader,
-					ValidRound: validRound,
+					Proposal:    fixture.Proposal,
+					BuildResult: fixture.BuildResult,
 				},
 			},
 			{
-				event: &consensus.ProposalPart{
-					Messages: &consensus.ProposalPart_Fin{
-						Fin: &consensus.ProposalFin{},
-					},
+				events: []*consensus.ProposalPart{fixture.ProposalFin},
+				postState: &validator.FinState{
+					Proposal:    fixture.Proposal,
+					BuildResult: fixture.BuildResult,
 				},
-				postState: (*validator.FinState)(expectedProposal),
 			},
 		})
 	})
 }
 
-func runTestSteps(t *testing.T, steps []validTransitionTestStep) {
+func runTestSteps(t *testing.T, builder *builder.Builder, steps []validTransitionTestStep) {
 	var err error
-	transition := validator.NewTransition()
+	transition := validator.NewTransition(builder)
 	var state validator.ProposalStateMachine = &validator.InitialState{}
 
 	for _, step := range steps {
-		t.Run(fmt.Sprintf("apply %T to get %T", step.event.Messages, step.postState), func(t *testing.T) {
-			state, err = state.OnEvent(t.Context(), transition, step.event)
-			require.NoError(t, err)
+		for _, event := range step.events {
+			t.Run(fmt.Sprintf("applying %T", event.Messages), func(t *testing.T) {
+				state, err = state.OnEvent(t.Context(), transition, event)
+				require.NoError(t, err)
+			})
+		}
+		t.Run(fmt.Sprintf("validating state %T", state), func(t *testing.T) {
 			assert.Equal(t, step.postState, state)
 		})
 	}
@@ -231,7 +191,7 @@ func TestProposalStateMachine_InvalidTransitions(t *testing.T) {
 		},
 	}
 
-	transition := validator.NewTransition()
+	transition := validator.NewTransition(nil)
 	for _, step := range steps {
 		t.Run(fmt.Sprintf("State %T", step.state), func(t *testing.T) {
 			for _, event := range step.events {
