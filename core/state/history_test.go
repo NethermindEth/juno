@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
@@ -12,19 +13,21 @@ import (
 )
 
 func TestNewStateHistory(t *testing.T) {
-	stateDB := newTestStateDB()
+	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateDB := newTestStateDB(dbType)
 
-	t.Run("successful creation", func(t *testing.T) {
-		history, err := NewStateHistory(0, &felt.Zero, stateDB)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(0), history.blockNum)
-		assert.NotNil(t, history.state)
-	})
+		t.Run("successful creation", func(t *testing.T) {
+			history, err := NewStateHistory(0, &felt.Zero, stateDB)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(0), history.blockNum)
+			assert.NotNil(t, history.state)
+		})
 
-	t.Run("invalid state root", func(t *testing.T) {
-		invalidRoot := new(felt.Felt).SetUint64(999) // Non-existent root
-		_, err := NewStateHistory(1, invalidRoot, stateDB)
-		assert.Error(t, err)
+		t.Run("invalid state root", func(t *testing.T) {
+			invalidRoot := new(felt.Felt).SetUint64(999) // Non-existent root
+			_, err := NewStateHistory(1, invalidRoot, stateDB)
+			assert.Error(t, err)
+		})
 	})
 }
 
@@ -73,135 +76,143 @@ func TestStateHistoryContractOperations(t *testing.T) {
 			},
 		},
 	}
-	stateDB := setupState(t, stateUpdates, 2)
-	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
-	require.NoError(t, err)
-	historyBlock1, err := NewStateHistory(1, &felt.Zero, stateDB)
-	require.NoError(t, err)
+	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateDB := setupState(t, stateUpdates, 2, dbType)
+		historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
+		require.NoError(t, err)
+		historyBlock1, err := NewStateHistory(1, &felt.Zero, stateDB)
+		require.NoError(t, err)
 
-	t.Run("ContractClassHash", func(t *testing.T) {
-		hash, err := historyBlock0.ContractClassHash(utils.HexToFelt(t, "0x1"))
-		require.NoError(t, err)
-		assert.Equal(t, hash, *utils.HexToFelt(t, "0x1"))
-		hash, err = historyBlock1.ContractClassHash(utils.HexToFelt(t, "0x2"))
-		require.NoError(t, err)
-		assert.Equal(t, hash, *utils.HexToFelt(t, "0x2"))
-	})
+		t.Run("ContractClassHash", func(t *testing.T) {
+			hash, err := historyBlock0.ContractClassHash(utils.HexToFelt(t, "0x1"))
+			require.NoError(t, err)
+			assert.Equal(t, hash, *utils.HexToFelt(t, "0x1"))
+			hash, err = historyBlock1.ContractClassHash(utils.HexToFelt(t, "0x2"))
+			require.NoError(t, err)
+			assert.Equal(t, hash, *utils.HexToFelt(t, "0x2"))
+		})
 
-	t.Run("ContractNonce", func(t *testing.T) {
-		nonce, err := historyBlock0.ContractNonce(utils.HexToFelt(t, "0x1"))
-		require.NoError(t, err)
-		assert.Equal(t, nonce, *utils.HexToFelt(t, "0x1"))
-		nonce, err = historyBlock1.ContractNonce(utils.HexToFelt(t, "0x2"))
-		require.NoError(t, err)
-		assert.Equal(t, nonce, *utils.HexToFelt(t, "0x2"))
-	})
+		t.Run("ContractNonce", func(t *testing.T) {
+			nonce, err := historyBlock0.ContractNonce(utils.HexToFelt(t, "0x1"))
+			require.NoError(t, err)
+			assert.Equal(t, nonce, *utils.HexToFelt(t, "0x1"))
+			nonce, err = historyBlock1.ContractNonce(utils.HexToFelt(t, "0x2"))
+			require.NoError(t, err)
+			assert.Equal(t, nonce, *utils.HexToFelt(t, "0x2"))
+		})
 
-	t.Run("ContractStorage", func(t *testing.T) {
-		value, err := historyBlock0.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x1"))
-		require.NoError(t, err)
-		assert.Equal(t, value, *utils.HexToFelt(t, "0x1"))
-		value, err = historyBlock1.ContractStorage(utils.HexToFelt(t, "0x2"), utils.HexToFelt(t, "0x1"))
-		require.NoError(t, err)
-		assert.Equal(t, value, *utils.HexToFelt(t, "0x3"))
-	})
+		t.Run("ContractStorage", func(t *testing.T) {
+			value, err := historyBlock0.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x1"))
+			require.NoError(t, err)
+			assert.Equal(t, value, *utils.HexToFelt(t, "0x1"))
+			value, err = historyBlock1.ContractStorage(utils.HexToFelt(t, "0x2"), utils.HexToFelt(t, "0x1"))
+			require.NoError(t, err)
+			assert.Equal(t, value, *utils.HexToFelt(t, "0x3"))
+		})
 
-	t.Run("NonExistentContract", func(t *testing.T) {
-		nonExistentAddr := new(felt.Felt).SetUint64(999)
-		_, err := historyBlock0.ContractClassHash(nonExistentAddr)
-		assert.ErrorIs(t, err, ErrContractNotDeployed)
+		t.Run("NonExistentContract", func(t *testing.T) {
+			nonExistentAddr := new(felt.Felt).SetUint64(999)
+			_, err := historyBlock0.ContractClassHash(nonExistentAddr)
+			assert.ErrorIs(t, err, ErrContractNotDeployed)
+		})
 	})
 }
 
 func TestStateHistoryClassOperations(t *testing.T) {
-	stateDB := newTestStateDB()
+	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateDB := newTestStateDB(dbType)
 
-	class1Hash := *utils.HexToFelt(t, "0xDEADBEEF")
-	class2Hash := *utils.HexToFelt(t, "0xDEADBEEF2")
+		class1Hash := *utils.HexToFelt(t, "0xDEADBEEF")
+		class2Hash := *utils.HexToFelt(t, "0xDEADBEEF2")
 
-	class1 := &core.Cairo1Class{}
-	class2 := &core.Cairo1Class{}
+		class1 := &core.Cairo1Class{}
+		class2 := &core.Cairo1Class{}
 
-	classes := map[felt.Felt]core.Class{
-		class1Hash: class1,
-	}
-	stateUpdate := &core.StateUpdate{
-		OldRoot:   &felt.Zero,
-		NewRoot:   &felt.Zero,
-		StateDiff: &core.StateDiff{},
-	}
-	state, err := New(&felt.Zero, stateDB)
-	require.NoError(t, err)
-	err = state.Update(0, stateUpdate, classes)
-	require.NoError(t, err)
-	stateComm, err := state.Commitment()
-	require.NoError(t, err)
-
-	stateUpdate = &core.StateUpdate{
-		OldRoot:   &stateComm,
-		NewRoot:   &stateComm,
-		StateDiff: &core.StateDiff{},
-	}
-	classes2 := map[felt.Felt]core.Class{
-		class2Hash: class2,
-	}
-
-	state, err = New(&stateComm, stateDB)
-	require.NoError(t, err)
-	err = state.Update(1, stateUpdate, classes2)
-	require.NoError(t, err)
-
-	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
-	require.NoError(t, err)
-	historyBlock1, err := NewStateHistory(1, &stateComm, stateDB)
-	require.NoError(t, err)
-
-	t.Run("Class retrieval at declaration block", func(t *testing.T) {
-		retrievedClass, err := historyBlock0.Class(&class1Hash)
+		classes := map[felt.Felt]core.Class{
+			class1Hash: class1,
+		}
+		stateUpdate := &core.StateUpdate{
+			OldRoot:   &felt.Zero,
+			NewRoot:   &felt.Zero,
+			StateDiff: &core.StateDiff{},
+		}
+		state, err := New(&felt.Zero, stateDB)
 		require.NoError(t, err)
-		assert.Equal(t, retrievedClass.Class, class1)
-		assert.Equal(t, retrievedClass.At, uint64(0))
-
-		retrievedClass, err = historyBlock1.Class(&class2Hash)
+		err = state.Update(0, stateUpdate, classes)
 		require.NoError(t, err)
-		assert.Equal(t, retrievedClass.Class, class2)
-		assert.Equal(t, retrievedClass.At, uint64(1))
-	})
+		stateComm, err := state.Commitment()
+		require.NoError(t, err)
 
-	t.Run("NonExistentClass", func(t *testing.T) {
-		nonExistentClass := utils.HexToFelt(t, "0xDEADBEEF3")
-		_, err := historyBlock0.Class(nonExistentClass)
-		assert.Error(t, err)
+		stateUpdate = &core.StateUpdate{
+			OldRoot:   &stateComm,
+			NewRoot:   &stateComm,
+			StateDiff: &core.StateDiff{},
+		}
+		classes2 := map[felt.Felt]core.Class{
+			class2Hash: class2,
+		}
+
+		state, err = New(&stateComm, stateDB)
+		require.NoError(t, err)
+		err = state.Update(1, stateUpdate, classes2)
+		require.NoError(t, err)
+
+		historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
+		require.NoError(t, err)
+		historyBlock1, err := NewStateHistory(1, &stateComm, stateDB)
+		require.NoError(t, err)
+
+		t.Run("Class retrieval at declaration block", func(t *testing.T) {
+			retrievedClass, err := historyBlock0.Class(&class1Hash)
+			require.NoError(t, err)
+			assert.Equal(t, retrievedClass.Class, class1)
+			assert.Equal(t, retrievedClass.At, uint64(0))
+
+			retrievedClass, err = historyBlock1.Class(&class2Hash)
+			require.NoError(t, err)
+			assert.Equal(t, retrievedClass.Class, class2)
+			assert.Equal(t, retrievedClass.At, uint64(1))
+		})
+
+		t.Run("NonExistentClass", func(t *testing.T) {
+			nonExistentClass := utils.HexToFelt(t, "0xDEADBEEF3")
+			_, err := historyBlock0.Class(nonExistentClass)
+			assert.Error(t, err)
+		})
 	})
 }
 
 func TestStateHistoryClassBeforeDeclaration(t *testing.T) {
-	stateDB := newTestStateDB()
-	history, err := NewStateHistory(0, &felt.Zero, stateDB)
-	require.NoError(t, err)
+	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateDB := newTestStateDB(dbType)
+		history, err := NewStateHistory(0, &felt.Zero, stateDB)
+		require.NoError(t, err)
 
-	_, err = history.Class(utils.HexToFelt(t, "0xDEADBEEF"))
-	assert.ErrorIs(t, err, db.ErrKeyNotFound)
+		_, err = history.Class(utils.HexToFelt(t, "0xDEADBEEF"))
+		assert.ErrorIs(t, err, db.ErrKeyNotFound)
+	})
 }
 
 func TestStateHistoryTrieOperations(t *testing.T) {
-	stateDB := newTestStateDB()
-	history, err := NewStateHistory(1, &felt.Zero, stateDB)
-	require.NoError(t, err)
+	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+		stateDB := newTestStateDB(dbType)
+		history, err := NewStateHistory(1, &felt.Zero, stateDB)
+		require.NoError(t, err)
 
-	t.Run("ClassTrie not supported", func(t *testing.T) {
-		_, err := history.ClassTrie()
-		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
-	})
+		t.Run("ClassTrie not supported", func(t *testing.T) {
+			_, err := history.ClassTrie()
+			assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
+		})
 
-	t.Run("ContractTrie not supported", func(t *testing.T) {
-		_, err := history.ContractTrie()
-		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
-	})
+		t.Run("ContractTrie not supported", func(t *testing.T) {
+			_, err := history.ContractTrie()
+			assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
+		})
 
-	t.Run("ContractStorageTrie not supported", func(t *testing.T) {
-		addr := new(felt.Felt).SetUint64(1)
-		_, err := history.ContractStorageTrie(addr)
-		assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
+		t.Run("ContractStorageTrie not supported", func(t *testing.T) {
+			addr := new(felt.Felt).SetUint64(1)
+			_, err := history.ContractStorageTrie(addr)
+			assert.ErrorIs(t, err, ErrHistoricalTrieNotSupported)
+		})
 	})
 }
