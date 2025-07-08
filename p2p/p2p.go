@@ -35,6 +35,12 @@ const (
 	clientName                = "juno"
 )
 
+type SyncToChannel interface {
+	SyncToChannel(ctx context.Context, blockCh chan<- p2pSync.BlockBody) error
+}
+
+var _ SyncToChannel = (*Service)(nil)
+
 type Service struct {
 	host host.Host
 
@@ -238,6 +244,52 @@ func (s *Service) Run(ctx context.Context) error {
 	if !s.feederNode {
 		s.synchroniser.Run(ctx)
 	}
+
+	<-ctx.Done()
+	if err := s.persistPeers(); err != nil {
+		s.log.Warnw("Failed to persist peers", "err", err)
+	}
+	if err := s.dht.Close(); err != nil {
+		s.log.Warnw("Failed stopping DHT", "err", err.Error())
+	}
+	return nil
+}
+
+func (s *Service) SyncToChannel(ctx context.Context, blockCh chan<- p2pSync.BlockBody) error {
+	defer func() {
+		if err := s.host.Close(); err != nil {
+			s.log.Warnw("Failed to close host", "err", err)
+		}
+	}()
+
+	err := s.dht.Bootstrap(ctx)
+	if err != nil {
+		return err
+	}
+
+	var options []pubsub.Option
+	if s.gossipTracer != nil {
+		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
+	}
+
+	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
+	if err != nil {
+		return err
+	}
+
+	defer s.callAndLogErr(s.dht.Close, "Failed stopping DHT")
+
+	listenAddrs, err := s.ListenAddrs()
+	if err != nil {
+		return err
+	}
+	for _, addr := range listenAddrs {
+		s.log.Infow("Listening on", "addr", addr)
+	}
+
+	s.setProtocolHandlers()
+
+	s.synchroniser.SyncToChannel(ctx, blockCh)
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {

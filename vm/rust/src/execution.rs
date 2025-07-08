@@ -181,7 +181,7 @@ where
 {
     let initial_resource_bounds = extract_resource_bounds(transaction)?;
     let initial_gas_limit = initial_resource_bounds.l2_gas.max_amount;
-    
+
     // Use balance-dependent limit only when charge_fee is enabled,
     // otherwise use blockifier's default limit to avoid the account balance issue
     let max_l2_gas_limit = if get_execution_flags(transaction).charge_fee {

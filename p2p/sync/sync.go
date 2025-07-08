@@ -131,18 +131,18 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 	)))
 
 	for b := range blocksCh {
-		if b.err != nil {
-			return fmt.Errorf("failed to process block: %w", b.err)
+		if b.Err != nil {
+			return fmt.Errorf("failed to process block: %w", b.Err)
 		}
 
 		storeTimer := time.Now()
-		if err := s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses); err != nil {
+		if err := s.blockchain.Store(b.Block, b.Commitments, b.StateUpdate, b.NewClasses); err != nil {
 			return fmt.Errorf("failed to store block: %w", err)
 		}
 
-		s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
-			"root", b.block.GlobalStateRoot.ShortString())
-		s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
+		s.log.Infow("Stored Block", "number", b.Block.Number, "hash", b.Block.Hash.ShortString(),
+			"root", b.Block.GlobalStateRoot.ShortString())
+		s.listener.OnSyncStepDone(junoSync.OpStore, b.Block.Number, time.Since(storeTimer))
 	}
 	return nil
 }
@@ -167,20 +167,20 @@ func (s *Service) logError(msg string, err error) {
 	}
 }
 
-// blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
-type blockBody struct {
-	block       *core.Block
-	stateUpdate *core.StateUpdate
-	newClasses  map[felt.Felt]core.Class
-	commitments *core.BlockCommitments
-	err         error
+// BlockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
+type BlockBody struct {
+	Block       *core.Block
+	StateUpdate *core.StateUpdate
+	NewClasses  map[felt.Felt]core.Class
+	Commitments *core.BlockCommitments
+	Err         error
 }
 
 //nolint:gocyclo
 func (s *Service) processSpecBlockParts(
 	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
-) <-chan <-chan blockBody {
-	orderedBlockBodiesCh := make(chan (<-chan blockBody))
+) <-chan <-chan BlockBody {
+	orderedBlockBodiesCh := make(chan (<-chan BlockBody))
 
 	go func() {
 		defer close(orderedBlockBodiesCh)
@@ -279,13 +279,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 	receipts []*receipt.Receipt,
 	events []*event.Event,
 	prevBlockRoot *felt.Felt,
-) <-chan blockBody {
-	bodyCh := make(chan blockBody)
+) <-chan BlockBody {
+	bodyCh := make(chan BlockBody)
 	go func() {
 		defer close(bodyCh)
 		select {
 		case <-ctx.Done():
-			bodyCh <- blockBody{err: ctx.Err()}
+			bodyCh <- BlockBody{Err: ctx.Err()}
 		default:
 			coreBlock := new(core.Block)
 
@@ -339,7 +339,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 				coreC := p2p2core.AdaptClass(cls)
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -368,7 +368,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to parse block version: %w", err)}
 				return
 			}
 
@@ -376,13 +376,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
 				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
 				}
 
 				if !expectedHash.Equal(post0132Hash) {
 					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
-					bodyCh <- blockBody{err: err}
+					bodyCh <- BlockBody{Err: err}
 					return
 				}
 			}
@@ -396,13 +396,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			case bodyCh <- BlockBody{Block: coreBlock, StateUpdate: stateUpdate, NewClasses: newClasses, Commitments: commitments}:
 			}
 		}
 	}()
