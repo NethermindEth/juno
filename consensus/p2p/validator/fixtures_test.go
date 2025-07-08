@@ -104,7 +104,7 @@ func BuildTestFixture(
 
 	proposal := buildProposal(testCase.Round, testCase.ValidRound, block)
 
-	preState := buildPreState(&buildResult, revealedBlock.Header)
+	preState := buildPreState(&buildResult, headBlock.Header, revealedBlock.Header)
 
 	executor.RegisterBuildResult(&buildResult)
 
@@ -286,7 +286,7 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 	}
 }
 
-func buildPreState(buildResult *builder.BuildResult, revealedBlockHeader *core.Header) builder.BuildState {
+func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBlockHeader *core.Header) builder.BuildState {
 	strippedBlockHeader := *buildResult.Preconfirmed.Block.Header
 	strippedBlockHeader.Hash = nil
 	strippedBlockHeader.GlobalStateRoot = nil
@@ -302,6 +302,7 @@ func buildPreState(buildResult *builder.BuildResult, revealedBlockHeader *core.H
 				Receipts:     []*core.TransactionReceipt{},
 			},
 			StateUpdate: &core.StateUpdate{
+				OldRoot:   headBlockHeader.GlobalStateRoot,
 				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
 			},
 			NewClasses:            map[felt.Felt]core.Class{},

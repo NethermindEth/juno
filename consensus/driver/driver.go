@@ -6,28 +6,21 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/proposer"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 )
 
-type timeoutFn func(step types.Step, round types.Round) time.Duration
-
-type Blockchain[V types.Hashable[H], H types.Hash] interface {
-	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(types.Height, V)
-}
+type TimeoutFn func(step types.Step, round types.Round) time.Duration
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log          utils.Logger
-	db           db.TendermintDB[V, H, A]
-	stateMachine tendermint.StateMachine[V, H, A]
-	blockchain   Blockchain[V, H]
-	p2p          p2p.P2P[V, H, A]
-	proposer     proposer.Proposer[V, H]
+	log            utils.Logger
+	db             db.TendermintDB[V, H, A]
+	stateMachine   tendermint.StateMachine[V, H, A]
+	commitListener CommitListener[V, H, A]
+	p2p            p2p.P2P[V, H, A]
 
-	getTimeout timeoutFn
+	getTimeout TimeoutFn
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
@@ -37,21 +30,19 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
-	blockchain Blockchain[V, H],
+	commitListener CommitListener[V, H, A],
 	p2p p2p.P2P[V, H, A],
-	proposer proposer.Proposer[V, H],
-	getTimeout timeoutFn,
+	getTimeout TimeoutFn,
 ) Driver[V, H, A] {
 	return Driver[V, H, A]{
-		log:          log,
-		db:           db,
-		stateMachine: stateMachine,
-		blockchain:   blockchain,
-		p2p:          p2p,
-		proposer:     proposer,
-		getTimeout:   getTimeout,
-		scheduledTms: make(map[types.Timeout]*time.Timer),
-		timeoutsCh:   make(chan types.Timeout),
+		log:            log,
+		db:             db,
+		stateMachine:   stateMachine,
+		commitListener: commitListener,
+		p2p:            p2p,
+		getTimeout:     getTimeout,
+		scheduledTms:   make(map[types.Timeout]*time.Timer),
+		timeoutsCh:     make(chan types.Timeout),
 	}
 }
 
@@ -132,9 +123,7 @@ func (d *Driver[V, H, A]) execute(
 			}
 
 			d.log.Debugw("Committing", "height", action.Height, "round", action.Round)
-			d.blockchain.Commit(action.Height, *action.Value)
-			d.proposer.OnCommit(ctx, action.Height, *action.Value)
-			d.p2p.OnCommit(ctx, action.Height, *action.Value)
+			d.commitListener.Commit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
