@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -245,11 +244,17 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	}
 }
 
-func makeL1Metrics() l1.EventListener {
-	l1Height := prometheus.NewGauge(prometheus.GaugeOpts{
+func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
+	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "height",
 		Help:      "Current L1 (Ethereum) blockchain height",
+	}, func() float64 {
+		l1Head, err := bcReader.L1Head()
+		if err != nil {
+			return 0
+		}
+		return float64(l1Head.BlockNumber)
 	})
 	prometheus.MustRegister(l1Height)
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -261,9 +266,6 @@ func makeL1Metrics() l1.EventListener {
 	prometheus.MustRegister(requestLatencies)
 
 	return l1.SelectiveListener{
-		OnNewL1HeadCb: func(head *core.L1Head) {
-			l1Height.Set(float64(head.BlockNumber))
-		},
 		OnL1CallCb: func(method string, took time.Duration) {
 			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
 		},
