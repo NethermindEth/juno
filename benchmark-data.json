@@ -232,5 +232,11 @@
     "block_target": 800000,
     "duration_seconds": 84963.398349,
     "timestamp": "2025-07-07T01:50:34.460724+00:00"
+  },
+  {
+    "version": "v0.14.7-8-g0e14bb96",
+    "block_target": 800000,
+    "duration_seconds": 81183.193071,
+    "timestamp": "2025-07-08T00:25:04.176267+00:00"
   }
 ]
