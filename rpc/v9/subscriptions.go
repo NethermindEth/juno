@@ -523,7 +523,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails bool, send
 
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			pendingData, err := h.syncReader.PendingData()
+			pendingData, err := h.PendingData()
 			if err != nil {
 				if errors.Is(err, sync.ErrPendingBlockNotFound) {
 					return nil
