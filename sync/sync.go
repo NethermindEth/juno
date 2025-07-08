@@ -25,7 +25,6 @@ var (
 	_ Reader          = (*Synchronizer)(nil)
 
 	ErrPendingBlockNotFound          = errors.New("pending block not found")
-	ErrPreConfirmedBlockNotFound     = errors.New("pre_confirmed block not found")
 	ErrMustSwitchPollingPreConfirmed = errors.New(
 		"reached starknet 0.14.0. node requires switching from pending to polling pre_confirmed blocks",
 	)
