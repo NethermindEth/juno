@@ -354,11 +354,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
-		fmt.Print("HEre check 0\n")
+
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-		fmt.Print("HEre check 0.1\n")
+
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
-		fmt.Print("HEre check 0.2\n")
 		// Candidate Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		preConfirmed := core.NewPreConfirmed(
@@ -375,7 +374,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler.preConfirmedFeed.Send(&core.PreConfirmed{
 			Block: &core.Block{Header: &core.Header{}},
 		})
-		fmt.Print("HEre check 1\n")
+
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusCandidate, UnknownExecution, "")
 		require.Equal(t, block.Transactions[0].Hash(), txHash)
 
