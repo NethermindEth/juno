@@ -15,8 +15,7 @@ var (
 )
 
 var (
-	_ db.Batch        = (*transaction)(nil)
-	_ db.IndexedBatch = (*transaction)(nil)
+	_ db.Batch = (*transaction)(nil)
 )
 
 type transaction struct {
