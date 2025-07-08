@@ -283,7 +283,14 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	database, err := pebble.New(path)
+	// Use the same defaults as the normal startup
+	const (
+		defaultCacheSizeMb = 1024
+		defaultMaxHandles  = 1024
+		defaultColour      = true
+	)
+
+	database, err := pebble.NewWithOptions(path, defaultCacheSizeMb, defaultMaxHandles, defaultColour)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
