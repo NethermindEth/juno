@@ -129,6 +129,7 @@ func TestBlockTransactionCount(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		preConfirmed := blockIDPreConfirmed(t)
 		count, rpcErr := handler.BlockTransactionCount(&preConfirmed)
 		require.Equal(t, rpccore.ErrBlockNotFound, rpcErr)

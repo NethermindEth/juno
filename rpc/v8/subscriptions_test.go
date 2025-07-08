@@ -268,7 +268,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
-
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
 		_, hasSubscription := handler.subscriptions.Load(string(id))
@@ -288,6 +288,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, "", log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1011")
 			require.NoError(t, err)
@@ -335,6 +336,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")
 
@@ -694,7 +696,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-
+	mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(3)
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
