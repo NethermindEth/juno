@@ -134,6 +134,9 @@ func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID,
 		case id.Pending:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
 		default:
+			if filterRange == blockchain.EventFilterTo {
+				return filter.SetRangeEndBlockByNumber(filterRange, min(id.Number, latestHeight))
+			}
 			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
 		}
 	}

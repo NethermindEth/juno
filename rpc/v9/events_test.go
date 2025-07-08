@@ -47,12 +47,6 @@ func TestEvents(t *testing.T) {
 			preConfirmedB = b
 		}
 	}
-	preConfirmed := core.NewPreConfirmed(preConfirmedB, nil, nil, nil)
-	pendingData := preConfirmed.AsPendingData()
-	mockSyncReader.EXPECT().PendingData().Return(
-		&pendingData,
-		nil,
-	).Times(2)
 
 	handler := rpc.New(chain, mockSyncReader, nil, "", utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
@@ -72,12 +66,12 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		t.Run("block number", func(t *testing.T) {
+		t.Run("block number - bounds to latest", func(t *testing.T) {
 			number := blockIDNumber(t, 55)
 			args.ToBlock = &number
 			events, err := handler.Events(args)
 			require.Nil(t, err)
-			require.Len(t, events.Events, 5)
+			require.Len(t, events.Events, 4)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
@@ -202,11 +196,17 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("get pre_confirmed events without pagination", func(t *testing.T) {
-		preConfirmed := blockIDPreConfirmed(t)
+		preConfirmed := core.NewPreConfirmed(preConfirmedB, nil, nil, nil)
+		pendingData := preConfirmed.AsPendingData()
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pendingData,
+			nil,
+		)
+		preConfirmedID := blockIDPreConfirmed(t)
 		args = rpc.EventArgs{
 			EventFilter: rpc.EventFilter{
-				FromBlock: &preConfirmed,
-				ToBlock:   &preConfirmed,
+				FromBlock: &preConfirmedID,
+				ToBlock:   &preConfirmedID,
 			},
 			ResultPageRequest: rpcv6.ResultPageRequest{
 				ChunkSize:         100,
@@ -225,7 +225,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("get pre_confirmed events with pagination", func(t *testing.T) {
 		var err error
-		preConfirmedB, err = gw.BlockByNumber(t.Context(), 5)
+		preConfirmedB, err = gw.BlockByNumber(t.Context(), 6)
 		require.Nil(t, err)
 		preConfirmedID := blockIDPreConfirmed(t)
 		args = rpc.EventArgs{
@@ -262,10 +262,9 @@ func TestEvents(t *testing.T) {
 				require.NotEmpty(t, events.ContinuationToken)
 			}
 
-			assert.Equal(t, actualEvent.From, expectedEvent.From)
-			assert.Equal(t, actualEvent.Keys, expectedEvent.Keys)
-			assert.Equal(t, actualEvent.Data, expectedEvent.Data)
-
+			assert.Equal(t, expectedEvent.From.String(), actualEvent.From.String())
+			assert.Equal(t, expectedEvent.Keys, actualEvent.Keys)
+			assert.Equal(t, expectedEvent.Data, actualEvent.Data)
 			args.ContinuationToken = events.ContinuationToken
 		}
 	})
