@@ -247,8 +247,8 @@ func makeBlockchainMetrics() blockchain.EventListener {
 func makeL1Metrics(bcReader blockchain.Reader) l1.EventListener {
 	l1Height := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "l1",
-		Name:      "height",
-		Help:      "Current L1 (Ethereum) blockchain height",
+		Name:      "latest_verified_l2_block_number",
+		Help:      "Latest L2 block number that has been finalized on L1",
 	}, func() float64 {
 		l1Head, err := bcReader.L1Head()
 		if err != nil {
