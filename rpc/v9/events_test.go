@@ -82,6 +82,25 @@ func TestEvents(t *testing.T) {
 		})
 	})
 
+	t.Run("filter with from_block > to_block", func(t *testing.T) {
+		fromBlock := blockIDNumber(t, 1)
+		toBlock := blockIDNumber(t, 0)
+		fArgs := rpc.EventArgs{
+			EventFilter: rpc.EventFilter{
+				FromBlock: &fromBlock,
+				ToBlock:   &toBlock,
+			},
+			ResultPageRequest: rpcv6.ResultPageRequest{
+				ChunkSize:         100,
+				ContinuationToken: "",
+			},
+		}
+
+		events, err := handler.Events(fArgs)
+		require.Nil(t, err)
+		require.Empty(t, events.Events)
+	})
+
 	t.Run("filter with no from_block", func(t *testing.T) {
 		args.FromBlock = nil
 		args.ToBlock = &latest
