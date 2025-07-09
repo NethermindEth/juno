@@ -137,6 +137,9 @@ func (b *Builder) PendingState(buildState *BuildState) (state.StateReader, error
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {
+	if len(txns) == 0 {
+		return nil
+	}
 	return b.executor.RunTxns(state, txns)
 }
 

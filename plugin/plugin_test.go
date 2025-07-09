@@ -43,7 +43,8 @@ func TestPlugin(t *testing.T) {
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
 	bc := blockchain.New(testDB, &utils.Integration)
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
+	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
+	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -71,7 +72,8 @@ func TestPlugin(t *testing.T) {
 			plugin.EXPECT().NewBlock(block, su, gomock.Any())
 		}
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
+		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
+		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()
