@@ -22,6 +22,7 @@ type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockLatest(ctx context.Context) (*core.Block, error)
 	BlockPending(ctx context.Context) (Pending, error)
+	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error)
 }
 
 type feederGatewayDataSource struct {
@@ -129,4 +130,8 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	}
 
 	return newClasses, closer()
+}
+
+func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+	return f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
 }
