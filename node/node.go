@@ -28,6 +28,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -97,6 +98,9 @@ type Config struct {
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
 	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
 	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
+
+	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
+	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
 
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
@@ -219,7 +223,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
-		synchronizer = sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
+		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+		synchronizer = sync.New(chain, feederGatewayDataSource, log, cfg.PendingPollInterval, dbIsRemote, database)
 		synchronizer.WithPlugin(junoPlugin)
 		chain.WithPendingBlockFn(synchronizer.PendingBlock)
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
@@ -247,7 +252,16 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if synchronizer != nil {
 			syncReader = synchronizer
 		}
-		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
+
+		submittedTransactionsCache := rpccore.NewSubmittedTransactionsCache(
+			int(cfg.SubmittedTransactionsCacheSize),
+			cfg.SubmittedTransactionsCacheEntryTTL,
+		)
+
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithGateway(gatewayClient).
+			WithFeeder(client).
+			WithSubmittedTransactionsCache(submittedTransactionsCache)
 		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		if synchronizer != nil {
 			services = append(services, synchronizer)
