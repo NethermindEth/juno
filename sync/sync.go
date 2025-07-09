@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/starknetdata"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc/stream"
 )
@@ -118,7 +117,7 @@ type Synchronizer struct {
 	blockchain          *blockchain.Blockchain
 	db                  db.KeyValueStore
 	readOnlyBlockchain  bool
-	starknetData        starknetdata.StarknetData
+	dataSource          DataSource
 	startingBlockNumber *uint64
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Block]
@@ -136,13 +135,18 @@ type Synchronizer struct {
 	currReorg *ReorgBlockRange // If nil, no reorg is happening
 }
 
-func New(bc *blockchain.Blockchain, starkNetData starknetdata.StarknetData, log utils.SimpleLogger,
-	pendingPollInterval time.Duration, readOnlyBlockchain bool, database db.KeyValueStore,
+func New(
+	bc *blockchain.Blockchain,
+	dataSource DataSource,
+	log utils.SimpleLogger,
+	pendingPollInterval time.Duration,
+	readOnlyBlockchain bool,
+	database db.KeyValueStore,
 ) *Synchronizer {
 	s := &Synchronizer{
 		blockchain:          bc,
+		dataSource:          dataSource,
 		db:                  database,
-		starknetData:        starkNetData,
 		log:                 log,
 		newHeads:            feed.New[*core.Block](),
 		reorgFeed:           feed.New[*ReorgBlockRange](),
@@ -180,72 +184,18 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 		case <-ctx.Done():
 			return func() {}
 		default:
-			stateUpdate, block, err := s.starknetData.StateUpdateWithBlock(ctx, height)
-			if err != nil {
-				continue
-			}
-
-			newClasses, err := s.fetchUnknownClasses(ctx, stateUpdate)
+			committedBlock, err := s.dataSource.BlockByNumber(ctx, height)
 			if err != nil {
 				continue
 			}
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, block, stateUpdate, newClasses, resetStreams)
+					return s.verifierTask(ctx, committedBlock.Block, committedBlock.StateUpdate, committedBlock.NewClasses, resetStreams)
 				})
 			}
 		}
 	}
-}
-
-func (s *Synchronizer) fetchUnknownClasses(ctx context.Context, stateUpdate *core.StateUpdate) (map[felt.Felt]core.Class, error) {
-	state, err := s.blockchain.HeadState()
-	if err != nil {
-		// if err is db.ErrKeyNotFound we are on an empty DB
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			return nil, err
-		}
-	}
-
-	newClasses := make(map[felt.Felt]core.Class)
-	fetchIfNotFound := func(classHash *felt.Felt) error {
-		if _, ok := newClasses[*classHash]; ok {
-			return nil
-		}
-
-		stateErr := db.ErrKeyNotFound
-		if state != nil {
-			_, stateErr = state.Class(classHash)
-		}
-
-		if errors.Is(stateErr, db.ErrKeyNotFound) {
-			class, fetchErr := s.starknetData.Class(ctx, classHash)
-			if fetchErr == nil {
-				newClasses[*classHash] = class
-			}
-			return fetchErr
-		}
-		return stateErr
-	}
-
-	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
-		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, err
-		}
-	}
-	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
-		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, err
-		}
-	}
-	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
-		if err = fetchIfNotFound(&classHash); err != nil {
-			return nil, err
-		}
-	}
-
-	return newClasses, nil
 }
 
 func (s *Synchronizer) handlePluginRevertBlock() {
@@ -517,7 +467,7 @@ func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
 				defer func() {
 					<-sem
 				}()
-				highestBlock, err := s.starknetData.BlockLatest(ctx)
+				highestBlock, err := s.dataSource.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
 				} else {
@@ -558,22 +508,14 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 		return nil
 	}
 
-	pendingStateUpdate, pendingBlock, err := s.starknetData.StateUpdatePendingWithBlock(ctx)
+	pending, err := s.dataSource.BlockPending(ctx)
 	if err != nil {
 		return err
 	}
+	pending.Block.Number = head.Number + 1
 
-	pendingBlock.Number = head.Number + 1
-	newClasses, err := s.fetchUnknownClasses(ctx, pendingStateUpdate)
-	if err != nil {
-		return err
-	}
-	s.log.Debugw("Found pending block", "txns", pendingBlock.TransactionCount)
-	return s.StorePending(&Pending{
-		Block:       pendingBlock,
-		StateUpdate: pendingStateUpdate,
-		NewClasses:  newClasses,
-	})
+	s.log.Debugw("Found pending block", "txns", pending.Block.TransactionCount)
+	return s.StorePending(&pending)
 }
 
 func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
