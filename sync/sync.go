@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -73,7 +74,7 @@ type Reader interface {
 
 	Pending() (*Pending, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
+	PendingState() (state.StateReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -107,8 +108,8 @@ func (n *NoopSynchronizer) Pending() (*Pending, error) {
 	return nil, errors.New("Pending() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
+func (n *NoopSynchronizer) PendingState() (state.StateReader, error) {
+	return nil, errors.New("PendingState() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -234,7 +235,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	err = s.plugin.RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		toBlockAndStateUpdate,
-		reverseStateDiff)
+		&reverseStateDiff)
 	if err != nil {
 		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
 	}
@@ -599,18 +600,17 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pending.Block
 }
 
-var noop = func() error { return nil }
-
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
+func (s *Synchronizer) PendingState() (state.StateReader, error) {
 	pending, err := s.Pending()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, core.NewState(txn)), noop, nil
+	state, err := state.New(pending.StateUpdate.OldRoot, s.blockchain.StateDB)
+	if err != nil {
+		return nil, err
+	}
+	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, state), nil
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {

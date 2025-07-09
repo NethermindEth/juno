@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -393,10 +394,9 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) Pending() (*sync.Pending, error)                       { return nil, nil }
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
-
+func (fs *fakeSyncer) Pending() (*sync.Pending, error)          { return nil, nil }
+func (fs *fakeSyncer) PendingBlock() *core.Block                { return nil }
+func (fs *fakeSyncer) PendingState() (state.StateReader, error) { return nil, nil }
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
