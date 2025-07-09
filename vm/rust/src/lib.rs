@@ -528,6 +528,8 @@ pub extern "C" fn cairoVMExecute(
                     &txn_and_query_bit.txn,
                     tx_execution_info,
                     &mut txn_state,
+                    block_context.versioned_constants(),
+                    &gas_vector_computation_mode,
                 );
                 if let Err(e) = trace {
                     report_error(

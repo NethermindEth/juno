@@ -1,5 +1,6 @@
 use crate::juno_state_reader::JunoStateReader;
 use blockifier;
+use blockifier::blockifier_versioned_constants::VersionedConstants;
 use blockifier::execution::call_info::OrderedL2ToL1Message;
 use blockifier::execution::entry_point::CallType;
 use blockifier::state::cached_state::{CachedState, StateMaps};
@@ -12,6 +13,7 @@ use serde::Serialize;
 use starknet_api::contract_class::EntryPointType;
 use starknet_api::core::{ClassHash, ContractAddress, EntryPointSelector, EthAddress, PatriciaKey};
 use starknet_api::execution_resources::GasVector;
+use starknet_api::transaction::fields::GasVectorComputationMode;
 use starknet_api::transaction::fields::{Calldata, Fee};
 use starknet_api::transaction::{DeclareTransaction, Transaction as StarknetApiTransaction};
 use starknet_api::transaction::{EventContent, L2ToL1Payload};
@@ -194,6 +196,8 @@ pub fn new_transaction_trace(
     tx: &StarknetApiTransaction,
     info: BlockifierTxInfo,
     state: &mut TransactionalState<CachedState<JunoStateReader>>,
+    versioned_constants: &VersionedConstants,
+    gas_vector_computation_mode: &GasVectorComputationMode,
 ) -> Result<TransactionTrace, StateError> {
     let mut trace = TransactionTrace::default();
     let mut deprecated_declared_class_hash: Option<ClassHash> = None;
@@ -203,34 +207,84 @@ pub fn new_transaction_trace(
                 Some(err) => Some(ExecuteInvocation::Revert {
                     revert_reason: err.to_string(),
                 }),
-                None => info
-                    .execute_call_info
-                    .map(|v| ExecuteInvocation::Ok(v.into())),
+                None => info.execute_call_info.map(|v| {
+                    ExecuteInvocation::Ok(FunctionInvocation::from_call_info(
+                        v,
+                        versioned_constants,
+                        gas_vector_computation_mode,
+                    ))
+                }),
             };
             trace.r#type = TransactionType::L1Handler;
         }
         StarknetApiTransaction::DeployAccount(_) => {
-            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
-            trace.constructor_invocation = info.execute_call_info.map(|v| v.into());
-            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.validate_invocation = info.validate_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
+            trace.constructor_invocation = info.execute_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
             trace.r#type = TransactionType::DeployAccount;
         }
         StarknetApiTransaction::Invoke(_) => {
-            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
+            trace.validate_invocation = info.validate_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
             trace.execute_invocation = match info.revert_error {
                 Some(err) => Some(ExecuteInvocation::Revert {
                     revert_reason: err.to_string(),
                 }),
-                None => info
-                    .execute_call_info
-                    .map(|v| ExecuteInvocation::Ok(v.into())),
+                None => info.execute_call_info.map(|v| {
+                    ExecuteInvocation::Ok(FunctionInvocation::from_call_info(
+                        v,
+                        versioned_constants,
+                        gas_vector_computation_mode,
+                    ))
+                }),
             };
-            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
             trace.r#type = TransactionType::Invoke;
         }
         StarknetApiTransaction::Declare(declare_txn) => {
-            trace.validate_invocation = info.validate_call_info.map(|v| v.into());
-            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| v.into());
+            trace.validate_invocation = info.validate_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
+            trace.fee_transfer_invocation = info.fee_transfer_call_info.map(|v| {
+                FunctionInvocation::from_call_info(
+                    v,
+                    versioned_constants,
+                    gas_vector_computation_mode,
+                )
+            });
             trace.r#type = TransactionType::Declare;
             deprecated_declared_class_hash = if info.revert_error.is_none() {
                 match declare_txn {
@@ -291,11 +345,13 @@ pub struct ExecutionResources {
     // https://github.com/starkware-libs/starknet-specs/pull/167
     #[serde(skip_serializing_if = "Option::is_none")]
     pub segment_arena_builtin: Option<usize>,
+    pub l1_gas: u128,
+    pub l2_gas: u128,
 }
 
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-impl From<VmExecutionResources> for ExecutionResources {
-    fn from(val: VmExecutionResources) -> Self {
+impl ExecutionResources {
+    fn from_resources_and_gas_vector(val: VmExecutionResources, gas_vector: GasVector) -> Self {
         ExecutionResources {
             steps: val.n_steps,
             memory_holes: if val.n_memory_holes > 0 {
@@ -335,6 +391,8 @@ impl From<VmExecutionResources> for ExecutionResources {
                 .builtin_instance_counter
                 .get(&BuiltinName::segment_arena)
                 .cloned(),
+            l1_gas: gas_vector.l1_gas.0.into(),
+            l2_gas: gas_vector.l2_gas.0.into(),
         }
     }
 }
@@ -357,8 +415,19 @@ pub struct FunctionInvocation {
 }
 
 use blockifier::execution::call_info::CallInfo as BlockifierCallInfo;
-impl From<BlockifierCallInfo> for FunctionInvocation {
-    fn from(val: BlockifierCallInfo) -> Self {
+impl FunctionInvocation {
+    fn from_call_info(
+        val: BlockifierCallInfo,
+        versioned_constants: &VersionedConstants,
+        gas_vector_computation_mode: &GasVectorComputationMode,
+    ) -> Self {
+        let gas_consumed = val
+            .summarize(versioned_constants)
+            .to_partial_gas_vector(versioned_constants, gas_vector_computation_mode);
+
+        let execution_resources =
+            ExecutionResources::from_resources_and_gas_vector(val.resources, gas_consumed);
+
         FunctionInvocation {
             entry_point_type: val.call.entry_point_type,
             call_type: match val.call.call_type {
@@ -374,7 +443,11 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                 entry_point_selector: val.call.entry_point_selector,
                 calldata: val.call.calldata,
             },
-            calls: val.inner_calls.into_iter().map(|v| v.into()).collect(),
+            calls: val
+                .inner_calls
+                .into_iter()
+                .map(|v| Self::from_call_info(v, versioned_constants, gas_vector_computation_mode))
+                .collect(),
             events: val.execution.events.into_iter().map(|v| v.into()).collect(),
             messages: val
                 .execution
@@ -386,7 +459,7 @@ impl From<BlockifierCallInfo> for FunctionInvocation {
                     ordered_message
                 })
                 .collect(),
-            execution_resources: Some(val.resources.into()),
+            execution_resources: Some(execution_resources),
             is_reverted: val.execution.failed,
         }
     }
