@@ -259,7 +259,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 		assert.Nil(t, tx)
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
@@ -943,7 +943,7 @@ func TestTransactionStatus(t *testing.T) {
 
 						mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 						mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
-
+						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 						handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
@@ -964,6 +964,7 @@ func TestTransactionStatus(t *testing.T) {
 
 				mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 				mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 				handler := rpc.New(mockReader, mockSyncer, nil, "", test.network, nil).WithFeeder(client)
 

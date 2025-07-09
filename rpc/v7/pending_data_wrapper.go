@@ -1,6 +1,7 @@
 package rpcv7
 
 import (
+	"errors"
 	"time"
 
 	"github.com/NethermindEth/juno/core"
@@ -10,22 +11,22 @@ import (
 
 func (h *Handler) PendingData() (*core.PendingData, error) {
 	pending, err := h.syncReader.PendingData()
-	if err != nil {
+	if err != nil && !errors.Is(err, sync.ErrPendingBlockNotFound) {
 		return nil, err
 	}
 	// If pending network is polling pending block and running on < 0.14.0
-	if pending.Variant() == core.PendingBlockVariant {
+	if err == nil && pending.Variant() == core.PendingBlockVariant {
 		return pending, nil
-	} else {
-		// If pre_confirmed, network is polling pre_confirmed block and running on >= 0.14.0
-		latestHeader, err := h.bcReader.HeadsHeader()
-		if err != nil {
-			return nil, err
-		}
-
-		emptyPending := emptyPendingForParent(latestHeader).AsPendingData()
-		return &emptyPending, nil
 	}
+
+	// If pre_confirmed, network is polling pre_confirmed block and running on >= 0.14.0
+	latestHeader, err := h.bcReader.HeadsHeader()
+	if err != nil {
+		return nil, err
+	}
+	emptyPending := emptyPendingForParent(latestHeader)
+	emptyPendingData := emptyPending.AsPendingData()
+	return &emptyPendingData, nil
 }
 
 func (h *Handler) PendingBlock() *core.Block {
@@ -36,7 +37,7 @@ func (h *Handler) PendingBlock() *core.Block {
 	return pending.GetBlock()
 }
 
-func emptyPendingForParent(parentHeader *core.Header) *sync.Pending {
+func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -64,7 +65,7 @@ func emptyPendingForParent(parentHeader *core.Header) *sync.Pending {
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
 
-	return &sync.Pending{
+	return sync.Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   parentHeader.GlobalStateRoot,
