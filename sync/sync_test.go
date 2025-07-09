@@ -273,7 +273,8 @@ func TestPendingData(t *testing.T) {
 		var synchronizer *sync.Synchronizer
 		testDB := memory.New()
 		chain := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, 0, false, testDB)
+		dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+		synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
 		b, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
