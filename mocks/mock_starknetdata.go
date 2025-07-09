@@ -103,10 +103,10 @@ func (mr *MockStarknetDataMockRecorder) Class(ctx, classHash any) *gomock.Call {
 }
 
 // PreConfirmedBlockByNumber mocks base method.
-func (m *MockStarknetData) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (*core.PreConfirmed, error) {
+func (m *MockStarknetData) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreConfirmedBlockByNumber", ctx, blockNumber)
-	ret0, _ := ret[0].(*core.PreConfirmed)
+	ret0, _ := ret[0].(core.PreConfirmed)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

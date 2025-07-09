@@ -175,16 +175,16 @@ func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (
 
 // PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
 // then adapts them to the core.PreConfirmed and list of transaction hashes types respectively
-func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (*core.PreConfirmed, error) {
+func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
 	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
-		return nil, err
+		return core.PreConfirmed{}, err
 	}
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(response, blockNumber)
 	if err != nil {
-		return nil, err
+		return core.PreConfirmed{}, err
 	}
 
-	return &adaptedPreConfirmed, nil
+	return adaptedPreConfirmed, nil
 }
