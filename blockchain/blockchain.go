@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
@@ -111,7 +112,8 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	cachedFilters.WithFallback(fallback)
 
 	runningFilter := core.NewRunningEventFilterLazy(database)
-
+	lastPersistedStateID, err := trieutils.ReadPersistedStateID(database)
+	fmt.Println("lastPersistedStateID", lastPersistedStateID, err)
 	return &Blockchain{
 		database:      database,
 		trieDB:        trieDB,
