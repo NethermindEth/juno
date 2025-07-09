@@ -438,31 +438,29 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		txStateDiffs = append(txStateDiffs, adaptedStateDiff)
 	}
 
-	lastPreconfirmedIndex := len(txStateDiffs) - 1
+	preConfirmedTxCount := len(txStateDiffs)
 
-	txns := make([]core.Transaction, lastPreconfirmedIndex+1)
-	for i := range lastPreconfirmedIndex + 1 {
-		adaptedTxn, err := AdaptTransaction(&response.Transactions[i])
+	txns := make([]core.Transaction, preConfirmedTxCount)
+	for i := range preConfirmedTxCount {
+		txns[i], err = AdaptTransaction(&response.Transactions[i])
 		if err != nil {
 			return core.PreConfirmed{}, err
 		}
-		txns[i] = adaptedTxn
 	}
 
 	rawTxCount := len(response.Transactions)
-	candidateTxs := make([]core.Transaction, rawTxCount-lastPreconfirmedIndex-1)
+	candidateTxs := make([]core.Transaction, rawTxCount-preConfirmedTxCount)
 
-	for i := range rawTxCount - lastPreconfirmedIndex - 1 {
-		adaptedTxn, err := AdaptTransaction(&response.Transactions[i+lastPreconfirmedIndex+1])
+	for i := range rawTxCount - preConfirmedTxCount {
+		candidateTxs[i], err = AdaptTransaction(&response.Transactions[preConfirmedTxCount+i])
 		if err != nil {
 			return core.PreConfirmed{}, err
 		}
-		candidateTxs[i] = adaptedTxn
 	}
 
-	receipts := make([]*core.TransactionReceipt, lastPreconfirmedIndex+1)
+	receipts := make([]*core.TransactionReceipt, preConfirmedTxCount)
 	eventCount := uint64(0)
-	for i, receipt := range response.Receipts[:lastPreconfirmedIndex+1] {
+	for i, receipt := range response.Receipts[:preConfirmedTxCount] {
 		receipts[i] = AdaptTransactionReceipt(receipt)
 		eventCount += uint64(len(receipt.Events))
 	}
@@ -485,18 +483,20 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L1636
 		Header: &core.Header{
 			Number:           number,
-			Timestamp:        response.Timestamp,
-			ProtocolVersion:  response.Version,
 			SequencerAddress: response.SequencerAddress,
-			L1GasPriceETH:    response.L1GasPrice.PriceInWei,
-			L1GasPriceSTRK:   response.L1GasPrice.PriceInFri,
-			L1DAMode:         core.L1DAMode(response.L1DAMode),
-			L1DataGasPrice:   (*core.GasPrice)(response.L1DataGasPrice),
-			L2GasPrice:       (*core.GasPrice)(response.L2GasPrice),
 			// Not required in spec but useful
 			TransactionCount: uint64(len(txns)),
-			EventCount:       eventCount,
-			EventsBloom:      core.EventsBloom(receipts),
+			// Not required in spec but useful
+			EventCount:      eventCount,
+			Timestamp:       response.Timestamp,
+			ProtocolVersion: response.Version,
+			// Not required in spec but useful
+			EventsBloom:    core.EventsBloom(receipts),
+			L1GasPriceETH:  response.L1GasPrice.PriceInWei,
+			L1GasPriceSTRK: response.L1GasPrice.PriceInFri,
+			L1DAMode:       core.L1DAMode(response.L1DAMode),
+			L1DataGasPrice: (*core.GasPrice)(response.L1DataGasPrice),
+			L2GasPrice:     (*core.GasPrice)(response.L2GasPrice),
 			// Following fields are nil for pre_confirmed block
 			Hash:            nil,
 			ParentHash:      nil,

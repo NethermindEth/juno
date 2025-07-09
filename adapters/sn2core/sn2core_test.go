@@ -625,7 +625,7 @@ func TestAdaptCompiledClass(t *testing.T) {
 }
 
 func TestAdaptPreConfirmed(t *testing.T) {
-	n := utils.HeapPtr(utils.SepoliaIntegration)
+	n := &utils.SepoliaIntegration
 	client := feeder.NewTestClient(t, n)
 	emptyPreConfirmedBlock := uint64(1201960)
 	blockWithCandidates := uint64(1204672)
@@ -708,29 +708,20 @@ func assertCandidateTxs(
 	offset int,
 ) {
 	t.Helper()
-	if len(candidateTxs) > 0 {
-		for i, txn := range candidateTxs {
-			adaptedTx, err := sn2core.AdaptTransaction(&transactions[offset+i])
-			require.NoError(t, err)
-			assert.Equal(t, adaptedTx, txn)
-		}
+
+	for i, txn := range candidateTxs {
+		adaptedTx, err := sn2core.AdaptTransaction(&transactions[offset+i])
+		require.NoError(t, err)
+		assert.Equal(t, adaptedTx, txn)
 	}
 }
 
 func assertPreConfirmedBlockGasPrices(t *testing.T, response *starknet.PreConfirmedBlock, block *core.Block) {
 	t.Helper()
-	if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInFri != nil {
-		assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
-	}
-	if response.L1DataGasPrice != nil && response.L1DataGasPrice.PriceInWei != nil {
-		assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
-	}
-	if response.L2GasPrice != nil && response.L2GasPrice.PriceInFri != nil {
-		assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
-	}
-	if response.L2GasPrice != nil && response.L2GasPrice.PriceInWei != nil {
-		assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
-	}
+	assert.Equal(t, response.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInFri)
+	assert.Equal(t, response.L1DataGasPrice.PriceInWei, block.L1DataGasPrice.PriceInWei)
+	assert.Equal(t, response.L2GasPrice.PriceInFri, block.L2GasPrice.PriceInFri)
+	assert.Equal(t, response.L2GasPrice.PriceInWei, block.L2GasPrice.PriceInWei)
 }
 
 func countEventsAndTxs(receipts []*starknet.TransactionReceipt) (uint64, int) {
@@ -754,15 +745,15 @@ func assertPreConfirmedBlockReceipts(
 ) {
 	t.Helper()
 	if assert.Equal(t, expectedPreConfirmedTxCount, len(blockReceipts)) {
-		for i := range expectedPreConfirmedTxCount {
-			r := expectedReceipts[i]
-			assert.Equal(t, r.ExecutionStatus == starknet.Reverted, blockReceipts[i].Reverted)
-			assert.Equal(t, r.RevertError, blockReceipts[i].RevertReason)
-			if r.ExecutionResources != nil {
+		for i, actual := range blockReceipts {
+			expected := expectedReceipts[i]
+			assert.Equal(t, expected.ExecutionStatus == starknet.Reverted, actual.Reverted)
+			assert.Equal(t, expected.RevertError, actual.RevertReason)
+			if expected.ExecutionResources != nil {
 				assert.Equal(
 					t,
-					(*core.DataAvailability)(r.ExecutionResources.DataAvailability),
-					blockReceipts[i].ExecutionResources.DataAvailability,
+					(*core.DataAvailability)(expected.ExecutionResources.DataAvailability),
+					actual.ExecutionResources.DataAvailability,
 				)
 			}
 		}

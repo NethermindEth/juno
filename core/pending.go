@@ -7,9 +7,8 @@ import (
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
-	// Does not fetch unknown classes. but we keep it for sequencer
-	NewClasses map[felt.Felt]Class
-	// We kept this field for sequencer, else non-sequencer node should use StateUpdate
+	// Node does not fetch unknown classes. but we keep it for sequencer
+	NewClasses            map[felt.Felt]Class
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
 }
