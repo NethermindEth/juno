@@ -156,12 +156,12 @@ func (d *Database) NewSnapshot() db.Snapshot {
 	return d.copy()
 }
 
-func (d *Database) Update(fn func(db.IndexedBatch) error) error {
+func (d *Database) Update(fn func(db.Batch) error) error {
 	if d.db == nil {
 		return errDBClosed
 	}
 
-	batch := d.NewIndexedBatch()
+	batch := d.NewBatch()
 	if err := fn(batch); err != nil {
 		return err
 	}
