@@ -28,6 +28,12 @@ func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []types.Ac
 	})
 }
 
+func (t *stateMachine[V, H, A]) RestartAtHeight(h types.Height) types.Height {
+	oldHeight := t.state.height
+	t.doCommitValue(h)
+	return oldHeight
+}
+
 func (t *stateMachine[V, H, A]) ProcessPrecommit(p types.Precommit[H, A]) []types.Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
 		if t.messages.AddPrecommit(p) && !t.replayMode && p.Height == t.state.height {
@@ -115,7 +121,7 @@ func (t *stateMachine[V, H, A]) process(
 
 	// Line 49
 	case roundCachedProposal != nil && t.uponCommitValue(roundCachedProposal):
-		return appendAction(append(existingActions, (*types.Commit[V, H, A])(&roundCachedProposal.Proposal)), t.doCommitValue()), true
+		return appendAction(append(existingActions, (*types.Commit[V, H, A])(&roundCachedProposal.Proposal)), t.doCommitValue(t.state.height)), true
 
 	// Line 55
 	case recentlyReceivedRound != nil && t.uponSkipRound(*recentlyReceivedRound):

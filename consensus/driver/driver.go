@@ -32,6 +32,9 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
 
+	p2pCommitNotifier chan uint64 // Todo: pass into New (keeping git-diff small for now)
+	heightPreSync     types.Height
+
 	wg   sync.WaitGroup
 	quit chan struct{}
 }
@@ -91,6 +94,25 @@ func (d *Driver[V, H, A]) Start() {
 				actions = d.stateMachine.ProcessPrevote(p)
 			case p := <-d.listeners.PrecommitListener.Listen():
 				actions = d.stateMachine.ProcessPrecommit(p)
+			case h := <-d.p2pCommitNotifier:
+				// Todo: consider blocking consensus altogehter since sending votes for
+				// old heights is a waste of resources, and we can't process the latest height
+				// since we are behind the network (demux can continue though)
+				// Blocking would be simple:
+				// 		case <-d.p2pBehindNetworkNotifier:
+				// 			h := <-d.p2pCommitNotifier
+				//			d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
+				//			...
+
+				// Todo: consider race conditions and blocking processes
+				// case 1: sync runs ahead of state machine. This means we are behind, and sync will force state machine to jump
+				//         to the latest height. This is good.
+				// case 2: state machine runs ahead of the state machine. This isn't possible since p2p sync checks blockchain.Height()
+				//         before querying peers
+				// case 3: sync breaks. Then we never enter this flow, but consensus could still stay at the chain head in the happy flow.
+				// case 4: consensus breaks. Then the sync keeps the node at the chain head, we just don't engage with consensus.
+				d.heightPreSync = d.stateMachine.RestartAtHeight(types.Height(h))
+				d.deleteOldWAL(types.Height(h))
 			}
 			d.execute(actions)
 		}
@@ -102,6 +124,17 @@ func (d *Driver[V, H, A]) Stop() {
 	d.wg.Wait()
 	for _, tm := range d.scheduledTms {
 		tm.Stop()
+	}
+}
+
+func (d *Driver[V, H, A]) deleteOldWAL(heightPostSync types.Height) {
+	if err := d.db.Flush(); err != nil {
+		d.log.Fatalf("failed to flush WAL during commit", "height", d.heightPreSync, "err", err)
+	}
+	for i := d.heightPreSync; i < heightPostSync; i++ {
+		if err := d.db.DeleteWALEntries(heightPostSync); err != nil {
+			d.log.Errorw("failed to delete WAL messages during commit", "height", i, "err", err)
+		}
 	}
 }
 
