@@ -304,7 +304,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "")
+			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "some error")
 		})
 
 		t.Run("accepted on L1", func(t *testing.T) {
