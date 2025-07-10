@@ -9,13 +9,13 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	p2p "github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/p2p"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/sync"
 )
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	syncService       p2p.SyncToChannel
+	syncService       p2p.WithBlockCh
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
@@ -25,10 +25,11 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	toValue       func(*felt.Felt) V
 	toHash        func(*felt.Felt) H
 	proposalStore *proposal.ProposalStore[H]
+	blockCh       chan p2pSync.BlockBody
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	syncService p2p.SyncToChannel,
+	syncService p2p.WithBlockCh,
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
 	getPrecommits func(types.Height) []types.Precommit[H, A],
@@ -36,6 +37,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	toValue func(*felt.Felt) V,
 	toHash func(*felt.Felt) H,
 	proposalStore *proposal.ProposalStore[H],
+	blockCh chan p2pSync.BlockBody,
 ) Sync[V, H, A] {
 	return Sync[V, H, A]{
 		syncService:       syncService,
@@ -46,15 +48,15 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		toValue:           toValue,
 		toHash:            toHash,
 		proposalStore:     proposalStore,
+		blockCh:           blockCh,
 	}
 }
 
 func (s *Sync[V, H, A]) Run(ctx context.Context) {
-	blockCh := make(chan p2pSync.BlockBody)
-
 	syncCtx, syncCancel := context.WithCancel(ctx)
 	go func() {
-		err := s.syncService.SyncToChannel(syncCtx, blockCh)
+		s.syncService.WithBlockCh(s.blockCh)
+		err := s.syncService.Run(syncCtx)
 		if err != nil {
 			syncCancel()
 			return
@@ -69,7 +71,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) {
 		case <-s.stopSyncCh:
 			syncCancel()
 			return
-		case committedBlock := <-blockCh:
+		case committedBlock := <-s.blockCh:
 			msgHeader := types.MessageHeader[A]{
 				Height: types.Height(committedBlock.Block.Number),
 				Round:  -1, // Todo: placeholder until round is placed in the spec

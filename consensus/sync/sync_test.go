@@ -19,7 +19,8 @@ import (
 )
 
 type mockSyncService struct {
-	inCh chan sync.BlockBody // relays blocks to blockCh
+	inCh    chan sync.BlockBody // relays blocks to blockCh
+	blockCh chan sync.BlockBody
 }
 
 func newMockSyncService(inCh chan sync.BlockBody) mockSyncService {
@@ -28,13 +29,17 @@ func newMockSyncService(inCh chan sync.BlockBody) mockSyncService {
 	}
 }
 
-func (m *mockSyncService) SyncToChannel(ctx context.Context, blockCh chan<- sync.BlockBody) error {
+func (m *mockSyncService) WithBlockCh(blockCh chan sync.BlockBody) {
+	m.blockCh = blockCh
+}
+
+func (m *mockSyncService) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case committedBlock := <-m.inCh:
-			blockCh <- committedBlock
+			m.blockCh <- committedBlock
 		}
 	}
 }
@@ -77,12 +82,13 @@ func TestSync(t *testing.T) {
 	)
 	driver.Start()
 
+	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
 	mockSyncService := newMockSyncService(mockInCh)
-
+	mockSyncService.WithBlockCh(blockCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, toHash, &proposalStore)
+	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, toHash, &proposalStore, blockCh)
 
 	block0 := getCommittedBlock()
 	block0Hash := toHash(block0.Block.Hash)

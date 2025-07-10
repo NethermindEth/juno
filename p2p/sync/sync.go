@@ -40,6 +40,7 @@ type Service struct {
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
+	blockCh    chan<- BlockBody
 }
 
 func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
@@ -50,6 +51,10 @@ func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.Sim
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
 	}
+}
+
+func (s *Service) WithBlockCh(blockCh chan<- BlockBody) {
+	s.blockCh = blockCh
 }
 
 func (s *Service) Run(ctx context.Context) {
@@ -76,12 +81,11 @@ func (s *Service) Run(ctx context.Context) {
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
-		if err := s.processBlock(iterCtx, blockNumber); err != nil {
+		if err = s.processBlock(iterCtx, blockNumber); err != nil {
 			s.logError("Failed to process block", fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err))
 			cancelIteration()
 			continue
 		}
-
 		cancelIteration()
 	}
 }
@@ -131,18 +135,22 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 	)))
 
 	for b := range blocksCh {
-		if b.Err != nil {
-			return fmt.Errorf("failed to process block: %w", b.Err)
-		}
+		if s.blockCh != nil {
+			s.blockCh <- b
+		} else {
+			if b.Err != nil {
+				return fmt.Errorf("failed to process block: %w", b.Err)
+			}
 
-		storeTimer := time.Now()
-		if err := s.blockchain.Store(b.Block, b.Commitments, b.StateUpdate, b.NewClasses); err != nil {
-			return fmt.Errorf("failed to store block: %w", err)
-		}
+			storeTimer := time.Now()
+			if err := s.blockchain.Store(b.Block, b.Commitments, b.StateUpdate, b.NewClasses); err != nil {
+				return fmt.Errorf("failed to store block: %w", err)
+			}
 
-		s.log.Infow("Stored Block", "number", b.Block.Number, "hash", b.Block.Hash.ShortString(),
-			"root", b.Block.GlobalStateRoot.ShortString())
-		s.listener.OnSyncStepDone(junoSync.OpStore, b.Block.Number, time.Since(storeTimer))
+			s.log.Infow("Stored Block", "number", b.Block.Number, "hash", b.Block.Hash.ShortString(),
+				"root", b.Block.GlobalStateRoot.ShortString())
+			s.listener.OnSyncStepDone(junoSync.OpStore, b.Block.Number, time.Since(storeTimer))
+		}
 	}
 	return nil
 }

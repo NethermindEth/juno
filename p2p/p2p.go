@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/service"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -35,11 +36,13 @@ const (
 	clientName                = "juno"
 )
 
-type SyncToChannel interface {
-	SyncToChannel(ctx context.Context, blockCh chan<- p2pSync.BlockBody) error
+// Todo: this interface allows us to mock the P2P service until we implement additional tests / test infrastructure
+type WithBlockCh interface {
+	service.Service
+	WithBlockCh(blockCh chan p2pSync.BlockBody)
 }
 
-var _ SyncToChannel = (*Service)(nil)
+var _ WithBlockCh = (*Service)(nil)
 
 type Service struct {
 	host host.Host
@@ -56,6 +59,8 @@ type Service struct {
 
 	feederNode bool
 	database   db.KeyValueStore
+
+	blockCh chan<- p2pSync.BlockBody
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
@@ -165,6 +170,10 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
+func (s *Service) WithBlockCh(blockCh chan p2pSync.BlockBody) {
+	s.blockCh = blockCh
+}
+
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(p2pSync.Prefix),
@@ -241,55 +250,12 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.setProtocolHandlers()
 
-	if !s.feederNode {
+	if !s.feederNode || s.blockCh != nil {
+		if s.blockCh != nil {
+			s.synchroniser.WithBlockCh(s.blockCh)
+		}
 		s.synchroniser.Run(ctx)
 	}
-
-	<-ctx.Done()
-	if err := s.persistPeers(); err != nil {
-		s.log.Warnw("Failed to persist peers", "err", err)
-	}
-	if err := s.dht.Close(); err != nil {
-		s.log.Warnw("Failed stopping DHT", "err", err.Error())
-	}
-	return nil
-}
-
-func (s *Service) SyncToChannel(ctx context.Context, blockCh chan<- p2pSync.BlockBody) error {
-	defer func() {
-		if err := s.host.Close(); err != nil {
-			s.log.Warnw("Failed to close host", "err", err)
-		}
-	}()
-
-	err := s.dht.Bootstrap(ctx)
-	if err != nil {
-		return err
-	}
-
-	var options []pubsub.Option
-	if s.gossipTracer != nil {
-		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
-	}
-
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
-	if err != nil {
-		return err
-	}
-
-	defer s.callAndLogErr(s.dht.Close, "Failed stopping DHT")
-
-	listenAddrs, err := s.ListenAddrs()
-	if err != nil {
-		return err
-	}
-	for _, addr := range listenAddrs {
-		s.log.Infow("Listening on", "addr", addr)
-	}
-
-	s.setProtocolHandlers()
-
-	s.synchroniser.SyncToChannel(ctx, blockCh)
 
 	<-ctx.Done()
 	if err := s.persistPeers(); err != nil {
