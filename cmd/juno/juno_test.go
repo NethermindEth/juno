@@ -65,7 +65,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultCallMaxSteps := uint(4_000_000)
 	defaultSeqBlockTime := uint(60)
 	defaultGwTimeout := "5s"
-	defaultSubmittedTransactionsCacheSize := uint(1024)
+	defaultSubmittedTransactionsCacheSize := uint(10_000)
 	defaultSubmittedTransactionsCacheEntryTTL := 5 * time.Minute
 
 	tests := map[string]struct {
