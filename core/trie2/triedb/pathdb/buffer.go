@@ -47,7 +47,6 @@ func (b *buffer) isFull() bool {
 }
 
 func (b *buffer) flush(kvs db.KeyValueStore, cleans *cleanCache, id uint64) error {
-
 	latestPersistedID, err := trieutils.ReadPersistedStateID(kvs)
 	if err != nil {
 		if err == db.ErrKeyNotFound {
