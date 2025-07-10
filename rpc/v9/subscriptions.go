@@ -375,7 +375,7 @@ func (h *Handler) checkTxStatus(
 		return lastStatus, err
 	}
 
-	if status.Finality == TxnStatusRejected || status.Finality == TxnStatusAcceptedOnL1 {
+	if status.Finality == TxnStatusAcceptedOnL1 {
 		sub.cancel()
 	}
 
