@@ -2,6 +2,7 @@ package sync_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/driver"
@@ -19,8 +20,9 @@ import (
 )
 
 type mockSyncService struct {
-	inCh    chan sync.BlockBody // relays blocks to blockCh
-	blockCh chan sync.BlockBody
+	inCh       chan sync.BlockBody // relays blocks to blockCh
+	blockCh    chan sync.BlockBody
+	triggerErr bool
 }
 
 func newMockSyncService(inCh chan sync.BlockBody) mockSyncService {
@@ -29,11 +31,18 @@ func newMockSyncService(inCh chan sync.BlockBody) mockSyncService {
 	}
 }
 
+func (m *mockSyncService) shouldTriggerErr(triggerErr bool) {
+	m.triggerErr = triggerErr
+}
+
 func (m *mockSyncService) WithBlockCh(blockCh chan sync.BlockBody) {
 	m.blockCh = blockCh
 }
 
 func (m *mockSyncService) Run(ctx context.Context) error {
+	if m.triggerErr {
+		return errors.New("mock sync returned an error")
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -100,6 +109,31 @@ func TestSync(t *testing.T) {
 	require.NotEmpty(t, proposalStore.Get(block0Hash)) // Ensure the Driver sees the correct proposal
 	_, stopSyncChIsOpen := <-stopSyncCh                // Ensure the Driver closed this channel after catching up to the chain head
 	require.False(t, stopSyncChIsOpen)
+}
+
+func TestShutdownOnError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(t.Context())
+
+	proposalCh := make(chan starknet.Proposal)
+	precommitCh := make(chan starknet.Precommit)
+
+	stopSyncCh := make(chan struct{})
+
+	blockCh := make(chan sync.BlockBody)
+	mockInCh := make(chan sync.BlockBody)
+	mockSyncService := newMockSyncService(mockInCh)
+	mockSyncService.WithBlockCh(blockCh)
+	proposalStore := proposal.ProposalStore[starknet.Hash]{}
+
+	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, toHash, &proposalStore, blockCh)
+	cancel()
+	consensusSyncService.Run(ctx)
+
+	mockSyncService.shouldTriggerErr(true)
+	consensusSyncService.Run(t.Context())
 }
 
 func getCommittedBlock() sync.BlockBody {

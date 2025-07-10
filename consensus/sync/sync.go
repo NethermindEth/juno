@@ -65,7 +65,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-syncCtx.Done():
 			syncCancel()
 			return
 		case <-s.stopSyncCh:
