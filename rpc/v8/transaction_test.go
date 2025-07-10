@@ -1448,6 +1448,24 @@ func TestTransactionStatus(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("Rejected transaction found in feeder", func(t *testing.T) {
+		mockReader := mocks.NewMockReader(mockCtrl)
+		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		txHash, err := new(felt.Felt).SetString("0x1111")
+		require.NoError(t, err)
+
+		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
+		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+
+		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
+		require.Nil(t, rpcErr)
+		require.Equal(t, status.Finality, rpc.TxnStatusRejected)
+		require.Equal(t, status.FailureReason, "some error")
+	})
 }
 
 func TestResourceMarshalText(t *testing.T) {
