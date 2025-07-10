@@ -77,7 +77,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	}
 
 	// Finally, read from disk
-	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isClass)
+	blob, err := trieutils.GetNodeByPath(dl.db.disk, id.Bucket(), owner, path, isLeaf)
 	if err != nil {
 		return nil, err
 	}

@@ -41,7 +41,7 @@ func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 		return n.Blob(), nil
 	}
 
-	return dl.parent.node(id, owner, path, isClass)
+	return dl.parent.node(id, owner, path, isLeaf)
 }
 
 func (dl *diffLayer) rootHash() *felt.Felt {
