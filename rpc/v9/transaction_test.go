@@ -1564,6 +1564,23 @@ func TestTransactionStatus(t *testing.T) {
 				}
 			})
 		})
+
+		t.Run("Rejected historical tx found in feeder", func(t *testing.T) {
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			txHash, err := new(felt.Felt).SetString("0x1111")
+			require.NoError(t, err)
+
+			handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
+			mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+			mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+
+			status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
+			require.Equal(t, rpcErr, rpccore.ErrTxnHashNotFound)
+			require.Empty(t, status)
+		})
 	}
 }
 
