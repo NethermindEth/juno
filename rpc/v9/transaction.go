@@ -975,7 +975,7 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		status.Finality = TxnStatusPreConfirmed
 	case starknet.Candidate:
 		status.Finality = TxnStatusCandidate
-		// Candidate transaction does how execution_status yet
+		// Candidate transaction does not have execution_status yet
 		return status, nil
 	case starknet.NotReceived:
 		return TransactionStatus{}, errTransactionNotFound
