@@ -1,0 +1,82 @@
+services:
+  node0:
+    image: nethermind/juno:consensus
+    ports:
+      - "6060:6060"
+    command: [
+      "--http",
+      "--http-host", "0.0.0.0",
+      "--network", "mainnet",
+      "--log-level", "debug",
+      "--disable-l1-verification",
+      "--db-path", "/db/main",
+      "--consensus",
+      "--consensus-db-path", "/db/consensus",
+      "--consensus-addr", "/ip4/0.0.0.0/tcp/7070",
+      "--consensus-peers", "",
+      "--consensus-mock-index", "0",
+      "--consensus-mock-count", "4",
+    ]
+
+  node1:
+    image: nethermind/juno:consensus
+    ports:
+      - "6061:6060"
+    depends_on:
+      - node0
+    command: [
+      "--http",
+      "--http-host", "0.0.0.0",
+      "--network", "mainnet",
+      "--log-level", "debug",
+      "--disable-l1-verification",
+      "--db-path", "/db/main",
+      "--consensus",
+      "--consensus-db-path", "/db/consensus",
+      "--consensus-addr", "/ip4/0.0.0.0/tcp/7070",
+      "--consensus-peers", "/dns4/node0/tcp/7070/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN",
+      "--consensus-mock-index", "1",
+      "--consensus-mock-count", "4",
+    ]
+
+  node2:
+    image: nethermind/juno:consensus
+    ports:
+      - "6062:6060"
+    depends_on:
+      - node1
+    command: [
+      "--http",
+      "--http-host", "0.0.0.0",
+      "--network", "mainnet",
+      "--log-level", "debug",
+      "--disable-l1-verification",
+      "--db-path", "/db/main",
+      "--consensus",
+      "--consensus-db-path", "/db/consensus",
+      "--consensus-addr", "/ip4/0.0.0.0/tcp/7070",
+      "--consensus-peers", "/dns4/node1/tcp/7070/p2p/12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
+      "--consensus-mock-index", "2",
+      "--consensus-mock-count", "4",
+    ]
+
+  node3:
+    image: nethermind/juno:consensus
+    ports:
+      - "6063:6060"
+    depends_on:
+      - node2
+    command: [
+      "--http",
+      "--http-host", "0.0.0.0",
+      "--network", "mainnet",
+      "--log-level", "debug",
+      "--disable-l1-verification",
+      "--db-path", "/db/main",
+      "--consensus",
+      "--consensus-db-path", "/db/consensus",
+      "--consensus-addr", "/ip4/0.0.0.0/tcp/7070",
+      "--consensus-peers", "/dns4/node2/tcp/7070/p2p/12D3KooWH3uVF6wv47WnArKHk5p6cvgCJEb74UTmxztmQDc298L3",
+      "--consensus-mock-index", "3",
+      "--consensus-mock-count", "4",
+    ]

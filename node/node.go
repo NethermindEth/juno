@@ -16,6 +16,8 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/consensus"
+	"github.com/NethermindEth/juno/consensus/datasource"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -93,6 +95,13 @@ type Config struct {
 	P2PPeers      string `mapstructure:"p2p-peers"`
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
+
+	Consensus          bool   `mapstructure:"consensus"`
+	ConsensusAddr      string `mapstructure:"consensus-addr"`
+	ConsensusPeers     string `mapstructure:"consensus-peers"`
+	ConsensusDBPath    string `mapstructure:"consensus-db-path"`
+	ConsensusMockIndex int    `mapstructure:"consensus-mock-index"` // TODO: remove this
+	ConsensusMockCount int    `mapstructure:"consensus-mock-count"` // TODO: remove this
 
 	MaxVMs          uint `mapstructure:"max-vms"`
 	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
@@ -223,12 +232,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(chain, feederGatewayDataSource, log, cfg.PendingPollInterval, dbIsRemote, database)
-		synchronizer.WithPlugin(junoPlugin)
-		chain.WithPendingBlockFn(synchronizer.PendingBlock)
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
+		syncDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		if cfg.P2P {
 			if cfg.Network == utils.Mainnet {
 				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
@@ -246,7 +252,45 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 
 			services = append(services, p2pService)
+		} else if cfg.Consensus {
+			// TODO: Replace these mock components with the actual ones
+			mockConsensusServices := consensus.InitMockServices(0, 0, cfg.ConsensusMockIndex, cfg.ConsensusMockCount)
+
+			consensusDB, err := pebble.NewWithOptions(cfg.ConsensusDBPath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+			if err != nil {
+				return nil, fmt.Errorf("open consensus DB: %w", err)
+			}
+
+			consensusServices, err := consensus.Init(
+				log,
+				consensusDB,
+				chain,
+				nodeVM,
+				mockConsensusServices.NodeAddress,
+				mockConsensusServices.Validators,
+				mockConsensusServices.TimeoutFn,
+				cfg.ConsensusAddr,
+				mockConsensusServices.PrivateKey,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("init consensus services: %w", err)
+			}
+
+			if err := consensus.Connect(context.Background(), consensusServices.Host, cfg.ConsensusPeers); err != nil {
+				return nil, fmt.Errorf("connect to consensus peers: %w", err)
+			}
+
+			dataSource := datasource.New(consensusServices.CommitListener, consensusServices.Proposer, consensusServices.P2P)
+			syncDataSource = dataSource
+
+			services = append(services, consensusServices.Proposer, consensusServices.P2P, consensusServices.Driver, dataSource)
 		}
+
+		if !cfg.P2P || cfg.P2PFeederNode {
+			synchronizer = sync.New(chain, syncDataSource, log, cfg.PendingPollInterval, dbIsRemote, database)
+			synchronizer.WithPlugin(junoPlugin)
+		}
+		chain.WithPendingBlockFn(synchronizer.PendingBlock)
 
 		var syncReader sync.Reader = &sync.NoopSynchronizer{}
 		if synchronizer != nil {
@@ -460,7 +504,7 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	if n.cfg.Sequencer {
+	if n.cfg.Sequencer || n.cfg.Consensus {
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
 			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
