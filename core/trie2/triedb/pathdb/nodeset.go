@@ -233,6 +233,7 @@ func (s *nodeSet) decode(data []byte) error {
 			}
 		}
 	}
+	s.computeSize()
 
 	return nil
 }
@@ -359,7 +360,6 @@ func writeNodes(
 			}
 		}
 	}
-
 	return nil
 }
 

@@ -1,8 +1,6 @@
 package pathdb
 
 import (
-	"fmt"
-	"os"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -113,11 +111,6 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 
 	combined := dl.dirties.commit(bottom.nodes)
 	if force || combined.isFull() {
-		logEntry := fmt.Sprintf("COMBINED FLUSH: state_id=%d buffer_layers=%d buffer_size=%d\n", bottom.stateID(), combined.layers, combined.nodes.size)
-		if f, err := os.OpenFile("flush_logs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-			f.WriteString(logEntry)
-			f.Close()
-		}
 		if err := combined.flush(dl.db.disk, dl.cleans, bottom.stateID()); err != nil {
 			return nil, err
 		}

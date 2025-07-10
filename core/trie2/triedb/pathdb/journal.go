@@ -164,6 +164,7 @@ func (d *Database) Journal(root *felt.Felt) error {
 		return err
 	}
 
+	fmt.Printf("Journal entry size before writing to disk: %d\n", len(enc))
 	return trieutils.WriteTrieJournal(d.disk, enc)
 }
 

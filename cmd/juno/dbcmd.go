@@ -283,9 +283,8 @@ func openDB(path string) (db.KeyValueStore, error) {
 		return nil, errors.New("database path does not exist")
 	}
 
-	// Use the same defaults as the normal startup
 	const (
-		defaultCacheSizeMb = 1024
+		defaultCacheSizeMb = 4096
 		defaultMaxHandles  = 1024
 		defaultColour      = true
 	)
