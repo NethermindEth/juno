@@ -76,7 +76,6 @@ type TxnStatus uint8
 
 const (
 	TxnStatusReceived TxnStatus = iota + 1
-	TxnStatusRejected
 	TxnStatusCandidate
 	TxnStatusPreConfirmed
 	TxnStatusAcceptedOnL2
@@ -87,8 +86,6 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 	switch s {
 	case TxnStatusReceived:
 		return []byte("RECEIVED"), nil
-	case TxnStatusRejected:
-		return []byte("REJECTED"), nil
 	case TxnStatusAcceptedOnL1:
 		return []byte("ACCEPTED_ON_L1"), nil
 	case TxnStatusAcceptedOnL2:
@@ -125,8 +122,8 @@ func (es TxnExecutionStatus) MarshalText() ([]byte, error) {
 type TxnFinalityStatus uint8
 
 const (
-	// Starts from 4 for TxnFinalityStatuses to match same numbers on TxnStatus
-	TxnPreConfirmed TxnFinalityStatus = iota + 4
+	// Starts from 3 for TxnFinalityStatuses to match same numbers on TxnStatus
+	TxnPreConfirmed TxnFinalityStatus = iota + 3
 	TxnAcceptedOnL2
 	TxnAcceptedOnL1
 )
@@ -974,11 +971,11 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		status.Finality = TxnStatusAcceptedOnL2
 	case starknet.Received:
 		status.Finality = TxnStatusReceived
-		return status, nil
 	case starknet.PreConfirmed:
 		status.Finality = TxnStatusPreConfirmed
 	case starknet.Candidate:
 		status.Finality = TxnStatusCandidate
+		// Candidate transaction does how execution_status yet
 		return status, nil
 	case starknet.NotReceived:
 		return TransactionStatus{}, errTransactionNotFound
@@ -993,8 +990,10 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (TransactionSt
 		status.Execution = TxnFailure
 		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
-		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
+		// Upon querying historical transaction, gateway returns `RECEIVED` finality status,
+		// along with `REJECTED` execution status. Rejected status is not supported by spec 0.9.0,
+		// `REJECTED` status is mapped to `errTransactionNotFound`.
+		return TransactionStatus{}, errTransactionNotFound
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
