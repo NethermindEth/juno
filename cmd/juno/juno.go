@@ -139,7 +139,7 @@ const (
 	defaultSeqGenesisFile                     = ""
 	defaultSeqDisableFees                     = false
 	defaultHTTPUpdatePort                     = 0
-	defaultSubmittedTransactionsCacheSize     = 1024
+	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 
 	configFlagUsage                       = "The YAML configuration file."
