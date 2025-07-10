@@ -1,11 +1,9 @@
 package pathdb
 
 import (
-	"fmt"
 	"io"
 	"maps"
 	"math"
-	"os"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -303,21 +301,6 @@ func writeNodes(
 	cleans *cleanCache,
 ) error {
 	for path, n := range classNodes {
-		// Check for the specific path we're interested in
-		expectedPath := trieutils.Path{}
-		expectedPath.SetFelt(5, new(felt.Felt).SetUint64(24))
-		if path.Equal(&expectedPath) {
-			action := "WRITTEN"
-			if _, deleted := n.(*trienode.DeletedNode); deleted {
-				action = "DELETED"
-			}
-			logEntry := fmt.Sprintf("nodeset: classNode %v %s blob_len %d\n", &path, action, len(n.Blob()))
-			if f, err := os.OpenFile("hehe.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-				f.WriteString(logEntry)
-				f.Close()
-			}
-		}
-
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
 			if err := trieutils.DeleteNodeByPath(w, db.ClassTrie, &felt.Zero, &path, n.IsLeaf()); err != nil {
 				return err
@@ -360,6 +343,7 @@ func writeNodes(
 			}
 		}
 	}
+
 	return nil
 }
 

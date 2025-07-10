@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"runtime"
 	"slices"
 	"sync"
@@ -488,21 +487,6 @@ func (s *State) flush(
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 
 	p.Go(func() error {
-		if update.classNodes != nil {
-			for k, v := range update.classNodes.OwnerSet.Nodes {
-				expectedPath := trieutils.Path{}
-				expectedPath.SetFelt(5, new(felt.Felt).SetUint64(24))
-
-				if k.Equal(&expectedPath) {
-					logEntry := fmt.Sprintf("classNode %v len %d value %v block %d\n", &k, k.Len(), v, blockNum)
-					if f, err := os.OpenFile("hehe.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-						f.WriteString(logEntry)
-						f.Close()
-					}
-					fmt.Println("classNode", &k, "len", k.Len(), "value", v, "block", blockNum)
-				}
-			}
-		}
 		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
 	})
 
@@ -570,7 +554,6 @@ func (s *State) updateClassTrie(declaredClasses map[felt.Felt]*felt.Felt, classD
 		}
 
 		leafVal := crypto.Poseidon(leafVersion0, compiledClassHash)
-		fmt.Println("updateClassTrie", &classHash, leafVal)
 		if err := s.classTrie.Update(&classHash, leafVal); err != nil {
 			return err
 		}
