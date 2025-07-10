@@ -71,6 +71,7 @@ func runTest(t *testing.T, cfg testConfig) {
 			&application{},
 			validators,
 			types.Height(0),
+			false,
 		)
 		driver := driver.New(
 			utils.NewNopZapLogger(),
@@ -80,6 +81,7 @@ func runTest(t *testing.T, cfg testConfig) {
 			network.getListeners(nodeAddr),
 			network.getBroadcasters(nodeAddr),
 			getTimeoutFn(cfg),
+			nil,
 		)
 
 		driver.Start()

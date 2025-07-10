@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/service"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -35,6 +36,14 @@ const (
 	clientName                = "juno"
 )
 
+// Todo: this interface allows us to mock the P2P service until we implement additional tests / test infrastructure
+type WithBlockCh interface {
+	service.Service
+	WithBlockCh(blockCh chan p2pSync.BlockBody)
+}
+
+var _ WithBlockCh = (*Service)(nil)
+
 type Service struct {
 	host host.Host
 
@@ -50,6 +59,8 @@ type Service struct {
 
 	feederNode bool
 	database   db.KeyValueStore
+
+	blockCh chan<- p2pSync.BlockBody
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
@@ -159,6 +170,10 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
+func (s *Service) WithBlockCh(blockCh chan p2pSync.BlockBody) {
+	s.blockCh = blockCh
+}
+
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(p2pSync.Prefix),
@@ -235,7 +250,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.setProtocolHandlers()
 
-	if !s.feederNode {
+	if !s.feederNode || s.blockCh != nil {
+		if s.blockCh != nil {
+			s.synchroniser.WithBlockCh(s.blockCh)
+		}
 		s.synchroniser.Run(ctx)
 	}
 

@@ -57,6 +57,8 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 	application Application[V, H]
 	validators  Validators[A]
+
+	isSyncing bool
 }
 
 type state[V types.Hashable[H], H types.Hash] struct {
@@ -82,6 +84,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	app Application[V, H],
 	vals Validators[A],
 	height types.Height,
+	isSyncing bool,
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
 		db:       db,
@@ -95,6 +98,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		messages:    types.NewMessages[V, H, A](),
 		application: app,
 		validators:  vals,
+		isSyncing:   isSyncing,
 	}
 }
 
