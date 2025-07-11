@@ -60,6 +60,7 @@ func TestPendingDataWrapper(t *testing.T) {
 		expectedPendingB := &core.Block{
 			Header: &core.Header{
 				ParentHash:       latestBlock.Hash,
+				Number:           latestBlockNumber + 1,
 				SequencerAddress: latestBlock.SequencerAddress,
 				Timestamp:        uint64(time.Now().Unix()),
 				ProtocolVersion:  latestBlock.ProtocolVersion,
