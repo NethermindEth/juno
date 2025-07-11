@@ -69,6 +69,7 @@ func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 	pendingBlock := &core.Block{
 		Header: &core.Header{
 			ParentHash:       parentHeader.Hash,
+			Number:           parentHeader.Number + 1,
 			SequencerAddress: parentHeader.SequencerAddress,
 			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  parentHeader.ProtocolVersion,
@@ -107,8 +108,8 @@ func emptyPreConfirmedForParent(parentHeader *core.Header) core.PreConfirmed {
 	preConfirmedBlock := &core.Block{
 		// pre_confirmed block does not have parent hash
 		Header: &core.Header{
-			SequencerAddress: parentHeader.SequencerAddress,
 			Number:           parentHeader.Number + 1,
+			SequencerAddress: parentHeader.SequencerAddress,
 			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  parentHeader.ProtocolVersion,
 			EventsBloom:      core.EventsBloom(receipts),
