@@ -42,6 +42,7 @@ func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 	pendingBlock := &core.Block{
 		Header: &core.Header{
 			ParentHash:       parentHeader.Hash,
+			Number:           parentHeader.Number + 1,
 			SequencerAddress: parentHeader.SequencerAddress,
 			Timestamp:        uint64(time.Now().Unix()),
 			ProtocolVersion:  parentHeader.ProtocolVersion,
