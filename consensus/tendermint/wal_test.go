@@ -137,7 +137,6 @@ func TestReplayWAL(t *testing.T) {
 		// Todo: why do we only need two precommits for quorum.....
 		// Receive final precommit, now we reach quorum
 		mockDB.EXPECT().SetWALEntry(precommit1).Return(nil)
-		mockDB.EXPECT().Flush().Return(nil).Times(1)
 		sMachineRecoverd.ProcessPrecommit(precommit1)
 
 		// Progress to new height

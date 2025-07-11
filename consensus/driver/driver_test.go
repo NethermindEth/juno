@@ -254,9 +254,12 @@ func TestDriver(t *testing.T) {
 		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrevote)),
 	)
 	stateMachine.EXPECT().ProcessPrevote(inputPrevoteMsg).Return(
-		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit), &commitAction),
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit)),
 	)
-	stateMachine.EXPECT().ProcessPrecommit(inputPrecommitMsg).Return(nil)
+	stateMachine.EXPECT().ProcessPrecommit(inputPrecommitMsg).Return(
+		append(generateAndRegisterRandomActions(random, expectedBroadcast), &commitAction),
+	)
+	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return(nil)
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutProposal).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
