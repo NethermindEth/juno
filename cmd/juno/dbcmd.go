@@ -284,7 +284,7 @@ func openDB(path string) (db.KeyValueStore, error) {
 	}
 
 	const (
-		defaultCacheSizeMb = 4096
+		defaultCacheSizeMb = 1024
 		defaultMaxHandles  = 1024
 		defaultColour      = true
 	)

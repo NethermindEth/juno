@@ -118,7 +118,7 @@ const (
 	defaultGRPCPort                           = 6064
 	defaultRemoteDB                           = ""
 	defaultRPCMaxBlockScan                    = math.MaxUint
-	defaultCacheSizeMb                        = 4096
+	defaultCacheSizeMb                        = 1024
 	defaultMaxHandles                         = 1024
 	defaultGwAPIKey                           = ""
 	defaultCNName                             = ""
