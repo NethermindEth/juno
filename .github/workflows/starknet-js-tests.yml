@@ -10,6 +10,8 @@ on:
     secrets:
       TEST_RPC_URL:
         required: false
+      TEST_WS_RPC_URL:
+        required: false
       TEST_ACCOUNT_ADDRESS:
         required: false
       TEST_ACCOUNT_PRIVATE_KEY:
@@ -48,4 +50,5 @@ jobs:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
           TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
+          TEST_WS_URL: ${{ secrets.TEST_WS_RPC_URL }} 
           TX_VERSION: v3
