@@ -269,6 +269,11 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 		// 	Handler: h.Nonce,
 		// },
 		{
+			Name:    "starknet_getNonce",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.Nonce,
+		},
+		{
 			Name:    "starknet_traceTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
 			Handler: h.TraceTransaction,
