@@ -59,11 +59,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(
-	bcReader blockchain.Reader,
-	syncReader sync.Reader,
-	virtualMachine vm.VM,
-	version string,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM,
 	logger utils.Logger,
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
@@ -81,7 +77,6 @@ func New(
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		version:      version,
 		newHeads:     feed.New[*core.Block](),
 		reorgs:       feed.New[*sync.ReorgBlockRange](),
 		pendingBlock: feed.New[*core.Block](),
@@ -213,10 +208,6 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.AddTransaction,
-		},
-		{
-			Name:    "juno_version",
-			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
