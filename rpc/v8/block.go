@@ -90,10 +90,16 @@ func (b *BlockID) Number() uint64 {
 }
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
-	if string(data) == `"latest"` {
-		b.typeID = latest
-	} else if string(data) == `"pending"` {
-		b.typeID = pending
+	var blockTag string
+	if err := json.Unmarshal(data, &blockTag); err == nil {
+		switch blockTag {
+		case "latest":
+			b.typeID = latest
+		case "pending":
+			b.typeID = pending
+		default:
+			return fmt.Errorf("unknown block tag '%s'", blockTag)
+		}
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {
