@@ -32,10 +32,12 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate mockgen     -destination=../../mocks/mock_host.go     -package=mocks github.com/libp2p/go-libp2p/core/host Host
+
 type Service struct {
 	host    host.Host
 	network *utils.Network
-	client  *Client // todo: merge all the functionality of Client with p2p SyncService
+	client  Client // todo: merge all the functionality of Client with p2p SyncService
 
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
@@ -43,25 +45,32 @@ type Service struct {
 }
 
 func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
-	return &Service{
+	service := Service{
 		host:       h,
 		network:    n,
 		blockchain: bc,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
 	}
+
+	service.client = NewClient(service.randomPeerStream, n, log)
+	return &service
+}
+
+// Useful for tests
+func (s *Service) WithClient(client Client) {
+	s.client = client
 }
 
 func (s *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	s.client = NewClient(s.randomPeerStream, s.network, s.log)
-
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
 			break
 		}
+
 		s.log.Debugw("Continuous iteration", "i", i)
 
 		iterCtx, cancelIteration := context.WithCancel(ctx)
@@ -129,7 +138,6 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
 		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
 	)))
-
 	for b := range blocksCh {
 		if b.err != nil {
 			return fmt.Errorf("failed to process block: %w", b.err)
