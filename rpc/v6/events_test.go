@@ -59,11 +59,11 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		t.Run("block number", func(t *testing.T) {
+		t.Run("block number - bound to latest", func(t *testing.T) {
 			args.ToBlock = &rpc.BlockID{Number: 55}
 			events, err := handler.Events(args)
 			require.Nil(t, err)
-			require.Len(t, events.Events, 5)
+			require.Len(t, events.Events, 4)
 		})
 
 		t.Run("block hash", func(t *testing.T) {
@@ -208,7 +208,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("get pending events with pagination", func(t *testing.T) {
 		var err error
-		pendingB, err = gw.BlockByNumber(t.Context(), 5)
+		pendingB, err = gw.BlockByNumber(t.Context(), 6)
 		require.Nil(t, err)
 
 		args = rpc.EventsArg{
@@ -238,9 +238,9 @@ func TestEvents(t *testing.T) {
 				require.NotEmpty(t, events.ContinuationToken)
 			}
 
-			assert.Equal(t, actualEvent.From, expectedEvent.From)
-			assert.Equal(t, actualEvent.Keys, expectedEvent.Keys)
-			assert.Equal(t, actualEvent.Data, expectedEvent.Data)
+			assert.Equal(t, expectedEvent.From, actualEvent.From)
+			assert.Equal(t, expectedEvent.Keys, actualEvent.Keys)
+			assert.Equal(t, expectedEvent.Data, actualEvent.Data)
 
 			args.ContinuationToken = events.ContinuationToken
 		}
