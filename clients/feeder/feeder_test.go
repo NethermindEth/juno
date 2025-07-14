@@ -601,6 +601,18 @@ func TestTransactionStatusRevertError(t *testing.T) {
 	require.NotEmpty(t, status.RevertError)
 }
 
+func TestTransactionStatusTransactionFailureReason(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+
+	txnHash := utils.HexToFelt(t, "0x1111")
+	expectedMessage := "some error"
+	expectedErrorCode := "SOME_ERROR_CODE"
+	status, err := client.Transaction(t.Context(), txnHash)
+	require.NoError(t, err)
+	require.Equal(t, expectedMessage, status.FailureReason.Message)
+	require.Equal(t, expectedErrorCode, status.FailureReason.Code)
+}
+
 func TestPublicKey(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 
