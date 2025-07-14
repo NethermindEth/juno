@@ -105,7 +105,7 @@ jobs:
     with:
       test_mode: ${{ inputs.test_mode }}
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_7?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
