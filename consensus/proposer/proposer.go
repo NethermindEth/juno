@@ -37,8 +37,9 @@ type (
 type Proposer[V types.Hashable[H], H types.Hash] interface {
 	service.Service
 	tendermint.Application[V, H]
+	mempool.Pool
 	OnCommit(context.Context, types.Height, V)
-	Submit(transactions []mempool.BroadcastedTransaction)
+	Submit(context.Context, []mempool.BroadcastedTransaction)
 	Pending() *sync.Pending
 }
 
@@ -138,8 +139,16 @@ func (p *proposer[V, H]) Value() V {
 	return ask(p.valueTrigger, struct{}{}, p.lastValue)
 }
 
-func (p *proposer[V, H]) Submit(transactions []mempool.BroadcastedTransaction) {
-	p.transactionReceiver <- transactions
+func (p *proposer[V, H]) Submit(ctx context.Context, transactions []mempool.BroadcastedTransaction) {
+	select {
+	case <-ctx.Done():
+	case p.transactionReceiver <- transactions:
+	}
+}
+
+func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.BroadcastedTransaction) error {
+	p.Submit(ctx, []mempool.BroadcastedTransaction{*transaction})
+	return nil
 }
 
 // Return the pending block currently guarded by the atomic pointer. The implementation assumes that
