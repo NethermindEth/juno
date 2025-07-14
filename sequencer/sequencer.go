@@ -32,7 +32,7 @@ type Sequencer struct {
 	privKey          *ecdsa.PrivateKey
 	log              utils.Logger
 	blockTime        time.Duration
-	mempool          *mempool.Pool
+	mempool          *mempool.SequencerMempool
 
 	subNewHeads          *feed.Feed[*core.Block]
 	subPendingData       *feed.Feed[core.PendingData]
@@ -45,7 +45,7 @@ type Sequencer struct {
 
 func New(
 	b *builder.Builder,
-	mempool *mempool.Pool,
+	mempool *mempool.SequencerMempool,
 	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,

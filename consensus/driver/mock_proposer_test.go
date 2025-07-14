@@ -32,7 +32,11 @@ func (m *mockProposer) Valid(value starknet.Value) bool {
 	return true
 }
 
-func (m *mockProposer) Submit(transactions []mempool.BroadcastedTransaction) {
+func (m *mockProposer) Submit(ctx context.Context, transactions []mempool.BroadcastedTransaction) {
+}
+
+func (m *mockProposer) Push(ctx context.Context, transaction *mempool.BroadcastedTransaction) error {
+	return nil
 }
 
 func (m *mockProposer) Pending() *sync.Pending {

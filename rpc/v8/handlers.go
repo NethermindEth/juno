@@ -32,7 +32,7 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	memPool       *mempool.Pool
+	memPool       mempool.Pool
 
 	version     string
 	newHeads    *feed.Feed[*core.Block]
@@ -88,7 +88,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	}
 }
 
-func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 	h.memPool = memPool
 	return h
 }

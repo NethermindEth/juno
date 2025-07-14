@@ -80,7 +80,7 @@ func TestProposer(t *testing.T) {
 	t.Run("Receive transactions", func(t *testing.T) {
 		for i, batch := range firstBatches {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
-				submit(p, batch)
+				submit(t, p, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
 					assert.Equal(c, slices.Concat(firstBatches[:i+1]...), p.Pending().Block.Transactions)
 				})
@@ -94,7 +94,7 @@ func TestProposer(t *testing.T) {
 
 		for _, batch := range secondBatches {
 			t.Run(fmt.Sprintf("Submitting %d more transactions", len(batch)), func(t *testing.T) {
-				submit(p, batch)
+				submit(t, p, batch)
 			})
 		}
 
@@ -113,7 +113,7 @@ func TestProposer(t *testing.T) {
 
 		for i, batch := range committedFirstBatches {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
-				submit(otherProposer, batch)
+				submit(t, otherProposer, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
 					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Pending().Block.Transactions)
 				})
@@ -263,7 +263,8 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	}
 }
 
-func submit(proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []core.Transaction) {
+func submit(t *testing.T, proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []core.Transaction) {
+	t.Helper()
 	transactions := make([]mempool.BroadcastedTransaction, len(batch))
 	for i, transaction := range batch {
 		transactions[i] = mempool.BroadcastedTransaction{
@@ -271,7 +272,7 @@ func submit(proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []c
 		}
 	}
 
-	proposer.Submit(transactions)
+	proposer.Submit(t.Context(), transactions)
 }
 
 func assertValue(

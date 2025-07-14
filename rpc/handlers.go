@@ -82,7 +82,7 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 	h.rpcv6Handler.WithMempool(memPool)
 	h.rpcv8Handler.WithMempool(memPool)
 	h.rpcv9Handler.WithMempool(memPool)
