@@ -53,7 +53,7 @@ func TestEvents(t *testing.T) {
 	mockSyncReader.EXPECT().PendingData().Return(
 		&pendingData,
 		nil,
-	).Times(2)
+	)
 
 	handler := rpc.New(chain, mockSyncReader, nil, n, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
@@ -298,6 +298,7 @@ func TestEvents(t *testing.T) {
 			&pendingData,
 			nil,
 		)
+
 		events, err := handler.Events(args)
 		require.Nil(t, err)
 		require.Len(t, events.Events, 0)

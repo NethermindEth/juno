@@ -1474,7 +1474,8 @@ func TestTransactionStatus(t *testing.T) {
 
 		handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingBlock().Return(nil)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
 		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
 		require.Nil(t, rpcErr)

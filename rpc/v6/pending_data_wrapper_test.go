@@ -22,7 +22,7 @@ func TestPendingDataWrapper(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
