@@ -1456,10 +1456,9 @@ func TestTransactionStatus(t *testing.T) {
 		txHash, err := new(felt.Felt).SetString("0x1111")
 		require.NoError(t, err)
 
-		handler := rpc.New(mockReader, mockSyncReader, nil, "", log).WithFeeder(client)
+		handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingBlock().Return(nil)
 
 		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
 		require.Nil(t, rpcErr)
