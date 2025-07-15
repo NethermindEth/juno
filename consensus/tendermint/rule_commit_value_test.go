@@ -28,15 +28,19 @@ func TestCommitValue(t *testing.T) {
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
 			currentRound.action().broadcastPrevote(&committedValue),
 			currentRound.action().commit(committedValue, types.Round(-1), 0),
-			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
-		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
 		assert.Empty(t, stateMachine.messages.Precommits)
+
+		nextRound.start().expectActions(
+			nextRound.action().scheduleTimeout(types.StepPropose),
+		)
+		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
+		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
 	})
 
 	t.Run("Line 49 (Precommit): commit the value", func(t *testing.T) {
@@ -55,7 +59,6 @@ func TestCommitValue(t *testing.T) {
 		currentRound.validator(2).precommit(&committedValue).expectActions(
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
 			currentRound.action().commit(committedValue, types.Round(-1), 0),
-			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
@@ -63,5 +66,10 @@ func TestCommitValue(t *testing.T) {
 		assert.Empty(t, stateMachine.messages.Proposals)
 		assert.Empty(t, stateMachine.messages.Prevotes)
 		assert.Empty(t, stateMachine.messages.Precommits)
+
+		nextRound.start().expectActions(
+			nextRound.action().scheduleTimeout(types.StepPropose),
+		)
+		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 	})
 }
