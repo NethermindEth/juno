@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
+	rpc "github.com/NethermindEth/juno/rpc/v7"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -16,14 +16,14 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestPendingDataWrapper(t *testing.T) {
+func TestPendingDataWrapper_PebndingData(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, &utils.Sepolia, log)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -98,5 +98,53 @@ func TestPendingDataWrapper(t *testing.T) {
 			pending.GetStateUpdate(),
 			pending.GetNewClasses(),
 		))
+	})
+}
+
+func TestPendingDataWrapper_PendingState(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, &utils.Sepolia, nil)
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(
+			&sync.Pending{},
+			nil,
+		)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		pendingState, closer, err := handler.PendingState()
+
+		require.NoError(t, err)
+		require.NotNil(t, pendingState)
+		require.NotNil(t, closer)
+	})
+
+	t.Run("Returns latest state starknet version >= 0.14.0", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(
+			&core.PreConfirmed{},
+			nil,
+		)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		pending, closer, err := handler.PendingState()
+
+		require.NoError(t, err)
+		require.NotNil(t, pending)
+		require.NotNil(t, closer)
+	})
+
+	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingData().Return(
+			nil,
+			sync.ErrPendingBlockNotFound,
+		)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		pending, closer, err := handler.PendingState()
+
+		require.NoError(t, err)
+		require.NotNil(t, pending)
+		require.NotNil(t, closer)
 	})
 }
