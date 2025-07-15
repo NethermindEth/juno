@@ -566,15 +566,16 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(rpcv7.BlockID{Pending: true})
 		header := resp.BlockHeader
 
-		var txsWithReceipt []rpcv7.TransactionWithReceipt
+		txsWithReceipt := make([]rpcv7.TransactionWithReceipt, len(block0.Transactions))
+
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
 
-			txsWithReceipt = append(txsWithReceipt, rpcv7.TransactionWithReceipt{
+			txsWithReceipt[i] = rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL2, nil, 0),
-			})
+			}
 		}
 
 		assert.Nil(t, rpcErr)
@@ -642,15 +643,15 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(blockID)
 		header := resp.BlockHeader
 
-		var transactions []rpcv7.TransactionWithReceipt
+		transactions := make([]rpcv7.TransactionWithReceipt, len(block1.Transactions))
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpcv7.AdaptTransaction(tx)
 
-			transactions = append(transactions, rpcv7.TransactionWithReceipt{
+			transactions[i] = rpcv7.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpcv7.AdaptReceipt(receipt, tx, rpcv7.TxnAcceptedOnL1, nil, 0),
-			})
+			}
 		}
 
 		assert.Nil(t, rpcErr)

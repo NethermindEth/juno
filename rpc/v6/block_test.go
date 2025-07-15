@@ -703,15 +703,15 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		blockID := rpc.BlockID{Pending: true}
 
-		var expectedTxsWithReceipt []rpc.TransactionWithReceipt
+		expectedTxsWithReceipt := make([]rpc.TransactionWithReceipt, len(block0.Transactions))
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpc.AdaptTransaction(tx)
 
-			expectedTxsWithReceipt = append(expectedTxsWithReceipt, rpc.TransactionWithReceipt{
+			expectedTxsWithReceipt[i] = rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL2, nil, 0, true),
-			})
+			}
 		}
 
 		t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
@@ -784,15 +784,15 @@ func TestBlockWithReceipts(t *testing.T) {
 		resp, rpcErr := handler.BlockWithReceipts(blockID)
 		header := resp.BlockHeader
 
-		var transactions []rpc.TransactionWithReceipt
+		transactions := make([]rpc.TransactionWithReceipt, len(block1.Transactions))
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpc.AdaptTransaction(tx)
 
-			transactions = append(transactions, rpc.TransactionWithReceipt{
+			transactions[i] = rpc.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpc.AdaptReceipt(receipt, tx, rpc.TxnAcceptedOnL1, nil, 0, true),
-			})
+			}
 		}
 
 		assert.Nil(t, rpcErr)
