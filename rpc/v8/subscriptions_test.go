@@ -399,7 +399,7 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) PendingData() (*core.PendingData, error) {
+func (fs *fakeSyncer) PendingData() (core.PendingDataInterface, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }

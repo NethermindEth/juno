@@ -165,9 +165,8 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		pending := sync.NewPending(latestBlock, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		)
 
@@ -369,9 +368,8 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		pending := sync.NewPending(block0, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncer.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		)
 

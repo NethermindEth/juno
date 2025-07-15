@@ -206,9 +206,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		pending := sync.NewPending(latestBlock, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
@@ -222,9 +221,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 
@@ -393,9 +391,8 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		pending := sync.NewPending(latestBlock, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -413,9 +410,8 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 
@@ -556,9 +552,8 @@ func TestBlockWithReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		pending := sync.NewPending(block0, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
@@ -602,9 +597,8 @@ func TestBlockWithReceipts(t *testing.T) {
 		require.NoError(t, err)
 
 		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 

@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 )
 
-func (h *Handler) PendingData() (*core.PendingData, error) {
+func (h *Handler) PendingData() (core.PendingDataInterface, error) {
 	pending, err := h.syncReader.PendingData()
 	if err != nil && !errors.Is(err, sync.ErrPendingBlockNotFound) {
 		return nil, err
@@ -25,8 +25,7 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 		return nil, err
 	}
 	emptyPending := emptyPendingForParent(latestHeader)
-	emptyPendingData := emptyPending.AsPendingData()
-	return &emptyPendingData, nil
+	return &emptyPending, nil
 }
 
 func (h *Handler) PendingBlock() *core.Block {

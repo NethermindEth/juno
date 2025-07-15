@@ -92,8 +92,7 @@ func TestNonce(t *testing.T) {
 
 	t.Run("blockID - pending", func(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
-		pendingData := pending.AsPendingData()
-		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
@@ -211,8 +210,7 @@ func TestStorageAt(t *testing.T) {
 
 	t.Run("blockID - pending", func(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
-		pendingData := pending.AsPendingData()
-		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)

@@ -146,9 +146,8 @@ func TestStateUpdate(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
 		pending := sync.NewPending(nil, update21656, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		)
 
@@ -162,9 +161,8 @@ func TestStateUpdate(t *testing.T) {
 		require.NoError(t, err)
 
 		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 

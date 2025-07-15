@@ -79,7 +79,7 @@ type Reader interface {
 	SubscribePending() PendingSubscription
 	SubscribePreConfirmed() PreConfirmedSubscription
 
-	PendingData() (*core.PendingData, error)
+	PendingData() (core.PendingDataInterface, error)
 	PendingBlock() *core.Block
 	PendingState() (core.StateReader, func() error, error)
 }
@@ -115,7 +115,7 @@ func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
 
-func (n *NoopSynchronizer) PendingData() (*core.PendingData, error) {
+func (n *NoopSynchronizer) PendingData() (core.PendingDataInterface, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
@@ -139,7 +139,7 @@ type Synchronizer struct {
 	log      utils.SimpleLogger
 	listener EventListener
 
-	pendingData              atomic.Pointer[core.PendingData]
+	pendingData              atomic.Pointer[core.PendingDataInterface]
 	pendingPollInterval      time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -699,8 +699,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return err
 	}
 
-	pendingData := p.AsPendingData()
-	s.pendingData.Store(&pendingData)
+	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](p))
 
 	s.pendingFeed.Send(p.Block)
 
@@ -732,20 +731,20 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
 		p.StateUpdate.OldRoot = h.GlobalStateRoot
 	}
 
-	pendingData := p.AsPendingData()
-	s.pendingData.Store(&pendingData)
+	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](p))
 
 	s.preConfirmedFeed.Send(p)
 
 	return nil
 }
 
-func (s *Synchronizer) PendingData() (*core.PendingData, error) {
-	p := s.pendingData.Load()
-	if p == nil {
+func (s *Synchronizer) PendingData() (core.PendingDataInterface, error) {
+	ptr := s.pendingData.Load()
+	if ptr == nil || *ptr == nil {
 		return nil, ErrPendingBlockNotFound
 	}
 
+	p := *ptr
 	switch p.Variant() {
 	case core.PreConfirmedBlockVariant:
 		// pre_confirmed
@@ -821,7 +820,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		return err
 	}
 
-	pending := &Pending{
+	pending := Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   latestHeader.GlobalStateRoot,
@@ -830,8 +829,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	pendingData := pending.AsPendingData()
-	s.pendingData.Store(&pendingData)
+	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](&pending))
 	return nil
 }
 
@@ -871,8 +869,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
 		CandidateTxs:          make([]core.Transaction, 0),
 	}
 
-	pendingData := preConfirmed.AsPendingData()
-	s.pendingData.Store(&pendingData)
+	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](&preConfirmed))
 	return nil
 }
 

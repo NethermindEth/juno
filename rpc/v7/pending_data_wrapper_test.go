@@ -34,9 +34,8 @@ func TestPendingDataWrapper(t *testing.T) {
 
 	t.Run("Returns pending block data when starknet version < 0.14.0", func(t *testing.T) {
 		expectedPending := sync.NewPending(latestBlock, nil, nil)
-		expectedPendingData := expectedPending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&expectedPendingData,
+			&expectedPending,
 			nil,
 		)
 		pending, err := handler.PendingData()
@@ -49,9 +48,8 @@ func TestPendingDataWrapper(t *testing.T) {
 	})
 	t.Run("Returns empty pending block when starknet version >= 0.14.0", func(t *testing.T) {
 		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)

@@ -26,10 +26,6 @@ func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map
 	}
 }
 
-func (p *Pending) AsPendingData() core.PendingData {
-	return core.NewPendingData(p)
-}
-
 func (p *Pending) GetBlock() *core.Block {
 	return p.Block
 }

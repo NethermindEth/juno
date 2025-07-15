@@ -49,9 +49,8 @@ func TestEvents(t *testing.T) {
 	}
 
 	pending := sync.NewPending(pendingB, nil, nil)
-	pendingData := pending.AsPendingData()
 	mockSyncReader.EXPECT().PendingData().Return(
-		&pendingData,
+		&pending,
 		nil,
 	)
 
@@ -256,9 +255,8 @@ func TestEvents(t *testing.T) {
 			allEvents = append(allEvents, receipt.Events...)
 		}
 		pending := sync.NewPending(pendingB, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		).Times(len(allEvents))
 
@@ -293,9 +291,8 @@ func TestEvents(t *testing.T) {
 			},
 		}
 		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
-		pendingData := preConfirmed.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&preConfirmed,
 			nil,
 		)
 

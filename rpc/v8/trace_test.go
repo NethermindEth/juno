@@ -260,9 +260,8 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 			pending := sync.NewPending(&core.Block{}, nil, nil)
-			pendingData := pending.AsPendingData()
 			mockSyncReader.EXPECT().PendingData().Return(
-				&pendingData,
+				&pending,
 				nil,
 			)
 
@@ -392,9 +391,8 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		pending := sync.NewPending(block, nil, nil)
-		pendingData := pending.AsPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pendingData,
+			&pending,
 			nil,
 		).Times(2)
 
@@ -651,8 +649,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		pending := sync.NewPending(nil, nil, nil)
-		pendingData := pending.AsPendingData()
-		mockSyncReader.EXPECT().PendingData().Return(&pendingData, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
