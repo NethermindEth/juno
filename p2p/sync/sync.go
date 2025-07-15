@@ -138,6 +138,7 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
 		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
 	)))
+
 	for b := range blocksCh {
 		if b.err != nil {
 			return fmt.Errorf("failed to process block: %w", b.err)

@@ -7,7 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/core2p2p"
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -17,6 +21,7 @@ import (
 	synccommon "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/event"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/receipt"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 	synctransaction "github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/transaction"
 	"github.com/stretchr/testify/require"
@@ -46,7 +51,79 @@ func TestSyncEmptyBlock(t *testing.T) {
 	client.EXPECT().RequestBlockHeaders(gomock.Any(), &header.BlockHeadersRequest{Iteration: iter}).Return(blockHeaderIter, nil)
 	client.EXPECT().RequestBlockHeaders(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errNoBlock)
 
-	txIter := NewTransactionsResponseSeq()
+	txIter := NewTransactionsResponseSeqEmpty()
+	client.EXPECT().RequestTransactions(gomock.Any(), &synctransaction.TransactionsRequest{Iteration: iter}).Return(txIter, nil)
+
+	classesIter := NewClassesResponseSeq()
+	client.EXPECT().RequestClasses(gomock.Any(), &syncclass.ClassesRequest{Iteration: iter}).Return(classesIter, nil)
+
+	eventsIter := NewEventsResponseSeq()
+	client.EXPECT().RequestEvents(gomock.Any(), &event.EventsRequest{Iteration: iter}).Return(eventsIter, nil)
+
+	stateDiffsIter := NewStateDiffsResponseSeq()
+	client.EXPECT().RequestStateDiffs(gomock.Any(), &state.StateDiffsRequest{Iteration: iter}).Return(stateDiffsIter, nil)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+	sync.Run(ctx)
+
+	height, err := bc.Height()
+	require.NoError(t, err)
+	require.Equal(t, height, uint64(0))
+}
+
+func TestSyncNonEmptyBlock(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	testDB := memory.New()
+	network := &utils.Mainnet
+	bc := blockchain.New(testDB, network)
+	host := mocks.NewMockHost(mockCtrl)
+	sync := New(bc, host, &utils.Sepolia, utils.NewNopZapLogger())
+	client := mocks.NewMockClient(mockCtrl)
+	sync.WithClient(client)
+
+	iter := &synccommon.Iteration{
+		Start:     &synccommon.Iteration_BlockNumber{BlockNumber: 0},
+		Direction: synccommon.Iteration_Forward,
+		Limit:     1,
+		Step:      1,
+	}
+
+	snClient := feeder.NewTestClient(t, &utils.Sepolia)
+	blockID := "0"
+	blockSU0, err := snClient.StateUpdateWithBlock(context.Background(), blockID)
+	sig, err := snClient.Signature(context.Background(), blockID)
+
+	require.NoError(t, err)
+	block0Core, err := sn2core.AdaptBlock(blockSU0.Block, sig)
+	block0Header := core2p2p.AdaptHeader(
+		block0Core.Header,
+		&core.BlockCommitments{
+			TransactionCommitment: blockSU0.Block.TransactionCommitment,
+			EventCommitment:       blockSU0.Block.EventCommitment,
+			ReceiptCommitment:     blockSU0.Block.ReceiptCommitment,
+			StateDiffCommitment:   blockSU0.Block.StateDiffCommitment,
+		},
+		blockSU0.Block.StateDiffCommitment,
+		blockSU0.Block.StateDiffLength)
+	blockHeaderIter := NewBlockHeadersResponseSeq(t, block0Header)
+	errNoBlock := errors.New("peer doesn't have this block")
+	client.EXPECT().RequestBlockHeaders(gomock.Any(), &header.BlockHeadersRequest{Iteration: iter}).Return(blockHeaderIter, nil)
+	client.EXPECT().RequestBlockHeaders(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errNoBlock)
+
+	p2pTxns := make([]*synctransaction.TransactionInBlock, len(block0Core.Transactions))
+	for i, txn := range block0Core.Transactions {
+		p2pTxns[i] = core2p2p.AdaptTransaction(txn)
+	}
+	p2pReceipts := make([]*receipt.Receipt, len(block0Core.Transactions))
+	for i, receipt := range block0Core.Receipts {
+		p2pReceipts[i] = core2p2p.AdaptReceipt(receipt, block0Core.Transactions[i])
+	}
+	txIter := NewTransactionsResponseSeqFrom(p2pTxns, p2pReceipts)
 	client.EXPECT().RequestTransactions(gomock.Any(), &synctransaction.TransactionsRequest{Iteration: iter}).Return(txIter, nil)
 
 	classesIter := NewClassesResponseSeq()
@@ -71,7 +148,7 @@ func TestSyncEmptyBlock(t *testing.T) {
 }
 
 // NewBlockHeadersResponseSeq returns an iter.Seq emitting one Header message followed by a Fin message.
-func NewBlockHeadersResponseSeq(t *testing.T) iter.Seq[*header.BlockHeadersResponse] {
+func NewBlockHeadersResponseSeqEmpty(t *testing.T) iter.Seq[*header.BlockHeadersResponse] {
 	hdr := &header.SignedBlockHeader{
 		BlockHash:        toHash(utils.HexToFelt(t, "0x40a15319f25a679938dedd6c1e2815bcf5a4f8282cb5210add954f65438fec2")),
 		ParentHash:       toHash(utils.HexToFelt(t, "0x0")),
@@ -119,10 +196,61 @@ func NewBlockHeadersResponseSeq(t *testing.T) iter.Seq[*header.BlockHeadersRespo
 	}
 }
 
+// NewBlockHeadersResponseSeq returns an iter.Seq emitting one Header message followed by a Fin message.
+func NewBlockHeadersResponseSeq(t *testing.T, blockheader *header.SignedBlockHeader) iter.Seq[*header.BlockHeadersResponse] {
+	return func(yield func(*header.BlockHeadersResponse) bool) {
+		// send the header
+		headerMsg := &header.BlockHeadersResponse{
+			HeaderMessage: &header.BlockHeadersResponse_Header{Header: blockheader},
+		}
+		if !yield(headerMsg) {
+			return
+		}
+		// send the Fin frame
+		finMsg := &header.BlockHeadersResponse{
+			HeaderMessage: &header.BlockHeadersResponse_Fin{},
+		}
+		yield(finMsg)
+	}
+}
+
 // NewTransactionsResponseSeq returns an iter.Seq emitting one TransactionWithReceipt message followed by a Fin message.
-func NewTransactionsResponseSeq() iter.Seq[*synctransaction.TransactionsResponse] {
+func NewTransactionsResponseSeqEmpty() iter.Seq[*synctransaction.TransactionsResponse] {
 	// Empty block - no txns
 	return func(yield func(*synctransaction.TransactionsResponse) bool) {
+		// send the Fin frame
+		fin := &synctransaction.TransactionsResponse{
+			TransactionMessage: &synctransaction.TransactionsResponse_Fin{},
+		}
+		yield(fin)
+	}
+}
+
+func NewTransactionsResponseSeqFrom(
+	txns []*synctransaction.TransactionInBlock,
+	recs []*receipt.Receipt,
+) iter.Seq[*synctransaction.TransactionsResponse] {
+	return func(yield func(*synctransaction.TransactionsResponse) bool) {
+		n := len(txns)
+		if len(recs) < n {
+			n = len(recs)
+		}
+
+		for i := 0; i < n; i++ {
+			twr := &synctransaction.TransactionWithReceipt{
+				Transaction: txns[i],
+				Receipt:     recs[i],
+			}
+			resp := &synctransaction.TransactionsResponse{
+				TransactionMessage: &synctransaction.TransactionsResponse_TransactionWithReceipt{
+					TransactionWithReceipt: twr,
+				},
+			}
+			if !yield(resp) {
+				return
+			}
+		}
+
 		// send the Fin frame
 		fin := &synctransaction.TransactionsResponse{
 			TransactionMessage: &synctransaction.TransactionsResponse_Fin{},
