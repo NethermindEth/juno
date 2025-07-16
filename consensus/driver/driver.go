@@ -58,6 +58,8 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 		}
 	}()
 
+	time.Sleep(1 * time.Second) // FIXME: Figure out how to remove this.
+
 	d.stateMachine.ReplayWAL()
 
 	listeners := d.p2p.Listeners()
