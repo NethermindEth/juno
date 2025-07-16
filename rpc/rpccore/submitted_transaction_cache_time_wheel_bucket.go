@@ -51,6 +51,9 @@ func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() uint32 {
 	return atomic.LoadUint32(&c.curBucket)
 }
 
+// Todo: just a note.
+// Old approach. Lock entire map. Flush performs O(n) loop. Add to map. Add to list. Push to front.
+// New approach. Contains() call. Lock section of the map (timeslot, lockgroup). O(1) set.
 func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	if c.Contains(key) {
 		return
@@ -63,6 +66,9 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	c.locks[timeSlot][lockGroupID].Unlock()
 }
 
+// Todo: just a note.
+// Old approach. Lock entire map. O(1) lookup. Potentially update map. Modify underlying map and list.
+// New approach. O(1) lookup. Lock part of the map. Only read lock. Don't modify the map.
 func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
 	lockGroupID := int(key.Uint64() % numLocks)
 	for b := 0; b < NumTimeBuckets; b++ {
@@ -76,6 +82,9 @@ func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
 	return false
 }
 
+// Todo: just a note.
+// Old approach. Try and evict every time we add to the map.
+// New approach. Evict in time-buckets, once per tick. Shouldn't contend with locks in Set/Get, since operates on seperate bucket.
 func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 	for {
 		select {
