@@ -256,5 +256,11 @@
     "block_target": 800000,
     "duration_seconds": 88263.636346,
     "timestamp": "2025-07-11T00:58:30.467880+00:00"
+  },
+  {
+    "version": "v0.14.7-13-gc303eb15",
+    "block_target": 800000,
+    "duration_seconds": 78303.399585,
+    "timestamp": "2025-07-16T05:06:30.396541+00:00"
   }
 ]
