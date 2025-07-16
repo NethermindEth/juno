@@ -84,7 +84,6 @@ type MatchedBlockIterator struct {
 }
 
 var (
-	ErrInvalidBlockRange                = errors.New("fromBlock > toBlock")
 	ErrMaxScannedBlockLimitExceed       = errors.New("max scanned blocks exceeded")
 	ErrAggregatedBloomFilterFallbackNil = errors.New("aggregated bloom filter does not have fallback")
 	ErrFetchedFilterBoundsMismatch      = errors.New("fetched filter bounds mismatch")
@@ -102,10 +101,6 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 	matcher *EventMatcher,
 	runningFilter *core.RunningEventFilter,
 ) (MatchedBlockIterator, error) {
-	if fromBlock > toBlock {
-		return MatchedBlockIterator{}, ErrInvalidBlockRange
-	}
-
 	if runningFilter == nil {
 		return MatchedBlockIterator{}, ErrNilRunningFilter
 	}
@@ -119,6 +114,8 @@ func (c *AggregatedBloomFilterCache) NewMatchedBlockIterator(
 		runningFilter:      runningFilter,
 		matcher:            matcher,
 		currentWindowStart: windowStart,
+		// If from_block > to_block return exhausted iterator
+		done: fromBlock > toBlock,
 	}, nil
 }
 
