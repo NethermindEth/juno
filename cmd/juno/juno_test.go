@@ -100,6 +100,7 @@ func TestConfigPrecedence(t *testing.T) {
 		HTTPUpdatePort:                     0,
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+		ReadinessBlockTolerance:            6,
 	}
 
 	expectedConfig2 := node.Config{
@@ -135,6 +136,7 @@ func TestConfigPrecedence(t *testing.T) {
 		HTTPUpdatePort:                     0,
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+		ReadinessBlockTolerance:            6,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -231,6 +233,7 @@ pprof: true
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -272,6 +275,7 @@ http-port: 4576
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"all flags without config file": {
@@ -312,6 +316,7 @@ http-port: 4576
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some flags without config file": {
@@ -352,6 +357,7 @@ http-port: 4576
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -416,6 +422,7 @@ db-cache-size: 1024
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -459,6 +466,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -498,6 +506,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"only set env variables": {
@@ -535,6 +544,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -573,6 +583,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -612,6 +623,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 	}

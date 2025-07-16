@@ -94,10 +94,11 @@ type Config struct {
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
-	MaxVMs          uint `mapstructure:"max-vms"`
-	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
+	MaxVMs                  uint `mapstructure:"max-vms"`
+	MaxVMQueue              uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
+	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -298,7 +299,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/live":       readinessHandlers.HandleLive,
 			"/ready":      readinessHandlers.HandleReadySync,
