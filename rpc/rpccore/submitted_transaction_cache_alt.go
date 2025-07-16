@@ -10,9 +10,16 @@ import (
 
 const (
 	NumTimeBuckets = 5 + 1 // TTL is 5s
-	numLocks       = 256   // Todo: investigate
+	numLocks       = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op
 )
 
+// SubmittedTransactionsCacheAlt implements a fixed‑TTL, time‑wheel in-memory cache for txn hashes.
+// It divides time into NumTimeBuckets slots and further shards each slot into numLocks maps to
+// minimize lock contention. Entries live for `NumTimeBuckets-1`, after which the oldest slot
+// is automatically cleared on each tick/second, evicting those entries.
+//
+// `NumTimeBuckets` defines the total number of time slots,
+// and `numLocks` defines the number of lock‑stripes per slot.
 type SubmittedTransactionsCacheAlt struct {
 	buckets   [NumTimeBuckets][numLocks]map[felt.Felt]struct{} // Stores the presence of the txn hash
 	locks     [NumTimeBuckets][numLocks]sync.RWMutex
@@ -41,11 +48,6 @@ func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() uint32 {
 }
 
 func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
-	// This prevents duplicates
-	// Note: this doubled `ns/op` in the benchmarks indicating lock contention.
-	// We only get duplciates if the user sends the same txn into differnt time buckets (eg max NumTimeBuckets)
-	// This causes the txn to live in the cahce for longer, which is only a UX problem if the user queries and the
-	// FGW hasn't updated its status. ie it may be acceptable to drop this?
 	if c.Contains(key) {
 		return
 	}
@@ -75,7 +77,7 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 		select {
 		case <-tickC:
 			nextTimeBucket := (c.getCurTimeSlot() + 1) % NumTimeBuckets
-			// Clean map in place.
+			// Clean map in-place. This is signifcaintly more efficient than allocating a new map.
 			for lockID := 0; lockID < numLocks; lockID++ {
 				c.locks[nextTimeBucket][lockID].Lock()
 				m := c.buckets[nextTimeBucket][lockID]

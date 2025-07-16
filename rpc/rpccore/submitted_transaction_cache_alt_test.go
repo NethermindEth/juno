@@ -56,6 +56,11 @@ func TestCache(t *testing.T) {
 // Set also calls Contains to prevent duplicates
 // Run 1: BenchmarkCacheAlt-24    	 			    487		   	2447542 ns/op	    1115 B/op	       3 allocs/op
 // Run 2: BenchmarkCacheAlt-24    	   				471	   		2709032 ns/op	    1150 B/op	       3 allocs/op
+//
+// Key on felt.Felt. Update evict to clean in place.Update Benchmark to preallcoate the keys. b.Start()/Stop() arroundfakeTimer.
+// Set also calls Contains to prevent duplicates. Single lock.
+// Run 1: BenchmarkCacheAlt-24    	  				372	   		3138484 ns/op	    3611 B/op	       0 allocs/op
+// Run 2: BenchmarkCacheAlt-24    	    			386	   		3009791 ns/op	    3480 B/op	       0 allocs/op
 
 func BenchmarkCacheAlt(b *testing.B) {
 	const (
@@ -78,10 +83,12 @@ func BenchmarkCacheAlt(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		keyID := 0
 		for t := 0; t < numTicks; t++ {
+			// Add all the txns for this round
 			for i := 0; i < perTick; i++ {
 				cache.Set(keys[keyID])
 				keyID++
 			}
+			// Trigger the eviction given one tick ("second") has passed
 			fakeClock <- time.Now()
 		}
 	}
@@ -111,12 +118,12 @@ func BenchmarkCacheOriginal(b *testing.B) {
 	for i := 0; i < totalEntries; i++ {
 		keys[i] = new(felt.Felt).SetUint64(uint64(i))
 	}
+	keyID := 0
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		keyID := 0
 		for t := 0; t < numTicks; t++ {
-			// do the work for this tick
+			// Add all the txns for this second
 			for i := 0; i < perTick; i++ {
 				cache.Add(keys[keyID])
 				keyID++
@@ -137,3 +144,7 @@ func BenchmarkCacheOriginal(b *testing.B) {
 // Original:  	BenchmarkCacheOriginal-24    	   		    1			2786046135 ns/op	989245880 B/op	    21506 allocs/op
 // New:			BenchmarkCacheAlt-24    	 			    487		   	2447542 ns/op	    1115 B/op	        3 allocs/op
 // Reduction:                                 							91%  				99%					98.5%
+//
+// Summary:
+//   The ns/op goes from 2,786ms to 2ms.
+//   The B/op does from 989245880 B/op to 1115 B/op. Todo: this seems extremely high...investigate
