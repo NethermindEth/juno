@@ -1,6 +1,7 @@
 package rpccore_test
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -76,7 +77,7 @@ func BenchmarkCacheAlt(b *testing.B) {
 
 	keys := make([]felt.Felt, totalEntries)
 	for i := 0; i < totalEntries; i++ {
-		keys[i].SetUint64(uint64(i))
+		keys[i].SetUint64(rand.Uint64())
 	}
 
 	b.ResetTimer()
@@ -116,7 +117,7 @@ func BenchmarkCacheOriginal(b *testing.B) {
 	// prepare keys once
 	keys := make([]*felt.Felt, totalEntries)
 	for i := 0; i < totalEntries; i++ {
-		keys[i] = new(felt.Felt).SetUint64(uint64(i))
+		keys[i] = new(felt.Felt).SetUint64(rand.Uint64())
 	}
 	keyID := 0
 

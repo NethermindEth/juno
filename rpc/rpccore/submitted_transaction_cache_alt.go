@@ -10,7 +10,7 @@ import (
 
 const (
 	NumTimeBuckets = 5 + 1 // TTL is 5s
-	numLocks       = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op
+	numLocks       = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
 )
 
 // SubmittedTransactionsCacheAlt implements a fixed‑TTL, time‑wheel in-memory cache for txn hashes.
