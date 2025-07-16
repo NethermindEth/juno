@@ -51,6 +51,11 @@ func TestCache(t *testing.T) {
 // Key on felt.Felt. Update evict to clean in place.Update Benchmark to preallcoate the keys. b.Start()/Stop() arroundfakeTimer.
 // Run 1: BenchmarkCacheLoadDistributed-24    	    1604	   1006585 ns/op	    1049 B/op	       3 allocs/op
 // Run 2: BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	       3 allocs/op
+//
+// Key on felt.Felt. Update evict to clean in place.Update Benchmark to preallcoate the keys. b.Start()/Stop() arroundfakeTimer.
+// Set also calls Contains to prevent duplicates
+// Run 1: BenchmarkCacheAlt-24    	 			    487		   	2447542 ns/op	    1115 B/op	       3 allocs/op
+// Run 2: BenchmarkCacheAlt-24    	   				471	   		2709032 ns/op	    1150 B/op	       3 allocs/op
 
 func BenchmarkCacheAlt(b *testing.B) {
 	const (
@@ -127,8 +132,8 @@ func BenchmarkCacheOriginal(b *testing.B) {
 // Benchmark comparison
 //
 // Both benchmarks involve adding 10k txns evenly into the cache over 10s. The TTL in both is 5s, so both benchmarks
-// should simulate the entire lifecyle of both
+// should simulate the entire lifecyle of both implementations.
 //
 // Original:  	BenchmarkCacheOriginal-24    	   		    1			2786046135 ns/op	989245880 B/op	    21506 allocs/op
-// New:			BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	        3 allocs/op
-// Reduction:                                 							96%  				99%					98.5%
+// New:			BenchmarkCacheAlt-24    	 			    487		   	2447542 ns/op	    1115 B/op	        3 allocs/op
+// Reduction:                                 							91%  				99%					98.5%
