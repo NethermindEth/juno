@@ -14,7 +14,7 @@ const (
 )
 
 type SubmittedTransactionsCacheAlt struct {
-	buckets   [NumTimeBuckets][numShards]map[*felt.Felt]struct{} // Stores the presence of the txn hash
+	buckets   [NumTimeBuckets][numShards]map[felt.Felt]struct{} // Stores the presence of the txn hash
 	locks     [NumTimeBuckets][numShards]sync.RWMutex
 	tick      time.Duration
 	curBucket uint32
@@ -28,7 +28,7 @@ func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransact
 	}
 	for b := 0; b < NumTimeBuckets; b++ {
 		for s := 0; s < numShards; s++ {
-			c.buckets[b][s] = make(map[*felt.Felt]struct{})
+			c.buckets[b][s] = make(map[felt.Felt]struct{})
 		}
 	}
 	atomic.StoreUint32(&c.curBucket, 0)
@@ -40,7 +40,7 @@ func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() uint32 {
 	return atomic.LoadUint32(&c.curBucket)
 }
 
-func (c *SubmittedTransactionsCacheAlt) Set(key *felt.Felt) {
+func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	timeSlot := c.getCurTimeSlot()
 	lockGroupID := int(key.Uint64() % numShards)
 	c.locks[timeSlot][lockGroupID].Lock()
@@ -48,7 +48,7 @@ func (c *SubmittedTransactionsCacheAlt) Set(key *felt.Felt) {
 	c.locks[timeSlot][lockGroupID].Unlock()
 }
 
-func (c *SubmittedTransactionsCacheAlt) Contains(key *felt.Felt) bool {
+func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
 	lockGroupID := int(key.Uint64() % numShards)
 	for b := 0; b < NumTimeBuckets; b++ {
 		c.locks[b][lockGroupID].RLock()
@@ -65,9 +65,13 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 		select {
 		case <-tickC:
 			next := (c.getCurTimeSlot() + 1) % NumTimeBuckets
+			// Clean map in place.
 			for s := 0; s < numShards; s++ {
 				c.locks[next][s].Lock()
-				c.buckets[next][s] = make(map[*felt.Felt]struct{})
+				m := c.buckets[next][s]
+				for k := range m {
+					delete(m, k)
+				}
 				c.locks[next][s].Unlock()
 			}
 			atomic.StoreUint32(&c.curBucket, next)
