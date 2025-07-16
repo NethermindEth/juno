@@ -9,72 +9,68 @@ import (
 )
 
 const (
-	numBuckets = 5   // TTL is 5s, so we bucket into 5 groups.
-	numShards  = 256 // Todo: investigate
+	NumTimeBuckets = 5 + 1 // TTL is 5s
+	numShards      = 256   // Todo: investigate
 )
 
 type SubmittedTransactionsCacheAlt struct {
-	buckets   [numBuckets][numShards]map[*felt.Felt]time.Time
-	locks     [numBuckets][numShards]sync.RWMutex
+	buckets   [NumTimeBuckets][numShards]map[*felt.Felt]struct{} // Stores the presence of the txn hash
+	locks     [NumTimeBuckets][numShards]sync.RWMutex
 	tick      time.Duration
 	curBucket uint32
 	stop      chan struct{}
 }
 
-func NewSubmittedTransactionsCacheAlt(tick time.Duration) *SubmittedTransactionsCacheAlt {
+// NewSubmittedTransactionsCacheAlt creates the cache and starts eviction driven by tickC.
+func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransactionsCacheAlt {
 	c := &SubmittedTransactionsCacheAlt{
-		tick: tick,
 		stop: make(chan struct{}),
 	}
-	for b := 0; b < numBuckets; b++ {
+	for b := 0; b < NumTimeBuckets; b++ {
 		for s := 0; s < numShards; s++ {
-			c.buckets[b][s] = make(map[*felt.Felt]time.Time)
+			c.buckets[b][s] = make(map[*felt.Felt]struct{})
 		}
 	}
 	atomic.StoreUint32(&c.curBucket, 0)
-	go c.evictor()
+	go c.evictor(tickC)
 	return c
 }
 
-func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() int {
-	return int(atomic.LoadUint32(&c.curBucket))
+func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() uint32 {
+	return atomic.LoadUint32(&c.curBucket)
 }
 
-func (c *SubmittedTransactionsCacheAlt) Set(key *felt.Felt, ts time.Time) {
+func (c *SubmittedTransactionsCacheAlt) Set(key *felt.Felt) {
 	timeSlot := c.getCurTimeSlot()
 	lockGroupID := int(key.Uint64() % numShards)
 	c.locks[timeSlot][lockGroupID].Lock()
-	c.buckets[timeSlot][lockGroupID][key] = ts
+	c.buckets[timeSlot][lockGroupID][key] = struct{}{} // Todo: by resubmitting the txn, we can get duplicates..
 	c.locks[timeSlot][lockGroupID].Unlock()
 }
 
-func (c *SubmittedTransactionsCacheAlt) Get(key *felt.Felt) (time.Time, bool) {
+func (c *SubmittedTransactionsCacheAlt) Contains(key *felt.Felt) bool {
 	lockGroupID := int(key.Uint64() % numShards)
-	for b := 0; b < numBuckets; b++ {
+	for b := 0; b < NumTimeBuckets; b++ {
 		c.locks[b][lockGroupID].RLock()
-		ts, ok := c.buckets[b][lockGroupID][key]
+		_, ok := c.buckets[b][lockGroupID][key]
 		c.locks[b][lockGroupID].RUnlock()
 		if ok {
-			return ts, true
+			return true
 		}
 	}
-	return time.Time{}, false
+	return false
 }
-
-func (c *SubmittedTransactionsCacheAlt) evictor() {
-	ticker := time.NewTicker(c.tick)
-	defer ticker.Stop()
-
+func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 	for {
 		select {
-		case <-ticker.C:
-			next := (c.getCurTimeSlot() + 1) % numBuckets
+		case <-tickC:
+			next := (c.getCurTimeSlot() + 1) % NumTimeBuckets
 			for s := 0; s < numShards; s++ {
 				c.locks[next][s].Lock()
-				c.buckets[next][s] = make(map[*felt.Felt]time.Time)
+				c.buckets[next][s] = make(map[*felt.Felt]struct{})
 				c.locks[next][s].Unlock()
 			}
-			atomic.StoreUint32(&c.curBucket, uint32(next))
+			atomic.StoreUint32(&c.curBucket, next)
 		case <-c.stop:
 			return
 		}
