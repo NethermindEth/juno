@@ -84,8 +84,13 @@ func BenchmarkCacheAlt(b *testing.B) {
 
 // Benchmark:
 //
+// Just pure add, no time sleep in the benchmark
 // Run 1: BenchmarkCacheOriginal-24    	       1	4778887699 ns/op	1640341336 B/op	   21219 allocs/op
 // Run 2: BenchmarkCacheOriginal-24    	       1	4734790561 ns/op	1640341384 B/op	   21225 allocs/op
+//
+// Sleep in the benchmark to simulate ticks, but do not count towards the benchmark
+// Run1: BenchmarkCacheOriginal-24    	       1	2777534374 ns/op	 995962056 B/op	   21815 allocs/op
+// Run2: BenchmarkCacheOriginal-24    	       1	2786046135 ns/op	 989245880 B/op	   21506 allocs/op
 
 func BenchmarkCacheOriginal(b *testing.B) {
 	const (
@@ -94,9 +99,9 @@ func BenchmarkCacheOriginal(b *testing.B) {
 	)
 
 	cache := rpccore.NewSubmittedTransactionsCache(totalEntries, 5*time.Second)
-
 	perTick := totalEntries / numTicks
 
+	// prepare keys once
 	keys := make([]*felt.Felt, totalEntries)
 	for i := 0; i < totalEntries; i++ {
 		keys[i] = new(felt.Felt).SetUint64(uint64(i))
@@ -106,16 +111,24 @@ func BenchmarkCacheOriginal(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		keyID := 0
 		for t := 0; t < numTicks; t++ {
+			// do the work for this tick
 			for i := 0; i < perTick; i++ {
 				cache.Add(keys[keyID])
 				keyID++
 			}
+			// simulate one second passing per tick, but don't count it in the benchmark
+			b.StopTimer()
+			time.Sleep(1 * time.Second)
+			b.StartTimer()
 		}
 	}
 }
 
 // Benchmark comparison
 //
-// Original:  	BenchmarkCacheOriginal-24    	      		1			4778887699 ns/op	1640341336 B/op	   21219 allocs/op
-// New:			BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	       3 allocs/op
-// Reduction:                                 							98%  				99%				98.5%
+// Both benchmarks involve adding 10k txns evenly into the cache over 10s. The TTL in both is 5s, so both benchmarks
+// should simulate the entire lifecyle of both
+//
+// Original:  	BenchmarkCacheOriginal-24    	   		    1			2786046135 ns/op	989245880 B/op	    21506 allocs/op
+// New:			BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	        3 allocs/op
+// Reduction:                                 							96%  				99%					98.5%
