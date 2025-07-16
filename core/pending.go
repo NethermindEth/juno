@@ -11,7 +11,7 @@ const (
 	PreConfirmedBlockVariant
 )
 
-type PendingDataInterface interface {
+type PendingData interface {
 	GetBlock() *Block
 	GetHeader() *Header
 	GetTransactions() []Transaction

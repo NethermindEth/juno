@@ -238,6 +238,6 @@ func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
 	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
 }
 
-func (s *Sequencer) PendingData() (core.PendingDataInterface, error) {
+func (s *Sequencer) PendingData() (core.PendingData, error) {
 	return nil, nil
 }

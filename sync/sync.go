@@ -79,7 +79,7 @@ type Reader interface {
 	SubscribePending() PendingSubscription
 	SubscribePreConfirmed() PreConfirmedSubscription
 
-	PendingData() (core.PendingDataInterface, error)
+	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
 	PendingState() (core.StateReader, func() error, error)
 }
@@ -115,7 +115,7 @@ func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
 
-func (n *NoopSynchronizer) PendingData() (core.PendingDataInterface, error) {
+func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
@@ -139,7 +139,7 @@ type Synchronizer struct {
 	log      utils.SimpleLogger
 	listener EventListener
 
-	pendingData              atomic.Pointer[core.PendingDataInterface]
+	pendingData              atomic.Pointer[core.PendingData]
 	pendingPollInterval      time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -699,7 +699,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 		return err
 	}
 
-	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](p))
+	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
 	s.pendingFeed.Send(p.Block)
 
@@ -731,14 +731,14 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
 		p.StateUpdate.OldRoot = h.GlobalStateRoot
 	}
 
-	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](p))
+	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
 	s.preConfirmedFeed.Send(p)
 
 	return nil
 }
 
-func (s *Synchronizer) PendingData() (core.PendingDataInterface, error) {
+func (s *Synchronizer) PendingData() (core.PendingData, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
 		return nil, ErrPendingBlockNotFound
@@ -829,7 +829,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](&pending))
+	s.pendingData.Store(utils.HeapPtr[core.PendingData](&pending))
 	return nil
 }
 
@@ -869,7 +869,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
 		CandidateTxs:          make([]core.Transaction, 0),
 	}
 
-	s.pendingData.Store(utils.HeapPtr[core.PendingDataInterface](&preConfirmed))
+	s.pendingData.Store(utils.HeapPtr[core.PendingData](&preConfirmed))
 	return nil
 }
 

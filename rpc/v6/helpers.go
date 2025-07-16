@@ -40,7 +40,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) { //nolin
 	case id.Hash != nil:
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		var pending core.PendingDataInterface
+		var pending core.PendingData
 		pending, err = h.PendingData()
 		if err == nil {
 			block = pending.GetBlock()
@@ -70,7 +70,7 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) { 
 	case id.Hash != nil:
 		header, err = h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		var pending core.PendingDataInterface
+		var pending core.PendingData
 		pending, err = h.PendingData()
 		if err == nil {
 			header = pending.GetHeader()

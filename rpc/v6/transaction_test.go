@@ -649,7 +649,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
-		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingDataInterface, error) {
+		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingData, error) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 			pending := sync.NewPending(block, nil, nil)
@@ -727,7 +727,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		client := feeder.NewTestClient(t, n)
 		gateway := adaptfeeder.New(client)
-		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingDataInterface, error) {
+		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingData, error) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 
