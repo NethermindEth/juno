@@ -35,7 +35,7 @@ type Sequencer struct {
 	mempool          *mempool.Pool
 
 	subNewHeads          *feed.Feed[*core.Block]
-	subPendingBlock      *feed.Feed[*core.Block]
+	subPendingData       *feed.Feed[core.PendingData]
 	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
 	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
 	plugin               plugin.JunoPlugin
@@ -60,7 +60,7 @@ func New(
 		log:                  log,
 		blockTime:            blockTime,
 		subNewHeads:          feed.New[*core.Block](),
-		subPendingBlock:      feed.New[*core.Block](),
+		subPendingData:       feed.New[core.PendingData](),
 		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
 		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
 	}
@@ -161,7 +161,8 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the pending block to the feed
-		s.subPendingBlock.Send(s.buildState.PendingBlock())
+		pending := sync.NewPending(s.buildState.PendingBlock(), nil, nil)
+		s.subPendingData.Send(&pending)
 		select {
 		case <-ctx.Done():
 			return nil
@@ -230,12 +231,8 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 	return sync.NewHeadSubscription{Subscription: s.subNewHeads.Subscribe()}
 }
 
-func (s *Sequencer) SubscribePending() sync.PendingSubscription {
-	return sync.PendingSubscription{Subscription: s.subPendingBlock.Subscribe()}
-}
-
-func (s *Sequencer) SubscribePreConfirmed() sync.PreConfirmedSubscription {
-	return sync.PreConfirmedSubscription{Subscription: s.subPreConfirmedBlock.Subscribe()}
+func (s *Sequencer) SubscribePendingData() sync.PendingDataSubscription {
+	return sync.PendingDataSubscription{Subscription: s.subPendingData.Subscribe()}
 }
 
 func (s *Sequencer) PendingData() (core.PendingData, error) {

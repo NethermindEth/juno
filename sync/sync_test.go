@@ -382,15 +382,15 @@ func TestSubscribePending(t *testing.T) {
 	synchronizer := sync.New(bc, dataSource, log, time.Millisecond*100, 0, false, testDB)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 
-	sub := synchronizer.SubscribePending()
+	sub := synchronizer.SubscribePendingData()
 
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
-	pending, err := synchronizer.PendingData()
+	pendingData, err := synchronizer.PendingData()
 	require.NoError(t, err)
 	pendingBlock, ok := <-sub.Recv()
 	require.True(t, ok)
-	require.Equal(t, pending.GetBlock(), pendingBlock)
+	require.Equal(t, pendingData, pendingBlock)
 	sub.Unsubscribe()
 }

@@ -48,12 +48,8 @@ type PendingTxSubscription struct {
 	*feed.Subscription[[]core.Transaction]
 }
 
-type PendingSubscription struct {
-	*feed.Subscription[*core.Block]
-}
-
-type PreConfirmedSubscription struct {
-	*feed.Subscription[*core.PreConfirmed]
+type PendingDataSubscription struct {
+	*feed.Subscription[core.PendingData]
 }
 
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
@@ -76,8 +72,7 @@ type Reader interface {
 	HighestBlockHeader() *core.Header
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
-	SubscribePending() PendingSubscription
-	SubscribePreConfirmed() PreConfirmedSubscription
+	SubscribePendingData() PendingDataSubscription
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
@@ -103,12 +98,8 @@ func (n *NoopSynchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{feed.New[*ReorgBlockRange]().Subscribe()}
 }
 
-func (n *NoopSynchronizer) SubscribePending() PendingSubscription {
-	return PendingSubscription{feed.New[*core.Block]().Subscribe()}
-}
-
-func (n *NoopSynchronizer) SubscribePreConfirmed() PreConfirmedSubscription {
-	return PreConfirmedSubscription{feed.New[*core.PreConfirmed]().Subscribe()}
+func (n *NoopSynchronizer) SubscribePendingData() PendingDataSubscription {
+	return PendingDataSubscription{feed.New[core.PendingData]().Subscribe()}
 }
 
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
@@ -133,8 +124,7 @@ type Synchronizer struct {
 	highestBlockHeader  atomic.Pointer[core.Header]
 	newHeads            *feed.Feed[*core.Block]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
-	pendingFeed         *feed.Feed[*core.Block]
-	preConfirmedFeed    *feed.Feed[*core.PreConfirmed]
+	pendingDataFeed     *feed.Feed[core.PendingData]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -164,10 +154,9 @@ func New(
 		log:                      log,
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
-		pendingFeed:              feed.New[*core.Block](),
+		pendingDataFeed:          feed.New[core.PendingData](),
 		pendingPollInterval:      pendingPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
-		preConfirmedFeed:         feed.New[*core.PreConfirmed](),
 		listener:                 &SelectiveListener{},
 		readOnlyBlockchain:       readOnlyBlockchain,
 	}
@@ -663,12 +652,8 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 	return ReorgSubscription{s.reorgFeed.Subscribe()}
 }
 
-func (s *Synchronizer) SubscribePending() PendingSubscription {
-	return PendingSubscription{s.pendingFeed.Subscribe()}
-}
-
-func (s *Synchronizer) SubscribePreConfirmed() PreConfirmedSubscription {
-	return PreConfirmedSubscription{s.preConfirmedFeed.Subscribe()}
+func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
+	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -701,7 +686,7 @@ func (s *Synchronizer) StorePending(p *Pending) error {
 
 	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
-	s.pendingFeed.Send(p.Block)
+	s.pendingDataFeed.Send(p)
 
 	return nil
 }
@@ -733,7 +718,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
 
 	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
-	s.preConfirmedFeed.Send(p)
+	s.pendingDataFeed.Send(p)
 
 	return nil
 }

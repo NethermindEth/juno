@@ -20,6 +20,7 @@ type PendingData interface {
 	GetCandidateTransaction() []Transaction
 	Variant() PendingDataVariant
 }
+
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
