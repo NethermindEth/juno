@@ -8,6 +8,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// Todo: make sure we don't try and get form the bucket that is being deleted
+// Todo: investigate if the lock groups are actually useful
+// Todo: why are the benchmarks for the old approach so bad?
+
 const (
 	NumTimeBuckets = 5 + 1 // TTL is 5s
 	numLocks       = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
