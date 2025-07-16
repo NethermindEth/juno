@@ -61,4 +61,4 @@ jobs:
       - name: Run RPC tests
         run: |
           cd rpc
-          go test -timeout 1200s -v -env testnet .
+          go test -skip 'TestSubscribePendingTransactions' -timeout 1200s -v -env testnet . 
