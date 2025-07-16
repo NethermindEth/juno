@@ -48,6 +48,18 @@ func (h *Handler) PendingBlock() *core.Block {
 	return pending.GetBlock()
 }
 
+func (h *Handler) PendingState() (core.StateReader, func() error, error) {
+	state, closer, err := h.syncReader.PendingState()
+	if err != nil {
+		if errors.Is(err, sync.ErrPendingBlockNotFound) {
+			return h.bcReader.HeadState()
+		}
+		return nil, nil, err
+	}
+
+	return state, closer, nil
+}
+
 func (h *Handler) PendingBlockFinalityStatus() TxnFinalityStatus {
 	pending, err := h.PendingData()
 	if err != nil {

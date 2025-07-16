@@ -91,3 +91,36 @@ func TestPendingDataWrapper(t *testing.T) {
 		require.Equal(t, rpc.TxnPreConfirmed, handler.PendingBlockFinalityStatus())
 	})
 }
+
+func TestPendingDataWrapper_PendingState(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	handler := rpc.New(mockReader, mockSyncReader, nil, "", nil)
+
+	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	t.Run("Returns pending state", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		pendingState, closer, err := handler.PendingState()
+
+		require.NoError(t, err)
+		require.NotNil(t, pendingState)
+		require.NotNil(t, closer)
+	})
+
+	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
+		mockSyncReader.EXPECT().PendingState().Return(
+			nil,
+			nil,
+			sync.ErrPendingBlockNotFound,
+		)
+
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		pending, closer, err := handler.PendingState()
+
+		require.NoError(t, err)
+		require.NotNil(t, pending)
+		require.NotNil(t, closer)
+	})
+}

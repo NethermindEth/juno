@@ -19,7 +19,7 @@ func (h *Handler) PendingData() (*core.PendingData, error) {
 		return pending, nil
 	}
 
-	// If pre_confirmed, network is polling pre_confirmed block and running on >= 0.14.0
+	// If pending data variant is not `Pending` or err is `sync.ErrPendingBlockNotFound`
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err
@@ -35,6 +35,30 @@ func (h *Handler) PendingBlock() *core.Block {
 		return nil
 	}
 	return pending.GetBlock()
+}
+
+func (h *Handler) PendingState() (core.StateReader, func() error, error) {
+	pending, err := h.syncReader.PendingData()
+	if err != nil {
+		if errors.Is(err, sync.ErrPendingBlockNotFound) {
+			return h.bcReader.HeadState()
+		}
+		return nil, nil, err
+	}
+
+	if pending.Variant() == core.PendingBlockVariant {
+		state, closer, err := h.syncReader.PendingState()
+		if err != nil {
+			if !errors.Is(err, sync.ErrPendingBlockNotFound) {
+				return h.bcReader.HeadState()
+			}
+			return nil, nil, err
+		}
+
+		return state, closer, nil
+	}
+
+	return h.bcReader.HeadState()
 }
 
 func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
@@ -73,18 +97,5 @@ func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 			StateDiff: stateDiff,
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
-	}
-}
-
-func (h *Handler) PendingState() (core.StateReader, func() error, error) {
-	pending, err := h.PendingData()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if pending.Variant() == core.PendingBlockVariant {
-		return h.syncReader.PendingState()
-	} else {
-		return h.bcReader.HeadState()
 	}
 }
