@@ -1,6 +1,7 @@
 package pathdb
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -110,6 +111,7 @@ func (dl *diskLayer) commit(bottom *diffLayer, force bool) (*diskLayer, error) {
 	}
 
 	combined := dl.dirties.commit(bottom.nodes)
+	fmt.Println("combined size", combined.nodes.size, "limit", combined.limit, "flush?", combined.nodes.size > combined.limit)
 	if force || combined.isFull() {
 		if err := combined.flush(dl.db.disk, dl.cleans, bottom.stateID()); err != nil {
 			return nil, err

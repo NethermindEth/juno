@@ -48,8 +48,7 @@ type DiskJournal struct {
 // It contains the version of the journal format and the encoded sequence of layers
 // that make up the state history.
 type DBJournal struct {
-	// TODO(weiihann): handle this, by right we should store the state root and verify when loading
-	// root felt.Felt
+	Root      *felt.Felt
 	Version   uint8
 	EncLayers []byte // encoded bytes of layers
 }
@@ -149,6 +148,7 @@ func (d *Database) Journal(root *felt.Felt) error {
 	defer d.lock.Unlock()
 
 	dbJn := &DBJournal{
+		Root:    root,
 		Version: journalVersion,
 	}
 

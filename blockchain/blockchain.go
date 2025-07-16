@@ -9,7 +9,10 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -98,6 +101,28 @@ type Blockchain struct {
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
+	stateRoot := &felt.Zero
+	height, err := core.GetChainHeight(database)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			height = 0
+		}
+	}
+	if height > 0 {
+		header, err := core.GetBlockHeaderByNumber(database, height)
+		if err != nil {
+			panic(err)
+		}
+		stateRoot = header.GlobalStateRoot
+	}
+	_, err = HealthCheck(database, stateRoot)
+	if err != nil {
+		if errors.Is(err, db.ErrorDirtyShutdown) {
+			return nil
+			// TODO(maksym): handle node recovery
+		}
+	}
+
 	trieDB, err := triedb.New(database, nil) // TODO: handle hashdb
 	if err != nil {
 		panic(err)
@@ -122,6 +147,41 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		cachedFilters: &cachedFilters,
 		runningFilter: runningFilter,
 	}
+}
+
+func HealthCheck(disk db.KeyValueReader, root *felt.Felt) (uint64, error) {
+	latestID, err := trieutils.ReadPersistedStateID(disk)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return 0, err
+		}
+	}
+	enc, err := trieutils.ReadTrieJournal(disk)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return 0, err
+		} else if !root.IsZero() {
+			return latestID, db.ErrorDirtyShutdown
+		}
+		return 0, nil
+	}
+
+	var journal pathdb.DBJournal
+	if err := encoder.Unmarshal(enc, &journal); err != nil {
+		return 0, err
+	}
+
+	if !journal.Root.Equal(root) {
+		journalID, err := trieutils.ReadStateID(disk, journal.Root)
+		if err != nil {
+			return 0, err
+		}
+		if journalID > latestID {
+			return journalID, db.ErrorDirtyShutdown
+		}
+		return latestID, db.ErrorDirtyShutdown
+	}
+	return 0, nil
 }
 
 func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {

@@ -21,6 +21,7 @@ var _ database.TrieDB = (*Database)(nil)
 type Config struct {
 	CleanCacheSize  uint64 // Maximum size (in bytes) for caching clean nodes
 	WriteBufferSize int    // Maximum size (in bytes) for buffering writes before flushing
+	StateRoot       *felt.Felt
 }
 
 // Represents the path-based database which contains a in-memory layer tree (cache) + disk layer (database)
@@ -38,7 +39,7 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 	if config == nil {
 		config = &Config{
 			CleanCacheSize:  16 * utils.Megabyte,
-			WriteBufferSize: 64 * utils.Megabyte,
+			WriteBufferSize: 500 * utils.Kilobyte,
 		}
 	}
 	db := &Database{disk: disk, config: *config}
@@ -51,12 +52,6 @@ func New(disk db.KeyValueStore, config *Config) (*Database, error) {
 }
 
 func (d *Database) Close() error {
-	diskLayerHash := d.tree.diskLayer().rootHash()
-	err := d.Journal(diskLayerHash)
-	if err != nil {
-		return err
-	}
-
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
