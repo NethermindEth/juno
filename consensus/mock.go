@@ -16,7 +16,7 @@ import (
 
 const (
 	timeoutBase        = 500 * time.Microsecond
-	timeoutRoundFactor = 100 * time.Millisecond
+	timeoutRoundFactor = 1000 * time.Millisecond
 )
 
 type MockServices struct {
