@@ -47,8 +47,12 @@ func TestCache(t *testing.T) {
 // Key on felt.Felt. Update evict to clean in place
 // Run 1: BenchmarkCacheLoadDistributed-24    	    1165	   1076660 ns/op	    1209 B/op	       4 allocs/op
 // Run 2: BenchmarkCacheLoadDistributed-24    	    1189	   1267186 ns/op	     951 B/op	       3 allocs/op
+//
+// Key on felt.Felt. Update evict to clean in place.Update Benchmark to preallcoate the keys. b.Start()/Stop() arroundfakeTimer.
+// Run 1: BenchmarkCacheLoadDistributed-24    	    1604	   1006585 ns/op	    1049 B/op	       3 allocs/op
+// Run 2: BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	       3 allocs/op
 
-func BenchmarkCacheLoadDistributed(b *testing.B) {
+func BenchmarkCacheAlt(b *testing.B) {
 	const (
 		totalEntries = 10000
 		numTicks     = 10
@@ -60,16 +64,58 @@ func BenchmarkCacheLoadDistributed(b *testing.B) {
 
 	perTick := totalEntries / numTicks
 
+	keys := make([]felt.Felt, totalEntries)
+	for i := 0; i < totalEntries; i++ {
+		keys[i].SetUint64(uint64(i))
+	}
+
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
+		keyID := 0
 		for t := 0; t < numTicks; t++ {
-			base := uint64(t * perTick)
 			for i := 0; i < perTick; i++ {
-				cache.Set(*new(felt.Felt).SetUint64(base + uint64(i)))
+				cache.Set(keys[keyID])
+				keyID++
 			}
-			b.StopTimer()
 			fakeClock <- time.Now()
-			b.StartTimer()
 		}
 	}
 }
+
+// Benchmark:
+//
+// Run 1: BenchmarkCacheOriginal-24    	       1	4778887699 ns/op	1640341336 B/op	   21219 allocs/op
+// Run 2: BenchmarkCacheOriginal-24    	       1	4734790561 ns/op	1640341384 B/op	   21225 allocs/op
+
+func BenchmarkCacheOriginal(b *testing.B) {
+	const (
+		totalEntries = 10000
+		numTicks     = 10
+	)
+
+	cache := rpccore.NewSubmittedTransactionsCache(totalEntries, 5*time.Second)
+
+	perTick := totalEntries / numTicks
+
+	keys := make([]*felt.Felt, totalEntries)
+	for i := 0; i < totalEntries; i++ {
+		keys[i] = new(felt.Felt).SetUint64(uint64(i))
+	}
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		keyID := 0
+		for t := 0; t < numTicks; t++ {
+			for i := 0; i < perTick; i++ {
+				cache.Add(keys[keyID])
+				keyID++
+			}
+		}
+	}
+}
+
+// Benchmark comparison
+//
+// Original:  	BenchmarkCacheOriginal-24    	      		1			4778887699 ns/op	1640341336 B/op	   21219 allocs/op
+// New:			BenchmarkCacheLoadDistributed-24    	    1808	    899488 ns/op	    1178 B/op	       3 allocs/op
+// Reduction:                                 							98%  				99%				98.5%
