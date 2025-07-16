@@ -615,8 +615,8 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		return nil, err
 	}
 
-	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add(res.TransactionHash)
+	if h.transactionCache != nil {
+		h.transactionCache.Add(*res.TransactionHash)
 	}
 
 	return res, nil
@@ -732,14 +732,11 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		if h.submittedTransactionsCache != nil {
-			switch txStatus.FinalityStatus {
-			case starknet.NotReceived:
-				if h.submittedTransactionsCache.Contains(&hash) {
+		if h.transactionCache != nil {
+			if txStatus.FinalityStatus == starknet.NotReceived {
+				if h.transactionCache.Contains(hash) {
 					txStatus.FinalityStatus = starknet.Received
 				}
-			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
-				h.submittedTransactionsCache.Remove(&hash)
 			}
 		}
 
