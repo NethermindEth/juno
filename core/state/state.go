@@ -64,11 +64,13 @@ type State struct {
 }
 
 func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
+	fmt.Println("contract trie")
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("class trie")
 	classTrie, err := db.ClassTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -815,7 +817,6 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 }
 
-// TODO(maksym): this could be cached
 func (s *State) persistTrieRoots(
 	stateCommitment, parentRoot, classRoot, contractRoot *felt.Felt,
 	storageRoots map[felt.Felt]felt.Felt,
