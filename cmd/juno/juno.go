@@ -62,6 +62,15 @@ const (
 	p2pPeersF                           = "p2p-peers"
 	p2pFeederNodeF                      = "p2p-feeder-node"
 	p2pPrivateKey                       = "p2p-private-key"
+	consensusF                          = "consensus"
+	consensusAddrF                      = "consensus-addr"
+	consensusPeersF                     = "consensus-peers"
+	consensusDBPathF                    = "consensus-db-path"
+	consensusMockIndexF                 = "consensus-mock-index" // TODO: remove this
+	consensusMockCountF                 = "consensus-mock-count" // TODO: remove this
+	mempoolF                            = "mempool"
+	mempoolAddrF                        = "mempool-addr"
+	mempoolPeersF                       = "mempool-peers"
 	metricsF                            = "metrics"
 	metricsHostF                        = "metrics-host"
 	metricsPortF                        = "metrics-port"
@@ -123,6 +132,15 @@ const (
 	defaultP2pPeers                           = ""
 	defaultP2pFeederNode                      = false
 	defaultP2pPrivateKey                      = ""
+	defaultConsensus                          = false
+	defaultConsensusAddr                      = ""
+	defaultConsensusPeers                     = ""
+	defaultConsensusDBPath                    = ""
+	defaultConsensusMockIndex                 = 0 // TODO: remove this
+	defaultConsensusMockCount                 = 0 // TODO: remove this
+	defaultMempool                            = false
+	defaultMempoolAddr                        = ""
+	defaultMempoolPeers                       = ""
 	defaultMetrics                            = false
 	defaultMetricsPort                        = 9090
 	defaultGRPC                               = false
@@ -194,21 +212,30 @@ const (
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
-	p2pPrivateKeyUsage   = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
-	metricsUsage         = "Enables the Prometheus metrics endpoint on the default port."
-	metricsHostUsage     = "The interface on which the Prometheus endpoint will listen for requests."
-	metricsPortUsage     = "The port on which the Prometheus endpoint will listen for requests."
-	grpcUsage            = "Enable the HTTP gRPC server on the default port."
-	grpcHostUsage        = "The interface on which the gRPC server will listen for requests."
-	grpcPortUsage        = "The port on which the gRPC server will listen for requests."
-	maxVMsUsage          = "Maximum number for VM instances to be used for RPC calls concurrently"
-	maxVMQueueUsage      = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
-	remoteDBUsage        = "gRPC URL of a remote Juno node"
-	rpcMaxBlockScanUsage = "Maximum number of blocks scanned in single starknet_getEvents call"
-	dbCacheSizeUsage     = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
-	dbMaxHandlesUsage    = "A soft limit on the number of open files that can be used by the DB"
-	gwAPIKeyUsage        = "API key for gateway endpoints to avoid throttling" //nolint: gosec
-	gwTimeoutsUsage      = "Timeouts for requests made to the gateway. Can be specified in three ways:\n" +
+	p2pPrivateKeyUsage      = "EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve."
+	consensusUsage          = "EXPERIMENTAL: Enables the consensus server."
+	consensusAddrUsage      = "EXPERIMENTAL: Specify the address of the consensus server."
+	consensusPeersUsage     = "EXPERIMENTAL: Specify list of consensus peers split by a comma."
+	consensusDBPathUsage    = "EXPERIMENTAL: Specify the path to the consensus database."
+	consensusMockIndexUsage = "EXPERIMENTAL: Specify the index of the mock consensus server to use." // TODO: remove this
+	consensusMockCountUsage = "EXPERIMENTAL: Specify the number of mock consensus servers to use."   // TODO: remove this
+	mempoolUsage            = "EXPERIMENTAL: Enables the mempool server."
+	mempoolAddrUsage        = "EXPERIMENTAL: Specify the address of the mempool server."
+	mempoolPeersUsage       = "EXPERIMENTAL: Specify list of mempool peers split by a comma."
+	metricsUsage            = "Enables the Prometheus metrics endpoint on the default port."
+	metricsHostUsage        = "The interface on which the Prometheus endpoint will listen for requests."
+	metricsPortUsage        = "The port on which the Prometheus endpoint will listen for requests."
+	grpcUsage               = "Enable the HTTP gRPC server on the default port."
+	grpcHostUsage           = "The interface on which the gRPC server will listen for requests."
+	grpcPortUsage           = "The port on which the gRPC server will listen for requests."
+	maxVMsUsage             = "Maximum number for VM instances to be used for RPC calls concurrently"
+	maxVMQueueUsage         = "Maximum number for requests to queue after reaching max-vms before starting to reject incoming requests"
+	remoteDBUsage           = "gRPC URL of a remote Juno node"
+	rpcMaxBlockScanUsage    = "Maximum number of blocks scanned in single starknet_getEvents call"
+	dbCacheSizeUsage        = "Determines the amount of memory (in megabytes) allocated for caching data in the database."
+	dbMaxHandlesUsage       = "A soft limit on the number of open files that can be used by the DB"
+	gwAPIKeyUsage           = "API key for gateway endpoints to avoid throttling" //nolint: gosec
+	gwTimeoutsUsage         = "Timeouts for requests made to the gateway. Can be specified in three ways:\n" +
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n" +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment."
@@ -411,6 +438,15 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().String(p2pPeersF, defaultP2pPeers, p2pPeersUsage)
 	junoCmd.Flags().Bool(p2pFeederNodeF, defaultP2pFeederNode, p2pFeederNodeUsage)
 	junoCmd.Flags().String(p2pPrivateKey, defaultP2pPrivateKey, p2pPrivateKeyUsage)
+	junoCmd.Flags().Bool(consensusF, defaultConsensus, consensusUsage)
+	junoCmd.Flags().String(consensusAddrF, defaultConsensusAddr, consensusAddrUsage)
+	junoCmd.Flags().String(consensusPeersF, defaultConsensusPeers, consensusPeersUsage)
+	junoCmd.Flags().String(consensusDBPathF, defaultConsensusDBPath, consensusDBPathUsage)
+	junoCmd.Flags().Int(consensusMockIndexF, defaultConsensusMockIndex, consensusMockIndexUsage) // TODO: remove this
+	junoCmd.Flags().Int(consensusMockCountF, defaultConsensusMockCount, consensusMockCountUsage) // TODO: remove this
+	junoCmd.Flags().Bool(mempoolF, defaultMempool, mempoolUsage)
+	junoCmd.Flags().String(mempoolAddrF, defaultMempoolAddr, mempoolAddrUsage)
+	junoCmd.Flags().String(mempoolPeersF, defaultMempoolPeers, mempoolPeersUsage)
 	junoCmd.Flags().Bool(metricsF, defaultMetrics, metricsUsage)
 	junoCmd.Flags().String(metricsHostF, defaultHost, metricsHostUsage)
 	junoCmd.Flags().Uint16(metricsPortF, defaultMetricsPort, metricsPortUsage)
