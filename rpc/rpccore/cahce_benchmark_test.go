@@ -52,6 +52,7 @@ func BenchmarkCacheAlt(b *testing.B) {
 		keys[i].SetUint64(rand.Uint64())
 	}
 
+	// Only interested in the performance of the cache as its in use, after it's all set up.
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		keyID := 0
@@ -76,13 +77,13 @@ func BenchmarkCacheOriginal(b *testing.B) {
 	cache := rpccore.NewSubmittedTransactionsCache(totalEntries, 5*time.Second)
 	perTick := totalEntries / numTicks
 
-	// prepare keys once
 	keys := make([]*felt.Felt, totalEntries)
 	for i := 0; i < totalEntries; i++ {
 		keys[i] = new(felt.Felt).SetUint64(rand.Uint64())
 	}
 	keyID := 0
 
+	// Only interested in the performance of the cache as its in use, after it's all set up.
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for t := 0; t < numTicks; t++ {

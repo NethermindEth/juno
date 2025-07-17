@@ -13,7 +13,7 @@ import (
 
 const (
 	mapCapacityHint = 1024  // Assuming 1024 TPS
-	NumTimeBuckets  = 5 + 1 // TTL is 5s
+	NumTimeBuckets  = 5 + 1 // TTL is 5s, plus 1 bucket for expired entries.
 	numLocks        = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
 )
 
@@ -25,11 +25,11 @@ const (
 // `NumTimeBuckets` defines the total number of time slots,
 // and `numLocks` defines the number of lock‑stripes per slot.
 type SubmittedTransactionsCacheAlt struct {
-	buckets   [NumTimeBuckets][numLocks]map[felt.Felt]struct{} // Stores the presence of the txn hash
-	locks     [NumTimeBuckets][numLocks]sync.RWMutex
-	tick      time.Duration
-	curBucket uint32
-	stop      chan struct{}
+	buckets       [NumTimeBuckets][numLocks]map[felt.Felt]struct{} // Stores the presence of the txn hash
+	locks         [NumTimeBuckets][numLocks]sync.RWMutex
+	tick          time.Duration
+	curTimeBucket uint32
+	stop          chan struct{}
 }
 
 // NewSubmittedTransactionsCacheAlt creates the cache with per‑shard pre‑allocation and starts eviction.
@@ -42,13 +42,22 @@ func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransact
 			c.buckets[b][s] = make(map[felt.Felt]struct{}, mapCapacityHint)
 		}
 	}
-	atomic.StoreUint32(&c.curBucket, 0)
+	atomic.StoreUint32(&c.curTimeBucket, 0)
 	go c.evictor(tickC)
 	return c
 }
 
 func (c *SubmittedTransactionsCacheAlt) getCurTimeSlot() uint32 {
-	return atomic.LoadUint32(&c.curBucket)
+	return atomic.LoadUint32(&c.curTimeBucket)
+}
+
+func (c *SubmittedTransactionsCacheAlt) getExpiredTimeSlot() uint32 {
+	cur := atomic.LoadUint32(&c.curTimeBucket)
+	return (cur + 1) % NumTimeBuckets
+}
+
+func (c *SubmittedTransactionsCacheAlt) updateCurTimeSlot(newTime uint32) {
+	atomic.StoreUint32(&c.curTimeBucket, newTime)
 }
 
 // Todo: just a note.
@@ -70,11 +79,16 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 // Old approach. Lock entire map. O(1) lookup. Potentially update map. Modify underlying map and list.
 // New approach. O(1) lookup. Lock part of the map. Only read lock. Don't modify the map.
 func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
-	lockGroupID := int(key.Uint64() % numLocks)
-	for b := 0; b < NumTimeBuckets; b++ {
-		c.locks[b][lockGroupID].RLock()
-		_, ok := c.buckets[b][lockGroupID][key]
-		c.locks[b][lockGroupID].RUnlock()
+	shard := int(key.Uint64() % numLocks)
+	expired := c.getExpiredTimeSlot()
+
+	for b := uint32(0); b < NumTimeBuckets; b++ {
+		if b == expired {
+			continue
+		}
+		c.locks[b][shard].RLock()
+		_, ok := c.buckets[b][shard][key]
+		c.locks[b][shard].RUnlock()
 		if ok {
 			return true
 		}
@@ -89,17 +103,17 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 	for {
 		select {
 		case <-tickC:
-			nextTimeBucket := (c.getCurTimeSlot() + 1) % NumTimeBuckets
+			expired := c.getExpiredTimeSlot()
 			// Clean map in-place. This is signifcaintly more efficient than allocating a new map.
 			for lockID := 0; lockID < numLocks; lockID++ {
-				c.locks[nextTimeBucket][lockID].Lock()
-				m := c.buckets[nextTimeBucket][lockID]
+				c.locks[expired][lockID].Lock()
+				m := c.buckets[expired][lockID]
 				for k := range m {
 					delete(m, k)
 				}
-				c.locks[nextTimeBucket][lockID].Unlock()
+				c.locks[expired][lockID].Unlock()
 			}
-			atomic.StoreUint32(&c.curBucket, nextTimeBucket)
+			c.updateCurTimeSlot(expired)
 		case <-c.stop:
 			return
 		}
