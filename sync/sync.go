@@ -431,6 +431,11 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 }
 
 func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
+	if s.pendingPollInterval == time.Duration(0) ||
+		s.preConfirmedPollInterval == time.Duration(0) {
+		s.log.Infow("Pending data polling is disabled")
+		return
+	}
 	s.pollPending(ctx, sem)
 	s.pollPreConfirmed(ctx, sem)
 }
