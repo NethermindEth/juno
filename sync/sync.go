@@ -740,17 +740,18 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 
 // PendingState returns the state resulting from execution of the pending block
 func (s *Synchronizer) PendingState() (state.StateReader, error) {
-	pending, err := s.Pending()
+	pending, err := s.PendingData()
 	if err != nil {
 		return nil, err
 	}
 
-	state, err := state.New(pending.StateUpdate.OldRoot, s.blockchain.StateDB)
+	pendingStateUpdate := pending.GetStateUpdate()
+	state, err := state.New(pendingStateUpdate.OldRoot, s.blockchain.StateDB)
 	if err != nil {
 		return nil, err
 	}
-  
-	return NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, state), nil
+
+	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), nil
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {

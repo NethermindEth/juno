@@ -138,9 +138,9 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 		pendingID := blockIDPending(t)
 		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &pendingID)
 		require.Nil(t, rpcErr)

@@ -108,18 +108,17 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	handler := rpc.New(mockReader, mockSyncReader, nil, &utils.Sepolia, nil)
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&sync.Pending{},
 			nil,
 		)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		pendingState, closer, err := handler.PendingState()
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		pendingState, err := handler.PendingState()
 
 		require.NoError(t, err)
 		require.NotNil(t, pendingState)
-		require.NotNil(t, closer)
 	})
 
 	t.Run("Returns latest state starknet version >= 0.14.0", func(t *testing.T) {
@@ -127,12 +126,11 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 			&core.PreConfirmed{},
 			nil,
 		)
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		pending, err := handler.PendingState()
 
 		require.NoError(t, err)
 		require.NotNil(t, pending)
-		require.NotNil(t, closer)
 	})
 
 	t.Run("Returns latest state when pending data is nil", func(t *testing.T) {
@@ -140,11 +138,10 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 			nil,
 			sync.ErrPendingBlockNotFound,
 		)
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		pending, closer, err := handler.PendingState()
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		pending, err := handler.PendingState()
 
 		require.NoError(t, err)
 		require.NotNil(t, pending)
-		require.NotNil(t, closer)
 	})
 }

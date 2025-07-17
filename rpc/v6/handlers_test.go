@@ -89,7 +89,7 @@ func TestThrottledVMError(t *testing.T) {
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 		_, rpcErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})

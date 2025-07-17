@@ -86,14 +86,14 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network        *utils.Network
-	database       db.KeyValueStore
-	trieDB         *triedb.Database
-	StateDB        *state.StateDB // TODO(weiihann): not sure if it's a good idea to expose this
-	listener       EventListener
-	l1HeadFeed     *feed.Feed[*core.L1Head]
-	cachedFilters  *AggregatedBloomFilterCache
-	runningFilter  *core.RunningEventFilter
+	network       *utils.Network
+	database      db.KeyValueStore
+	trieDB        *triedb.Database
+	StateDB       *state.StateDB // TODO(weiihann): not sure if it's a good idea to expose this
+	listener      EventListener
+	l1HeadFeed    *feed.Feed[*core.L1Head]
+	cachedFilters *AggregatedBloomFilterCache
+	runningFilter *core.RunningEventFilter
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {

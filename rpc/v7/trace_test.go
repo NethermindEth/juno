@@ -411,7 +411,7 @@ func TestTraceTransaction(t *testing.T) {
 			nil,
 		).Times(2)
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 

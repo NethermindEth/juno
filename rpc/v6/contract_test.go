@@ -93,8 +93,8 @@ func TestNonce(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		nonce, rpcErr := handler.Nonce(rpc.BlockID{Pending: true}, felt.Zero)
 		require.Nil(t, rpcErr)
@@ -211,9 +211,9 @@ func TestStorageAt(t *testing.T) {
 	t.Run("blockID - pending", func(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(nil, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
