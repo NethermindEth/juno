@@ -432,7 +432,6 @@ func (s *Synchronizer) revertHead(forkBlock *core.Block) {
 
 func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 	s.pollPending(ctx, sem)
-	s.log.Infow("Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks")
 	s.pollPreConfirmed(ctx, sem)
 }
 
@@ -444,13 +443,12 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 
 	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
 
-	switchCh := make(chan struct{}, 1)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	for {
 		select {
 		case <-ctx.Done():
-			pendingPollTicker.Stop()
-			return
-		case <-switchCh:
 			pendingPollTicker.Stop()
 			return
 		case <-pendingPollTicker.C:
@@ -463,10 +461,10 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 					err := s.fetchAndStorePending(ctx)
 					if err != nil {
 						if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
-							select {
-							case switchCh <- struct{}{}:
-							default:
-							}
+							s.log.Infow(
+								"Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks",
+							)
+							cancel()
 							return
 						}
 						s.log.Debugw("Error while trying to poll pending block", "err", err)
