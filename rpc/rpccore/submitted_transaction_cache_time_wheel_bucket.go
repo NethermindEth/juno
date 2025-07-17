@@ -10,11 +10,11 @@ import (
 
 // Todo: make sure we don't try and get form the bucket that is being deleted
 // Todo: investigate if the lock groups are actually useful
-// Todo: why are the benchmarks for the old approach so bad?
 
 const (
-	NumTimeBuckets = 5 + 1 // TTL is 5s
-	numLocks       = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
+	mapCapacityHint = 1024  // Assuming 1024 TPS
+	NumTimeBuckets  = 5 + 1 // TTL is 5s
+	numLocks        = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
 )
 
 // SubmittedTransactionsCacheAlt implements a fixed‑TTL, time‑wheel in-memory cache for txn hashes.
@@ -32,14 +32,14 @@ type SubmittedTransactionsCacheAlt struct {
 	stop      chan struct{}
 }
 
-// NewSubmittedTransactionsCacheAlt creates the cache and starts eviction driven by tickC.
+// NewSubmittedTransactionsCacheAlt creates the cache with per‑shard pre‑allocation and starts eviction.
 func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransactionsCacheAlt {
 	c := &SubmittedTransactionsCacheAlt{
 		stop: make(chan struct{}),
 	}
 	for b := 0; b < NumTimeBuckets; b++ {
 		for s := 0; s < numLocks; s++ {
-			c.buckets[b][s] = make(map[felt.Felt]struct{})
+			c.buckets[b][s] = make(map[felt.Felt]struct{}, mapCapacityHint)
 		}
 	}
 	atomic.StoreUint32(&c.curBucket, 0)

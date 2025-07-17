@@ -1,7 +1,6 @@
 package rpccore_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -63,79 +62,79 @@ func TestCache(t *testing.T) {
 // Run 1: BenchmarkCacheAlt-24    	  				372	   		3138484 ns/op	    3611 B/op	       0 allocs/op
 // Run 2: BenchmarkCacheAlt-24    	    			386	   		3009791 ns/op	    3480 B/op	       0 allocs/op
 
-func BenchmarkCacheAlt(b *testing.B) {
-	const (
-		totalEntries = 10000
-		numTicks     = 10
-	)
-	// make the fake clock channel big enough to never block
-	fakeClock := make(chan time.Time, numTicks)
-	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
-	defer cache.Stop()
+// func BenchmarkCacheAlt(b *testing.B) {
+// 	const (
+// 		totalEntries = 10000
+// 		numTicks     = 10
+// 	)
+// 	// make the fake clock channel big enough to never block
+// 	fakeClock := make(chan time.Time, numTicks)
+// 	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
+// 	defer cache.Stop()
 
-	perTick := totalEntries / numTicks
+// 	perTick := totalEntries / numTicks
 
-	keys := make([]felt.Felt, totalEntries)
-	for i := 0; i < totalEntries; i++ {
-		keys[i].SetUint64(rand.Uint64())
-	}
+// 	keys := make([]felt.Felt, totalEntries)
+// 	for i := 0; i < totalEntries; i++ {
+// 		keys[i].SetUint64(rand.Uint64())
+// 	}
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		keyID := 0
-		for t := 0; t < numTicks; t++ {
-			// Add all the txns for this round
-			for i := 0; i < perTick; i++ {
-				cache.Set(keys[keyID])
-				keyID++
-			}
-			// Trigger the eviction given one tick ("second") has passed
-			fakeClock <- time.Now()
-		}
-	}
-}
+// 	b.ResetTimer()
+// 	for n := 0; n < b.N; n++ {
+// 		keyID := 0
+// 		for t := 0; t < numTicks; t++ {
+// 			// Add all the txns for this round
+// 			for i := 0; i < perTick; i++ {
+// 				cache.Set(keys[keyID])
+// 				keyID++
+// 			}
+// 			// Trigger the eviction given one tick ("second") has passed
+// 			fakeClock <- time.Now()
+// 		}
+// 	}
+// }
 
-// Benchmark:
-//
-// Just pure add, no time sleep in the benchmark
-// Run 1: BenchmarkCacheOriginal-24    	       1	4778887699 ns/op	1640341336 B/op	   21219 allocs/op
-// Run 2: BenchmarkCacheOriginal-24    	       1	4734790561 ns/op	1640341384 B/op	   21225 allocs/op
-//
-// Sleep in the benchmark to simulate ticks, but do not count towards the benchmark
-// Run1: BenchmarkCacheOriginal-24    	       1	2777534374 ns/op	 995962056 B/op	   21815 allocs/op
-// Run2: BenchmarkCacheOriginal-24    	       1	2786046135 ns/op	 989245880 B/op	   21506 allocs/op
+// // Benchmark:
+// //
+// // Just pure add, no time sleep in the benchmark
+// // Run 1: BenchmarkCacheOriginal-24    	       1	4778887699 ns/op	1640341336 B/op	   21219 allocs/op
+// // Run 2: BenchmarkCacheOriginal-24    	       1	4734790561 ns/op	1640341384 B/op	   21225 allocs/op
+// //
+// // Sleep in the benchmark to simulate ticks, but do not count towards the benchmark
+// // Run1: BenchmarkCacheOriginal-24    	       1	2777534374 ns/op	 995962056 B/op	   21815 allocs/op
+// // Run2: BenchmarkCacheOriginal-24    	       1	2786046135 ns/op	 989245880 B/op	   21506 allocs/op
 
-func BenchmarkCacheOriginal(b *testing.B) {
-	const (
-		totalEntries = 10000
-		numTicks     = 10
-	)
+// func BenchmarkCacheOriginal(b *testing.B) {
+// 	const (
+// 		totalEntries = 10000
+// 		numTicks     = 10
+// 	)
 
-	cache := rpccore.NewSubmittedTransactionsCache(totalEntries, 5*time.Second)
-	perTick := totalEntries / numTicks
+// 	cache := rpccore.NewSubmittedTransactionsCache(totalEntries, 5*time.Second)
+// 	perTick := totalEntries / numTicks
 
-	// prepare keys once
-	keys := make([]*felt.Felt, totalEntries)
-	for i := 0; i < totalEntries; i++ {
-		keys[i] = new(felt.Felt).SetUint64(rand.Uint64())
-	}
-	keyID := 0
+// 	// prepare keys once
+// 	keys := make([]*felt.Felt, totalEntries)
+// 	for i := 0; i < totalEntries; i++ {
+// 		keys[i] = new(felt.Felt).SetUint64(rand.Uint64())
+// 	}
+// 	keyID := 0
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		for t := 0; t < numTicks; t++ {
-			// Add all the txns for this second
-			for i := 0; i < perTick; i++ {
-				cache.Add(keys[keyID])
-				keyID++
-			}
-			// simulate one second passing per tick, but don't count it in the benchmark
-			b.StopTimer()
-			time.Sleep(1 * time.Second)
-			b.StartTimer()
-		}
-	}
-}
+// 	b.ResetTimer()
+// 	for n := 0; n < b.N; n++ {
+// 		for t := 0; t < numTicks; t++ {
+// 			// Add all the txns for this second
+// 			for i := 0; i < perTick; i++ {
+// 				cache.Add(keys[keyID])
+// 				keyID++
+// 			}
+// 			// simulate one second passing per tick, but don't count it in the benchmark
+// 			b.StopTimer()
+// 			time.Sleep(1 * time.Second)
+// 			b.StartTimer()
+// 		}
+// 	}
+// }
 
 // Benchmark comparison
 //
