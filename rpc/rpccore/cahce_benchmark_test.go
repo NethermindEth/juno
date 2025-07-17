@@ -15,7 +15,15 @@ import (
 //
 // In a nutshell
 //   Old LRU approach: flush → allocate a giant slice → scan 5 000 entries → delete expired → repeat 10 000× → GBs of allocations.
+//				Reads, Writes and Deletes all use the same locks.
+//				Every read alloctes a new O(n) slice (inside flush() Keys()).
+//
 //   Time‑wheel approach: constant‑time ring buffer → in‑place deletes → no allocations on the hot path → zero allocs/op and < 5 ms latency.
+//				Reads, Writes are completely seperated from Deletes.
+//				Delete in-place.
+//				Reads and Writes use seperate locks.
+//				Memory is reused, so we don't allocate new memory (assuming that we never go above 1024 TPS).
+//
 //
 // Longer TLDR:
 // Why is the new approach so much more efficient?
