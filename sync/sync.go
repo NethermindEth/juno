@@ -284,20 +284,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 					}
 
 					if head != nil {
-						blockVer, err := core.ParseBlockVersion(head.ProtocolVersion)
-						if err == nil {
-							if blockVer.GreaterThanEqual(core.Ver0_14_0) {
-								if err := s.storeEmptyPreConfirmed(head); err != nil {
-									s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
-								}
-							} else {
-								if err := s.storeEmptyPending(head); err != nil {
-									s.log.Errorw("Failed to store empty pending block", "number", block.Number)
-								}
-							}
-						} else {
-							s.log.Errorw("Failed to parse block version", "err", err)
-						}
+						s.storeEmptyPendingData(head)
 					}
 				} else {
 					s.log.Warnw("Failed storing Block", "number", block.Number,
@@ -307,21 +294,7 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 				return
 			}
 
-			blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
-			if err == nil {
-				if blockVer.GreaterThanEqual(core.Ver0_14_0) {
-					if err := s.storeEmptyPreConfirmed(block.Header); err != nil {
-						s.log.Errorw("Failed to store empty pre_confirmed block", "number", block.Number)
-					}
-				} else {
-					if err := s.storeEmptyPending(block.Header); err != nil {
-						s.log.Errorw("Failed to store empty pending block", "number", block.Number)
-					}
-				}
-			} else {
-				s.log.Errorw("Failed to parse block version", "err", err)
-			}
-
+			s.storeEmptyPendingData(block.Header)
 			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
 
 			highestBlockHeader := s.highestBlockHeader.Load()
@@ -778,6 +751,23 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	}
 
 	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
+}
+
+func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
+	blockVer, err := core.ParseBlockVersion(lastHeader.ProtocolVersion)
+	if err == nil {
+		if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+			if err := s.storeEmptyPreConfirmed(lastHeader); err != nil {
+				s.log.Errorw("Failed to store empty pre_confirmed block", "number", lastHeader.Number)
+			}
+		} else {
+			if err := s.storeEmptyPending(lastHeader); err != nil {
+				s.log.Errorw("Failed to store empty pending block", "number", lastHeader.Number)
+			}
+		}
+	} else {
+		s.log.Errorw("Failed to parse block version", "err", err)
+	}
 }
 
 func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
