@@ -101,28 +101,6 @@ type Blockchain struct {
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
-	stateRoot := &felt.Zero
-	height, err := core.GetChainHeight(database)
-	if err != nil {
-		if !errors.Is(err, db.ErrKeyNotFound) {
-			height = 0
-		}
-	}
-	if height > 0 {
-		header, err := core.GetBlockHeaderByNumber(database, height)
-		if err != nil {
-			panic(err)
-		}
-		stateRoot = header.GlobalStateRoot
-	}
-	_, err = HealthCheck(database, stateRoot)
-	if err != nil {
-		if errors.Is(err, db.ErrorDirtyShutdown) {
-			return nil
-			// TODO(maksym): handle node recovery
-		}
-	}
-
 	trieDB, err := triedb.New(database, nil) // TODO: handle hashdb
 	if err != nil {
 		panic(err)
@@ -149,39 +127,53 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 	}
 }
 
-func HealthCheck(disk db.KeyValueReader, root *felt.Felt) (uint64, error) {
-	latestID, err := trieutils.ReadPersistedStateID(disk)
+func HealthCheck(database db.KeyValueReader) (uint64, uint64, error) {
+	headStateRoot := &felt.Zero
+	height, err := core.GetChainHeight(database)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return 0, err
+			height = 0
 		}
 	}
-	enc, err := trieutils.ReadTrieJournal(disk)
+	if height > 0 {
+		header, err := core.GetBlockHeaderByNumber(database, height)
+		if err != nil {
+			panic(err)
+		}
+		headStateRoot = header.GlobalStateRoot
+	}
+	latestID, err := trieutils.ReadPersistedStateID(database)
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
-			return 0, err
-		} else if !root.IsZero() {
-			return latestID, db.ErrorDirtyShutdown
+			return 0, 0, err
 		}
-		return 0, nil
+	}
+	enc, err := trieutils.ReadTrieJournal(database)
+	if err != nil {
+		if !errors.Is(err, db.ErrKeyNotFound) {
+			return 0, 0, err
+		} else if !headStateRoot.IsZero() {
+			return latestID, height, db.ErrorDirtyShutdown
+		}
+		return 0, 0, nil
 	}
 
 	var journal pathdb.DBJournal
 	if err := encoder.Unmarshal(enc, &journal); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	if !journal.Root.Equal(root) {
-		journalID, err := trieutils.ReadStateID(disk, journal.Root)
+	if !journal.Root.Equal(headStateRoot) {
+		journalID, err := trieutils.ReadStateID(database, journal.Root)
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 		if journalID > latestID {
-			return journalID, db.ErrorDirtyShutdown
+			return journalID, height, db.ErrorDirtyShutdown
 		}
-		return latestID, db.ErrorDirtyShutdown
+		return latestID, height, db.ErrorDirtyShutdown
 	}
-	return 0, nil
+	return 0, 0, nil
 }
 
 func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {
