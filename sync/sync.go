@@ -687,13 +687,6 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
 		return err
 	}
 
-	h, err := s.blockchain.HeadsHeader()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
-	} else if err == nil {
-		p.StateUpdate.OldRoot = h.GlobalStateRoot
-	}
-
 	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
 	s.pendingDataFeed.Send(p)
