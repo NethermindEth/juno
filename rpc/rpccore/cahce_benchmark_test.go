@@ -13,12 +13,17 @@ import (
 // BenchmarkCacheOriginal-24    	       1		2776591293 ns/op	    989802040 B/op	   21610 allocs/op
 // BenchmarkCacheAlt-24    	     		   504	   	   3103484 ns/op	    	    1 B/op	       0 allocs/op
 //
+// In a nutshell
+//   Old LRU approach: flush → allocate a giant slice → scan 5 000 entries → delete expired → repeat 10 000× → GBs of allocations.
+//   Time‑wheel approach: constant‑time ring buffer → in‑place deletes → no allocations on the hot path → zero allocs/op and < 5 ms latency.
+//
+// Longer TLDR:
 // Why is the new approach so much more efficient?
 // There are a few reasons why the old approach was inefficient. The most signifcaint is probably that we call flush()
 // on every Add(). Under the hood, flush() creates a new array and inserts all the map Keys into it. This is very expensive,
 // and occurs on every Add! Profiling suggests we end up using 1-2GB worth of memory because of this.
 // 5000 entries exist in the map over the 5s TTL. 5000 x 32bytes = 160,000 bytes.
-// But we make 10,000 calls to Add() and therefore flush(), meaning we get 160,000 *10,000 bytes = 160 MB from this alone.
+// But we make 10,000 calls to Add() and therefore flush(), meaning we get 10,000*160,000 bytes = 1.6 GB from this alone!
 // This drives up allocs/op, B/op and reduces the latency.
 //
 // Another significant driver of the ns/op is the lock contention. Every Add() and Contains() causes a lock contention, which
@@ -34,6 +39,21 @@ import (
 // Finally, if the TTL is 5s, we have 6 time buckets. On the 6th second, we allocate the new entries into the 6th bucket,
 // and can freely remove the entries in the 1st bucket without conflicting with any other time bucket, further reducing
 // lock contention.
+
+// 1 lock per time bucket
+// BenchmarkCacheAlt-24    	     		   504	   	   3103484 ns/op	    	    1 B/op	       0 allocs/op
+//
+// 2 locks per time bucket
+//
+//
+// 8 locks per time bucket
+//
+//
+// 64 locks per time bucket
+//
+//
+// 256 locks per time bucket
+//
 
 func BenchmarkCacheAlt(b *testing.B) {
 	const (

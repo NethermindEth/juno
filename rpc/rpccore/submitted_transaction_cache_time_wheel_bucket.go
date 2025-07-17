@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// Todo: make sure we don't try and get form the bucket that is being deleted
 // Todo: investigate if the lock groups are actually useful
 
 const (
