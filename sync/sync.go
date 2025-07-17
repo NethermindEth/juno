@@ -438,6 +438,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 	if s.pendingPollInterval == time.Duration(0) {
+		s.log.Infow("Pending block polling is disabled")
 		return
 	}
 
@@ -479,6 +480,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
 
 func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
 	if s.preConfirmedPollInterval == time.Duration(0) {
+		s.log.Infow("Pre-confirmed block polling is disabled")
 		return
 	}
 
