@@ -4,6 +4,23 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+type PendingDataVariant uint8
+
+const (
+	PendingBlockVariant PendingDataVariant = iota + 1
+	PreConfirmedBlockVariant
+)
+
+type PendingData interface {
+	GetBlock() *Block
+	GetHeader() *Header
+	GetTransactions() []Transaction
+	GetStateUpdate() *StateUpdate
+	GetNewClasses() map[felt.Felt]Class
+	GetCandidateTransaction() []Transaction
+	Variant() PendingDataVariant
+}
+
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
@@ -21,4 +38,32 @@ func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDif
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
 	}
+}
+
+func (p *PreConfirmed) GetBlock() *Block {
+	return p.Block
+}
+
+func (p *PreConfirmed) GetHeader() *Header {
+	return p.Block.Header
+}
+
+func (p *PreConfirmed) GetTransactions() []Transaction {
+	return p.Block.Transactions
+}
+
+func (p *PreConfirmed) GetStateUpdate() *StateUpdate {
+	return p.StateUpdate
+}
+
+func (p *PreConfirmed) GetNewClasses() map[felt.Felt]Class {
+	return p.NewClasses
+}
+
+func (p *PreConfirmed) GetCandidateTransaction() []Transaction {
+	return p.CandidateTxs
+}
+
+func (p *PreConfirmed) Variant() PendingDataVariant {
+	return PreConfirmedBlockVariant
 }

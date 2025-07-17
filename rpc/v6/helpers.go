@@ -31,7 +31,7 @@ func isL1Verified(n uint64, l1 *core.L1Head) bool {
 	return false
 }
 
-func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
+func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) { //nolint:dupl
 	var block *core.Block
 	var err error
 	switch {
@@ -40,10 +40,10 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	case id.Hash != nil:
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending core.PendingData
+		pending, err = h.PendingData()
 		if err == nil {
-			block = pending.Block
+			block = pending.GetBlock()
 		}
 	default:
 		block, err = h.bcReader.BlockByNumber(id.Number)
@@ -61,7 +61,7 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	return block, nil
 }
 
-func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
+func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) { //nolint:dupl
 	var header *core.Header
 	var err error
 	switch {
@@ -70,10 +70,10 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) {
 	case id.Hash != nil:
 		header, err = h.bcReader.BlockHeaderByHash(id.Hash)
 	case id.Pending:
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending core.PendingData
+		pending, err = h.PendingData()
 		if err == nil {
-			header = pending.Block.Header
+			header = pending.GetHeader()
 		}
 	default:
 		header, err = h.bcReader.BlockHeaderByNumber(id.Number)
@@ -159,7 +159,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	case id.Hash != nil:
 		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.syncReader.PendingState()
+		reader, closer, err = h.PendingState()
 	default:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}

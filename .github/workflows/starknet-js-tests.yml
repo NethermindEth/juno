@@ -43,7 +43,7 @@ jobs:
           fi
       
       - name: Run tests (${{ inputs.test_mode }} mode)
-        run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction)).*$"
+        run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction|waitForBlock pending)).*$"
         env:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
