@@ -61,4 +61,8 @@ jobs:
       - name: Run RPC tests
         run: |
           cd rpc
-          go test -timeout 1200s -v -env testnet .
+          # `TestSubscribePendingTransactions` is ignored for starknet version > 0.14.0.
+          #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block, 
+          #  thus there will be no more pending transcations with `pending` semantics.
+          TESTS_TO_SKIP="TestSubscribePendingTransactions"
+          go test -skip  "$TESTS_TO_SKIP" -timeout 1200s -v -env testnet . 

@@ -8,23 +8,28 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestEvents(t *testing.T) {
 	var pendingB *core.Block
-	pendingBlockFn := func() *core.Block {
-		return pendingB
-	}
+
 	testDB := memory.New()
 	n := &utils.Sepolia
 	chain := blockchain.New(testDB, n)
-	chain = chain.WithPendingBlockFn(pendingBlockFn)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -43,7 +48,13 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, nil, nil, n, utils.NewNopZapLogger())
+	pending := sync.NewPending(pendingB, nil, nil)
+	mockSyncReader.EXPECT().PendingData().Return(
+		&pending,
+		nil,
+	)
+
+	handler := rpc.New(chain, mockSyncReader, nil, n, utils.NewNopZapLogger())
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	args := rpc.EventsArg{
 		EventFilter: rpc.EventFilter{
@@ -243,6 +254,11 @@ func TestEvents(t *testing.T) {
 		for _, receipt := range pendingB.Receipts {
 			allEvents = append(allEvents, receipt.Events...)
 		}
+		pending := sync.NewPending(pendingB, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		).Times(len(allEvents))
 
 		for i, expectedEvent := range allEvents {
 			events, err := handler.Events(args)
@@ -261,5 +277,28 @@ func TestEvents(t *testing.T) {
 
 			args.ContinuationToken = events.ContinuationToken
 		}
+	})
+
+	t.Run("pending block always empty after starknet 0.14.0", func(t *testing.T) {
+		args = rpc.EventsArg{
+			EventFilter: rpc.EventFilter{
+				FromBlock: &rpc.BlockID{Pending: true},
+				ToBlock:   &rpc.BlockID{Pending: true},
+			},
+			ResultPageRequest: rpc.ResultPageRequest{
+				ChunkSize:         100,
+				ContinuationToken: "",
+			},
+		}
+		preConfirmed := core.NewPreConfirmed(pendingB, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		events, err := handler.Events(args)
+		require.Nil(t, err)
+		require.Len(t, events.Events, 0)
+		require.Empty(t, events.ContinuationToken)
 	})
 }

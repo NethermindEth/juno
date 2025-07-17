@@ -151,7 +151,7 @@ func TestSubscribeEvents(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(mockEventFilterer, nil).AnyTimes()
 		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
@@ -179,7 +179,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
@@ -201,7 +201,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil)
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
@@ -224,7 +224,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys).Return(mockEventFilterer, nil).AnyTimes()
+		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -236,11 +236,13 @@ func TestSubscribeEvents(t *testing.T) {
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
-		handler.pendingBlock.Send(pending1)
+		pendingData1 := sync.NewPending(pending1, nil, nil)
+		handler.pendingData.Send(&pendingData1)
 		assertNextEvents(t, clientConn, id, pending1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
-		handler.pendingBlock.Send(pending2)
+		pendingData2 := sync.NewPending(pending2, nil, nil)
+		handler.pendingData.Send(&pendingData2)
 		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
@@ -268,7 +270,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
-		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
 		_, hasSubscription := handler.subscriptions.Load(string(id))
@@ -287,13 +290,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		handler := New(mockChain, mockSyncer, nil, log)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
-
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
@@ -303,7 +306,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "some error")
 		})
@@ -313,7 +315,6 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			mockSyncer.EXPECT().PendingBlock().Return(nil)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 		})
@@ -337,7 +338,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingBlock().Return(nil)
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")
 
@@ -345,8 +347,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.pendingBlock.Send(&core.Block{Header: &core.Header{}})
-			handler.pendingBlock.Send(&core.Block{Header: &core.Header{}})
+			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
+			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -361,16 +363,16 @@ func TestSubscribeTxnStatus(t *testing.T) {
 }
 
 type fakeSyncer struct {
-	newHeads *feed.Feed[*core.Block]
-	reorgs   *feed.Feed[*sync.ReorgBlockRange]
-	pending  *feed.Feed[*core.Block]
+	newHeads    *feed.Feed[*core.Block]
+	reorgs      *feed.Feed[*sync.ReorgBlockRange]
+	pendingData *feed.Feed[core.PendingData]
 }
 
 func newFakeSyncer() *fakeSyncer {
 	return &fakeSyncer{
-		newHeads: feed.New[*core.Block](),
-		reorgs:   feed.New[*sync.ReorgBlockRange](),
-		pending:  feed.New[*core.Block](),
+		newHeads:    feed.New[*core.Block](),
+		reorgs:      feed.New[*sync.ReorgBlockRange](),
+		pendingData: feed.New[core.PendingData](),
 	}
 }
 
@@ -382,8 +384,8 @@ func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
 	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
 }
 
-func (fs *fakeSyncer) SubscribePending() sync.PendingSubscription {
-	return sync.PendingSubscription{Subscription: fs.pending.Subscribe()}
+func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
+	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
 }
 
 func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
@@ -394,9 +396,12 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 	return nil
 }
 
-func (fs *fakeSyncer) Pending() (*sync.Pending, error)          { return nil, nil }
-func (fs *fakeSyncer) PendingBlock() *core.Block                { return nil }
-func (fs *fakeSyncer) PendingState() (state.StateReader, error) { return nil, nil }
+func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
+	return nil, sync.ErrPendingBlockNotFound
+}
+func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
+func (fs *fakeSyncer) PendingState() (core.StateReader, error) { return nil, nil }
+
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
@@ -635,7 +640,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
-	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any()).
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 
 	for _, tc := range testCases {
@@ -685,7 +690,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-
+	mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(3)
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
@@ -710,16 +715,18 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pending.Send(&core.Block{
-			Header: &core.Header{
-				ParentHash: parentHash,
-			},
-			Transactions: []core.Transaction{
-				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-				&core.DeployTransaction{TransactionHash: hash3},
-				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-				&core.L1HandlerTransaction{TransactionHash: hash5},
+		syncer.pendingData.Send(&sync.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: parentHash,
+				},
+				Transactions: []core.Transaction{
+					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+					&core.DeployTransaction{TransactionHash: hash3},
+					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+					&core.L1HandlerTransaction{TransactionHash: hash5},
+				},
 			},
 		})
 
@@ -759,18 +766,20 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pending.Send(&core.Block{
-			Header: &core.Header{
-				ParentHash: parentHash,
-			},
-			Transactions: []core.Transaction{
-				&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-				&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-				&core.DeployTransaction{TransactionHash: hash3},
-				&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-				&core.L1HandlerTransaction{TransactionHash: hash5},
-				&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-				&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+		syncer.pendingData.Send(&sync.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: parentHash,
+				},
+				Transactions: []core.Transaction{
+					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
+					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
+					&core.DeployTransaction{TransactionHash: hash3},
+					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+					&core.L1HandlerTransaction{TransactionHash: hash5},
+					&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
+					&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+				},
 			},
 		})
 
@@ -793,38 +802,40 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.pending.Send(&core.Block{
-			Header: &core.Header{
-				ParentHash: parentHash,
-			},
-			Transactions: []core.Transaction{
-				&core.InvokeTransaction{
-					TransactionHash:      new(felt.Felt).SetUint64(1),
-					CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
-					TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
-					MaxFee:               new(felt.Felt).SetUint64(4),
-					ContractAddress:      new(felt.Felt).SetUint64(5),
-					Version:              new(core.TransactionVersion).SetUint64(3),
-					EntryPointSelector:   new(felt.Felt).SetUint64(6),
-					Nonce:                new(felt.Felt).SetUint64(7),
-					SenderAddress:        new(felt.Felt).SetUint64(8),
-					ResourceBounds: map[core.Resource]core.ResourceBounds{
-						core.ResourceL1Gas: {
-							MaxAmount:       1,
-							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+		syncer.pendingData.Send(&sync.Pending{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: parentHash,
+				},
+				Transactions: []core.Transaction{
+					&core.InvokeTransaction{
+						TransactionHash:      new(felt.Felt).SetUint64(1),
+						CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
+						TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
+						MaxFee:               new(felt.Felt).SetUint64(4),
+						ContractAddress:      new(felt.Felt).SetUint64(5),
+						Version:              new(core.TransactionVersion).SetUint64(3),
+						EntryPointSelector:   new(felt.Felt).SetUint64(6),
+						Nonce:                new(felt.Felt).SetUint64(7),
+						SenderAddress:        new(felt.Felt).SetUint64(8),
+						ResourceBounds: map[core.Resource]core.ResourceBounds{
+							core.ResourceL1Gas: {
+								MaxAmount:       1,
+								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+							},
+							core.ResourceL2Gas: {
+								MaxAmount:       1,
+								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+							},
+							core.ResourceL1DataGas: {
+								MaxAmount:       1,
+								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
+							},
 						},
-						core.ResourceL2Gas: {
-							MaxAmount:       1,
-							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
-						},
-						core.ResourceL1DataGas: {
-							MaxAmount:       1,
-							MaxPricePerUnit: new(felt.Felt).SetUint64(1),
-						},
+						Tip:                   9,
+						PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
+						AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
 					},
-					Tip:                   9,
-					PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-					AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
 				},
 			},
 		})
