@@ -379,7 +379,15 @@ func TestSubscribePending(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, &utils.Mainnet)
 	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-	synchronizer := sync.New(bc, dataSource, log, time.Millisecond*100, 0, false, testDB)
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log,
+		time.Millisecond*100,
+		time.Millisecond*100,
+		false,
+		testDB,
+	)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 
 	sub := synchronizer.SubscribePendingData()
