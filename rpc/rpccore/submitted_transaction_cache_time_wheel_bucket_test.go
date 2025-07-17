@@ -14,8 +14,7 @@ func TestBulkSetContains(t *testing.T) {
 	const nKeys = 2048
 
 	fakeClock := make(chan time.Time, 1)
-	cache := rpccore.NewSubmittedTransactionsCacheAltWithTicker(fakeClock)
-	defer cache.Stop()
+	cache := rpccore.RunTxnCacheWithTicker(t.Context(), fakeClock)
 
 	// Insert nKeys distinct entries
 	for i := 0; i < nKeys; i++ {
@@ -55,8 +54,7 @@ func TestCache_RaceCondition(t *testing.T) {
 	for run := 0; run < 10; run++ {
 		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) {
 			fakeClock := make(chan time.Time, 1)
-			cache := rpccore.NewSubmittedTransactionsCacheAltWithTicker(fakeClock)
-			defer cache.Stop()
+			cache := rpccore.RunTxnCacheWithTicker(t.Context(), fakeClock)
 
 			k := *new(felt.Felt).SetUint64(123)
 			require.False(t, cache.Contains(k), "initial Contains should be false")
@@ -64,18 +62,15 @@ func TestCache_RaceCondition(t *testing.T) {
 			cache.Set(k)
 			require.True(t, cache.Contains(k), "Contains immediately after Set should be true")
 
-			// Perform N-2 ticks. Contains must return true each time.
-			for i := 0; i < rpccore.NumTimeBuckets-2; i++ {
+			// 4 seconds pass by. Contains must return true each time.
+			for second := 1; second < 5; second++ {
 				fakeClock <- time.Now()
-				require.Truef(t, cache.Contains(k),
-					"tick %d (of N-2), expected key to still be present", i+1)
+				require.True(t, cache.Contains(k))
 			}
 
-			// One ambiguous tick: Contains() may race with eviction. We simply advance.
+			// On the 5th second, Contains() should return false.
 			fakeClock <- time.Now()
-
-			// Final tick: key must be evicted.
-			fakeClock <- time.Now()
+			time.Sleep(1 * time.Millisecond) // Contains may return incorrect result if it races with the tick update.
 			require.False(t, cache.Contains(k), "after full TTL, key must be evicted")
 		})
 	}

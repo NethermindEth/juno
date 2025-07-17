@@ -86,8 +86,7 @@ func BenchmarkCacheAlt(b *testing.B) {
 	)
 	// make the fake clock channel big enough to never block
 	fakeClock := make(chan time.Time, numTicks)
-	cache := rpccore.NewSubmittedTransactionsCacheAltWithTicker(fakeClock)
-	defer cache.Stop()
+	cache := rpccore.RunTxnCacheWithTicker(b.Context(), fakeClock)
 
 	perTick := totalEntries / numTicks
 
