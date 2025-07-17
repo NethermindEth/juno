@@ -14,7 +14,7 @@ func TestCache(t *testing.T) {
 	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
 	defer cache.Stop()
 
-	k := *new(felt.Felt).SetUint64(123)
+	k := *new(felt.Felt).SetUint64(12)
 	require.False(t, cache.Contains(k))
 
 	cache.Set(k)
@@ -23,6 +23,7 @@ func TestCache(t *testing.T) {
 	// Perform `N-1` ticks
 	for i := 0; i < rpccore.NumTimeBuckets-1; i++ {
 		fakeClock <- time.Now()
+		// Todo: Time only progresses after we clean up the bucket....
 		require.True(t, cache.Contains(k))
 	}
 

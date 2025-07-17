@@ -1,6 +1,7 @@
 package rpccore
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,6 +10,7 @@ import (
 )
 
 // Todo: investigate if the lock groups are actually useful
+// Todo: there is an issue with Contains. Sometimes gives fasle resutls
 
 const (
 	mapCapacityHint = 1024  // Assuming 1024 TPS
@@ -68,6 +70,7 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	}
 
 	timeSlot := c.getCurTimeSlot()
+	fmt.Println(" set timeSlot", timeSlot)
 	lockGroupID := int(key.Uint64() % numLocks)
 	c.locks[timeSlot][lockGroupID].Lock()
 	c.buckets[timeSlot][lockGroupID][key] = struct{}{}
@@ -80,9 +83,12 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
 	shard := int(key.Uint64() % numLocks)
 	expired := c.getExpiredTimeSlot()
+	fmt.Println("  expired", expired)
 
 	for b := uint32(0); b < NumTimeBuckets; b++ {
+		fmt.Println("  b", b)
 		if b == expired {
+			fmt.Println("  skip", b)
 			continue
 		}
 		c.locks[b][shard].RLock()
