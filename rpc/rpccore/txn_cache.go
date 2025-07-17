@@ -92,8 +92,14 @@ func (c *TxnCache) evictor(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-c.tickC:
+			// Note: there is a (harmless) race condition here.
+			// If Contains() is called at the same time the ticker is triggered,
+			// it might see `curTimeBucket` before it gets updated here.
+			// This means the txn hash lives for slightly longer than it should.
+
 			c.incrementTimeSlot()
 
+			// Clean the newly outdated bucket for the next tick.
 			expired := c.getExpiredTimeSlot()
 			c.locks[expired].Lock()
 			m := c.buckets[expired]
