@@ -9,7 +9,6 @@ import (
 )
 
 // Todo: there is an issue with Contains. Sometimes gives fasle resutls
-// Todo: use a default timer. But replace with a helper. implement run.
 
 const (
 	mapCapacityHint = 1024  // Assuming 1024 TPS
@@ -31,8 +30,14 @@ type SubmittedTransactionsCacheAlt struct {
 	stop          chan struct{}
 }
 
-// NewSubmittedTransactionsCacheAlt creates the cache with per‑shard pre‑allocation and starts eviction.
-func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransactionsCacheAlt {
+// NewSubmittedTransactionsCacheAlt creates the cache with a default 1 s eviction ticker.
+func NewSubmittedTransactionsCacheAlt() *SubmittedTransactionsCacheAlt {
+	return NewSubmittedTransactionsCacheAltWithTicker(time.NewTicker(time.Second).C)
+}
+
+// NewSubmittedTransactionsCacheAltWithTicker creates the cache and starts eviction driven by the provided ticker channel.
+// Useful for injecting a fake clock in tests.
+func NewSubmittedTransactionsCacheAltWithTicker(tickC <-chan time.Time) *SubmittedTransactionsCacheAlt {
 	c := &SubmittedTransactionsCacheAlt{
 		stop: make(chan struct{}),
 	}
@@ -53,8 +58,10 @@ func (c *SubmittedTransactionsCacheAlt) getExpiredTimeSlot() uint32 {
 	return (cur + 1) % NumTimeBuckets
 }
 
-func (c *SubmittedTransactionsCacheAlt) updateCurTimeSlot(newTime uint32) {
-	atomic.StoreUint32(&c.curTimeBucket, newTime)
+func (c *SubmittedTransactionsCacheAlt) incrementTimeSlot() {
+	old := atomic.LoadUint32(&c.curTimeBucket)
+	next := (old + 1) % NumTimeBuckets
+	atomic.StoreUint32(&c.curTimeBucket, next)
 }
 
 // Todo: just a note.
@@ -66,7 +73,6 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	}
 
 	timeSlot := c.getCurTimeSlot()
-	// fmt.Println(" set timeSlot", timeSlot)
 	c.locks[timeSlot].Lock()
 	c.buckets[timeSlot][key] = struct{}{}
 	c.locks[timeSlot].Unlock()
@@ -77,12 +83,9 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 // New approach. O(1) lookup. Lock part of the map. Only read lock. Don't modify the map.
 func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
 	expired := c.getExpiredTimeSlot()
-	// fmt.Println("  expired", expired)
 
 	for b := uint32(0); b < NumTimeBuckets; b++ {
-		// fmt.Println("  b", b)
 		if b == expired {
-			// fmt.Println("  skip", b)
 			continue
 		}
 		c.locks[b].RLock()
@@ -102,6 +105,10 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 	for {
 		select {
 		case <-tickC:
+			// New entries should be immediately directed to a new bucket
+			// which should already be empty
+			c.incrementTimeSlot()
+			// Clean up the next bucket
 			expired := c.getExpiredTimeSlot()
 			// Clean map in-place. This is signifcaintly more efficient than allocating a new map.
 			c.locks[expired].Lock()
@@ -111,7 +118,6 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 			}
 			c.locks[expired].Unlock()
 
-			c.updateCurTimeSlot(expired)
 		case <-c.stop:
 			return
 		}

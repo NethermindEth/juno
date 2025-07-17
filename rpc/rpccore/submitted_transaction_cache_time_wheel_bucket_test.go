@@ -1,28 +1,85 @@
 package rpccore_test
 
-// func TestCache(t *testing.T) {
-// 	fakeClock := make(chan time.Time, 1)
-// 	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
-// 	defer cache.Stop()
+import (
+	"fmt"
+	"testing"
+	"time"
 
-// 	k := *new(felt.Felt).SetUint64(12)
-// 	require.False(t, cache.Contains(k))
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/stretchr/testify/require"
+)
 
-// 	cache.Set(k)
-// 	require.True(t, cache.Contains(k))
+func TestBulkSetContains(t *testing.T) {
+	const nKeys = 2048
 
-// 	// Perform `N-1` ticks
-// 	for i := 0; i < rpccore.NumTimeBuckets-1; i++ {
-// 		fakeClock <- time.Now()
-// 		// Todo: Time only progresses after we clean up the bucket....
-// 		require.True(t, cache.Contains(k))
-// 	}
+	fakeClock := make(chan time.Time, 1)
+	cache := rpccore.NewSubmittedTransactionsCacheAltWithTicker(fakeClock)
+	defer cache.Stop()
 
-// 	// Nth tick to evict
-// 	fakeClock <- time.Now()
-// 	time.Sleep(10 * time.Millisecond) // The reader may access the txn before the evictor cleans it up
-// 	require.False(t, cache.Contains(k))
-// }
+	// Insert nKeys distinct entries
+	for i := 0; i < nKeys; i++ {
+		k := *new(felt.Felt).SetUint64(uint64(i))
+		cache.Set(k)
+	}
+
+	// Verify all keys are present
+	for i := 0; i < nKeys; i++ {
+		k := *new(felt.Felt).SetUint64(uint64(i))
+		require.Truef(t, cache.Contains(k),
+			"expected key %d to be present after bulk insert", i)
+	}
+
+	// Evict all entries
+	for i := 0; i < rpccore.NumTimeBuckets; i++ {
+		fakeClock <- time.Now()
+	}
+
+	for i := 0; i < nKeys; i++ {
+		k := *new(felt.Felt).SetUint64(uint64(i))
+		require.Falsef(t, cache.Contains(k),
+			"expected key %d to be present after bulk insert", i)
+	}
+}
+
+// Todo: there is a race. It is in the situaion where we call Contains and
+// the evict loop at the same time. The contains might read the time before/after
+// evict updates it.
+//
+// Evict calls. Time updates. Contains calls. All good. No longer present.
+// Evict calls. Contain calls before the time gets updated. Seems to be present/
+// Eg query at 4s. Always gets correct result.
+// Eg querys at 6s. Always gets correct result.
+// Eg querys at 5s. Result depends on whether the evictor updates the timeCount before Cotains.
+func TestCache_RaceCondition(t *testing.T) {
+	for run := 0; run < 10; run++ {
+		t.Run(fmt.Sprintf("run-%d", run), func(t *testing.T) {
+			fakeClock := make(chan time.Time, 1)
+			cache := rpccore.NewSubmittedTransactionsCacheAltWithTicker(fakeClock)
+			defer cache.Stop()
+
+			k := *new(felt.Felt).SetUint64(123)
+			require.False(t, cache.Contains(k), "initial Contains should be false")
+
+			cache.Set(k)
+			require.True(t, cache.Contains(k), "Contains immediately after Set should be true")
+
+			// Perform N-2 ticks. Contains must return true each time.
+			for i := 0; i < rpccore.NumTimeBuckets-2; i++ {
+				fakeClock <- time.Now()
+				require.Truef(t, cache.Contains(k),
+					"tick %d (of N-2), expected key to still be present", i+1)
+			}
+
+			// One ambiguous tick: Contains() may race with eviction. We simply advance.
+			fakeClock <- time.Now()
+
+			// Final tick: key must be evicted.
+			fakeClock <- time.Now()
+			require.False(t, cache.Contains(k), "after full TTL, key must be evicted")
+		})
+	}
+}
 
 // Benchmark:
 //
