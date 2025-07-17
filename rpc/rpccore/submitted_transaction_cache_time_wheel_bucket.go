@@ -1,7 +1,6 @@
 package rpccore
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,13 +8,12 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
-// Todo: investigate if the lock groups are actually useful
 // Todo: there is an issue with Contains. Sometimes gives fasle resutls
+// Todo: use a default timer. But replace with a helper. implement run.
 
 const (
 	mapCapacityHint = 1024  // Assuming 1024 TPS
 	NumTimeBuckets  = 5 + 1 // TTL is 5s, plus 1 bucket for expired entries.
-	numLocks        = 1     // Todo: investigate. Increasing seems to drive down ns/op (lock contention), and B/op. but increases allocs/op ?????? Unless rand uint64 ???
 )
 
 // SubmittedTransactionsCacheAlt implements a fixed‑TTL, time‑wheel in-memory cache for txn hashes.
@@ -26,8 +24,8 @@ const (
 // `NumTimeBuckets` defines the total number of time slots,
 // and `numLocks` defines the number of lock‑stripes per slot.
 type SubmittedTransactionsCacheAlt struct {
-	buckets       [NumTimeBuckets][numLocks]map[felt.Felt]struct{} // Stores the presence of the txn hash
-	locks         [NumTimeBuckets][numLocks]sync.RWMutex
+	buckets       [NumTimeBuckets]map[felt.Felt]struct{} // Stores the presence of the txn hash
+	locks         [NumTimeBuckets]sync.RWMutex
 	tick          time.Duration
 	curTimeBucket uint32
 	stop          chan struct{}
@@ -39,9 +37,7 @@ func NewSubmittedTransactionsCacheAlt(tickC <-chan time.Time) *SubmittedTransact
 		stop: make(chan struct{}),
 	}
 	for b := 0; b < NumTimeBuckets; b++ {
-		for s := 0; s < numLocks; s++ {
-			c.buckets[b][s] = make(map[felt.Felt]struct{}, mapCapacityHint)
-		}
+		c.buckets[b] = make(map[felt.Felt]struct{}, mapCapacityHint)
 	}
 	atomic.StoreUint32(&c.curTimeBucket, 0)
 	go c.evictor(tickC)
@@ -70,30 +66,28 @@ func (c *SubmittedTransactionsCacheAlt) Set(key felt.Felt) {
 	}
 
 	timeSlot := c.getCurTimeSlot()
-	fmt.Println(" set timeSlot", timeSlot)
-	lockGroupID := int(key.Uint64() % numLocks)
-	c.locks[timeSlot][lockGroupID].Lock()
-	c.buckets[timeSlot][lockGroupID][key] = struct{}{}
-	c.locks[timeSlot][lockGroupID].Unlock()
+	// fmt.Println(" set timeSlot", timeSlot)
+	c.locks[timeSlot].Lock()
+	c.buckets[timeSlot][key] = struct{}{}
+	c.locks[timeSlot].Unlock()
 }
 
 // Todo: just a note.
 // Old approach. Lock entire map. O(1) lookup. Potentially update map. Modify underlying map and list.
 // New approach. O(1) lookup. Lock part of the map. Only read lock. Don't modify the map.
 func (c *SubmittedTransactionsCacheAlt) Contains(key felt.Felt) bool {
-	shard := int(key.Uint64() % numLocks)
 	expired := c.getExpiredTimeSlot()
-	fmt.Println("  expired", expired)
+	// fmt.Println("  expired", expired)
 
 	for b := uint32(0); b < NumTimeBuckets; b++ {
-		fmt.Println("  b", b)
+		// fmt.Println("  b", b)
 		if b == expired {
-			fmt.Println("  skip", b)
+			// fmt.Println("  skip", b)
 			continue
 		}
-		c.locks[b][shard].RLock()
-		_, ok := c.buckets[b][shard][key]
-		c.locks[b][shard].RUnlock()
+		c.locks[b].RLock()
+		_, ok := c.buckets[b][key]
+		c.locks[b].RUnlock()
 		if ok {
 			return true
 		}
@@ -110,14 +104,13 @@ func (c *SubmittedTransactionsCacheAlt) evictor(tickC <-chan time.Time) {
 		case <-tickC:
 			expired := c.getExpiredTimeSlot()
 			// Clean map in-place. This is signifcaintly more efficient than allocating a new map.
-			for lockID := 0; lockID < numLocks; lockID++ {
-				c.locks[expired][lockID].Lock()
-				m := c.buckets[expired][lockID]
-				for k := range m {
-					delete(m, k)
-				}
-				c.locks[expired][lockID].Unlock()
+			c.locks[expired].Lock()
+			m := c.buckets[expired]
+			for k := range m {
+				delete(m, k)
 			}
+			c.locks[expired].Unlock()
+
 			c.updateCurTimeSlot(expired)
 		case <-c.stop:
 			return

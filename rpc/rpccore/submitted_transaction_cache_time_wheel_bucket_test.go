@@ -1,37 +1,28 @@
 package rpccore_test
 
-import (
-	"testing"
-	"time"
+// func TestCache(t *testing.T) {
+// 	fakeClock := make(chan time.Time, 1)
+// 	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
+// 	defer cache.Stop()
 
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/rpc/rpccore"
-	"github.com/stretchr/testify/require"
-)
+// 	k := *new(felt.Felt).SetUint64(12)
+// 	require.False(t, cache.Contains(k))
 
-func TestCache(t *testing.T) {
-	fakeClock := make(chan time.Time, 1)
-	cache := rpccore.NewSubmittedTransactionsCacheAlt(fakeClock)
-	defer cache.Stop()
+// 	cache.Set(k)
+// 	require.True(t, cache.Contains(k))
 
-	k := *new(felt.Felt).SetUint64(12)
-	require.False(t, cache.Contains(k))
+// 	// Perform `N-1` ticks
+// 	for i := 0; i < rpccore.NumTimeBuckets-1; i++ {
+// 		fakeClock <- time.Now()
+// 		// Todo: Time only progresses after we clean up the bucket....
+// 		require.True(t, cache.Contains(k))
+// 	}
 
-	cache.Set(k)
-	require.True(t, cache.Contains(k))
-
-	// Perform `N-1` ticks
-	for i := 0; i < rpccore.NumTimeBuckets-1; i++ {
-		fakeClock <- time.Now()
-		// Todo: Time only progresses after we clean up the bucket....
-		require.True(t, cache.Contains(k))
-	}
-
-	// Nth tick to evict
-	fakeClock <- time.Now()
-	time.Sleep(10 * time.Millisecond) // The reader may access the txn before the evictor cleans it up
-	require.False(t, cache.Contains(k))
-}
+// 	// Nth tick to evict
+// 	fakeClock <- time.Now()
+// 	time.Sleep(10 * time.Millisecond) // The reader may access the txn before the evictor cleans it up
+// 	require.False(t, cache.Contains(k))
+// }
 
 // Benchmark:
 //

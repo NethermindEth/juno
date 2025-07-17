@@ -52,19 +52,32 @@ import (
 // lock contention.
 
 // 1 lock per time bucket
-// BenchmarkCacheAlt-24    	     		   504	   	   3103484 ns/op	    	    1 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     676	   1886141 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     702	   1952262 ns/op	       0 B/op	       0 allocs/op
+
 //
 // 2 locks per time bucket
-//
-//
+// BenchmarkCacheAlt-24    	     522	   2099966 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     549	   2187128 ns/op	       0 B/op	       0 allocs/op
+
 // 8 locks per time bucket
-//
-//
+// BenchmarkCacheAlt-24    	     522	   2614859 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     478	   3087044 ns/op	       0 B/op	       0 allocs/op
+
 // 64 locks per time bucket
-//
-//
+// BenchmarkCacheAlt-24    	     206	   5942285 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     199	   5707581 ns/op	       0 B/op	       0 allocs/op
+
 // 256 locks per time bucket
+// BenchmarkCacheAlt-24    	     100	  19890581 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     100	  19662352 ns/op	       0 B/op	       0 allocs/op
 //
+// Locks do reduce the lock contention in the set flow. But the evict loop needs to acquire more locks
+// and incur the overhead of locking each of those. It seems that one lock per bucket is more performant.
+//
+// Without multiple locks per tick bucket
+// BenchmarkCacheAlt-24    	     852	   1605398 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkCacheAlt-24    	     742	   1495547 ns/op	       0 B/op	       0 allocs/op
 
 func BenchmarkCacheAlt(b *testing.B) {
 	const (
