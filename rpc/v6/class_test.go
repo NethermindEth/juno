@@ -78,7 +78,7 @@ func TestClass(t *testing.T) {
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockState := mocks.NewMockStateReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockState.EXPECT().Class(gomock.Any()).Return(nil, errors.New("class hash not found"))

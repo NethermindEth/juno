@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-
 func TestSpecVersion(t *testing.T) {
 	handler := rpc.New(nil, nil, nil, &utils.Mainnet, nil)
 	legacyVersion, rpcErr := handler.SpecVersion()
@@ -31,7 +30,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", &utils.Mainnet, nil)
+	handler := rpc.New(mockReader, mockSyncReader, throttledVM, &utils.Mainnet, nil)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"

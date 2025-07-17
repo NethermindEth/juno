@@ -31,7 +31,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpcv7.New(mockReader, mockSyncReader, throttledVM, "", &utils.Mainnet, nil)
+	handler := rpcv7.New(mockReader, mockSyncReader, throttledVM, &utils.Mainnet, nil)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"

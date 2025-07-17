@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
 func TestSpecVersion(t *testing.T) {
 	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
@@ -30,7 +31,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
