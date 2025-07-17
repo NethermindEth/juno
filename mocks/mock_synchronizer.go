@@ -56,21 +56,6 @@ func (mr *MockSyncReaderMockRecorder) HighestBlockHeader() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HighestBlockHeader", reflect.TypeOf((*MockSyncReader)(nil).HighestBlockHeader))
 }
 
-// Pending mocks base method.
-func (m *MockSyncReader) Pending() (*sync.Pending, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Pending")
-	ret0, _ := ret[0].(*sync.Pending)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Pending indicates an expected call of Pending.
-func (mr *MockSyncReaderMockRecorder) Pending() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pending", reflect.TypeOf((*MockSyncReader)(nil).Pending))
-}
-
 // PendingBlock mocks base method.
 func (m *MockSyncReader) PendingBlock() *core.Block {
 	m.ctrl.T.Helper()
@@ -83,6 +68,21 @@ func (m *MockSyncReader) PendingBlock() *core.Block {
 func (mr *MockSyncReaderMockRecorder) PendingBlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingBlock", reflect.TypeOf((*MockSyncReader)(nil).PendingBlock))
+}
+
+// PendingData mocks base method.
+func (m *MockSyncReader) PendingData() (core.PendingData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PendingData")
+	ret0, _ := ret[0].(core.PendingData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PendingData indicates an expected call of PendingData.
+func (mr *MockSyncReaderMockRecorder) PendingData() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PendingData", reflect.TypeOf((*MockSyncReader)(nil).PendingData))
 }
 
 // PendingState mocks base method.
@@ -129,18 +129,18 @@ func (mr *MockSyncReaderMockRecorder) SubscribeNewHeads() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeNewHeads", reflect.TypeOf((*MockSyncReader)(nil).SubscribeNewHeads))
 }
 
-// SubscribePending mocks base method.
-func (m *MockSyncReader) SubscribePending() sync.PendingSubscription {
+// SubscribePendingData mocks base method.
+func (m *MockSyncReader) SubscribePendingData() sync.PendingDataSubscription {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SubscribePending")
-	ret0, _ := ret[0].(sync.PendingSubscription)
+	ret := m.ctrl.Call(m, "SubscribePendingData")
+	ret0, _ := ret[0].(sync.PendingDataSubscription)
 	return ret0
 }
 
-// SubscribePending indicates an expected call of SubscribePending.
-func (mr *MockSyncReaderMockRecorder) SubscribePending() *gomock.Call {
+// SubscribePendingData indicates an expected call of SubscribePendingData.
+func (mr *MockSyncReaderMockRecorder) SubscribePendingData() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePending", reflect.TypeOf((*MockSyncReader)(nil).SubscribePending))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePendingData", reflect.TypeOf((*MockSyncReader)(nil).SubscribePendingData))
 }
 
 // SubscribeReorg mocks base method.

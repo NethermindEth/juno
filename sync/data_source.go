@@ -129,5 +129,17 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 }
 
 func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
-	return f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
+	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
+	if err != nil {
+		return core.PreConfirmed{}, err
+	}
+
+	h, err := f.blockchain.HeadsHeader()
+	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
+		return core.PreConfirmed{}, err
+	} else if err == nil {
+		preConfirmed.StateUpdate.OldRoot = h.GlobalStateRoot
+	}
+
+	return preConfirmed, nil
 }
