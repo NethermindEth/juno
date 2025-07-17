@@ -947,7 +947,9 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
+		if txStatus.FailureReason != nil {
+			status.FailureReason = txStatus.FailureReason.Message
+		}
 	default: // Omit the field on error. It's optional in the spec.
 	}
 

@@ -120,7 +120,7 @@ func getGenesisSequencer(
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
-	rpcHandler := rpc.New(bc, nil, nil, "", utils.NewNopZapLogger()).WithMempool(txnPool)
+	rpcHandler := rpc.New(bc, nil, nil, utils.NewNopZapLogger()).WithMempool(txnPool)
 	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
 }
 

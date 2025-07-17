@@ -22,7 +22,7 @@ func TestStorageAt(t *testing.T) {
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpcv7.New(mockReader, nil, nil, "", &utils.Mainnet, log)
+	handler := rpcv7.New(mockReader, nil, nil, &utils.Mainnet, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)

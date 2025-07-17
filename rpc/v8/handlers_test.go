@@ -14,18 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpcv8.New(nil, nil, nil, version, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
-	handler := rpcv8.New(nil, nil, nil, "", nil)
+	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.8.1", version)

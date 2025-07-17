@@ -56,7 +56,7 @@ type StateProvider interface {
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	SupportedStarknetVersion  = semver.MustParse("0.13.3")
+	SupportedStarknetVersion  = semver.MustParse("0.14.0")
 )
 
 func CheckBlockVersion(protocolVersion string) error {

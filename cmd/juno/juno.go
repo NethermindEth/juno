@@ -89,6 +89,7 @@ const (
 	seqBlockTimeF                       = "seq-block-time"
 	seqGenesisFileF                     = "seq-genesis-file"
 	seqDisableFeesF                     = "seq-disable-fees"
+	readinessBlockToleranceF            = "readiness-block-tolerance"
 	httpUpdateHostF                     = "http-update-host"
 	httpUpdatePortF                     = "http-update-port"
 	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
@@ -136,6 +137,7 @@ const (
 	defaultSeqBlockTime                       = 60
 	defaultSeqGenesisFile                     = ""
 	defaultSeqDisableFees                     = false
+	defaultReadinessBlockTolerance            = 6
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
@@ -198,6 +200,7 @@ const (
 	seqBlockTimeUsage                  = "Time to build a block, in seconds"
 	seqGenesisFileUsage                = "Path to the genesis file"
 	seqDisableFeesUsage                = "Skip charge fee for sequencer execution"
+	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
@@ -399,6 +402,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
+	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)

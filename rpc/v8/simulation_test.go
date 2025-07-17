@@ -138,7 +138,7 @@ func TestSimulateTransactions(t *testing.T) {
 			mockState := mocks.NewMockStateReader(mockCtrl)
 
 			test.mockBehavior(mockReader, mockVM, mockState)
-			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
 			blockID := blockIDLatest(t)
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
@@ -265,7 +265,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			mockReader.EXPECT().HeadState().Return(mockState, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
-			handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+			handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
 			blockID := blockIDLatest(t)
 			_, _, err := handler.SimulateTransactions(

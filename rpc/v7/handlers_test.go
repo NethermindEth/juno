@@ -15,17 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpcv7.New(nil, nil, nil, version, &utils.Mainnet, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
-	handler := rpcv7.New(nil, nil, nil, "", &utils.Mainnet, nil)
+	handler := rpcv7.New(nil, nil, nil, &utils.Mainnet, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.7.1", version)
