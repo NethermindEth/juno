@@ -247,7 +247,7 @@ func TestHelpers(t *testing.T) {
 	require.NotNil(t, newHeadsSub)
 	require.NotNil(t, newHeadsSub.Subscription)
 
-	pendingSub := seq.SubscribePending()
-	require.NotNil(t, pendingSub)
-	require.NotNil(t, pendingSub.Subscription)
+	pendingDataSub := seq.SubscribePendingData()
+	require.NotNil(t, pendingDataSub)
+	require.NotNil(t, pendingDataSub.Subscription)
 }

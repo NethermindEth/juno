@@ -43,7 +43,10 @@ jobs:
           fi
       
       - name: Run tests (${{ inputs.test_mode }} mode)
-        run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction)).*$"
+        # "waitForBlock pending" is ignored because starknet.js waits till current block number to equal target pending block number, 
+        # but retry interval is 5s second and next time current block number is updated, it is ahead of target block due to shorter block times. 
+        # This leads the test to fail with time-out
+        run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction|waitForBlock pending)).*$"
         env:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}

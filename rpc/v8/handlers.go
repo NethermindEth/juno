@@ -34,11 +34,11 @@ type Handler struct {
 	log           utils.Logger
 	memPool       *mempool.Pool
 
-	version      string
-	newHeads     *feed.Feed[*core.Block]
-	reorgs       *feed.Feed[*sync.ReorgBlockRange]
-	pendingBlock *feed.Feed[*core.Block]
-	l1Heads      *feed.Feed[*core.L1Head]
+	version     string
+	newHeads    *feed.Feed[*core.Block]
+	reorgs      *feed.Feed[*sync.ReorgBlockRange]
+	pendingData *feed.Feed[core.PendingData]
+	l1Heads     *feed.Feed[*core.L1Head]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -77,10 +77,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:     feed.New[*core.Block](),
-		reorgs:       feed.New[*sync.ReorgBlockRange](),
-		pendingBlock: feed.New[*core.Block](),
-		l1Heads:      feed.New[*core.L1Head](),
+		newHeads:    feed.New[*core.Block](),
+		reorgs:      feed.New[*sync.ReorgBlockRange](),
+		pendingData: feed.New[core.PendingData](),
+		l1Heads:     feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -133,15 +133,15 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransac
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingBlock := h.syncReader.SubscribePending().Subscription
+	pendingData := h.syncReader.SubscribePendingData().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingBlock.Unsubscribe()
+	defer pendingData.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingBlock, h.pendingBlock)
+	feed.Tee(pendingData, h.pendingData)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
