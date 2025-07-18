@@ -64,13 +64,11 @@ type State struct {
 }
 
 func New(stateRoot *felt.Felt, db *StateDB) (*State, error) {
-	fmt.Println("contract trie")
 	contractTrie, err := db.ContractTrie(stateRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Println("class trie")
 	classTrie, err := db.ClassTrie(stateRoot)
 	if err != nil {
 		return nil, err
@@ -817,6 +815,12 @@ func (s *State) compareContracts(a, b felt.Felt) int {
 	return len(contractB.dirtyStorage) - len(contractA.dirtyStorage)
 }
 
+// persistTrieRoots writes modified state tries roots to the DB:
+// stateComm -> enc(class root, contract root) - for class and contract roots
+// stateComm + contract root -> contract storage root - for contract storage
+//
+// In hash scheme of the TrieDB every node is identified by its hash and path
+// The roots must be persisted after applying the state update in order to retrieve them in the next block,
 func (s *State) persistTrieRoots(
 	stateCommitment, parentRoot, classRoot, contractRoot *felt.Felt,
 	storageRoots map[felt.Felt]felt.Felt,
