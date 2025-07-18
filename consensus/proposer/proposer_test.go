@@ -247,7 +247,7 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       500000,
+				MaxAmount:       520000,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 			core.ResourceL1DataGas: {
