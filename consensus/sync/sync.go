@@ -14,6 +14,8 @@ import (
 	"github.com/NethermindEth/juno/sync"
 )
 
+const syncRoundPlaceHolder = -1 // Todo: We use this value until the round is added to the spec
+
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	syncService       p2p.WithBlockCh
 	driverProposalCh  chan types.Proposal[V, H, A]
@@ -71,7 +73,7 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 		case committedBlock := <-s.blockCh:
 			msgHeader := types.MessageHeader[A]{
 				Height: types.Height(committedBlock.Block.Number),
-				Round:  -1, // Todo: placeholder until round is placed in the spec
+				Round:  syncRoundPlaceHolder,
 			}
 			msgV := s.toValue(committedBlock.Block.Hash)
 			msgH := msgV.Hash()
@@ -84,7 +86,7 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 			msgHeader.Sender = committedBlock.Block.SequencerAddress.Bits()
 			proposal := types.Proposal[V, H, A]{
 				MessageHeader: msgHeader,
-				ValidRound:    -1,
+				ValidRound:    syncRoundPlaceHolder,
 				Value:         &msgV,
 			}
 			s.driverProposalCh <- proposal
