@@ -71,23 +71,23 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 			cancel()
 			return
 		case committedBlock := <-s.blockCh:
-			msgHeader := types.MessageHeader[A]{
-				Height: types.Height(committedBlock.Block.Number),
-				Round:  syncRoundPlaceHolder,
-			}
-			msgV := s.toValue(committedBlock.Block.Hash)
-			msgH := msgV.Hash()
 
 			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
 			for _, precommit := range precommits {
 				s.driverPrecommitCh <- precommit
 			}
 
-			msgHeader.Sender = committedBlock.Block.SequencerAddress.Bits()
+			msgV := s.toValue(committedBlock.Block.Hash)
+			msgH := msgV.Hash()
+
 			proposal := types.Proposal[V, H, A]{
-				MessageHeader: msgHeader,
-				ValidRound:    syncRoundPlaceHolder,
-				Value:         &msgV,
+				MessageHeader: types.MessageHeader[A]{
+					Height: types.Height(committedBlock.Block.Number),
+					Round:  syncRoundPlaceHolder,
+					Sender: committedBlock.Block.SequencerAddress.Bits(),
+				},
+				ValidRound: -1,
+				Value:      &msgV,
 			}
 			s.driverProposalCh <- proposal
 
