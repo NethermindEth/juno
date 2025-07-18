@@ -23,7 +23,6 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	getPrecommits func(types.Height) []types.Precommit[H, A]
 	stopSyncCh    <-chan struct{}
 	toValue       func(*felt.Felt) V
-	toHash        func(*felt.Felt) H
 	proposalStore *proposal.ProposalStore[H]
 	blockCh       chan p2pSync.BlockBody
 }
@@ -35,7 +34,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	getPrecommits func(types.Height) []types.Precommit[H, A],
 	stopSyncCh <-chan struct{},
 	toValue func(*felt.Felt) V,
-	toHash func(*felt.Felt) H,
 	proposalStore *proposal.ProposalStore[H],
 	blockCh chan p2pSync.BlockBody,
 ) Sync[V, H, A] {
@@ -46,30 +44,29 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		getPrecommits:     getPrecommits,
 		stopSyncCh:        stopSyncCh,
 		toValue:           toValue,
-		toHash:            toHash,
 		proposalStore:     proposalStore,
 		blockCh:           blockCh,
 	}
 }
 
-func (s *Sync[V, H, A]) Run(ctx context.Context) {
-	syncCtx, syncCancel := context.WithCancel(ctx)
+func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
+	ctx, cancel := context.WithCancel(originalCtx)
 	go func() {
 		s.syncService.WithBlockCh(s.blockCh)
-		err := s.syncService.Run(syncCtx)
+		err := s.syncService.Run(ctx)
 		if err != nil {
-			syncCancel()
+			cancel()
 			return
 		}
 	}()
 
 	for {
 		select {
-		case <-syncCtx.Done():
-			syncCancel()
+		case <-ctx.Done():
+			cancel()
 			return
 		case <-s.stopSyncCh:
-			syncCancel()
+			cancel()
 			return
 		case committedBlock := <-s.blockCh:
 			msgHeader := types.MessageHeader[A]{
@@ -77,7 +74,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) {
 				Round:  -1, // Todo: placeholder until round is placed in the spec
 			}
 			msgV := s.toValue(committedBlock.Block.Hash)
-			msgH := s.toHash(committedBlock.Block.Hash)
+			msgH := msgV.Hash()
 
 			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
 			for _, precommit := range precommits {

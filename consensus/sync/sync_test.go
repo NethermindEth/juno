@@ -97,17 +97,18 @@ func TestSync(t *testing.T) {
 	mockSyncService.WithBlockCh(blockCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, toHash, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
 
 	block0 := getCommittedBlock()
-	block0Hash := toHash(block0.Block.Hash)
+	block0Hash := block0.Block.Hash
+	valueHash := toValue(block0Hash).Hash()
 	go func() {
 		mockSyncService.recieveBlock(block0)
 	}()
 
-	consensusSyncService.Run(ctx)                      // Driver should trigger stopSyncCh and shut this service down
-	require.NotEmpty(t, proposalStore.Get(block0Hash)) // Ensure the Driver sees the correct proposal
-	_, stopSyncChIsOpen := <-stopSyncCh                // Ensure the Driver closed this channel after catching up to the chain head
+	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
+	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
+	_, stopSyncChIsOpen := <-stopSyncCh               // Ensure the Driver closed this channel after catching up to the chain head
 	require.False(t, stopSyncChIsOpen)
 }
 
@@ -128,7 +129,7 @@ func TestShutdownOnError(t *testing.T) {
 	mockSyncService.WithBlockCh(blockCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, toHash, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
 	cancel()
 	consensusSyncService.Run(ctx)
 
@@ -157,10 +158,6 @@ func getCommittedBlock() sync.BlockBody {
 
 func toValue(in *felt.Felt) starknet.Value {
 	return starknet.Value(*in)
-}
-
-func toHash(in *felt.Felt) starknet.Hash {
-	return starknet.Hash(*in)
 }
 
 func getPrecommits(types.Height) []types.Precommit[starknet.Hash, starknet.Address] {

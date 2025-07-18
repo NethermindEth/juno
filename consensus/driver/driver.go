@@ -136,7 +136,6 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 			}
 		case *types.StopSync:
 			if d.stopSyncCh != nil {
-				d.stopSyncCh <- struct{}{}
 				close(d.stopSyncCh)
 				d.stopSyncCh = nil // prevent panic
 			}
