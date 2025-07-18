@@ -408,7 +408,7 @@ func TestTraceTransaction(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
-		).Times(2)
+		)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)

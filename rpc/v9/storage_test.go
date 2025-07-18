@@ -133,8 +133,6 @@ func TestStorageAt(t *testing.T) {
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		pending := sync.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
