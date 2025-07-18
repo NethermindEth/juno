@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -85,13 +84,13 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending core.PendingData
+		pending, err = h.PendingData()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
 			return nil, httpHeader, rpccore.ErrTxnHashNotFound
 		}
-		block = pending.Block
+		block = pending.GetBlock()
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
@@ -191,7 +190,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 	var headState state.StateReader
 	if isPending {
-		headState, err = h.syncReader.PendingState()
+		headState, err = h.PendingState()
 	} else {
 		headState, err = h.bcReader.HeadState()
 	}

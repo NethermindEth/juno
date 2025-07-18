@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,8 +22,9 @@ func TestNonce(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
@@ -87,6 +89,17 @@ func TestNonce(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
+
+		nonce, rpcErr := handler.Nonce(rpc.BlockID{Pending: true}, felt.Zero)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedNonce, nonce)
+	})
 }
 
 func TestStorageAt(t *testing.T) {
@@ -95,8 +108,9 @@ func TestStorageAt(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
@@ -190,6 +204,18 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Number: 0})
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedStorage, storageValue)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(felt.Zero, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(*expectedStorage, nil)
+
+		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})
