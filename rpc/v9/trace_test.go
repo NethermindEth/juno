@@ -378,7 +378,7 @@ func TestTraceTransaction(t *testing.T) {
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), *trace)
 	})
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("pre_confirmed block", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
@@ -387,14 +387,13 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		header := &core.Header{
-			ParentHash:       utils.HexToFelt(t, "0x0"),
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			ProtocolVersion:  "99.12.3",
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pending block")
-
+		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
+		require.Nil(t, header.ParentHash, "ParentHash must be nil for pre_confirmed block")
 		block := &core.Block{
 			Header:       header,
 			Transactions: []core.Transaction{tx},
@@ -591,10 +590,9 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
-		"latest":  blockIDLatest(t),
-		"pending": blockIDPending(t),
-		"hash":    blockIDHash(t, new(felt.Felt).SetUint64(1)),
-		"number":  blockIDNumber(t, 2),
+		"latest": blockIDLatest(t),
+		"hash":   blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"number": blockIDNumber(t, 2),
 	}
 
 	for description, blockID := range errTests {
@@ -632,128 +630,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, log)
-
-	t.Run("pending block", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
-		header := &core.Header{
-			// hash is not set because it's pending block
-			ParentHash:      utils.HexToFelt(t, "0x0C3"),
-			Number:          0,
-			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "99.12.3",
-		}
-		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000C"),
-		}
-		declaredClass := &core.DeclaredClass{
-			At:    3002,
-			Class: &core.Cairo1Class{},
-		}
-		declareTx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
-		}
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{l1Tx, declareTx},
-		}
-
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := sync.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-
-		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
-		vmTraceJSON := json.RawMessage(`{
-			"type": "INVOKE",
-			"validate_invocation": {"execution_resources":{"l1_gas":1,"l2_gas":2}},
-			"execute_invocation": {"execution_resources":{"l1_gas":3,"l2_gas":4}},
-			"fee_transfer_invocation": {"execution_resources":{"l1_gas":5,"l2_gas":6}},
-			"state_diff": {
-				"storage_diffs": [],
-				"nonces": [],
-				"deployed_contracts": [],
-				"deprecated_declared_classes": [],
-				"declared_classes": [],
-				"replaced_classes": []
-			}
-		}`)
-
-		vmTrace := vm.TransactionTrace{}
-		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
-
-		gc := []core.GasConsumed{{L1Gas: 7, L2Gas: 8, L1DataGas: 9}, {}}
-		stepsUsed := uint64(123)
-		stepsUsedStr := "123"
-
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      nil,
-				DataAvailability: []core.DataAvailability{{}, {}},
-				GasConsumed:      gc,
-				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
-
-		blockID := blockIDHash(t, blockHash)
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
-
-		require.Nil(t, err)
-		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
-		assert.Equal(t, &rpc.TransactionTrace{
-			Type: rpc.TxnInvoke,
-			ValidateInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
-				ExecutionResources: &rpc.InnerExecutionResources{
-					L1Gas: 1,
-					L2Gas: 2,
-				},
-			},
-			ExecuteInvocation: &rpc.ExecuteInvocation{
-				FunctionInvocation: &rpc.FunctionInvocation{
-					Calls:    []rpc.FunctionInvocation{},
-					Events:   []rpcv6.OrderedEvent{},
-					Messages: []rpcv6.OrderedL2toL1Message{},
-					ExecutionResources: &rpc.InnerExecutionResources{
-						L1Gas: 3,
-						L2Gas: 4,
-					},
-				},
-			},
-			FeeTransferInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
-				ExecutionResources: &rpc.InnerExecutionResources{
-					L1Gas: 5,
-					L2Gas: 6,
-				},
-			},
-			ExecutionResources: &rpc.ExecutionResources{
-				InnerExecutionResources: rpc.InnerExecutionResources{
-					L1Gas: 7,
-					L2Gas: 8,
-				},
-				L1DataGas: 9,
-			},
-			StateDiff: &rpcv6.StateDiff{
-				StorageDiffs:              []rpcv6.StorageDiff{},
-				Nonces:                    []rpcv6.Nonce{},
-				DeployedContracts:         []rpcv6.DeployedContract{},
-				DeprecatedDeclaredClasses: []*felt.Felt{},
-				DeclaredClasses:           []rpcv6.DeclaredClass{},
-				ReplacedClasses:           []rpcv6.ReplacedClass{},
-			},
-		}, result[0].TraceRoot)
-		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
-	})
 
 	t.Run("regular block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")

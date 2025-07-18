@@ -14,16 +14,26 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 	if err != nil && !errors.Is(err, sync.ErrPendingBlockNotFound) {
 		return nil, err
 	}
-	// If pending network is polling pending block and running on < 0.14.0
-	if err == nil && pending.Variant() == core.PendingBlockVariant {
+
+	if err == nil {
 		return pending, nil
 	}
 
-	// If pending data variant is not `Pending` or err is `sync.ErrPendingBlockNotFound`
 	latestHeader, err := h.bcReader.HeadsHeader()
 	if err != nil {
 		return nil, err
 	}
+
+	blockVer, err := core.ParseBlockVersion(latestHeader.ProtocolVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
+		emptyPreConfirmed := emptyPreConfirmedForParent(latestHeader)
+		return &emptyPreConfirmed, nil
+	}
+
 	emptyPending := emptyPendingForParent(latestHeader)
 	return &emptyPending, nil
 }
@@ -37,7 +47,7 @@ func (h *Handler) PendingBlock() *core.Block {
 }
 
 func (h *Handler) PendingState() (core.StateReader, func() error, error) {
-	pending, err := h.syncReader.PendingData()
+	state, closer, err := h.syncReader.PendingState()
 	if err != nil {
 		if errors.Is(err, sync.ErrPendingBlockNotFound) {
 			return h.bcReader.HeadState()
@@ -45,19 +55,23 @@ func (h *Handler) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	if pending.Variant() == core.PendingBlockVariant {
-		state, closer, err := h.syncReader.PendingState()
-		if err != nil {
-			if !errors.Is(err, sync.ErrPendingBlockNotFound) {
-				return h.bcReader.HeadState()
-			}
-			return nil, nil, err
-		}
+	return state, closer, nil
+}
 
-		return state, closer, nil
+func (h *Handler) PendingBlockFinalityStatus() TxnFinalityStatus {
+	pending, err := h.PendingData()
+	if err != nil {
+		return 0
 	}
 
-	return h.bcReader.HeadState()
+	switch pending.Variant() {
+	case core.PreConfirmedBlockVariant:
+		return TxnPreConfirmed
+	case core.PendingBlockVariant:
+		return TxnAcceptedOnL2
+	}
+
+	return 0
 }
 
 func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
@@ -97,4 +111,47 @@ func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 		},
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
+}
+
+func emptyPreConfirmedForParent(parentHeader *core.Header) core.PreConfirmed {
+	receipts := make([]*core.TransactionReceipt, 0)
+	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
+		Header: &core.Header{
+			Number:           parentHeader.Number + 1,
+			SequencerAddress: parentHeader.SequencerAddress,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  parentHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    parentHeader.L1GasPriceETH,
+			L1GasPriceSTRK:   parentHeader.L1GasPriceSTRK,
+			L2GasPrice:       parentHeader.L2GasPrice,
+			L1DataGasPrice:   parentHeader.L1DataGasPrice,
+			L1DAMode:         parentHeader.L1DAMode,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff := &core.StateDiff{
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+		Nonces:            make(map[felt.Felt]*felt.Felt),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		DeclaredV0Classes: make([]*felt.Felt, 0),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+	}
+
+	preConfirmed := core.PreConfirmed{
+		Block: preConfirmedBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   parentHeader.GlobalStateRoot,
+			StateDiff: stateDiff,
+		},
+		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		TransactionStateDiffs: make([]*core.StateDiff, 0),
+		CandidateTxs:          make([]core.Transaction, 0),
+	}
+
+	return preConfirmed
 }
