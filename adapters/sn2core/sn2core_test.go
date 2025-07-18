@@ -117,7 +117,7 @@ func TestAdaptBlock(t *testing.T) {
 			assert.True(t, block.GlobalStateRoot.Equal(response.StateRoot))
 			assert.Equal(t, response.Timestamp, block.Timestamp)
 			assert.Equal(t, len(response.Transactions), len(block.Transactions))
-			assert.Equal(t, uint64(len(response.Transactions)), block.TransactionCount)
+			assert.Equal(t, uint32(len(response.Transactions)), block.TransactionCount)
 			if assert.Equal(t, len(response.Receipts), len(block.Receipts)) {
 				for i, feederReceipt := range response.Receipts {
 					assert.Equal(t, feederReceipt.ExecutionStatus == starknet.Reverted, block.Receipts[i].Reverted)
