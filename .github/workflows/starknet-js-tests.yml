@@ -7,6 +7,10 @@ on:
         type: string
         default: 'full'
         description: 'Test mode to run (fast or full)'
+      ref:
+        type: string
+        default: 'v7.6.2'
+        description: 'starknet.js version/tag to test'
     secrets:
       TEST_RPC_URL:
         required: false
@@ -23,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: starknet-io/starknet.js
-          ref: v7.6.2
+          ref: ${{ inputs.ref }}
   
       - name: Setup Node.js
         uses: actions/setup-node@v4
