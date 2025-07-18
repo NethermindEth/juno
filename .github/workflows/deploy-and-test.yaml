@@ -99,25 +99,28 @@ jobs:
     secrets:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
-  starknet-js:
+  starknet-js-rpcv08:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
+      ref: v8.0.0-beta.2
       test_mode: ${{ inputs.test_mode }}
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  starknet-go-rpcv07:
+  starknet-js-rpcv09:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-go-tests.yml
+    uses: ./.github/workflows/starknet-js-tests.yml
     with:
-      ref: 1ede19210c10f1f1f9c3cb49a42f737cd90eda5e
-      rpc_version: v0_7
+      ref: v8.0.0-beta.2
+      test_mode: ${{ inputs.test_mode }}
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}
-      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_WS_URL: ${{ secrets.WS_RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
   starknet-go-rpcv08:
     needs: [deploy]
@@ -125,6 +128,17 @@ jobs:
     with:
       ref: b870f7f6aee15b01faf8d05e44c7c151ab0d637d
       rpc_version: v0_8
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+      TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}
+      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+
+  starknet-go-rpcv09:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: v0.14.0-beta.2
+      rpc_version: v0_9
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
       TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}

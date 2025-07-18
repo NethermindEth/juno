@@ -7,8 +7,14 @@ on:
         type: string
         default: 'full'
         description: 'Test mode to run (fast or full)'
+      ref:
+        type: string
+        default: 'v7.6.2'
+        description: 'starknet.js version/tag to test'
     secrets:
       TEST_RPC_URL:
+        required: false
+      TEST_WS_URL:
         required: false
       TEST_ACCOUNT_ADDRESS:
         required: false
@@ -23,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: starknet-io/starknet.js
-          ref: v7.6.2
+          ref: ${{ inputs.ref }}
   
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,6 +55,7 @@ jobs:
         run: npm test -- ${{ steps.tests.outputs.tests }} --testNamePattern="^(?!.*(getSyncingStats|traceTransaction|waitForBlock pending)).*$"
         env:
           TEST_RPC_URL: ${{ secrets.TEST_RPC_URL }}
+          TEST_WS_URL: ${{ secrets.TEST_WS_URL }}
           TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
           TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
-          TX_VERSION: v3
+          TX_VERSION: 0x3

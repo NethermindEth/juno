@@ -9,7 +9,7 @@ on:
         default: '1ede19210c10f1f1f9c3cb49a42f737cd90eda5e'
         type: string
       rpc_version:
-        description: 'The RPC version to test (v0_7 or v0_8)'
+        description: 'The RPC version to test (v0_7, v0_8, or v0_9)'
         required: true
         type: string
     secrets:
@@ -43,18 +43,18 @@ jobs:
           RPC_URL="${{ secrets.TEST_RPC_URL }}"
           VERSION="${{ inputs.rpc_version }}"
           AUTH_PARAM="?apikey=${{ secrets.AUTH_TOKEN }}"
-
+          
           if [ "$VERSION" = "v0_7" ]; then
             echo "INTEGRATION_BASE=${RPC_URL}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
-          elif [ "$VERSION" = "v0_8" ]; then
+          elif [ "$VERSION" = "v0_8" ] || [ "$VERSION" = "v0_9" ]; then
             if [ -z "${{ secrets.TEST_WS_RPC_URL }}" ]; then
-              echo "Error: TEST_WS_RPC_URL secret must be set for RPC v0_8"
+              echo "Error: TEST_WS_RPC_URL secret must be set for RPC $VERSION"
               exit 1
             fi
             echo "HTTP_PROVIDER_URL=${RPC_URL}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
             echo "WS_PROVIDER_URL=${{ secrets.TEST_WS_RPC_URL }}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
           else
-            echo "Version $VERSION is not supported."
+            echo "RPC version $VERSION is not supported."
             exit 1
           fi
 
