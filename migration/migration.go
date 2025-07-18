@@ -45,15 +45,14 @@ type Migration interface {
 	Migrate(context.Context, db.KeyValueStore, *utils.Network, utils.SimpleLogger) ([]byte, error)
 }
 
-type MigrationFunc func(db.IndexedBatch, *utils.Network) error
+type MigrationFunc func(db.KeyValueStore, *utils.Network) error
 
 // Migrate returns f(txn).
 func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
-	txn := database.NewIndexedBatch()
-	if err := f(txn, network); err != nil {
+	if err := f(database, network); err != nil {
 		return nil, err
 	}
-	return nil, txn.Write()
+	return nil, nil
 }
 
 // Before is a no-op.
@@ -235,7 +234,7 @@ func updateSchemaMetadata(txn db.KeyValueWriter, schema schemaMetadata) error {
 }
 
 // migration0000 makes sure the targetDB is empty
-func migration0000(txn db.IndexedBatch, _ *utils.Network) error {
+func migration0000(txn db.KeyValueStore, _ *utils.Network) error {
 	it, err := txn.NewIterator(nil, false)
 	if err != nil {
 		return err
@@ -254,8 +253,8 @@ func migration0000(txn db.IndexedBatch, _ *utils.Network) error {
 // After: the key to the root of the contract storage trie is stored at 3+<contractAddress>.
 //
 // This enables us to remove the db.ContractRootKey prefix.
-func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) error {
-	it, err := txn.NewIterator(nil, false)
+func relocateContractStorageRootKeys(kvs db.KeyValueStore, _ *utils.Network) error {
+	it, err := kvs.NewIterator(nil, false)
 	if err != nil {
 		return err
 	}
@@ -288,6 +287,7 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 	}
 
 	// Move the entries to their new locations.
+	txn := kvs.NewBatch()
 	for oldKey, value := range oldEntries {
 		oldKeyBytes := []byte(oldKey)
 		contractAddress, found := bytes.CutPrefix(oldKeyBytes, oldPrefix)
@@ -303,14 +303,13 @@ func relocateContractStorageRootKeys(txn db.IndexedBatch, _ *utils.Network) erro
 			return err
 		}
 	}
-
-	return nil
+	return txn.Write()
 }
 
 // recalculateBloomFilters updates bloom filters in block headers to match what the most recent implementation expects
-func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
+func recalculateBloomFilters(kvs db.KeyValueStore, _ *utils.Network) error {
 	for blockNumber := uint64(0); ; blockNumber++ {
-		block, err := core.GetBlockByNumber(txn, blockNumber)
+		block, err := core.GetBlockByNumber(kvs, blockNumber)
 		if err != nil {
 			if errors.Is(err, db.ErrKeyNotFound) {
 				return nil
@@ -318,13 +317,13 @@ func recalculateBloomFilters(txn db.IndexedBatch, _ *utils.Network) error {
 			return err
 		}
 		block.EventsBloom = core.EventsBloom(block.Receipts)
-		if err = core.WriteBlockHeader(txn, block.Header); err != nil {
+		if err = core.WriteBlockHeader(kvs, block.Header); err != nil {
 			return err
 		}
 	}
 }
 
-func removePendingBlock(txn db.IndexedBatch, _ *utils.Network) error {
+func removePendingBlock(txn db.KeyValueStore, _ *utils.Network) error {
 	return txn.Delete(db.Unused.Key())
 }
 
@@ -502,7 +501,7 @@ func (m *changeTrieNodeEncoding) Migrate(
 	return nil, iterator.Close()
 }
 
-func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) error) error {
+func processBlocks(txn db.KeyValueStore, processBlock func(uint64, *sync.Mutex) error) error {
 	numOfWorkers := runtime.GOMAXPROCS(0)
 	workerPool := pool.New().WithErrors().WithMaxGoroutines(numOfWorkers)
 
@@ -535,7 +534,7 @@ func processBlocks(txn db.IndexedBatch, processBlock func(uint64, *sync.Mutex) e
 }
 
 // calculateBlockCommitments calculates the txn and event commitments for each block and stores them separately
-func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) error {
+func calculateBlockCommitments(txn db.KeyValueStore, network *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
 		block, err := core.GetBlockByNumber(txn, blockNumber)
@@ -556,7 +555,7 @@ func calculateBlockCommitments(txn db.IndexedBatch, network *utils.Network) erro
 	return processBlocks(txn, processBlockFunc)
 }
 
-func calculateL1MsgHashes2(txn db.IndexedBatch, n *utils.Network) error {
+func calculateL1MsgHashes2(txn db.KeyValueStore, n *utils.Network) error {
 	processBlockFunc := func(blockNumber uint64, txnLock *sync.Mutex) error {
 		txnLock.Lock()
 		txns, err := core.GetTxsByBlockNum(txn, blockNumber)
@@ -820,7 +819,7 @@ func migrateCairo1CompiledClass2(txn db.KeyValueWriter, key, value []byte, _ *ut
 	return txn.Put(key, value)
 }
 
-func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Network) error {
+func reconstructAggregatedBloomFilters(txn db.KeyValueStore, network *utils.Network) error {
 	chainHeight, err := core.GetChainHeight(txn)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {

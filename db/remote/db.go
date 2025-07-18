@@ -66,7 +66,7 @@ func (d *DB) View(fn func(txn db.Snapshot) error) error {
 	return utils.RunAndWrapOnError(txn.Discard, fn(txn))
 }
 
-func (d *DB) Update(fn func(txn db.IndexedBatch) error) error {
+func (d *DB) Update(fn func(txn db.Batch) error) error {
 	start := time.Now()
 
 	defer func() {
@@ -142,20 +142,11 @@ func (d *DB) NewBatchWithSize(size int) db.Batch {
 }
 
 func (d *DB) NewIndexedBatch() db.IndexedBatch {
-	start := time.Now()
-
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
-	if err != nil {
-		panic(err)
-	}
-
-	d.listener.OnIO(true, time.Since(start))
-
-	return &transaction{client: txClient, log: d.log}
+	return nil
 }
 
 func (d *DB) NewIndexedBatchWithSize(size int) db.IndexedBatch {
-	return d.NewIndexedBatch()
+	return nil
 }
 
 func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error) {

@@ -305,124 +305,6 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.False(t, has, "Key should not exist after batch delete for key %s", key)
 	})
 
-	t.Run("IndexedBatch", func(t *testing.T) {
-		database := newDB()
-		defer database.Close()
-
-		// Create an indexed batch
-		batch := database.NewIndexedBatch()
-		require.NotNil(t, batch, "NewIndexedBatch should return a non-nil batch")
-
-		// Add some data to the batch
-		testData := map[string]string{
-			"indexed-key1": "indexed-value1",
-			"indexed-key2": "indexed-value2",
-			"indexed-key3": "indexed-value3",
-		}
-
-		for k, v := range testData {
-			err := batch.Put([]byte(k), []byte(v))
-			require.NoError(t, err, "Put operation on indexed batch failed for key %s", k)
-		}
-
-		// Check batch size is non-zero
-		require.Greater(t, batch.Size(), 0, "Indexed batch size should be greater than 0")
-
-		// Test read operations on the batch (should see uncommitted data)
-		for k, v := range testData {
-			// Test Has
-			has, err := batch.Has([]byte(k))
-			require.NoError(t, err, "Has operation on indexed batch failed for key %s", k)
-			require.True(t, has, "key %s should exist in indexed batch", k)
-
-			// Test Get
-			var val []byte
-			err = batch.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
-			require.NoError(t, err, "Get operation on indexed batch failed for key %s", k)
-			require.Equal(t, []byte(v), val, "value mismatch for key %s in indexed batch", k)
-		}
-
-		// Test iterator on the batch
-		iter, err := batch.NewIterator([]byte("indexed-"), false)
-		require.NoError(t, err, "NewIterator on indexed batch failed")
-		defer iter.Close()
-
-		// Count keys with prefix
-		count := 0
-		for iter.First(); iter.Valid(); iter.Next() {
-			count++
-			key := string(iter.Key())
-			require.Contains(t, testData, key, "Iterator returned unexpected key %s", key)
-			val, err := iter.Value()
-			require.NoError(t, err, "Iterator value retrieval failed for key %s", key)
-			require.Equal(t, []byte(testData[key]), val, "Iterator value mismatch for key %s", key)
-		}
-		require.Equal(t, len(testData), count, "Iterator should return all keys with prefix")
-
-		// Write batch to database
-		err = batch.Write()
-		require.NoError(t, err, "Indexed batch write failed")
-
-		// Verify data is in database after write
-		for k, v := range testData {
-			var val []byte
-			err = database.Get([]byte(k), func(data []byte) error {
-				val = data
-				return nil
-			})
-			require.NoError(t, err, "Get operation failed for key %s", k)
-			require.Equal(t, []byte(v), val, "Value mismatch after indexed batch write for key %s", k)
-		}
-
-		// Test batch with pre-allocated size
-		batchWithSize := database.NewIndexedBatchWithSize(1024)
-		require.NotNil(t, batchWithSize, "NewIndexedBatchWithSize should return a non-nil batch")
-
-		// Add and read data in the same batch
-		key := "indexed-size-key"
-		value := "indexed-size-value"
-		err = batchWithSize.Put([]byte(key), []byte(value))
-		require.NoError(t, err, "Put operation on indexed batch with size failed for key %s", key)
-
-		// Verify data can be read from the batch before writing
-		var val []byte
-		err = batchWithSize.Get([]byte(key), func(data []byte) error {
-			val = data
-			return nil
-		})
-		require.NoError(t, err, "Get operation on indexed batch with size failed for key %s", key)
-		require.Equal(t, []byte(value), val, "Value mismatch in indexed batch with size for key %s", key)
-
-		// Write batch with size to database
-		err = batchWithSize.Write()
-		require.NoError(t, err, "Indexed batch with size write failed")
-
-		// Test batch delete and read in the same batch
-		deleteBatch := database.NewIndexedBatch()
-
-		// First add a key
-		key = "to-delete"
-		value = "delete-me"
-		err = deleteBatch.Put([]byte(key), []byte(value))
-		require.NoError(t, err, "Put operation on indexed batch failed for key %s", key)
-
-		// Then delete it in the same batch
-		err = deleteBatch.Delete([]byte(key))
-		require.NoError(t, err, "Delete operation on indexed batch failed for key %s", key)
-
-		// Verify the key is not visible in the batch
-		has, err := deleteBatch.Has([]byte(key))
-		require.NoError(t, err, "Has operation on indexed batch failed for key %s", key)
-		require.False(t, has, "key %s should not exist in indexed batch after delete", key)
-
-		// Write the batch
-		err = deleteBatch.Write()
-		require.NoError(t, err, "Indexed batch write failed")
-	})
-
 	t.Run("BatchSize", func(t *testing.T) {
 		database := newDB()
 		defer database.Close()
@@ -639,7 +521,7 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		require.Error(t, err, "batch Write should fail after Close")
 
 		// Same with indexed batch
-		batch = database.NewIndexedBatch()
+		batch = database.NewBatch()
 		_ = batch.Put([]byte("batchkey"), []byte("batchval"))
 		err = batch.Write()
 		require.Error(t, err, "batch Write should fail after Close")
