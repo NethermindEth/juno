@@ -61,7 +61,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 		Version:         new(core.TransactionVersion).SetUint64(1),
 	}
 
-	preConfirmed := &core.PreConfirmed{
+	preConfirmed := core.PreConfirmed{
 		Block: &core.Block{
 			Transactions: []core.Transaction{preConfirmedTx},
 		},
