@@ -485,7 +485,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 			Number:           number,
 			SequencerAddress: response.SequencerAddress,
 			// Not required in spec but useful
-			TransactionCount: uint64(len(txns)),
+			TransactionCount: uint32(len(txns)),
 			// Not required in spec but useful
 			EventCount:      eventCount,
 			Timestamp:       response.Timestamp,
