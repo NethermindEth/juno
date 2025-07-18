@@ -8,6 +8,7 @@ import (
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -17,8 +18,14 @@ var (
 )
 
 func validateResourceBounds(fl validator.FieldLevel) bool {
-	req, ok := fl.Parent().Interface().(rpcv8.Transaction)
-	return ok && req.ResourceBounds != nil
+	switch req := fl.Parent().Interface().(type) {
+	case rpcv8.Transaction:
+		return req.ResourceBounds != nil
+	case rpcv9.Transaction:
+		return req.ResourceBounds != nil
+	default:
+		return false
+	}
 }
 
 // Custom validation function for version
@@ -69,6 +76,12 @@ func Validator() *validator.Validate {
 			}
 			panic("not an rpc v8 TransactionType")
 		}, rpcv8.TransactionType(0))
+		v.RegisterCustomTypeFunc(func(field reflect.Value) any {
+			if t, ok := field.Interface().(rpcv9.TransactionType); ok {
+				return t.String()
+			}
+			panic("not an rpc v9 TransactionType")
+		}, rpcv9.TransactionType(0))
 	})
 	return v
 }
