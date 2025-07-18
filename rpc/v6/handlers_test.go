@@ -8,23 +8,15 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
 
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpc.New(nil, nil, nil, version, &utils.Mainnet, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, "", &utils.Mainnet, nil)
+	handler := rpc.New(nil, nil, nil, &utils.Mainnet, nil)
 	legacyVersion, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.6.0", legacyVersion)
@@ -39,7 +31,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, mockSyncReader, throttledVM, "", &utils.Mainnet, nil)
+	handler := rpc.New(mockReader, mockSyncReader, throttledVM, &utils.Mainnet, nil)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -95,6 +87,8 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 		_, rpcErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
