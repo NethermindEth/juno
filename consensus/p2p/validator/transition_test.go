@@ -94,7 +94,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x707b1c40b82913d91d7cde74107be9cfa48b9080c49e95dd0ba7b00cd1125c")
+	block1Hash, err := new(felt.Felt).SetString("0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
@@ -210,7 +210,7 @@ func TestProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 5: ProposalFin
-	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x302789a08a44329b02a6dc13fe837f9719fdce7607d3bd5c872d5ca9b5cdbbd"))
+	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x7faca5a6f203e17402f263743489079fc45463000a646bc083640595749b4cb"))
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
 	require.NoError(t, err)
 }
