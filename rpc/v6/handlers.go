@@ -37,9 +37,9 @@ type Handler struct {
 	newHeads      *feed.Feed[*core.Block]
 	memPool       *mempool.Pool
 
-	log                        utils.Logger
-	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
-	submittedTransactionsCache *rpccore.SubmittedTransactionsCache
+	log              utils.Logger
+	blockTraceCache  *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	transactionCache *rpccore.TxnCache
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -103,8 +103,8 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransactionsCache) *Handler {
-	h.submittedTransactionsCache = cache
+func (h *Handler) WithTransactionsCache(cache *rpccore.TxnCache) *Handler {
+	h.transactionCache = cache
 	return h
 }
 
