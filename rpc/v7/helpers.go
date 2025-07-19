@@ -6,9 +6,9 @@ package rpcv7
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -140,12 +140,6 @@ func (h *Handler) getRevealedBlockHash(blockNumber uint64) (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (h *Handler) callAndLogErr(f func() error, msg string) {
-	if err := f(); err != nil {
-		h.log.Errorw(msg, "err", err)
-	}
-}
-
 func feeUnit(txn core.Transaction) FeeUnit {
 	feeUnit := WEI
 	version := txn.TxVersion()
@@ -156,26 +150,25 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
-	var reader core.StateReader
-	var closer blockchain.StateCloser
+func (h *Handler) stateByBlockID(id *BlockID) (state.StateReader, *jsonrpc.Error) {
+	var reader state.StateReader
 	var err error
 	switch {
 	case id.Latest:
-		reader, closer, err = h.bcReader.HeadState()
+		reader, err = h.bcReader.HeadState()
 	case id.Hash != nil:
-		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
+		reader, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.PendingState()
+		reader, err = h.PendingState()
 	default:
-		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
+		reader, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}
 
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, nil, rpccore.ErrBlockNotFound
+			return nil, rpccore.ErrBlockNotFound
 		}
-		return nil, nil, rpccore.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
-	return reader, closer, nil
+	return reader, nil
 }

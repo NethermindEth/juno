@@ -10,7 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -668,13 +668,13 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 			return crypto.Pedersen(transaction.Hash(), signatureHash)
 		}
 	}
-	return calculateCommitment(transactions, trie.RunOnTempTriePedersen, hashFunc)
+	return calculateCommitment(transactions, trie2.RunOnTempTriePedersen, hashFunc)
 }
 
 // transactionCommitmentPoseidon0134 handles empty signatures compared to transactionCommitmentPoseidon0132:
 // empty signatures are interpreted as [] instead of [0]
 func transactionCommitmentPoseidon0134(transactions []Transaction) (*felt.Felt, error) {
-	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
+	return calculateCommitment(transactions, trie2.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
 		var digest crypto.PoseidonDigest
 		digest.Update(transaction.Hash())
 
@@ -688,7 +688,7 @@ func transactionCommitmentPoseidon0134(transactions []Transaction) (*felt.Felt, 
 
 // transactionCommitmentPoseidon0132 is used to calculate tx commitment for 0.13.2 <= block.version < 0.13.4
 func transactionCommitmentPoseidon0132(transactions []Transaction) (*felt.Felt, error) {
-	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
+	return calculateCommitment(transactions, trie2.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
 		var digest crypto.PoseidonDigest
 		digest.Update(transaction.Hash())
 
@@ -722,7 +722,7 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error)
 			})
 		}
 	}
-	return calculateCommitment(items, trie.RunOnTempTriePoseidon, func(item *eventWithTxHash) *felt.Felt {
+	return calculateCommitment(items, trie2.RunOnTempTriePoseidon, func(item *eventWithTxHash) *felt.Felt {
 		return crypto.PoseidonArray(
 			slices.Concat(
 				[]*felt.Felt{
@@ -750,7 +750,7 @@ func eventCommitmentPedersen(receipts []*TransactionReceipt) (*felt.Felt, error)
 	for _, receipt := range receipts {
 		events = append(events, receipt.Events...)
 	}
-	return calculateCommitment(events, trie.RunOnTempTriePedersen, func(event *Event) *felt.Felt {
+	return calculateCommitment(events, trie2.RunOnTempTriePedersen, func(event *Event) *felt.Felt {
 		return crypto.PedersenArray(
 			event.From,
 			crypto.PedersenArray(event.Keys...),

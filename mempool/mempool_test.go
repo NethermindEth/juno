@@ -46,7 +46,7 @@ func TestMempool(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
@@ -61,8 +61,8 @@ func TestMempool(t *testing.T) {
 	// push multiple to empty (1,2,3)
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
-		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+		chain.EXPECT().HeadState().Return(state, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -84,8 +84,8 @@ func TestMempool(t *testing.T) {
 	// push multiple to non empty (push 4,5. now have 3,4,5)
 	for i := uint64(4); i < 6; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
-		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+		chain.EXPECT().HeadState().Return(state, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -121,7 +121,7 @@ func TestRestoreMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 	chain := mocks.NewMockReader(mockCtrl)
 	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
@@ -138,8 +138,8 @@ func TestRestoreMempool(t *testing.T) {
 	expectedTxs := [3]mempool.BroadcastedTransaction{}
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
-		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
+		chain.EXPECT().HeadState().Return(state, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		tx := mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -233,7 +233,7 @@ func TestPopBatch(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
@@ -261,8 +261,8 @@ func TestPopBatch(t *testing.T) {
 	addTransactions := func(start, end uint64) {
 		for i := start; i <= end; i++ {
 			senderAddress := new(felt.Felt).SetUint64(i)
-			chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-			state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+			chain.EXPECT().HeadState().Return(state, nil)
+			state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 			require.NoError(t, pool.Push(&mempool.BroadcastedTransaction{
 				Transaction: &core.InvokeTransaction{
 					TransactionHash: new(felt.Felt).SetUint64(i),
