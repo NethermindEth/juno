@@ -84,7 +84,7 @@ func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 func (t *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action types.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := t.findProposal(t.state.round)
 
-	var roundCachedProposal *CachedProposal[V, H, A]
+	roundCachedProposal := cachedProposal
 	if recentlyReceivedRound != nil {
 		roundCachedProposal = t.findProposal(*recentlyReceivedRound)
 	}
