@@ -79,44 +79,24 @@ func (h *Handler) Class(id *BlockID, classHash *felt.Felt) (*rpcv6.Class, *jsonr
 	var rpcClass *rpcv6.Class
 	switch c := declared.Class.(type) {
 	case *core.Cairo0Class:
-		adaptEntryPoint := func(ep core.EntryPoint) rpcv6.EntryPoint {
-			return rpcv6.EntryPoint{
-				Offset:   ep.Offset,
-				Selector: ep.Selector,
-			}
-		}
-
 		rpcClass = &rpcv6.Class{
 			Abi:     c.Abi,
 			Program: c.Program,
 			EntryPoints: rpcv6.EntryPoints{
-				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
-				// if it's nil. In the API spec these fields are required.
-				Constructor: utils.Map(c.Constructors, adaptEntryPoint),
-				External:    utils.Map(c.Externals, adaptEntryPoint),
-				L1Handler:   utils.Map(c.L1Handlers, adaptEntryPoint),
+				Constructor: adaptCairo0EntryPoints(c.Constructors),
+				External:    adaptCairo0EntryPoints(c.Externals),
+				L1Handler:   adaptCairo0EntryPoints(c.L1Handlers),
 			},
 		}
 	case *core.Cairo1Class:
-		adaptEntryPoint := func(ep core.SierraEntryPoint) rpcv6.EntryPoint {
-			return rpcv6.EntryPoint{
-				Index:    &ep.Index,
-				Selector: ep.Selector,
-			}
-		}
-
 		rpcClass = &rpcv6.Class{
 			Abi:                  c.Abi,
 			SierraProgram:        c.Program,
 			ContractClassVersion: c.SemanticVersion,
 			EntryPoints: rpcv6.EntryPoints{
-				// Note that utils.Map returns nil if provided slice is nil
-				// but this is not the case here, because we rely on sn2core adapters that will set it to empty slice
-				// if it's nil. In the API spec these fields are required.
-				Constructor: utils.Map(c.EntryPoints.Constructor, adaptEntryPoint),
-				External:    utils.Map(c.EntryPoints.External, adaptEntryPoint),
-				L1Handler:   utils.Map(c.EntryPoints.L1Handler, adaptEntryPoint),
+				Constructor: adaptCairo1EntryPoints(c.EntryPoints.Constructor),
+				External:    adaptCairo1EntryPoints(c.EntryPoints.External),
+				L1Handler:   adaptCairo1EntryPoints(c.EntryPoints.L1Handler),
 			},
 		}
 	default:
@@ -155,4 +135,26 @@ func (h *Handler) ClassHashAt(id *BlockID, address *felt.Felt) (*felt.Felt, *jso
 	}
 
 	return classHash, nil
+}
+
+func adaptCairo0EntryPoints(entryPoints []core.EntryPoint) []rpcv6.EntryPoint {
+	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
+	for i, entryPoint := range entryPoints {
+		adaptedEntryPoints[i] = rpcv6.EntryPoint{
+			Offset:   entryPoint.Offset,
+			Selector: entryPoint.Selector,
+		}
+	}
+	return adaptedEntryPoints
+}
+
+func adaptCairo1EntryPoints(entryPoints []core.SierraEntryPoint) []rpcv6.EntryPoint {
+	adaptedEntryPoints := make([]rpcv6.EntryPoint, len(entryPoints))
+	for i, entryPoint := range entryPoints {
+		adaptedEntryPoints[i] = rpcv6.EntryPoint{
+			Index:    &entryPoint.Index,
+			Selector: entryPoint.Selector,
+		}
+	}
+	return adaptedEntryPoints
 }
