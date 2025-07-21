@@ -210,18 +210,14 @@ func (h *Handler) SubscribeEvents(
 				ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil,
 			)
 		},
-		onReorg: func(
-			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
-		) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			if err := sendReorg(w, reorg, id); err != nil {
 				return err
 			}
 			nextBlock = reorg.StartBlockNum
 			return nil
 		},
-		onNewHead: func(
-			ctx context.Context, id string, _ *subscription, head *core.Block,
-		) error {
+		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			err := h.processEvents(
 				ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent,
 			)
@@ -258,22 +254,16 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 	var err error
 
 	subscriber := subscriber{
-		onStart: func(
-			ctx context.Context, id string, sub *subscription, _ any,
-		) error {
+		onStart: func(ctx context.Context, id string, sub *subscription, _ any) error {
 			if lastStatus, err = h.getInitialTxStatus(ctx, sub, id, txHash); err != nil {
 				return err
 			}
 			return nil
 		},
-		onReorg: func(
-			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
-		) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(
-			ctx context.Context, id string, sub *subscription, head *core.Block,
-		) error {
+		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -289,9 +279,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onL1Head: func(
-			ctx context.Context, id string, sub *subscription, l1Head *core.L1Head,
-		) error {
+		onL1Head: func(ctx context.Context, id string, sub *subscription, l1Head *core.L1Head) error {
 			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 				return err
 			}
@@ -466,14 +454,10 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return h.sendHistoricalHeaders(ctx, startHeader, latestHeader, w, id)
 		},
-		onReorg: func(
-			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
-		) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
 		},
-		onNewHead: func(
-			ctx context.Context, id string, _ *subscription, head *core.Block,
-		) error {
+		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			return sendHeader(w, head.Header, id)
 		},
 	}
