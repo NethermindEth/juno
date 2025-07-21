@@ -1345,19 +1345,19 @@ func TestAddTransaction(t *testing.T) {
 				name: "InvalidTransactionNonce error",
 				gatewayError: &gateway.Error{
 					Code:    gateway.InvalidTransactionNonce,
-					Message: "Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1.",
+					Message: "Expected: 2176, got: 845.",
 				},
 				expectedError: rpccore.ErrInvalidTransactionNonce.
-					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
+					CloneWithData("Expected: 2176, got: 845."),
 			},
 			{
 				name: "InvalidTransactionNonce error as ErrValidationFailure",
 				gatewayError: &gateway.Error{
 					Code:    gateway.ValidateFailure,
-					Message: "Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1.",
+					Message: "StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }",
 				},
 				expectedError: rpccore.ErrInvalidTransactionNonce.
-					CloneWithData("Invalid transaction nonce of contract at address 0x0000FFFFFFFFFF. Account nonce: 0x3; got: 0x1."),
+					CloneWithData("StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }"),
 			},
 		}
 
