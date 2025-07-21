@@ -806,7 +806,7 @@ func (h *Handler) TransactionStatusV0_7(
 	}, nil
 }
 
-func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
+func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {
 		return jsonrpc.Err(jsonrpc.InternalError, err.Error())
@@ -824,21 +824,29 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InsufficientAccountBalance:
 		return rpccore.ErrInsufficientAccountBalanceV0_8
 	case gateway.ValidateFailure:
-		return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+		if strings.Contains(gatewayErr.Message, rpccore.ErrInvalidTransactionNonce.Message) {
+			return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
+		} else {
+			return rpccore.ErrValidationFailure.CloneWithData(gatewayErr.Message)
+		}
 	case gateway.ContractBytecodeSizeTooLarge, gateway.ContractClassObjectSizeTooLarge:
 		return rpccore.ErrContractClassSizeTooLarge
 	case gateway.DuplicatedTransaction:
 		return rpccore.ErrDuplicateTx
 	case gateway.InvalidTransactionNonce:
-		return rpccore.ErrInvalidTransactionNonce
+		return rpccore.ErrInvalidTransactionNonce.CloneWithData(gatewayErr.Message)
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
 		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
 		return rpccore.ErrUnsupportedTxVersion
 	case gateway.InvalidContractClassVersion:
 		return rpccore.ErrUnsupportedContractClassVersion
+	case gateway.ReplacementTransactionUnderPriced:
+		return rpccore.ErrReplacementTransactionUnderPriced
+	case gateway.FeeBelowMinimum:
+		return rpccore.ErrFeeBelowMinimum
 	default:
 		return rpccore.ErrUnexpectedError.CloneWithData(gatewayErr.Message)
 	}

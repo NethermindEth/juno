@@ -1331,6 +1331,34 @@ func TestAddTransaction(t *testing.T) {
 				gatewayError:  &gateway.Error{Code: gateway.InsufficientAccountBalance},
 				expectedError: rpccore.ErrInsufficientAccountBalanceV0_8,
 			},
+			{
+				name:          "FeeBelowMinimum error",
+				gatewayError:  &gateway.Error{Code: gateway.FeeBelowMinimum},
+				expectedError: rpccore.ErrFeeBelowMinimum,
+			},
+			{
+				name:          "ReplacementTransactionUnderPriced error",
+				gatewayError:  &gateway.Error{Code: gateway.ReplacementTransactionUnderPriced},
+				expectedError: rpccore.ErrReplacementTransactionUnderPriced,
+			},
+			{
+				name: "InvalidTransactionNonce error",
+				gatewayError: &gateway.Error{
+					Code:    gateway.InvalidTransactionNonce,
+					Message: "Expected: 2176, got: 845.",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("Expected: 2176, got: 845."),
+			},
+			{
+				name: "InvalidTransactionNonce error as ErrValidationFailure",
+				gatewayError: &gateway.Error{
+					Code:    gateway.ValidateFailure,
+					Message: "StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }"),
+			},
 		}
 
 		for _, tc := range errorTests {
