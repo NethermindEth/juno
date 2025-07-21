@@ -41,7 +41,7 @@ func (e errorTxnHashNotFound) Error() string {
 	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
-// As per the spec, this is the same as BlockID, but without `pending`
+// As per the spec, this is the same as BlockID, but without `pre_confirmed`
 type SubscriptionBlockID BlockID
 
 func (b *SubscriptionBlockID) Type() blockIDType {
@@ -162,7 +162,7 @@ func (h *Handler) subscribe(
 				}
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warnw("Error on pending", "id", id, "err", err)
+					h.log.Warnw("Error on pending data", "id", id, "err", err)
 					return
 				}
 			}

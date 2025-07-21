@@ -98,8 +98,8 @@ func TestNonce(t *testing.T) {
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
-		pendingBlockID := blockIDPreConfirmed(t)
-		nonce, rpcErr := handler.Nonce(&pendingBlockID, felt.Zero)
+		preConfirmedBlockID := blockIDPreConfirmed(t)
+		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})

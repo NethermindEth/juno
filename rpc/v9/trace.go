@@ -121,10 +121,10 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 func (h *Handler) TraceBlockTransactions(
 	ctx context.Context, id *BlockID,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	if id.IsPending() {
+	if id.IsPreConfirmed() {
 		httpHeader := http.Header{}
 		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpccore.ErrCallOnPending
+		return nil, httpHeader, rpccore.ErrCallOnPreConfirmed
 	}
 
 	block, rpcErr := h.blockByID(id)

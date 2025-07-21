@@ -18,7 +18,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -274,9 +273,9 @@ func TestTraceTransaction(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			pending := sync.NewPending(&core.Block{}, nil, nil)
+			preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
 			mockSyncReader.EXPECT().PendingData().Return(
-				&pending,
+				&preConfirmed,
 				nil,
 			)
 
@@ -404,9 +403,9 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pending := sync.NewPending(block, nil, nil)
+		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
+			&preConfirmed,
 			nil,
 		)
 
@@ -590,9 +589,10 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
-		"latest": blockIDLatest(t),
-		"hash":   blockIDHash(t, new(felt.Felt).SetUint64(1)),
-		"number": blockIDNumber(t, 2),
+		"latest":        blockIDLatest(t),
+		"hash":          blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"number":        blockIDNumber(t, 2),
+		"pre_confirmed": blockIDPreConfirmed(t),
 	}
 
 	for description, blockID := range errTests {
@@ -602,7 +602,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			handler := rpc.New(chain, nil, nil, log)
 
-			if description == "pending" {
+			if description == "pre_confirmed" {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
