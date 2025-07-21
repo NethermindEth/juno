@@ -1141,6 +1141,7 @@ func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Bloc
 	return &pending
 }
 
+//nolint:unused // retained for future use in 0.9.0-rc3, currently unused
 func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) *core.PreConfirmed {
 	t.Helper()
 

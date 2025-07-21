@@ -553,6 +553,8 @@ func (h *Handler) onPendingBlock(
 
 // If getDetails is true, response will contain the transaction details.
 // If getDetails is false, response will only contain the transaction hashes.
+//
+//nolint:unused // retained for future use in 0.9.0-rc3, currently unused
 func (h *Handler) onPreConfirmedBlock(
 	id string,
 	w jsonrpc.Conn,

@@ -99,7 +99,7 @@ func TestStorageAt(t *testing.T) {
 
 	expectedStorage := new(felt.Felt).SetUint64(1)
 
-	t.Run("blockID - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) { //nolint:dupl
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
@@ -132,7 +132,7 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, expectedStorage, storageValue)
 	})
 
-	t.Run("blockID - pre_confirmed", func(t *testing.T) {
+	t.Run("blockID - pre_confirmed", func(t *testing.T) { //nolint:dupl //false alarm block tag differs
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
