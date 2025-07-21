@@ -27,7 +27,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
 		latest := blockIDLatest(t)
-		nonce, rpcErr := handler.Nonce(&latest, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -36,7 +36,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
 		hash := blockIDHash(t, &felt.Zero)
-		nonce, rpcErr := handler.Nonce(&hash, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&hash, &felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -45,7 +45,7 @@ func TestNonce(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
 		number := blockIDNumber(t, 0)
-		nonce, rpcErr := handler.Nonce(&number, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&number, &felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -57,7 +57,7 @@ func TestNonce(t *testing.T) {
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(nil, errors.New("non-existent contract"))
 
 		latest := blockIDLatest(t)
-		nonce, rpcErr := handler.Nonce(&latest, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
 		require.Nil(t, nonce)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -69,7 +69,7 @@ func TestNonce(t *testing.T) {
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		latest := blockIDLatest(t)
-		nonce, rpcErr := handler.Nonce(&latest, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -79,7 +79,7 @@ func TestNonce(t *testing.T) {
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		hash := blockIDHash(t, &felt.Zero)
-		nonce, rpcErr := handler.Nonce(&hash, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&hash, &felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -89,7 +89,7 @@ func TestNonce(t *testing.T) {
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		number := blockIDNumber(t, 0)
-		nonce, rpcErr := handler.Nonce(&number, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&number, &felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
@@ -99,7 +99,7 @@ func TestNonce(t *testing.T) {
 		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
 
 		preConfirmedBlockID := blockIDPreConfirmed(t)
-		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, felt.Zero)
+		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, &felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})
