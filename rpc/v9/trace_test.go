@@ -1,4 +1,4 @@
-package rpcv8_test
+package rpcv9_test
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
+	rpc "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -172,8 +172,17 @@ func TestTransactionTraceValidation(t *testing.T) {
 	}
 
 	validL1HandlerTransactionTrace := rpc.TransactionTrace{
-		Type:               rpc.TxnL1Handler,
-		FunctionInvocation: &rpc.FunctionInvocation{},
+		Type: rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.ExecuteInvocation{
+			FunctionInvocation: &rpc.FunctionInvocation{},
+		},
+	}
+
+	validRevertedL1HandlerTransactionTrace := rpc.TransactionTrace{
+		Type: rpc.TxnL1Handler,
+		FunctionInvocation: &rpc.ExecuteInvocation{
+			RevertReason: "Reverted",
+		},
 	}
 
 	invalidL1HandlerTransactionTrace := rpc.TransactionTrace{
@@ -215,6 +224,12 @@ func TestTransactionTraceValidation(t *testing.T) {
 			trace:    validL1HandlerTransactionTrace,
 			wantErr:  false,
 			expected: `{"type":"L1_HANDLER","function_invocation":{"contract_address":"0x0","entry_point_selector":null,"calldata":null,"caller_address":"0x0","class_hash":null,"entry_point_type":"","call_type":"","result":null,"calls":null,"events":null,"messages":null,"execution_resources":null,"is_reverted":false},"execution_resources":null}`,
+		},
+		{
+			name:     "valid L1_HANDLER tx reverted",
+			trace:    validRevertedL1HandlerTransactionTrace,
+			wantErr:  false,
+			expected: `{"type":"L1_HANDLER","function_invocation":{"revert_reason":"Reverted"},"execution_resources":null}`,
 		},
 		{
 			name:     "invalid L1_HANDLER tx",
@@ -593,16 +608,16 @@ func TestTraceBlockTransactions(t *testing.T) {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
-				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-
-				handler = rpc.New(chain, mockSyncReader, nil, log)
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
+			} else {
+				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
+				assert.Nil(t, update)
+				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
+				assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 			}
-
-			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
-			assert.Nil(t, update)
-			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
@@ -1045,60 +1060,36 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 	})
 
 	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
-		t.Run("Execution succeed", func(t *testing.T) {
-			vmTrace := vm.TransactionTrace{
-				Type:                  vm.TxnL1Handler,
-				ValidateInvocation:    &vm.FunctionInvocation{},
-				FeeTransferInvocation: &vm.FunctionInvocation{},
-				ExecuteInvocation: &vm.ExecuteInvocation{
-					RevertReason:       "",
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-				ConstructorInvocation: &vm.FunctionInvocation{},
-				FunctionInvocation: &vm.ExecuteInvocation{
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-			}
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnL1Handler,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation: &vm.ExecuteInvocation{
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+		}
 
-			expectedAdaptedTrace := rpc.TransactionTrace{
-				Type: rpc.TxnL1Handler,
+		expectedAdaptedTrace := rpc.TransactionTrace{
+			Type: rpc.TxnL1Handler,
+			FunctionInvocation: &rpc.ExecuteInvocation{
+				RevertReason: "",
 				FunctionInvocation: &rpc.FunctionInvocation{
-					Calls:    []rpc.FunctionInvocation{},
-					Events:   []rpcv6.OrderedEvent{},
-					Messages: []rpcv6.OrderedL2toL1Message{},
+					Calls:      []rpc.FunctionInvocation{},
+					Events:     []rpcv6.OrderedEvent{},
+					Messages:   []rpcv6.OrderedL2toL1Message{},
+					IsReverted: false,
 				},
-			}
+			},
+		}
 
-			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 
-			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
-		})
-
-		t.Run("Execution reverted", func(t *testing.T) {
-			vmTrace := vm.TransactionTrace{
-				Type:                  vm.TxnL1Handler,
-				ValidateInvocation:    &vm.FunctionInvocation{},
-				FeeTransferInvocation: &vm.FunctionInvocation{},
-				ExecuteInvocation: &vm.ExecuteInvocation{
-					RevertReason:       "",
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-				ConstructorInvocation: &vm.FunctionInvocation{},
-				FunctionInvocation: &vm.ExecuteInvocation{
-					RevertReason: "Reverted",
-				},
-			}
-
-			defaultL1HandlerInvocation := rpc.DefaultL1HandlerFunctionInvocation()
-			expectedAdaptedTrace := rpc.TransactionTrace{
-				Type:               rpc.TxnL1Handler,
-				FunctionInvocation: &defaultL1HandlerInvocation,
-			}
-
-			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
-
-			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
-		})
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
 }
 
@@ -1161,17 +1152,20 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 				TransactionHash: new(felt.Felt).SetUint64(1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
-					FunctionInvocation: &rpc.FunctionInvocation{
-						Calls: []rpc.FunctionInvocation{},
-						Events: []rpcv6.OrderedEvent{{
-							Order: 1,
-							Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
-							Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
-						}},
-						Messages: []rpcv6.OrderedL2toL1Message{},
-						ExecutionResources: &rpc.InnerExecutionResources{
-							L1Gas: 10,
-							L2Gas: 11,
+					FunctionInvocation: &rpc.ExecuteInvocation{
+						RevertReason: "",
+						FunctionInvocation: &rpc.FunctionInvocation{
+							Calls: []rpc.FunctionInvocation{},
+							Events: []rpcv6.OrderedEvent{{
+								Order: 1,
+								Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
+								Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+							}},
+							Messages: []rpcv6.OrderedL2toL1Message{},
+							ExecutionResources: &rpc.InnerExecutionResources{
+								L1Gas: 10,
+								L2Gas: 11,
+							},
 						},
 					},
 				},

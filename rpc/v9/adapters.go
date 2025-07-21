@@ -1,4 +1,4 @@
-package rpcv8
+package rpcv9
 
 import (
 	"errors"
@@ -27,7 +27,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 
 	var constructorInvocation *FunctionInvocation
 	var executeInvocation *ExecuteInvocation
-	var functionInvocation *FunctionInvocation
+	var functionInvocation *ExecuteInvocation
 
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
@@ -40,12 +40,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			if trace.FunctionInvocation.FunctionInvocation != nil {
-				functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
-			} else {
-				defaultResult := DefaultL1HandlerFunctionInvocation()
-				functionInvocation = &defaultResult
-			}
+			functionInvocation = utils.HeapPtr(adaptVMExecuteInvocation(trace.FunctionInvocation))
 		}
 	}
 
@@ -166,7 +161,7 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		return nil, errors.New("mismatched number of txs and traces")
 	}
 
-	// Adapt every feeder block trace to rpc v8 trace
+	// Adapt every feeder block trace to rpc v9 trace
 	adaptedTraces := make([]TracedBlockTransaction, len(blockTrace.Traces))
 	for index := range blockTrace.Traces {
 		feederTrace := &blockTrace.Traces[index]
@@ -199,7 +194,12 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 				trace.ExecuteInvocation.FunctionInvocation = fnInvocation
 			}
 		case TxnL1Handler:
-			trace.FunctionInvocation = fnInvocation
+			trace.FunctionInvocation = new(ExecuteInvocation)
+			if feederTrace.RevertError != "" {
+				trace.FunctionInvocation.RevertReason = feederTrace.RevertError
+			} else {
+				trace.FunctionInvocation.FunctionInvocation = fnInvocation
+			}
 		}
 
 		adaptedTraces[index] = TracedBlockTransaction{
@@ -272,26 +272,5 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Inner
 	return InnerExecutionResources{
 		L1Gas: l1Gas,
 		L2Gas: l2Gas,
-	}
-}
-
-func DefaultL1HandlerFunctionInvocation() FunctionInvocation {
-	return FunctionInvocation{
-		CallType:           "CALL",
-		Calldata:           []felt.Felt{},
-		CallerAddress:      felt.Zero,
-		Calls:              []FunctionInvocation{},
-		ClassHash:          &felt.Zero,
-		ContractAddress:    felt.Zero,
-		EntryPointSelector: &felt.Zero,
-		EntryPointType:     "L1_HANDLER",
-		Events:             []rpcv6.OrderedEvent{},
-		ExecutionResources: &InnerExecutionResources{
-			L1Gas: 0,
-			L2Gas: 0,
-		},
-		IsReverted: true,
-		Messages:   []rpcv6.OrderedL2toL1Message{},
-		Result:     []felt.Felt{},
 	}
 }
