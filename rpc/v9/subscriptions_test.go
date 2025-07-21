@@ -1,4 +1,3 @@
-// todo(rdr): is ok for this tests to use rpcv9 instead of rpcv9 pkg
 package rpcv9
 
 import (
@@ -21,6 +20,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -266,11 +266,13 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		cache := rpccore.NewSubmittedTransactionsCache(15, 5*time.Minute)
+		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
+		mockSyncer.EXPECT().PendingBlock().Return(nil).AnyTimes()
 		id, _ := createTestTxStatusWebsocket(t, handler, txHash)
 
 		_, hasSubscription := handler.subscriptions.Load(string(id))
@@ -296,19 +298,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
-
-		t.Run("rejected", func(t *testing.T) {
-			txHash, err := new(felt.Felt).SetString("0x1111")
-			require.NoError(t, err)
-
-			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-			assertNextTxnStatus(t, conn, id, txHash, TxnStatusRejected, 0, "some error")
-		})
-
 		t.Run("accepted on L1", func(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1010")
 			require.NoError(t, err)
@@ -324,32 +317,91 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		t.Cleanup(mockCtrl.Finish)
 
 		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-		gw := adaptfeeder.New(client)
+		mockGateway := mocks.NewMockGateway(mockCtrl)
+		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
-		handler.WithFeeder(client)
+		cache := rpccore.NewSubmittedTransactionsCache(15, 5*time.Minute)
+		handler := New(mockChain, mockSyncer, nil, log).
+			WithFeeder(client).
+			WithGateway(mockGateway).
+			WithSubmittedTransactionsCache(cache)
 
-		block, err := gw.BlockByNumber(t.Context(), 38748)
+		block, err := adapterFeeder.BlockByNumber(t.Context(), 38748)
 		require.NoError(t, err)
 
-		txHash, err := new(felt.Felt).SetString("0x1001")
+		txToBroadcast := BroadcastedTransaction{Transaction: *AdaptTransaction(block.Transactions[0])}
+
+		var tempGatewayResponse struct {
+			TransactionHash *felt.Felt `json:"transaction_hash"`
+			ContractAddress *felt.Felt `json:"address"`
+			ClassHash       *felt.Felt `json:"class_hash"`
+		}
+
+		tempGatewayResponse.TransactionHash = txToBroadcast.Hash
+		resRaw, err := json.Marshal(tempGatewayResponse)
 		require.NoError(t, err)
+		mockGateway.
+			EXPECT().
+			AddTransaction(gomock.Any(), gomock.Any()).Return(resRaw, nil).
+			AnyTimes()
+
+		addRes, addErr := handler.AddTransaction(
+			t.Context(),
+			txToBroadcast,
+		)
+		require.Nil(t, addErr)
+		txHash := addRes.TransactionHash
+		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+
+		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
+
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, UnknownExecution, "")
+		// Candidate Status
+		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+		preConfirmed := core.NewPreConfirmed(
+			&core.Block{Header: block.Header},
+			nil,
+			nil,
+			[]core.Transaction{block.Transactions[0]})
+
+		mockSyncer.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		).Times(4)
+		handler.pendingData.Send(&core.PreConfirmed{
+			Block: &core.Block{Header: &core.Header{}},
+		})
+
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusCandidate, UnknownExecution, "")
+		require.Equal(t, block.Transactions[0].Hash(), txHash)
+
+		// PreConfirmed Status
+		rpcTx := AdaptTransaction(block.Transactions[0])
+		rpcTx.Hash = txHash
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-		id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-		assertNextTxnStatus(t, conn, id, txHash, TxnStatusReceived, TxnSuccess, "")
+		preConfirmed = core.PreConfirmed{
+			Block: &core.Block{
+				Transactions: []core.Transaction{
+					block.Transactions[0],
+				},
+				Receipts: []*core.TransactionReceipt{block.Receipts[0]},
+			},
+			CandidateTxs: []core.Transaction{block.Transactions[0]},
+		}
 
+		handler.pendingData.Send(&preConfirmed)
+		assertNextTxnStatus(t, conn, id, txHash, TxnStatusPreConfirmed, TxnSuccess, "")
+		// Accepted on l1 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
-		for i := range 3 {
-			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
-			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
-			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
-		}
+
+		handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
+
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
 		l1Head := &core.L1Head{BlockNumber: block.Number}
@@ -856,7 +908,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribePendingTxs(subCtx, nil, addresses)
+		id, rpcErr := handler.SubscribePendingTxs(subCtx, false, addresses)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
 	})
@@ -1069,7 +1121,7 @@ func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash 
 	})
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*rpcv6.EmittedEvent) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -1089,11 +1141,35 @@ func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Bloc
 	return &pending
 }
 
-func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*EmittedEvent) {
+//nolint:unused // retained for future use in 0.9.0-rc3, currently unused
+func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) *core.PreConfirmed {
+	t.Helper()
+
+	actualTxCount := len(b.Transactions)
+	var preConfirmed core.PreConfirmed
+	if candidateCount := actualTxCount - preConfirmedCount; candidateCount > 0 {
+		preConfirmed.CandidateTxs = make([]core.Transaction, 0, candidateCount)
+		for i := actualTxCount - candidateCount; i < actualTxCount; i++ {
+			preConfirmed.CandidateTxs = append(preConfirmed.CandidateTxs, b.Transactions[i])
+		}
+	}
+
+	preConfirmedBlock := *b
+	preConfirmedBlock.Header.Number = 0
+	preConfirmedBlock.Header.Hash = nil
+	preConfirmedBlock.Hash = nil
+	preConfirmedBlock.Transactions = preConfirmedBlock.Transactions[:preConfirmedCount]
+	preConfirmedBlock.Receipts = preConfirmedBlock.Receipts[:preConfirmedCount]
+
+	preConfirmed.Block = &preConfirmedBlock
+	return &preConfirmed
+}
+
+func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*rpcv6.EmittedEvent) {
 	t.Helper()
 
 	var filtered []*blockchain.FilteredEvent
-	var emitted []*EmittedEvent
+	var emitted []*rpcv6.EmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
 			filtered = append(filtered, &blockchain.FilteredEvent{
@@ -1103,8 +1179,8 @@ func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
-			emitted = append(emitted, &EmittedEvent{
-				Event: &Event{
+			emitted = append(emitted, &rpcv6.EmittedEvent{
+				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,

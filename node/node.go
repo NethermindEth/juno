@@ -281,6 +281,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
+	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
+		return nil, err
+	}
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
@@ -298,10 +303,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
+		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
