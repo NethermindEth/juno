@@ -50,6 +50,10 @@ func (p *Pending) GetCandidateTransaction() []core.Transaction {
 	return []core.Transaction{}
 }
 
+func (p *Pending) GetTransactionStateDiffs() []*core.StateDiff {
+	return []*core.StateDiff{}
+}
+
 func (p *Pending) Variant() core.PendingDataVariant {
 	return core.PendingBlockVariant
 }
