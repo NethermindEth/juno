@@ -609,7 +609,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 				assert.Nil(t, update)
 				assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
-				assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
+				assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 			} else {
 				update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 				assert.Nil(t, update)
