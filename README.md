@@ -194,8 +194,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.5](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.5) support.
-- JSON-RPC [v0.8.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.1) (Available under `/v0_8` and default`/` endpoints)
+- Starknet [v0.14.0](https://docs.starknet.io/resources/version-notes/#starknet_v0_14_0_july_28_25) support.
+- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` and default`/` endpoints)
   
   Chain/Network Information:
   - `starknet_chainId`
@@ -256,8 +256,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 - Juno's JSON-RPC:
   - `juno_version`
-- JSON-RPC [v0.7.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.1) (Available under `/v0_7` endpoint)
-- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
+- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` endpoint)
+- JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0) (Available under `/v0_8` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.
