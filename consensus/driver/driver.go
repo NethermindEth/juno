@@ -32,9 +32,8 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
 
-	wg         sync.WaitGroup
-	quit       chan struct{}
-	stopSyncCh chan<- struct{}
+	wg   sync.WaitGroup
+	quit chan struct{}
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -45,7 +44,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	listeners p2p.Listeners[V, H, A],
 	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
-	stopSyncCh chan<- struct{},
 ) *Driver[V, H, A] {
 	return &Driver[V, H, A]{
 		log:          log,
@@ -58,7 +56,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		scheduledTms: make(map[types.Timeout]*time.Timer),
 		timeoutsCh:   make(chan types.Timeout),
 		quit:         make(chan struct{}),
-		stopSyncCh:   stopSyncCh,
 	}
 }
 
@@ -133,11 +130,6 @@ func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
-			}
-		case *types.StopSync:
-			if d.stopSyncCh != nil {
-				close(d.stopSyncCh)
-				d.stopSyncCh = nil // prevent panic
 			}
 		}
 	}

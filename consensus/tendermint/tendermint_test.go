@@ -78,7 +78,7 @@ func setupStateMachine(
 	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
 	db.EXPECT().Flush().AnyTimes()
 	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0), false).(*testStateMachine)
+	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
 }
 
 func TestThresholds(t *testing.T) {

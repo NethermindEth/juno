@@ -232,7 +232,6 @@ func TestDriver(t *testing.T) {
 		mockListeners(proposalCh, prevoteCh, precommitCh),
 		broadcasters,
 		mockTimeoutFn,
-		nil,
 	)
 
 	inputTimeoutProposal := getRandTimeout(random, types.StepPropose)

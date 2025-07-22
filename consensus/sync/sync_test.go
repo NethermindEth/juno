@@ -83,8 +83,6 @@ func TestSync(t *testing.T) {
 	precommitCh := make(chan starknet.Precommit)
 	broadcasters := mockBroadcasters()
 
-	stopSyncCh := make(chan struct{})
-
 	driver := driver.New(
 		utils.NewNopZapLogger(),
 		newTendermintDB(t),
@@ -93,7 +91,6 @@ func TestSync(t *testing.T) {
 		mockListeners(proposalCh, prevoteCh, precommitCh),
 		broadcasters,
 		mockTimeoutFn,
-		stopSyncCh,
 	)
 	driver.Start()
 	blockCh := make(chan sync.BlockBody)
@@ -101,7 +98,7 @@ func TestSync(t *testing.T) {
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore, blockCh)
 
 	block0 := getCommittedBlock()
 	block0Hash := block0.Block.Hash
@@ -112,8 +109,6 @@ func TestSync(t *testing.T) {
 
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
-	_, stopSyncChIsOpen := <-stopSyncCh               // Ensure the Driver closed this channel after catching up to the chain head
-	require.False(t, stopSyncChIsOpen)
 }
 
 func TestShutdownOnError(t *testing.T) {
@@ -125,15 +120,13 @@ func TestShutdownOnError(t *testing.T) {
 	proposalCh := make(chan starknet.Proposal)
 	precommitCh := make(chan starknet.Precommit)
 
-	stopSyncCh := make(chan struct{})
-
 	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	mockP2PSyncService.SetListener()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore, blockCh)
 	cancel()
 	consensusSyncService.Run(ctx)
 

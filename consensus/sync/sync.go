@@ -23,7 +23,6 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	// Todo: for now we can forge the precommit votes of our peers
 	// In practice, this information needs to be exposed by peers.
 	getPrecommits func(types.Height) []types.Precommit[H, A]
-	stopSyncCh    <-chan struct{}
 	toValue       func(*felt.Felt) V
 	proposalStore *proposal.ProposalStore[H]
 }
@@ -33,7 +32,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
 	getPrecommits func(types.Height) []types.Precommit[H, A],
-	stopSyncCh <-chan struct{},
 	toValue func(*felt.Felt) V,
 	proposalStore *proposal.ProposalStore[H],
 	blockCh chan p2pSync.BlockBody,
@@ -43,7 +41,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		driverProposalCh:  driverProposalCh,
 		driverPrecommitCh: driverPrecommitCh,
 		getPrecommits:     getPrecommits,
-		stopSyncCh:        stopSyncCh,
 		toValue:           toValue,
 		proposalStore:     proposalStore,
 	}
@@ -76,9 +73,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 		case <-ctx.Done():
 			cancel()
 			return
-		case <-s.stopSyncCh:
-			cancel()
-			return
 		case committedBlock := <-forwardCh:
 			// Todo: we can optimise this by performing a height
 			// check before pushing everything through consensus.
@@ -87,9 +81,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 			for _, precommit := range precommits {
 				select {
 				case <-ctx.Done():
-					cancel()
-					return
-				case <-s.stopSyncCh:
 					cancel()
 					return
 				case s.driverPrecommitCh <- precommit:
@@ -111,9 +102,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 
 			select {
 			case <-ctx.Done():
-				cancel()
-				return
-			case <-s.stopSyncCh:
 				cancel()
 				return
 			case s.driverProposalCh <- proposal:

@@ -77,7 +77,7 @@ func (t *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 	return actions
 }
 
-func (t *stateMachine[V, H, A]) process( //nolint:gocyclo // Simple logic
+func (t *stateMachine[V, H, A]) process(
 	existingActions []types.Action[V, H, A],
 	recentlyReceivedRound *types.Round,
 ) (newActions []types.Action[V, H, A], shouldContinue bool) {
@@ -86,14 +86,6 @@ func (t *stateMachine[V, H, A]) process( //nolint:gocyclo // Simple logic
 	var roundCachedProposal *CachedProposal[V, H, A]
 	if recentlyReceivedRound != nil {
 		roundCachedProposal = t.findProposal(*recentlyReceivedRound)
-	}
-
-	if t.isSyncing {
-		// Stop syncing when we receive a quorum of prevotes
-		if t.uponPolkaAny() || t.uponPolkaNil() {
-			t.isSyncing = false
-			existingActions = append(existingActions, &types.StopSync{})
-		}
 	}
 
 	switch {
