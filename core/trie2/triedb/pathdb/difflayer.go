@@ -5,7 +5,9 @@ import (
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/db"
 )
 
 var _ layer = (*diffLayer)(nil)
@@ -38,6 +40,9 @@ func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.nodes.node(owner, path, isClass)
 	if ok {
+		if _, deleted := n.(*trienode.DeletedNode); deleted {
+			return nil, db.ErrKeyNotFound
+		}
 		return n.Blob(), nil
 	}
 
