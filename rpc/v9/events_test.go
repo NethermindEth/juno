@@ -285,4 +285,46 @@ func TestEvents(t *testing.T) {
 			args.ContinuationToken = events.ContinuationToken
 		}
 	})
+
+	t.Run("get events from `l1_accepted` block", func(t *testing.T) {
+		l1AcceptedID := blockIDL1Accepted(t)
+		args = rpc.EventArgs{
+			EventFilter: rpc.EventFilter{
+				FromBlock: &l1AcceptedID,
+				ToBlock:   &l1AcceptedID,
+			},
+			ResultPageRequest: rpcv6.ResultPageRequest{
+				ChunkSize: 100,
+			},
+		}
+
+		block, err := gw.BlockByNumber(t.Context(), 4)
+		require.NoError(t, err)
+
+		chain.SetL1Head(&core.L1Head{
+			BlockNumber: block.Number,
+			BlockHash:   block.Hash,
+			StateRoot:   block.GlobalStateRoot,
+		})
+
+		expectedEvents := []*core.Event{}
+
+		for _, receipt := range block.Receipts {
+			expectedEvents = append(expectedEvents, receipt.Events...)
+		}
+
+		require.NotEmpty(t, expectedEvents, "test data must contain some events")
+		events, rpcErr := handler.Events(args)
+		require.Nil(t, rpcErr)
+		require.Equal(t, len(expectedEvents), len(events.Events))
+		require.Empty(t, events.ContinuationToken)
+
+		for i, expectedEvent := range expectedEvents {
+			actualEvent := events.Events[i]
+
+			assert.Equal(t, expectedEvent.From.String(), actualEvent.From.String())
+			assert.Equal(t, expectedEvent.Keys, actualEvent.Keys)
+			assert.Equal(t, expectedEvent.Data, actualEvent.Data)
+		}
+	})
 }

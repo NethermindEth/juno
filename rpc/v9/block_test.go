@@ -53,6 +53,12 @@ func TestBlockIDMarshalling(t *testing.T) {
 				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64(0x123)
 			},
 		},
+		"l1_accepted": {
+			blockIDJSON: `"l1_accepted"`,
+			checkFunc: func(blockID *rpcv9.BlockID) bool {
+				return blockID.IsL1Accepted()
+			},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -164,6 +170,22 @@ func TestBlockTransactionCount(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
 		number := blockIDNumber(t, latestBlockNumber)
 		count, rpcErr := handler.BlockTransactionCount(&number)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedCount, count)
+	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: latestBlock.Number,
+				BlockHash:   latestBlock.Hash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		l1AcceptedID := blockIDL1Accepted(t)
+		count, rpcErr := handler.BlockTransactionCount(&l1AcceptedID)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedCount, count)
 	})
@@ -300,6 +322,22 @@ func TestBlockWithTxHashes(t *testing.T) {
 		checkBlock(t, block)
 	})
 
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: latestBlockNumber,
+			BlockHash:   latestBlockHash,
+			StateRoot:   latestBlock.GlobalStateRoot,
+		}, nil).Times(2)
+
+		l1AcceptedID := blockIDL1Accepted(t)
+		block, rpcErr := handler.BlockWithTxHashes(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, rpcv9.BlockAcceptedL1, block.Status)
+		checkBlock(t, block)
+	})
+
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
@@ -384,7 +422,7 @@ func TestBlockWithTxs(t *testing.T) {
 			return tx, nil
 		}
 		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 5)
+	}).Times(len(latestBlock.Transactions) * 6)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
@@ -444,6 +482,27 @@ func TestBlockWithTxs(t *testing.T) {
 		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&number)
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
+		assert.Equal(t, len(blockWithTxHashes.TxnHashes), len(blockWithTxs.Transactions))
+
+		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
+	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
+		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+			BlockNumber: latestBlockNumber,
+			BlockHash:   latestBlockHash,
+			StateRoot:   latestBlock.GlobalStateRoot,
+		}, nil).Times(4)
+
+		l1AcceptedID := blockIDL1Accepted(t)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&l1AcceptedID)
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
@@ -564,7 +623,7 @@ func TestBlockWithReceipts(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	handler := rpcv9.New(mockReader, mockSyncReader, nil, nil)
 
-	t.Run("transaction not found", func(t *testing.T) {
+	t.Run("block not found", func(t *testing.T) {
 		blockID := blockIDNumber(t, 777)
 
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(nil, db.ErrKeyNotFound)
@@ -752,5 +811,13 @@ func blockIDNumber(t *testing.T, val uint64) rpcv9.BlockID {
 	require.NoError(t,
 		blockID.UnmarshalJSON([]byte(fmt.Sprintf(`{ "block_number" : %d}`, val))),
 	)
+	return blockID
+}
+
+func blockIDL1Accepted(t *testing.T) rpcv9.BlockID {
+	t.Helper()
+
+	blockID := rpcv9.BlockID{}
+	require.NoError(t, blockID.UnmarshalJSON([]byte(`"l1_accepted"`)))
 	return blockID
 }

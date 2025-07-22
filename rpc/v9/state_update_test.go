@@ -26,6 +26,7 @@ func TestStateUpdate(t *testing.T) {
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"hash":          blockIDHash(t, &felt.One),
 		"number":        blockIDNumber(t, 1),
+		"l1_accepted":   blockIDL1Accepted(t),
 	}
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -143,6 +144,22 @@ func TestStateUpdate(t *testing.T) {
 				checkUpdate(t, gwUpdate, &update)
 			})
 		}
+	})
+
+	t.Run("l1_accepted", func(t *testing.T) {
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: uint64(21656),
+				BlockHash:   update21656.BlockHash,
+				StateRoot:   update21656.NewRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().StateUpdateByNumber(uint64(21656)).Return(update21656, nil)
+		l1AcceptedID := blockIDL1Accepted(t)
+		update, rpcErr := handler.StateUpdate(&l1AcceptedID)
+		require.Nil(t, rpcErr)
+		checkUpdate(t, update21656, &update)
 	})
 
 	t.Run("pre_confirmed", func(t *testing.T) {

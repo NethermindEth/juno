@@ -229,6 +229,24 @@ func TestClassHashAt(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		l1HeadBlockNumber := uint64(10)
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: l1HeadBlockNumber,
+				BlockHash:   &felt.Zero,
+				StateRoot:   &felt.Zero,
+			},
+			nil,
+		)
+		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+		l1AcceptedID := blockIDL1Accepted(t)
+		classHash, rpcErr := handler.ClassHashAt(&l1AcceptedID, &felt.Zero)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedClassHash, classHash)
+	})
 }
 
 func assertEqualCairo0Class(t *testing.T, cairo0Class *core.Cairo0Class, class *rpcv6.Class) {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
@@ -100,6 +101,26 @@ func TestNonce(t *testing.T) {
 
 		preConfirmedBlockID := blockIDPreConfirmed(t)
 		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, &felt.Zero)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedNonce, nonce)
+	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		l1AcceptedBlockNumber := uint64(10)
+
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: l1AcceptedBlockNumber,
+				BlockHash:   &felt.One,
+				StateRoot:   &felt.One,
+			},
+			nil,
+		)
+		mockReader.EXPECT().StateAtBlockNumber(l1AcceptedBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+
+		l1AcceptedID := blockIDL1Accepted(t)
+		nonce, rpcErr := handler.Nonce(&l1AcceptedID, &felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedNonce, nonce)
 	})

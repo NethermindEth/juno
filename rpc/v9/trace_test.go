@@ -683,6 +683,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		"hash":          blockIDHash(t, new(felt.Felt).SetUint64(1)),
 		"number":        blockIDNumber(t, 2),
 		"pre_confirmed": blockIDPreConfirmed(t),
+		"l1_accepted":   blockIDL1Accepted(t),
 	}
 
 	for description, blockID := range errTests {
