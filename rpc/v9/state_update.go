@@ -119,6 +119,12 @@ func (h *Handler) stateUpdateByID(id *BlockID) (*core.StateUpdate, error) {
 		return h.bcReader.StateUpdateByHash(id.Hash())
 	case number:
 		return h.bcReader.StateUpdateByNumber(id.Number())
+	case l1Accepted:
+		l1Head, err := h.bcReader.L1Head()
+		if err != nil {
+			return nil, err
+		}
+		return h.bcReader.StateUpdateByNumber(l1Head.BlockNumber)
 	default:
 		panic("unknown block type id")
 	}
