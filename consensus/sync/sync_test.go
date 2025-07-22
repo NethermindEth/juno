@@ -19,27 +19,35 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-type mockSyncService struct {
-	inCh       chan sync.BlockBody // relays blocks to blockCh
-	blockCh    chan sync.BlockBody
-	triggerErr bool
+type mockP2PSyncService struct {
+	syncReceiveCh   chan sync.BlockBody          // blocks received over p2p go here
+	blockListenerCh chan (<-chan sync.BlockBody) // Listener will get this
+	triggerErr      bool
 }
 
-func newMockSyncService(inCh chan sync.BlockBody) mockSyncService {
-	return mockSyncService{
-		inCh: inCh,
+func newMockP2PSyncService(syncReceiveCh chan sync.BlockBody) mockP2PSyncService {
+	return mockP2PSyncService{
+		syncReceiveCh: syncReceiveCh,
 	}
 }
 
-func (m *mockSyncService) shouldTriggerErr(triggerErr bool) {
+func (m *mockP2PSyncService) shouldTriggerErr(triggerErr bool) {
 	m.triggerErr = triggerErr
 }
 
-func (m *mockSyncService) WithBlockCh(blockCh chan sync.BlockBody) {
-	m.blockCh = blockCh
+func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {
+	m.syncReceiveCh <- block
 }
 
-func (m *mockSyncService) Run(ctx context.Context) error {
+func (m *mockP2PSyncService) SetListener() {
+	m.blockListenerCh = make(chan (<-chan sync.BlockBody))
+}
+
+func (m *mockP2PSyncService) Listen() <-chan sync.BlockBody {
+	return <-m.blockListenerCh
+}
+
+func (m *mockP2PSyncService) Run(ctx context.Context) error {
 	if m.triggerErr {
 		return errors.New("mock sync returned an error")
 	}
@@ -47,14 +55,12 @@ func (m *mockSyncService) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case committedBlock := <-m.inCh:
-			m.blockCh <- committedBlock
+		case committedBlock := <-m.syncReceiveCh:
+			blocksCh := make(chan sync.BlockBody, 1)
+			blocksCh <- committedBlock
+			m.blockListenerCh <- blocksCh
 		}
 	}
-}
-
-func (m *mockSyncService) recieveBlock(block sync.BlockBody) {
-	m.inCh <- block
 }
 
 func TestSync(t *testing.T) {
@@ -90,20 +96,18 @@ func TestSync(t *testing.T) {
 		stopSyncCh,
 	)
 	driver.Start()
-
 	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
-	mockSyncService := newMockSyncService(mockInCh)
-	mockSyncService.WithBlockCh(blockCh)
+	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
 
 	block0 := getCommittedBlock()
 	block0Hash := block0.Block.Hash
 	valueHash := toValue(block0Hash).Hash()
 	go func() {
-		mockSyncService.recieveBlock(block0)
+		mockP2PSyncService.recieveBlockOverP2P(block0)
 	}()
 
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
@@ -125,15 +129,15 @@ func TestShutdownOnError(t *testing.T) {
 
 	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
-	mockSyncService := newMockSyncService(mockInCh)
-	mockSyncService.WithBlockCh(blockCh)
+	mockP2PSyncService := newMockP2PSyncService(mockInCh)
+	mockP2PSyncService.SetListener()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, stopSyncCh, toValue, &proposalStore, blockCh)
 	cancel()
 	consensusSyncService.Run(ctx)
 
-	mockSyncService.shouldTriggerErr(true)
+	mockP2PSyncService.shouldTriggerErr(true)
 	consensusSyncService.Run(t.Context())
 }
 

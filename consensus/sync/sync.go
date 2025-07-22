@@ -21,12 +21,11 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
-	// In practice, this information needs to be exposed to peers.
+	// In practice, this information needs to be exposed by peers.
 	getPrecommits func(types.Height) []types.Precommit[H, A]
 	stopSyncCh    <-chan struct{}
 	toValue       func(*felt.Felt) V
 	proposalStore *proposal.ProposalStore[H]
-	blockCh       chan p2pSync.BlockBody
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -47,18 +46,28 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 		stopSyncCh:        stopSyncCh,
 		toValue:           toValue,
 		proposalStore:     proposalStore,
-		blockCh:           blockCh,
 	}
 }
 
 func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 	ctx, cancel := context.WithCancel(originalCtx)
+	s.syncService.SetListener()
 	go func() {
-		s.syncService.WithBlockCh(s.blockCh)
 		err := s.syncService.Run(ctx)
 		if err != nil {
 			cancel()
 			return
+		}
+	}()
+
+	// Todo: this is kind of ugly, but it unblocks the listen() function in the select-case below
+	forwardCh := make(chan p2pSync.BlockBody)
+	go func() {
+		for {
+			inner := s.syncService.Listen()
+			for blk := range inner {
+				forwardCh <- blk
+			}
 		}
 	}()
 
@@ -70,11 +79,21 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 		case <-s.stopSyncCh:
 			cancel()
 			return
-		case committedBlock := <-s.blockCh:
-
+		case committedBlock := <-forwardCh:
+			// Todo: we can optimise this by performing a height
+			// check before pushing everything through consensus.
+			// ie skip if syncBlock.Height != DB.Height+1
 			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
 			for _, precommit := range precommits {
-				s.driverPrecommitCh <- precommit
+				select {
+				case <-ctx.Done():
+					cancel()
+					return
+				case <-s.stopSyncCh:
+					cancel()
+					return
+				case s.driverPrecommitCh <- precommit:
+				}
 			}
 
 			msgV := s.toValue(committedBlock.Block.Hash)
@@ -89,7 +108,16 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 				ValidRound: -1,
 				Value:      &msgV,
 			}
-			s.driverProposalCh <- proposal
+
+			select {
+			case <-ctx.Done():
+				cancel()
+				return
+			case <-s.stopSyncCh:
+				cancel()
+				return
+			case s.driverProposalCh <- proposal:
+			}
 
 			concatCommitments := core.ConcatCounts(
 				committedBlock.Block.TransactionCount,

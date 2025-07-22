@@ -39,7 +39,8 @@ const (
 // Todo: this interface allows us to mock the P2P service until we implement additional tests / test infrastructure
 type WithBlockCh interface {
 	service.Service
-	WithBlockCh(blockCh chan p2pSync.BlockBody)
+	SetListener()
+	Listen() <-chan p2pSync.BlockBody
 }
 
 var _ WithBlockCh = (*Service)(nil)
@@ -59,8 +60,6 @@ type Service struct {
 
 	feederNode bool
 	database   db.KeyValueStore
-
-	blockCh chan<- p2pSync.BlockBody
 }
 
 func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
@@ -170,10 +169,6 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 	return s, nil
 }
 
-func (s *Service) WithBlockCh(blockCh chan p2pSync.BlockBody) {
-	s.blockCh = blockCh
-}
-
 func makeDHT(p2phost host.Host, addrInfos []peer.AddrInfo) (*dht.IpfsDHT, error) {
 	return dht.New(context.Background(), p2phost,
 		dht.ProtocolPrefix(p2pSync.Prefix),
@@ -215,6 +210,14 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	return prvKey, nil
 }
 
+func (s *Service) SetListener() {
+	s.synchroniser.SetListener()
+}
+
+func (s *Service) Listen() <-chan p2pSync.BlockBody {
+	return <-s.synchroniser.ListenerBlockCh
+}
+
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
@@ -250,10 +253,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 	s.setProtocolHandlers()
 
-	if !s.feederNode || s.blockCh != nil {
-		if s.blockCh != nil {
-			s.synchroniser.WithBlockCh(s.blockCh)
-		}
+	if !s.feederNode {
 		s.synchroniser.Run(ctx)
 	}
 

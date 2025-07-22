@@ -40,7 +40,9 @@ type Service struct {
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
-	blockCh    chan<- BlockBody
+
+	listeningToBlock bool
+	ListenerBlockCh  chan (<-chan BlockBody)
 }
 
 func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
@@ -51,10 +53,6 @@ func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.Sim
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
 	}
-}
-
-func (s *Service) WithBlockCh(blockCh chan<- BlockBody) {
-	s.blockCh = blockCh
 }
 
 func (s *Service) Run(ctx context.Context) {
@@ -88,6 +86,11 @@ func (s *Service) Run(ctx context.Context) {
 		}
 		cancelIteration()
 	}
+}
+
+func (s *Service) SetListener() {
+	s.ListenerBlockCh = make(chan (<-chan BlockBody), 1)
+	s.listeningToBlock = true
 }
 
 func (s *Service) getNextHeight() (int, error) {
@@ -134,10 +137,13 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
 	)))
 
-	for b := range blocksCh {
-		if s.blockCh != nil {
-			s.blockCh <- b
-		} else {
+	if s.listeningToBlock {
+		// Note: if this service calls blockchain.Height()
+		// before the listener stores the block, we may
+		// end up requesting the same block again..
+		s.ListenerBlockCh <- blocksCh
+	} else {
+		for b := range blocksCh {
 			if b.Err != nil {
 				return fmt.Errorf("failed to process block: %w", b.Err)
 			}
