@@ -75,7 +75,7 @@ func TestSync(t *testing.T) {
 	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return([]types.Action[starknet.Value, starknet.Hash, starknet.Address]{})
 	stateMachine.EXPECT().ProcessPrecommit(gomock.Any()).Times(3).Return([]types.Action[starknet.Value, starknet.Hash, starknet.Address]{})
 	stateMachine.EXPECT().ProcessProposal(gomock.Any()).Return(
-		[]types.Action[starknet.Value, starknet.Hash, starknet.Address]{&types.StopSync{}}, // Pretend we caught the chain head. Commit action ignored here.
+		[]types.Action[starknet.Value, starknet.Hash, starknet.Address]{},
 	)
 
 	proposalCh := make(chan starknet.Proposal)
