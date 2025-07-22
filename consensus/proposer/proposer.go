@@ -15,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -40,7 +39,7 @@ type Proposer[V types.Hashable[H], H types.Hash] interface {
 	mempool.Pool
 	OnCommit(context.Context, types.Height, V)
 	Submit(context.Context, []mempool.BroadcastedTransaction)
-	Pending() *sync.Pending
+	Preconfirmed() *core.PreConfirmed
 }
 
 type proposer[V types.Hashable[H], H types.Hash] struct {
@@ -50,7 +49,7 @@ type proposer[V types.Hashable[H], H types.Hash] struct {
 	proposalStore *proposal.ProposalStore[H]
 	nodeAddress   starknet.Address
 	toValue       func(*felt.Felt) V
-	// The current state of the pending block being built
+	// The current state of the preconfirmed block being built
 	buildState atomic.Pointer[builder.BuildState]
 	// This is used to send the last value to the tendermint application. Only used after context cancellation
 	lastValue chan V
@@ -124,7 +123,7 @@ func (p *proposer[V, H]) OnCommit(ctx context.Context, height types.Height, valu
 	}
 
 	txHashSet := make(map[H]struct{})
-	for _, tx := range proposal.Pending.Block.Transactions {
+	for _, tx := range proposal.Preconfirmed.Block.Transactions {
 		txHashSet[H(*tx.Hash())] = struct{}{}
 	}
 
@@ -151,11 +150,11 @@ func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.Broadcas
 	return nil
 }
 
-// Return the pending block currently guarded by the atomic pointer. The implementation assumes that
+// Return the preconfirmed block currently guarded by the atomic pointer. The implementation assumes that
 // the referenced value by the atomic pointer is immutable, which means the caller shouldn't modify
-// any fields of the returned pending block.
-func (p *proposer[V, H]) Pending() *sync.Pending {
-	return p.buildState.Load().Pending
+// any fields of the returned preconfirmed block.
+func (p *proposer[V, H]) Preconfirmed() *core.PreConfirmed {
+	return p.buildState.Load().Preconfirmed
 }
 
 func (p *proposer[V, H]) init() {
@@ -163,7 +162,7 @@ func (p *proposer[V, H]) init() {
 	var err error
 	for {
 		buildParams := p.getBuildParams()
-		if buildState, err = p.builder.InitPendingBlock(&buildParams); err != nil {
+		if buildState, err = p.builder.InitPreconfirmedBlock(&buildParams); err != nil {
 			p.log.Errorw("Fail to reinitialize proposer", "error", err)
 			time.Sleep(retryTimeForFailedInit)
 			continue
@@ -190,7 +189,7 @@ func (p *proposer[V, H]) reRunTransactions(request commitRequest[H]) {
 	defer close(request.response)
 	ignoredCommittedTransactions := request.data
 
-	// Initialise the state back to pending block
+	// Initialise the state back to preconfirmed block
 	p.init()
 
 	// Discard the transactions that we have already seen
@@ -241,7 +240,7 @@ func (p *proposer[V, H]) finish(responseChannel chan<- V) {
 		buildResult, err = p.builder.Finish(&buildState)
 	}
 
-	value := p.toValue(buildResult.Pending.Block.Hash)
+	value := p.toValue(buildResult.Preconfirmed.Block.Hash)
 	p.proposalStore.Store(value.Hash(), &buildResult)
 
 	responseChannel <- value

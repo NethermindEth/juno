@@ -143,7 +143,7 @@ func (s *Sequencer) initPendingBlock() error {
 		return err
 	}
 
-	if s.buildState, err = s.builder.InitPendingBlock(&buildParams); err != nil {
+	if s.buildState, err = s.builder.InitPreconfirmedBlock(&buildParams); err != nil {
 		return err
 	}
 
@@ -202,8 +202,8 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) Pending() (*sync.Pending, error) {
-	return s.buildState.Pending, nil
+func (s *Sequencer) Pending() (*core.PreConfirmed, error) {
+	return s.buildState.Preconfirmed, nil
 }
 
 func (s *Sequencer) PendingBlock() *core.Block {
