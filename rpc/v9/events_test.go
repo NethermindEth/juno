@@ -301,11 +301,11 @@ func TestEvents(t *testing.T) {
 		block, err := gw.BlockByNumber(t.Context(), 4)
 		require.NoError(t, err)
 
-		chain.SetL1Head(&core.L1Head{
+		require.NoError(t, chain.SetL1Head(&core.L1Head{
 			BlockNumber: block.Number,
 			BlockHash:   block.Hash,
 			StateRoot:   block.GlobalStateRoot,
-		})
+		}))
 
 		expectedEvents := []*core.Event{}
 
