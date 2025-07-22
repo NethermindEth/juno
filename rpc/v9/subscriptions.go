@@ -41,7 +41,7 @@ func (e errorTxnHashNotFound) Error() string {
 	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
-// As per the spec, this is the same as BlockID, but without `pre_confirmed`
+// As per the spec, this is the same as BlockID, but without `pre_confirmed` and `l1_accepted`
 type SubscriptionBlockID BlockID
 
 func (b *SubscriptionBlockID) Type() blockIDType {
@@ -77,6 +77,10 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 
 	if blockID.IsPreConfirmed() {
 		return errors.New("subscription block id cannot be pre_confirmed")
+	}
+
+	if blockID.IsL1Accepted() {
+		return errors.New("subscription block id cannot be l1_accepted")
 	}
 
 	return nil
