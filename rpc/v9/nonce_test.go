@@ -25,7 +25,7 @@ func TestNonce(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
 
 		latest := blockIDLatest(t)
 		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
@@ -34,7 +34,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, db.ErrKeyNotFound)
 
 		hash := blockIDHash(t, &felt.Zero)
 		nonce, rpcErr := handler.Nonce(&hash, &felt.Zero)
@@ -43,7 +43,7 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, db.ErrKeyNotFound)
 
 		number := blockIDNumber(t, 0)
 		nonce, rpcErr := handler.Nonce(&number, &felt.Zero)
@@ -51,11 +51,11 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("non-existent contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(nil, errors.New("non-existent contract"))
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(felt.Zero, errors.New("non-existent contract"))
 
 		latest := blockIDLatest(t)
 		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
@@ -66,8 +66,8 @@ func TestNonce(t *testing.T) {
 	expectedNonce := new(felt.Felt).SetUint64(1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		latest := blockIDLatest(t)
 		nonce, rpcErr := handler.Nonce(&latest, &felt.Zero)
@@ -76,8 +76,8 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		hash := blockIDHash(t, &felt.Zero)
 		nonce, rpcErr := handler.Nonce(&hash, &felt.Zero)
@@ -86,8 +86,8 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		number := blockIDNumber(t, 0)
 		nonce, rpcErr := handler.Nonce(&number, &felt.Zero)
@@ -96,8 +96,8 @@ func TestNonce(t *testing.T) {
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		preConfirmedBlockID := blockIDPreConfirmed(t)
 		nonce, rpcErr := handler.Nonce(&preConfirmedBlockID, &felt.Zero)
@@ -116,8 +116,8 @@ func TestNonce(t *testing.T) {
 			},
 			nil,
 		)
-		mockReader.EXPECT().StateAtBlockNumber(l1AcceptedBlockNumber).Return(mockState, nopCloser, nil)
-		mockState.EXPECT().ContractNonce(&felt.Zero).Return(expectedNonce, nil)
+		mockReader.EXPECT().StateAtBlockNumber(l1AcceptedBlockNumber).Return(mockState, nil)
+		mockState.EXPECT().ContractNonce(&felt.Zero).Return(*expectedNonce, nil)
 
 		l1AcceptedID := blockIDL1Accepted(t)
 		nonce, rpcErr := handler.Nonce(&l1AcceptedID, &felt.Zero)

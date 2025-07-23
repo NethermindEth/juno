@@ -125,9 +125,9 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, error) {
+func (b *Builder) PendingState(buildState *BuildState) (state.StateReader, error) {
 	if buildState.Preconfirmed == nil {
-		return nil, nil, sync.ErrPendingBlockNotFound
+		return nil, sync.ErrPendingBlockNotFound
 	}
 
 	headState, err := b.blockchain.HeadState()

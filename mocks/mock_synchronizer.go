@@ -101,13 +101,12 @@ func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
 }
 
 // PendingStateBeforeIndex mocks base method.
-func (m *MockSyncReader) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (m *MockSyncReader) PendingStateBeforeIndex(index int) (state.StateReader, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingStateBeforeIndex", index)
-	ret0, _ := ret[0].(core.StateReader)
-	ret1, _ := ret[1].(func() error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(state.StateReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // PendingStateBeforeIndex indicates an expected call of PendingStateBeforeIndex.

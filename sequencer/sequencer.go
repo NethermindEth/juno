@@ -215,8 +215,8 @@ func (s *Sequencer) PendingState() (state.StateReader, error) {
 	return s.builder.PendingState(s.buildState)
 }
 
-func (s *Sequencer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.ErrUnsupported
+func (s *Sequencer) PendingStateBeforeIndex(index int) (state.StateReader, error) {
+	return nil, errors.ErrUnsupported
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {

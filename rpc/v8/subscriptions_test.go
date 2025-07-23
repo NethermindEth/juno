@@ -400,9 +400,9 @@ func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
 
-func (fs *fakeSyncer) PendingBlock() *core.Block               { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, error) { return nil, nil }
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, error) {
+func (fs *fakeSyncer) PendingBlock() *core.Block                { return nil }
+func (fs *fakeSyncer) PendingState() (state.StateReader, error) { return nil, nil }
+func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (state.StateReader, error) {
 	return nil, nil
 }
 
