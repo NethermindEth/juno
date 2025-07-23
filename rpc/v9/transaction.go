@@ -528,7 +528,7 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.GetBlock().TransactionCount {
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
