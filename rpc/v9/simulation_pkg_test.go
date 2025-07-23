@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//nolint:dupl
 func TestCreateSimulatedTransactions(t *testing.T) {
 	executionResults := vm.ExecutionResults{
 		OverallFees: []*felt.Felt{new(felt.Felt).SetUint64(10), new(felt.Felt).SetUint64(20)},
@@ -26,13 +25,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 			{L1Gas: 100, L1DataGas: 50, L2Gas: 200},
 			{L1Gas: 150, L1DataGas: 70, L2Gas: 250},
 		},
-		Traces:   []vm.TransactionTrace{{}, {}},
+		Traces:   []vm.TransactionTrace{{Type: vm.TxnL1Handler}, {}},
 		NumSteps: 0,
 	}
 
 	txns := []core.Transaction{
-		&core.InvokeTransaction{
-			Version: new(core.TransactionVersion).SetUint64(1),
+		&core.L1HandlerTransaction{
+			Version: new(core.TransactionVersion).SetUint64(3),
 		},
 		&core.InvokeTransaction{
 			Version: new(core.TransactionVersion).SetUint64(3),
@@ -59,6 +58,7 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	expected := []SimulatedTransaction{
 		{
 			TransactionTrace: &TransactionTrace{
+				Type: TransactionType(vm.TxnL1Handler),
 				ExecutionResources: &ExecutionResources{
 					InnerExecutionResources: InnerExecutionResources{
 						L1Gas: 100,

@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -40,7 +41,7 @@ func (e errorTxnHashNotFound) Error() string {
 	return fmt.Sprintf("transaction %v not found", e.txHash)
 }
 
-// As per the spec, this is the same as BlockID, but without `pending`
+// As per the spec, this is the same as BlockID, but without `pre_confirmed` and `l1_accepted`
 type SubscriptionBlockID BlockID
 
 func (b *SubscriptionBlockID) Type() blockIDType {
@@ -74,8 +75,12 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	if blockID.IsPending() {
-		return errors.New("subscription block id cannot be pending")
+	if blockID.IsPreConfirmed() {
+		return errors.New("subscription block id cannot be pre_confirmed")
+	}
+
+	if blockID.IsL1Accepted() {
+		return errors.New("subscription block id cannot be l1_accepted")
 	}
 
 	return nil
@@ -161,7 +166,7 @@ func (h *Handler) subscribe(
 				}
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
-					h.log.Warnw("Error on pending", "id", id, "err", err)
+					h.log.Warnw("Error on pending data", "id", id, "err", err)
 					return
 				}
 			}
@@ -209,9 +214,7 @@ func (h *Handler) SubscribeEvents(
 				ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil,
 			)
 		},
-		onReorg: func(
-			ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange,
-		) error {
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			if err := sendReorg(w, reorg, id); err != nil {
 				return err
 			}
@@ -229,6 +232,7 @@ func (h *Handler) SubscribeEvents(
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
+			// We should only return `ACCEPTED_ON_L2` events in this stream.
 			if pending == nil || pending.Variant() != core.PendingBlockVariant {
 				return nil
 			}
@@ -272,10 +276,6 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -339,11 +339,11 @@ func (h *Handler) checkTxStatus(
 		return lastStatus, nil
 	}
 
-	if err := sendTxnStatus(sub.conn, SubscriptionTransactionStatus{txHash, *status}, id); err != nil {
+	if err := sendTxnStatus(sub.conn, SubscriptionTransactionStatus{txHash, status}, id); err != nil {
 		return lastStatus, err
 	}
 
-	if status.Finality == TxnStatusRejected || status.Finality == TxnStatusAcceptedOnL1 {
+	if status.Finality == TxnStatusAcceptedOnL1 {
 		sub.cancel()
 	}
 
@@ -414,20 +414,20 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 					continue
 				}
 				// This describe the lifecycle of SentEvent.
-				// It's added when the event is received from a pending block.
+				// It's added when the event is received from a pre_confirmed block.
 				// It's deleted when the event is received from a head block.
-				if isPending := event.BlockHash == nil; isPending {
+				if isPreConfirmed := event.BlockHash == nil; isPreConfirmed {
 					eventsPreviouslySent[sentEvent] = struct{}{}
 				} else {
 					delete(eventsPreviouslySent, sentEvent)
 				}
 			}
 
-			emittedEvent := &EmittedEvent{
-				BlockNumber:     event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending block
+			emittedEvent := &rpcv6.EmittedEvent{
+				BlockNumber:     event.BlockNumber, // This always be filled as subscribeEvents cannot be called on pending/pre_confirmed block
 				BlockHash:       event.BlockHash,
 				TransactionHash: event.TransactionHash,
-				Event: &Event{
+				Event: &rpcv6.Event{
 					From: event.From,
 					Keys: event.Keys,
 					Data: event.Data,
@@ -471,7 +471,7 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 // SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
 // The getDetails flag controls if the response will contain the transaction details or just the transaction hashes.
 // The senderAddr flag is used to filter the transactions by sender address.
-func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -492,6 +492,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 			return nil
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
+			// We should only return `ACCEPTED_ON_L2` txs in this stream.
 			if pending == nil || pending.Variant() != core.PendingBlockVariant {
 				return nil
 			}
@@ -507,7 +508,7 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 func (h *Handler) onPendingBlock(
 	id string,
 	w jsonrpc.Conn,
-	getDetails *bool,
+	getDetails bool,
 	senderAddr []felt.Felt,
 	pending *core.Block,
 	lastParentHash *felt.Felt,
@@ -519,13 +520,51 @@ func (h *Handler) onPendingBlock(
 	}
 
 	var toResult func(txn core.Transaction) any
-	if getDetails != nil && *getDetails {
+	if getDetails {
 		toResult = toFullTx
 	} else {
 		toResult = toHash
 	}
 
 	for _, txn := range pending.Transactions {
+		if _, exist := sentTxHashes[*txn.Hash()]; !exist {
+			if h.filterTxBySender(txn, senderAddr) {
+				if err := sendPendingTxs(w, toResult(txn), id); err != nil {
+					return err
+				}
+			}
+			sentTxHashes[*txn.Hash()] = struct{}{}
+		}
+	}
+	return nil
+}
+
+// If getDetails is true, response will contain the transaction details.
+// If getDetails is false, response will only contain the transaction hashes.
+//
+//nolint:unused // retained for future use in 0.9.0-rc3, currently unused
+func (h *Handler) onPreConfirmedBlock(
+	id string,
+	w jsonrpc.Conn,
+	getDetails bool,
+	senderAddr []felt.Felt,
+	preConfirmed *core.Block,
+	lastBlockNumber *uint64,
+	sentTxHashes map[felt.Felt]struct{},
+) error {
+	if preConfirmed.Number != *lastBlockNumber {
+		clear(sentTxHashes)
+		*lastBlockNumber = preConfirmed.Number
+	}
+
+	var toResult func(txn core.Transaction) any
+	if getDetails {
+		toResult = toFullTx
+	} else {
+		toResult = toHash
+	}
+
+	for _, txn := range preConfirmed.Transactions {
 		if _, exist := sentTxHashes[*txn.Hash()]; !exist {
 			if h.filterTxBySender(txn, senderAddr) {
 				if err := sendPendingTxs(w, toResult(txn), id); err != nil {

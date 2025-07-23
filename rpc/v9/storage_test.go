@@ -99,7 +99,7 @@ func TestStorageAt(t *testing.T) {
 
 	expectedStorage := new(felt.Felt).SetUint64(1)
 
-	t.Run("blockID - latest", func(t *testing.T) {
+	t.Run("blockID - latest", func(t *testing.T) { //nolint:dupl
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
@@ -132,14 +132,32 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, expectedStorage, storageValue)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
-		pending := sync.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
+	t.Run("blockID - pre_confirmed", func(t *testing.T) { //nolint:dupl //false alarm block tag differs
 		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
-		pendingID := blockIDPending(t)
-		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &pendingID)
+		preConfirmedID := blockIDPreConfirmed(t)
+		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &preConfirmedID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedStorage, storageValue)
+	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		l1HeadBlockNumber := uint64(10)
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: l1HeadBlockNumber,
+				BlockHash:   &felt.Zero,
+				StateRoot:   &felt.Zero,
+			},
+			nil,
+		)
+		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+
+		blockID := blockIDL1Accepted(t)
+		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})
@@ -224,10 +242,10 @@ func TestStorageProof(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		require.Nil(t, proof)
 	})
-	t.Run("error for pending block", func(t *testing.T) {
-		blockID := blockIDPending(t)
+	t.Run("error for pre_confirmed block", func(t *testing.T) {
+		blockID := blockIDPreConfirmed(t)
 		proof, rpcErr := handler.StorageProof(&blockID, nil, nil, nil)
-		assert.Equal(t, rpccore.ErrCallOnPending, rpcErr)
+		assert.Equal(t, rpccore.ErrCallOnPreConfirmed, rpcErr)
 		require.Nil(t, proof)
 	})
 	t.Run("no error when block number matches head", func(t *testing.T) {

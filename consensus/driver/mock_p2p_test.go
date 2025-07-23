@@ -29,7 +29,7 @@ type mockBroadcaster[M starknet.Message] struct {
 	broadcastedMessages []M
 }
 
-func (m *mockBroadcaster[M]) Broadcast(msg M) {
+func (m *mockBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.broadcastedMessages = append(m.broadcastedMessages, msg)

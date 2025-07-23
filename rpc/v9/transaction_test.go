@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
@@ -45,7 +47,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	assert.Equal(t, rpccore.ErrTxnHashNotFound, rpcErr)
 }
 
-func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
+func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
@@ -54,21 +56,20 @@ func TestTransactionByHashNotFoundInPendingBlock(t *testing.T) {
 	searchTxHash := utils.HexToFelt(t, "0x123456")
 
 	otherTxHash := utils.HexToFelt(t, "0x789abc")
-	pendingTx := &core.InvokeTransaction{
+	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         new(core.TransactionVersion).SetUint64(1),
 	}
 
-	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
-
-	pendingBlock := &core.Block{
-		Transactions: []core.Transaction{pendingTx},
+	preConfirmed := core.PreConfirmed{
+		Block: &core.Block{
+			Transactions: []core.Transaction{preConfirmedTx},
+		},
+		CandidateTxs: []core.Transaction{},
 	}
-	pending := sync.NewPending(pendingBlock, nil, nil)
-	mockSyncReader.EXPECT().PendingData().Return(
-		&pending,
-		nil,
-	)
+	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
+	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
+
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
@@ -451,6 +452,41 @@ func TestTransactionByHash(t *testing.T) {
 	}
 }
 
+func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
+	gw := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+	blockNumber := uint64(1204672)
+	preConfirmedBlockWithCandidates, err := gw.PreConfirmedBlock(t.Context(), strconv.FormatUint(blockNumber, 10))
+	require.NoError(t, err)
+
+	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
+	require.NoError(t, err)
+	mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil).Times(2)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+
+	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
+		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
+		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
+
+		foundTxn, err := handler.TransactionByHash(*searchTxn.Hash())
+		require.Nil(t, err)
+		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
+	})
+
+	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
+		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
+		mockReader.EXPECT().TransactionByHash(searchTxn.Hash()).Return(nil, db.ErrKeyNotFound)
+
+		foundTxn, err := handler.TransactionByHash(*searchTxn.Hash())
+		require.Nil(t, err)
+		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
+	})
+}
+
 func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -581,14 +617,45 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: latestBlockNumber,
+				BlockHash:   latestBlockHash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
+			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			return latestBlock.Transactions[index], nil
+		})
+		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
+			func(hash *felt.Felt) (core.Transaction, error) {
+				return latestBlock.Transactions[index], nil
+			})
+
+		blockID := blockIDL1Accepted(t)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
+		require.Nil(t, rpcErr)
+
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, txn1, txn2)
+	})
+
+	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
+			&preConfirmed,
 			nil,
 		)
 		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
@@ -596,7 +663,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		blockID := blockIDPending(t)
+		blockID := blockIDPreConfirmed(t)
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
 		require.Nil(t, rpcErr)
 
@@ -714,13 +781,13 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		})
 	}
 
-	t.Run("pending receipt", func(t *testing.T) {
+	t.Run("pre_confirmed receipt", func(t *testing.T) {
 		i := 2
 		expected := `{
 					"type": "INVOKE",
 					"transaction_hash": "0xce54bbc5647e1c1ea4276c01a708523f740db0ff5474c77734f73beec2624",
 					"actual_fee": {"amount": "0x0", "unit": "WEI"},
-					"finality_status": "ACCEPTED_ON_L2",
+					"finality_status": "PRE_CONFIRMED",
 					"execution_status": "SUCCEEDED",
 					"messages_sent": [
 						{
@@ -742,11 +809,12 @@ func TestTransactionReceiptByHash(t *testing.T) {
 
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		pending := sync.NewPending(block0, nil, nil)
+		preConfirmed := core.NewPreConfirmed(block0, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
+			&preConfirmed,
 			nil,
-		)
+		).Times(2)
+
 		checkTxReceipt(t, txHash, expected)
 	})
 
@@ -1294,6 +1362,34 @@ func TestAddTransaction(t *testing.T) {
 				gatewayError:  &gateway.Error{Code: gateway.InsufficientAccountBalance},
 				expectedError: rpccore.ErrInsufficientAccountBalanceV0_8,
 			},
+			{
+				name:          "FeeBelowMinimum error",
+				gatewayError:  &gateway.Error{Code: gateway.FeeBelowMinimum},
+				expectedError: rpccore.ErrFeeBelowMinimum,
+			},
+			{
+				name:          "ReplacementTransactionUnderPriced error",
+				gatewayError:  &gateway.Error{Code: gateway.ReplacementTransactionUnderPriced},
+				expectedError: rpccore.ErrReplacementTransactionUnderPriced,
+			},
+			{
+				name: "InvalidTransactionNonce error",
+				gatewayError: &gateway.Error{
+					Code:    gateway.InvalidTransactionNonce,
+					Message: "Expected: 2176, got: 845.",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("Expected: 2176, got: 845."),
+			},
+			{
+				name: "InvalidTransactionNonce error as ErrValidationFailure",
+				gatewayError: &gateway.Error{
+					Code:    gateway.ValidateFailure,
+					Message: "StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }",
+				},
+				expectedError: rpccore.ErrInvalidTransactionNonce.
+					CloneWithData("StarknetError { code: KnownErrorCode(InvalidTransactionNonce), message: 'Invalid transaction nonce. Expected: 2176, got: 845.' }"),
+			},
 		}
 
 		for _, tc := range errorTests {
@@ -1373,9 +1469,9 @@ func TestTransactionStatus(t *testing.T) {
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
+					require.Equal(t, *want, status)
 				})
-				t.Run("verified", func(t *testing.T) { //nolint:dupl
+				t.Run("verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
@@ -1391,9 +1487,9 @@ func TestTransactionStatus(t *testing.T) {
 					}
 					status, rpcErr := handler.TransactionStatus(ctx, *tx.Hash())
 					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
+					require.Equal(t, *want, status)
 				})
-				t.Run("verified v0.7.0", func(t *testing.T) { //nolint:dupl
+				t.Run("verified v0.7.0", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
@@ -1432,8 +1528,8 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
-						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+						mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(4)
+						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(4)
 						handler := rpc.New(mockReader, mockSyncReader, nil, log)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
@@ -1451,34 +1547,71 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
 				require.Equal(t, err, rpccore.ErrTxnHashNotFound)
 			})
+
+			sepoliaIntClient := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			sepoliaIntGw := adaptfeeder.New(sepoliaIntClient)
+			blockNumber := uint64(1204672)
+			preConfirmed, gwErr := sepoliaIntGw.PreConfirmedBlockByNumber(t.Context(), blockNumber)
+			require.NoError(t, gwErr)
+
+			t.Run("transaction found in preconfirmed block", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
+				mockReader.EXPECT().TransactionByHash(preConfirmedTx).Return(nil, db.ErrKeyNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
+				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+
+				status, err := handler.TransactionStatus(ctx, *preConfirmedTx)
+				require.Nil(t, err)
+				require.Equal(t, rpc.TxnStatusPreConfirmed, status.Finality)
+				require.Equal(t, rpc.TxnSuccess, status.Execution)
+			})
+
+			t.Run("transaction found in preconfirmed block candidates", func(t *testing.T) {
+				mockReader := mocks.NewMockReader(mockCtrl)
+				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+
+				require.Greater(t, len(preConfirmed.CandidateTxs), 0)
+				for _, candidateTx := range preConfirmed.CandidateTxs {
+					mockReader.EXPECT().TransactionByHash(candidateTx.Hash()).Return(nil, db.ErrKeyNotFound)
+					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
+					handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+
+					status, err := handler.TransactionStatus(ctx, *candidateTx.Hash())
+					require.Nil(t, err)
+					require.Equal(t, rpc.TxnStatusCandidate, status.Finality)
+					require.Equal(t, rpc.UnknownExecution, status.Execution)
+				}
+			})
+		})
+
+		t.Run("Rejected historical tx found in feeder", func(t *testing.T) {
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			txHash, err := new(felt.Felt).SetString("0x1111")
+			require.NoError(t, err)
+
+			handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+			mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
+			mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+			mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+
+			status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
+			require.Equal(t, rpcErr, rpccore.ErrTxnHashNotFound)
+			require.Empty(t, status)
 		})
 	}
-
-	t.Run("Rejected transaction found in feeder", func(t *testing.T) {
-		mockReader := mocks.NewMockReader(mockCtrl)
-		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-		txHash, err := new(felt.Felt).SetString("0x1111")
-		require.NoError(t, err)
-
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
-		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-
-		status, rpcErr := handler.TransactionStatus(t.Context(), *txHash)
-		require.Nil(t, rpcErr)
-		require.Equal(t, status.Finality, rpc.TxnStatusRejected)
-		require.Equal(t, status.FailureReason, "some error")
-	})
 }
 
 func TestResourceMarshalText(t *testing.T) {
@@ -1931,11 +2064,13 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Nil(t, err)
 		require.Equal(t, rpc.TxnStatusReceived, status.Finality)
+		require.Equal(t, rpc.UnknownExecution, status.Execution)
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
@@ -1949,12 +2084,13 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
-		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
-		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
+		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
+
 		// Expire cache entry
 		time.Sleep(cacheEntryTimeOut)
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
-		require.Nil(t, status)
+		require.Empty(t, status)
 	})
 }

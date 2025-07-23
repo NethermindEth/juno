@@ -36,7 +36,7 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 	var err error
 
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		var pending core.PendingData
 		pending, err = h.PendingData()
 		if err == nil {
@@ -46,6 +46,13 @@ func (h *Handler) blockByID(blockID *BlockID) (*core.Block, *jsonrpc.Error) {
 		block, err = h.bcReader.Head()
 	case hash:
 		block, err = h.bcReader.BlockByHash(blockID.Hash())
+	case l1Accepted:
+		var l1Head *core.L1Head
+		l1Head, err = h.bcReader.L1Head()
+		if err != nil {
+			break
+		}
+		block, err = h.bcReader.BlockByNumber(l1Head.BlockNumber)
 	default:
 		block, err = h.bcReader.BlockByNumber(blockID.Number())
 	}
@@ -66,11 +73,11 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 	var header *core.Header
 	var err error
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		var pending core.PendingData
 		pending, err = h.PendingData()
 		if err == nil {
-			header = pending.GetHeader()
+			header = pending.GetBlock().Header
 		}
 	case latest:
 		header, err = h.bcReader.HeadsHeader()
@@ -78,6 +85,13 @@ func (h *Handler) blockHeaderByID(blockID *BlockID) (*core.Header, *jsonrpc.Erro
 		header, err = h.bcReader.BlockHeaderByHash(blockID.Hash())
 	case number:
 		header, err = h.bcReader.BlockHeaderByNumber(blockID.Number())
+	case l1Accepted:
+		var l1Head *core.L1Head
+		l1Head, err = h.bcReader.L1Head()
+		if err != nil {
+			break
+		}
+		header, err = h.bcReader.BlockHeaderByNumber(l1Head.BlockNumber)
 	default:
 		panic("unknown block type id")
 	}
@@ -142,7 +156,7 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 	var closer blockchain.StateCloser
 	var err error
 	switch blockID.Type() {
-	case pending:
+	case preConfirmed:
 		reader, closer, err = h.PendingState()
 	case latest:
 		reader, closer, err = h.bcReader.HeadState()
@@ -150,6 +164,13 @@ func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain
 		reader, closer, err = h.bcReader.StateAtBlockHash(blockID.Hash())
 	case number:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(blockID.Number())
+	case l1Accepted:
+		var l1Head *core.L1Head
+		l1Head, err = h.bcReader.L1Head()
+		if err != nil {
+			break
+		}
+		reader, closer, err = h.bcReader.StateAtBlockNumber(l1Head.BlockNumber)
 	default:
 		panic("unknown block id type")
 	}
