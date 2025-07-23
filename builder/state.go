@@ -6,26 +6,25 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type BuildState struct {
-	Pending           *sync.Pending
+	Preconfirmed      *core.PreConfirmed
 	L2GasConsumed     uint64
 	RevealedBlockHash *felt.Felt
 }
 
 func (b *BuildState) PendingBlock() *core.Block {
-	if b.Pending == nil {
+	if b.Preconfirmed == nil {
 		return nil
 	}
-	return b.Pending.Block
+	return b.Preconfirmed.Block
 }
 
 func (b *BuildState) ClearPending() error {
 	b.L2GasConsumed = 0
-	b.Pending = &sync.Pending{}
+	b.Preconfirmed = &core.PreConfirmed{}
 	b.RevealedBlockHash = nil
 
 	return nil
@@ -38,25 +37,27 @@ func (b *BuildState) ClearPending() error {
 // - Signatures and EventsBloom are not set before `Finish` is called
 func (b *BuildState) Clone() BuildState {
 	return BuildState{
-		Pending:           clonePending(b.Pending),
+		Preconfirmed:      clonePreconfirmed(b.Preconfirmed),
 		RevealedBlockHash: b.RevealedBlockHash, // Safe to reuse an immutable value
 		L2GasConsumed:     b.L2GasConsumed,     // Value, safe to shallow copy
 	}
 }
 
-func clonePending(pending *sync.Pending) *sync.Pending {
-	return &sync.Pending{
-		Block:       cloneBlock(pending.Block),
-		StateUpdate: cloneStateUpdate(pending.StateUpdate),
-		NewClasses:  maps.Clone(pending.NewClasses),
+func clonePreconfirmed(preconfirmed *core.PreConfirmed) *core.PreConfirmed {
+	return &core.PreConfirmed{
+		Block:                 cloneBlock(preconfirmed.Block),
+		StateUpdate:           cloneStateUpdate(preconfirmed.StateUpdate),
+		NewClasses:            maps.Clone(preconfirmed.NewClasses),
+		TransactionStateDiffs: preconfirmed.TransactionStateDiffs,
+		CandidateTxs:          preconfirmed.CandidateTxs,
 	}
 }
 
 func cloneBlock(block *core.Block) *core.Block {
 	return &core.Block{
 		Header:       utils.HeapPtr(*block.Header),
-		Transactions: slices.Clone(block.Transactions),
-		Receipts:     slices.Clone(block.Receipts),
+		Transactions: block.Transactions,
+		Receipts:     block.Receipts,
 	}
 }
 
