@@ -69,7 +69,7 @@ func TestUpdate(t *testing.T) {
 
 	stateUpdates = append(stateUpdates, su3, su4)
 
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		t.Run("block 0 to block 3 state updates", func(t *testing.T) {
 			setupState(t, stateUpdates, 3, dbType)
 		})
@@ -151,7 +151,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestContractClassHash(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateUpdates := getStateUpdates(t)
 		stateUpdates = stateUpdates[:2]
 
@@ -174,7 +174,7 @@ func TestContractClassHash(t *testing.T) {
 }
 
 func TestNonce(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 		root := utils.HexToFelt(t, "0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
 
@@ -225,7 +225,7 @@ func TestNonce(t *testing.T) {
 }
 
 func TestClass(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := setupState(t, nil, 0, dbType)
 
 		client := feeder.NewTestClient(t, &utils.Integration)
@@ -261,7 +261,7 @@ func TestClass(t *testing.T) {
 }
 
 func TestContractDeployedAt(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateUpdates := getStateUpdates(t)
 		stateDB := setupState(t, stateUpdates, 2, dbType)
 		root := *stateUpdates[1].NewRoot
@@ -307,7 +307,7 @@ func TestContractDeployedAt(t *testing.T) {
 }
 
 func TestRevert(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateUpdates := getStateUpdates(t)
 
 		su0 := stateUpdates[0]
@@ -676,7 +676,7 @@ func TestRevert(t *testing.T) {
 }
 
 func TestContractHistory(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		addr := utils.HexToFelt(t, "0x1234567890abcdef")
 		classHash := new(felt.Felt).SetBytes([]byte("class_hash"))
 		nonce := new(felt.Felt).SetBytes([]byte("nonce"))
@@ -820,7 +820,7 @@ func TestContractHistory(t *testing.T) {
 }
 
 func BenchmarkStateUpdate(b *testing.B) {
-	runWithDBTypesBench(b, func(b *testing.B, dbType triedb.Scheme) {
+	runWithTrieDBSchemesBench(b, func(b *testing.B, dbType triedb.TrieDBScheme) {
 		client := feeder.NewTestClient(b, &utils.Mainnet)
 		gw := adaptfeeder.New(client)
 
@@ -869,7 +869,7 @@ func getStateUpdates(t *testing.T) []*core.StateUpdate {
 }
 
 // Create a new state from a new database and update it with the given state updates.
-func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64, dbType triedb.Scheme) *StateDB {
+func setupState(t *testing.T, stateUpdates []*core.StateUpdate, blocks uint64, dbType triedb.TrieDBScheme) *StateDB {
 	stateDB := newTestStateDB(dbType)
 	for i, su := range stateUpdates[:blocks] {
 		state, err := New(su.OldRoot, stateDB)
@@ -891,7 +891,7 @@ func TestSetupState(t *testing.T) {
 	setupState(t, getStateUpdates(t), 2, triedb.HashDB)
 }
 
-func newTestStateDB(dbType triedb.Scheme) *StateDB {
+func newTestStateDB(dbType triedb.TrieDBScheme) *StateDB {
 	memDB := memory.New()
 	var config *triedb.Config
 	if dbType == triedb.HashDB {
@@ -909,20 +909,20 @@ func newTestStateDB(dbType triedb.Scheme) *StateDB {
 	return NewStateDB(memDB, db)
 }
 
-func runWithDBTypes(t *testing.T, testFn func(t *testing.T, dbType triedb.Scheme)) {
+func runWithTrieDBSchemes(t *testing.T, testFn func(t *testing.T, dbType triedb.TrieDBScheme)) {
 	t.Helper()
 
-	for _, dbType := range []triedb.Scheme{triedb.PathDB, triedb.HashDB} {
+	for _, dbType := range []triedb.TrieDBScheme{triedb.PathDB, triedb.HashDB} {
 		t.Run(string(dbType), func(t *testing.T) {
 			testFn(t, dbType)
 		})
 	}
 }
 
-func runWithDBTypesBench(b *testing.B, benchFn func(b *testing.B, dbType triedb.Scheme)) {
+func runWithTrieDBSchemesBench(b *testing.B, benchFn func(b *testing.B, dbType triedb.TrieDBScheme)) {
 	b.Helper()
 
-	for _, dbType := range []triedb.Scheme{triedb.PathDB, triedb.HashDB} {
+	for _, dbType := range []triedb.TrieDBScheme{triedb.PathDB, triedb.HashDB} {
 		b.Run(string(dbType), func(b *testing.B) {
 			benchFn(b, dbType)
 		})

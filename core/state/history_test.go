@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewStateHistory(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := newTestStateDB(dbType)
 
 		t.Run("successful creation", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestStateHistoryContractOperations(t *testing.T) {
 			},
 		},
 	}
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := setupState(t, stateUpdates, 2, dbType)
 		historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
 		require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestStateHistoryContractOperations(t *testing.T) {
 }
 
 func TestStateHistoryClassOperations(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := newTestStateDB(dbType)
 
 		class1Hash := *utils.HexToFelt(t, "0xDEADBEEF")
@@ -183,7 +183,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 }
 
 func TestStateHistoryClassBeforeDeclaration(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := newTestStateDB(dbType)
 		history, err := NewStateHistory(0, &felt.Zero, stateDB)
 		require.NoError(t, err)
@@ -194,7 +194,7 @@ func TestStateHistoryClassBeforeDeclaration(t *testing.T) {
 }
 
 func TestStateHistoryTrieOperations(t *testing.T) {
-	runWithDBTypes(t, func(t *testing.T, dbType triedb.Scheme) {
+	runWithTrieDBSchemes(t, func(t *testing.T, dbType triedb.TrieDBScheme) {
 		stateDB := newTestStateDB(dbType)
 		history, err := NewStateHistory(1, &felt.Zero, stateDB)
 		require.NoError(t, err)
