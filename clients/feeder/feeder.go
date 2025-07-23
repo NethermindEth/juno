@@ -135,10 +135,11 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			c.client.Timeout = timeouts.GetCurrentTimeout()
 			reqTimer := time.Now()
 			res, err = c.client.Do(req)
-			tooManyRequests := false
+			tooManyRequests, badRequest := false, false
 			if err == nil {
 				c.listener.OnResponse(req.URL.Path, res.StatusCode, time.Since(reqTimer))
 				tooManyRequests = res.StatusCode == http.StatusTooManyRequests
+				badRequest = res.StatusCode == http.StatusBadRequest
 				if res.StatusCode == http.StatusOK {
 					timeouts.DecreaseTimeout()
 					return res.Body, nil
@@ -149,7 +150,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 				res.Body.Close()
 			}
 
-			if !tooManyRequests {
+			if !tooManyRequests && !badRequest {
 				timeouts.IncreaseTimeout()
 			}
 
@@ -162,7 +163,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			}
 
 			currentTimeout := timeouts.GetCurrentTimeout()
-			if currentTimeout >= fastGrowThreshold {
+			if currentTimeout >= mediumGrowThreshold {
 				c.log.Warnw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),
 					"retryAfter", wait.String(),
