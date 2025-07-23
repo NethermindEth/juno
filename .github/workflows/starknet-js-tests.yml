@@ -9,7 +9,7 @@ on:
         description: 'Test mode to run (fast or full)'
       ref:
         type: string
-        default: 'v7.6.2'
+        default: 'v8.0.0-beta.4'
         description: 'starknet.js version/tag to test'
     secrets:
       TEST_RPC_URL:

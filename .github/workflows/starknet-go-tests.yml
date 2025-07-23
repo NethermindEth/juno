@@ -19,6 +19,12 @@ on:
         required: false
       AUTH_TOKEN:
         required: true
+      STARKNET_PRIVATE_KEY:
+        required: false
+      STARKNET_PUBLIC_KEY:
+        required: false
+      STARKNET_ACCOUNT_ADDRESS:
+        required: false
 
 jobs:
   test:
@@ -43,6 +49,9 @@ jobs:
           RPC_URL="${{ secrets.TEST_RPC_URL }}"
           VERSION="${{ inputs.rpc_version }}"
           AUTH_PARAM="?apikey=${{ secrets.AUTH_TOKEN }}"
+          STARKNET_PRIVATE_KEY="${{ secrets.STARKNET_PRIVATE_KEY }}"
+          STARKNET_PUBLIC_KEY="${{ secrets.STARKNET_PUBLIC_KEY }}"
+          STARKNET_ACCOUNT_ADDRESS="${{ secrets.STARKNET_ACCOUNT_ADDRESS }}"
           
           if [ "$VERSION" = "v0_7" ]; then
             echo "INTEGRATION_BASE=${RPC_URL}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
@@ -53,6 +62,9 @@ jobs:
             fi
             echo "HTTP_PROVIDER_URL=${RPC_URL}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
             echo "WS_PROVIDER_URL=${{ secrets.TEST_WS_RPC_URL }}/${VERSION}${AUTH_PARAM}" >> $GITHUB_ENV
+            echo "STARKNET_PRIVATE_KEY=${STARKNET_PRIVATE_KEY}" >> $GITHUB_ENV
+            echo "STARKNET_PUBLIC_KEY=${STARKNET_PUBLIC_KEY}" >> $GITHUB_ENV
+            echo "STARKNET_ACCOUNT_ADDRESS=${STARKNET_ACCOUNT_ADDRESS}" >> $GITHUB_ENV
           else
             echo "RPC version $VERSION is not supported."
             exit 1
