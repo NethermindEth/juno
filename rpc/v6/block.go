@@ -212,7 +212,7 @@ func (h *Handler) BlockTransactionCount(id BlockID) (uint64, *jsonrpc.Error) {
 	if rpcErr != nil {
 		return 0, rpcErr
 	}
-	return header.TransactionCount, nil
+	return uint64(header.TransactionCount), nil
 }
 
 func (h *Handler) BlockWithReceipts(id BlockID) (*BlockWithReceipts, *jsonrpc.Error) {

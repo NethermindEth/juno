@@ -48,7 +48,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 			Timestamp:        response.Timestamp,
 			ProtocolVersion:  response.Version,
 			SequencerAddress: response.SequencerAddress,
-			TransactionCount: uint64(len(response.Transactions)),
+			TransactionCount: uint32(len(response.Transactions)),
 			EventCount:       eventCount,
 			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    response.L1GasPriceETH(),
@@ -485,7 +485,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 			Number:           number,
 			SequencerAddress: response.SequencerAddress,
 			// Not required in spec but useful
-			TransactionCount: uint64(len(txns)),
+			TransactionCount: uint32(len(txns)),
 			// Not required in spec but useful
 			EventCount:      eventCount,
 			Timestamp:       response.Timestamp,
