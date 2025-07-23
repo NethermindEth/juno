@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -41,8 +40,7 @@ type Service struct {
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
 
-	listeningToBlock bool
-	ListenerBlockCh  chan (<-chan BlockBody)
+	blockCh chan BlockBody
 }
 
 func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
@@ -52,12 +50,18 @@ func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.Sim
 		blockchain: bc,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
+		blockCh:    make(chan BlockBody),
 	}
+}
+
+func (s *Service) Listen() <-chan BlockBody {
+	return s.blockCh
 }
 
 func (s *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer close(s.blockCh)
 
 	s.client = NewClient(s.randomPeerStream, s.network, s.log)
 
@@ -86,11 +90,6 @@ func (s *Service) Run(ctx context.Context) {
 		}
 		cancelIteration()
 	}
-}
-
-func (s *Service) SetListener() {
-	s.ListenerBlockCh = make(chan (<-chan BlockBody), 1)
-	s.listeningToBlock = true
 }
 
 func (s *Service) getNextHeight() (int, error) {
@@ -129,7 +128,7 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		return fmt.Errorf("failed to get state diffs: %w", err)
 	}
 
-	blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
+	pipeline.Bridge(ctx, s.blockCh, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
 		pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
 		pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
 		pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
@@ -137,27 +136,6 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
 	)))
 
-	if s.listeningToBlock {
-		// Note: if this service calls blockchain.Height()
-		// before the listener stores the block, we may
-		// end up requesting the same block again..
-		s.ListenerBlockCh <- blocksCh
-	} else {
-		for b := range blocksCh {
-			if b.Err != nil {
-				return fmt.Errorf("failed to process block: %w", b.Err)
-			}
-
-			storeTimer := time.Now()
-			if err := s.blockchain.Store(b.Block, b.Commitments, b.StateUpdate, b.NewClasses); err != nil {
-				return fmt.Errorf("failed to store block: %w", err)
-			}
-
-			s.log.Infow("Stored Block", "number", b.Block.Number, "hash", b.Block.Hash.ShortString(),
-				"root", b.Block.GlobalStateRoot.ShortString())
-			s.listener.OnSyncStepDone(junoSync.OpStore, b.Block.Number, time.Since(storeTimer))
-		}
-	}
 	return nil
 }
 

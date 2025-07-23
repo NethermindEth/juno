@@ -3,7 +3,9 @@ package sync_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
@@ -20,14 +22,15 @@ import (
 )
 
 type mockP2PSyncService struct {
-	syncReceiveCh   chan sync.BlockBody          // blocks received over p2p go here
-	blockListenerCh chan (<-chan sync.BlockBody) // Listener will get this
+	syncReceiveCh   chan sync.BlockBody   // blocks received over p2p go here
+	blockListenerCh <-chan sync.BlockBody // Listener will get this
 	triggerErr      bool
 }
 
 func newMockP2PSyncService(syncReceiveCh chan sync.BlockBody) mockP2PSyncService {
 	return mockP2PSyncService{
-		syncReceiveCh: syncReceiveCh,
+		syncReceiveCh:   syncReceiveCh,
+		blockListenerCh: make(<-chan sync.BlockBody),
 	}
 }
 
@@ -39,12 +42,10 @@ func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {
 	m.syncReceiveCh <- block
 }
 
-func (m *mockP2PSyncService) SetListener() {
-	m.blockListenerCh = make(chan (<-chan sync.BlockBody))
-}
-
 func (m *mockP2PSyncService) Listen() <-chan sync.BlockBody {
-	return <-m.blockListenerCh
+	fmt.Println(" (m *mockP2PSyncService) Listen()")
+	defer fmt.Println(" (m *mockP2PSyncService) Listen() Done")
+	return m.blockListenerCh
 }
 
 func (m *mockP2PSyncService) Run(ctx context.Context) error {
@@ -56,9 +57,12 @@ func (m *mockP2PSyncService) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case committedBlock := <-m.syncReceiveCh:
+			fmt.Println(" committedBlock := <-m.syncReceiveCh")
 			blocksCh := make(chan sync.BlockBody, 1)
 			blocksCh <- committedBlock
-			m.blockListenerCh <- blocksCh
+			fmt.Println(" committedBlock := <-m.syncReceiveCh 2")
+			m.blockListenerCh = blocksCh
+			fmt.Println(" committedBlock := <-m.syncReceiveCh Done")
 		}
 	}
 }
@@ -68,7 +72,6 @@ func TestSync(t *testing.T) {
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
 
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
@@ -107,6 +110,10 @@ func TestSync(t *testing.T) {
 		mockP2PSyncService.recieveBlockOverP2P(block0)
 	}()
 
+	go func() {
+		time.Sleep(2 * time.Second)
+		cancel()
+	}()
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
 }
@@ -123,7 +130,6 @@ func TestShutdownOnError(t *testing.T) {
 	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
-	mockP2PSyncService.SetListener()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
 	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore, blockCh)

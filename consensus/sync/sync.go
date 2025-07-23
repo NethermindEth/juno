@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -17,7 +18,7 @@ import (
 const syncRoundPlaceHolder = -1 // Todo: We use this value until the round is added to the spec
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	syncService       p2p.WithBlockCh
+	syncService       p2p.P2PBlockListener
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
@@ -28,7 +29,7 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	syncService p2p.WithBlockCh,
+	syncService p2p.P2PBlockListener,
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
 	getPrecommits func(types.Height) []types.Precommit[H, A],
@@ -48,7 +49,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 
 func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 	ctx, cancel := context.WithCancel(originalCtx)
-	s.syncService.SetListener()
 	go func() {
 		err := s.syncService.Run(ctx)
 		if err != nil {
@@ -62,18 +62,24 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 	go func() {
 		for {
 			inner := s.syncService.Listen()
+			fmt.Println(" inner")
 			for blk := range inner {
+				fmt.Println(" blk")
 				forwardCh <- blk
 			}
+			fmt.Println(" inner done")
 		}
 	}()
 
 	for {
+		fmt.Println("   [] consen sync select")
 		select {
+
 		case <-ctx.Done():
 			cancel()
 			return
 		case committedBlock := <-forwardCh:
+			fmt.Println("   [] consen sync committedBlock := <-s.syncService.Listen()")
 			// Todo: we can optimise this by performing a height
 			// check before pushing everything through consensus.
 			// ie skip if syncBlock.Height != DB.Height+1
