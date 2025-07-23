@@ -192,6 +192,8 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 		blockNumber = header.Number
 	case blockID.IsNumber():
 		blockNumber = blockID.Number()
+	case blockID.IsL1Accepted():
+		return rpccore.ErrStorageProofNotSupported
 	default:
 		panic(fmt.Sprintf("invalid block id type %d", blockID.Type()))
 	}

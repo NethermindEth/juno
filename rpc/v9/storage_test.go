@@ -141,6 +141,26 @@ func TestStorageAt(t *testing.T) {
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})
+
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		l1HeadBlockNumber := uint64(10)
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: l1HeadBlockNumber,
+				BlockHash:   &felt.Zero,
+				StateRoot:   &felt.Zero,
+			},
+			nil,
+		)
+		mockReader.EXPECT().StateAtBlockNumber(l1HeadBlockNumber).Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
+		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
+
+		blockID := blockIDL1Accepted(t)
+		storageValue, rpcErr := handler.StorageAt(&felt.Zero, &felt.Zero, &blockID)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedStorage, storageValue)
+	})
 }
 
 func TestStorageProof(t *testing.T) {

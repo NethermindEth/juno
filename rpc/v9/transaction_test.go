@@ -617,6 +617,37 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		assert.Equal(t, txn1, txn2)
 	})
 
+	t.Run("blockID - l1_accepted", func(t *testing.T) {
+		index := rand.Intn(int(latestBlock.TransactionCount))
+
+		mockReader.EXPECT().L1Head().Return(
+			&core.L1Head{
+				BlockNumber: latestBlockNumber,
+				BlockHash:   latestBlockHash,
+				StateRoot:   latestBlock.GlobalStateRoot,
+			},
+			nil,
+		)
+		mockReader.EXPECT().BlockHeaderByNumber(latestBlockNumber).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().TransactionByBlockNumberAndIndex(latestBlockNumber,
+			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
+			return latestBlock.Transactions[index], nil
+		})
+		mockReader.EXPECT().TransactionByHash(latestBlock.Transactions[index].Hash()).DoAndReturn(
+			func(hash *felt.Felt) (core.Transaction, error) {
+				return latestBlock.Transactions[index], nil
+			})
+
+		blockID := blockIDL1Accepted(t)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
+		require.Nil(t, rpcErr)
+
+		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
+		require.Nil(t, rpcErr)
+
+		assert.Equal(t, txn1, txn2)
+	})
+
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 

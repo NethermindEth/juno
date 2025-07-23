@@ -43,6 +43,7 @@ const (
 	latest
 	hash
 	number
+	l1Accepted
 )
 
 func (b *blockIDType) String() string {
@@ -51,6 +52,8 @@ func (b *blockIDType) String() string {
 		return "pre_confirmed"
 	case latest:
 		return "latest"
+	case l1Accepted:
+		return "l1_accepted"
 	case hash:
 		return "hash"
 	case number:
@@ -100,6 +103,10 @@ func (b *BlockID) IsNumber() bool {
 	return b.typeID == number
 }
 
+func (b *BlockID) IsL1Accepted() bool {
+	return b.typeID == l1Accepted
+}
+
 func (b *BlockID) Hash() *felt.Felt {
 	if b.typeID != hash {
 		panic(fmt.Sprintf("Trying to get hash from block id with type %s", b.typeID.String()))
@@ -122,6 +129,8 @@ func (b *BlockID) UnmarshalJSON(data []byte) error {
 			b.typeID = latest
 		case "pre_confirmed":
 			b.typeID = preConfirmed
+		case "l1_accepted":
+			b.typeID = l1Accepted
 		default:
 			return fmt.Errorf("unknown block tag '%s'", blockTag)
 		}
