@@ -108,7 +108,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 				go broadcaster.Loop(t.Context(), source.topic)
 				for _, message := range source.messages {
 					logger.Debugw("publishing", "message", message)
-					broadcaster.Broadcast(message)
+					broadcaster.Broadcast(t.Context(), message)
 					time.Sleep(throttledRate)
 				}
 			})

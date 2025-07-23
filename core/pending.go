@@ -18,6 +18,7 @@ type PendingData interface {
 	GetStateUpdate() *StateUpdate
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
+	GetTransactionStateDiffs() []*StateDiff
 	Variant() PendingDataVariant
 }
 
@@ -62,6 +63,10 @@ func (p *PreConfirmed) GetNewClasses() map[felt.Felt]Class {
 
 func (p *PreConfirmed) GetCandidateTransaction() []Transaction {
 	return p.CandidateTxs
+}
+
+func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
+	return p.TransactionStateDiffs
 }
 
 func (p *PreConfirmed) Variant() PendingDataVariant {

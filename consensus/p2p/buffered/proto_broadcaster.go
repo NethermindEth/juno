@@ -24,8 +24,12 @@ func NewProtoBroadcaster(log utils.Logger, bufferSize int, retryInterval time.Du
 	}
 }
 
-func (b ProtoBroadcaster) Broadcast(msg proto.Message) {
-	b.ch <- msg
+func (b ProtoBroadcaster) Broadcast(ctx context.Context, msg proto.Message) {
+	select {
+	case <-ctx.Done():
+		return
+	case b.ch <- msg:
+	}
 }
 
 func (b ProtoBroadcaster) Loop(ctx context.Context, topic *pubsub.Topic) {

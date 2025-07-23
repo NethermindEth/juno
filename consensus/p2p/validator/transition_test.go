@@ -94,7 +94,7 @@ func TestEmptyProposal(t *testing.T) {
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x707b1c40b82913d91d7cde74107be9cfa48b9080c49e95dd0ba7b00cd1125c")
+	block1Hash, err := new(felt.Felt).SetString("0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
@@ -165,7 +165,7 @@ func TestProposal(t *testing.T) {
 				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1GasPriceFri + 1)),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       500000,
+				MaxAmount:       520000,
 				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l2GasPriceFri + 1)),
 			},
 			core.ResourceL1DataGas: {
@@ -195,22 +195,22 @@ func TestProposal(t *testing.T) {
 		ProtocolVersion:  *builder.CurrentStarknetVersion,
 
 		OldStateRoot:          *utils.HexToFelt(t, "0x7629d7aa2c2ae74781626790ab75feb3306b79a41a917bcb923596d12af7f72"),
-		StateDiffCommitment:   *utils.HexToFelt(t, "0x4cef1c56b11255e30104420e8af41aff2ffe015ddd1eebc7acb28c42ffc3a0"),
+		StateDiffCommitment:   *utils.HexToFelt(t, "0x16d4498d26bdb6828f7401f8bd8cffb76d49a6be573a30961d0752af4772728"),
 		TransactionCommitment: *utils.HexToFelt(t, "0x1286e8721df29411c3f24c8decdef473e1ca758a87ab8d8a4e99ff7511c6fcd"),
-		EventCommitment:       *utils.HexToFelt(t, "0x7e7140ab1993f5f3b9050104fcf65b462a6d9e5d1b4aa5d7fb29a177e5f960e"),
-		ReceiptCommitment:     *utils.HexToFelt(t, "0x644551c17735bb6679bc4782fc95154d013b73b359bb95b33ea26f170d03cf1"),
+		EventCommitment:       *utils.HexToFelt(t, "0x44a528b33c19728469ae78c616070c5a609b57250c630391e64a9532d4bbac9"),
+		ReceiptCommitment:     *utils.HexToFelt(t, "0x4e31a7f4aad47f4d3a2e176961c0ccb7ef90f52159da68edd52c9fc0739eb4c"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
 		L1GasPriceFRI:         felt.FromUint64(l1GasPriceFri),
 		L1DataGasPriceFRI:     felt.FromUint64(l1DataGasPriceFri),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
-		L2GasUsed:             *utils.HexToFelt(t, "0x93f80"),
+		L2GasUsed:             *utils.HexToFelt(t, "0x9dbc0"),
 		L1DAMode:              blockInfo.L1DAMode,
 	}
 	awaitingProposalFinState, err := transition.OnProposalCommitment(t.Context(), receivingTransactionsState, &nonEmptyCommitment)
 	require.NoError(t, err)
 
 	// Step 5: ProposalFin
-	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x302789a08a44329b02a6dc13fe837f9719fdce7607d3bd5c872d5ca9b5cdbbd"))
+	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x33104073e2e1af67a09ce406ba489fd00592aa406fba60d6a8a8959f7613080"))
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
 	require.NoError(t, err)
 }

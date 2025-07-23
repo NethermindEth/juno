@@ -37,6 +37,8 @@ const (
 	AcceptedOnL1
 	NotReceived
 	Received
+	PreConfirmed
+	Candidate
 )
 
 func (fs *FinalityStatus) UnmarshalText(data []byte) error {
@@ -49,6 +51,10 @@ func (fs *FinalityStatus) UnmarshalText(data []byte) error {
 		*fs = NotReceived
 	case "RECEIVED":
 		*fs = Received
+	case "PRE_CONFIRMED":
+		*fs = PreConfirmed
+	case "CANDIDATE":
+		*fs = Candidate
 	default:
 		return fmt.Errorf("unknown FinalityStatus %q", str)
 	}

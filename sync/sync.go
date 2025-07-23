@@ -77,7 +77,8 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (state.StateReader, error)
+	PendingState() (core.StateReader, error)
+	PendingStateBeforeIndex(index int) (core.StateReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -113,6 +114,10 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 
 func (n *NoopSynchronizer) PendingState() (state.StateReader, error) {
 	return nil, errors.New("PendingState() not implemented")
+}
+
+func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -704,7 +709,6 @@ func (s *Synchronizer) PendingData() (core.PendingData, error) {
 	p := *ptr
 	switch p.Variant() {
 	case core.PreConfirmedBlockVariant:
-		// pre_confirmed
 		expectedOldRoot := &felt.Zero
 		expectedBlockNumber := uint64(0)
 		if head, err := s.blockchain.HeadsHeader(); err == nil {
@@ -752,6 +756,30 @@ func (s *Synchronizer) PendingState() (state.StateReader, error) {
 	}
 
 	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), nil
+}
+
+// PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
+// up to given index in the pre-confirmed block.
+func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+	txn := s.db.NewIndexedBatch()
+
+	pending, err := s.PendingData()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if pending.Variant() != core.PreConfirmedBlockVariant {
+		return nil, nil, errors.New("only supported for pre_confirmed block")
+	}
+
+	stateDiff := core.EmptyStateDiff()
+	// Transaction state diffs size must always match Transactions
+	txStateDiffs := pending.GetTransactionStateDiffs()
+	for _, txStateDiff := range txStateDiffs[:index] {
+		stateDiff.Merge(txStateDiff)
+	}
+
+	return NewPendingState(&stateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
