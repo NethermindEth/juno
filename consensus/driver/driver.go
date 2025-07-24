@@ -58,6 +58,8 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 		}
 	}()
 
+	time.Sleep(1 * time.Second) // FIXME: Figure out how to remove this.
+
 	d.stateMachine.ReplayWAL()
 
 	listeners := d.p2p.Listeners()
@@ -83,11 +85,11 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
 			case p := <-listeners.ProposalListener.Listen():
-				actions = d.stateMachine.ProcessProposal(p)
+				actions = d.stateMachine.ProcessProposal(&p)
 			case p := <-listeners.PrevoteListener.Listen():
-				actions = d.stateMachine.ProcessPrevote(p)
+				actions = d.stateMachine.ProcessPrevote(&p)
 			case p := <-listeners.PrecommitListener.Listen():
-				actions = d.stateMachine.ProcessPrecommit(p)
+				actions = d.stateMachine.ProcessPrecommit(&p)
 			}
 
 			isCommitted = d.execute(ctx, broadcasters, actions)
