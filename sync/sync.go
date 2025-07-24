@@ -579,6 +579,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	pending.Block.Number = head.Number + 1
 
 	blockVer, err = core.ParseBlockVersion(pending.Block.ProtocolVersion)
 	if err != nil {
