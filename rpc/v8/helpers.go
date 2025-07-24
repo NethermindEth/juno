@@ -6,9 +6,9 @@ package rpcv8
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -137,28 +137,27 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(blockID *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
-	var reader core.StateReader
-	var closer blockchain.StateCloser
+func (h *Handler) stateByBlockID(blockID *BlockID) (state.StateReader, *jsonrpc.Error) {
+	var reader state.StateReader
 	var err error
 	switch blockID.Type() {
 	case pending:
-		reader, closer, err = h.PendingState()
+		reader, err = h.PendingState()
 	case latest:
-		reader, closer, err = h.bcReader.HeadState()
+		reader, err = h.bcReader.HeadState()
 	case hash:
-		reader, closer, err = h.bcReader.StateAtBlockHash(blockID.Hash())
+		reader, err = h.bcReader.StateAtBlockHash(blockID.Hash())
 	case number:
-		reader, closer, err = h.bcReader.StateAtBlockNumber(blockID.Number())
+		reader, err = h.bcReader.StateAtBlockNumber(blockID.Number())
 	default:
 		panic("unknown block id type")
 	}
 
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, sync.ErrPendingBlockNotFound) {
-			return nil, nil, rpccore.ErrBlockNotFound
+			return nil, rpccore.ErrBlockNotFound
 		}
-		return nil, nil, rpccore.ErrInternal.CloneWithData(err)
+		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
-	return reader, closer, nil
+	return reader, nil
 }

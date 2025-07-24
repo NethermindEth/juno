@@ -16,8 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func nopCloser() error { return nil }
-
 func TestSpecVersion(t *testing.T) {
 	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
@@ -35,14 +33,14 @@ func TestThrottledVMError(t *testing.T) {
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
 	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
-		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
+		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
+		mockState.EXPECT().Class(&felt.Zero).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
 			Program: []*felt.Felt{
 				new(felt.Felt).SetUint64(3),
 				new(felt.Felt),
@@ -56,7 +54,7 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("simulate", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		blockID := blockIDLatest(t)
@@ -91,13 +89,13 @@ func TestThrottledVMError(t *testing.T) {
 		}
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
-		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
+		state := mocks.NewMockStateReader(mockCtrl)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nil)
+		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 
 		blockID := blockIDHash(t, blockHash)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
