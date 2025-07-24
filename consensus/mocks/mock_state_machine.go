@@ -41,7 +41,7 @@ func (m *MockStateMachine[V, H, A]) EXPECT() *MockStateMachineMockRecorder[V, H,
 }
 
 // ProcessPrecommit mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessPrecommit(arg0 types.Precommit[H, A]) []types.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessPrecommit(arg0 *types.Precommit[H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessPrecommit", arg0)
 	ret0, _ := ret[0].([]types.Action[V, H, A])
@@ -55,7 +55,7 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessPrecommit(arg0 any) *gom
 }
 
 // ProcessPrevote mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessPrevote(arg0 types.Prevote[H, A]) []types.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessPrevote(arg0 *types.Prevote[H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessPrevote", arg0)
 	ret0, _ := ret[0].([]types.Action[V, H, A])
@@ -69,7 +69,7 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessPrevote(arg0 any) *gomoc
 }
 
 // ProcessProposal mocks base method.
-func (m *MockStateMachine[V, H, A]) ProcessProposal(arg0 types.Proposal[V, H, A]) []types.Action[V, H, A] {
+func (m *MockStateMachine[V, H, A]) ProcessProposal(arg0 *types.Proposal[V, H, A]) []types.Action[V, H, A] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProcessProposal", arg0)
 	ret0, _ := ret[0].([]types.Action[V, H, A])

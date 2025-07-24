@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -22,7 +23,7 @@ type Validators[A types.Addr] interface {
 
 	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
 	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(A) types.VotingPower
+	ValidatorVotingPower(types.Height, *A) types.VotingPower
 
 	// Proposer returns the proposer of the current round and height.
 	Proposer(types.Height, types.Round) A
@@ -39,9 +40,9 @@ type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ReplayWAL()
 	ProcessStart(types.Round) []types.Action[V, H, A]
 	ProcessTimeout(types.Timeout) []types.Action[V, H, A]
-	ProcessProposal(types.Proposal[V, H, A]) []types.Action[V, H, A]
-	ProcessPrevote(types.Prevote[H, A]) []types.Action[V, H, A]
-	ProcessPrecommit(types.Precommit[H, A]) []types.Action[V, H, A]
+	ProcessProposal(*types.Proposal[V, H, A]) []types.Action[V, H, A]
+	ProcessPrevote(*types.Prevote[H, A]) []types.Action[V, H, A]
+	ProcessPrecommit(*types.Precommit[H, A]) []types.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
@@ -53,10 +54,9 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 	state state[V, H] // Todo: Does state need to be protected?
 
-	messages types.Messages[V, H, A]
+	voteCounter votecounter.VoteCounter[V, H, A]
 
 	application Application[V, H]
-	validators  Validators[A]
 }
 
 type state[V types.Hashable[H], H types.Hash] struct {
@@ -92,9 +92,8 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 			lockedRound: -1,
 			validRound:  -1,
 		},
-		messages:    types.NewMessages[V, H, A](),
+		voteCounter: votecounter.New[V](vals, height),
 		application: app,
-		validators:  vals,
 	}
 }
 
@@ -120,7 +119,7 @@ func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 
 	t.resetState(r)
 
-	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
+	if p := t.voteCounter.Proposer(r); p == t.nodeAddr {
 		var proposalValue *V
 		if t.state.validValue != nil {
 			proposalValue = t.state.validValue
@@ -147,31 +146,6 @@ func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H,
 	)
 }
 
-func (t *stateMachine[V, H, A]) validatorSetVotingPower(vals []A) types.VotingPower {
-	var totalVotingPower types.VotingPower
-	for _, v := range vals {
-		totalVotingPower += t.validators.ValidatorVotingPower(v)
-	}
-	return totalVotingPower
-}
-
-// Todo: add separate unit tests to check f and q thresholds.
-func f(totalVotingPower types.VotingPower) types.VotingPower {
-	// note: integer division automatically floors the result as it return the quotient.
-	return (totalVotingPower - 1) / 3
-}
-
-func q(totalVotingPower types.VotingPower) types.VotingPower {
-	// Unfortunately there is no ceiling function for integers in go.
-	d := totalVotingPower * 2
-	q := d / 3
-	r := d % 3
-	if r > 0 {
-		q++
-	}
-	return q
-}
-
 // - Messages from past heights are ignored.
 // - All messages from current and future heights are stored, but only processed when the height is the current height.
 func (t *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
@@ -183,49 +157,16 @@ func (t *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A],
 	return header.Height == t.state.height
 }
 
-// TODO: Improve performance. Current complexity is O(n).
-func (t *stateMachine[V, H, A]) checkForQuorumPrecommit(r types.Round, vID H) (matchingPrecommits []types.Precommit[H, A], hasQuorum bool) {
-	precommits, ok := t.messages.Precommits[t.state.height][r]
-	if !ok {
-		return nil, false
-	}
-
-	var vals []A
-	for addr, p := range precommits {
-		if p.ID != nil && *p.ID == vID {
-			matchingPrecommits = append(matchingPrecommits, p)
-			vals = append(vals, addr)
-		}
-	}
-	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
-}
-
-// TODO: Improve performance. Current complexity is O(n).
-func (t *stateMachine[V, H, A]) checkQuorumPrevotesGivenProposalVID(r types.Round, vID H) (hasQuorum bool) {
-	prevotes, ok := t.messages.Prevotes[t.state.height][r]
-	if !ok {
-		return false
-	}
-
-	var vals []A
-	for addr, p := range prevotes {
-		if p.ID != nil && *p.ID == vID {
-			vals = append(vals, addr)
-		}
-	}
-	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
-}
-
 func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H, A] {
-	v, ok := t.messages.Proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
-	if !ok {
+	proposal := t.voteCounter.GetProposal(r)
+	if proposal == nil {
 		return nil
 	}
 
 	return &CachedProposal[V, H, A]{
-		Proposal: v,
-		Valid:    t.application.Valid(*v.Value),
-		ID:       utils.HeapPtr((*v.Value).Hash()),
+		Proposal: *proposal,
+		Valid:    t.application.Valid(*proposal.Value),
+		ID:       utils.HeapPtr((*proposal.Value).Hash()),
 	}
 }
 
@@ -250,19 +191,19 @@ func (t *stateMachine[V, H, A]) ReplayWAL() {
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
 			}
-			t.ProcessProposal(proposal)
+			t.ProcessProposal(&proposal)
 		case types.MessageTypePrevote:
 			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
 			}
-			t.ProcessPrevote(prevote)
+			t.ProcessPrevote(&prevote)
 		case types.MessageTypePrecommit:
 			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
 			}
-			t.ProcessPrecommit(precommit)
+			t.ProcessPrecommit(&precommit)
 		case types.MessageTypeTimeout:
 			timeout, ok := (walEntry.Entry).(types.Timeout)
 			if !ok {

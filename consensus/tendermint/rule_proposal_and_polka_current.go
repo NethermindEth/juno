@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
 /*
@@ -18,7 +19,7 @@ Check upon condition on line 36:
 	43: validRound_p ← round_p
 */
 func (t *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) bool {
-	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(t.state.round, *cachedProposal.ID)
+	hasQuorum := cachedProposal.ID != nil && t.voteCounter.HasQuorumForVote(t.state.round, votecounter.Prevote, cachedProposal.ID)
 	firstTime := !t.state.lockedValueAndOrValidValueSet
 	return hasQuorum &&
 		cachedProposal.Valid &&
