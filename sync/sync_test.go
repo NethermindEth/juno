@@ -367,7 +367,7 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, err)
 			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
 			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
+			require.Equal(t, *expectedVal, val)
 
 			pendingState, pErr = synchronizer.PendingStateBeforeIndex(txCount)
 			require.NoError(t, pErr)
@@ -379,7 +379,7 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, err)
 			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
 			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
+			require.Equal(t, *expectedVal, val)
 		})
 	})
 }
