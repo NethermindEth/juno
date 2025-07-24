@@ -32,9 +32,7 @@ func TestCommitValue(t *testing.T) {
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 
-		assert.Empty(t, stateMachine.messages.Proposals)
-		assert.Empty(t, stateMachine.messages.Prevotes)
-		assert.Empty(t, stateMachine.messages.Precommits)
+		stateMachine.voteCounter.AssertEmpty(t)
 
 		nextRound.start().expectActions(
 			nextRound.action().scheduleTimeout(types.StepPropose),
@@ -63,9 +61,7 @@ func TestCommitValue(t *testing.T) {
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 
-		assert.Empty(t, stateMachine.messages.Proposals)
-		assert.Empty(t, stateMachine.messages.Prevotes)
-		assert.Empty(t, stateMachine.messages.Precommits)
+		stateMachine.voteCounter.AssertEmpty(t)
 
 		nextRound.start().expectActions(
 			nextRound.action().scheduleTimeout(types.StepPropose),
