@@ -390,8 +390,8 @@ func TestStorageProof(t *testing.T) {
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil)
-		classHash := new(felt.Felt).SetUint64(1234)
-		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil)
+		classHasah := new(felt.Felt).SetUint64(1234)
+		mockState.EXPECT().ContractClassHash(key).Return(*classHasah, nil)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)

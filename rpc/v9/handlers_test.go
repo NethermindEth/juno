@@ -36,7 +36,7 @@ func TestThrottledVMError(t *testing.T) {
 
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
 		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
@@ -53,7 +53,7 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("simulate", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		blockID := blockIDLatest(t)
