@@ -22,7 +22,6 @@ type (
 	Precommit     = types.Precommit[Hash, Address]
 	Vote          = types.Vote[Hash, Address]
 	MessageHeader = types.MessageHeader[Address]
-	Messages      = types.Messages[Value, Hash, Address]
 
 	Action             = types.Action[Value, Hash, Address]
 	BroadcastProposal  = types.BroadcastProposal[Value, Hash, Address]

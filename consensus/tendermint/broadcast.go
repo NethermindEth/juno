@@ -20,7 +20,7 @@ func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
 		t.log.Fatalf("Failed to store propsal in WAL")
 	}
 
-	t.messages.AddProposal(proposalMessage)
+	t.voteCounter.AddProposal(&proposalMessage)
 
 	return utils.HeapPtr(types.BroadcastProposal[V, H, A](proposalMessage))
 }
@@ -35,7 +35,7 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, 
 		ID: id,
 	}
 
-	t.messages.AddPrevote(vote)
+	t.voteCounter.AddPrevote(&vote)
 	t.state.step = types.StepPrevote
 
 	return utils.HeapPtr(types.BroadcastPrevote[H, A](vote))
@@ -51,7 +51,7 @@ func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H
 		ID: id,
 	}
 
-	t.messages.AddPrecommit(vote)
+	t.voteCounter.AddPrecommit(&vote)
 	t.state.step = types.StepPrecommit
 
 	return utils.HeapPtr(types.BroadcastPrecommit[H, A](vote))
