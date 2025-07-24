@@ -335,7 +335,7 @@ func (h *Handler) checkTxStatus(
 		return lastStatus, errorTxnHashNotFound{*txHash}
 	}
 
-	if status.Finality <= lastStatus {
+	if status.Finality == lastStatus {
 		return lastStatus, nil
 	}
 
