@@ -26,14 +26,23 @@ const (
 
 type NewStreamFunc func(ctx context.Context, pids ...protocol.ID) (network.Stream, error)
 
-type Client struct {
+//go:generate mockgen -destination=../../mocks/mock_p2p_client.go -package=mocks github.com/NethermindEth/juno/p2p/sync Client
+type Client interface {
+	RequestBlockHeaders(ctx context.Context, req *header.BlockHeadersRequest) (iter.Seq[*header.BlockHeadersResponse], error)
+	RequestTransactions(ctx context.Context, req *synctransaction.TransactionsRequest) (iter.Seq[*synctransaction.TransactionsResponse], error)
+	RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error)
+	RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error)
+	RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error)
+}
+
+type client struct {
 	newStream NewStreamFunc
 	network   *utils.Network
 	log       utils.SimpleLogger
 }
 
-func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.SimpleLogger) *Client {
-	return &Client{
+func NewClient(newStream NewStreamFunc, snNetwork *utils.Network, log utils.SimpleLogger) Client {
+	return &client{
 		newStream: newStream,
 		network:   snNetwork,
 		log:       log,
@@ -106,26 +115,26 @@ func requestAndReceiveStream[ReqT proto.Message, ResT proto.Message](ctx context
 	}, nil
 }
 
-func (c *Client) RequestBlockHeaders(
+func (c *client) RequestBlockHeaders(
 	ctx context.Context, req *header.BlockHeadersRequest,
 ) (iter.Seq[*header.BlockHeadersResponse], error) {
 	return requestAndReceiveStream[*header.BlockHeadersRequest, *header.BlockHeadersResponse](
 		ctx, c.newStream, HeadersPID(), req, c.log)
 }
 
-func (c *Client) RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error) {
+func (c *client) RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error) {
 	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
 }
 
-func (c *Client) RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error) {
+func (c *client) RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error) {
 	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
 }
 
-func (c *Client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error) {
+func (c *client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error) {
 	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
 }
 
-func (c *Client) RequestTransactions(
+func (c *client) RequestTransactions(
 	ctx context.Context,
 	req *synctransaction.TransactionsRequest,
 ) (iter.Seq[*synctransaction.TransactionsResponse], error) {
