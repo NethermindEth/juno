@@ -6,9 +6,9 @@ func (t *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V
 	return t.processLoop(t.startRound(round), nil)
 }
 
-func (t *stateMachine[V, H, A]) ProcessProposal(p types.Proposal[V, H, A]) []types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) ProcessProposal(p *types.Proposal[V, H, A]) []types.Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.AddProposal(p) && !t.replayMode && p.Height == t.state.height {
+		if t.voteCounter.AddProposal(p) && !t.replayMode && p.Height == t.state.height {
 			// Store proposal if its the first time we see it
 			if err := t.db.SetWALEntry(p); err != nil {
 				t.log.Fatalf("Failed to store prevote in WAL")
@@ -17,9 +17,9 @@ func (t *stateMachine[V, H, A]) ProcessProposal(p types.Proposal[V, H, A]) []typ
 	})
 }
 
-func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) ProcessPrevote(p *types.Prevote[H, A]) []types.Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.AddPrevote(p) && !t.replayMode && p.Height == t.state.height {
+		if t.voteCounter.AddPrevote(p) && !t.replayMode && p.Height == t.state.height {
 			// Store prevote if its the first time we see it
 			if err := t.db.SetWALEntry(p); err != nil {
 				t.log.Fatalf("Failed to store prevote in WAL")
@@ -28,9 +28,9 @@ func (t *stateMachine[V, H, A]) ProcessPrevote(p types.Prevote[H, A]) []types.Ac
 	})
 }
 
-func (t *stateMachine[V, H, A]) ProcessPrecommit(p types.Precommit[H, A]) []types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []types.Action[V, H, A] {
 	return t.processMessage(p.MessageHeader, func() {
-		if t.messages.AddPrecommit(p) && !t.replayMode && p.Height == t.state.height {
+		if t.voteCounter.AddPrecommit(p) && !t.replayMode && p.Height == t.state.height {
 			// Store precommit if its the first time we see it
 			if err := t.db.SetWALEntry(p); err != nil {
 				t.log.Fatalf("Failed to store prevote in WAL")
