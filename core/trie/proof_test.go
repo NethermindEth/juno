@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -132,9 +132,8 @@ func TestProveCustom(t *testing.T) {
 		{
 			name: "left-right edge",
 			buildFn: func(t *testing.T) (*trie.Trie, []*keyValue) {
-				memdb := pebble.NewMemTest(t)
-				txn, err := memdb.NewTransaction(true)
-				require.NoError(t, err)
+				memdb := memory.New()
+				txn := memdb.NewIndexedBatch()
 
 				tr, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{1}), 251)
 				require.NoError(t, err)
@@ -647,9 +646,8 @@ func buildTrie(t *testing.T, records []*keyValue) *trie.Trie {
 		t.Fatal("records must have at least one element")
 	}
 
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
@@ -749,9 +747,8 @@ func build3KeyTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 }
 
 func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)
@@ -776,9 +773,8 @@ func nonRandomTrie(t *testing.T, numKeys int) (*trie.Trie, []*keyValue) {
 func randomTrie(t testing.TB, n int) (*trie.Trie, []*keyValue) {
 	rrand := rand.New(rand.NewSource(3))
 
-	memdb := pebble.NewMemTest(t)
-	txn, err := memdb.NewTransaction(true)
-	require.NoError(t, err)
+	memdb := memory.New()
+	txn := memdb.NewIndexedBatch()
 
 	tempTrie, err := trie.NewTriePedersen(trie.NewStorage(txn, []byte{0}), 251)
 	require.NoError(t, err)

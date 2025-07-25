@@ -6,10 +6,12 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	rpcv9 "github.com/NethermindEth/juno/rpc/v9"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -20,19 +22,24 @@ type Handler struct {
 	rpcv6Handler *rpcv6.Handler
 	rpcv7Handler *rpcv7.Handler
 	rpcv8Handler *rpcv8.Handler
+	rpcv9Handler *rpcv9.Handler
+	version      string
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
-	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, version, network, logger)
-	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, version, network, logger)
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, version, logger)
+	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger)
+	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, network, logger)
+	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
+	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
 
 	return &Handler{
 		rpcv6Handler: handlerv6,
 		rpcv7Handler: handlerv7,
 		rpcv8Handler: handlerv8,
+		rpcv9Handler: handlerv9,
+		version:      version,
 	}
 }
 
@@ -41,11 +48,13 @@ func (h *Handler) WithFilterLimit(limit uint) *Handler {
 	h.rpcv6Handler.WithFilterLimit(limit)
 	h.rpcv7Handler.WithFilterLimit(limit)
 	h.rpcv8Handler.WithFilterLimit(limit)
+	h.rpcv9Handler.WithFilterLimit(limit)
 	return h
 }
 
 func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 	h.rpcv8Handler.WithL1Client(l1Client)
+	h.rpcv9Handler.WithL1Client(l1Client)
 	return h
 }
 
@@ -53,6 +62,7 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	h.rpcv6Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv7Handler.WithCallMaxSteps(maxSteps)
 	h.rpcv8Handler.WithCallMaxSteps(maxSteps)
+	h.rpcv9Handler.WithCallMaxSteps(maxSteps)
 	return h
 }
 
@@ -60,6 +70,7 @@ func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.rpcv6Handler.WithFeeder(feederClient)
 	h.rpcv7Handler.WithFeeder(feederClient)
 	h.rpcv8Handler.WithFeeder(feederClient)
+	h.rpcv9Handler.WithFeeder(feederClient)
 	return h
 }
 
@@ -67,7 +78,27 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	h.rpcv6Handler.WithGateway(gatewayClient)
 	h.rpcv7Handler.WithGateway(gatewayClient)
 	h.rpcv8Handler.WithGateway(gatewayClient)
+	h.rpcv9Handler.WithGateway(gatewayClient)
 	return h
+}
+
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
+	h.rpcv6Handler.WithMempool(memPool)
+	h.rpcv8Handler.WithMempool(memPool)
+	h.rpcv9Handler.WithMempool(memPool)
+	return h
+}
+
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransactionsCache) *Handler {
+	h.rpcv6Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv7Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)
+	h.rpcv9Handler.WithSubmittedTransactionsCache(cache)
+	return h
+}
+
+func (h *Handler) Version() (string, *jsonrpc.Error) {
+	return h.version, nil
 }
 
 func (h *Handler) Run(ctx context.Context) error {
@@ -76,11 +107,206 @@ func (h *Handler) Run(ctx context.Context) error {
 	g.Go(func() error { return h.rpcv6Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv7Handler.Run(ctx) })
 	g.Go(func() error { return h.rpcv8Handler.Run(ctx) })
+	g.Go(func() error { return h.rpcv9Handler.Run(ctx) })
 
 	return g.Wait()
 }
 
-func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
+func (h *Handler) MethodsV0_9() ([]jsonrpc.Method, string) { //nolint:funlen
+	return []jsonrpc.Method{
+		{
+			Name:    "starknet_chainId",
+			Handler: h.rpcv6Handler.ChainID,
+		},
+		{
+			Name:    "starknet_blockNumber",
+			Handler: h.rpcv6Handler.BlockNumber,
+		},
+		{
+			Name:    "starknet_blockHashAndNumber",
+			Handler: h.rpcv6Handler.BlockHashAndNumber,
+		},
+		{
+			Name:    "starknet_getBlockWithTxHashes",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.BlockWithTxHashes,
+		},
+		{
+			Name:    "starknet_getBlockWithTxs",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.BlockWithTxs,
+		},
+		{
+			Name:    "starknet_getTransactionByHash",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.TransactionByHash,
+		},
+		{
+			Name:    "starknet_getTransactionReceipt",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.TransactionReceiptByHash,
+		},
+		{
+			Name:    "starknet_getBlockTransactionCount",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.BlockTransactionCount,
+		},
+		{
+			Name:    "starknet_getTransactionByBlockIdAndIndex",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "index"}},
+			Handler: h.rpcv9Handler.TransactionByBlockIDAndIndex,
+		},
+		{
+			Name:    "starknet_getStateUpdate",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.StateUpdate,
+		},
+		{
+			Name:    "starknet_syncing",
+			Handler: h.rpcv6Handler.Syncing,
+		},
+		{
+			Name:    "starknet_getNonce",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.rpcv9Handler.Nonce,
+		},
+		{
+			Name:    "starknet_getStorageAt",
+			Params:  []jsonrpc.Parameter{{Name: "contract_address"}, {Name: "key"}, {Name: "block_id"}},
+			Handler: h.rpcv9Handler.StorageAt,
+		},
+		{
+			Name:    "starknet_getClassHashAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.rpcv9Handler.ClassHashAt,
+		},
+		{
+			Name:    "starknet_getClass",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "class_hash"}},
+			Handler: h.rpcv9Handler.Class,
+		},
+		{
+			Name:    "starknet_getClassAt",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "contract_address"}},
+			Handler: h.rpcv9Handler.ClassAt,
+		},
+		{
+			Name:    "starknet_addInvokeTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "invoke_transaction"}},
+			Handler: h.rpcv9Handler.AddTransaction,
+		},
+		{
+			Name:    "starknet_addDeployAccountTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "deploy_account_transaction"}},
+			Handler: h.rpcv9Handler.AddTransaction,
+		},
+		{
+			Name:    "starknet_addDeclareTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
+			Handler: h.rpcv9Handler.AddTransaction,
+		},
+		{
+			Name:    "starknet_getEvents",
+			Params:  []jsonrpc.Parameter{{Name: "filter"}},
+			Handler: h.rpcv9Handler.Events,
+		},
+		{
+			Name:    "juno_version",
+			Handler: h.rpcv9Handler.Version,
+		},
+		{
+			Name:    "starknet_getTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.TransactionStatus,
+		},
+		{
+			Name:    "starknet_call",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "block_id"}},
+			Handler: h.rpcv9Handler.Call,
+		},
+		{
+			Name:    "starknet_estimateFee",
+			Params:  []jsonrpc.Parameter{{Name: "request"}, {Name: "simulation_flags"}, {Name: "block_id"}},
+			Handler: h.rpcv9Handler.EstimateFee,
+		},
+		{
+			Name:    "starknet_estimateMessageFee",
+			Params:  []jsonrpc.Parameter{{Name: "message"}, {Name: "block_id"}},
+			Handler: h.rpcv9Handler.EstimateMessageFee,
+		},
+		{
+			Name:    "starknet_traceTransaction",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.TraceTransaction,
+		},
+		{
+			Name:    "starknet_simulateTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}, {Name: "transactions"}, {Name: "simulation_flags"}},
+			Handler: h.rpcv9Handler.SimulateTransactions,
+		},
+		{
+			Name:    "starknet_traceBlockTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.TraceBlockTransactions,
+		},
+		{
+			Name:    "starknet_specVersion",
+			Handler: h.rpcv9Handler.SpecVersion,
+		},
+		{
+			Name:    "starknet_subscribeEvents",
+			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
+			Handler: h.rpcv9Handler.SubscribeEvents,
+		},
+		{
+			Name:    "starknet_subscribeNewHeads",
+			Params:  []jsonrpc.Parameter{{Name: "block_id", Optional: true}},
+			Handler: h.rpcv9Handler.SubscribeNewHeads,
+		},
+		{
+			Name:    "starknet_subscribeTransactionStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.SubscribeTransactionStatus,
+		},
+		{
+			Name:    "starknet_subscribePendingTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.rpcv9Handler.SubscribePendingTxs,
+		},
+		{
+			Name:    "starknet_unsubscribe",
+			Params:  []jsonrpc.Parameter{{Name: "subscription_id"}},
+			Handler: h.rpcv9Handler.Unsubscribe,
+		},
+		{
+			Name:    "starknet_getBlockWithReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "block_id"}},
+			Handler: h.rpcv9Handler.BlockWithReceipts,
+		},
+		{
+			Name:    "starknet_getCompiledCasm",
+			Params:  []jsonrpc.Parameter{{Name: "class_hash"}},
+			Handler: h.rpcv9Handler.CompiledCasm,
+		},
+		{
+			Name:    "starknet_getMessagesStatus",
+			Params:  []jsonrpc.Parameter{{Name: "transaction_hash"}},
+			Handler: h.rpcv9Handler.GetMessageStatus,
+		},
+		{
+			Name: "starknet_getStorageProof",
+			Params: []jsonrpc.Parameter{
+				{Name: "block_id"},
+				{Name: "class_hashes", Optional: true},
+				{Name: "contract_addresses", Optional: true},
+				{Name: "contracts_storage_keys", Optional: true},
+			},
+			Handler: h.rpcv9Handler.StorageProof,
+		},
+	}, "/v0_9"
+}
+
+func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint:funlen
 	return []jsonrpc.Method{
 		{
 			Name:    "starknet_chainId",
@@ -180,7 +406,7 @@ func (h *Handler) MethodsV0_8() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv8Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -374,7 +600,7 @@ func (h *Handler) MethodsV0_7() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv7Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",
@@ -532,7 +758,7 @@ func (h *Handler) MethodsV0_6() ([]jsonrpc.Method, string) { //nolint: funlen
 		},
 		{
 			Name:    "juno_version",
-			Handler: h.rpcv6Handler.Version,
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",

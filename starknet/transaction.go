@@ -37,6 +37,8 @@ const (
 	AcceptedOnL1
 	NotReceived
 	Received
+	PreConfirmed
+	Candidate
 )
 
 func (fs *FinalityStatus) UnmarshalText(data []byte) error {
@@ -49,6 +51,10 @@ func (fs *FinalityStatus) UnmarshalText(data []byte) error {
 		*fs = NotReceived
 	case "RECEIVED":
 		*fs = Received
+	case "PRE_CONFIRMED":
+		*fs = PreConfirmed
+	case "CANDIDATE":
+		*fs = Candidate
 	default:
 		return fmt.Errorf("unknown FinalityStatus %q", str)
 	}
@@ -158,7 +164,7 @@ type ResourceBounds struct {
 
 // Transaction object returned by the feeder in JSON format for multiple endpoints
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty" copier:"must,nopanic"`
+	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
 	Version               *felt.Felt                   `json:"version,omitempty"`
 	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
 	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty"`
@@ -180,15 +186,21 @@ type Transaction struct {
 	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty"`
 }
 
+type TransactionFailureReason struct {
+	Code    string `json:"code"`
+	Message string `json:"error_message"`
+}
+
 type TransactionStatus struct {
-	Status           string          `json:"status"`
-	FinalityStatus   FinalityStatus  `json:"finality_status"`
-	ExecutionStatus  ExecutionStatus `json:"execution_status"`
-	BlockHash        *felt.Felt      `json:"block_hash"`
-	BlockNumber      uint64          `json:"block_number"`
-	TransactionIndex uint64          `json:"transaction_index"`
-	Transaction      *Transaction    `json:"transaction"`
-	RevertError      string          `json:"revert_error"`
+	Status           string                    `json:"status"`
+	FinalityStatus   FinalityStatus            `json:"finality_status"`
+	ExecutionStatus  ExecutionStatus           `json:"execution_status"`
+	BlockHash        *felt.Felt                `json:"block_hash"`
+	BlockNumber      uint64                    `json:"block_number"`
+	TransactionIndex uint64                    `json:"transaction_index"`
+	Transaction      *Transaction              `json:"transaction"`
+	RevertError      string                    `json:"revert_error"`
+	FailureReason    *TransactionFailureReason `json:"transaction_failure_reason,omitempty"`
 }
 
 type Event struct {

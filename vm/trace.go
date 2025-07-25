@@ -105,9 +105,32 @@ type TransactionTrace struct {
 	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
+	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
+}
+
+// Todo: this was deleted during RP refactoring. However, the builder pkg needs it.
+// Think about if we can handle this more elegantly.
+func (t *TransactionTrace) TotalExecutionResources() *ExecutionResources {
+	total := new(ExecutionResources)
+	for _, invocation := range t.allInvocations() {
+		r := invocation.ExecutionResources
+		if r == nil {
+			continue
+		}
+		total.Pedersen += r.Pedersen
+		total.RangeCheck += r.RangeCheck
+		total.Bitwise += r.Bitwise
+		total.Ecdsa += r.Ecdsa
+		total.EcOp += r.EcOp
+		total.Keccak += r.Keccak
+		total.Poseidon += r.Poseidon
+		total.SegmentArena += r.SegmentArena
+		total.MemoryHoles += r.MemoryHoles
+		total.Steps += r.Steps
+	}
+	return total
 }
 
 type TransactionReceipt struct {
@@ -121,12 +144,16 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	if t.ExecuteInvocation != nil {
 		executeInvocation = t.ExecuteInvocation.FunctionInvocation
 	}
+	var functionInvocation *FunctionInvocation
+	if t.FunctionInvocation != nil {
+		functionInvocation = t.FunctionInvocation.FunctionInvocation
+	}
 	return slices.DeleteFunc([]*FunctionInvocation{
 		t.ConstructorInvocation,
 		t.ValidateInvocation,
 		t.FeeTransferInvocation,
 		executeInvocation,
-		t.FunctionInvocation,
+		functionInvocation,
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
@@ -166,7 +193,10 @@ func (t *TransactionTrace) AllEvents() []OrderedEvent {
 		addEvents(t.ConstructorInvocation)
 	}
 	addEvents(t.FeeTransferInvocation)
-	addEvents(t.FunctionInvocation)
+	if t.FunctionInvocation != nil {
+		addEvents(t.FunctionInvocation.FunctionInvocation)
+	}
+
 	return events
 }
 

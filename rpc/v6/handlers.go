@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
@@ -34,10 +35,11 @@ type Handler struct {
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
 	newHeads      *feed.Feed[*core.Block]
+	memPool       mempool.Pool
 
-	log             utils.Logger
-	version         string
-	blockTraceCache *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	log                        utils.Logger
+	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
+	submittedTransactionsCache *rpccore.SubmittedTransactionsCache
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -49,7 +51,7 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string, network *utils.Network,
+func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -63,12 +65,16 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		version:  version,
 		newHeads: feed.New[*core.Block](),
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
 	}
+}
+
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
+	h.memPool = memPool
+	return h
 }
 
 // WithFilterLimit sets the maximum number of blocks to scan in a single call for event filtering.
@@ -97,8 +103,9 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransactionsCache) *Handler {
+	h.submittedTransactionsCache = cache
+	return h
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {

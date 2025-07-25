@@ -39,16 +39,19 @@ func makeDBMetrics() db.EventListener {
 	readLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
 		Name:      "read_latency",
+		Help:      "Database read operation latency in microseconds",
 		Buckets:   latencyBuckets,
 	})
 	writeLatencyHistogram := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
 		Name:      "write_latency",
+		Help:      "Database write operation latency in microseconds",
 		Buckets:   latencyBuckets,
 	})
 	commitLatency := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: "db",
 		Name:      "commit_latency",
+		Help:      "Database transaction commit latency in microseconds",
 		Buckets: []float64{
 			5000,
 			10000,
@@ -85,6 +88,7 @@ func makeHTTPMetrics() jsonrpc.NewRequestListener {
 		Namespace: "rpc",
 		Subsystem: "http",
 		Name:      "requests",
+		Help:      "Total number of HTTP RPC requests received",
 	})
 	prometheus.MustRegister(reqCounter)
 
@@ -100,6 +104,7 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 		Namespace: "rpc",
 		Subsystem: "ws",
 		Name:      "requests",
+		Help:      "Total number of WebSocket RPC requests received",
 	})
 	prometheus.MustRegister(reqCounter)
 
@@ -115,16 +120,19 @@ func makeRPCMetrics(version1, version2, version3 string) (jsonrpc.EventListener,
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "requests",
+		Help:      "Total number of RPC requests by method and version",
 	}, []string{"method", "version"})
 	failedRequests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "failed_requests",
+		Help:      "Total number of failed RPC requests by method and version",
 	}, []string{"method", "version"})
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
 		Name:      "requests_latency",
+		Help:      "RPC request processing latency in seconds",
 	}, []string{"method", "version"})
 	prometheus.MustRegister(requests, failedRequests, requestLatencies)
 
@@ -166,18 +174,22 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 	opTimerHistogram := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "sync",
 		Name:      "timers",
+		Help:      "Synchronisation operation duration in seconds",
 	}, []string{"op"})
 	blockCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "sync",
 		Name:      "blocks",
+		Help:      "Total number of blocks processed during Synchronisation",
 	})
 	reorgCount := prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: "sync",
 		Name:      "reorganisations",
+		Help:      "Total number of blockchain reorganisations encountered",
 	})
 	chainHeightGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "sync",
 		Name:      "blockchain_height",
+		Help:      "Current blockchain height (latest block number)",
 	}, func() float64 {
 		height, _ := bcReader.Height()
 		return float64(height)
@@ -185,6 +197,7 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 	bestBlockGauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "sync",
 		Name:      "best_known_block_number",
+		Help:      "Highest known block number from the network",
 	}, func() float64 {
 		bestHeader := syncReader.HighestBlockHeader()
 		if bestHeader != nil {
@@ -221,6 +234,7 @@ func makeBlockchainMetrics() blockchain.EventListener {
 	reads := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "blockchain",
 		Name:      "reads",
+		Help:      "Total number of calls to 'blockchain.Blockchain' read methods",
 	}, []string{"method"})
 	prometheus.MustRegister(reads)
 
@@ -235,12 +249,14 @@ func makeL1Metrics() l1.EventListener {
 	l1Height := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "l1",
 		Name:      "height",
+		Help:      "Current L1 (Ethereum) blockchain height",
 	})
 	prometheus.MustRegister(l1Height)
 	requestLatencies := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: "l1",
 		Subsystem: "client",
 		Name:      "request_latency",
+		Help:      "L1 client request latency in seconds",
 	}, []string{"method"})
 	prometheus.MustRegister(requestLatencies)
 
@@ -259,6 +275,7 @@ func makeFeederMetrics() feeder.EventListener {
 		Namespace: "feeder",
 		Subsystem: "client",
 		Name:      "request_latency",
+		Help:      "Feeder client request latency in seconds",
 	}, []string{"method", "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &feeder.SelectiveListener{
@@ -274,6 +291,7 @@ func makeGatewayMetrics() gateway.EventListener {
 		Namespace: "gateway",
 		Subsystem: "client",
 		Name:      "request_latency",
+		Help:      "Gateway client request latency in seconds",
 	}, []string{"method", "status"})
 	prometheus.MustRegister(requestLatencies)
 	return &gateway.SelectiveListener{
@@ -284,7 +302,7 @@ func makeGatewayMetrics() gateway.EventListener {
 	}
 }
 
-func makePebbleMetrics(nodeDB db.DB) {
+func makePebbleMetrics(nodeDB db.KeyValueStore) {
 	pebbleDB, ok := nodeDB.Impl().(*pebble.DB)
 	if !ok {
 		return
@@ -294,6 +312,7 @@ func makePebbleMetrics(nodeDB db.DB) {
 		Namespace: "pebble",
 		Subsystem: "block_cache",
 		Name:      "size",
+		Help:      "Current size of Pebble block cache in bytes",
 	}, func() float64 {
 		return float64(pebbleDB.Metrics().BlockCache.Size)
 	})
@@ -301,6 +320,7 @@ func makePebbleMetrics(nodeDB db.DB) {
 		Namespace: "pebble",
 		Subsystem: "block_cache",
 		Name:      "hit_rate",
+		Help:      "Hit rate of Pebble block cache (hits / (hits + misses))",
 	}, func() float64 {
 		metrics := pebbleDB.Metrics()
 		return float64(metrics.BlockCache.Hits) / float64(metrics.BlockCache.Hits+metrics.BlockCache.Misses)
@@ -309,6 +329,7 @@ func makePebbleMetrics(nodeDB db.DB) {
 		Namespace: "pebble",
 		Subsystem: "table_cache",
 		Name:      "size",
+		Help:      "Current size of Pebble table cache in bytes",
 	}, func() float64 {
 		return float64(pebbleDB.Metrics().TableCache.Size)
 	})
@@ -316,6 +337,7 @@ func makePebbleMetrics(nodeDB db.DB) {
 		Namespace: "pebble",
 		Subsystem: "table_cache",
 		Name:      "hit_rate",
+		Help:      "Hit rate of Pebble table cache (hits / (hits + misses))",
 	}, func() float64 {
 		metrics := pebbleDB.Metrics()
 		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
@@ -327,6 +349,7 @@ func makeJeMallocMetrics() {
 	active := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "jemalloc",
 		Name:      "active",
+		Help:      "Current active memory usage in bytes",
 	}, func() float64 {
 		return float64(jemalloc.GetActive())
 	})
@@ -337,12 +360,14 @@ func makeVMThrottlerMetrics(throttledVM *ThrottledVM) {
 	vmJobs := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "vm",
 		Name:      "jobs",
+		Help:      "Number of currently running VM jobs",
 	}, func() float64 {
 		return float64(throttledVM.JobsRunning())
 	})
 	vmQueue := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "vm",
 		Name:      "queue",
+		Help:      "Number of VM jobs waiting in the queue",
 	}, func() float64 {
 		return float64(throttledVM.QueueLen())
 	})

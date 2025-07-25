@@ -43,7 +43,7 @@ type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
 	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
+		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool,
 	) (ExecutionResults, error)
 }
 
@@ -292,7 +292,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 // Execute executes a given transaction set and returns the gas spent per transaction
 func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
 	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, errorStack bool,
+	skipChargeFee, skipValidate, errOnRevert, errorStack, allowBinarySearch bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -327,7 +327,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		toUchar(skipValidate),
 		toUchar(errOnRevert),
 		toUchar(v.concurrencyMode),
-		toUchar(errorStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(errorStack),
+		toUchar(allowBinarySearch), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))

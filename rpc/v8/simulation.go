@@ -33,13 +33,13 @@ type TracedBlockTransaction struct {
 		Simulate Handlers
 *****************************************************/
 
-func (h *Handler) SimulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	return h.simulateTransactions(id, transactions, simulationFlags, false)
 }
 
-func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
+func (h *Handler) simulateTransactions(id *BlockID, transactions []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag, errOnRevert bool,
 ) ([]SimulatedTransaction, http.Header, *jsonrpc.Error) {
 	skipFeeCharge := slices.Contains(simulationFlags, rpcv6.SkipFeeChargeFlag)
@@ -48,13 +48,13 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
-	state, closer, rpcErr := h.stateByBlockID(&id)
+	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_estimateFee")
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, httpHeader, rpcErr
 	}
@@ -75,7 +75,7 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	}
 
 	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, network, skipFeeCharge, skipValidate, errOnRevert, true)
+		state, network, skipFeeCharge, skipValidate, errOnRevert, true, true)
 	if err != nil {
 		return nil, httpHeader, handleExecutionError(err)
 	}
@@ -90,6 +90,25 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 	return simulatedTransactions, httpHeader, nil
 }
 
+func isVersion3(version *felt.Felt) bool {
+	return version != nil && version.Equal(&rpcv6.RPCVersion3Value)
+}
+
+func checkTxHasSenderAddress(tx *BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == TxnDeclare ||
+		tx.Transaction.Type == TxnInvoke) &&
+		isVersion3(tx.Transaction.Version) &&
+		tx.Transaction.SenderAddress == nil
+}
+
+func checkTxHasResourceBounds(tx *BroadcastedTransaction) bool {
+	return (tx.Transaction.Type == TxnInvoke ||
+		tx.Transaction.Type == TxnDeployAccount ||
+		tx.Transaction.Type == TxnDeclare) &&
+		isVersion3(tx.Transaction.Version) &&
+		tx.Transaction.ResourceBounds == nil
+}
+
 func prepareTransactions(transactions []BroadcastedTransaction, network *utils.Network) (
 	[]core.Transaction, []core.Class, []*felt.Felt, *jsonrpc.Error,
 ) {
@@ -98,7 +117,21 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 	paidFeesOnL1 := make([]*felt.Felt, 0)
 
 	for idx := range transactions {
-		txn, declaredClass, paidFeeOnL1, aErr := adaptBroadcastedTransaction(&transactions[idx], network)
+		// Check for missing required fields in struct that can't be validated by
+		// jsonschema due to validation happening after omit empty
+		//
+		// TODO: as its expected that this will happen in other cases as well,
+		// it might be a good idea to implement a custom validator and unmarshal handler
+		// to solve this problem in a more elegant way
+		if checkTxHasSenderAddress(&transactions[idx]) {
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+		}
+
+		if checkTxHasResourceBounds(&transactions[idx]) {
+			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+		}
+
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}

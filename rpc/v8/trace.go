@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -85,13 +84,13 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	var block *core.Block
 	isPendingBlock := blockHash == nil
 	if isPendingBlock {
-		var pending *sync.Pending
-		pending, err = h.syncReader.Pending()
+		var pending core.PendingData
+		pending, err = h.PendingData()
 		if err != nil {
 			// for traceTransaction handlers there is no block not found error
 			return nil, httpHeader, rpccore.ErrTxnHashNotFound
 		}
-		block = pending.Block
+		block = pending.GetBlock()
 	} else {
 		block, err = h.bcReader.BlockByHash(blockHash)
 		if err != nil {
@@ -115,8 +114,10 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	return traceResults[txIndex].TraceRoot, header, nil
 }
 
-func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	block, rpcErr := h.blockByID(&id)
+func (h *Handler) TraceBlockTransactions(
+	ctx context.Context, id *BlockID,
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
 		httpHeader := http.Header{}
 		httpHeader.Set(ExecutionStepsHeader, "0")
@@ -193,7 +194,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		headStateCloser blockchain.StateCloser
 	)
 	if isPending {
-		headState, headStateCloser, err = h.syncReader.PendingState()
+		headState, headStateCloser, err = h.PendingState()
 	} else {
 		headState, headStateCloser, err = h.bcReader.HeadState()
 	}
@@ -231,7 +232,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, true)
+		&blockInfo, state, network, false, false, false, true, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -273,9 +274,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 }
 
 func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	rpcBlock, err := h.BlockWithTxs(BlockID{
-		Hash: blockHash, // known non-nil
-	})
+	blockID := BlockIDFromHash(blockHash)
+	rpcBlock, err := h.BlockWithTxs(&blockID)
 	if err != nil {
 		return nil, err
 	}
@@ -298,14 +298,14 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
-func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	state, closer, rpcErr := h.stateByBlockID(&id)
+func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *jsonrpc.Error) {
+	state, closer, rpcErr := h.stateByBlockID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -54,9 +54,10 @@ func TestSyncBlocks(t *testing.T) {
 	}
 	log := utils.NewNopZapLogger()
 	t.Run("sync multiple blocks in an empty db", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
+		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
+		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -66,7 +67,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks in a non-empty db", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 		b0, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
@@ -74,7 +75,8 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
-		synchronizer := sync.New(bc, gw, log, time.Duration(0), false, testDB)
+		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
+		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -84,7 +86,7 @@ func TestSyncBlocks(t *testing.T) {
 	})
 
 	t.Run("sync multiple blocks, with an unreliable gw", func(t *testing.T) {
-		testDB := pebble.NewMemTest(t)
+		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 
 		mockSNData := mocks.NewMockStarknetData(mockCtrl)
@@ -126,7 +128,8 @@ func TestSyncBlocks(t *testing.T) {
 			return gw.BlockLatest(t.Context())
 		}).AnyTimes()
 
-		synchronizer := sync.New(bc, mockSNData, log, time.Duration(0), false, testDB)
+		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
+		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -143,11 +146,12 @@ func TestReorg(t *testing.T) {
 	sepoliaClient := feeder.NewTestClient(t, &utils.Sepolia)
 	sepoliaGw := adaptfeeder.New(sepoliaClient)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	// sync to Sepolia for 2 blocks
 	bc := blockchain.New(testDB, &utils.Sepolia)
-	synchronizer := sync.New(bc, sepoliaGw, utils.NewNopZapLogger(), 0, false, testDB)
+	dataSource := sync.NewFeederGatewayDataSource(bc, sepoliaGw)
+	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -164,7 +168,8 @@ func TestReorg(t *testing.T) {
 		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, testDB)
+		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
+		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 		sub := synchronizer.SubscribeReorg()
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
@@ -185,93 +190,220 @@ func TestReorg(t *testing.T) {
 	})
 }
 
-func TestPending(t *testing.T) {
+func TestPendingData(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	var synchronizer *sync.Synchronizer
-	testDB := pebble.NewMemTest(t)
-	chain := blockchain.New(testDB, &utils.Mainnet)
-	chain = chain.WithPendingBlockFn(synchronizer.PendingBlock)
-	synchronizer = sync.New(chain, gw, utils.NewNopZapLogger(), 0, false, testDB)
+	t.Run("starknet version <= 0.14.0", func(t *testing.T) {
+		var synchronizer *sync.Synchronizer
+		testDB := memory.New()
+		chain := blockchain.New(testDB, &utils.Mainnet)
+		dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+		synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
-	b, err := gw.BlockByNumber(t.Context(), 0)
-	require.NoError(t, err)
-	su, err := gw.StateUpdate(t.Context(), 0)
-	require.NoError(t, err)
-
-	t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
-		_, _, err = synchronizer.PendingState()
-		require.Error(t, err)
-	})
-
-	t.Run("cannot store unsupported pending block version", func(t *testing.T) {
-		pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-		require.Error(t, synchronizer.StorePending(pending))
-	})
-
-	t.Run("store genesis as pending", func(t *testing.T) {
-		pendingGenesis := &sync.Pending{
-			Block:       b,
-			StateUpdate: su,
-		}
-		require.NoError(t, synchronizer.StorePending(pendingGenesis))
-
-		gotPending, pErr := synchronizer.Pending()
-		require.NoError(t, pErr)
-		assert.Equal(t, pendingGenesis, gotPending)
-	})
-
-	require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
-
-	t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
-		b, err = gw.BlockByNumber(t.Context(), 2)
+		b, err := gw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
-		su, err = gw.StateUpdate(t.Context(), 2)
+		su, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
-
-		notExpectedPending := sync.Pending{
-			Block:       b,
-			StateUpdate: su,
-		}
-		require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
-	})
-
-	t.Run("store expected pending block", func(t *testing.T) {
-		b, err = gw.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
-		su, err = gw.StateUpdate(t.Context(), 1)
-		require.NoError(t, err)
-
-		expectedPending := &sync.Pending{
-			Block:       b,
-			StateUpdate: su,
-		}
-		require.NoError(t, synchronizer.StorePending(expectedPending))
-
-		gotPending, pErr := synchronizer.Pending()
-		require.NoError(t, pErr)
-		assert.Equal(t, expectedPending, gotPending)
-	})
-
-	t.Run("get pending state", func(t *testing.T) {
-		_, pendingStateCloser, pErr := synchronizer.PendingState()
-		t.Cleanup(func() {
-			require.NoError(t, pendingStateCloser())
+		t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
+			_, _, err = synchronizer.PendingState()
+			require.Error(t, err)
 		})
-		require.NoError(t, pErr)
+
+		t.Run("cannot store unsupported pending block version", func(t *testing.T) {
+			pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			require.Error(t, synchronizer.StorePending(pending))
+		})
+
+		t.Run("store genesis as pending", func(t *testing.T) {
+			pendingGenesis := &sync.Pending{
+				Block:       b,
+				StateUpdate: su,
+			}
+
+			require.NoError(t, synchronizer.StorePending(pendingGenesis))
+
+			gotPending, pErr := synchronizer.PendingData()
+			require.NoError(t, pErr)
+			expectedPending := sync.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil)
+			assert.Equal(t, &expectedPending, gotPending)
+		})
+
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+
+		t.Run("storing a pending too far into the future should fail", func(t *testing.T) {
+			b, err = gw.BlockByNumber(t.Context(), 2)
+			require.NoError(t, err)
+			su, err = gw.StateUpdate(t.Context(), 2)
+			require.NoError(t, err)
+
+			notExpectedPending := sync.NewPending(b, su, nil)
+
+			require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+		})
+
+		t.Run("store expected pending block", func(t *testing.T) {
+			b, err = gw.BlockByNumber(t.Context(), 1)
+			require.NoError(t, err)
+			su, err = gw.StateUpdate(t.Context(), 1)
+			require.NoError(t, err)
+
+			expectedPending := &sync.Pending{
+				Block:       b,
+				StateUpdate: su,
+			}
+
+			require.NoError(t, synchronizer.StorePending(expectedPending))
+
+			gotPending, pErr := synchronizer.PendingData()
+			require.NoError(t, pErr)
+			assert.Equal(t, expectedPending, gotPending)
+		})
+
+		t.Run("get pending state", func(t *testing.T) {
+			_, pendingStateCloser, pErr := synchronizer.PendingState()
+			t.Cleanup(func() {
+				require.NoError(t, pendingStateCloser())
+			})
+			require.NoError(t, pErr)
+		})
+	})
+
+	t.Run("starknet version > 0.14.0", func(t *testing.T) {
+		var synchronizer *sync.Synchronizer
+		testDB := memory.New()
+		chain := blockchain.New(testDB, &utils.Mainnet)
+		dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+		synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+
+		b, err := gw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		su, err := gw.StateUpdate(t.Context(), 0)
+		require.NoError(t, err)
+		t.Run("pending state shouldnt exist if no pre_confirmed block", func(t *testing.T) {
+			_, _, err = synchronizer.PendingState()
+			require.Error(t, err)
+		})
+
+		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
+			preConfirmed := &core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			require.Error(t, synchronizer.StorePreConfirmed(preConfirmed))
+		})
+
+		t.Run("store genesis as pre_confirmed", func(t *testing.T) {
+			preConfirmedGenesis := &core.PreConfirmed{
+				Block: b,
+				StateUpdate: &core.StateUpdate{
+					OldRoot: &felt.Zero,
+				},
+			}
+
+			require.NoError(t, synchronizer.StorePreConfirmed(preConfirmedGenesis))
+
+			gotPendingData, pErr := synchronizer.PendingData()
+			require.NoError(t, pErr)
+			expectedPreConfirmed := &core.PreConfirmed{
+				Block:       preConfirmedGenesis.Block,
+				StateUpdate: preConfirmedGenesis.StateUpdate,
+			}
+			assert.Equal(t, expectedPreConfirmed, gotPendingData)
+		})
+
+		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
+
+		t.Run("store expected pre_confirmed block", func(t *testing.T) {
+			b, err = gw.BlockByNumber(t.Context(), 1)
+			require.NoError(t, err)
+			su, err = gw.StateUpdate(t.Context(), 1)
+			require.NoError(t, err)
+			head, err := chain.HeadsHeader()
+			require.NoError(t, err)
+
+			expectedPreConfirmed := &core.PreConfirmed{
+				Block: b,
+				StateUpdate: &core.StateUpdate{
+					OldRoot: head.GlobalStateRoot,
+				},
+			}
+
+			require.NoError(t, synchronizer.StorePreConfirmed(expectedPreConfirmed))
+
+			gotPendingData, pErr := synchronizer.PendingData()
+			require.NoError(t, pErr)
+			assert.Equal(t, expectedPreConfirmed, gotPendingData)
+		})
+
+		t.Run("get pending state", func(t *testing.T) {
+			_, pendingStateCloser, pErr := synchronizer.PendingState()
+			require.NoError(t, pErr)
+			t.Cleanup(func() {
+				require.NoError(t, pendingStateCloser())
+			})
+		})
+
+		t.Run("get pending state before index", func(t *testing.T) {
+			var synchronizer *sync.Synchronizer
+			testDB := memory.New()
+			chain := blockchain.New(testDB, &utils.Mainnet)
+			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+
+			require.NoError(t, err)
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			gw := adaptfeeder.New(client)
+			preConfirmed, err := gw.PreConfirmedBlockByNumber(t.Context(), 1204672)
+			preConfirmed.StateUpdate.OldRoot = &felt.Zero
+			preConfirmed.Block.Number = 0
+			require.NoError(t, err)
+			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
+			txCount := len(preConfirmed.GetTransactions())
+
+			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
+			require.NoError(t, pErr)
+
+			// Check storage value in two different index
+			// See clients/feeder/testdata/sepolia-integration/pre_confirmed/1204672.json
+			contractAddress, err := new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			require.NoError(t, err)
+			key, err := new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			require.NoError(t, err)
+			val, err := pendingState.ContractStorage(contractAddress, key)
+			require.NoError(t, err)
+			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
+			require.NoError(t, err)
+			require.Equal(t, expectedVal, val)
+			t.Cleanup(func() {
+				require.NoError(t, pendingStateCloser())
+			})
+
+			pendingState, pendingStateCloser, pErr = synchronizer.PendingStateBeforeIndex(txCount)
+			require.NoError(t, pErr)
+			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			require.NoError(t, err)
+			key, err = new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			require.NoError(t, err)
+			val, err = pendingState.ContractStorage(contractAddress, key)
+			require.NoError(t, err)
+			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
+			require.NoError(t, err)
+			require.Equal(t, expectedVal, val)
+			t.Cleanup(func() {
+				require.NoError(t, pendingStateCloser())
+			})
+		})
 	})
 }
 
 func TestSubscribeNewHeads(t *testing.T) {
 	t.Parallel()
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	chain := blockchain.New(testDB, &network)
 	feeder := feeder.NewTestClient(t, &network)
 	gw := adaptfeeder.New(feeder)
-	syncer := sync.New(chain, gw, log, 0, false, testDB)
+	dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+	syncer := sync.New(chain, dataSource, log, 0, 0, false, testDB)
 
 	sub := syncer.SubscribeNewHeads()
 
@@ -294,21 +426,30 @@ func TestSubscribePending(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 	log := utils.NewNopZapLogger()
 	bc := blockchain.New(testDB, &utils.Mainnet)
-	synchronizer := sync.New(bc, gw, log, time.Millisecond*100, false, testDB)
+	dataSource := sync.NewFeederGatewayDataSource(bc, gw)
+	synchronizer := sync.New(
+		bc,
+		dataSource,
+		log,
+		time.Millisecond*100,
+		time.Millisecond*100,
+		false,
+		testDB,
+	)
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 
-	sub := synchronizer.SubscribePending()
+	sub := synchronizer.SubscribePendingData()
 
 	require.NoError(t, synchronizer.Run(ctx))
 	cancel()
 
-	pending, err := synchronizer.Pending()
+	pendingData, err := synchronizer.PendingData()
 	require.NoError(t, err)
 	pendingBlock, ok := <-sub.Recv()
 	require.True(t, ok)
-	require.Equal(t, pending.Block, pendingBlock)
+	require.Equal(t, pendingData, pendingBlock)
 	sub.Unsubscribe()
 }

@@ -28,7 +28,7 @@ func TestEstimateFee(t *testing.T) {
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpcv7.New(mockReader, nil, mockVM, "", n, log)
+	handler := rpcv7.New(mockReader, nil, mockVM, n, log)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
@@ -36,7 +36,7 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, false).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -50,7 +50,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -64,7 +64,7 @@ func TestEstimateFee(t *testing.T) {
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false).
+		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),

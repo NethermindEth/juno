@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -22,14 +22,14 @@ func TestBucketMover(t *testing.T) {
 		return len(b) > 1, nil
 	})
 
-	testDB := pebble.NewMemTest(t)
-	require.NoError(t, testDB.Update(func(txn db.Transaction) error {
+	testDB := memory.New()
+	require.NoError(t, testDB.Update(func(txn db.IndexedBatch) error {
 		for i := byte(0); i < 3; i++ {
-			if err := txn.Set(sourceBucket.Key([]byte{i}), []byte{i}); err != nil {
+			if err := txn.Put(sourceBucket.Key([]byte{i}), []byte{i}); err != nil {
 				return err
 			}
 		}
-		return txn.Set(sourceBucket.Key(), []byte{44})
+		return txn.Put(sourceBucket.Key(), []byte{44})
 	}))
 
 	require.NoError(t, mover.Before(nil))
@@ -38,42 +38,39 @@ func TestBucketMover(t *testing.T) {
 		intermediateState []byte
 		err               error
 	)
-	err = testDB.Update(func(txn db.Transaction) error {
-		intermediateState, err = mover.Migrate(t.Context(), txn, &utils.Mainnet, nil)
-		require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
-		return nil
-	})
-	require.NoError(t, err)
-	err = testDB.Update(func(txn db.Transaction) error {
-		intermediateState, err = mover.Migrate(t.Context(), txn, &utils.Mainnet, nil)
-		require.NoError(t, err)
-		return nil
-	})
+	_, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
+	require.ErrorIs(t, err, migration.ErrCallWithNewTransaction)
+
+	intermediateState, err = mover.Migrate(t.Context(), testDB, &utils.Mainnet, nil)
 	require.NoError(t, err)
 
-	err = testDB.View(func(txn db.Transaction) error {
-		err = txn.Get(sourceBucket.Key(), func(b []byte) error {
-			if !bytes.Equal(b, []byte{44}) {
-				return errors.New("shouldnt have changed")
-			}
+	err = testDB.View(func(txn db.Snapshot) error {
+		var val []byte
+		err := txn.Get(sourceBucket.Key(), func(data []byte) error {
+			val = data
 			return nil
 		})
 		if err != nil {
 			return err
 		}
+		if !bytes.Equal(val, []byte{44}) {
+			return errors.New("shouldnt have changed")
+		}
 
 		for i := byte(0); i < 3; i++ {
-			err = txn.Get(destBucket.Key([]byte{i}), func(b []byte) error {
-				if !bytes.Equal(b, []byte{i}) {
-					return errors.New("shouldve moved")
-				}
+			var val []byte
+			err := txn.Get(destBucket.Key([]byte{i}), func(data []byte) error {
+				val = data
 				return nil
 			})
 			if err != nil {
 				return err
 			}
+			if !bytes.Equal(val, []byte{i}) {
+				return errors.New("shouldve moved")
+			}
 
-			err = txn.Get(sourceBucket.Key([]byte{i}), func(b []byte) error { return nil })
+			err = txn.Get(sourceBucket.Key([]byte{i}), func([]byte) error { return nil })
 			require.ErrorIs(t, db.ErrKeyNotFound, err)
 		}
 		return nil

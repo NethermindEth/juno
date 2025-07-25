@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -30,7 +30,7 @@ func TestPlugin(t *testing.T) {
 	integClient := feeder.NewTestClient(t, &utils.Integration)
 	integGw := adaptfeeder.New(integClient)
 
-	testDB := pebble.NewMemTest(t)
+	testDB := memory.New()
 
 	// sync to integration for 2 blocks
 	for i := range 2 {
@@ -39,7 +39,8 @@ func TestPlugin(t *testing.T) {
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
 	bc := blockchain.New(testDB, &utils.Integration)
-	synchronizer := sync.New(bc, integGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
+	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
+	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -66,7 +67,8 @@ func TestPlugin(t *testing.T) {
 			plugin.EXPECT().NewBlock(block, su, gomock.Any())
 		}
 
-		synchronizer = sync.New(bc, mainGw, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
+		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
+		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()

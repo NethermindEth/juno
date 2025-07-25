@@ -8,20 +8,54 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p/gen"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptClass(class *gen.Class) core.Class {
-	if class == nil {
+func AdaptCairo1Class(cairo1 *class.Cairo1Class) core.Cairo1Class {
+	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
+
+	program := utils.Map(cairo1.Program, AdaptFelt)
+	compiled, err := createCompiledClass(cairo1)
+	if err != nil {
+		panic(err)
+	}
+
+	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
+		// usage of NonNilSlice is essential because relevant core class fields are non nil
+		return utils.Map(utils.NonNilSlice(points), adaptSierra)
+	}
+
+	entryPoints := cairo1.EntryPoints
+	return core.Cairo1Class{
+		Abi:     cairo1.Abi,
+		AbiHash: abiHash,
+		EntryPoints: struct {
+			Constructor []core.SierraEntryPoint
+			External    []core.SierraEntryPoint
+			L1Handler   []core.SierraEntryPoint
+		}{
+			Constructor: adaptEP(entryPoints.Constructors),
+			External:    adaptEP(entryPoints.Externals),
+			L1Handler:   adaptEP(entryPoints.L1Handlers),
+		},
+		Program:         program,
+		ProgramHash:     crypto.PoseidonArray(program...),
+		SemanticVersion: cairo1.ContractClassVersion,
+		Compiled:        compiled,
+	}
+}
+
+func AdaptClass(cls *class.Class) core.Class {
+	if cls == nil {
 		return nil
 	}
 
-	switch cls := class.Class.(type) {
-	case *gen.Class_Cairo0:
-		adaptEP := func(points []*gen.EntryPoint) []core.EntryPoint {
+	switch cls := cls.Class.(type) {
+	case *class.Class_Cairo0:
+		adaptEP := func(points []*class.EntryPoint) []core.EntryPoint {
 			// usage of NonNilSlice is essential because relevant core class fields are non nil
 			return utils.Map(utils.NonNilSlice(points), adaptEntryPoint)
 		}
@@ -34,64 +68,34 @@ func AdaptClass(class *gen.Class) core.Class {
 			Constructors: adaptEP(cairo0.Constructors),
 			Program:      cairo0.Program,
 		}
-	case *gen.Class_Cairo1:
-		cairo1 := cls.Cairo1
-		abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
-
-		program := utils.Map(cairo1.Program, AdaptFelt)
-		compiled, err := createCompiledClass(cairo1)
-		if err != nil {
-			panic(err)
-		}
-
-		adaptEP := func(points []*gen.SierraEntryPoint) []core.SierraEntryPoint {
-			// usage of NonNilSlice is essential because relevant core class fields are non nil
-			return utils.Map(utils.NonNilSlice(points), adaptSierra)
-		}
-
-		entryPoints := cairo1.EntryPoints
-		return &core.Cairo1Class{
-			Abi:     cairo1.Abi,
-			AbiHash: abiHash,
-			EntryPoints: struct {
-				Constructor []core.SierraEntryPoint
-				External    []core.SierraEntryPoint
-				L1Handler   []core.SierraEntryPoint
-			}{
-				Constructor: adaptEP(entryPoints.Constructors),
-				External:    adaptEP(entryPoints.Externals),
-				L1Handler:   adaptEP(entryPoints.L1Handlers),
-			},
-			Program:         program,
-			ProgramHash:     crypto.PoseidonArray(program...),
-			SemanticVersion: cairo1.ContractClassVersion,
-			Compiled:        compiled,
-		}
+	case *class.Class_Cairo1:
+		class := AdaptCairo1Class(cls.Cairo1)
+		return &class
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
 	}
 }
 
-func adaptSierra(e *gen.SierraEntryPoint) core.SierraEntryPoint {
+func adaptSierra(e *class.SierraEntryPoint) core.SierraEntryPoint {
 	return core.SierraEntryPoint{
 		Index:    e.Index,
 		Selector: AdaptFelt(e.Selector),
 	}
 }
 
-func adaptEntryPoint(e *gen.EntryPoint) core.EntryPoint {
+func adaptEntryPoint(e *class.EntryPoint) core.EntryPoint {
 	return core.EntryPoint{
 		Selector: AdaptFelt(e.Selector),
 		Offset:   new(felt.Felt).SetUint64(e.Offset),
 	}
 }
 
-func createCompiledClass(cairo1 *gen.Cairo1Class) (*core.CompiledClass, error) {
+func createCompiledClass(cairo1 *class.Cairo1Class) (*core.CompiledClass, error) {
 	if cairo1 == nil {
 		return nil, nil
 	}
 
-	adapt := func(ep *gen.SierraEntryPoint) starknet.SierraEntryPoint {
+	adapt := func(ep *class.SierraEntryPoint) starknet.SierraEntryPoint {
 		return starknet.SierraEntryPoint{
 			Index:    ep.Index,
 			Selector: AdaptFelt(ep.Selector),

@@ -9,8 +9,8 @@ import (
 	"github.com/NethermindEth/juno/adapters/vm2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db"
-	rpc "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/db/memory"
+	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/sync"
@@ -103,10 +103,11 @@ func GenesisStateDiff(
 	maxSteps uint64,
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
 	initialStateDiff := core.EmptyStateDiff()
+	memDB := memory.New()
 	genesisState := sync.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),
-		core.NewState(db.NewMemTransaction()),
+		core.NewState(memDB.NewIndexedBatch()),
 	)
 
 	classhashToSierraVersion, err := declareClasses(config, &genesisState)
@@ -283,15 +284,21 @@ func executeTransactions(
 		switch txn.Type {
 		case rpc.TxnInvoke:
 			coreTxns[i] = &core.InvokeTransaction{
-				TransactionHash:      txn.Hash,
-				CallData:             *txn.CallData,
-				TransactionSignature: *txn.Signature,
-				MaxFee:               txn.MaxFee,
-				ContractAddress:      txn.ContractAddress,
-				Version:              (*core.TransactionVersion)(txn.Version),
-				EntryPointSelector:   txn.EntryPointSelector,
-				Nonce:                txn.Nonce,
-				SenderAddress:        txn.SenderAddress,
+				TransactionHash:       txn.Hash,
+				CallData:              *txn.CallData,
+				TransactionSignature:  *txn.Signature,
+				MaxFee:                txn.MaxFee,
+				ContractAddress:       txn.ContractAddress,
+				Version:               (*core.TransactionVersion)(txn.Version),
+				EntryPointSelector:    txn.EntryPointSelector,
+				Nonce:                 txn.Nonce,
+				SenderAddress:         txn.SenderAddress,
+				ResourceBounds:        adaptResourceBounds(txn.ResourceBounds),
+				Tip:                   txn.Tip.Uint64(),
+				PaymasterData:         *txn.PaymasterData,
+				AccountDeploymentData: *txn.AccountDeploymentData,
+				NonceDAMode:           core.DataAvailabilityMode(*txn.NonceDAMode),
+				FeeDAMode:             core.DataAvailabilityMode(*txn.FeeDAMode),
 			}
 		case rpc.TxnDeployAccount:
 			coreTxns[i] = &core.DeployAccountTransaction{
@@ -314,7 +321,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, network, true, false, true, true)
+		&blockInfo, genesisState, network, true, true, true, true, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}
@@ -327,6 +334,23 @@ func executeTransactions(
 	}
 
 	return nil
+}
+
+func adaptResourceBounds(rb *rpc.ResourceBoundsMap) map[core.Resource]core.ResourceBounds {
+	return map[core.Resource]core.ResourceBounds{
+		core.ResourceL1Gas: {
+			MaxAmount:       rb.L1Gas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+		},
+		core.ResourceL2Gas: {
+			MaxAmount:       rb.L2Gas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+		},
+		core.ResourceL1DataGas: {
+			MaxAmount:       rb.L1DataGas.MaxAmount.Uint64(),
+			MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+		},
+	}
 }
 
 func loadClasses(classes []string) (map[felt.Felt]core.Class, error) {

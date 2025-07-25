@@ -2,5 +2,9 @@ version: v2
 clean: true
 plugins:
   - remote: buf.build/protocolbuffers/go
-    out: p2p/gen
-    opt: paths=source_relative
+    out: starknet-p2pspecs/p2p/proto
+    opt: module=github.com/starknet-io/starknet-p2pspecs/p2p/proto
+inputs:
+  - git_repo: https://github.com/starknet-io/starknet-p2p-specs.git
+    branch: bcfa353a169c859e4d5d97757caccbe76f75bc06 # Latest commit as of 2025 May 6th
+    depth: 1

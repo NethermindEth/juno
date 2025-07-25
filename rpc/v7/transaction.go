@@ -13,10 +13,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
+	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -159,69 +159,30 @@ func (m *DataAvailabilityMode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Resource uint32
-
-const (
-	ResourceL1Gas Resource = iota + 1
-	ResourceL2Gas
-)
-
-func (r Resource) MarshalText() ([]byte, error) {
-	switch r {
-	case ResourceL1Gas:
-		return []byte("l1_gas"), nil
-	case ResourceL2Gas:
-		return []byte("l2_gas"), nil
-	default:
-		return nil, fmt.Errorf("unknown Resource %v", r)
-	}
-}
-
-func (r *Resource) UnmarshalJSON(data []byte) error {
-	switch string(data) {
-	case `"l1_gas"`:
-		*r = ResourceL1Gas
-	case `"l2_gas"`:
-		*r = ResourceL2Gas
-	default:
-		return fmt.Errorf("unknown Resource: %q", string(data))
-	}
-	return nil
-}
-
-func (r *Resource) UnmarshalText(data []byte) error {
-	return r.UnmarshalJSON(data)
-}
-
-type ResourceBounds struct {
-	MaxAmount       *felt.Felt `json:"max_amount"`
-	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
-}
-
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
-	Type                  TransactionType              `json:"type" validate:"required"`
-	Version               *felt.Felt                   `json:"version,omitempty" validate:"required"`
-	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee                *felt.Felt                   `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
-	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
-	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
-	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required_if=Version 0x3"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
-	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
-	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	Hash                  *felt.Felt               `json:"transaction_hash,omitempty"`
+	Type                  TransactionType          `json:"type" validate:"required"`
+	Version               *felt.Felt               `json:"version,omitempty" validate:"required"`
+	Nonce                 *felt.Felt               `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
+	MaxFee                *felt.Felt               `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	ContractAddress       *felt.Felt               `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt               `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt               `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt            `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt               `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
+	Signature             *[]*felt.Felt            `json:"signature,omitempty" validate:"required"`
+	CallData              *[]*felt.Felt            `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt               `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash     *felt.Felt               `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
+	ResourceBounds        *rpcv6.ResourceBoundsMap `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt               `json:"tip,omitempty" validate:"required_if=Version 0x3"`
+	PaymasterData         *[]*felt.Felt            `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
+	AccountDeploymentData *[]*felt.Felt            `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
+	NonceDAMode           *DataAvailabilityMode    `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	FeeDAMode             *DataAvailabilityMode    `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
 }
 
 type TransactionStatus struct {
@@ -299,17 +260,17 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
 	// RPCv7 requests must set l2_gas to zero
 	if broadcastedTxn.ResourceBounds != nil {
-		(*broadcastedTxn.ResourceBounds)[ResourceL2Gas] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(0),
-			MaxPricePerUnit: new(felt.Felt).SetUint64(0),
+		broadcastedTxn.ResourceBounds = &rpcv6.ResourceBoundsMap{
+			L1Gas: broadcastedTxn.ResourceBounds.L1Gas,
+			L2Gas: &rpcv6.ResourceBounds{
+				MaxAmount:       new(felt.Felt).SetUint64(0),
+				MaxPricePerUnit: new(felt.Felt).SetUint64(0),
+			},
 		}
 	}
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -356,20 +317,69 @@ func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
-	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		// ResourceL1DataGas is not supported in v7
-		if resource == core.ResourceL1DataGas {
-			continue
-		}
-
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) rpcv6.ResourceBoundsMap {
+	rpcResourceBounds := rpcv6.ResourceBoundsMap{
+		L1Gas: &rpcv6.ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1Gas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
+		},
+		L2Gas: &rpcv6.ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL2Gas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
+		},
 	}
 	return rpcResourceBounds
+}
+
+func adaptToFeederResourceBounds(rb *rpcv6.ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+	if rb == nil {
+		return nil
+	}
+	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
+	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
+		MaxAmount:       rb.L1Gas.MaxAmount,
+		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
+	}
+	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
+		MaxAmount:       rb.L2Gas.MaxAmount,
+		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+	}
+
+	return &feederResourceBounds
+}
+
+// Both adaptToFeederDAMode and adaptToFeederResourceBounds are the same across RPCv6 and RPCv7.
+// TODO: we might be able to reuse these, given we start reusing some of the rpcv6 structs
+func adaptToFeederDAMode(mode *DataAvailabilityMode) *starknet.DataAvailabilityMode {
+	if mode == nil {
+		return nil
+	}
+	return utils.HeapPtr(starknet.DataAvailabilityMode(*mode))
+}
+
+func adaptRPCTxToFeederTx(rpcTx *Transaction) *starknet.Transaction {
+	return &starknet.Transaction{
+		Hash:                  rpcTx.Hash,
+		Version:               rpcTx.Version,
+		ContractAddress:       rpcTx.ContractAddress,
+		ContractAddressSalt:   rpcTx.ContractAddressSalt,
+		ClassHash:             rpcTx.ClassHash,
+		ConstructorCallData:   rpcTx.ConstructorCallData,
+		Type:                  starknet.TransactionType(rpcTx.Type),
+		SenderAddress:         rpcTx.SenderAddress,
+		MaxFee:                rpcTx.MaxFee,
+		Signature:             rpcTx.Signature,
+		CallData:              rpcTx.CallData,
+		EntryPointSelector:    rpcTx.EntryPointSelector,
+		Nonce:                 rpcTx.Nonce,
+		CompiledClassHash:     rpcTx.CompiledClassHash,
+		ResourceBounds:        adaptToFeederResourceBounds(rpcTx.ResourceBounds),
+		Tip:                   rpcTx.Tip,
+		NonceDAMode:           adaptToFeederDAMode(rpcTx.NonceDAMode),
+		FeeDAMode:             adaptToFeederDAMode(rpcTx.FeeDAMode),
+		AccountDeploymentData: rpcTx.AccountDeploymentData,
+		PaymasterData:         rpcTx.PaymasterData,
+	}
 }
 
 /****************************************************
@@ -387,16 +397,16 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.syncReader.Pending()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -428,7 +438,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -496,6 +506,17 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 		txStatus, err := h.feederClient.Transaction(ctx, &hash)
 		if err != nil {
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+
+		if h.submittedTransactionsCache != nil {
+			switch txStatus.FinalityStatus {
+			case starknet.NotReceived:
+				if h.submittedTransactionsCache.Contains(&hash) {
+					txStatus.FinalityStatus = starknet.Received
+				}
+			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
+				h.submittedTransactionsCache.Remove(&hash)
+			}
 		}
 
 		status, err := adaptTransactionStatus(txStatus)
@@ -658,10 +679,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
-		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
 	default: // Omit the field on error. It's optional in the spec.
 	}
 

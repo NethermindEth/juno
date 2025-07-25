@@ -19,12 +19,13 @@ func TestHandleReadySync(t *testing.T) {
 
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer)
+	readinessBlockTolerance := uint(6)
+	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
 	ctx := t.Context()
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
-		highestBlock := blockNum + node.SyncBlockRange + 1
+		highestBlock := blockNum + uint64(readinessBlockTolerance) + 1
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
@@ -57,7 +58,7 @@ func TestHandleReadySync(t *testing.T) {
 
 	t.Run("ready & blockNumber is in blockRange of highestBlock", func(t *testing.T) {
 		blockNum := uint64(3)
-		highestBlock := blockNum + node.SyncBlockRange
+		highestBlock := blockNum + uint64(readinessBlockTolerance)
 
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
 		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})

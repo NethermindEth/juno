@@ -1,40 +1,58 @@
 package tendermint
 
-func (t *Tendermint[V, H, A]) sendProposal(value *V) {
-	proposalMessage := Proposal[V, H, A]{
-		H:          t.state.h,
-		R:          t.state.r,
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/utils"
+)
+
+func (t *stateMachine[V, H, A]) sendProposal(value *V) types.Action[V, H, A] {
+	proposalMessage := types.Proposal[V, H, A]{
+		MessageHeader: types.MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
 		ValidRound: t.state.validRound,
 		Value:      value,
-		Sender:     t.nodeAddr,
 	}
 
-	t.messages.addProposal(proposalMessage)
-	t.broadcasters.ProposalBroadcaster.Broadcast(proposalMessage)
+	if err := t.db.SetWALEntry(proposalMessage); err != nil && !t.replayMode {
+		t.log.Fatalf("Failed to store propsal in WAL")
+	}
+
+	t.messages.AddProposal(proposalMessage)
+
+	return utils.HeapPtr(types.BroadcastProposal[V, H, A](proposalMessage))
 }
 
-func (t *Tendermint[V, H, A]) sendPrevote(id *H) {
-	vote := Prevote[H, A]{
-		H:      t.state.h,
-		R:      t.state.r,
-		ID:     id,
-		Sender: t.nodeAddr,
+func (t *stateMachine[V, H, A]) setStepAndSendPrevote(id *H) types.Action[V, H, A] {
+	vote := types.Prevote[H, A]{
+		MessageHeader: types.MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
+		ID: id,
 	}
 
-	t.messages.addPrevote(vote)
-	t.broadcasters.PrevoteBroadcaster.Broadcast(vote)
-	t.state.s = prevote
+	t.messages.AddPrevote(vote)
+	t.state.step = types.StepPrevote
+
+	return utils.HeapPtr(types.BroadcastPrevote[H, A](vote))
 }
 
-func (t *Tendermint[V, H, A]) sendPrecommit(id *H) {
-	vote := Precommit[H, A]{
-		H:      t.state.h,
-		R:      t.state.r,
-		ID:     id,
-		Sender: t.nodeAddr,
+func (t *stateMachine[V, H, A]) setStepAndSendPrecommit(id *H) types.Action[V, H, A] {
+	vote := types.Precommit[H, A]{
+		MessageHeader: types.MessageHeader[A]{
+			Height: t.state.height,
+			Round:  t.state.round,
+			Sender: t.nodeAddr,
+		},
+		ID: id,
 	}
 
-	t.messages.addPrecommit(vote)
-	t.broadcasters.PrecommitBroadcaster.Broadcast(vote)
-	t.state.s = precommit
+	t.messages.AddPrecommit(vote)
+	t.state.step = types.StepPrecommit
+
+	return utils.HeapPtr(types.BroadcastPrecommit[H, A](vote))
 }

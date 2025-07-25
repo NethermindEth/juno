@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,18 +13,23 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/db/remote"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/l1"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/migration"
 	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/plugin"
 	"github.com/NethermindEth/juno/rpc"
+	"github.com/NethermindEth/juno/rpc/rpccore"
+	"github.com/NethermindEth/juno/sequencer"
 	"github.com/NethermindEth/juno/service"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/sync"
@@ -31,6 +37,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/mitchellh/mapstructure"
 	"github.com/sourcegraph/conc"
 	"google.golang.org/grpc"
@@ -40,34 +47,42 @@ import (
 
 const (
 	upgraderDelay    = 5 * time.Minute
+	mempoolLimit     = 1024
 	githubAPIUrl     = "https://api.github.com/repos/NethermindEth/juno/releases/latest"
 	latestReleaseURL = "https://github.com/NethermindEth/juno/releases/latest"
+	sequencerAddress = 1337
 )
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel               string        `mapstructure:"log-level"`
-	HTTP                   bool          `mapstructure:"http"`
-	HTTPHost               string        `mapstructure:"http-host"`
-	HTTPPort               uint16        `mapstructure:"http-port"`
-	RPCCorsEnable          bool          `mapstructure:"rpc-cors-enable"`
-	Websocket              bool          `mapstructure:"ws"`
-	WebsocketHost          string        `mapstructure:"ws-host"`
-	WebsocketPort          uint16        `mapstructure:"ws-port"`
-	GRPC                   bool          `mapstructure:"grpc"`
-	GRPCHost               string        `mapstructure:"grpc-host"`
-	GRPCPort               uint16        `mapstructure:"grpc-port"`
-	DatabasePath           string        `mapstructure:"db-path"`
-	Network                utils.Network `mapstructure:"network"`
-	EthNode                string        `mapstructure:"eth-node"`
-	DisableL1Verification  bool          `mapstructure:"disable-l1-verification"`
-	Pprof                  bool          `mapstructure:"pprof"`
-	PprofHost              string        `mapstructure:"pprof-host"`
-	PprofPort              uint16        `mapstructure:"pprof-port"`
-	Colour                 bool          `mapstructure:"colour"`
-	PendingPollInterval    time.Duration `mapstructure:"pending-poll-interval"`
-	RemoteDB               string        `mapstructure:"remote-db"`
-	VersionedConstantsFile string        `mapstructure:"versioned-constants-file"`
+	LogLevel                 string        `mapstructure:"log-level"`
+	HTTP                     bool          `mapstructure:"http"`
+	HTTPHost                 string        `mapstructure:"http-host"`
+	HTTPPort                 uint16        `mapstructure:"http-port"`
+	RPCCorsEnable            bool          `mapstructure:"rpc-cors-enable"`
+	Websocket                bool          `mapstructure:"ws"`
+	WebsocketHost            string        `mapstructure:"ws-host"`
+	WebsocketPort            uint16        `mapstructure:"ws-port"`
+	GRPC                     bool          `mapstructure:"grpc"`
+	GRPCHost                 string        `mapstructure:"grpc-host"`
+	GRPCPort                 uint16        `mapstructure:"grpc-port"`
+	DatabasePath             string        `mapstructure:"db-path"`
+	Network                  utils.Network `mapstructure:"network"`
+	EthNode                  string        `mapstructure:"eth-node"`
+	DisableL1Verification    bool          `mapstructure:"disable-l1-verification"`
+	Pprof                    bool          `mapstructure:"pprof"`
+	PprofHost                string        `mapstructure:"pprof-host"`
+	PprofPort                uint16        `mapstructure:"pprof-port"`
+	Colour                   bool          `mapstructure:"colour"`
+	PendingPollInterval      time.Duration `mapstructure:"pending-poll-interval"`
+	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
+	RemoteDB                 string        `mapstructure:"remote-db"`
+	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`
+
+	Sequencer      bool   `mapstructure:"seq-enable"`
+	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
+	SeqGenesisFile string `mapstructure:"seq-genesis-file"`
+	SeqDisableFees bool   `mapstructure:"seq-disable-fees"`
 
 	Metrics     bool   `mapstructure:"metrics"`
 	MetricsHost string `mapstructure:"metrics-host"`
@@ -80,10 +95,14 @@ type Config struct {
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
-	MaxVMs          uint `mapstructure:"max-vms"`
-	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
+	MaxVMs                  uint `mapstructure:"max-vms"`
+	MaxVMQueue              uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
+	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
+
+	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
+	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
 
 	DBCacheSize  uint `mapstructure:"db-cache-size"`
 	DBMaxHandles int  `mapstructure:"db-max-handles"`
@@ -93,13 +112,13 @@ type Config struct {
 
 	PluginPath string `mapstructure:"plugin-path"`
 
-	LogHost string `mapstructure:"log-host"`
-	LogPort uint16 `mapstructure:"log-port"`
+	HTTPUpdateHost string `mapstructure:"http-update-host"`
+	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
 }
 
 type Node struct {
 	cfg        *Config
-	db         db.DB
+	db         db.KeyValueStore
 	blockchain *blockchain.Blockchain
 
 	earlyServices []service.Service // Services that needs to start before than other services and before migration.
@@ -111,6 +130,7 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
+// Todo: (immediate follow-up PR) tidy this function up.
 func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
 	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
 	if err != nil {
@@ -118,7 +138,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	dbIsRemote := cfg.RemoteDB != ""
-	var database db.DB
+	var database db.KeyValueStore
 	if dbIsRemote {
 		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
@@ -159,68 +179,113 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	if cfg.GatewayTimeouts == "" {
-		cfg.GatewayTimeouts = feeder.DefaultTimeouts
-	}
-	timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
-	if err != nil {
-		return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
-	}
+	nodeVM := vm.New(false, log)
+	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
-	client := feeder.NewClient(cfg.Network.FeederURL).
-		WithUserAgent(ua).
-		WithLogger(log).
-		WithTimeouts(timeouts, fixed).
-		WithAPIKey(cfg.GatewayAPIKey)
+	var synchronizer *sync.Synchronizer
+	var rpcHandler *rpc.Handler
+	var client *feeder.Client
+	var gatewayClient *gateway.Client
+	var p2pService *p2p.Service
 
-	synchronizer := sync.New(chain, adaptfeeder.New(client), log, cfg.PendingPollInterval, dbIsRemote, database)
-	chain.WithPendingBlockFn(synchronizer.PendingBlock)
-	gatewayClient := gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
-
+	var junoPlugin plugin.JunoPlugin
 	if cfg.PluginPath != "" {
-		p, err := plugin.Load(cfg.PluginPath)
+		junoPlugin, err = plugin.Load(cfg.PluginPath)
 		if err != nil {
 			return nil, err
 		}
-		synchronizer.WithPlugin(p)
-		services = append(services, plugin.NewService(p))
+		services = append(services, plugin.NewService(junoPlugin))
 	}
 
-	var p2pService *p2p.Service
-	if cfg.P2P {
-		if cfg.Network == utils.Mainnet {
-			return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
+	if cfg.Sequencer {
+		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
+		if kErr != nil {
+			return nil, kErr
 		}
-		log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
-
-		if !cfg.P2PFeederNode {
-			// Do not start the feeder synchronisation
-			synchronizer = nil
+		mempool := mempool.New(database, chain, mempoolLimit, log)
+		executor := builder.NewExecutor(chain, nodeVM, log, cfg.SeqDisableFees, false)
+		builder := builder.New(chain, executor)
+		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
+			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
+		seq.WithPlugin(junoPlugin)
+		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
+		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		services = append(services, &seq)
+	} else {
+		if cfg.GatewayTimeouts == "" {
+			cfg.GatewayTimeouts = feeder.DefaultTimeouts
 		}
-		p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
-			chain, &cfg.Network, log, database)
+		timeouts, fixed, err := feeder.ParseTimeouts(cfg.GatewayTimeouts)
 		if err != nil {
-			return nil, fmt.Errorf("set up p2p service: %w", err)
+			return nil, fmt.Errorf("invalid gateway timeouts: %w", err)
+		}
+		client = feeder.NewClient(cfg.Network.FeederURL).
+			WithUserAgent(ua).
+			WithLogger(log).
+			WithTimeouts(timeouts, fixed).
+			WithAPIKey(cfg.GatewayAPIKey)
+		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
+		synchronizer = sync.New(
+			chain,
+			feederGatewayDataSource,
+			log,
+			cfg.PendingPollInterval,
+			cfg.PreConfirmedPollInterval,
+			dbIsRemote,
+			database,
+		)
+		synchronizer.WithPlugin(junoPlugin)
+
+		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+		if cfg.P2P {
+			if cfg.Network == utils.Mainnet {
+				return nil, fmt.Errorf("P2P cannot be used on %v network", utils.Mainnet)
+			}
+			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
+
+			if !cfg.P2PFeederNode {
+				// Do not start the feeder synchronisation
+				synchronizer = nil
+			}
+			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
+				chain, &cfg.Network, log, database)
+			if err != nil {
+				return nil, fmt.Errorf("set up p2p service: %w", err)
+			}
+
+			services = append(services, p2pService)
 		}
 
-		services = append(services, p2pService)
-	}
-	if synchronizer != nil {
-		services = append(services, synchronizer)
+		var syncReader sync.Reader = &sync.NoopSynchronizer{}
+		if synchronizer != nil {
+			syncReader = synchronizer
+		}
+
+		submittedTransactionsCache := rpccore.NewSubmittedTransactionsCache(
+			int(cfg.SubmittedTransactionsCacheSize),
+			cfg.SubmittedTransactionsCacheEntryTTL,
+		)
+
+		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithGateway(gatewayClient).
+			WithFeeder(client).
+			WithSubmittedTransactionsCache(submittedTransactionsCache)
+		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		if synchronizer != nil {
+			services = append(services, synchronizer)
+		}
 	}
 
-	throttledVM := NewThrottledVM(vm.New(false, log), cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
-	var syncReader sync.Reader = &sync.NoopSynchronizer{}
-	if synchronizer != nil {
-		syncReader = synchronizer
-	}
-
-	rpcHandler := rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).WithGateway(gatewayClient).WithFeeder(client)
-	rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 	services = append(services, rpcHandler)
+
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
+	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
+	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
+	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
+		return nil, err
+	}
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
@@ -238,17 +303,21 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
+		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
+		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
 		httpHandlers := map[string]http.HandlerFunc{
+			"/live":       readinessHandlers.HandleLive,
+			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
 		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
@@ -257,9 +326,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services,
 			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
 	}
-	if cfg.LogPort != 0 {
-		log.Infow("Log level can be changed via HTTP PUT request to " + cfg.LogHost + ":" + fmt.Sprintf("%d", cfg.LogPort) + "/log/level")
-		earlyServices = append(earlyServices, makeLogService(cfg.LogHost, cfg.LogPort, logLevel))
+	if cfg.HTTPUpdatePort != 0 {
+		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
+			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
+		)
+		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
@@ -272,17 +343,18 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
 		jsonrpcServerV06.WithListener(rpcMetricsV06)
-		client.WithListener(makeFeederMetrics())
-		gatewayClient.WithListener(makeGatewayMetrics())
-		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
-
-		if synchronizer != nil {
-			synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
-		} else if p2pService != nil {
-			// regular p2p node
-			p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-			p2pService.WithGossipTracer()
+		if !cfg.Sequencer {
+			client.WithListener(makeFeederMetrics())
+			gatewayClient.WithListener(makeGatewayMetrics())
+			if synchronizer != nil {
+				synchronizer.WithListener(makeSyncMetrics(synchronizer, chain))
+			} else if p2pService != nil {
+				// regular p2p node
+				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
+				p2pService.WithGossipTracer()
+			}
 		}
+		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))
@@ -361,6 +433,12 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
+	defer func() {
+		if dbErr := n.blockchain.WriteRunningEventFilter(); dbErr != nil {
+			n.log.Errorw("Error while storing running event filter", "err", dbErr)
+		}
+	}()
+
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {
@@ -383,13 +461,27 @@ func (n *Node) Run(ctx context.Context) {
 		n.StartService(wg, ctx, cancel, s)
 	}
 
-	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log); err != nil {
+	migrationHTTPConfig := migration.HTTPConfig{
+		Enabled: n.cfg.HTTP,
+		Host:    n.cfg.HTTPHost,
+		Port:    n.cfg.HTTPPort,
+	}
+
+	if err := migration.MigrateIfNeeded(ctx, n.db, &n.cfg.Network, n.log, &migrationHTTPConfig); err != nil {
 		if errors.Is(err, context.Canceled) {
 			n.log.Infow("DB Migration cancelled")
 			return
 		}
 		n.log.Errorw("Error while migrating the DB", "err", err)
 		return
+	}
+
+	if n.cfg.Sequencer {
+		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
+			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+			n.log.Errorw("Error building genesis state", "err", err)
+			return
+		}
 	}
 
 	for _, s := range n.services {

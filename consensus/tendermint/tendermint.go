@@ -1,162 +1,73 @@
 package tendermint
 
 import (
-	"sync"
-	"time"
+	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/consensus/db"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 )
 
-type (
-	step        uint8
-	height      uint
-	round       int
-	votingPower uint
-)
-
-const (
-	propose step = iota
-	prevote
-	precommit
-)
-
-func (s step) String() string {
-	switch s {
-	case propose:
-		return "propose"
-	case prevote:
-		return "prevote"
-	case precommit:
-		return "precommit"
-	default:
-		return "unknown"
-	}
-}
-
-const (
-	maxFutureHeight = height(5)
-	maxFutureRound  = round(5)
-)
-
-type timeoutFn func(r round) time.Duration
-
-type Addr interface {
-	// Ethereum Addresses are 20 bytes
-	~[20]byte | felt.Felt
-}
-
-type Hash interface {
-	~[32]byte | felt.Felt
-}
-
-// Hashable's Hash() is used as ID()
-type Hashable[H Hash] interface {
-	Hash() H
-}
-
-type Application[V Hashable[H], H Hash] interface {
-	// Value returns the value to the Tendermint consensus algorith which can be proposed to other validators.
+type Application[V types.Hashable[H], H types.Hash] interface {
+	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V
 
 	// Valid returns true if the provided value is valid according to the application context.
 	Valid(V) bool
 }
 
-type Blockchain[V Hashable[H], H Hash, A Addr] interface {
-	// Height return the current blockchain height
-	Height() height
-
-	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(height, V, []Precommit[H, A])
-}
-
-type Validators[A Addr] interface {
+type Validators[A types.Addr] interface {
 	// TotalVotingPower represents N which is required to calculate the thresholds.
-	TotalVotingPower(height) votingPower
+	TotalVotingPower(types.Height) types.VotingPower
 
 	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
 	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(A) votingPower
+	ValidatorVotingPower(A) types.VotingPower
 
 	// Proposer returns the proposer of the current round and height.
-	Proposer(height, round) A
+	Proposer(types.Height, types.Round) A
 }
 
-type Slasher[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
+type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Equivocation informs the slasher that a validator has sent conflicting messages. Thus it can decide whether to
 	// slash the validator and by how much.
 	Equivocation(msgs ...M)
 }
 
-type Listener[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
-	// Listen would return consensus messages to Tendermint which are set by the validator set.
-	Listen() <-chan M
+//go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
+type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
+	ReplayWAL()
+	ProcessStart(types.Round) []types.Action[V, H, A]
+	ProcessTimeout(types.Timeout) []types.Action[V, H, A]
+	ProcessProposal(types.Proposal[V, H, A]) []types.Action[V, H, A]
+	ProcessPrevote(types.Prevote[H, A]) []types.Action[V, H, A]
+	ProcessPrecommit(types.Precommit[H, A]) []types.Action[V, H, A]
 }
 
-type Broadcaster[M Message[V, H, A], V Hashable[H], H Hash, A Addr] interface {
-	// Broadcast will broadcast the message to the whole validator set. The function should not be blocking.
-	Broadcast(M)
+type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	db         db.TendermintDB[V, H, A]
+	log        utils.Logger
+	replayMode bool
 
-	// SendMsg would send a message to a specific validator. This would be required for helping send resquest and
-	// response message to help a specifc validator to catch up.
-	SendMsg(A, M)
-}
-
-type Listeners[V Hashable[H], H Hash, A Addr] struct {
-	ProposalListener  Listener[Proposal[V, H, A], V, H, A]
-	PrevoteListener   Listener[Prevote[H, A], V, H, A]
-	PrecommitListener Listener[Precommit[H, A], V, H, A]
-}
-
-type Broadcasters[V Hashable[H], H Hash, A Addr] struct {
-	ProposalBroadcaster  Broadcaster[Proposal[V, H, A], V, H, A]
-	PrevoteBroadcaster   Broadcaster[Prevote[H, A], V, H, A]
-	PrecommitBroadcaster Broadcaster[Precommit[H, A], V, H, A]
-}
-
-type Tendermint[V Hashable[H], H Hash, A Addr] struct {
 	nodeAddr A
 
 	state state[V, H] // Todo: Does state need to be protected?
 
-	messages       messages[V, H, A]
-	futureMessages messages[V, H, A]
-
-	futureMessagesMu *sync.Mutex
-
-	timeoutPropose   timeoutFn
-	timeoutPrevote   timeoutFn
-	timeoutPrecommit timeoutFn
+	messages types.Messages[V, H, A]
 
 	application Application[V, H]
-	blockchain  Blockchain[V, H, A]
 	validators  Validators[A]
-
-	listeners    Listeners[V, H, A]
-	broadcasters Broadcasters[V, H, A]
-
-	scheduledTms map[timeout]*time.Timer
-	timeoutsCh   chan timeout
-
-	// Future round messages are sent to the loop through the following channels
-	proposalsCh  chan Proposal[V, H, A]
-	prevotesCh   chan Prevote[H, A]
-	precommitsCh chan Precommit[H, A]
-
-	wg   sync.WaitGroup
-	quit chan struct{}
 }
 
-type state[V Hashable[H], H Hash] struct {
-	h height
-	r round
-	s step
+type state[V types.Hashable[H], H types.Hash] struct {
+	height types.Height
+	round  types.Round
+	step   types.Step
 
 	lockedValue *V
-	lockedRound round
+	lockedRound types.Round
 	validValue  *V
-	validRound  round
+	validRound  types.Round
 
 	// The following are round level variable therefore when a round changes they must be reset.
 	timeoutPrevoteScheduled       bool // line34 for the first time condition
@@ -164,194 +75,80 @@ type state[V Hashable[H], H Hash] struct {
 	lockedValueAndOrValidValueSet bool // line36 for the first time condition
 }
 
-func New[V Hashable[H], H Hash, A Addr](nodeAddr A, app Application[V, H], chain Blockchain[V, H, A], vals Validators[A],
-	listeners Listeners[V, H, A], broadcasters Broadcasters[V, H, A], tmPropose, tmPrevote, tmPrecommit timeoutFn,
-) *Tendermint[V, H, A] {
-	return &Tendermint[V, H, A]{
+func New[V types.Hashable[H], H types.Hash, A types.Addr](
+	db db.TendermintDB[V, H, A],
+	log utils.Logger,
+	nodeAddr A,
+	app Application[V, H],
+	vals Validators[A],
+	height types.Height,
+) StateMachine[V, H, A] {
+	return &stateMachine[V, H, A]{
+		db:       db,
+		log:      log,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
-			h:           chain.Height(),
+			height:      height,
 			lockedRound: -1,
 			validRound:  -1,
 		},
-		messages:         newMessages[V, H, A](),
-		futureMessages:   newMessages[V, H, A](),
-		futureMessagesMu: &sync.Mutex{},
-		timeoutPropose:   tmPropose,
-		timeoutPrevote:   tmPrevote,
-		timeoutPrecommit: tmPrecommit,
-		application:      app,
-		blockchain:       chain,
-		validators:       vals,
-		listeners:        listeners,
-		broadcasters:     broadcasters,
-		scheduledTms:     make(map[timeout]*time.Timer),
-		timeoutsCh:       make(chan timeout),
-		proposalsCh:      make(chan Proposal[V, H, A]),
-		prevotesCh:       make(chan Prevote[H, A]),
-		precommitsCh:     make(chan Precommit[H, A]),
-		quit:             make(chan struct{}),
+		messages:    types.NewMessages[V, H, A](),
+		application: app,
+		validators:  vals,
 	}
 }
 
-func (t *Tendermint[V, H, A]) Start() {
-	t.wg.Add(1)
-	go func() {
-		defer t.wg.Done()
-
-		t.startRound(0)
-
-		// Todo: check message signature everytime a message is received.
-		// For the time being it can be assumed the signature is correct.
-
-		for {
-			select {
-			case <-t.quit:
-				return
-			case tm := <-t.timeoutsCh:
-				// Handling of timeouts is priorities over messages
-				switch tm.s {
-				case propose:
-					t.OnTimeoutPropose(tm.h, tm.r)
-				case prevote:
-					t.OnTimeoutPrevote(tm.h, tm.r)
-				case precommit:
-					t.OnTimeoutPrecommit(tm.h, tm.r)
-				}
-				delete(t.scheduledTms, tm)
-			case p := <-t.proposalsCh:
-				t.handleProposal(p)
-			case p := <-t.listeners.ProposalListener.Listen():
-				t.handleProposal(p)
-			case p := <-t.prevotesCh:
-				t.handlePrevote(p)
-			case p := <-t.listeners.PrevoteListener.Listen():
-				t.handlePrevote(p)
-			case p := <-t.precommitsCh:
-				t.handlePrecommit(p)
-			case p := <-t.listeners.PrecommitListener.Listen():
-				t.handlePrecommit(p)
-			}
-		}
-	}()
+type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	types.Proposal[V, H, A]
+	Valid bool
+	ID    *H
 }
 
-func (t *Tendermint[V, H, A]) Stop() {
-	close(t.quit)
-	t.wg.Wait()
-	for _, tm := range t.scheduledTms {
-		tm.Stop()
-	}
-}
-
-func (t *Tendermint[V, H, A]) startRound(r round) {
-	if r != 0 && r <= t.state.r {
-		return
-	}
-
-	t.state.r = r
-	t.state.s = propose
+func (t *stateMachine[V, H, A]) resetState(round types.Round) {
+	t.state.round = round
+	t.state.step = types.StepPropose
 
 	t.state.timeoutPrevoteScheduled = false
 	t.state.lockedValueAndOrValidValueSet = false
 	t.state.timeoutPrecommitScheduled = false
+}
 
-	if p := t.validators.Proposer(t.state.h, r); p == t.nodeAddr {
+func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
+	if err := t.db.Flush(); err != nil {
+		t.log.Fatalf("failed to flush WAL at start of round", "height", t.state.height, "round", r, "err", err)
+	}
+
+	t.resetState(r)
+
+	if p := t.validators.Proposer(t.state.height, r); p == t.nodeAddr {
 		var proposalValue *V
 		if t.state.validValue != nil {
 			proposalValue = t.state.validValue
 		} else {
 			proposalValue = utils.HeapPtr(t.application.Value())
 		}
-		t.sendProposal(proposalValue)
+		actions := t.sendProposal(proposalValue)
+		if err := t.db.Flush(); err != nil {
+			t.log.Fatalf("failed to flush WAL when proposing a new block", "height", t.state.height, "round", r, "err", err)
+		}
+		return actions
 	} else {
-		t.scheduleTimeout(t.timeoutPropose(r), propose, t.state.h, t.state.r)
-	}
-
-	go t.processFutureMessages(t.state.h, t.state.r)
-}
-
-//nolint:gocyclo
-func (t *Tendermint[V, H, A]) processFutureMessages(h height, r round) {
-	t.futureMessagesMu.Lock()
-	defer t.futureMessagesMu.Unlock()
-
-	proposals, prevotes, precommits := t.futureMessages.allMessages(h, r)
-	if len(proposals) > 0 {
-		for _, addrProposals := range proposals {
-			for _, proposal := range addrProposals {
-				select {
-				case <-t.quit:
-					return
-				case t.proposalsCh <- proposal:
-				}
-			}
-		}
-	}
-
-	if len(prevotes) > 0 {
-		for _, addrPrevotes := range prevotes {
-			for _, vote := range addrPrevotes {
-				select {
-				case <-t.quit:
-					return
-				case t.prevotesCh <- vote:
-				}
-			}
-		}
-	}
-
-	if len(precommits) > 0 {
-		for _, addrPrecommits := range precommits {
-			for _, vote := range addrPrecommits {
-				select {
-				case <-t.quit:
-					return
-				case t.precommitsCh <- vote:
-				}
-			}
-		}
-	}
-
-	t.futureMessages.deleteRoundMessages(h, r)
-}
-
-type timeout struct {
-	s step
-	h height
-	r round
-}
-
-func (t *Tendermint[V, H, A]) scheduleTimeout(duration time.Duration, s step, h height, r round) {
-	tm := timeout{s: s, h: h, r: r}
-	t.scheduledTms[tm] = time.AfterFunc(duration, func() {
-		select {
-		case <-t.quit:
-		case t.timeoutsCh <- tm:
-		}
-	})
-}
-
-func (t *Tendermint[_, H, A]) OnTimeoutPropose(h height, r round) {
-	if t.state.h == h && t.state.r == r && t.state.s == propose {
-		t.sendPrevote(nil)
+		return t.scheduleTimeout(types.StepPropose)
 	}
 }
 
-func (t *Tendermint[_, H, A]) OnTimeoutPrevote(h height, r round) {
-	if t.state.h == h && t.state.r == r && t.state.s == prevote {
-		t.sendPrecommit(nil)
-	}
+func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H, A] {
+	return utils.HeapPtr(
+		types.ScheduleTimeout{
+			Step:   s,
+			Height: t.state.height,
+			Round:  t.state.round,
+		},
+	)
 }
 
-func (t *Tendermint[_, _, _]) OnTimeoutPrecommit(h height, r round) {
-	if t.state.h == h && t.state.r == r {
-		t.startRound(r + 1)
-	}
-}
-
-func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
-	var totalVotingPower votingPower
+func (t *stateMachine[V, H, A]) validatorSetVotingPower(vals []A) types.VotingPower {
+	var totalVotingPower types.VotingPower
 	for _, v := range vals {
 		totalVotingPower += t.validators.ValidatorVotingPower(v)
 	}
@@ -359,12 +156,12 @@ func (t *Tendermint[V, H, A]) validatorSetVotingPower(vals []A) votingPower {
 }
 
 // Todo: add separate unit tests to check f and q thresholds.
-func f(totalVotingPower votingPower) votingPower {
+func f(totalVotingPower types.VotingPower) types.VotingPower {
 	// note: integer division automatically floors the result as it return the quotient.
 	return (totalVotingPower - 1) / 3
 }
 
-func q(totalVotingPower votingPower) votingPower {
+func q(totalVotingPower types.VotingPower) types.VotingPower {
 	// Unfortunately there is no ceiling function for integers in go.
 	d := totalVotingPower * 2
 	q := d / 3
@@ -375,105 +172,106 @@ func q(totalVotingPower votingPower) votingPower {
 	return q
 }
 
-func handleFutureRoundMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mR := r(m)
-	if mR > t.state.r {
-		if mR-t.state.r > maxFutureRound {
-			return false
-		}
-
-		t.futureMessagesMu.Lock()
-		addMessage(m)
-		t.futureMessagesMu.Unlock()
-
-		t.line55(mR)
+// - Messages from past heights are ignored.
+// - All messages from current and future heights are stored, but only processed when the height is the current height.
+func (t *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
+	if header.Height < t.state.height || header.Round < 0 {
 		return false
 	}
-	return true
-}
 
-func handleFutureHeightMessage[H Hash, A Addr, V Hashable[H], M Message[V, H, A]](
-	t *Tendermint[V, H, A],
-	m M,
-	h func(M) height,
-	r func(M) round,
-	addMessage func(M),
-) bool {
-	mH := h(m)
-	mR := r(m)
-
-	if mH > t.state.h {
-		if mH-t.state.h > maxFutureHeight {
-			return false
-		}
-
-		if mR > maxFutureRound {
-			return false
-		}
-
-		t.futureMessagesMu.Lock()
-		addMessage(m)
-		t.futureMessagesMu.Unlock()
-		return false
-	}
-	return true
+	addMessage()
+	return header.Height == t.state.height
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) checkForQuorumPrecommit(r round, vID H) (matchingPrecommits []Precommit[H, A], hasQuorum bool) {
-	precommits, ok := t.messages.precommits[t.state.h][r]
+func (t *stateMachine[V, H, A]) checkForQuorumPrecommit(r types.Round, vID H) (matchingPrecommits []types.Precommit[H, A], hasQuorum bool) {
+	precommits, ok := t.messages.Precommits[t.state.height][r]
 	if !ok {
 		return nil, false
 	}
 
 	var vals []A
-	for addr, valPrecommits := range precommits {
-		for _, p := range valPrecommits {
-			if *p.ID == vID {
-				matchingPrecommits = append(matchingPrecommits, p)
-				vals = append(vals, addr)
-			}
+	for addr, p := range precommits {
+		if p.ID != nil && *p.ID == vID {
+			matchingPrecommits = append(matchingPrecommits, p)
+			vals = append(vals, addr)
 		}
 	}
-	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
+	return matchingPrecommits, t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
 // TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) checkQuorumPrevotesGivenProposalVID(r round, vID H) (hasQuorum bool) {
-	prevotes, ok := t.messages.prevotes[t.state.h][r]
+func (t *stateMachine[V, H, A]) checkQuorumPrevotesGivenProposalVID(r types.Round, vID H) (hasQuorum bool) {
+	prevotes, ok := t.messages.Prevotes[t.state.height][r]
 	if !ok {
 		return false
 	}
 
 	var vals []A
-	for addr, valPrevotes := range prevotes {
-		for _, p := range valPrevotes {
-			if *p.ID == vID {
-				vals = append(vals, addr)
-			}
+	for addr, p := range prevotes {
+		if p.ID != nil && *p.ID == vID {
+			vals = append(vals, addr)
 		}
 	}
-	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.h))
+	return t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
 }
 
-// TODO: Improve performance. Current complexity is O(n).
-func (t *Tendermint[V, H, A]) findMatchingProposal(r round, id H) *Proposal[V, H, A] {
-	proposals, ok := t.messages.proposals[t.state.h][r][t.validators.Proposer(t.state.h, r)]
+func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H, A] {
+	v, ok := t.messages.Proposals[t.state.height][r][t.validators.Proposer(t.state.height, r)]
 	if !ok {
 		return nil
 	}
 
-	var proposal *Proposal[V, H, A]
+	return &CachedProposal[V, H, A]{
+		Proposal: v,
+		Valid:    t.application.Valid(*v.Value),
+		ID:       utils.HeapPtr((*v.Value).Hash()),
+	}
+}
 
-	for _, v := range proposals {
-		if (*v.Value).Hash() == id {
-			proposal = utils.HeapPtr(v)
+// ReplayWAL replays all WAL (Write-Ahead Log) messages for the current block height
+// from persistent storage and applies them to the internal state. This is used for
+// recovering consensus state after a crash or restart.
+//
+// ReplayWAL must not trigger any external effects such as broadcasting messages or
+// scheduling timeouts. It is strictly a state recovery mechanism.
+//
+// Panics if the replaying the messages fails for whatever reason.
+func (t *stateMachine[V, H, A]) ReplayWAL() {
+	walEntries, err := t.db.GetWALEntries(t.state.height)
+	if err != nil {
+		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", t.state.height, err))
+	}
+	t.replayMode = true
+	for _, walEntry := range walEntries {
+		switch walEntry.Type {
+		case types.MessageTypeProposal:
+			proposal, ok := (walEntry.Entry).(types.Proposal[V, H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
+			}
+			t.ProcessProposal(proposal)
+		case types.MessageTypePrevote:
+			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
+			}
+			t.ProcessPrevote(prevote)
+		case types.MessageTypePrecommit:
+			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
+			}
+			t.ProcessPrecommit(precommit)
+		case types.MessageTypeTimeout:
+			timeout, ok := (walEntry.Entry).(types.Timeout)
+			if !ok {
+				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
+			}
+			t.ProcessTimeout(timeout)
+		default:
+			panic("Failed to replay WAL messages, unknown WAL Entry type")
 		}
 	}
-	return proposal
+	t.replayMode = false
 }

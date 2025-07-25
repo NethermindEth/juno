@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
-	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -392,7 +392,8 @@ func TestRootKeyAlwaysUpdatedOnCommit(t *testing.T) {
 	height := uint8(251)
 
 	// The database transaction we will use to create both tries.
-	txn := db.NewMemTransaction()
+	memDB := memory.New()
+	txn := memDB.NewIndexedBatch()
 	tTxn := trie.NewStorage(txn, []byte{1, 2, 3})
 
 	// Step 1: Create first trie

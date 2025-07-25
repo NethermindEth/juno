@@ -12,6 +12,7 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func TestClass(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -68,7 +69,7 @@ func TestClass(t *testing.T) {
 
 	t.Run("state by id error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
@@ -80,7 +81,7 @@ func TestClass(t *testing.T) {
 	t.Run("class hash not found error", func(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
-		handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 		mockReader.EXPECT().HeadState().Return(mockState, func() error {
 			return nil
@@ -120,7 +121,7 @@ func TestClassAt(t *testing.T) {
 		return nil
 	}, nil).AnyTimes()
 	mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil).AnyTimes()
-	handler := rpc.New(mockReader, nil, nil, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, nil, n, utils.NewNopZapLogger())
 
 	latest := rpc.BlockID{Latest: true}
 
@@ -152,8 +153,9 @@ func TestClassHashAt(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, nil, "", n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -215,6 +217,17 @@ func TestClassHashAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
 
 		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Number: 0}, felt.Zero)
+		require.Nil(t, rpcErr)
+		assert.Equal(t, expectedClassHash, classHash)
+	})
+
+	t.Run("blockID - pending", func(t *testing.T) {
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
+		mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
+		mockState.EXPECT().ContractClassHash(gomock.Any()).Return(expectedClassHash, nil)
+
+		classHash, rpcErr := handler.ClassHashAt(rpc.BlockID{Pending: true}, felt.Zero)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedClassHash, classHash)
 	})

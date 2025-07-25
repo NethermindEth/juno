@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
@@ -92,7 +92,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				return mockReader.BlockByNumber(test.blockNumber)
 			})
 
-			handler := rpc.New(mockReader, nil, nil, "", n, nil)
+			handler := rpc.New(mockReader, nil, nil, n, nil)
 			handler = handler.WithFeeder(client)
 			traces, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: test.blockNumber})
 			if n == &utils.Sepolia && description == "newer block" {
@@ -128,7 +128,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
-		handler := rpc.New(mockReader, nil, nil, "", n, nil)
+		handler := rpc.New(mockReader, nil, nil, n, nil)
 
 		tracedBlocks, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: blockNumber})
 
@@ -238,7 +238,7 @@ func TestTraceTransaction(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", &utils.Mainnet, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, &utils.Mainnet, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -296,7 +296,7 @@ func TestTraceTransaction(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{{L1DataGas: 0}},
 				Traces:           []vm.TransactionTrace{*vmTrace},
@@ -333,9 +333,11 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: block,
-		}, nil)
+		pending := sync.NewPending(block, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		).Times(2)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -359,7 +361,7 @@ func TestTraceTransaction(t *testing.T) {
 		vmTrace := new(vm.TransactionTrace)
 		require.NoError(t, json.Unmarshal(vmTraceJSON, vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				Traces:   []vm.TransactionTrace{*vmTrace},
 				NumSteps: 0,
@@ -373,7 +375,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &utils.Sepolia
 
-		handler := rpc.New(mockReader, mockSyncReader, mockVM, "", n, utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, mockSyncReader, mockVM, n, utils.NewNopZapLogger())
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
@@ -505,8 +507,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", n, log)
+			chain := blockchain.New(memory.New(), n)
+			handler := rpc.New(chain, nil, nil, n, log)
 
 			update, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
 			assert.Nil(t, update)
@@ -524,7 +526,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	handler := rpc.New(mockReader, nil, mockVM, "", n, log)
+	handler := rpc.New(mockReader, nil, mockVM, n, log)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -576,7 +578,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).
+			gomock.Any(), n, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},
 				Traces:           []vm.TransactionTrace{vmTrace, vmTrace},
@@ -648,7 +650,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		vmTrace := vm.TransactionTrace{}
 		require.NoError(t, json.Unmarshal(vmTraceJSON, &vmTrace))
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, false).
+			gomock.Any(), n, false, false, false, false, false).
 			Return(vm.ExecutionResults{
 				DataAvailability: []core.DataAvailability{},
 				Traces:           []vm.TransactionTrace{vmTrace},
@@ -730,7 +732,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -875,7 +877,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
@@ -903,30 +905,60 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 	})
 
 	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
-		vmTrace := vm.TransactionTrace{
-			Type:                  vm.TxnL1Handler,
-			ValidateInvocation:    &vm.FunctionInvocation{},
-			FeeTransferInvocation: &vm.FunctionInvocation{},
-			ExecuteInvocation: &vm.ExecuteInvocation{
-				RevertReason:       "",
-				FunctionInvocation: &vm.FunctionInvocation{},
-			},
-			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
-		}
+		t.Run("Execution succeed", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+			}
 
-		expectedAdaptedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnL1Handler,
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpc.OrderedEvent{},
-				Messages: []rpc.OrderedL2toL1Message{},
-			},
-		}
+			expectedAdaptedTrace := rpc.TransactionTrace{
+				Type: rpc.TxnL1Handler,
+				FunctionInvocation: &rpc.FunctionInvocation{
+					Calls:    []rpc.FunctionInvocation{},
+					Events:   []rpc.OrderedEvent{},
+					Messages: []rpc.OrderedL2toL1Message{},
+				},
+			}
 
-		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 
-		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
+
+		t.Run("Execution reverted", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					RevertReason: "Reverted",
+				},
+			}
+
+			defaultL1HandlerInvocation := rpc.DefaultL1HandlerFunctionInvocation()
+			expectedAdaptedTrace := rpc.TransactionTrace{
+				Type:               rpc.TxnL1Handler,
+				FunctionInvocation: &defaultL1HandlerInvocation,
+			}
+
+			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
 	})
 }
 
@@ -1058,7 +1090,7 @@ func TestCall(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)

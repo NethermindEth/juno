@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/node"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,17 +18,8 @@ import (
 
 func nopCloser() error { return nil }
 
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpcv8.New(nil, nil, nil, version, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
-	handler := rpcv8.New(nil, nil, nil, "", nil)
+	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.8.1", version)
@@ -42,7 +34,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -57,14 +49,18 @@ func TestThrottledVMError(t *testing.T) {
 				new(felt.Felt),
 			},
 		}}, nil)
-		_, rpcErr := handler.Call(rpcv8.FunctionCall{}, rpcv8.BlockID{Latest: true})
+
+		blockID := blockIDLatest(t)
+		_, rpcErr := handler.Call(&rpcv8.FunctionCall{}, &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv8.BlockID{Latest: true}, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+
+		blockID := blockIDLatest(t)
+		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})
@@ -99,8 +95,12 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv8.BlockID{Hash: blockHash})
+
+		blockID := blockIDHash(t, blockHash)
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})

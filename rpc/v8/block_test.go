@@ -2,6 +2,7 @@ package rpcv8_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -9,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
@@ -22,34 +23,34 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestBlockId(t *testing.T) {
+func TestBlockIDMarshalling(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
-		blockIDJSON     string
-		expectedBlockID rpcv8.BlockID
+		blockIDJSON string
+		checkFunc   func(*rpcv8.BlockID) bool
 	}{
 		"latest": {
 			blockIDJSON: `"latest"`,
-			expectedBlockID: rpcv8.BlockID{
-				Latest: true,
+			checkFunc: func(blockID *rpcv8.BlockID) bool {
+				return blockID.IsLatest()
 			},
 		},
 		"pending": {
 			blockIDJSON: `"pending"`,
-			expectedBlockID: rpcv8.BlockID{
-				Pending: true,
+			checkFunc: func(blockID *rpcv8.BlockID) bool {
+				return blockID.IsPending()
 			},
 		},
 		"number": {
 			blockIDJSON: `{ "block_number" : 123123 }`,
-			expectedBlockID: rpcv8.BlockID{
-				Number: 123123,
+			checkFunc: func(blockID *rpcv8.BlockID) bool {
+				return blockID.IsNumber() && blockID.Number() == 123123
 			},
 		},
 		"hash": {
 			blockIDJSON: `{ "block_hash" : "0x123" }`,
-			expectedBlockID: rpcv8.BlockID{
-				Hash: new(felt.Felt).SetUint64(0x123),
+			checkFunc: func(blockID *rpcv8.BlockID) bool {
+				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64(0x123)
 			},
 		},
 	}
@@ -58,7 +59,7 @@ func TestBlockId(t *testing.T) {
 			t.Parallel()
 			var blockID rpcv8.BlockID
 			require.NoError(t, blockID.UnmarshalJSON([]byte(test.blockIDJSON)))
-			assert.Equal(t, test.expectedBlockID, blockID)
+			assert.True(t, test.checkFunc(&blockID))
 		})
 	}
 
@@ -92,10 +93,10 @@ func TestBlockId(t *testing.T) {
 
 func TestBlockWithTxHashes(t *testing.T) {
 	errTests := map[string]rpcv8.BlockID{
-		"latest":  {Latest: true},
-		"pending": {Pending: true},
-		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
-		"number":  {Number: 1},
+		"latest":  blockIDLatest(t),
+		"pending": blockIDPending(t),
+		"hash":    blockIDHash(t, &felt.One),
+		"number":  blockIDNumber(t, 2),
 	}
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
@@ -107,23 +108,23 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
-			handler := rpcv8.New(chain, mockSyncReader, nil, "", log)
+			handler := rpcv8.New(chain, mockSyncReader, nil, log)
 
-			block, rpcErr := handler.BlockWithTxHashes(id)
+			block, rpcErr := handler.BlockWithTxHashes(&id)
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
 	n := &utils.Sepolia
-	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -161,7 +162,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Latest: true})
+		latest := blockIDLatest(t)
+		block, rpcErr := handler.BlockWithTxHashes(&latest)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -171,7 +173,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Hash: latestBlockHash})
+		hash := blockIDHash(t, latestBlockHash)
+		block, rpcErr := handler.BlockWithTxHashes(&hash)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -181,7 +184,8 @@ func TestBlockWithTxHashes(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
+		number := blockIDNumber(t, latestBlockNumber)
+		block, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, block)
@@ -195,33 +199,73 @@ func TestBlockWithTxHashes(t *testing.T) {
 			StateRoot:   latestBlock.GlobalStateRoot,
 		}, nil)
 
-		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
+		number := blockIDNumber(t, latestBlockNumber)
+		block, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, rpcv6.BlockAcceptedL1, block.Status)
 		checkBlock(t, block)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
+	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: latestBlock,
-		}, nil)
+		pending := sync.NewPending(latestBlock, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
-		block, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Pending: true})
+		pendingID := blockIDPending(t)
+		block, rpcErr := handler.BlockWithTxHashes(&pendingID)
 		require.Nil(t, rpcErr)
 		checkLatestBlock(t, block)
+	})
+
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		pending := blockIDPending(t)
+		blockWTxHashes, rpcErr := handler.BlockWithTxHashes(&pending)
+		require.Nil(t, rpcErr)
+
+		header := blockWTxHashes.BlockHeader
+		require.Equal(t, latestBlock.Hash, header.ParentHash)
+
+		assert.Equal(t, &rpcv8.BlockWithTxHashes{
+			Status: rpcv6.BlockPending,
+			BlockHeader: rpcv8.BlockHeader{
+				BlockHeader: rpcv6.BlockHeader{
+					ParentHash:       header.ParentHash,
+					Timestamp:        header.Timestamp,
+					SequencerAddress: header.SequencerAddress,
+					L1GasPrice:       header.L1GasPrice,
+					StarknetVersion:  header.StarknetVersion,
+					L1DataGasPrice:   header.L1DataGasPrice,
+					L1DAMode:         header.L1DAMode,
+				},
+				L2GasPrice: header.L2GasPrice,
+			},
+			TxnHashes: []*felt.Felt{},
+		}, blockWTxHashes)
 	})
 }
 
 func TestBlockWithTxs(t *testing.T) {
 	errTests := map[string]rpcv8.BlockID{
-		"latest":  {Latest: true},
-		"pending": {Pending: true},
-		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
-		"number":  {Number: 1},
+		"latest":  blockIDLatest(t),
+		"pending": blockIDPending(t),
+		"hash":    blockIDHash(t, &felt.One),
+		"number":  blockIDNumber(t, 1),
 	}
 
 	mockCtrl := gomock.NewController(t)
@@ -234,23 +278,23 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
+			chain := blockchain.New(memory.New(), n)
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 
-			handler := rpcv8.New(chain, mockSyncReader, nil, "", log)
+			handler := rpcv8.New(chain, mockSyncReader, nil, log)
 
-			block, rpcErr := handler.BlockWithTxs(id)
+			block, rpcErr := handler.BlockWithTxs(&id)
 			assert.Nil(t, block)
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 		})
 	}
 
 	n := &utils.Mainnet
-	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -289,10 +333,11 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Latest: true})
+		latest := blockIDLatest(t)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&latest)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Latest: true})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&latest)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -302,10 +347,11 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Hash: latestBlockHash})
+		hash := blockIDHash(t, latestBlockHash)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&hash)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Hash: latestBlockHash})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&hash)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
@@ -315,10 +361,11 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
+		number := blockIDNumber(t, latestBlockNumber)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Number: latestBlockNumber})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&number)
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
@@ -335,10 +382,11 @@ func TestBlockWithTxs(t *testing.T) {
 			StateRoot:   latestBlock.GlobalStateRoot,
 		}, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Number: latestBlockNumber})
+		number := blockIDNumber(t, latestBlockNumber)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&number)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Number: latestBlockNumber})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&number)
 		require.Nil(t, rpcErr)
 
 		assert.Equal(t, blockWithTxHashes.BlockHeader, blockWithTxs.BlockHeader)
@@ -347,21 +395,59 @@ func TestBlockWithTxs(t *testing.T) {
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
 	})
 
-	t.Run("blockID - pending", func(t *testing.T) {
+	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: latestBlock,
-		}, nil).Times(2)
+		pending := sync.NewPending(latestBlock, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Pending: true})
+		pendingID := blockIDPending(t)
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&pendingID)
 		require.Nil(t, rpcErr)
 
-		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Pending: true})
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&pendingID)
 		require.Nil(t, rpcErr)
 
 		checkLatestBlock(t, blockWithTxHashes, blockWithTxs)
+	})
+
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) { //nolint:dupl
+		latestBlock.Hash = nil
+		latestBlock.GlobalStateRoot = nil
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		pending := blockIDPending(t)
+		blockWithTxs, rpcErr := handler.BlockWithTxs(&pending)
+		require.Nil(t, rpcErr)
+		header := blockWithTxs.BlockHeader
+		require.Equal(t, latestBlock.Hash, header.ParentHash)
+
+		assert.Equal(t, &rpcv8.BlockWithTxs{
+			Status: rpcv6.BlockPending,
+			BlockHeader: rpcv8.BlockHeader{
+				BlockHeader: rpcv6.BlockHeader{
+					ParentHash:       header.ParentHash,
+					Timestamp:        header.Timestamp,
+					SequencerAddress: header.SequencerAddress,
+					L1GasPrice:       header.L1GasPrice,
+					StarknetVersion:  header.StarknetVersion,
+					L1DataGasPrice:   header.L1DataGasPrice,
+					L1DAMode:         header.L1DAMode,
+				},
+				L2GasPrice: header.L2GasPrice,
+			},
+			Transactions: []*rpcv8.Transaction{},
+		}, blockWithTxs)
 	})
 }
 
@@ -370,7 +456,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv8.New(mockReader, nil, nil, "", nil)
+	handler := rpcv8.New(mockReader, nil, nil, nil)
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -381,7 +467,9 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
 	mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
-	got, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Number: blockNumber})
+
+	blockID := blockIDNumber(t, blockNumber)
+	got, rpcErr := handler.BlockWithTxs(&blockID)
 	require.Nil(t, rpcErr)
 	got.Transactions = got.Transactions[:1]
 
@@ -423,14 +511,18 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				Signature:          &tx.TransactionSignature,
 				CallData:           &tx.CallData,
 				EntryPointSelector: tx.EntryPointSelector,
-				ResourceBounds: &map[rpcv8.Resource]rpcv8.ResourceBounds{
-					rpcv8.ResourceL1Gas: {
+				ResourceBounds: &rpcv8.ResourceBoundsMap{
+					L1Gas: &rpcv8.ResourceBounds{
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
-					rpcv8.ResourceL2Gas: {
+					L2Gas: &rpcv8.ResourceBounds{
 						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
+					},
+					L1DataGas: &rpcv8.ResourceBounds{
+						MaxAmount:       &felt.Zero,
+						MaxPricePerUnit: &felt.Zero,
 					},
 				},
 				Tip:                   new(felt.Felt).SetUint64(tx.Tip),
@@ -450,28 +542,28 @@ func TestBlockWithReceipts(t *testing.T) {
 	n := utils.HeapPtr(utils.Mainnet)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpcv8.New(mockReader, mockSyncReader, nil, "", nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
-		blockID := rpcv8.BlockID{Number: 777}
+		blockID := blockIDNumber(t, 777)
 
-		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(nil, db.ErrKeyNotFound)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 	t.Run("l1head failure", func(t *testing.T) {
-		blockID := rpcv8.BlockID{Number: 777}
+		blockID := blockIDNumber(t, 777)
 		block := &core.Block{
 			Header: &core.Header{},
 		}
 
 		err := errors.New("l1 failure")
-		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(block, nil)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
 		mockReader.EXPECT().L1Head().Return(nil, err)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		assert.Nil(t, resp)
 		assert.Equal(t, rpccore.ErrInternal.CloneWithData(err.Error()), rpcErr)
 	})
@@ -479,26 +571,31 @@ func TestBlockWithReceipts(t *testing.T) {
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
-	t.Run("pending block", func(t *testing.T) {
+	t.Run("blockID - pending starknet version < 0.14.0", func(t *testing.T) {
 		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
 		require.NoError(t, err)
 
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: block0}, nil)
+		pending := sync.NewPending(block0, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
 
-		resp, rpcErr := handler.BlockWithReceipts(rpcv8.BlockID{Pending: true})
+		blockID := blockIDPending(t)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		header := resp.BlockHeader
 
-		var txsWithReceipt []rpcv8.TransactionWithReceipt
+		txsWithReceipt := make([]rpcv8.TransactionWithReceipt, len(block0.Transactions))
 		for i, tx := range block0.Transactions {
 			receipt := block0.Receipts[i]
 			adaptedTx := rpcv8.AdaptTransaction(tx)
 			adaptedTx.Hash = nil
 
-			txsWithReceipt = append(txsWithReceipt, rpcv8.TransactionWithReceipt{
+			txsWithReceipt[i] = rpcv8.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpcv8.AdaptReceipt(receipt, tx, rpcv8.TxnAcceptedOnL2, nil, 0),
-			})
+			}
 		}
 
 		assert.Nil(t, rpcErr)
@@ -523,30 +620,65 @@ func TestBlockWithReceipts(t *testing.T) {
 		}, resp)
 	})
 
+	t.Run("blockID - pending starknet version >= 0.14.0", func(t *testing.T) {
+		block0, err := mainnetGw.BlockByNumber(t.Context(), 0)
+		require.NoError(t, err)
+		preConfirmed := core.NewPreConfirmed(&core.Block{}, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		mockReader.EXPECT().HeadsHeader().Return(block0.Header, nil)
+		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+
+		blockID := blockIDPending(t)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID)
+		assert.Nil(t, rpcErr)
+		header := resp.BlockHeader
+
+		assert.Equal(t, &rpcv8.BlockWithReceipts{
+			Status: rpcv6.BlockPending,
+			BlockHeader: rpcv8.BlockHeader{
+				BlockHeader: rpcv6.BlockHeader{
+					ParentHash:       block0.Hash,
+					Timestamp:        header.Timestamp,
+					SequencerAddress: header.SequencerAddress,
+					L1GasPrice:       header.L1GasPrice,
+					StarknetVersion:  header.StarknetVersion,
+					L1DataGasPrice:   header.L1DataGasPrice,
+					L1DAMode:         header.L1DAMode,
+				},
+				L2GasPrice: header.L2GasPrice,
+			},
+			Transactions: []rpcv8.TransactionWithReceipt{},
+		}, resp)
+	})
+
 	t.Run("accepted L1 block", func(t *testing.T) {
 		block1, err := mainnetGw.BlockByNumber(t.Context(), 1)
 		require.NoError(t, err)
 
-		blockID := rpcv8.BlockID{Number: block1.Number}
+		blockID := blockIDNumber(t, block1.Number)
 
-		mockReader.EXPECT().BlockByNumber(blockID.Number).Return(block1, nil)
+		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block1, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
 			BlockNumber: block1.Number + 1,
 		}, nil)
 
-		resp, rpcErr := handler.BlockWithReceipts(blockID)
+		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		header := resp.BlockHeader
 
-		var transactions []rpcv8.TransactionWithReceipt
+		transactions := make([]rpcv8.TransactionWithReceipt, len(block1.Transactions))
 		for i, tx := range block1.Transactions {
 			receipt := block1.Receipts[i]
 			adaptedTx := rpcv8.AdaptTransaction(tx)
 			adaptedTx.Hash = nil
 
-			transactions = append(transactions, rpcv8.TransactionWithReceipt{
+			transactions[i] = rpcv8.TransactionWithReceipt{
 				Transaction: adaptedTx,
 				Receipt:     rpcv8.AdaptReceipt(receipt, tx, rpcv8.TxnAcceptedOnL1, nil, 0),
-			})
+			}
 		}
 
 		assert.Nil(t, rpcErr)
@@ -578,7 +710,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv8.New(mockReader, nil, nil, "", nil)
+	handler := rpcv8.New(mockReader, nil, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -591,12 +723,52 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		block, rpcErr := handler.BlockWithTxs(rpcv8.BlockID{Latest: true})
+		blockID := blockIDLatest(t)
+		block, rpcErr := handler.BlockWithTxs(&blockID)
 		require.NoError(t, err, rpcErr)
 		require.Equal(t, &felt.Zero, block.BlockHeader.SequencerAddress)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv8.BlockID{Latest: true})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&blockID)
 		require.NoError(t, err, rpcErr)
 		require.Equal(t, &felt.Zero, blockWithTxHashes.BlockHeader.SequencerAddress)
 	})
+}
+
+func blockIDPending(t *testing.T) rpcv8.BlockID {
+	t.Helper()
+
+	blockID := rpcv8.BlockID{}
+	require.NoError(t, blockID.UnmarshalJSON([]byte(`"pending"`)))
+	return blockID
+}
+
+func blockIDLatest(t *testing.T) rpcv8.BlockID {
+	t.Helper()
+
+	blockID := rpcv8.BlockID{}
+	require.NoError(t, blockID.UnmarshalJSON([]byte(`"latest"`)))
+	return blockID
+}
+
+func blockIDHash(t *testing.T, val *felt.Felt) rpcv8.BlockID {
+	t.Helper()
+
+	blockID := rpcv8.BlockID{}
+	require.NoError(
+		t,
+		blockID.UnmarshalJSON(
+			[]byte(fmt.Sprintf(`{ "block_hash" : %q }`, val.String())),
+		),
+	)
+	return blockID
+}
+
+func blockIDNumber(t *testing.T, val uint64) rpcv8.BlockID {
+	t.Helper()
+
+	blockID := rpcv8.BlockID{}
+	require.NoError(t,
+		blockID.UnmarshalJSON([]byte(fmt.Sprintf(`{ "block_number" : %d}`, val))),
+	)
+	return blockID
 }

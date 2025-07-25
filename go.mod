@@ -6,15 +6,18 @@ go 1.24.1
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
+	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/bits-and-blooms/bitset v1.22.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.4
+	github.com/cockroachdb/pebble/v2 v2.0.3
 	github.com/coder/websocket v1.8.13
 	github.com/consensys/gnark-crypto v0.17.0
+	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.15.5
 	github.com/fxamacker/cbor/v2 v2.7.0
 	github.com/go-playground/validator/v10 v10.25.0
-	github.com/jinzhu/copier v0.4.0
 	github.com/libp2p/go-libp2p v0.41.0
 	github.com/libp2p/go-libp2p-kad-dht v0.30.2
 	github.com/libp2p/go-libp2p-pubsub v0.13.1
@@ -28,6 +31,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.0
+	github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/mock v0.5.0
@@ -46,20 +50,21 @@ require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/cockroachdb/crlib v0.0.0-20241015224233-894974b3ad94 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
+	github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/consensys/bavard v0.1.29 // indirect
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
+	github.com/dmarkham/enumer v1.5.11 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.3 // indirect
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
@@ -78,7 +83,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
+	github.com/golang/snappy v0.0.5-0.20231225225746-43d5d4cd4e0e // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20250208200701-d0013a598941 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -135,6 +140,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/pascaldekloe/name v1.0.0 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
@@ -198,3 +204,10 @@ require (
 	lukechampine.com/blake3 v1.4.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+// TODO: Remove the replacement once there is a newer release.
+// The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24.
+// So it is replaced with the commit that supports go1.24.
+replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
+
+replace github.com/starknet-io/starknet-p2pspecs => ./starknet-p2pspecs

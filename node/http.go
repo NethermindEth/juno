@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/db"
 	junogrpc "github.com/NethermindEth/juno/grpc"
 	"github.com/NethermindEth/juno/grpc/gen"
@@ -153,11 +154,14 @@ func makeMetrics(host string, port uint16) *httpService {
 		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
 }
 
-// Create a new service that updates the log level .
-func makeLogService(host string, port uint16, logLevel *utils.LogLevel) *httpService {
+// Create a new service that updates the log level and timeouts settings.
+func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)
+	})
+	mux.HandleFunc("/feeder/timeouts", func(w http.ResponseWriter, r *http.Request) {
+		feeder.HTTPTimeoutsSettings(w, r, feederClient)
 	})
 	var handler http.Handler = mux
 	return makeHTTPService(host, port, handler)
@@ -197,7 +201,7 @@ func (g *grpcService) Run(ctx context.Context) error {
 	}
 }
 
-func makeGRPC(host string, port uint16, database db.DB, version string) *grpcService {
+func makeGRPC(host string, port uint16, database db.KeyValueStore, version string) *grpcService {
 	srv := grpc.NewServer()
 	gen.RegisterKVServer(srv, junogrpc.New(database, version))
 	return &grpcService{
@@ -217,23 +221,24 @@ func makePPROF(host string, port uint16) *httpService {
 	return makeHTTPService(host, port, mux)
 }
 
-const SyncBlockRange = 6
-
 type readinessHandlers struct {
-	bcReader   blockchain.Reader
-	syncReader sync.Reader
+	bcReader                blockchain.Reader
+	syncReader              sync.Reader
+	readinessBlockTolerance uint
 }
 
-func NewReadinessHandlers(bcReader blockchain.Reader, syncReader sync.Reader) *readinessHandlers {
+func NewReadinessHandlers(bcReader blockchain.Reader, syncReader sync.Reader, readinessBlockTolerance uint) *readinessHandlers {
 	return &readinessHandlers{
-		bcReader:   bcReader,
-		syncReader: syncReader,
+		bcReader:                bcReader,
+		syncReader:              syncReader,
+		readinessBlockTolerance: readinessBlockTolerance,
 	}
 }
 
 func (h *readinessHandlers) HandleReadySync(w http.ResponseWriter, r *http.Request) {
 	if !h.isSynced() {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Node not synced yet.")) //nolint:errcheck
 		return
 	}
 
@@ -254,5 +259,9 @@ func (h *readinessHandlers) isSynced() bool {
 		return false
 	}
 
-	return head.Number+SyncBlockRange >= highestBlockHeader.Number
+	return head.Number+uint64(h.readinessBlockTolerance) >= highestBlockHeader.Number
+}
+
+func (h *readinessHandlers) HandleLive(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
 }

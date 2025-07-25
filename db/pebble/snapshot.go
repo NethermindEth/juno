@@ -1,80 +1,69 @@
 package pebble
 
 import (
+	"errors"
+	"time"
+
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/dbutils"
 	"github.com/cockroachdb/pebble"
 )
 
-var _ db.Transaction = (*snapshot)(nil)
+var _ db.Snapshot = (*snapshot)(nil)
 
 type snapshot struct {
 	snapshot *pebble.Snapshot
 	listener db.EventListener
 }
 
-func NewSnapshot(dbSnapshot *pebble.Snapshot, listener db.EventListener) *snapshot {
-	return &snapshot{
-		snapshot: dbSnapshot,
-		listener: listener,
-	}
+func NewSnapshot(db *pebble.DB, listener db.EventListener) *snapshot {
+	return &snapshot{snapshot: db.NewSnapshot(), listener: listener}
 }
 
-// Discard : see db.Transaction.Discard
-func (s *snapshot) Discard() error {
-	if s.snapshot == nil {
-		return nil
+func (s *snapshot) Has(key []byte) (bool, error) {
+	_, closer, err := s.snapshot.Get(key)
+	if err != nil {
+		return false, err
 	}
 
-	if err := s.snapshot.Close(); err != nil {
+	return true, closer.Close()
+}
+
+//nolint:dupl
+func (s *snapshot) Get(key []byte, cb func(value []byte) error) error {
+	start := time.Now()
+
+	defer func() {
+		s.listener.OnIO(false, time.Since(start))
+	}()
+	data, closer, err := s.snapshot.Get(key)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return db.ErrKeyNotFound
+		}
 		return err
 	}
 
-	s.snapshot = nil
-
-	return nil
-}
-
-// Commit : see db.Transaction.Commit
-func (s *snapshot) Commit() error {
-	return ErrReadOnlyTransaction
-}
-
-// Set : see db.Transaction.Set
-func (s *snapshot) Set(key, val []byte) error {
-	return ErrReadOnlyTransaction
-}
-
-// Delete : see db.Transaction.Delete
-func (s *snapshot) Delete(key []byte) error {
-	return ErrReadOnlyTransaction
-}
-
-// Get : see db.Transaction.Get
-func (s *snapshot) Get(key []byte, cb func([]byte) error) error {
-	if s.snapshot == nil {
-		return ErrDiscardedTransaction
-	}
-	return get(s.snapshot, key, cb, s.listener)
-}
-
-// NewIterator : see db.Transaction.NewIterator
-func (s *snapshot) NewIterator(lowerBound []byte, withUpperBound bool) (db.Iterator, error) {
-	var iter *pebble.Iterator
-	var err error
-
-	if s.snapshot == nil {
-		return nil, ErrDiscardedTransaction
+	if err := cb(data); err != nil {
+		return err
 	}
 
-	iterOpt := &pebble.IterOptions{LowerBound: lowerBound}
+	return closer.Close()
+}
+
+func (s *snapshot) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
+	iterOpt := &pebble.IterOptions{LowerBound: prefix}
 	if withUpperBound {
-		iterOpt.UpperBound = upperBound(lowerBound)
+		iterOpt.UpperBound = dbutils.UpperBound(prefix)
 	}
 
-	iter, err = s.snapshot.NewIter(iterOpt)
+	it, err := s.snapshot.NewIter(iterOpt)
 	if err != nil {
 		return nil, err
 	}
+	return &iterator{iter: it}, nil
+}
 
-	return &iterator{iter: iter}, nil
+func (s *snapshot) Close() error {
+	return s.snapshot.Close()
 }

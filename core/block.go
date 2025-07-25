@@ -116,7 +116,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 			overrideSeq = fallbackSeq
 		}
 
-		hash, commitments, err := blockHash(b, stateDiff, network, overrideSeq)
+		hash, commitments, err := BlockHash(b, stateDiff, network, overrideSeq)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func blockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
 	*BlockCommitments, error,
 ) {
 	metaInfo := network.BlockHashMetaInfo
@@ -167,7 +167,6 @@ func pre07Hash(b *Block, chain *felt.Felt) (*felt.Felt, *BlockCommitments, error
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return crypto.PedersenArray(
 		new(felt.Felt).SetUint64(b.Number), // block number
 		b.GlobalStateRoot,                  // global state root
@@ -217,7 +216,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		return nil, nil, rErr
 	}
 
-	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	pricesHash := gasPricesHash(
 		GasPrice{
@@ -234,7 +233,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GlobalStateRoot,                     // global state root
 			b.SequencerAddress,                    // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			concatCounts,
+			&concatCounts,
 			sdCommitment,
 			txCommitment, // transaction commitment
 			eCommitment,  // event commitment
@@ -284,7 +283,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 		return nil, nil, rErr
 	}
 
-	concatCounts := concatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
+	concatCounts := ConcatCounts(b.TransactionCount, b.EventCount, sdLength, b.L1DAMode)
 
 	// These values are nil for some pre 0.13.2 blocks
 	// `crypto.PoseidonArray` panics if any of the values are nil
@@ -314,7 +313,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			b.GlobalStateRoot,                     // global state root
 			seqAddr,                               // sequencer address
 			new(felt.Felt).SetUint64(b.Timestamp), // block timestamp
-			concatCounts,
+			&concatCounts,
 			sdCommitment,
 			txCommitment,    // transaction commitment
 			eCommitment,     // event commitment
@@ -402,7 +401,7 @@ func UnmarshalBlockNumber(val []byte) uint64 {
 	return binary.BigEndian.Uint64(val)
 }
 
-func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *felt.Felt {
+func ConcatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) felt.Felt {
 	var l1DAByte byte
 	if l1Mode == Blob {
 		l1DAByte = 0b10000000
@@ -422,7 +421,7 @@ func concatCounts(txCount, eventCount, stateDiffLen uint64, l1Mode L1DAMode) *fe
 		[]byte{l1DAByte},
 		zeroPadding,
 	)
-	return new(felt.Felt).SetBytes(concatBytes)
+	return *new(felt.Felt).SetBytes(concatBytes)
 }
 
 func gasPricesHash(gasPrices, dataGasPrices, l2GasPrices GasPrice) *felt.Felt {

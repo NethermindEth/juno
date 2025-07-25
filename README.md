@@ -37,9 +37,9 @@
   <b>Juno</b> is a golang <a href="https://starknet.io/">Starknet</a> node implementation by <a href="https://nethermind.io/">Nethermind</a> with the aim of decentralising Starknet.
 </p>
 
-> **📌 Looking for a Starknet RPC Provider?**
->
-> Access Nethermind's Starknet RPC service for free at https://data.voyager.online.
+
+> ℹ️ **Note**: 
+> If you're looking to become a <b>Starknet Validator</b>, you’ll also need to run a <a href="https://starknet.io/">validation tool</a>. We’ve prepared a <a href="https://nethermindeth.github.io/starknet-staking-v2/">guide</a> with detailed instructions. If you run into any issues, feel free to <a href="#📞-contact-us">reach out to us</a>.
 
 ## ⚙️ Installation
 
@@ -47,7 +47,7 @@
 
 - Golang 1.24 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install) 1.85.0 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.86.0 or higher.
 - A C compiler: `gcc`.
 - Install some dependencies on your system:
   
@@ -106,7 +106,9 @@ docker logs -f juno
 
 ## 📚 Documentation
 
-You can find the full documentation [here](https://juno.nethermind.io/).
+You can find Juno's full documentation [here](https://juno.nethermind.io/).
+
+If you are looking to become a **Starknet Validator**, follow our guide [here](https://nethermindeth.github.io/starknet-staking-v2/).
 
 ## 📸 Snapshots
 
@@ -192,8 +194,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 ## ✔ Supported Features
 
-- Starknet [v0.13.5](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.5) support.
-- JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0-rc3) (Available under `/v0_8` and default`/` endpoints)
+- Starknet [v0.14.0](https://docs.starknet.io/resources/version-notes/#starknet_v0_14_0_july_28_25) support.
+- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` and default`/` endpoints)
   
   Chain/Network Information:
   - `starknet_chainId`
@@ -254,8 +256,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 - Juno's JSON-RPC:
   - `juno_version`
-- JSON-RPC [v0.7.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.1) (Available under `/v0_7` endpoint)
-- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
+- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` endpoint)
+- JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0) (Available under `/v0_8` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.
@@ -372,6 +374,16 @@ There are also many other ways to contribute. Here are some ideas:
 * Add a [GitHub Star](https://github.com/NethermindEth/juno/stargazers) to the project.
 * [Tweet](https://twitter.com/intent/tweet?url=https%3A%2F%2Fgithub.com%2FNethermindEth%2Fjuno&via=nethermindeth&text=Juno%20is%20Awesome%2C%20they%20are%20working%20hard%20to%20bring%20decentralization%20to%20StarkNet&hashtags=StarkNet%2CJuno%2CEthereum) about Juno.
 * Add a Github issue if you find a [bug](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=bug_report.md&title=), or you need or want a new [feature](https://github.com/NethermindEth/juno/issues/new?assignees=&labels=&template=feature_request.md&title=).
+
+## 📞 Contact us
+
+For questions or feedback, please don't hesitate to reach out to us:
+
+- [Telegram](https://t.me/StarknetJuno)
+- [Discord](https://discord.com/invite/TcHbSZ9ATd)
+- [X(Formerly Twitter)](https://x.com/NethermindStark)
+
+
 
 ## 🤝 Partnerships
 

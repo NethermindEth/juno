@@ -27,7 +27,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 
-	handler := rpc.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 	msg := rpc.MsgFromL1{
 		From:     common.HexToAddress("0xDEADBEEF"),
 		To:       *new(felt.Felt).SetUint64(1337),
@@ -54,9 +54,9 @@ func TestEstimateMessageFee(t *testing.T) {
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)
 	mockVM.EXPECT().Execute(gomock.Any(), gomock.Any(), gomock.Any(), &vm.BlockInfo{
 		Header: latestHeader,
-	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false).DoAndReturn(
+	}, gomock.Any(), &utils.Mainnet, gomock.Any(), false, true, false, true).DoAndReturn(
 		func(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo,
-			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack bool,
+			state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool,
 		) (vm.ExecutionResults, error) {
 			require.Len(t, txns, 1)
 			assert.NotNil(t, txns[0].(*core.L1HandlerTransaction))

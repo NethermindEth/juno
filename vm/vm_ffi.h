@@ -37,7 +37,7 @@ extern void cairoVMCall(CallInfo* call_info_ptr, BlockInfo* block_info_ptr, uint
 extern void cairoVMExecute(char* txns_json, char* classes_json, char* paid_fees_on_l1_json,
 					BlockInfo* block_info_ptr, uintptr_t readerHandle,  char* chain_id,
 					unsigned char skip_charge_fee, unsigned char skip_validate, unsigned char err_on_revert,
-					unsigned char concurrency_mode, unsigned char err_stack);
+					unsigned char concurrency_mode, unsigned char err_stack,unsigned char allow_binary_search);
 
 extern char* setVersionedConstants(char* json);
 extern void freeString(char* str);

@@ -44,7 +44,7 @@ var (
 	// The docs states the addresses for each network: https://docs.starknet.io/tools/important-addresses/
 	Mainnet = Network{
 		Name:                "mainnet",
-		FeederURL:           "https://alpha-mainnet.starknet.io/feeder_gateway/",
+		FeederURL:           "https://feeder.alpha-mainnet.starknet.io/feeder_gateway/",
 		GatewayURL:          "https://alpha-mainnet.starknet.io/gateway/",
 		L2ChainID:           "SN_MAIN",
 		L1ChainID:           big.NewInt(1),
@@ -97,7 +97,7 @@ var (
 	}
 	Sepolia = Network{
 		Name:       "sepolia",
-		FeederURL:  "https://alpha-sepolia.starknet.io/feeder_gateway/",
+		FeederURL:  "https://feeder.alpha-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://alpha-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_SEPOLIA",
 		//nolint:mnd
@@ -110,7 +110,7 @@ var (
 	}
 	SepoliaIntegration = Network{
 		Name:       "sepolia-integration",
-		FeederURL:  "https://integration-sepolia.starknet.io/feeder_gateway/",
+		FeederURL:  "https://feeder.integration-sepolia.starknet.io/feeder_gateway/",
 		GatewayURL: "https://integration-sepolia.starknet.io/gateway/",
 		L2ChainID:  "SN_INTEGRATION_SEPOLIA",
 		//nolint:mnd
@@ -120,6 +120,11 @@ var (
 			First07Block:             0,
 			FallBackSequencerAddress: fallBackSequencerAddress,
 		},
+	}
+	Sequencer = Network{
+		Name:              "sequencer",
+		L2ChainID:         "SN_JUNO_SEQUENCER",
+		BlockHashMetaInfo: &BlockHashMetaInfo{},
 	}
 )
 
@@ -140,6 +145,7 @@ func (n *Network) Set(s string) error {
 		"mainnet":             Mainnet,
 		"sepolia":             Sepolia,
 		"sepolia-integration": SepoliaIntegration,
+		"sequencer":           Sequencer,
 	}
 
 	if network, ok := predefinedNetworks[strings.ToLower(s)]; ok {
@@ -162,7 +168,7 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 }
 
 func knownNetworkNames() []string {
-	networks := []Network{Mainnet, Sepolia, SepoliaIntegration}
+	networks := []Network{Mainnet, Sepolia, SepoliaIntegration, Sequencer}
 
 	return Map(networks, func(n Network) string {
 		return n.String()

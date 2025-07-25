@@ -11,7 +11,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/db/pebble"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
@@ -104,19 +104,19 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				return mockReader.BlockByNumber(test.blockNumber)
 			})
 
-			handler := rpc.New(mockReader, nil, nil, "", nil)
+			handler := rpc.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
-			traces, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: test.blockNumber})
+			blockID := blockIDNumber(t, test.blockNumber)
+			traces, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 			if n == &utils.Sepolia && description == "newer block" {
 				// For the newer block test, we test 3 of the block traces (INVOKE, DEPLOY_ACCOUNT, DECLARE)
 				traces = []rpc.TracedBlockTransaction{traces[0], traces[7], traces[11]}
 			}
-
-			require.Nil(t, jErr)
+			require.Nil(t, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 
-			jsonStr, err := json.Marshal(traces)
-			require.NoError(t, err)
+			jsonStr, jErr := json.Marshal(traces)
+			require.NoError(t, jErr)
 			assert.JSONEq(t, test.wantTrace, string(jsonStr))
 		})
 	}
@@ -141,12 +141,13 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
-		handler := rpc.New(mockReader, nil, nil, "", nil)
+		handler := rpc.New(mockReader, nil, nil, nil)
 
-		tracedBlocks, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: blockNumber})
+		blockID := blockIDNumber(t, blockNumber)
+		tracedBlocks, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 
 		require.Nil(t, tracedBlocks)
-		require.Equal(t, rpccore.ErrInternal.Code, jErr.Code)
+		require.Equal(t, rpccore.ErrInternal.Code, err.Code)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 	})
 }
@@ -251,14 +252,18 @@ func TestTraceTransaction(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
+			pending := sync.NewPending(&core.Block{}, nil, nil)
+			mockSyncReader.EXPECT().PendingData().Return(
+				&pending,
+				nil,
+			)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
@@ -340,7 +345,7 @@ func TestTraceTransaction(t *testing.T) {
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
 			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
-			false, true).Return(vm.ExecutionResults{
+			false, true, false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
 			Traces:      []vm.TransactionTrace{*vmTrace},
@@ -385,9 +390,11 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			Block: block,
-		}, nil)
+		pending := sync.NewPending(block, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		).Times(2)
 
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
@@ -423,7 +430,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, true).
+			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
 				GasConsumed: gc,
@@ -447,7 +454,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &utils.Sepolia
 
-		handler := rpc.New(mockReader, mockSyncReader, mockVM, "", utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, mockSyncReader, mockVM, utils.NewNopZapLogger())
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
@@ -569,30 +576,30 @@ func TestTraceTransaction(t *testing.T) {
 
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
-		"latest":  {Latest: true},
-		"pending": {Pending: true},
-		"hash":    {Hash: new(felt.Felt).SetUint64(1)},
-		"number":  {Number: 1},
+		"latest":  blockIDLatest(t),
+		"pending": blockIDPending(t),
+		"hash":    blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"number":  blockIDNumber(t, 2),
 	}
 
-	for description, id := range errTests {
+	for description, blockID := range errTests {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(pebble.NewMemTest(t), n)
-			handler := rpc.New(chain, nil, nil, "", log)
+			chain := blockchain.New(memory.New(), n)
+			handler := rpc.New(chain, nil, nil, log)
 
 			if description == "pending" {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 
-				handler = rpc.New(chain, mockSyncReader, nil, "", log)
+				handler = rpc.New(chain, mockSyncReader, nil, log)
 			}
 
-			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
+			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 			assert.Nil(t, update)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
 			assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -609,7 +616,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, "", log)
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, log)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -641,6 +648,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
@@ -667,7 +676,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true).
+			gomock.Any(), n, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -676,7 +685,8 @@ func TestTraceBlockTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
+		blockID := blockIDHash(t, blockHash)
+		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -782,7 +792,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true).
+			gomock.Any(), n, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -798,7 +808,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 				TraceRoot:       &expectedTrace,
 			},
 		}
-		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Hash: blockHash})
+
+		blockID := blockIDHash(t, blockHash)
+		result, httpHeader, err := handler.TraceBlockTransactions(t.Context(), &blockID)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 		assert.Equal(t, expectedResult, result)
@@ -865,7 +877,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -1005,7 +1017,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.ExecuteInvocation{},
 		}
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
@@ -1033,30 +1045,60 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 	})
 
 	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
-		vmTrace := vm.TransactionTrace{
-			Type:                  vm.TxnL1Handler,
-			ValidateInvocation:    &vm.FunctionInvocation{},
-			FeeTransferInvocation: &vm.FunctionInvocation{},
-			ExecuteInvocation: &vm.ExecuteInvocation{
-				RevertReason:       "",
-				FunctionInvocation: &vm.FunctionInvocation{},
-			},
-			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.FunctionInvocation{},
-		}
+		t.Run("Execution succeed", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+			}
 
-		expectedAdaptedTrace := rpc.TransactionTrace{
-			Type: rpc.TxnL1Handler,
-			FunctionInvocation: &rpc.FunctionInvocation{
-				Calls:    []rpc.FunctionInvocation{},
-				Events:   []rpcv6.OrderedEvent{},
-				Messages: []rpcv6.OrderedL2toL1Message{},
-			},
-		}
+			expectedAdaptedTrace := rpc.TransactionTrace{
+				Type: rpc.TxnL1Handler,
+				FunctionInvocation: &rpc.FunctionInvocation{
+					Calls:    []rpc.FunctionInvocation{},
+					Events:   []rpcv6.OrderedEvent{},
+					Messages: []rpcv6.OrderedL2toL1Message{},
+				},
+			}
 
-		adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 
-		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
+
+		t.Run("Execution reverted", func(t *testing.T) {
+			vmTrace := vm.TransactionTrace{
+				Type:                  vm.TxnL1Handler,
+				ValidateInvocation:    &vm.FunctionInvocation{},
+				FeeTransferInvocation: &vm.FunctionInvocation{},
+				ExecuteInvocation: &vm.ExecuteInvocation{
+					RevertReason:       "",
+					FunctionInvocation: &vm.FunctionInvocation{},
+				},
+				ConstructorInvocation: &vm.FunctionInvocation{},
+				FunctionInvocation: &vm.ExecuteInvocation{
+					RevertReason: "Reverted",
+				},
+			}
+
+			defaultL1HandlerInvocation := rpc.DefaultL1HandlerFunctionInvocation()
+			expectedAdaptedTrace := rpc.TransactionTrace{
+				Type:               rpc.TxnL1Handler,
+				FunctionInvocation: &defaultL1HandlerInvocation,
+			}
+
+			adaptedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
+
+			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
+		})
 	})
 }
 
@@ -1198,12 +1240,13 @@ func TestCall(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, "", utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		blockID := blockIDLatest(t)
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1211,7 +1254,8 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Hash: &felt.Zero})
+		blockID := blockIDHash(t, &felt.Zero)
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1219,7 +1263,8 @@ func TestCall(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Number: 0})
+		blockID := blockIDNumber(t, 0)
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -1231,7 +1276,8 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, errors.New("unknown contract"))
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{}, rpc.BlockID{Latest: true})
+		blockID := blockIDLatest(t)
+		res, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
 		require.Nil(t, res)
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
@@ -1276,11 +1322,15 @@ func TestCall(t *testing.T) {
 			Calldata:        calldata,
 		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{
-			ContractAddress:    *contractAddr,
-			EntryPointSelector: *selector,
-			Calldata:           calldata,
-		}, rpc.BlockID{Latest: true})
+		blockID := blockIDLatest(t)
+		res, rpcErr := handler.Call(
+			&rpc.FunctionCall{
+				ContractAddress:    *contractAddr,
+				EntryPointSelector: *selector,
+				Calldata:           calldata,
+			},
+			&blockID,
+		)
 		require.Nil(t, rpcErr)
 		require.Equal(t, expectedRes.Result, res)
 	})
@@ -1323,11 +1373,14 @@ func TestCall(t *testing.T) {
 			Calldata:        calldata,
 		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{
+		blockID := blockIDLatest(t)
+		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
 			Calldata:           calldata,
-		}, rpc.BlockID{Latest: true})
+		},
+			&blockID,
+		)
 		require.Nil(t, res)
 		require.Equal(t, rpcErr, expectedErr)
 	})
@@ -1363,11 +1416,15 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().Network().Return(n)
 		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
-		res, rpcErr := handler.Call(rpc.FunctionCall{
-			ContractAddress:    *contractAddr,
-			EntryPointSelector: *selector,
-			Calldata:           calldata,
-		}, rpc.BlockID{Latest: true})
+		blockID := blockIDLatest(t)
+		res, rpcErr := handler.Call(
+			&rpc.FunctionCall{
+				ContractAddress:    *contractAddr,
+				EntryPointSelector: *selector,
+				Calldata:           calldata,
+			},
+			&blockID,
+		)
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)
 	})

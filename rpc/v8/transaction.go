@@ -14,11 +14,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
+	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/copier"
 )
 
 type TransactionType uint8
@@ -206,30 +206,54 @@ type ResourceBounds struct {
 	MaxPricePerUnit *felt.Felt `json:"max_price_per_unit"`
 }
 
+// TODO: using Value fields here is a good idea, however
+// we are currently keeping the field's type Reference since the current
+// validation tags we are using does not work well with Value field.
+// We should revisit this when we start implementing custom validations.
+type ResourceBoundsMap struct {
+	L1Gas     *ResourceBounds `json:"l1_gas" validate:"required"`
+	L2Gas     *ResourceBounds `json:"l2_gas" validate:"required"`
+	L1DataGas *ResourceBounds `json:"l1_data_gas" validate:"required"`
+}
+
+func (r *ResourceBoundsMap) MarshalJSON() ([]byte, error) {
+	// Check if L1DataGas is nil, if it is, provide default values
+	if r.L1DataGas == nil {
+		r.L1DataGas = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
+	}
+
+	// Define an alias to avoid recursion
+	type alias ResourceBoundsMap
+	return json.Marshal((*alias)(r))
+}
+
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L1252
 //
 //nolint:lll
 type Transaction struct {
-	Hash                  *felt.Felt                   `json:"transaction_hash,omitempty"`
-	Type                  TransactionType              `json:"type" validate:"required"`
-	Version               *felt.Felt                   `json:"version,omitempty" validate:"required,version_0x3"`
-	Nonce                 *felt.Felt                   `json:"nonce,omitempty" validate:"required"`
-	MaxFee                *felt.Felt                   `json:"max_fee,omitempty"`
-	ContractAddress       *felt.Felt                   `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt                   `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt                   `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt                `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt                   `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
-	Signature             *[]*felt.Felt                `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt                `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt                   `json:"entry_point_selector,omitempty"`
-	CompiledClassHash     *felt.Felt                   `json:"compiled_class_hash,omitempty"`
-	ResourceBounds        *map[Resource]ResourceBounds `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
-	Tip                   *felt.Felt                   `json:"tip,omitempty" validate:"required"`
-	PaymasterData         *[]*felt.Felt                `json:"paymaster_data,omitempty" validate:"required"`
-	AccountDeploymentData *[]*felt.Felt                `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
-	NonceDAMode           *DataAvailabilityMode        `json:"nonce_data_availability_mode,omitempty" validate:"required"`
-	FeeDAMode             *DataAvailabilityMode        `json:"fee_data_availability_mode,omitempty" validate:"required"`
+	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
+	Type                  TransactionType       `json:"type" validate:"required"`
+	Version               *felt.Felt            `json:"version,omitempty" validate:"required,version_0x3"`
+	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required"`
+	MaxFee                *felt.Felt            `json:"max_fee,omitempty"`
+	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
+	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE"`
+	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
+	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"`
+	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"`
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"resource_bounds_required"`
+	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required"`
+	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required"`
+	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE,required_if=Type DECLARE"`
+	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required"`
+	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required"`
 }
 
 type TransactionStatus struct {
@@ -302,15 +326,12 @@ type BroadcastedTransaction struct {
 	PaidFeeOnL1   *felt.Felt      `json:"paid_fee_on_l1,omitempty" validate:"required_if=Transaction.Type L1_HANDLER"`
 }
 
-func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
+func AdaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	network *utils.Network,
 ) (core.Transaction, core.Class, *felt.Felt, error) {
-	var feederTxn starknet.Transaction
-	if err := copier.Copy(&feederTxn, broadcastedTxn.Transaction); err != nil {
-		return nil, nil, nil, err
-	}
+	feederTxn := adaptRPCTxToFeederTx(&broadcastedTxn.Transaction)
 
-	txn, err := sn2core.AdaptTransaction(&feederTxn)
+	txn, err := sn2core.AdaptTransaction(feederTxn)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -358,28 +379,54 @@ func adaptBroadcastedTransaction(broadcastedTxn *BroadcastedTransaction,
 	return txn, declaredClass, paidFeeOnL1, nil
 }
 
-func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]ResourceBounds {
-	rpcResourceBounds := make(map[Resource]ResourceBounds)
-	for resource, bounds := range rb {
-		rpcResourceBounds[Resource(resource)] = ResourceBounds{
-			MaxAmount:       new(felt.Felt).SetUint64(bounds.MaxAmount),
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
+func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBoundsMap {
+	// Check if L1DataGas exists in the map
+	var l1DataGasResourceBounds *ResourceBounds
+	if _, ok := rb[core.ResourceL1DataGas]; ok {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1DataGas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
 		}
+	} else {
+		l1DataGasResourceBounds = &ResourceBounds{
+			MaxAmount:       &felt.Zero,
+			MaxPricePerUnit: &felt.Zero,
+		}
+	}
+
+	// As L1Gas & L2Gas will always be present, we can directly assign them
+	rpcResourceBounds := ResourceBoundsMap{
+		L1Gas: &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL1Gas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
+		},
+		L2Gas: &ResourceBounds{
+			MaxAmount:       new(felt.Felt).SetUint64(rb[core.ResourceL2Gas].MaxAmount),
+			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
+		},
+		L1DataGas: l1DataGasResourceBounds,
 	}
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *map[Resource]ResourceBounds) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}
 	feederResourceBounds := make(map[starknet.Resource]starknet.ResourceBounds)
-	for resource, bounds := range *rb {
-		feederResourceBounds[starknet.Resource(resource)] = starknet.ResourceBounds{
-			MaxAmount:       bounds.MaxAmount,
-			MaxPricePerUnit: bounds.MaxPricePerUnit,
-		}
+	feederResourceBounds[starknet.ResourceL1Gas] = starknet.ResourceBounds{
+		MaxAmount:       rb.L1Gas.MaxAmount,
+		MaxPricePerUnit: rb.L1Gas.MaxPricePerUnit,
 	}
+	feederResourceBounds[starknet.ResourceL2Gas] = starknet.ResourceBounds{
+		MaxAmount:       rb.L2Gas.MaxAmount,
+		MaxPricePerUnit: rb.L2Gas.MaxPricePerUnit,
+	}
+	feederResourceBounds[starknet.ResourceL1DataGas] = starknet.ResourceBounds{
+		MaxAmount:       rb.L1DataGas.MaxAmount,
+		MaxPricePerUnit: rb.L1DataGas.MaxPricePerUnit,
+	}
+
 	return &feederResourceBounds
 }
 
@@ -430,7 +477,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB := h.syncReader.PendingBlock()
+		pendingB := h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -454,25 +501,27 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(
+	blockID *BlockID, txIndex int,
+) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
 
-	if id.Pending {
-		pending, err := h.syncReader.Pending()
+	if blockID.IsPending() {
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
-	header, rpcErr := h.blockHeaderByID(&id)
+	header, rpcErr := h.blockHeaderByID(blockID)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -501,7 +550,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -550,8 +599,54 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 	return AdaptReceipt(receipt, txn, status, blockHash, blockNumber), nil
 }
 
-// AddTransaction relays a transaction to the gateway.
+// AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
 func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+	var (
+		res *AddTxResponse
+		err *jsonrpc.Error
+	)
+	if h.memPool != nil {
+		res, err = h.addToMempool(ctx, &tx)
+	} else {
+		res, err = h.pushToFeederGateway(ctx, tx)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if h.submittedTransactionsCache != nil {
+		h.submittedTransactionsCache.Add(res.TransactionHash)
+	}
+
+	return res, nil
+}
+
+func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
+	if err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
+		Transaction:   userTxn,
+		DeclaredClass: userClass,
+		PaidFeeOnL1:   paidFeeOnL1,
+	}); err != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
+	if tx.Type == TxnDeployAccount {
+		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+	} else if tx.Type == TxnDeclare {
+		res.ClassHash, err = userClass.Hash()
+		if err != nil {
+			return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		}
+	}
+	return res, nil
+}
+
+func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
@@ -637,6 +732,17 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
+		if h.submittedTransactionsCache != nil {
+			switch txStatus.FinalityStatus {
+			case starknet.NotReceived:
+				if h.submittedTransactionsCache.Contains(&hash) {
+					txStatus.FinalityStatus = starknet.Received
+				}
+			case starknet.AcceptedOnL2, starknet.AcceptedOnL1, starknet.Received:
+				h.submittedTransactionsCache.Remove(&hash)
+			}
+		}
+
 		status, err := adaptTransactionStatus(txStatus)
 		if err != nil {
 			if !errors.Is(err, errTransactionNotFound) {
@@ -655,7 +761,10 @@ type TransactionStatusV0_7 struct {
 	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
 }
 
-func (h *Handler) TransactionStatusV0_7(ctx context.Context, hash felt.Felt) (*TransactionStatusV0_7, *jsonrpc.Error) {
+func (h *Handler) TransactionStatusV0_7(
+	// Todo make `hash` by reference
+	ctx context.Context, hash felt.Felt,
+) (*TransactionStatusV0_7, *jsonrpc.Error) {
 	res, err := h.TransactionStatus(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -693,7 +802,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidTransactionNonce:
 		return rpccore.ErrInvalidTransactionNonce
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
 		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
@@ -838,7 +947,9 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
+		if txStatus.FailureReason != nil {
+			status.FailureReason = txStatus.FailureReason.Message
+		}
 	default: // Omit the field on error. It's optional in the spec.
 	}
 
