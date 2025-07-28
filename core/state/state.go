@@ -25,6 +25,7 @@ var (
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
 		*new(felt.Felt).SetUint64(1): {},
+		*new(felt.Felt).SetUint64(2): {},
 	}
 )
 
