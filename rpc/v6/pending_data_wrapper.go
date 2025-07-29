@@ -49,7 +49,7 @@ func (h *Handler) PendingState() (state.StateReader, error) {
 	if pending.Variant() == core.PendingBlockVariant {
 		state, err := h.syncReader.PendingState()
 		if err != nil {
-			if !errors.Is(err, sync.ErrPendingBlockNotFound) {
+			if errors.Is(err, sync.ErrPendingBlockNotFound) {
 				return h.bcReader.HeadState()
 			}
 			return nil, err
