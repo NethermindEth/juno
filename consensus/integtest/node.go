@@ -18,7 +18,7 @@ func (n nodes) TotalVotingPower(height types.Height) types.VotingPower {
 	return types.VotingPower(len(n))
 }
 
-func (n nodes) ValidatorVotingPower(addr starknet.Address) types.VotingPower {
+func (n nodes) ValidatorVotingPower(height types.Height, addr *starknet.Address) types.VotingPower {
 	return types.VotingPower(1)
 }
 
