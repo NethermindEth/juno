@@ -1,10 +1,8 @@
 package tendermint
 
 import (
-	"maps"
-	"slices"
-
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
 /*
@@ -14,12 +12,9 @@ Check the upon condition on line 47:
 	48: schedule OnTimeoutPrecommit(h_p , round_p) to be executed after timeoutPrecommit(round_p)
 */
 func (t *stateMachine[V, H, A]) uponPrecommitAny() bool {
-	precommits := t.messages.Precommits[t.state.height][t.state.round]
-	vals := slices.Collect(maps.Keys(precommits))
-
 	isFirstTime := !t.state.timeoutPrecommitScheduled
 
-	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
+	hasQuorum := t.voteCounter.HasQuorumForAny(t.state.round, votecounter.Precommit)
 
 	return hasQuorum && isFirstTime
 }
