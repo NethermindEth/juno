@@ -14,12 +14,12 @@ Check the upon condition on line 44:
 
 Line 36 and 44 for a round are mutually exclusive.
 */
-func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
-	hasQuorum := t.voteCounter.HasQuorumForVote(t.state.round, votecounter.Prevote, nil)
+func (s *stateMachine[V, H, A]) uponPolkaNil() bool {
+	hasQuorum := s.voteCounter.HasQuorumForVote(s.state.round, votecounter.Prevote, nil)
 
-	return hasQuorum && t.state.step == types.StepPrevote
+	return hasQuorum && s.state.step == types.StepPrevote
 }
 
-func (t *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
-	return t.setStepAndSendPrecommit(nil)
+func (s *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
+	return s.setStepAndSendPrecommit(nil)
 }
