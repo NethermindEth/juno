@@ -12,14 +12,14 @@ Check the upon condition on line 55:
 
 If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
-func (t *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
-	isNewerRound := futureR > t.state.round
+func (s *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
+	isNewerRound := futureR > s.state.round
 
-	hasQuorum := t.voteCounter.HasNonFaultyFutureMessage(futureR)
+	hasQuorum := s.voteCounter.HasNonFaultyFutureMessage(futureR)
 
 	return isNewerRound && hasQuorum
 }
 
-func (t *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
-	return t.startRound(futureR)
+func (s *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
+	return s.startRound(futureR)
 }

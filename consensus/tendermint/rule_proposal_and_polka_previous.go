@@ -16,25 +16,25 @@ Check the upon condition on line 28:
 	32:  	broadcast {PREVOTE, hp, round_p, nil}
 	33: step_p ← prevote
 */
-func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
+func (s *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
 	vr := cachedProposal.ValidRound
-	hasQuorum := cachedProposal.ID != nil && t.voteCounter.HasQuorumForVote(vr, votecounter.Prevote, cachedProposal.ID)
+	hasQuorum := cachedProposal.ID != nil && s.voteCounter.HasQuorumForVote(vr, votecounter.Prevote, cachedProposal.ID)
 	return hasQuorum &&
-		t.state.step == types.StepPropose &&
+		s.state.step == types.StepPropose &&
 		vr >= 0 &&
-		vr < t.state.round
+		vr < s.state.round
 }
 
-func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
-		(t.state.lockedRound <= cachedProposal.ValidRound ||
-			t.state.lockedValue != nil &&
+		(s.state.lockedRound <= cachedProposal.ValidRound ||
+			s.state.lockedValue != nil &&
 				cachedProposal.ID != nil &&
-				(*t.state.lockedValue).Hash() == *cachedProposal.ID)
+				(*s.state.lockedValue).Hash() == *cachedProposal.ID)
 
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}
-	return t.setStepAndSendPrevote(votedID)
+	return s.setStepAndSendPrevote(votedID)
 }

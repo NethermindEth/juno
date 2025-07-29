@@ -103,36 +103,36 @@ type CachedProposal[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	ID    *H
 }
 
-func (t *stateMachine[V, H, A]) resetState(round types.Round) {
-	t.state.round = round
-	t.state.step = types.StepPropose
+func (s *stateMachine[V, H, A]) resetState(round types.Round) {
+	s.state.round = round
+	s.state.step = types.StepPropose
 
-	t.state.timeoutPrevoteScheduled = false
-	t.state.lockedValueAndOrValidValueSet = false
-	t.state.timeoutPrecommitScheduled = false
+	s.state.timeoutPrevoteScheduled = false
+	s.state.lockedValueAndOrValidValueSet = false
+	s.state.timeoutPrecommitScheduled = false
 }
 
-func (t *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
-	if err := t.db.Flush(); err != nil {
-		t.log.Fatalf("failed to flush WAL at start of round", "height", t.state.height, "round", r, "err", err)
+func (s *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
+	if err := s.db.Flush(); err != nil {
+		s.log.Fatalf("failed to flush WAL at start of round", "height", s.state.height, "round", r, "err", err)
 	}
 
-	t.resetState(r)
+	s.resetState(r)
 
-	if p := t.voteCounter.Proposer(r); p == t.nodeAddr {
+	if p := s.voteCounter.Proposer(r); p == s.nodeAddr {
 		var proposalValue *V
-		if t.state.validValue != nil {
-			proposalValue = t.state.validValue
+		if s.state.validValue != nil {
+			proposalValue = s.state.validValue
 		} else {
-			proposalValue = utils.HeapPtr(t.application.Value())
+			proposalValue = utils.HeapPtr(s.application.Value())
 		}
-		actions := t.sendProposal(proposalValue)
-		if err := t.db.Flush(); err != nil {
-			t.log.Fatalf("failed to flush WAL when proposing a new block", "height", t.state.height, "round", r, "err", err)
+		actions := s.sendProposal(proposalValue)
+		if err := s.db.Flush(); err != nil {
+			s.log.Fatalf("failed to flush WAL when proposing a new block", "height", s.state.height, "round", r, "err", err)
 		}
 		return actions
 	} else {
-		return t.scheduleTimeout(types.StepPropose)
+		return s.scheduleTimeout(types.StepPropose)
 	}
 }
 
@@ -148,24 +148,24 @@ func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H,
 
 // - Messages from past heights are ignored.
 // - All messages from current and future heights are stored, but only processed when the height is the current height.
-func (t *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
-	if header.Height < t.state.height || header.Round < 0 {
+func (s *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
+	if header.Height < s.state.height || header.Round < 0 {
 		return false
 	}
 
 	addMessage()
-	return header.Height == t.state.height
+	return header.Height == s.state.height
 }
 
-func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H, A] {
-	proposal := t.voteCounter.GetProposal(r)
+func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H, A] {
+	proposal := s.voteCounter.GetProposal(r)
 	if proposal == nil {
 		return nil
 	}
 
 	return &CachedProposal[V, H, A]{
 		Proposal: *proposal,
-		Valid:    t.application.Valid(*proposal.Value),
+		Valid:    s.application.Valid(*proposal.Value),
 		ID:       utils.HeapPtr((*proposal.Value).Hash()),
 	}
 }
@@ -178,12 +178,12 @@ func (t *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 // scheduling timeouts. It is strictly a state recovery mechanism.
 //
 // Panics if the replaying the messages fails for whatever reason.
-func (t *stateMachine[V, H, A]) ReplayWAL() {
-	walEntries, err := t.db.GetWALEntries(t.state.height)
+func (s *stateMachine[V, H, A]) ReplayWAL() {
+	walEntries, err := s.db.GetWALEntries(s.state.height)
 	if err != nil {
-		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", t.state.height, err))
+		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
 	}
-	t.replayMode = true
+	s.replayMode = true
 	for _, walEntry := range walEntries {
 		switch walEntry.Type {
 		case types.MessageTypeProposal:
@@ -191,28 +191,28 @@ func (t *stateMachine[V, H, A]) ReplayWAL() {
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
 			}
-			t.ProcessProposal(&proposal)
+			s.ProcessProposal(&proposal)
 		case types.MessageTypePrevote:
 			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
 			}
-			t.ProcessPrevote(&prevote)
+			s.ProcessPrevote(&prevote)
 		case types.MessageTypePrecommit:
 			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
 			}
-			t.ProcessPrecommit(&precommit)
+			s.ProcessPrecommit(&precommit)
 		case types.MessageTypeTimeout:
 			timeout, ok := (walEntry.Entry).(types.Timeout)
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
 			}
-			t.ProcessTimeout(timeout)
+			s.ProcessTimeout(timeout)
 		default:
 			panic("Failed to replay WAL messages, unknown WAL Entry type")
 		}
 	}
-	t.replayMode = false
+	s.replayMode = false
 }
