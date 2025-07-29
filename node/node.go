@@ -262,11 +262,8 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			syncReader = synchronizer
 		}
 
-		submittedTransactionsCache := rpccore.NewSubmittedTransactionsCache(
-			int(cfg.SubmittedTransactionsCacheSize),
-			cfg.SubmittedTransactionsCacheEntryTTL,
-		)
-
+		submittedTransactionsCache := rpccore.NewTxnCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
+		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
@@ -418,7 +415,7 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if includeMetrics {
-		l1Client.WithEventListener(makeL1Metrics())
+		l1Client.WithEventListener(makeL1Metrics(chain, ethSubscriber))
 	}
 	return l1Client, nil
 }

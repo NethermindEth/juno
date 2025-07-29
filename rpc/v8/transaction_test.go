@@ -1869,7 +1869,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 
 	client := feeder.NewTestClient(t, &network)
 
-	cacheSize := 5
+	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
@@ -1920,8 +1920,17 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		AddTransaction(gomock.Any(), gomock.Any()).
 		Return(rawGatewayResponse, nil).
 		Times(2)
+
 	t.Run("transaction not found in db and feeder but found in cache", func(t *testing.T) {
-		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
+		submittedTransactionCache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		fakeClock := make(chan time.Time, 1)
+		defer close(fakeClock)
+		submittedTransactionCache.WithTicker(fakeClock)
+
+		go func() {
+			err := submittedTransactionCache.Run(ctx)
+			require.NoError(t, err)
+		}()
 
 		handler := rpc.New(mockReader, mockSyncReader, nil, log).
 			WithFeeder(client).
@@ -1939,7 +1948,14 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
-		submittedTransactionCache := rpccore.NewSubmittedTransactionsCache(cacheSize, cacheEntryTimeOut)
+		submittedTransactionCache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		fakeClock := make(chan time.Time, 1)
+		defer close(fakeClock)
+		submittedTransactionCache.WithTicker(fakeClock)
+		go func() {
+			err := submittedTransactionCache.Run(ctx)
+			require.NoError(t, err)
+		}()
 
 		handler := rpc.New(mockReader, mockSyncReader, nil, log).
 			WithFeeder(client).
@@ -1952,7 +1968,9 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 		// Expire cache entry
-		time.Sleep(cacheEntryTimeOut)
+		for range rpccore.NumTimeBuckets {
+			fakeClock <- time.Now()
+		}
 		status, err := handler.TransactionStatus(ctx, *res.TransactionHash)
 		require.Equal(t, rpccore.ErrTxnHashNotFound, err)
 		require.Nil(t, status)

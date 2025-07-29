@@ -1,0 +1,127 @@
+package rpccore
+
+import (
+	"context"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
+
+const (
+	NumTimeBuckets = 3
+)
+
+// TxnCache provides a time-bucketed cache for tracking transaction entries with TTL-based eviction.
+//
+// The cache divides time into 3 fixed-size buckets (NumTimeBuckets), each covering one TTL interval.
+// For example, with TTL = 5 minutes, and current time = 12 minutes:
+//
+//   - Bucket 1 stores entries received between 0–5 min (expired).
+//   - Bucket 2 stores entries from 5–10 min (partially expired).
+//   - Bucket 3 stores entries from 10–15 min (valid).
+//
+// On each tick (i.e., every TTL interval), the active bucket index advances modulo 3.
+// For example, after a tick at time = 15 min:
+//   - Bucket 1 (previously 0–5 min) is cleared and reused — it is now the **active bucket** (15–20 min).
+//   - Bucket 2 (5–10 min) is now the **oldest** — entries are considered expired and ignored.
+//   - Bucket 3 (10–15 min) may still contain valid entries depending on the exact query time.
+//
+// The cache behaviour is:
+//   - `Add()` inserts an entry into the current active bucket (latest time window).
+//   - `Contains()` checks the two most recent buckets (excluding the oldest).
+//   - On each tick, the evictor deletes the oldest bucket in-place to reclaim memory.
+//
+// This design enables efficient TTL-based eviction without scanning the entire cache,
+// ensuring high-throughput insertion and lookup with bounded memory usage.
+type TxnCache struct {
+	ttl           time.Duration
+	buckets       [NumTimeBuckets]map[felt.Felt]time.Time // map[txn-hash]entry-time
+	locks         [NumTimeBuckets]sync.RWMutex
+	curTimeBucket uint32
+	tickC         <-chan time.Time
+}
+
+// NewTxnCache creates the cache with a default 1 s eviction ticker.
+func NewTxnCache(ttl time.Duration, cacheSizeHint uint) *TxnCache {
+	cache := &TxnCache{}
+	for b := range NumTimeBuckets {
+		cache.buckets[b] = make(map[felt.Felt]time.Time, cacheSizeHint)
+	}
+	atomic.StoreUint32(&cache.curTimeBucket, 0)
+	cache.tickC = time.NewTicker(ttl).C
+	cache.ttl = ttl
+	return cache
+}
+
+// Call this _before_ Run. Should only be used for tests.
+func (c *TxnCache) WithTicker(tickC <-chan time.Time) *TxnCache {
+	c.tickC = tickC
+	return c
+}
+
+func (c *TxnCache) Run(ctx context.Context) error {
+	c.evictor(ctx)
+	return nil
+}
+
+func (c *TxnCache) getCurTimeSlot() uint32 {
+	return atomic.LoadUint32(&c.curTimeBucket)
+}
+
+func (c *TxnCache) getExpiredTimeSlot() uint32 {
+	cur := atomic.LoadUint32(&c.curTimeBucket)
+	return (cur + 1) % NumTimeBuckets
+}
+
+func (c *TxnCache) incrementTimeSlot() {
+	old := atomic.LoadUint32(&c.curTimeBucket)
+	next := (old + 1) % NumTimeBuckets
+	atomic.StoreUint32(&c.curTimeBucket, next)
+}
+
+func (c *TxnCache) Add(key felt.Felt) {
+	if c.Contains(key) {
+		return
+	}
+	timeSlot := c.getCurTimeSlot()
+	c.locks[timeSlot].Lock()
+	c.buckets[timeSlot][key] = time.Now()
+	c.locks[timeSlot].Unlock()
+}
+
+func (c *TxnCache) Contains(key felt.Felt) bool {
+	expired := c.getExpiredTimeSlot()
+
+	for b := range uint32(NumTimeBuckets) {
+		if b == expired {
+			continue
+		}
+		c.locks[b].RLock()
+		insertTime, ok := c.buckets[b][key]
+		c.locks[b].RUnlock()
+		if ok {
+			return time.Since(insertTime) <= c.ttl
+		}
+	}
+	return false
+}
+
+func (c *TxnCache) evictor(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.tickC:
+			c.incrementTimeSlot()
+			expired := c.getExpiredTimeSlot()
+			c.locks[expired].Lock()
+			expiredMap := c.buckets[expired]
+			for key := range expiredMap {
+				delete(expiredMap, key)
+			}
+			c.locks[expired].Unlock()
+		}
+	}
+}
