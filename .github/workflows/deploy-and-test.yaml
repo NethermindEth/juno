@@ -101,7 +101,7 @@ jobs:
             
       - name: Verify Deployment Version
         run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }} ${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
 
   starknet-rs:
     needs: [deploy]
