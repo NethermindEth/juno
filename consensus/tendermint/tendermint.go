@@ -17,18 +17,6 @@ type Application[V types.Hashable[H], H types.Hash] interface {
 	Valid(V) bool
 }
 
-type Validators[A types.Addr] interface {
-	// TotalVotingPower represents N which is required to calculate the thresholds.
-	TotalVotingPower(types.Height) types.VotingPower
-
-	// ValidatorVotingPower returns the voting power of the a single validator. This is also required to implement
-	// various thresholds. The assumption is that a single validator cannot have voting power more than f.
-	ValidatorVotingPower(types.Height, *A) types.VotingPower
-
-	// Proposer returns the proposer of the current round and height.
-	Proposer(types.Height, types.Round) A
-}
-
 type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Equivocation informs the slasher that a validator has sent conflicting messages. Thus it can decide whether to
 	// slash the validator and by how much.
@@ -80,7 +68,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
-	vals Validators[A],
+	vals votecounter.Validators[A],
 	height types.Height,
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{

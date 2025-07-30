@@ -13,16 +13,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testHeight = types.Height(1337)
+	testRound  = types.Round(1338)
+)
+
 type testCase interface {
 	fmt.Stringer
-	run(roundData *roundData[starknet.Value, starknet.Hash, starknet.Address], votingPower map[starknet.Address]types.VotingPower)
+	run(*testing.T, *roundData[starknet.Value, starknet.Hash, starknet.Address], map[starknet.Address]types.VotingPower)
 	filter(filter ...FilterFn) bool
 	getSender() starknet.Address
 }
 
 type proposalTestCase struct {
-	addrIndex uint64
-	proposal  starknet.Proposal
+	addrIndex    uint64
+	proposal     starknet.Proposal
+	resultReturn bool
+}
+
+func (c *proposalTestCase) expectSkip() *proposalTestCase {
+	c.resultReturn = false
+	return c
 }
 
 func (c *proposalTestCase) String() string {
@@ -31,10 +42,11 @@ func (c *proposalTestCase) String() string {
 }
 
 func (c *proposalTestCase) run(
+	t *testing.T,
 	roundData *roundData[starknet.Value, starknet.Hash, starknet.Address],
 	votingPower map[starknet.Address]types.VotingPower,
 ) {
-	roundData.setProposal(&c.proposal, votingPower[c.proposal.Sender])
+	assert.Equal(t, c.resultReturn, roundData.setProposal(&c.proposal, votingPower[c.proposal.Sender]))
 }
 
 func (c *proposalTestCase) filter(filter ...FilterFn) bool {
@@ -46,10 +58,11 @@ func (c *proposalTestCase) getSender() starknet.Address {
 }
 
 type voteTestCase struct {
-	addrIndex uint64
-	voteType  VoteType
-	idIndex   *uint64
-	vote      starknet.Vote
+	addrIndex    uint64
+	voteType     VoteType
+	idIndex      *uint64
+	vote         starknet.Vote
+	resultReturn bool
 }
 
 func newVoteTestCase(addrIndex voter, voteType VoteType, idIndex *uint64) *voteTestCase {
@@ -65,13 +78,19 @@ func newVoteTestCase(addrIndex voter, voteType VoteType, idIndex *uint64) *voteT
 		idIndex:   idIndex,
 		vote: starknet.Vote{
 			MessageHeader: starknet.MessageHeader{
-				Height: 1,
-				Round:  1,
+				Height: testHeight,
+				Round:  testRound,
 				Sender: starknet.Address(felt.FromUint64(uint64(addrIndex))),
 			},
 			ID: id,
 		},
+		resultReturn: true,
 	}
+}
+
+func (c *voteTestCase) expectSkip() *voteTestCase {
+	c.resultReturn = false
+	return c
 }
 
 func (c *voteTestCase) String() string {
@@ -92,10 +111,11 @@ func (c *voteTestCase) String() string {
 }
 
 func (c *voteTestCase) run(
+	t *testing.T,
 	roundData *roundData[starknet.Value, starknet.Hash, starknet.Address],
 	votingPower map[starknet.Address]types.VotingPower,
 ) {
-	roundData.addVote(&c.vote, votingPower[c.vote.Sender], c.voteType)
+	assert.Equal(t, c.resultReturn, roundData.addVote(&c.vote, votingPower[c.vote.Sender], c.voteType))
 }
 
 func (c *voteTestCase) filter(filter ...FilterFn) bool {
@@ -119,13 +139,14 @@ func (v voter) propose(idIndex uint64) *proposalTestCase {
 		addrIndex: uint64(v),
 		proposal: types.Proposal[starknet.Value, starknet.Hash, starknet.Address]{
 			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: 1,
-				Round:  1,
+				Height: testHeight,
+				Round:  testRound,
 				Sender: starknet.Address(felt.FromUint64(uint64(v))),
 			},
 			ValidRound: -1,
 			Value:      utils.HeapPtr(starknet.Value(felt.FromUint64(idIndex))),
 		},
+		resultReturn: true,
 	}
 }
 
@@ -212,53 +233,13 @@ func getAllIDs(testCases []testCase) []starknet.Hash {
 }
 
 func TestRoundData(t *testing.T) {
-	votingPower := buildVotingPower(10, 6, 4, 4, 2, 5)
-	tests := []testCase{
-		// Voter 0 is honest, send each vote for ID 0 twice
-		voter(0).prevote(0),
-		voter(0).prevote(0),
-		voter(0).precommit(0),
-		voter(0).precommit(0),
-
-		// Voter 1 is also honest, send each vote for ID 0 once
-		voter(1).precommit(0),
-		voter(1).prevote(0),
-
-		// Receive equivocated proposal 0 twice from voter 2
-		voter(2).propose(0),
-		voter(2).propose(0),
-		voter(2).propose(1),
-		voter(2).propose(1),
-
-		// Voter 2 is dishonest, prevote ID 0 and ID 1, precommit ID 1 and nil
-		voter(2).prevote(0),
-		voter(2).prevote(1),
-		voter(2).precommit(1),
-		voter(2).precommitNil(),
-
-		// Receive equivocated proposal 1 again from voter 2
-		voter(2).propose(1),
-
-		// Voter 3 is dishonest, prevote ID 1 and nil, precommit ID 0 and 1
-		voter(3).prevote(1),
-		voter(3).prevoteNil(),
-		voter(3).precommit(0),
-		voter(3).precommit(1),
-
-		// Voter 4 is honest, prevote ID 0 and precommit nil
-		voter(4).prevote(0),
-		voter(4).precommitNil(),
-
-		// Voter 5 is honest, prevote nil and precommit ID 0
-		voter(5).prevoteNil(),
-		voter(5).precommit(0),
-	}
-
+	votingPower := simpleVotingPower
+	tests := simpleTestScenarios
 	roundData := newRoundData[starknet.Value, starknet.Hash, starknet.Address]()
 	allIDs := getAllIDs(tests)
 	for i, testCase := range tests {
 		t.Run(testCase.String(), func(t *testing.T) {
-			testCase.run(&roundData, votingPower)
+			testCase.run(t, &roundData, votingPower)
 
 			countVotes := countVotes(tests[:i+1], votingPower)
 
