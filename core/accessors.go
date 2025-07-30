@@ -136,12 +136,12 @@ func GetStateUpdateByHash(r db.KeyValueReader, hash *felt.Felt) (*StateUpdate, e
 
  **/
 
-func GetL1Head(r db.KeyValueReader) (*L1Head, error) {
+func GetL1Head(r db.KeyValueReader) (L1Head, error) {
 	var l1Head L1Head
 	err := r.Get(db.L1Height.Key(), func(data []byte) error {
 		return encoder.Unmarshal(data, &l1Head)
 	})
-	return &l1Head, err
+	return l1Head, err
 }
 
 func WriteL1Head(w db.KeyValueWriter, l1Head *L1Head) error {

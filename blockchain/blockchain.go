@@ -247,7 +247,8 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	return core.GetL1Head(b.database)
+	l1Head, err := core.GetL1Head(b.database)
+	return &l1Head, err
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {

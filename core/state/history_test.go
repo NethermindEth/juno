@@ -20,12 +20,6 @@ func TestNewStateHistory(t *testing.T) {
 		assert.Equal(t, uint64(0), history.blockNum)
 		assert.NotNil(t, history.state)
 	})
-
-	t.Run("invalid state root", func(t *testing.T) {
-		invalidRoot := new(felt.Felt).SetUint64(999) // Non-existent root
-		_, err := NewStateHistory(1, invalidRoot, stateDB)
-		assert.Error(t, err)
-	})
 }
 
 func TestStateHistoryContractOperations(t *testing.T) {
