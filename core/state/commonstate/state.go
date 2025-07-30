@@ -1,0 +1,183 @@
+package commonstate
+
+import (
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
+	"github.com/NethermindEth/juno/core/state/commontrie"
+	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/db"
+)
+
+type CommonState interface {
+	StateReader
+
+	ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error)
+	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
+	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
+	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+}
+
+type StateReader interface {
+	ContractClassHash(addr *felt.Felt) (felt.Felt, error)
+	ContractNonce(addr *felt.Felt) (felt.Felt, error)
+	ContractStorage(addr, key *felt.Felt) (felt.Felt, error)
+	Class(classHash *felt.Felt) (*core.DeclaredClass, error)
+
+	ClassTrie() (commontrie.CommonTrie, error)
+	ContractTrie() (commontrie.CommonTrie, error)
+	ContractStorageTrie(addr *felt.Felt) (commontrie.CommonTrie, error)
+}
+
+// CoreStateAdapter wraps core.State to implement CommonState
+type CoreStateAdapter struct {
+	*core.State
+}
+
+func NewCoreStateAdapter(s *core.State) *CoreStateAdapter {
+	return &CoreStateAdapter{State: s}
+}
+
+func (csa *CoreStateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	value, err := csa.State.ContractStorageAt(addr, key, blockNumber)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *value, nil
+}
+
+func (csa *CoreStateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	nonce, err := csa.State.ContractNonceAt(addr, blockNumber)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *nonce, nil
+}
+
+func (csa *CoreStateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	classHash, err := csa.State.ContractClassHashAt(addr, blockNumber)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *classHash, nil
+}
+
+func (csa *CoreStateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	return csa.State.ContractIsAlreadyDeployedAt(addr, blockNumber)
+}
+
+func (csa *CoreStateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	classHash, err := csa.State.ContractClassHash(addr)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *classHash, nil
+}
+
+func (csa *CoreStateAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	nonce, err := csa.State.ContractNonce(addr)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *nonce, nil
+}
+
+func (csa *CoreStateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	value, err := csa.State.ContractStorage(addr, key)
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *value, nil
+}
+
+func (csa *CoreStateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return csa.State.Class(classHash)
+}
+
+func (csa *CoreStateAdapter) ClassTrie() (commontrie.CommonTrie, error) {
+	t, err := csa.State.ClassTrie()
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrieAdapter(t), nil
+}
+
+func (csa *CoreStateAdapter) ContractTrie() (commontrie.CommonTrie, error) {
+	t, err := csa.State.ContractTrie()
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrieAdapter(t), nil
+}
+
+func (csa *CoreStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.CommonTrie, error) {
+	t, err := csa.State.ContractStorageTrie(addr)
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrieAdapter(t), nil
+}
+
+// StateAdapter wraps state.State to implement CommonState
+type StateAdapter struct {
+	*state.State
+}
+
+func NewStateAdapter(s *state.State) *StateAdapter {
+	return &StateAdapter{State: s}
+}
+
+func (sa *StateAdapter) ClassTrie() (commontrie.CommonTrie, error) {
+	t, err := sa.State.ClassTrie()
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrie2Adapter(t), nil
+}
+
+func (sa *StateAdapter) ContractTrie() (commontrie.CommonTrie, error) {
+	t, err := sa.State.ContractTrie()
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrie2Adapter(t), nil
+}
+
+func (sa *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.CommonTrie, error) {
+	t, err := sa.State.ContractStorageTrie(addr)
+	if err != nil {
+		return nil, err
+	}
+	return commontrie.NewTrie2Adapter(t), nil
+}
+
+type StateFactory struct {
+	useNewState bool
+	triedb      *triedb.Database
+	stateDB     *state.StateDB
+}
+
+func NewStateFactory(useNewState bool, triedb *triedb.Database, stateDB *state.StateDB) (*StateFactory, error) {
+	if !useNewState {
+		return &StateFactory{useNewState: false}, nil
+	}
+
+	return &StateFactory{
+		useNewState: true,
+		triedb:      triedb,
+		stateDB:     stateDB,
+	}, nil
+}
+
+func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (CommonState, error) {
+	if !sf.useNewState {
+		coreState := core.NewState(txn)
+		return NewCoreStateAdapter(coreState), nil
+	}
+
+	stateState, err := state.New(stateRoot, sf.stateDB)
+	if err != nil {
+		return nil, err
+	}
+	return NewStateAdapter(stateState), nil
+}
