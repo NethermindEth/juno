@@ -11,7 +11,7 @@ SLEEP_DURATION=10
 
 for i in $(seq 1 $MAX_ATTEMPTS); do
   DEPLOYED_VERSION=$(curl -s -X POST "$URL" -H "Content-Type: application/json" -d '{"method": "juno_version", "jsonrpc": "2.0", "id": 0}' | jq -r '.result')
-  IS_READY=$(curl -s -o /dev/null -w "%{http_code}" -v "${BASE_URL}/ready?apikey=${AUTH_KEY}")
+  IS_READY=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/ready?apikey=${AUTH_KEY}")
   echo "Attempt $i: IS_READY response code: $IS_READY"
   echo "Attempt $i: Deployed version $DEPLOYED_VERSION"
   if [[ "$DEPLOYED_VERSION" == "$EXPECTED_VERSION" && "$IS_READY" == "200" ]]; then
