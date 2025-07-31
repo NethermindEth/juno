@@ -17,6 +17,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknet"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -256,7 +257,7 @@ func buildBuildResult(
 	totalGasConsumed int,
 ) builder.BuildResult {
 	return builder.BuildResult{
-		Preconfirmed: &core.PreConfirmed{
+		Pending: &sync.Pending{
 			Block:       block,
 			StateUpdate: stateUpdate,
 			NewClasses:  calculateNewClasses(t, gw, stateUpdate),
@@ -287,7 +288,7 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 }
 
 func buildPreState(buildResult *builder.BuildResult, revealedBlockHeader *core.Header) builder.BuildState {
-	strippedBlockHeader := *buildResult.Preconfirmed.Block.Header
+	strippedBlockHeader := *buildResult.Pending.Block.Header
 	strippedBlockHeader.Hash = nil
 	strippedBlockHeader.GlobalStateRoot = nil
 	strippedBlockHeader.TransactionCount = 0
@@ -295,7 +296,7 @@ func buildPreState(buildResult *builder.BuildResult, revealedBlockHeader *core.H
 	strippedBlockHeader.EventsBloom = nil
 	strippedBlockHeader.Signatures = nil
 	return builder.BuildState{
-		Preconfirmed: &core.PreConfirmed{
+		Pending: &sync.Pending{
 			Block: &core.Block{
 				Header:       &strippedBlockHeader,
 				Transactions: []core.Transaction{},
@@ -304,9 +305,7 @@ func buildPreState(buildResult *builder.BuildResult, revealedBlockHeader *core.H
 			StateUpdate: &core.StateUpdate{
 				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
 			},
-			NewClasses:            map[felt.Felt]core.Class{},
-			TransactionStateDiffs: []*core.StateDiff{},
-			CandidateTxs:          []core.Transaction{},
+			NewClasses: map[felt.Felt]core.Class{},
 		},
 		L2GasConsumed:     0,
 		RevealedBlockHash: revealedBlockHeader.Hash,

@@ -60,6 +60,71 @@ type MessageHeader[A Addr] struct {
 	Sender A      `cbor:"sender"`
 }
 
+// messages keep tracks of all the proposals, prevotes, precommits by creating a map structure as follows:
+// height->round->address->[]Message
+
+// Todo: would the following representation of message be better:
+//
+//	  height -> round -> address -> ID -> Message
+//	How would we keep track of nil votes? In golan map key cannot be nil.
+//	It is not easy to calculate a zero value when dealing with generics.
+type Messages[V Hashable[H], H Hash, A Addr] struct {
+	Proposals  map[Height]map[Round]map[A]Proposal[V, H, A]
+	Prevotes   map[Height]map[Round]map[A]Prevote[H, A]
+	Precommits map[Height]map[Round]map[A]Precommit[H, A]
+}
+
+func NewMessages[V Hashable[H], H Hash, A Addr]() Messages[V, H, A] {
+	return Messages[V, H, A]{
+		Proposals:  make(map[Height]map[Round]map[A]Proposal[V, H, A]),
+		Prevotes:   make(map[Height]map[Round]map[A]Prevote[H, A]),
+		Precommits: make(map[Height]map[Round]map[A]Precommit[H, A]),
+	}
+}
+
+// addMessages adds the message to the message set if it doesn't already exist. Return if the message was added.
+func addMessages[T any, A Addr](storage map[Height]map[Round]map[A]T, msg T, a A, h Height, r Round) bool {
+	if _, ok := storage[h]; !ok {
+		storage[h] = make(map[Round]map[A]T)
+	}
+
+	if _, ok := storage[h][r]; !ok {
+		storage[h][r] = make(map[A]T)
+	}
+
+	if _, ok := storage[h][r][a]; !ok {
+		storage[h][r][a] = msg
+		return true
+	}
+	return false
+}
+
+// Todo: ensure duplicated messages are ignored.
+func (m *Messages[V, H, A]) AddProposal(p Proposal[V, H, A]) bool {
+	return addMessages(m.Proposals, p, p.Sender, p.Height, p.Round)
+}
+
+func (m *Messages[V, H, A]) AddPrevote(p Prevote[H, A]) bool {
+	return addMessages(m.Prevotes, p, p.Sender, p.Height, p.Round)
+}
+
+func (m *Messages[V, H, A]) AddPrecommit(p Precommit[H, A]) bool {
+	return addMessages(m.Precommits, p, p.Sender, p.Height, p.Round)
+}
+
+func (m *Messages[V, H, A]) AllMessages(h Height, r Round) (map[A]Proposal[V, H, A], map[A]Prevote[H, A],
+	map[A]Precommit[H, A],
+) {
+	// Todo: Should they be copied?
+	return m.Proposals[h][r], m.Prevotes[h][r], m.Precommits[h][r]
+}
+
+func (m *Messages[V, H, A]) DeleteHeightMessages(h Height) {
+	delete(m.Proposals, h)
+	delete(m.Prevotes, h)
+	delete(m.Precommits, h)
+}
+
 // MessageType represents the type of message stored in the WAL.
 type MessageType uint8
 

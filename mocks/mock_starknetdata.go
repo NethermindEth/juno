@@ -22,7 +22,6 @@ import (
 type MockStarknetData struct {
 	ctrl     *gomock.Controller
 	recorder *MockStarknetDataMockRecorder
-	isgomock struct{}
 }
 
 // MockStarknetDataMockRecorder is the mock recorder for MockStarknetData.
@@ -43,114 +42,99 @@ func (m *MockStarknetData) EXPECT() *MockStarknetDataMockRecorder {
 }
 
 // BlockByNumber mocks base method.
-func (m *MockStarknetData) BlockByNumber(ctx context.Context, blockNumber uint64) (*core.Block, error) {
+func (m *MockStarknetData) BlockByNumber(arg0 context.Context, arg1 uint64) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockByNumber", ctx, blockNumber)
+	ret := m.ctrl.Call(m, "BlockByNumber", arg0, arg1)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockByNumber indicates an expected call of BlockByNumber.
-func (mr *MockStarknetDataMockRecorder) BlockByNumber(ctx, blockNumber any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) BlockByNumber(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).BlockByNumber), ctx, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).BlockByNumber), arg0, arg1)
 }
 
 // BlockLatest mocks base method.
-func (m *MockStarknetData) BlockLatest(ctx context.Context) (*core.Block, error) {
+func (m *MockStarknetData) BlockLatest(arg0 context.Context) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockLatest", ctx)
+	ret := m.ctrl.Call(m, "BlockLatest", arg0)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockLatest indicates an expected call of BlockLatest.
-func (mr *MockStarknetDataMockRecorder) BlockLatest(ctx any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) BlockLatest(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockLatest), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockLatest", reflect.TypeOf((*MockStarknetData)(nil).BlockLatest), arg0)
 }
 
 // BlockPending mocks base method.
-func (m *MockStarknetData) BlockPending(ctx context.Context) (*core.Block, error) {
+func (m *MockStarknetData) BlockPending(arg0 context.Context) (*core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockPending", ctx)
+	ret := m.ctrl.Call(m, "BlockPending", arg0)
 	ret0, _ := ret[0].(*core.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // BlockPending indicates an expected call of BlockPending.
-func (mr *MockStarknetDataMockRecorder) BlockPending(ctx any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) BlockPending(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockPending", reflect.TypeOf((*MockStarknetData)(nil).BlockPending), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockPending", reflect.TypeOf((*MockStarknetData)(nil).BlockPending), arg0)
 }
 
 // Class mocks base method.
-func (m *MockStarknetData) Class(ctx context.Context, classHash *felt.Felt) (core.Class, error) {
+func (m *MockStarknetData) Class(arg0 context.Context, arg1 *felt.Felt) (core.Class, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Class", ctx, classHash)
+	ret := m.ctrl.Call(m, "Class", arg0, arg1)
 	ret0, _ := ret[0].(core.Class)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Class indicates an expected call of Class.
-func (mr *MockStarknetDataMockRecorder) Class(ctx, classHash any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) Class(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStarknetData)(nil).Class), ctx, classHash)
-}
-
-// PreConfirmedBlockByNumber mocks base method.
-func (m *MockStarknetData) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PreConfirmedBlockByNumber", ctx, blockNumber)
-	ret0, _ := ret[0].(core.PreConfirmed)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PreConfirmedBlockByNumber indicates an expected call of PreConfirmedBlockByNumber.
-func (mr *MockStarknetDataMockRecorder) PreConfirmedBlockByNumber(ctx, blockNumber any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreConfirmedBlockByNumber", reflect.TypeOf((*MockStarknetData)(nil).PreConfirmedBlockByNumber), ctx, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Class", reflect.TypeOf((*MockStarknetData)(nil).Class), arg0, arg1)
 }
 
 // StateUpdate mocks base method.
-func (m *MockStarknetData) StateUpdate(ctx context.Context, blockNumber uint64) (*core.StateUpdate, error) {
+func (m *MockStarknetData) StateUpdate(arg0 context.Context, arg1 uint64) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdate", ctx, blockNumber)
+	ret := m.ctrl.Call(m, "StateUpdate", arg0, arg1)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateUpdate indicates an expected call of StateUpdate.
-func (mr *MockStarknetDataMockRecorder) StateUpdate(ctx, blockNumber any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) StateUpdate(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdate", reflect.TypeOf((*MockStarknetData)(nil).StateUpdate), ctx, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdate", reflect.TypeOf((*MockStarknetData)(nil).StateUpdate), arg0, arg1)
 }
 
 // StateUpdatePending mocks base method.
-func (m *MockStarknetData) StateUpdatePending(ctx context.Context) (*core.StateUpdate, error) {
+func (m *MockStarknetData) StateUpdatePending(arg0 context.Context) (*core.StateUpdate, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePending", ctx)
+	ret := m.ctrl.Call(m, "StateUpdatePending", arg0)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StateUpdatePending indicates an expected call of StateUpdatePending.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePending(ctx any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) StateUpdatePending(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePending", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePending), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePending", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePending), arg0)
 }
 
 // StateUpdatePendingWithBlock mocks base method.
-func (m *MockStarknetData) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+func (m *MockStarknetData) StateUpdatePendingWithBlock(arg0 context.Context) (*core.StateUpdate, *core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdatePendingWithBlock", ctx)
+	ret := m.ctrl.Call(m, "StateUpdatePendingWithBlock", arg0)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(*core.Block)
 	ret2, _ := ret[2].(error)
@@ -158,15 +142,15 @@ func (m *MockStarknetData) StateUpdatePendingWithBlock(ctx context.Context) (*co
 }
 
 // StateUpdatePendingWithBlock indicates an expected call of StateUpdatePendingWithBlock.
-func (mr *MockStarknetDataMockRecorder) StateUpdatePendingWithBlock(ctx any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) StateUpdatePendingWithBlock(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePendingWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePendingWithBlock), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdatePendingWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdatePendingWithBlock), arg0)
 }
 
 // StateUpdateWithBlock mocks base method.
-func (m *MockStarknetData) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
+func (m *MockStarknetData) StateUpdateWithBlock(arg0 context.Context, arg1 uint64) (*core.StateUpdate, *core.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateUpdateWithBlock", ctx, blockNumber)
+	ret := m.ctrl.Call(m, "StateUpdateWithBlock", arg0, arg1)
 	ret0, _ := ret[0].(*core.StateUpdate)
 	ret1, _ := ret[1].(*core.Block)
 	ret2, _ := ret[2].(error)
@@ -174,22 +158,22 @@ func (m *MockStarknetData) StateUpdateWithBlock(ctx context.Context, blockNumber
 }
 
 // StateUpdateWithBlock indicates an expected call of StateUpdateWithBlock.
-func (mr *MockStarknetDataMockRecorder) StateUpdateWithBlock(ctx, blockNumber any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) StateUpdateWithBlock(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdateWithBlock), ctx, blockNumber)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateUpdateWithBlock", reflect.TypeOf((*MockStarknetData)(nil).StateUpdateWithBlock), arg0, arg1)
 }
 
 // Transaction mocks base method.
-func (m *MockStarknetData) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+func (m *MockStarknetData) Transaction(arg0 context.Context, arg1 *felt.Felt) (core.Transaction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Transaction", ctx, transactionHash)
+	ret := m.ctrl.Call(m, "Transaction", arg0, arg1)
 	ret0, _ := ret[0].(core.Transaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Transaction indicates an expected call of Transaction.
-func (mr *MockStarknetDataMockRecorder) Transaction(ctx, transactionHash any) *gomock.Call {
+func (mr *MockStarknetDataMockRecorder) Transaction(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockStarknetData)(nil).Transaction), ctx, transactionHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Transaction", reflect.TypeOf((*MockStarknetData)(nil).Transaction), arg0, arg1)
 }

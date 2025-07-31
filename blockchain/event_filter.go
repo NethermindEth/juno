@@ -20,7 +20,6 @@ type EventFilterer interface {
 	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error)
 	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
 	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
-	SetRangeEndBlockToL1Head(filterRange EventFilterRange) error
 	WithLimit(limit uint) *EventFilter
 }
 
@@ -88,15 +87,6 @@ func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, block
 		return err
 	}
 	return e.SetRangeEndBlockByNumber(filterRange, header.Number)
-}
-
-// SetRangeEndBlockToL1Head sets an end of the block range to latest `l1_accepted` block
-func (e *EventFilter) SetRangeEndBlockToL1Head(filterRange EventFilterRange) error {
-	l1Head, err := core.GetL1Head(e.txn)
-	if err != nil {
-		return err
-	}
-	return e.SetRangeEndBlockByNumber(filterRange, l1Head.BlockNumber)
 }
 
 // Close closes the underlying database transaction that provides the blockchain snapshot

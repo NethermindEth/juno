@@ -69,16 +69,10 @@ type BlockID struct {
 }
 
 func (b *BlockID) UnmarshalJSON(data []byte) error {
-	var blockTag string
-	if err := json.Unmarshal(data, &blockTag); err == nil {
-		switch blockTag {
-		case "latest":
-			b.Latest = true
-		case "pending":
-			b.Pending = true
-		default:
-			return fmt.Errorf("unknown block tag '%s'", blockTag)
-		}
+	if string(data) == `"latest"` {
+		b.Latest = true
+	} else if string(data) == `"pending"` {
+		b.Pending = true
 	} else {
 		jsonObject := make(map[string]json.RawMessage)
 		if err := json.Unmarshal(data, &jsonObject); err != nil {

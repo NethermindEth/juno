@@ -133,8 +133,8 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		if tx.Version.Uint64() == 3 {
 			tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-			tx.PaymasterData = nilToZero(t.PaymasterData)
-			tx.AccountDeploymentData = nilToZero(t.AccountDeploymentData)
+			tx.PaymasterData = &t.PaymasterData
+			tx.AccountDeploymentData = &t.AccountDeploymentData
 			tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 			tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 		}
@@ -153,8 +153,8 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		if t.Version.Is(3) {
 			tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-			tx.PaymasterData = nilToZero(t.PaymasterData)
-			tx.AccountDeploymentData = nilToZero(t.AccountDeploymentData)
+			tx.PaymasterData = &t.PaymasterData
+			tx.AccountDeploymentData = &t.AccountDeploymentData
 			tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 			tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 		}
@@ -188,7 +188,7 @@ func adaptTransaction(txn core.Transaction) *Transaction {
 		if tx.Version.Uint64() == 3 {
 			tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
 			tx.Tip = new(felt.Felt).SetUint64(t.Tip)
-			tx.PaymasterData = nilToZero(t.PaymasterData)
+			tx.PaymasterData = &t.PaymasterData
 			tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 			tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
 		}
@@ -207,11 +207,4 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) map[Resource]
 		}
 	}
 	return rpcResourceBounds
-}
-
-func nilToZero(v []*felt.Felt) *[]*felt.Felt {
-	if v == nil {
-		return &[]*felt.Felt{}
-	}
-	return &v
 }

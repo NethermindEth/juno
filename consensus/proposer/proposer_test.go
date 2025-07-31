@@ -72,17 +72,17 @@ func TestProposer(t *testing.T) {
 
 	t.Run("Initial state", func(t *testing.T) {
 		requireEventually(t, 1, func(c *assert.CollectT) {
-			assert.NotNil(c, p.Preconfirmed())
-			assert.Empty(c, p.Preconfirmed().Block.Transactions)
+			assert.NotNil(c, p.Pending())
+			assert.Empty(c, p.Pending().Block.Transactions)
 		})
 	})
 
 	t.Run("Receive transactions", func(t *testing.T) {
 		for i, batch := range firstBatches {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
-				submit(t, p, batch)
+				submit(p, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(firstBatches[:i+1]...), p.Preconfirmed().Block.Transactions)
+					assert.Equal(c, slices.Concat(firstBatches[:i+1]...), p.Pending().Block.Transactions)
 				})
 			})
 		}
@@ -94,7 +94,7 @@ func TestProposer(t *testing.T) {
 
 		for _, batch := range secondBatches {
 			t.Run(fmt.Sprintf("Submitting %d more transactions", len(batch)), func(t *testing.T) {
-				submit(t, p, batch)
+				submit(p, batch)
 			})
 		}
 
@@ -113,9 +113,9 @@ func TestProposer(t *testing.T) {
 
 		for i, batch := range committedFirstBatches {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
-				submit(t, otherProposer, batch)
+				submit(otherProposer, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Preconfirmed().Block.Transactions)
+					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Pending().Block.Transactions)
 				})
 			})
 		}
@@ -129,8 +129,8 @@ func TestProposer(t *testing.T) {
 
 		t.Run(fmt.Sprintf("Should process the pending %d transactions", count(committedSecondBatches)), func(t *testing.T) {
 			requireEventually(t, count(committedSecondBatches), func(c *assert.CollectT) {
-				assert.NotNil(c, p.Preconfirmed())
-				assert.Equal(c, slices.Concat(committedSecondBatches...), p.Preconfirmed().Block.Transactions)
+				assert.NotNil(c, p.Pending())
+				assert.Equal(c, slices.Concat(committedSecondBatches...), p.Pending().Block.Transactions)
 			})
 		})
 
@@ -138,8 +138,8 @@ func TestProposer(t *testing.T) {
 			commit(t, p, &proposalStore, bc, 2, p.Value())
 
 			requireEventually(t, 1, func(c *assert.CollectT) {
-				assert.NotNil(c, p.Preconfirmed())
-				assert.Empty(c, p.Preconfirmed().Block.Transactions)
+				assert.NotNil(c, p.Pending())
+				assert.Empty(c, p.Pending().Block.Transactions)
 			})
 		})
 	})
@@ -161,7 +161,7 @@ func runConcurrentReads(t *testing.T, p proposer.Proposer[starknet.Value, starkn
 				pool.Go(func(ctx context.Context) error {
 					t.Helper()
 					time.Sleep(delayPerRead)
-					require.NotNil(t, p.Preconfirmed())
+					require.NotNil(t, p.Pending())
 					return nil
 				})
 			}
@@ -247,7 +247,7 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       520000,
+				MaxAmount:       500000,
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 			core.ResourceL1DataGas: {
@@ -263,8 +263,7 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	}
 }
 
-func submit(t *testing.T, proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []core.Transaction) {
-	t.Helper()
+func submit(proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []core.Transaction) {
 	transactions := make([]mempool.BroadcastedTransaction, len(batch))
 	for i, transaction := range batch {
 		transactions[i] = mempool.BroadcastedTransaction{
@@ -272,7 +271,7 @@ func submit(t *testing.T, proposer proposer.Proposer[starknet.Value, starknet.Ha
 		}
 	}
 
-	proposer.Submit(t.Context(), transactions)
+	proposer.Submit(transactions)
 }
 
 func assertValue(
@@ -288,7 +287,7 @@ func assertValue(
 
 	buildResult := proposalStore.Get(value.Hash())
 	assert.NotNil(t, buildResult)
-	assert.Equal(t, slices.Concat(expected...), buildResult.Preconfirmed.Block.Transactions)
+	assert.Equal(t, slices.Concat(expected...), buildResult.Pending.Block.Transactions)
 }
 
 func commit(
@@ -303,11 +302,18 @@ func commit(
 	result := proposalStore.Get(committedValue.Hash())
 	require.NotNil(t, result)
 
+	// TODO: This is a temporary workaround to avoid the version mismatch, because blockchain is currently enforcing the version
+	oldVersion := blockchain.SupportedStarknetVersion
+	blockchain.SupportedStarknetVersion = builder.CurrentStarknetVersion
+	t.Cleanup(func() {
+		blockchain.SupportedStarknetVersion = oldVersion
+	})
+
 	require.NoError(t, bc.Store(
-		result.Preconfirmed.Block,
+		result.Pending.Block,
 		result.SimulateResult.BlockCommitments,
-		result.Preconfirmed.StateUpdate,
-		result.Preconfirmed.NewClasses,
+		result.Pending.StateUpdate,
+		result.Pending.NewClasses,
 	))
 
 	proposer.OnCommit(t.Context(), height, committedValue)

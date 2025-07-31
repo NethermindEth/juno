@@ -1,8 +1,4 @@
 {
-    "transaction_failure_reason": { 
-        "code" : "SOME_ERROR_CODE",
-        "error_message" :"some error"
-    },
     "execution_status": "REJECTED",
     "finality_status": "RECEIVED",
     "status": "this is deprecated",

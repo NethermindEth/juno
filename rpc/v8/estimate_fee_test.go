@@ -28,7 +28,7 @@ func TestEstimateFee(t *testing.T) {
 	mockReader.EXPECT().Network().Return(n).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, nil, mockVM, log)
+	handler := rpc.New(mockReader, nil, mockVM, "", log)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()

@@ -24,7 +24,7 @@ func (t incomingMessageBuilder) proposal(val starknet.Value, validRound types.Ro
 		ValidRound:    validRound,
 		Value:         &val,
 	}
-	actions := t.stateMachine.ProcessProposal(&proposal)
+	actions := t.stateMachine.ProcessProposal(proposal)
 
 	assertProposal(t.testing, t.stateMachine, proposal)
 
@@ -43,7 +43,7 @@ func (t incomingMessageBuilder) prevote(val *starknet.Value) actionAsserter[star
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
-	actions := t.stateMachine.ProcessPrevote(&prevote)
+	actions := t.stateMachine.ProcessPrevote(prevote)
 
 	assertPrevote(t.testing, t.stateMachine, prevote)
 
@@ -62,7 +62,7 @@ func (t incomingMessageBuilder) precommit(val *starknet.Value) actionAsserter[st
 		MessageHeader: t.header,
 		ID:            getHash(val),
 	}
-	actions := t.stateMachine.ProcessPrecommit(&precommit)
+	actions := t.stateMachine.ProcessPrecommit(precommit)
 
 	assertPrecommit(t.testing, t.stateMachine, precommit)
 

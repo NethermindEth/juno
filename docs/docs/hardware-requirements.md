@@ -10,13 +10,13 @@ The following specifications outline the hardware required to run a Juno node. T
 
 - **CPU**: At least 2 cores
 - **RAM**: 4GB or more
-- **Storage**: 600GB or more (SSD recommended; note: storage needs will grow over time)
+- **Storage**: 400GB or more (SSD recommended; note: storage needs will grow over time)
 
 ## Recommended requirements
 
 - **CPU**: High-performance CPU with 4 or more cores
 - **RAM**: 8GB or more
-- **Storage**: High-performance SSD with at least 600GB to accommodate future growth
+- **Storage**: High-performance SSD with at least 400GB to accommodate future growth
 
 :::tip
 We intend the above specifications as a guideline. The minimal requirements support basic node operations, and the recommended settings ensure optimal performance and scalability for future needs.

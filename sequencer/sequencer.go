@@ -32,37 +32,35 @@ type Sequencer struct {
 	privKey          *ecdsa.PrivateKey
 	log              utils.Logger
 	blockTime        time.Duration
-	mempool          *mempool.SequencerMempool
+	mempool          *mempool.Pool
 
-	subNewHeads          *feed.Feed[*core.Block]
-	subPendingData       *feed.Feed[core.PendingData]
-	subReorgFeed         *feed.Feed[*sync.ReorgBlockRange]
-	subPreConfirmedBlock *feed.Feed[*core.PreConfirmed]
-	plugin               plugin.JunoPlugin
+	subNewHeads     *feed.Feed[*core.Block]
+	subPendingBlock *feed.Feed[*core.Block]
+	subReorgFeed    *feed.Feed[*sync.ReorgBlockRange]
+	plugin          plugin.JunoPlugin
 
 	mu syncLock.RWMutex
 }
 
 func New(
 	b *builder.Builder,
-	mempool *mempool.SequencerMempool,
+	mempool *mempool.Pool,
 	sequencerAddress *felt.Felt,
 	privKey *ecdsa.PrivateKey,
 	blockTime time.Duration,
 	log utils.Logger,
 ) Sequencer {
 	return Sequencer{
-		builder:              b,
-		buildState:           &builder.BuildState{},
-		mempool:              mempool,
-		sequencerAddress:     sequencerAddress,
-		privKey:              privKey,
-		log:                  log,
-		blockTime:            blockTime,
-		subNewHeads:          feed.New[*core.Block](),
-		subPendingData:       feed.New[core.PendingData](),
-		subReorgFeed:         feed.New[*sync.ReorgBlockRange](),
-		subPreConfirmedBlock: feed.New[*core.PreConfirmed](),
+		builder:          b,
+		buildState:       &builder.BuildState{},
+		mempool:          mempool,
+		sequencerAddress: sequencerAddress,
+		privKey:          privKey,
+		log:              log,
+		blockTime:        blockTime,
+		subNewHeads:      feed.New[*core.Block](),
+		subPendingBlock:  feed.New[*core.Block](),
+		subReorgFeed:     feed.New[*sync.ReorgBlockRange](),
 	}
 }
 
@@ -143,7 +141,7 @@ func (s *Sequencer) initPendingBlock() error {
 		return err
 	}
 
-	if s.buildState, err = s.builder.InitPreconfirmedBlock(&buildParams); err != nil {
+	if s.buildState, err = s.builder.InitPendingBlock(&buildParams); err != nil {
 		return err
 	}
 
@@ -161,8 +159,7 @@ func (s *Sequencer) listenPool(ctx context.Context) error {
 		}
 
 		// push the pending block to the feed
-		pending := sync.NewPending(s.buildState.PendingBlock(), nil, nil)
-		s.subPendingData.Send(&pending)
+		s.subPendingBlock.Send(s.buildState.PendingBlock())
 		select {
 		case <-ctx.Done():
 			return nil
@@ -202,8 +199,8 @@ func (s *Sequencer) depletePool(ctx context.Context) error {
 	}
 }
 
-func (s *Sequencer) Pending() (*core.PreConfirmed, error) {
-	return s.buildState.Preconfirmed, nil
+func (s *Sequencer) Pending() (*sync.Pending, error) {
+	return s.buildState.Pending, nil
 }
 
 func (s *Sequencer) PendingBlock() *core.Block {
@@ -212,10 +209,6 @@ func (s *Sequencer) PendingBlock() *core.Block {
 
 func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
 	return s.builder.PendingState(s.buildState)
-}
-
-func (s *Sequencer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.ErrUnsupported
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {
@@ -235,10 +228,6 @@ func (s *Sequencer) SubscribeNewHeads() sync.NewHeadSubscription {
 	return sync.NewHeadSubscription{Subscription: s.subNewHeads.Subscribe()}
 }
 
-func (s *Sequencer) SubscribePendingData() sync.PendingDataSubscription {
-	return sync.PendingDataSubscription{Subscription: s.subPendingData.Subscribe()}
-}
-
-func (s *Sequencer) PendingData() (core.PendingData, error) {
-	return nil, nil
+func (s *Sequencer) SubscribePending() sync.PendingSubscription {
+	return sync.PendingSubscription{Subscription: s.subPendingBlock.Subscribe()}
 }

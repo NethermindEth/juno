@@ -32,13 +32,13 @@ type Handler struct {
 	feederClient  *feeder.Client
 	vm            vm.VM
 	log           utils.Logger
-	memPool       mempool.Pool
+	memPool       *mempool.Pool
 
-	version     string
-	newHeads    *feed.Feed[*core.Block]
-	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[core.PendingData]
-	l1Heads     *feed.Feed[*core.L1Head]
+	version      string
+	newHeads     *feed.Feed[*core.Block]
+	reorgs       *feed.Feed[*sync.ReorgBlockRange]
+	pendingBlock *feed.Feed[*core.Block]
+	l1Heads      *feed.Feed[*core.L1Head]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -59,7 +59,11 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	version string,
 	logger utils.Logger,
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
@@ -77,10 +81,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[core.PendingData](),
-		l1Heads:     feed.New[*core.L1Head](),
+		version:      version,
+		newHeads:     feed.New[*core.Block](),
+		reorgs:       feed.New[*sync.ReorgBlockRange](),
+		pendingBlock: feed.New[*core.Block](),
+		l1Heads:      feed.New[*core.L1Head](),
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -88,7 +93,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	}
 }
 
-func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
+func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
 	h.memPool = memPool
 	return h
 }
@@ -133,15 +138,15 @@ func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransac
 func (h *Handler) Run(ctx context.Context) error {
 	newHeadsSub := h.syncReader.SubscribeNewHeads().Subscription
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
-	pendingData := h.syncReader.SubscribePendingData().Subscription
+	pendingBlock := h.syncReader.SubscribePending().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
-	defer pendingData.Unsubscribe()
+	defer pendingBlock.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
-	feed.Tee(pendingData, h.pendingData)
+	feed.Tee(pendingBlock, h.pendingBlock)
 	feed.Tee(l1HeadsSub, h.l1Heads)
 
 	<-ctx.Done()
@@ -208,6 +213,10 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Name:    "starknet_addDeclareTransaction",
 			Params:  []jsonrpc.Parameter{{Name: "declare_transaction"}},
 			Handler: h.AddTransaction,
+		},
+		{
+			Name:    "juno_version",
+			Handler: h.Version,
 		},
 		{
 			Name:    "starknet_getTransactionStatus",

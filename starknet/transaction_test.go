@@ -34,8 +34,6 @@ func TestUnmarshalFinalityStatus(t *testing.T) {
 		"ACCEPTED_ON_L1": starknet.AcceptedOnL1,
 		"NOT_RECEIVED":   starknet.NotReceived,
 		"RECEIVED":       starknet.Received,
-		"CANDIDATE":      starknet.Candidate,
-		"PRE_CONFIRMED":  starknet.PreConfirmed,
 	}
 	for str, expected := range cases {
 		quotedStr := `"` + str + `"`

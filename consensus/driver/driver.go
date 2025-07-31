@@ -1,12 +1,11 @@
 package driver
 
 import (
-	"context"
+	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/proposer"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
@@ -24,13 +23,17 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	db           db.TendermintDB[V, H, A]
 	stateMachine tendermint.StateMachine[V, H, A]
 	blockchain   Blockchain[V, H]
-	p2p          p2p.P2P[V, H, A]
-	proposer     proposer.Proposer[V, H]
 
 	getTimeout timeoutFn
 
+	listeners    p2p.Listeners[V, H, A]
+	broadcasters p2p.Broadcasters[V, H, A]
+
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
+
+	wg   sync.WaitGroup
+	quit chan struct{}
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -38,20 +41,21 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
 	blockchain Blockchain[V, H],
-	p2p p2p.P2P[V, H, A],
-	proposer proposer.Proposer[V, H],
+	listeners p2p.Listeners[V, H, A],
+	broadcasters p2p.Broadcasters[V, H, A],
 	getTimeout timeoutFn,
-) Driver[V, H, A] {
-	return Driver[V, H, A]{
+) *Driver[V, H, A] {
+	return &Driver[V, H, A]{
 		log:          log,
 		db:           db,
 		stateMachine: stateMachine,
 		blockchain:   blockchain,
-		p2p:          p2p,
-		proposer:     proposer,
 		getTimeout:   getTimeout,
+		listeners:    listeners,
+		broadcasters: broadcasters,
 		scheduledTms: make(map[types.Timeout]*time.Timer),
 		timeoutsCh:   make(chan types.Timeout),
+		quit:         make(chan struct{}),
 	}
 }
 
@@ -60,69 +64,60 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 // these messages and returns a set of actions to be executed by the Driver.
 // The Driver executes these actions (namely broadcasting messages
 // and triggering scheduled timeouts).
-func (d *Driver[V, H, A]) Run(ctx context.Context) error {
-	defer func() {
-		for _, tm := range d.scheduledTms {
-			tm.Stop()
-		}
-	}()
-
+func (d *Driver[V, H, A]) Start() {
 	d.stateMachine.ReplayWAL()
 
-	listeners := d.p2p.Listeners()
-	broadcasters := d.p2p.Broadcasters()
+	d.wg.Add(1)
+	go func() {
+		defer d.wg.Done()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
 		actions := d.stateMachine.ProcessStart(0)
-		isCommitted := d.execute(ctx, broadcasters, actions)
+		d.execute(actions)
 
 		// Todo: check message signature everytime a message is received.
 		// For the time being it can be assumed the signature is correct.
-		for !isCommitted {
+
+		for {
 			select {
-			case <-ctx.Done():
-				return nil
+			case <-d.quit:
+				return
 			case tm := <-d.timeoutsCh:
 				// Handling of timeouts is priorities over messages
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
-			case p := <-listeners.ProposalListener.Listen():
-				actions = d.stateMachine.ProcessProposal(&p)
-			case p := <-listeners.PrevoteListener.Listen():
-				actions = d.stateMachine.ProcessPrevote(&p)
-			case p := <-listeners.PrecommitListener.Listen():
-				actions = d.stateMachine.ProcessPrecommit(&p)
+			case p := <-d.listeners.ProposalListener.Listen():
+				actions = d.stateMachine.ProcessProposal(p)
+			case p := <-d.listeners.PrevoteListener.Listen():
+				actions = d.stateMachine.ProcessPrevote(p)
+			case p := <-d.listeners.PrecommitListener.Listen():
+				actions = d.stateMachine.ProcessPrecommit(p)
 			}
-
-			isCommitted = d.execute(ctx, broadcasters, actions)
+			d.execute(actions)
 		}
+	}()
+}
+
+func (d *Driver[V, H, A]) Stop() {
+	close(d.quit)
+	d.wg.Wait()
+	for _, tm := range d.scheduledTms {
+		tm.Stop()
 	}
 }
 
-// This function executes the actions returned by the stateMachine.
-// It returns true if a commit action was executed. This is to notify the caller to start a new height with round 0.
-func (d *Driver[V, H, A]) execute(
-	ctx context.Context,
-	broadcasters p2p.Broadcasters[V, H, A],
-	actions []types.Action[V, H, A],
-) (isCommitted bool) {
+func (d *Driver[V, H, A]) execute(actions []types.Action[V, H, A]) {
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *types.BroadcastProposal[V, H, A]:
-			broadcasters.ProposalBroadcaster.Broadcast(ctx, types.Proposal[V, H, A](*action))
+			d.broadcasters.ProposalBroadcaster.Broadcast(types.Proposal[V, H, A](*action))
 		case *types.BroadcastPrevote[H, A]:
-			broadcasters.PrevoteBroadcaster.Broadcast(ctx, types.Prevote[H, A](*action))
+			d.broadcasters.PrevoteBroadcaster.Broadcast(types.Prevote[H, A](*action))
 		case *types.BroadcastPrecommit[H, A]:
-			broadcasters.PrecommitBroadcaster.Broadcast(ctx, types.Precommit[H, A](*action))
+			d.broadcasters.PrecommitBroadcaster.Broadcast(types.Precommit[H, A](*action))
 		case *types.ScheduleTimeout:
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
-				case <-ctx.Done():
+				case <-d.quit:
 				case d.timeoutsCh <- types.Timeout(*action):
 				}
 			})
@@ -131,17 +126,11 @@ func (d *Driver[V, H, A]) execute(
 				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
 			}
 
-			d.log.Debugw("Committing", "height", action.Height, "round", action.Round)
 			d.blockchain.Commit(action.Height, *action.Value)
-			d.proposer.OnCommit(ctx, action.Height, *action.Value)
-			d.p2p.OnCommit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
 			}
-
-			return true
 		}
 	}
-	return false
 }

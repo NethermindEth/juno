@@ -458,7 +458,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 		}
 
 		// check now if tx is in pending block
-		pendingB := h.PendingBlock()
+		pendingB := h.syncReader.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -489,16 +489,16 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.PendingData()
+		pending, err := h.syncReader.Pending()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
+		if uint64(txIndex) > pending.Block.TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
+		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -530,7 +530,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.PendingBlock()
+		pendingB = h.syncReader.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -586,7 +586,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		err *jsonrpc.Error
 	)
 	if h.memPool != nil {
-		res, err = h.addToMempool(ctx, &tx)
+		res, err = h.addToMempool(&tx)
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
 	}
@@ -602,12 +602,12 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	return res, nil
 }
 
-func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
+	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,

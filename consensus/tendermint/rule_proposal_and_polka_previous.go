@@ -1,9 +1,6 @@
 package tendermint
 
-import (
-	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/consensus/votecounter"
-)
+import "github.com/NethermindEth/juno/consensus/types"
 
 /*
 Check the upon condition on line 28:
@@ -16,25 +13,25 @@ Check the upon condition on line 28:
 	32:  	broadcast {PREVOTE, hp, round_p, nil}
 	33: step_p ← prevote
 */
-func (s *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
+func (t *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) bool {
 	vr := cachedProposal.ValidRound
-	hasQuorum := cachedProposal.ID != nil && s.voteCounter.HasQuorumForVote(vr, votecounter.Prevote, cachedProposal.ID)
+	hasQuorum := t.checkQuorumPrevotesGivenProposalVID(vr, *cachedProposal.ID)
 	return hasQuorum &&
-		s.state.step == types.StepPropose &&
+		t.state.step == types.StepPropose &&
 		vr >= 0 &&
-		vr < s.state.round
+		vr < t.state.round
 }
 
-func (s *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
-		(s.state.lockedRound <= cachedProposal.ValidRound ||
-			s.state.lockedValue != nil &&
+		(t.state.lockedRound <= cachedProposal.ValidRound ||
+			t.state.lockedValue != nil &&
 				cachedProposal.ID != nil &&
-				(*s.state.lockedValue).Hash() == *cachedProposal.ID)
+				(*t.state.lockedValue).Hash() == *cachedProposal.ID)
 
 	if shouldVoteForValue {
 		votedID = cachedProposal.ID
 	}
-	return s.setStepAndSendPrevote(votedID)
+	return t.setStepAndSendPrevote(votedID)
 }

@@ -18,46 +18,6 @@ type Pending struct {
 	NewClasses  map[felt.Felt]core.Class
 }
 
-func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) Pending {
-	return Pending{
-		Block:       block,
-		StateUpdate: stateUpdate,
-		NewClasses:  newClasses,
-	}
-}
-
-func (p *Pending) GetBlock() *core.Block {
-	return p.Block
-}
-
-func (p *Pending) GetHeader() *core.Header {
-	return p.Block.Header
-}
-
-func (p *Pending) GetTransactions() []core.Transaction {
-	return p.Block.Transactions
-}
-
-func (p *Pending) GetStateUpdate() *core.StateUpdate {
-	return p.StateUpdate
-}
-
-func (p *Pending) GetNewClasses() map[felt.Felt]core.Class {
-	return p.NewClasses
-}
-
-func (p *Pending) GetCandidateTransaction() []core.Transaction {
-	return []core.Transaction{}
-}
-
-func (p *Pending) GetTransactionStateDiffs() []*core.StateDiff {
-	return []*core.StateDiff{}
-}
-
-func (p *Pending) Variant() core.PendingDataVariant {
-	return core.PendingBlockVariant
-}
-
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class

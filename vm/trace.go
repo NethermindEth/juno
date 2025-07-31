@@ -105,7 +105,7 @@ type TransactionTrace struct {
 	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
 	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"`
-	FunctionInvocation    *ExecuteInvocation  `json:"function_invocation,omitempty"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources,omitempty"`
 }
@@ -144,16 +144,12 @@ func (t *TransactionTrace) allInvocations() []*FunctionInvocation {
 	if t.ExecuteInvocation != nil {
 		executeInvocation = t.ExecuteInvocation.FunctionInvocation
 	}
-	var functionInvocation *FunctionInvocation
-	if t.FunctionInvocation != nil {
-		functionInvocation = t.FunctionInvocation.FunctionInvocation
-	}
 	return slices.DeleteFunc([]*FunctionInvocation{
 		t.ConstructorInvocation,
 		t.ValidateInvocation,
 		t.FeeTransferInvocation,
 		executeInvocation,
-		functionInvocation,
+		t.FunctionInvocation,
 	}, func(i *FunctionInvocation) bool { return i == nil })
 }
 
@@ -193,10 +189,7 @@ func (t *TransactionTrace) AllEvents() []OrderedEvent {
 		addEvents(t.ConstructorInvocation)
 	}
 	addEvents(t.FeeTransferInvocation)
-	if t.FunctionInvocation != nil {
-		addEvents(t.FunctionInvocation.FunctionInvocation)
-	}
-
+	addEvents(t.FunctionInvocation)
 	return events
 }
 

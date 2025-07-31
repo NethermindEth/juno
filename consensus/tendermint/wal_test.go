@@ -99,20 +99,20 @@ func TestReplayWAL(t *testing.T) {
 		sMachine.ProcessStart(0)
 
 		// Receive proposal
-		mockDB.EXPECT().SetWALEntry(&proposalMessage).Return(nil)
-		sMachine.ProcessProposal(&proposalMessage)
+		mockDB.EXPECT().SetWALEntry(proposalMessage).Return(nil)
+		sMachine.ProcessProposal(proposalMessage)
 
 		// Receive quorum of prevotes
-		mockDB.EXPECT().SetWALEntry(&prevote0).Return(nil)
-		mockDB.EXPECT().SetWALEntry(&prevote1).Return(nil)
-		mockDB.EXPECT().SetWALEntry(&prevote2).Return(nil)
-		sMachine.ProcessPrevote(&prevote0)
-		sMachine.ProcessPrevote(&prevote1)
-		sMachine.ProcessPrevote(&prevote2)
+		mockDB.EXPECT().SetWALEntry(prevote0).Return(nil)
+		mockDB.EXPECT().SetWALEntry(prevote1).Return(nil)
+		mockDB.EXPECT().SetWALEntry(prevote2).Return(nil)
+		sMachine.ProcessPrevote(prevote0)
+		sMachine.ProcessPrevote(prevote1)
+		sMachine.ProcessPrevote(prevote2)
 
 		// Receive precommit
-		mockDB.EXPECT().SetWALEntry(&precommit0).Return(nil)
-		sMachine.ProcessPrecommit(&precommit0)
+		mockDB.EXPECT().SetWALEntry(precommit0).Return(nil)
+		sMachine.ProcessPrecommit(precommit0)
 
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
@@ -136,8 +136,9 @@ func TestReplayWAL(t *testing.T) {
 
 		// Todo: why do we only need two precommits for quorum.....
 		// Receive final precommit, now we reach quorum
-		mockDB.EXPECT().SetWALEntry(&precommit1).Return(nil)
-		sMachineRecoverd.ProcessPrecommit(&precommit1)
+		mockDB.EXPECT().SetWALEntry(precommit1).Return(nil)
+		mockDB.EXPECT().Flush().Return(nil).Times(1)
+		sMachineRecoverd.ProcessPrecommit(precommit1)
 
 		// Progress to new height
 		assertState(t, sMachineRecoverd, types.Height(1), types.Round(0), types.StepPropose)

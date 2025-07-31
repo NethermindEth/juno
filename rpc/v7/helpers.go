@@ -40,10 +40,10 @@ func (h *Handler) blockByID(id *BlockID) (*core.Block, *jsonrpc.Error) {
 	case id.Hash != nil:
 		block, err = h.bcReader.BlockByHash(id.Hash)
 	case id.Pending:
-		var pending core.PendingData
-		pending, err = h.PendingData()
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
 		if err == nil {
-			block = pending.GetBlock()
+			block = pending.Block
 		}
 	default:
 		block, err = h.bcReader.BlockByNumber(id.Number)
@@ -71,10 +71,10 @@ func (h *Handler) blockHeaderByID(id BlockIdentifier) (*core.Header, *jsonrpc.Er
 	case id.GetHash() != nil:
 		header, err = h.bcReader.BlockHeaderByHash(id.GetHash())
 	case id.IsPending():
-		var pending core.PendingData
-		pending, err = h.PendingData()
+		var pending *sync.Pending
+		pending, err = h.syncReader.Pending()
 		if err == nil {
-			header = pending.GetHeader()
+			header = pending.Block.Header
 		}
 	default:
 		header, err = h.bcReader.BlockHeaderByNumber(id.GetNumber())
@@ -166,7 +166,7 @@ func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.Stat
 	case id.Hash != nil:
 		reader, closer, err = h.bcReader.StateAtBlockHash(id.Hash)
 	case id.Pending:
-		reader, closer, err = h.PendingState()
+		reader, closer, err = h.syncReader.PendingState()
 	default:
 		reader, closer, err = h.bcReader.StateAtBlockNumber(id.Number)
 	}

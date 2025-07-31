@@ -73,16 +73,12 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 					b.log.Errorw("unable to generate proposal part", "error", err)
 					return
 				}
-				b.broadcaster.Broadcast(ctx, msg)
+				b.broadcaster.Broadcast(msg)
 			}
 		}
 	}
 }
 
-func (b *proposalBroadcaster[V, H, A]) Broadcast(ctx context.Context, proposal types.Proposal[V, H, A]) {
-	select {
-	case <-ctx.Done():
-		return
-	case b.proposals <- proposal:
-	}
+func (b *proposalBroadcaster[V, H, A]) Broadcast(proposal types.Proposal[V, H, A]) {
+	b.proposals <- proposal
 }

@@ -18,27 +18,26 @@ import (
 // Create a new node with all services enabled.
 func TestNewNode(t *testing.T) {
 	config := &node.Config{
-		LogLevel:                 "info",
-		HTTP:                     true,
-		HTTPPort:                 0,
-		Websocket:                true,
-		WebsocketPort:            0,
-		GRPC:                     true,
-		GRPCPort:                 0,
-		DatabasePath:             t.TempDir(),
-		Network:                  utils.Sepolia, // P2P will only work with Sepolia (for the time being)
-		EthNode:                  "",
-		DisableL1Verification:    true,
-		Pprof:                    true,
-		PprofPort:                0,
-		Colour:                   true,
-		PendingPollInterval:      time.Second,
-		PreConfirmedPollInterval: time.Second,
-		Metrics:                  true,
-		MetricsPort:              0,
-		P2P:                      true,
-		P2PAddr:                  "",
-		P2PPeers:                 "",
+		LogLevel:              "info",
+		HTTP:                  true,
+		HTTPPort:              0,
+		Websocket:             true,
+		WebsocketPort:         0,
+		GRPC:                  true,
+		GRPCPort:              0,
+		DatabasePath:          t.TempDir(),
+		Network:               utils.Sepolia, // P2P will only work with Sepolia (for the time being)
+		EthNode:               "",
+		DisableL1Verification: true,
+		Pprof:                 true,
+		PprofPort:             0,
+		Colour:                true,
+		PendingPollInterval:   time.Second,
+		Metrics:               true,
+		MetricsPort:           0,
+		P2P:                   true,
+		P2PAddr:               "",
+		P2PPeers:              "",
 	}
 
 	logLevel := utils.NewLogLevel(utils.INFO)
@@ -75,13 +74,12 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			chain := blockchain.New(database, &network)
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
-			syncer := sync.New(chain, dataSource, log, 0, 0, false, database).
-				WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
-					// Stop the syncer after we successfully stored block.
-					if op == sync.OpStore {
-						cancel()
-					}
-				}})
+			syncer := sync.New(chain, dataSource, log, 0, false, database).WithListener(&sync.SelectiveListener{OnSyncStepDoneCb: func(op string, _ uint64, _ time.Duration) {
+				// Stop the syncer after we successfully stored block.
+				if op == sync.OpStore {
+					cancel()
+				}
+			}})
 			require.NoError(t, syncer.Run(ctx))
 			cancel()
 			require.NoError(t, database.Close())

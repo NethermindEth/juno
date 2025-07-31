@@ -6,25 +6,26 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type BuildState struct {
-	Preconfirmed      *core.PreConfirmed
+	Pending           *sync.Pending
 	L2GasConsumed     uint64
 	RevealedBlockHash *felt.Felt
 }
 
 func (b *BuildState) PendingBlock() *core.Block {
-	if b.Preconfirmed == nil {
+	if b.Pending == nil {
 		return nil
 	}
-	return b.Preconfirmed.Block
+	return b.Pending.Block
 }
 
 func (b *BuildState) ClearPending() error {
 	b.L2GasConsumed = 0
-	b.Preconfirmed = &core.PreConfirmed{}
+	b.Pending = &sync.Pending{}
 	b.RevealedBlockHash = nil
 
 	return nil
@@ -37,27 +38,25 @@ func (b *BuildState) ClearPending() error {
 // - Signatures and EventsBloom are not set before `Finish` is called
 func (b *BuildState) Clone() BuildState {
 	return BuildState{
-		Preconfirmed:      clonePreconfirmed(b.Preconfirmed),
+		Pending:           clonePending(b.Pending),
 		RevealedBlockHash: b.RevealedBlockHash, // Safe to reuse an immutable value
 		L2GasConsumed:     b.L2GasConsumed,     // Value, safe to shallow copy
 	}
 }
 
-func clonePreconfirmed(preconfirmed *core.PreConfirmed) *core.PreConfirmed {
-	return &core.PreConfirmed{
-		Block:                 cloneBlock(preconfirmed.Block),
-		StateUpdate:           cloneStateUpdate(preconfirmed.StateUpdate),
-		NewClasses:            maps.Clone(preconfirmed.NewClasses),
-		TransactionStateDiffs: preconfirmed.TransactionStateDiffs,
-		CandidateTxs:          preconfirmed.CandidateTxs,
+func clonePending(pending *sync.Pending) *sync.Pending {
+	return &sync.Pending{
+		Block:       cloneBlock(pending.Block),
+		StateUpdate: cloneStateUpdate(pending.StateUpdate),
+		NewClasses:  maps.Clone(pending.NewClasses),
 	}
 }
 
 func cloneBlock(block *core.Block) *core.Block {
 	return &core.Block{
 		Header:       utils.HeapPtr(*block.Header),
-		Transactions: block.Transactions,
-		Receipts:     block.Receipts,
+		Transactions: slices.Clone(block.Transactions),
+		Receipts:     slices.Clone(block.Receipts),
 	}
 }
 

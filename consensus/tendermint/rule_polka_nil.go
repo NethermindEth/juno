@@ -1,9 +1,6 @@
 package tendermint
 
-import (
-	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/consensus/votecounter"
-)
+import "github.com/NethermindEth/juno/consensus/types"
 
 /*
 Check the upon condition on line 44:
@@ -14,12 +11,22 @@ Check the upon condition on line 44:
 
 Line 36 and 44 for a round are mutually exclusive.
 */
-func (s *stateMachine[V, H, A]) uponPolkaNil() bool {
-	hasQuorum := s.voteCounter.HasQuorumForVote(s.state.round, votecounter.Prevote, nil)
+func (t *stateMachine[V, H, A]) uponPolkaNil() bool {
+	prevotes := t.messages.Prevotes[t.state.height][t.state.round]
 
-	return hasQuorum && s.state.step == types.StepPrevote
+	var vals []A
+	for addr, v := range prevotes {
+		if v.ID == nil {
+			vals = append(vals, addr)
+		}
+	}
+
+	// TODO: refactor this
+	hasQuorum := t.validatorSetVotingPower(vals) >= q(t.validators.TotalVotingPower(t.state.height))
+
+	return hasQuorum && t.state.step == types.StepPrevote
 }
 
-func (s *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
-	return s.setStepAndSendPrecommit(nil)
+func (t *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
+	return t.setStepAndSendPrecommit(nil)
 }

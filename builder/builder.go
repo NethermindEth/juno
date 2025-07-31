@@ -49,11 +49,11 @@ func New(
 	}
 }
 
-func (b *Builder) Finalise(preconfirmed *core.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
-	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
+func (b *Builder) Finalise(pending *sync.Pending, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
+	return b.blockchain.Finalise(pending.Block, pending.StateUpdate, pending.NewClasses, signer)
 }
 
-func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error) {
+func (b *Builder) InitPendingBlock(params *BuildParams) (*BuildState, error) {
 	header, err := b.blockchain.HeadsHeader()
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 		return nil, err
 	}
 
-	preconfirmedBlock := core.Block{
+	pendingBlock := core.Block{
 		Header: &core.Header{
 			Hash:             nil, // To be set after finishing execution
 			ParentHash:       header.Hash,
@@ -97,16 +97,14 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 	su := core.StateUpdate{
 		StateDiff: &emptyStateDiff,
 	}
-	preconfirmed := core.PreConfirmed{
-		Block:                 &preconfirmedBlock,
-		StateUpdate:           &su,
-		NewClasses:            newClasses,
-		TransactionStateDiffs: []*core.StateDiff{},
-		CandidateTxs:          []core.Transaction{},
+	pending := sync.Pending{
+		Block:       &pendingBlock,
+		StateUpdate: &su,
+		NewClasses:  newClasses,
 	}
 
 	return &BuildState{
-		Preconfirmed:      &preconfirmed,
+		Pending:           &pending,
 		RevealedBlockHash: revealedBlockHash,
 		L2GasConsumed:     0,
 	}, nil
@@ -125,7 +123,7 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 }
 
 func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func() error, error) {
-	if buildState.Preconfirmed == nil {
+	if buildState.Pending == nil {
 		return nil, nil, sync.ErrPendingBlockNotFound
 	}
 
@@ -135,7 +133,7 @@ func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func()
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), headCloser, nil
+	return sync.NewPendingState(buildState.Pending.StateUpdate.StateDiff, buildState.Pending.NewClasses, headState), headCloser, nil
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {
@@ -162,7 +160,7 @@ func (b *Builder) Finish(state *BuildState) (BuildResult, error) {
 
 	// Todo: we ignore some values until the spec is Finalised: VersionConstantCommitment, NextL2GasPriceFRI
 	buildResult := BuildResult{
-		Preconfirmed:   state.Preconfirmed,
+		Pending:        state.Pending,
 		SimulateResult: &simulatedResult,
 		L2GasConsumed:  state.L2GasConsumed,
 	}

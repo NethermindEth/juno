@@ -49,11 +49,9 @@ func TestAllEvents(t *testing.T) {
 				ContractAddress: *contractAddr,
 				Events:          []vm.OrderedEvent{events[0]},
 			},
-			FunctionInvocation: &vm.ExecuteInvocation{
-				FunctionInvocation: &vm.FunctionInvocation{
-					ContractAddress: *contractAddr,
-					Events:          events[0:6],
-				},
+			FunctionInvocation: &vm.FunctionInvocation{
+				ContractAddress: *contractAddr,
+				Events:          events[0:6],
 			},
 		},
 		"only validate invocation": {
@@ -87,11 +85,9 @@ func TestAllMessages(t *testing.T) {
 				ContractAddress: *contractAddr,
 				Messages:        []vm.OrderedL2toL1Message{messages[0]},
 			},
-			FunctionInvocation: &vm.ExecuteInvocation{
-				FunctionInvocation: &vm.FunctionInvocation{
-					ContractAddress: *contractAddr,
-					Messages:        []vm.OrderedL2toL1Message{messages[1]},
-				},
+			FunctionInvocation: &vm.FunctionInvocation{
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[1]},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{
 				ContractAddress: *contractAddr,
@@ -125,15 +121,13 @@ func TestAllMessages(t *testing.T) {
 					},
 				},
 			},
-			FunctionInvocation: &vm.ExecuteInvocation{
-				FunctionInvocation: &vm.FunctionInvocation{
-					ContractAddress: *contractAddr,
-					Messages:        []vm.OrderedL2toL1Message{messages[5]},
-					Calls: []vm.FunctionInvocation{
-						{
-							ContractAddress: *contractAddr,
-							Messages:        messages[6:],
-						},
+			FunctionInvocation: &vm.FunctionInvocation{
+				ContractAddress: *contractAddr,
+				Messages:        []vm.OrderedL2toL1Message{messages[5]},
+				Calls: []vm.FunctionInvocation{
+					{
+						ContractAddress: *contractAddr,
+						Messages:        messages[6:],
 					},
 				},
 			},

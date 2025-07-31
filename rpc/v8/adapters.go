@@ -40,12 +40,7 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
-			if trace.FunctionInvocation.FunctionInvocation != nil {
-				functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
-			} else {
-				defaultResult := DefaultL1HandlerFunctionInvocation()
-				functionInvocation = &defaultResult
-			}
+			functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FunctionInvocation))
 		}
 	}
 
@@ -272,26 +267,5 @@ func adaptFeederExecutionResources(resources *starknet.ExecutionResources) Inner
 	return InnerExecutionResources{
 		L1Gas: l1Gas,
 		L2Gas: l2Gas,
-	}
-}
-
-func DefaultL1HandlerFunctionInvocation() FunctionInvocation {
-	return FunctionInvocation{
-		CallType:           "CALL",
-		Calldata:           []felt.Felt{},
-		CallerAddress:      felt.Zero,
-		Calls:              []FunctionInvocation{},
-		ClassHash:          &felt.Zero,
-		ContractAddress:    felt.Zero,
-		EntryPointSelector: &felt.Zero,
-		EntryPointType:     "L1_HANDLER",
-		Events:             []rpcv6.OrderedEvent{},
-		ExecutionResources: &InnerExecutionResources{
-			L1Gas: 0,
-			L2Gas: 0,
-		},
-		IsReverted: true,
-		Messages:   []rpcv6.OrderedL2toL1Message{},
-		Result:     []felt.Felt{},
 	}
 }

@@ -71,7 +71,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -95,13 +95,13 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	emittedEvents := make([]*EmittedEvent, len(filteredEvents))
-	for i, fEvent := range filteredEvents {
+	emittedEvents := make([]*EmittedEvent, 0, len(filteredEvents))
+	for _, fEvent := range filteredEvents {
 		var blockNumber *uint64
 		if fEvent.BlockHash != nil {
 			blockNumber = fEvent.BlockNumber
 		}
-		emittedEvents[i] = &EmittedEvent{
+		emittedEvents = append(emittedEvents, &EmittedEvent{
 			BlockNumber:     blockNumber,
 			BlockHash:       fEvent.BlockHash,
 			TransactionHash: fEvent.TransactionHash,
@@ -110,7 +110,7 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 				Keys: fEvent.Keys,
 				Data: fEvent.Data,
 			},
-		}
+		})
 	}
 
 	cTokenStr := ""
@@ -134,9 +134,6 @@ func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID,
 		case id.Pending:
 			return filter.SetRangeEndBlockByNumber(filterRange, latestHeight+1)
 		default:
-			if filterRange == blockchain.EventFilterTo {
-				return filter.SetRangeEndBlockByNumber(filterRange, min(id.Number, latestHeight))
-			}
 			return filter.SetRangeEndBlockByNumber(filterRange, id.Number)
 		}
 	}

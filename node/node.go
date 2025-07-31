@@ -55,29 +55,28 @@ const (
 
 // Config is the top-level juno configuration.
 type Config struct {
-	LogLevel                 string        `mapstructure:"log-level"`
-	HTTP                     bool          `mapstructure:"http"`
-	HTTPHost                 string        `mapstructure:"http-host"`
-	HTTPPort                 uint16        `mapstructure:"http-port"`
-	RPCCorsEnable            bool          `mapstructure:"rpc-cors-enable"`
-	Websocket                bool          `mapstructure:"ws"`
-	WebsocketHost            string        `mapstructure:"ws-host"`
-	WebsocketPort            uint16        `mapstructure:"ws-port"`
-	GRPC                     bool          `mapstructure:"grpc"`
-	GRPCHost                 string        `mapstructure:"grpc-host"`
-	GRPCPort                 uint16        `mapstructure:"grpc-port"`
-	DatabasePath             string        `mapstructure:"db-path"`
-	Network                  utils.Network `mapstructure:"network"`
-	EthNode                  string        `mapstructure:"eth-node"`
-	DisableL1Verification    bool          `mapstructure:"disable-l1-verification"`
-	Pprof                    bool          `mapstructure:"pprof"`
-	PprofHost                string        `mapstructure:"pprof-host"`
-	PprofPort                uint16        `mapstructure:"pprof-port"`
-	Colour                   bool          `mapstructure:"colour"`
-	PendingPollInterval      time.Duration `mapstructure:"pending-poll-interval"`
-	PreConfirmedPollInterval time.Duration `mapstructure:"preconfirmed-poll-interval"`
-	RemoteDB                 string        `mapstructure:"remote-db"`
-	VersionedConstantsFile   string        `mapstructure:"versioned-constants-file"`
+	LogLevel               string        `mapstructure:"log-level"`
+	HTTP                   bool          `mapstructure:"http"`
+	HTTPHost               string        `mapstructure:"http-host"`
+	HTTPPort               uint16        `mapstructure:"http-port"`
+	RPCCorsEnable          bool          `mapstructure:"rpc-cors-enable"`
+	Websocket              bool          `mapstructure:"ws"`
+	WebsocketHost          string        `mapstructure:"ws-host"`
+	WebsocketPort          uint16        `mapstructure:"ws-port"`
+	GRPC                   bool          `mapstructure:"grpc"`
+	GRPCHost               string        `mapstructure:"grpc-host"`
+	GRPCPort               uint16        `mapstructure:"grpc-port"`
+	DatabasePath           string        `mapstructure:"db-path"`
+	Network                utils.Network `mapstructure:"network"`
+	EthNode                string        `mapstructure:"eth-node"`
+	DisableL1Verification  bool          `mapstructure:"disable-l1-verification"`
+	Pprof                  bool          `mapstructure:"pprof"`
+	PprofHost              string        `mapstructure:"pprof-host"`
+	PprofPort              uint16        `mapstructure:"pprof-port"`
+	Colour                 bool          `mapstructure:"colour"`
+	PendingPollInterval    time.Duration `mapstructure:"pending-poll-interval"`
+	RemoteDB               string        `mapstructure:"remote-db"`
+	VersionedConstantsFile string        `mapstructure:"versioned-constants-file"`
 
 	Sequencer      bool   `mapstructure:"seq-enable"`
 	SeqBlockTime   uint   `mapstructure:"seq-block-time"`
@@ -95,11 +94,10 @@ type Config struct {
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
-	MaxVMs                  uint `mapstructure:"max-vms"`
-	MaxVMQueue              uint `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
-	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
+	MaxVMs          uint `mapstructure:"max-vms"`
+	MaxVMQueue      uint `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan uint `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps uint `mapstructure:"rpc-call-max-steps"`
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -208,6 +206,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
+		chain.WithPendingBlockFn(seq.PendingBlock)
 		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
 		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
 		services = append(services, &seq)
@@ -225,17 +224,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			log,
-			cfg.PendingPollInterval,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
+		synchronizer = sync.New(chain, feederGatewayDataSource, log, cfg.PendingPollInterval, dbIsRemote, database)
 		synchronizer.WithPlugin(junoPlugin)
-
+		chain.WithPendingBlockFn(synchronizer.PendingBlock)
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
 
 		if cfg.P2P {
@@ -281,11 +272,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 	// to improve RPC throughput we double GOMAXPROCS
 	maxGoroutines := 2 * runtime.GOMAXPROCS(0)
-	jsonrpcServerV09 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
-	methodsV09, pathV09 := rpcHandler.MethodsV0_9()
-	if err = jsonrpcServerV09.RegisterMethods(methodsV09...); err != nil {
-		return nil, err
-	}
 	jsonrpcServerV08 := jsonrpc.NewServer(maxGoroutines, log).WithValidator(validator.Validator())
 	methodsV08, pathV08 := rpcHandler.MethodsV0_8()
 	if err = jsonrpcServerV08.RegisterMethods(methodsV08...); err != nil {
@@ -303,18 +289,16 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 	rpcServers := map[string]*jsonrpc.Server{
 		"/":              jsonrpcServerV08,
-		pathV09:          jsonrpcServerV09,
 		pathV08:          jsonrpcServerV08,
 		pathV07:          jsonrpcServerV07,
 		pathV06:          jsonrpcServerV06,
 		"/rpc":           jsonrpcServerV08,
-		"/rpc" + pathV09: jsonrpcServerV09,
 		"/rpc" + pathV08: jsonrpcServerV08,
 		"/rpc" + pathV07: jsonrpcServerV07,
 		"/rpc" + pathV06: jsonrpcServerV06,
 	}
 	if cfg.HTTP {
-		readinessHandlers := NewReadinessHandlers(chain, synchronizer, cfg.ReadinessBlockTolerance)
+		readinessHandlers := NewReadinessHandlers(chain, synchronizer)
 		httpHandlers := map[string]http.HandlerFunc{
 			"/live":       readinessHandlers.HandleLive,
 			"/ready":      readinessHandlers.HandleReadySync,
@@ -418,7 +402,7 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if includeMetrics {
-		l1Client.WithEventListener(makeL1Metrics(chain, ethSubscriber))
+		l1Client.WithEventListener(makeL1Metrics())
 	}
 	return l1Client, nil
 }

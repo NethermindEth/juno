@@ -40,7 +40,7 @@ func TestPlugin(t *testing.T) {
 	}
 	bc := blockchain.New(testDB, &utils.Integration)
 	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
-	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
+	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	require.NoError(t, synchronizer.Run(ctx))
@@ -68,7 +68,7 @@ func TestPlugin(t *testing.T) {
 		}
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mainGw)
-		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
+		synchronizer = sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, false, nil).WithPlugin(plugin)
 		ctx, cancel = context.WithTimeout(t.Context(), timeout)
 		require.NoError(t, synchronizer.Run(ctx))
 		cancel()

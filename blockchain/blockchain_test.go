@@ -482,6 +482,7 @@ func TestEvents(t *testing.T) {
 
 	testDB := memory.New()
 	chain := blockchain.New(testDB, &utils.Goerli2)
+	chain = chain.WithPendingBlockFn(pendingBlockFn)
 
 	client := feeder.NewTestClient(t, &utils.Goerli2)
 	gw := adaptfeeder.New(client)
@@ -500,7 +501,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	t.Run("filter non-existent", func(t *testing.T) {
-		filter, err := chain.EventFilter(nil, nil, pendingBlockFn)
+		filter, err := chain.EventFilter(nil, nil)
 
 		t.Run("block number", func(t *testing.T) {
 			err = filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, uint64(44))
@@ -521,7 +522,7 @@ func TestEvents(t *testing.T) {
 
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}}, pendingBlockFn)
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
@@ -562,7 +563,7 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with keys", func(t *testing.T) {
 		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
-		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingBlockFn)
+		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}})
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
@@ -583,7 +584,7 @@ func TestEvents(t *testing.T) {
 		filter, err := chain.EventFilter(from, [][]felt.Felt{
 			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
 			{*utils.HexToFelt(t, "0xDEADBEEF")},
-		}, pendingBlockFn)
+		})
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterTo, 6))

@@ -41,7 +41,7 @@ func NewExecutor(
 }
 
 // RunTxns executes the provided transaction and applies the state changes
-// to the preconfirmed state
+// to the pending state
 func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) (err error) {
 	if len(txns) == 0 {
 		return nil
@@ -58,7 +58,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}()
 
 	// Create a state writer for the transaction execution
-	stateWriter := sync.NewPendingStateWriter(state.Preconfirmed.StateUpdate.StateDiff, state.Preconfirmed.NewClasses, headState)
+	stateWriter := sync.NewPendingStateWriter(state.Pending.StateUpdate.StateDiff, state.Pending.NewClasses, headState)
 
 	// Prepare declared classes, if any
 	var declaredClasses []core.Class
@@ -80,7 +80,7 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 		declaredClasses,
 		paidFeesOnL1,
 		&vm.BlockInfo{
-			Header:                state.Preconfirmed.Block.Header,
+			Header:                state.Pending.Block.Header,
 			BlockHashToBeRevealed: state.RevealedBlockHash,
 		},
 		stateWriter,
@@ -102,16 +102,16 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 
 	// Adapt results to core type (which use reference types)
 	receipts := make([]*core.TransactionReceipt, len(txns))
-	stateDiffs := make([]*core.StateDiff, len(vmResults.Traces))
+	mergedStateDiff := vm2core.AdaptStateDiff(vmResults.Traces[0].StateDiff)
 	for i, trace := range vmResults.Traces {
 		adaptedStateDiff := vm2core.AdaptStateDiff(trace.StateDiff)
+		mergedStateDiff.Merge(&adaptedStateDiff)
 		adaptedReceipt := vm2core.Receipt(vmResults.OverallFees[i], txns[i].Transaction, &vmResults.Traces[i], &vmResults.Receipts[i])
 		receipts[i] = &adaptedReceipt
-		stateDiffs[i] = &adaptedStateDiff
 	}
 
-	// Update preconfirmed block with transaction results
-	updatePreconfirmedBlock(state.Preconfirmed, receipts, coreTxns, stateDiffs)
+	// Update pending block with transaction results
+	updatePendingBlock(state.Pending, receipts, coreTxns, mergedStateDiff)
 
 	for i := range vmResults.GasConsumed {
 		state.L2GasConsumed += vmResults.GasConsumed[i].L2Gas
@@ -138,25 +138,22 @@ func (e *executor) processClassDeclaration(txn *mempool.BroadcastedTransaction, 
 	return nil
 }
 
-// updatePreconfirmedBlock updates the preconfirmed block with transaction results
-func updatePreconfirmedBlock(
-	preconfirmed *core.PreConfirmed,
+// updatePendingBlock updates the pending block with transaction results
+func updatePendingBlock(
+	pending *sync.Pending,
 	receipts []*core.TransactionReceipt,
 	transactions []core.Transaction,
-	stateDiffs []*core.StateDiff,
+	stateDiff core.StateDiff,
 ) {
-	preconfirmed.Block.Receipts = append(preconfirmed.Block.Receipts, receipts...)
-	preconfirmed.TransactionStateDiffs = append(preconfirmed.TransactionStateDiffs, stateDiffs...)
-	preconfirmed.Block.Transactions = append(preconfirmed.Block.Transactions, transactions...)
-	preconfirmed.Block.TransactionCount += uint64(len(transactions))
+	pending.Block.Receipts = append(pending.Block.Receipts, receipts...)
+	pending.Block.Transactions = append(pending.Block.Transactions, transactions...)
+	pending.Block.TransactionCount += uint64(len(transactions))
 	for _, receipt := range receipts {
-		preconfirmed.Block.EventCount += uint64(len(receipt.Events))
+		pending.Block.EventCount += uint64(len(receipt.Events))
 	}
-	for _, stateDiff := range stateDiffs {
-		preconfirmed.StateUpdate.StateDiff.Merge(stateDiff)
-	}
+	pending.StateUpdate.StateDiff.Merge(&stateDiff)
 }
 
 func (e *executor) Finish(state *BuildState) (blockchain.SimulateResult, error) {
-	return e.blockchain.Simulate(state.Preconfirmed.Block, state.Preconfirmed.StateUpdate, state.Preconfirmed.NewClasses, nil)
+	return e.blockchain.Simulate(state.Pending.Block, state.Pending.StateUpdate, state.Pending.NewClasses, nil)
 }

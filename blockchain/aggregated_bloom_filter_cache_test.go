@@ -276,14 +276,10 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("fromBlock > toBlock should create exhausted iterator", func(t *testing.T) {
+	t.Run("fromBlock > toBlock errors", func(t *testing.T) {
 		// FromBlock must lte to toBlock
-		iter, err := cache.NewMatchedBlockIterator(2, 1, maxScannedLimit, &eventMatcher, runningFilter)
-		require.NoError(t, err)
-		blockNum, ok, err := iter.Next()
-		require.NoError(t, err)
-		require.False(t, ok)
-		require.Equal(t, uint64(0), blockNum)
+		_, err := cache.NewMatchedBlockIterator(2, 1, maxScannedLimit, &eventMatcher, runningFilter)
+		require.Equal(t, blockchain.ErrInvalidBlockRange, err)
 	})
 
 	t.Run("range falls into running filter", func(t *testing.T) {

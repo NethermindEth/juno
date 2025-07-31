@@ -84,11 +84,11 @@ func (b *SubscriptionBlockID) UnmarshalJSON(data []byte) error {
 type on[T any] func(ctx context.Context, id string, sub *subscription, event T) error
 
 type subscriber struct {
-	onStart       on[any]
-	onReorg       on[*sync.ReorgBlockRange]
-	onNewHead     on[*core.Block]
-	onPendingData on[core.PendingData]
-	onL1Head      on[*core.L1Head]
+	onStart   on[any]
+	onReorg   on[*sync.ReorgBlockRange]
+	onNewHead on[*core.Block]
+	onPending on[*core.Block]
+	onL1Head  on[*core.L1Head]
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
@@ -121,7 +121,7 @@ func (h *Handler) subscribe(
 
 	reorgSub, reorgRecv := getSubscription(subscriber.onReorg, h.reorgs)
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
-	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
+	pendingSub, pendingRecv := getSubscription(subscriber.onPending, h.pendingBlock)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
 
 	sub.wg.Go(func() {
@@ -130,7 +130,7 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(reorgSub)
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
-			unsubscribeFeedSubscription(pendingDataSub)
+			unsubscribeFeedSubscription(pendingSub)
 		}()
 
 		if subscriber.onStart != nil {
@@ -160,7 +160,7 @@ func (h *Handler) subscribe(
 					return
 				}
 			case pending := <-pendingRecv:
-				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
+				if err := subscriber.onPending(subscriptionCtx, id, sub, pending); err != nil {
 					h.log.Warnw("Error on pending", "id", id, "err", err)
 					return
 				}
@@ -228,11 +228,7 @@ func (h *Handler) SubscribeEvents(
 			nextBlock = head.Number + 1
 			return nil
 		},
-		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
+		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
 			return h.processEvents(
 				ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent,
 			)
@@ -271,11 +267,7 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			}
 			return nil
 		},
-		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
+		onPending: func(ctx context.Context, id string, sub *subscription, pending *core.Block) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -353,7 +345,7 @@ func (h *Handler) checkTxStatus(
 func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to uint64, fromAddr *felt.Felt,
 	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
 ) error {
-	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(fromAddr, keys)
 	if err != nil {
 		h.log.Warnw("Error creating event filter", "err", err)
 		return err
@@ -486,17 +478,13 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			if pending := h.PendingBlock(); pending != nil {
+			if pending := h.syncReader.PendingBlock(); pending != nil {
 				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 			}
 			return nil
 		},
-		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			if pending == nil || pending.Variant() != core.PendingBlockVariant {
-				return nil
-			}
-
-			return h.onPendingBlock(id, w, getDetails, senderAddr, pending.GetBlock(), &lastParentHash, sentTxHashes)
+		onPending: func(ctx context.Context, id string, _ *subscription, pending *core.Block) error {
+			return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)

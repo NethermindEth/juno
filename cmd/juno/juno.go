@@ -54,7 +54,6 @@ const (
 	pprofPortF                          = "pprof-port"
 	colourF                             = "colour"
 	pendingPollIntervalF                = "pending-poll-interval"
-	preConfirmedPollIntervalF           = "preconfirmed-poll-interval"
 	p2pF                                = "p2p"
 	p2pAddrF                            = "p2p-addr"
 	p2pPublicAddrF                      = "p2p-public-addr"
@@ -90,7 +89,6 @@ const (
 	seqBlockTimeF                       = "seq-block-time"
 	seqGenesisFileF                     = "seq-genesis-file"
 	seqDisableFeesF                     = "seq-disable-fees"
-	readinessBlockToleranceF            = "readiness-block-tolerance"
 	httpUpdateHostF                     = "http-update-host"
 	httpUpdatePortF                     = "http-update-port"
 	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
@@ -108,7 +106,6 @@ const (
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
 	defaultPendingPollInterval                = 5 * time.Second
-	defaultPreConfirmedPollInterval           = time.Second
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
@@ -139,7 +136,6 @@ const (
 	defaultSeqBlockTime                       = 60
 	defaultSeqGenesisFile                     = ""
 	defaultSeqDisableFees                     = false
-	defaultReadinessBlockTolerance            = 6
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
@@ -167,14 +163,12 @@ const (
 	colourUsage                           = "Use `--colour=false` command to disable colourized outputs (ANSI Escape Codes)."
 	ethNodeUsage                          = "WebSocket endpoint of the Ethereum node. To verify the correctness of the L2 chain, " +
 		"Juno must connect to an Ethereum node and parse events in the Starknet contract."
-	disableL1VerificationUsage    = "Disables L1 verification since an Ethereum node is not provided."
-	pendingPollIntervalUsage      = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
-	preConfirmedPollIntervalUsage = "Sets how frequently pre_confirmed block will be updated" +
-		"(0s will disable fetching of pre_confirmed block)."
-	p2pUsage           = "EXPERIMENTAL: Enables p2p server."
-	p2pAddrUsage       = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
-	p2pPublicAddrUsage = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
-	p2pPeersUsage      = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
+	disableL1VerificationUsage = "Disables L1 verification since an Ethereum node is not provided."
+	pendingPollIntervalUsage   = "Sets how frequently pending block will be updated (0s will disable fetching of pending block)."
+	p2pUsage                   = "EXPERIMENTAL: Enables p2p server."
+	p2pAddrUsage               = "EXPERIMENTAL: Specify p2p listening source address as multiaddr.  Example: /ip4/0.0.0.0/tcp/7777"
+	p2pPublicAddrUsage         = "EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777"
+	p2pPeersUsage              = "EXPERIMENTAL: Specify list of p2p peers split by a comma. " +
 		"These peers can be either Feeder or regular nodes."
 	p2pFeederNodeUsage = "EXPERIMENTAL: Run juno as a feeder node which will only sync from feeder gateway and gossip the new" +
 		" blocks to the network."
@@ -204,7 +198,6 @@ const (
 	seqBlockTimeUsage                  = "Time to build a block, in seconds"
 	seqGenesisFileUsage                = "Path to the genesis file"
 	seqDisableFeesUsage                = "Skip charge fee for sequencer execution"
-	readinessBlockToleranceUsage       = "Maximum blocks behind latest for /ready endpoints to return 200 OK"
 	httpUpdateHostUsage                = "The interface on which the log level and gateway timeouts HTTP server will listen for requests."
 	httpUpdatePortUsage                = "The port on which the log level and gateway timeouts HTTP server will listen for requests."
 	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
@@ -375,7 +368,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint16(pprofPortF, defaultPprofPort, pprofPortUsage)
 	junoCmd.Flags().Bool(colourF, defaultColour, colourUsage)
 	junoCmd.Flags().Duration(pendingPollIntervalF, defaultPendingPollInterval, pendingPollIntervalUsage)
-	junoCmd.Flags().Duration(preConfirmedPollIntervalF, defaultPreConfirmedPollInterval, preConfirmedPollIntervalUsage)
 	junoCmd.Flags().Bool(p2pF, defaultP2p, p2pUsage)
 	junoCmd.Flags().String(p2pAddrF, defaultP2pAddr, p2pAddrUsage)
 	junoCmd.Flags().String(p2pPublicAddrF, defaultP2pPublicAddr, p2pPublicAddrUsage)
@@ -407,7 +399,6 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.Flags().Uint(seqBlockTimeF, defaultSeqBlockTime, seqBlockTimeUsage)
 	junoCmd.Flags().String(seqGenesisFileF, defaultSeqGenesisFile, seqGenesisFileUsage)
 	junoCmd.Flags().Bool(seqDisableFeesF, defaultSeqDisableFees, seqDisableFeesUsage)
-	junoCmd.Flags().Uint(readinessBlockToleranceF, defaultReadinessBlockTolerance, readinessBlockToleranceUsage)
 	junoCmd.Flags().String(httpUpdateHostF, defaultHost, httpUpdateHostUsage)
 	junoCmd.Flags().Uint16(httpUpdatePortF, defaultHTTPUpdatePort, httpUpdatePortUsage)
 	junoCmd.Flags().Uint(submittedTransactionsCacheSizeF, defaultSubmittedTransactionsCacheSize, submittedTransactionsCacheSize)

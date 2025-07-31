@@ -20,7 +20,7 @@
 | `grpc-host` | `localhost` | The interface on which the gRPC server will listen for requests |
 | `grpc-port` | `6064` | The port on which the gRPC server will listen for requests |
 | `gw-api-key` |  | API key for gateway endpoints to avoid throttling |
-| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified in three ways:\n- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment |
+| `gw-timeouts` | `5s` | Timeouts for requests made to the gateway. Can be specified in three ways:\n- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically \n- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures. - Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment |
 | `http` | `false` | Enables the HTTP RPC server on the default port and interface |
 | `http-host` | `localhost` | The interface on which the HTTP RPC server will listen for requests |
 | `http-port` | `6060` | The port on which the HTTP server will listen for requests |
@@ -44,17 +44,10 @@
 | `pprof` | `false` | Enables the pprof endpoint on the default port |
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
 | `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
-| `preconfirmed-poll-interval` | `time.Second` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
-| `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
 | `rpc-cors-enable` | `false` | Enable CORS on RPC endpoints |
 | `rpc-max-block-scan` | `18446744073709551615` | Maximum number of blocks scanned in single starknet_getEvents call |
-| `seq-block-time` | `60` | Time to build a block, in seconds |
-| `seq-disable-fees` | `false` | Skip charge fee for sequencer execution |
-| `seq-enable` | `false` | Enables sequencer mode of operation |
-| `seq-genesis-file` |  | Path to the genesis file |
-| `submitted-transactions-cache-size` | `10000` | Maximum number of entries in the submitted transactions cache |
 | `versioned-constants-file` |  | Use custom versioned constants from provided file |
 | `ws` | `false` | Enables the WebSocket RPC server on the default port |
 | `ws-host` | `localhost` | The interface on which the WebSocket RPC server will listen for requests |

@@ -20,5 +20,4 @@ type StarknetData interface {
 	StateUpdatePending(ctx context.Context) (*core.StateUpdate, error)
 	StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error)
 	StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error)
-	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error)
 }

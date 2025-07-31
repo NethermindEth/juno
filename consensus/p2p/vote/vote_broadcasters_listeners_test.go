@@ -78,7 +78,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		})
 		for i := range prevotes {
 			logger.Debugw("broadcasting prevote", "vote", getPrevoteString(prevotes[i]))
-			prevoteBroadcaster.Broadcast(t.Context(), prevotes[i])
+			prevoteBroadcaster.Broadcast(prevotes[i])
 			time.Sleep(throttledRate)
 		}
 	}()
@@ -90,7 +90,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		})
 		for i := range precommits {
 			logger.Debugw("broadcasting precommit", "vote", getPrecommitString(precommits[i]))
-			precommitBroadcaster.Broadcast(t.Context(), precommits[i])
+			precommitBroadcaster.Broadcast(precommits[i])
 			time.Sleep(throttledRate)
 		}
 	}()

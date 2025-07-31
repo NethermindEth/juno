@@ -103,7 +103,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				return mockReader.BlockByNumber(test.blockNumber)
 			})
 
-			handler := rpcv7.New(mockReader, nil, nil, n, nil)
+			handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 			handler = handler.WithFeeder(client)
 			traces, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Number: test.blockNumber})
 			if n == &utils.Sepolia && description == "newer block" {
@@ -141,7 +141,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
-		handler := rpcv7.New(mockReader, nil, nil, n, nil)
+		handler := rpcv7.New(mockReader, nil, nil, "", n, nil)
 
 		tracedBlocks, httpHeader, jErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Number: blockNumber})
 
@@ -252,18 +252,14 @@ func TestTraceTransaction(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, &utils.Mainnet, utils.NewNopZapLogger())
+	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, "", &utils.Mainnet, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
 		t.Run("key not found", func(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns error related to db
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
-			pending := sync.NewPending(&core.Block{}, nil, nil)
-			mockSyncReader.EXPECT().PendingData().Return(
-				&pending,
-				nil,
-			)
+			mockSyncReader.EXPECT().Pending().Return(&sync.Pending{Block: &core.Block{}}, nil)
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
@@ -405,11 +401,10 @@ func TestTraceTransaction(t *testing.T) {
 		}
 
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		pending := sync.NewPending(block, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(
-			&pending,
-			nil,
-		).Times(2)
+		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
+			Block: block,
+		}, nil)
+
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
@@ -481,7 +476,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &utils.Sepolia
 
-		handler := rpcv7.New(mockReader, mockSyncReader, mockVM, n, utils.NewNopZapLogger())
+		handler := rpcv7.New(mockReader, mockSyncReader, mockVM, "", n, utils.NewNopZapLogger())
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
@@ -623,16 +618,16 @@ func TestTraceBlockTransactions(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			handler := rpcv7.New(chain, nil, nil, n, log)
+			handler := rpcv7.New(chain, nil, nil, "", n, log)
 
 			if description == "pending" {
 				mockCtrl := gomock.NewController(t)
 				t.Cleanup(mockCtrl.Finish)
 
 				mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
 
-				handler = rpcv7.New(chain, mockSyncReader, nil, n, log)
+				handler = rpcv7.New(chain, mockSyncReader, nil, "", n, log)
 			}
 
 			update, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
@@ -652,7 +647,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 	log := utils.NewNopZapLogger()
 
-	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, n, log)
+	handler := rpcv7.New(mockReader, mockSyncReader, mockVM, "", n, log)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -684,8 +679,6 @@ func TestTraceBlockTransactions(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := sync.NewPending(nil, nil, nil)
-		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
@@ -901,7 +894,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.ExecuteInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
 			StateDiff: &vm.StateDiff{ //nolint:dupl
 				StorageDiffs: []vm.StorageDiff{
 					{
@@ -1046,7 +1039,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.ExecuteInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
 		}
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
@@ -1074,60 +1067,30 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 	})
 
 	t.Run("successfully adapt L1_HANDLER tx from vm", func(t *testing.T) {
-		t.Run("Execution succeed", func(t *testing.T) {
-			vmTrace := vm.TransactionTrace{
-				Type:                  vm.TxnL1Handler,
-				ValidateInvocation:    &vm.FunctionInvocation{},
-				FeeTransferInvocation: &vm.FunctionInvocation{},
-				ExecuteInvocation: &vm.ExecuteInvocation{
-					RevertReason:       "",
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-				ConstructorInvocation: &vm.FunctionInvocation{},
-				FunctionInvocation: &vm.ExecuteInvocation{
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-			}
+		vmTrace := vm.TransactionTrace{
+			Type:                  vm.TxnL1Handler,
+			ValidateInvocation:    &vm.FunctionInvocation{},
+			FeeTransferInvocation: &vm.FunctionInvocation{},
+			ExecuteInvocation: &vm.ExecuteInvocation{
+				RevertReason:       "",
+				FunctionInvocation: &vm.FunctionInvocation{},
+			},
+			ConstructorInvocation: &vm.FunctionInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
+		}
 
-			expectedAdaptedTrace := rpcv7.TransactionTrace{
-				Type: rpcv7.TxnL1Handler,
-				FunctionInvocation: &rpcv6.FunctionInvocation{
-					Calls:    []rpcv6.FunctionInvocation{},
-					Events:   []rpcv6.OrderedEvent{},
-					Messages: []rpcv6.OrderedL2toL1Message{},
-				},
-			}
+		expectedAdaptedTrace := rpcv7.TransactionTrace{
+			Type: rpcv7.TxnL1Handler,
+			FunctionInvocation: &rpcv6.FunctionInvocation{
+				Calls:    []rpcv6.FunctionInvocation{},
+				Events:   []rpcv6.OrderedEvent{},
+				Messages: []rpcv6.OrderedL2toL1Message{},
+			},
+		}
 
-			adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
+		adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
 
-			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
-		})
-
-		t.Run("Execution reverted", func(t *testing.T) {
-			vmTrace := vm.TransactionTrace{
-				Type:                  vm.TxnL1Handler,
-				ValidateInvocation:    &vm.FunctionInvocation{},
-				FeeTransferInvocation: &vm.FunctionInvocation{},
-				ExecuteInvocation: &vm.ExecuteInvocation{
-					RevertReason:       "",
-					FunctionInvocation: &vm.FunctionInvocation{},
-				},
-				ConstructorInvocation: &vm.FunctionInvocation{},
-				FunctionInvocation: &vm.ExecuteInvocation{
-					RevertReason: "Reverted",
-				},
-			}
-
-			defaultL1HandlerInvocation := rpcv6.DefaultL1HandlerFunctionInvocation()
-			expectedAdaptedTrace := rpcv7.TransactionTrace{
-				Type:               rpcv7.TxnL1Handler,
-				FunctionInvocation: &defaultL1HandlerInvocation,
-			}
-
-			adaptedTrace := rpcv7.AdaptVMTransactionTrace(&vmTrace)
-
-			require.Equal(t, expectedAdaptedTrace, adaptedTrace)
-		})
+		require.Equal(t, expectedAdaptedTrace, adaptedTrace)
 	})
 
 	t.Run("successfully adapt DECLARE tx from vm", func(t *testing.T) {
@@ -1140,7 +1103,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 				FunctionInvocation: &vm.FunctionInvocation{},
 			},
 			ConstructorInvocation: &vm.FunctionInvocation{},
-			FunctionInvocation:    &vm.ExecuteInvocation{},
+			FunctionInvocation:    &vm.FunctionInvocation{},
 		}
 
 		expectedAdaptedTrace := rpcv7.TransactionTrace{
@@ -1476,7 +1439,7 @@ func TestCall(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpcv7.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
+	handler := rpcv7.New(mockReader, nil, mockVM, "", n, utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)

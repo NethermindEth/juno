@@ -80,7 +80,7 @@ func (t *transition) OnEmptyBlockCommitment(
 	state *AwaitingBlockInfoOrCommitmentState,
 	commitment *types.ProposalCommitment,
 ) (*AwaitingProposalFinState, error) {
-	buildState, err := t.builder.InitPreconfirmedBlock(&builder.BuildParams{
+	buildState, err := t.builder.InitPendingBlock(&builder.BuildParams{
 		Builder:           felt.Felt(state.Header.Sender),
 		Timestamp:         commitment.Timestamp,
 		L2GasPriceFRI:     felt.Zero,
@@ -101,7 +101,7 @@ func (t *transition) OnEmptyBlockCommitment(
 	return &AwaitingProposalFinState{
 		Proposal: &starknet.Proposal{
 			MessageHeader: *state.Header,
-			Value:         (*starknet.Value)(buildResult.Preconfirmed.Block.Hash),
+			Value:         (*starknet.Value)(buildResult.Pending.Block.Hash),
 			ValidRound:    state.ValidRound,
 		},
 		BuildResult: &buildResult,
@@ -114,7 +114,7 @@ func (t *transition) OnBlockInfo(
 	state *AwaitingBlockInfoOrCommitmentState,
 	blockInfo *types.BlockInfo,
 ) (*ReceivingTransactionsState, error) {
-	buildState, err := t.builder.InitPreconfirmedBlock(&builder.BuildParams{
+	buildState, err := t.builder.InitPendingBlock(&builder.BuildParams{
 		Builder:           blockInfo.Builder,
 		Timestamp:         blockInfo.Timestamp,
 		L2GasPriceFRI:     blockInfo.L2GasPriceFRI,
@@ -170,7 +170,7 @@ func (t *transition) OnProposalCommitment(
 	return &AwaitingProposalFinState{
 		Proposal: &starknet.Proposal{
 			MessageHeader: *state.Header,
-			Value:         (*starknet.Value)(buildResult.Preconfirmed.Block.Hash),
+			Value:         (*starknet.Value)(buildResult.Pending.Block.Hash),
 			ValidRound:    state.ValidRound,
 		},
 		BuildResult: &buildResult,

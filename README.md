@@ -47,7 +47,7 @@
 
 - Golang 1.24 or higher is required to build and run the project. You can find the installer on
   the official Golang [download](https://go.dev/doc/install) page.
-- [Rust](https://www.rust-lang.org/tools/install) 1.86.0 or higher.
+- [Rust](https://www.rust-lang.org/tools/install) 1.85.1 or higher.
 - A C compiler: `gcc`.
 - Install some dependencies on your system:
   
@@ -114,46 +114,50 @@ If you are looking to become a **Starknet Validator**, follow our guide [here](h
 
 Use the provided snapshots to quickly sync your Juno node with the current state of the network. Fresh snapshots are automatically uploaded once a week and are available under the links below.
 
-**Note**: Snapshots are now provided in compressed `.tar.zst` format for faster downloads and reduced storage requirements. You can stream the download and extraction process without requiring double disk space.
-
 #### Mainnet
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.13.0**  | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
+| **>=v0.13.0**  | [**juno_mainnet.tar**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
 
 #### Sepolia
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
+| **>=v0.13.0** | [**juno_sepolia.tar**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
 
 #### Sepolia-Integration
 
 | Version | Download Link |
 | ------- | ------------- |
-| **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
+| **>=v0.13.0** | [**juno_sepolia_integration.tar**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ### Getting the size for each snapshot
 ```console
 $date
-Mon 28 Jul 2025 08:24:59 GMT
+Thu  1 Aug 2024 09:49:30 BST
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/mainnet/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-186.23 GB
+172.47 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-30.45 GB
+5.67 GB
 
 $curl -s -I -L https://juno-snapshots.nethermind.io/files/sepolia-integration/latest | gawk -v IGNORECASE=1 '/^Content-Length/ { printf "%.2f GB\n", $2/1024/1024/1024 }'
-6.14 GB
+2.4 GB
 ```
 
 ### Run Juno Using Snapshot
 
-This method downloads and extracts the snapshot in one step without requiring double disk space:
+1. **Download Snapshot**
 
-1. **Prepare Directory**
+   Fetch the snapshot from the provided URL:
+
+   ```bash
+   wget -O juno_mainnet.tar https://juno-snapshots.nethermind.io/files/mainnet/latest
+   ```
+
+2. **Prepare Directory**
 
    Ensure you have a directory at `$HOME/snapshots`. If it doesn't exist yet, create it:
 
@@ -161,44 +165,23 @@ This method downloads and extracts the snapshot in one step without requiring do
    mkdir -p $HOME/snapshots
    ```
 
-2. **Install zstd**
+3. **Extract Tarball**
 
-   [zstd (Zstandard)](https://github.com/facebook/zstd) is required to decompress and directly stream the snapshots into your system without requiring temporary storage. zstd provides significantly better compression ratios and faster decompression speeds compared to traditional tar compression.
-
-   ```bash
-   # On Ubuntu/Debian
-   sudo apt-get install zstd
-   
-   # On macOS
-   brew install zstd
-   
-   # On RHEL/CentOS/Fedora
-   sudo dnf install zstd  # or yum install zstd
-   ```
-
-3. **Stream Download and Extract**
-
-   Download and extract the snapshot directly to your target directory:
+   Extract the contents of the `.tar` file:
 
    ```bash
-   # For Mainnet
-   curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
-   | zstd -d | tar -xvf - -C $HOME/snapshots
+   tar -xvf juno_mainnet.tar -C $HOME/snapshots
    ```
-
-   For other networks, replace the URL:
-   - **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
-   - **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
 
 4. **Run Juno**
 
-   Execute the Docker command to run Juno:
+   Execute the Docker command to run Juno, ensuring that you're using the correct snapshot path `$HOME/snapshots/juno_mainnet`:
 
    ```bash
    docker run -d \
      --name juno \
      -p 6060:6060 \
-     -v $HOME/snapshots:/var/lib/juno \
+     -v $HOME/snapshots/juno_mainnet:/var/lib/juno \
      nethermind/juno \
      --http \
      --http-port 6060 \
@@ -207,14 +190,12 @@ This method downloads and extracts the snapshot in one step without requiring do
      --eth-node <YOUR-ETH-NODE>
    ```
 
-   Replace `<YOUR-ETH-NODE>` with your Ethereum node WebSocket URL (e.g., `wss://mainnet.infura.io/ws/v3/your-project-id`).
-
 After following these steps, Juno should be up and running on your machine, utilizing the provided snapshot.
 
 ## ✔ Supported Features
 
-- Starknet [v0.14.0](https://docs.starknet.io/resources/version-notes/#starknet_v0_14_0_july_28_25) support.
-- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` and default`/` endpoints)
+- Starknet [v0.13.5](https://docs.starknet.io/starknet-versions/version-notes/#version0.13.5) support.
+- JSON-RPC [v0.8.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.1) (Available under `/v0_8` and default`/` endpoints)
   
   Chain/Network Information:
   - `starknet_chainId`
@@ -275,8 +256,8 @@ After following these steps, Juno should be up and running on your machine, util
 
 - Juno's JSON-RPC:
   - `juno_version`
-- JSON-RPC [v0.9.0-rc1](https://github.com/starkware-libs/starknet-specs/tree/v0.9.0-rc.1) (Available under `/v0_9` endpoint)
-- JSON-RPC [v0.8.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.8.0) (Available under `/v0_8` endpoint)
+- JSON-RPC [v0.7.1](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.7.1) (Available under `/v0_7` endpoint)
+- JSON-RPC [v0.6.0](https://github.com/starkware-libs/starknet-specs/releases/tag/v0.6.0) (Available under `/v0_6` endpoint)
 - Integration of CairoVM. 
 - Verification of State from L1.
 - Handle L1 and L2 Reorgs.
