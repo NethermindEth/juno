@@ -36,14 +36,12 @@ const (
 	clientName                = "juno"
 )
 
-// Todo: this interface allows us to mock the P2P service until we implement additional tests / test infrastructure
-type WithBlockCh interface {
+type P2PBlockListener interface {
 	service.Service
-	SetListener()
 	Listen() <-chan p2pSync.BlockBody
 }
 
-var _ WithBlockCh = (*Service)(nil)
+var _ P2PBlockListener = (*Service)(nil)
 
 type Service struct {
 	host host.Host
@@ -210,12 +208,8 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	return prvKey, nil
 }
 
-func (s *Service) SetListener() {
-	s.synchroniser.SetListener()
-}
-
 func (s *Service) Listen() <-chan p2pSync.BlockBody {
-	return <-s.synchroniser.ListenerBlockCh
+	return s.synchroniser.Listen()
 }
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
