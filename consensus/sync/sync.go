@@ -34,7 +34,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	getPrecommits func(types.Height) []types.Precommit[H, A],
 	toValue func(*felt.Felt) V,
 	proposalStore *proposal.ProposalStore[H],
-	blockCh chan p2pSync.BlockBody,
 ) Sync[V, H, A] {
 	return Sync[V, H, A]{
 		syncService:       syncService,
