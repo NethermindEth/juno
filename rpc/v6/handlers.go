@@ -35,7 +35,7 @@ type Handler struct {
 	idgen         func() uint64
 	subscriptions stdsync.Map // map[uint64]*subscription
 	newHeads      *feed.Feed[*core.Block]
-	memPool       *mempool.Pool
+	memPool       mempool.Pool
 
 	log                        utils.Logger
 	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
@@ -72,7 +72,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 	}
 }
 
-func (h *Handler) WithMempool(memPool *mempool.Pool) *Handler {
+func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 	h.memPool = memPool
 	return h
 }

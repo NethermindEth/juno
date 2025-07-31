@@ -1,9 +1,6 @@
 package tendermint
 
 import (
-	"maps"
-	"slices"
-
 	"github.com/NethermindEth/juno/consensus/types"
 )
 
@@ -15,30 +12,14 @@ Check the upon condition on line 55:
 
 If there are f + 1 messages from a newer round, there is at least an honest node in that round.
 */
-func (t *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
-	vals := make(map[A]struct{})
-	proposals, prevotes, precommits := t.messages.AllMessages(t.state.height, futureR)
+func (s *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
+	isNewerRound := futureR > s.state.round
 
-	// If a validator has sent proposl, prevote and precommit from a future round then it will only be counted once.
-	for addr := range proposals {
-		vals[addr] = struct{}{}
-	}
-
-	for addr := range prevotes {
-		vals[addr] = struct{}{}
-	}
-
-	for addr := range precommits {
-		vals[addr] = struct{}{}
-	}
-
-	isNewerRound := futureR > t.state.round
-
-	hasQuorum := t.validatorSetVotingPower(slices.Collect(maps.Keys(vals))) > f(t.validators.TotalVotingPower(t.state.height))
+	hasQuorum := s.voteCounter.HasNonFaultyFutureMessage(futureR)
 
 	return isNewerRound && hasQuorum
 }
 
-func (t *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
-	return t.startRound(futureR)
+func (s *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
+	return s.startRound(futureR)
 }

@@ -333,8 +333,8 @@ func TestStorageProof(t *testing.T) {
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
 		nonce := new(felt.Felt).SetUint64(121)
 		mockState.EXPECT().ContractNonce(key).Return(*nonce, nil).Times(1)
-		classHasah := new(felt.Felt).SetUint64(1234)
-		mockState.EXPECT().ContractClassHash(key).Return(*classHasah, nil).Times(1)
+		classHash := new(felt.Felt).SetUint64(1234)
+		mockState.EXPECT().ContractClassHash(key).Return(*classHash, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
 		require.Nil(t, rpcErr)
@@ -344,7 +344,7 @@ func TestStorageProof(t *testing.T) {
 		require.NotNil(t, proof.ContractsProof.LeavesData[0])
 		ld := proof.ContractsProof.LeavesData[0]
 		require.Equal(t, nonce, ld.Nonce)
-		require.Equal(t, classHasah, ld.ClassHash)
+		require.Equal(t, classHash, ld.ClassHash)
 
 		verifyIf(t, &trieRoot, key, value, proof.ContractsProof.Nodes, contractTrie.HashFn())
 	})

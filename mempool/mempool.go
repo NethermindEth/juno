@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -11,6 +12,10 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 )
+
+type Pool interface {
+	Push(context.Context, *BroadcastedTransaction) error
+}
 
 var (
 	ErrTxnPoolFull  = errors.New("transaction pool is full")
@@ -104,9 +109,9 @@ func (t *memTxnList) popBatch(numToPop int) ([]BroadcastedTransaction, error) {
 	return result, nil
 }
 
-// Pool represents a blockchain mempool, managing transactions using both an
+// SequencerMempool represents a blockchain mempool, managing transactions using both an
 // in-memory and persistent database.
-type Pool struct {
+type SequencerMempool struct {
 	log         utils.SimpleLogger
 	bc          blockchain.Reader
 	db          db.KeyValueStore // to store the persistent mempool
@@ -119,8 +124,8 @@ type Pool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) *Pool {
-	pool := Pool{
+func New(mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) *SequencerMempool {
+	pool := SequencerMempool{
 		log:         log,
 		bc:          bc,
 		db:          mainDB, // todo: txns should be deleted everytime a new block is stored (builder responsibility)
@@ -133,12 +138,12 @@ func New(mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log util
 	return &pool
 }
 
-func (p *Pool) Close() {
+func (p *SequencerMempool) Close() {
 	close(p.dbWriteChan)
 	p.wg.Wait()
 }
 
-func (p *Pool) dbWriter() {
+func (p *SequencerMempool) dbWriter() {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -152,7 +157,7 @@ func (p *Pool) dbWriter() {
 }
 
 // LoadFromDB restores the in-memory transaction pool from the database
-func (p *Pool) LoadFromDB() error {
+func (p *SequencerMempool) LoadFromDB() error {
 	headVal, err := GetHeadValue(p.db)
 	if err != nil {
 		if errors.Is(err, db.ErrKeyNotFound) {
@@ -175,7 +180,7 @@ func (p *Pool) LoadFromDB() error {
 }
 
 // writeToDB adds the transaction to the persistent pool db
-func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
+func (p *SequencerMempool) writeToDB(userTxn *BroadcastedTransaction) error {
 	batch := p.db.NewBatch()
 
 	var tailVal *felt.Felt
@@ -228,7 +233,7 @@ func (p *Pool) writeToDB(userTxn *BroadcastedTransaction) error {
 }
 
 // Push queues a transaction to the pool
-func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
+func (p *SequencerMempool) Push(ctx context.Context, userTxn *BroadcastedTransaction) error {
 	p.log.Debugw("mempool received transaction for pre-processing")
 	err := p.validate(userTxn)
 	if err != nil {
@@ -262,7 +267,7 @@ func (p *Pool) Push(userTxn *BroadcastedTransaction) error {
 	return nil
 }
 
-func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
+func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 	if p.memTxnList.len+1 >= p.maxNumTxns {
 		return ErrTxnPoolFull
 	}
@@ -306,12 +311,12 @@ func (p *Pool) validate(userTxn *BroadcastedTransaction) error {
 }
 
 // Pop returns the transaction with the highest priority from the in-memory pool
-func (p *Pool) Pop() (BroadcastedTransaction, error) {
+func (p *SequencerMempool) Pop() (BroadcastedTransaction, error) {
 	return p.memTxnList.pop()
 }
 
 // PopBatch returns a batch of transactions with the highest priority from the in-memory pool
-func (p *Pool) PopBatch(numToPop int) ([]BroadcastedTransaction, error) {
+func (p *SequencerMempool) PopBatch(numToPop int) ([]BroadcastedTransaction, error) {
 	if numToPop <= 0 {
 		return []BroadcastedTransaction{}, nil
 	}
@@ -321,19 +326,19 @@ func (p *Pool) PopBatch(numToPop int) ([]BroadcastedTransaction, error) {
 // Remove removes a set of transactions from the pool
 // todo: should be called by the builder to remove txns from the db everytime a new block is stored.
 // todo: in the consensus+p2p world, the txns should also be removed from the in-memory pool.
-func (p *Pool) Remove(hash ...*felt.Felt) error {
+func (p *SequencerMempool) Remove(hash ...*felt.Felt) error {
 	return errors.New("not implemented")
 }
 
 // Len returns the number of transactions in the in-memory pool
-func (p *Pool) Len() int {
+func (p *SequencerMempool) Len() int {
 	return p.memTxnList.len
 }
 
-func (p *Pool) Wait() <-chan struct{} {
+func (p *SequencerMempool) Wait() <-chan struct{} {
 	return p.txPushed
 }
 
-func (p *Pool) LenDB() (int, error) {
+func (p *SequencerMempool) LenDB() (int, error) {
 	return GetLenDB(p.db)
 }

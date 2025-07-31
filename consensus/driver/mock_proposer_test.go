@@ -5,9 +5,9 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
-	"github.com/NethermindEth/juno/sync"
 )
 
 // Driver only calls `OnCommit`, so we don't have to mock the other methods
@@ -32,9 +32,13 @@ func (m *mockProposer) Valid(value starknet.Value) bool {
 	return true
 }
 
-func (m *mockProposer) Submit(transactions []mempool.BroadcastedTransaction) {
+func (m *mockProposer) Submit(ctx context.Context, transactions []mempool.BroadcastedTransaction) {
 }
 
-func (m *mockProposer) Pending() *sync.Pending {
+func (m *mockProposer) Push(ctx context.Context, transaction *mempool.BroadcastedTransaction) error {
+	return nil
+}
+
+func (m *mockProposer) Preconfirmed() *core.PreConfirmed {
 	return nil
 }

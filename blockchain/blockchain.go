@@ -244,7 +244,8 @@ func (b *Blockchain) SubscribeL1Head() L1HeadSubscription {
 
 func (b *Blockchain) L1Head() (*core.L1Head, error) {
 	b.listener.OnRead("L1Head")
-	return core.GetL1Head(b.database)
+	l1Head, err := core.GetL1Head(b.database)
+	return &l1Head, err
 }
 
 func (b *Blockchain) SetL1Head(update *core.L1Head) error {
@@ -376,7 +377,11 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (state.StateReader, 
 		return nil, err
 	}
 
-	return state.New(header.GlobalStateRoot, b.StateDB)
+	history, err := state.NewStateHistory(blockNumber, header.GlobalStateRoot, b.StateDB)
+	if err != nil {
+		return nil, err
+	}
+	return &history, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -391,7 +396,11 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (state.StateReader, 
 		return nil, err
 	}
 
-	return state.New(header.GlobalStateRoot, b.StateDB)
+	history, err := state.NewStateHistory(header.Number, header.GlobalStateRoot, b.StateDB)
+	if err != nil {
+		return nil, err
+	}
+	return &history, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

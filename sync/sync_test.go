@@ -336,6 +336,51 @@ func TestPendingData(t *testing.T) {
 			_, pErr := synchronizer.PendingState()
 			require.NoError(t, pErr)
 		})
+
+		t.Run("get pending state before index", func(t *testing.T) {
+			var synchronizer *sync.Synchronizer
+			testDB := memory.New()
+			chain := blockchain.New(testDB, &utils.Mainnet)
+			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
+			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
+
+			require.NoError(t, err)
+			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+			gw := adaptfeeder.New(client)
+			preConfirmed, err := gw.PreConfirmedBlockByNumber(t.Context(), 1204672)
+			preConfirmed.StateUpdate.OldRoot = &felt.Zero
+			preConfirmed.Block.Number = 0
+			require.NoError(t, err)
+			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
+			txCount := len(preConfirmed.GetTransactions())
+
+			pendingState, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
+			require.NoError(t, pErr)
+
+			// Check storage value in two different index
+			// See clients/feeder/testdata/sepolia-integration/pre_confirmed/1204672.json
+			contractAddress, err := new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			require.NoError(t, err)
+			key, err := new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			require.NoError(t, err)
+			val, err := pendingState.ContractStorage(contractAddress, key)
+			require.NoError(t, err)
+			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
+			require.NoError(t, err)
+			require.Equal(t, *expectedVal, val)
+
+			pendingState, pErr = synchronizer.PendingStateBeforeIndex(txCount)
+			require.NoError(t, pErr)
+			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			require.NoError(t, err)
+			key, err = new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			require.NoError(t, err)
+			val, err = pendingState.ContractStorage(contractAddress, key)
+			require.NoError(t, err)
+			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
+			require.NoError(t, err)
+			require.Equal(t, *expectedVal, val)
+		})
 	})
 }
 

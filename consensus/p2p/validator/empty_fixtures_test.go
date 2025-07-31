@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -93,7 +92,7 @@ func NewEmptyTestFixture(
 
 func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, timestamp uint64) builder.BuildResult {
 	return builder.BuildResult{
-		Pending: &sync.Pending{
+		Preconfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Hash:             expectedHash,
@@ -126,7 +125,9 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 				OldRoot:   headBlock.GlobalStateRoot,
 				StateDiff: utils.HeapPtr(core.EmptyStateDiff()),
 			},
-			NewClasses: make(map[felt.Felt]core.Class),
+			NewClasses:            make(map[felt.Felt]core.Class),
+			TransactionStateDiffs: []*core.StateDiff{},
+			CandidateTxs:          []core.Transaction{},
 		},
 		SimulateResult: &blockchain.SimulateResult{
 			BlockCommitments: &core.BlockCommitments{

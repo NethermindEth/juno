@@ -99,6 +99,20 @@ func (mr *MockEventFiltererMockRecorder) SetRangeEndBlockByNumber(filterRange, b
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRangeEndBlockByNumber", reflect.TypeOf((*MockEventFilterer)(nil).SetRangeEndBlockByNumber), filterRange, blockNumber)
 }
 
+// SetRangeEndBlockToL1Head mocks base method.
+func (m *MockEventFilterer) SetRangeEndBlockToL1Head(filterRange blockchain.EventFilterRange) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRangeEndBlockToL1Head", filterRange)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetRangeEndBlockToL1Head indicates an expected call of SetRangeEndBlockToL1Head.
+func (mr *MockEventFiltererMockRecorder) SetRangeEndBlockToL1Head(filterRange any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRangeEndBlockToL1Head", reflect.TypeOf((*MockEventFilterer)(nil).SetRangeEndBlockToL1Head), filterRange)
+}
+
 // WithLimit mocks base method.
 func (m *MockEventFilterer) WithLimit(limit uint) *blockchain.EventFilter {
 	m.ctrl.T.Helper()

@@ -25,6 +25,7 @@ var (
 	noClassContractsClassHash = felt.Zero
 	noClassContracts          = map[felt.Felt]struct{}{
 		*new(felt.Felt).SetUint64(1): {},
+		*new(felt.Felt).SetUint64(2): {},
 	}
 )
 
@@ -569,7 +570,7 @@ func (s *State) verifyComm(comm *felt.Felt) error {
 	}
 
 	if !curComm.Equal(comm) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, curComm)
+		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", comm, &curComm)
 	}
 
 	return nil
