@@ -16,6 +16,9 @@ type CommonState interface {
 	ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
+
+	Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.Class, skipVerifyNewRoot bool) error
+	Revert(blockNum uint64, update *core.StateUpdate) error
 }
 
 type StateReader interface {
