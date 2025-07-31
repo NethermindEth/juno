@@ -3,7 +3,6 @@ package sync_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -22,15 +21,15 @@ import (
 )
 
 type mockP2PSyncService struct {
-	syncReceiveCh   chan sync.BlockBody   // blocks received over p2p go here
-	blockListenerCh <-chan sync.BlockBody // Listener will get this
+	syncReceiveCh   chan sync.BlockBody // blocks received over p2p go here
+	blockListenerCh chan sync.BlockBody // Listener will get this
 	triggerErr      bool
 }
 
 func newMockP2PSyncService(syncReceiveCh chan sync.BlockBody) mockP2PSyncService {
 	return mockP2PSyncService{
 		syncReceiveCh:   syncReceiveCh,
-		blockListenerCh: make(<-chan sync.BlockBody),
+		blockListenerCh: make(chan sync.BlockBody),
 	}
 }
 
@@ -43,8 +42,6 @@ func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {
 }
 
 func (m *mockP2PSyncService) Listen() <-chan sync.BlockBody {
-	fmt.Println(" (m *mockP2PSyncService) Listen()")
-	defer fmt.Println(" (m *mockP2PSyncService) Listen() Done")
 	return m.blockListenerCh
 }
 
@@ -57,12 +54,7 @@ func (m *mockP2PSyncService) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case committedBlock := <-m.syncReceiveCh:
-			fmt.Println(" committedBlock := <-m.syncReceiveCh")
-			blocksCh := make(chan sync.BlockBody, 1)
-			blocksCh <- committedBlock
-			fmt.Println(" committedBlock := <-m.syncReceiveCh 2")
-			m.blockListenerCh = blocksCh
-			fmt.Println(" committedBlock := <-m.syncReceiveCh Done")
+			m.blockListenerCh <- committedBlock
 		}
 	}
 }

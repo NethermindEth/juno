@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -11,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p"
-	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -56,29 +54,12 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 		}
 	}()
 
-	// Todo: this is kind of ugly, but it unblocks the listen() function in the select-case below
-	forwardCh := make(chan p2pSync.BlockBody)
-	go func() {
-		for {
-			inner := s.syncService.Listen()
-			fmt.Println(" inner")
-			for blk := range inner {
-				fmt.Println(" blk")
-				forwardCh <- blk
-			}
-			fmt.Println(" inner done")
-		}
-	}()
-
 	for {
-		fmt.Println("   [] consen sync select")
 		select {
-
 		case <-ctx.Done():
 			cancel()
 			return
-		case committedBlock := <-forwardCh:
-
+		case committedBlock := <-s.syncService.Listen():
 			msgV := s.toValue(committedBlock.Block.Hash)
 			msgH := msgV.Hash()
 			concatCommitments := core.ConcatCounts(
@@ -131,7 +112,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 				return
 			case s.driverProposalCh <- proposal:
 			}
-
 		}
 	}
 }
