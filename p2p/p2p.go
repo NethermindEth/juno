@@ -36,12 +36,12 @@ const (
 	clientName                = "juno"
 )
 
-type P2PBlockListener interface {
+type BlockListener interface {
 	service.Service
 	Listen() <-chan p2pSync.BlockBody
 }
 
-var _ P2PBlockListener = (*Service)(nil)
+var _ BlockListener = (*Service)(nil)
 
 type Service struct {
 	host host.Host

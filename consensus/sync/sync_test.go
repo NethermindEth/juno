@@ -96,12 +96,11 @@ func TestSync(t *testing.T) {
 		mockTimeoutFn,
 	)
 	driver.Start()
-	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 
 	block0 := getCommittedBlock()
 	block0Hash := block0.Block.Hash
@@ -127,12 +126,11 @@ func TestShutdownOnError(t *testing.T) {
 	proposalCh := make(chan starknet.Proposal)
 	precommitCh := make(chan starknet.Precommit)
 
-	blockCh := make(chan sync.BlockBody)
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore, blockCh)
+	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 	cancel()
 	consensusSyncService.Run(ctx)
 

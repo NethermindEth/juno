@@ -88,7 +88,7 @@ func Bridge[T any](ctx context.Context, out chan T, chanCh <-chan <-chan T) {
 						}
 						select {
 						case <-ctx.Done():
-						case out <- val: // Blocks until caller calls Listen()
+						case out <- val:
 						}
 					}
 				}

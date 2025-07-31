@@ -18,7 +18,7 @@ import (
 const syncRoundPlaceHolder = -1 // Todo: We use this value until the round is added to the spec
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	syncService       p2p.P2PBlockListener
+	syncService       p2p.BlockListener
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
@@ -29,7 +29,7 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	syncService p2p.P2PBlockListener,
+	syncService p2p.BlockListener,
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
 	getPrecommits func(types.Height) []types.Precommit[H, A],
