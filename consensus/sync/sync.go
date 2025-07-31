@@ -46,6 +46,8 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 
 func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 	ctx, cancel := context.WithCancel(originalCtx)
+	defer cancel()
+
 	go func() {
 		err := s.syncService.Run(ctx)
 		if err != nil {
@@ -57,7 +59,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			cancel()
 			return
 		case committedBlock := <-s.syncService.Listen():
 			msgV := s.toValue(committedBlock.Block.Hash)
@@ -90,7 +91,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 			for _, precommit := range precommits {
 				select {
 				case <-ctx.Done():
-					cancel()
 					return
 				case s.driverPrecommitCh <- precommit:
 				}
@@ -108,7 +108,6 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 
 			select {
 			case <-ctx.Done():
-				cancel()
 				return
 			case s.driverProposalCh <- proposal:
 			}
