@@ -74,39 +74,9 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 			cancel()
 			return
 		case committedBlock := <-forwardCh:
-			// Todo: we can optimise this by performing a height
-			// check before pushing everything through consensus.
-			// ie skip if syncBlock.Height != DB.Height+1
-			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
-			for _, precommit := range precommits {
-				select {
-				case <-ctx.Done():
-					cancel()
-					return
-				case s.driverPrecommitCh <- precommit:
-				}
-			}
 
 			msgV := s.toValue(committedBlock.Block.Hash)
 			msgH := msgV.Hash()
-
-			proposal := types.Proposal[V, H, A]{
-				MessageHeader: types.MessageHeader[A]{
-					Height: types.Height(committedBlock.Block.Number),
-					Round:  syncRoundPlaceHolder,
-					Sender: committedBlock.Block.SequencerAddress.Bits(),
-				},
-				ValidRound: -1,
-				Value:      &msgV,
-			}
-
-			select {
-			case <-ctx.Done():
-				cancel()
-				return
-			case s.driverProposalCh <- proposal:
-			}
-
 			concatCommitments := core.ConcatCounts(
 				committedBlock.Block.TransactionCount,
 				committedBlock.Block.EventCount,
@@ -127,6 +97,37 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 				L2GasConsumed: 1,
 			}
 			s.proposalStore.Store(msgH, &buildResult)
+
+			// Todo: we can optimise this by performing a height
+			// check before pushing everything through consensus.
+			// ie skip if syncBlock.Height != DB.Height+1
+			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
+			for _, precommit := range precommits {
+				select {
+				case <-ctx.Done():
+					cancel()
+					return
+				case s.driverPrecommitCh <- precommit:
+				}
+			}
+
+			proposal := types.Proposal[V, H, A]{
+				MessageHeader: types.MessageHeader[A]{
+					Height: types.Height(committedBlock.Block.Number),
+					Round:  syncRoundPlaceHolder,
+					Sender: committedBlock.Block.SequencerAddress.Bits(),
+				},
+				ValidRound: -1,
+				Value:      &msgV,
+			}
+
+			select {
+			case <-ctx.Done():
+				cancel()
+				return
+			case s.driverProposalCh <- proposal:
+			}
+
 		}
 	}
 }
