@@ -406,7 +406,7 @@ func GetReceiptsByBlockNum(iterable db.Iterable, blockNum uint64) ([]*Transactio
 	return receipts, nil
 }
 
-func GetBlockByNumber(r db.IndexedBatch, blockNum uint64) (*Block, error) {
+func GetBlockByNumber(r db.KeyValueStore, blockNum uint64) (*Block, error) {
 	header, err := GetBlockHeaderByNumber(r, blockNum)
 	if err != nil {
 		return nil, err
