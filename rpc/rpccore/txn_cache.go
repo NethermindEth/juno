@@ -19,14 +19,14 @@ const (
 // For example, with TTL = 5 minutes, and current time = 12 minutes:
 //
 //   - Bucket 1 stores entries received between 0–5 min (expired).
-//   - Bucket 2 stores entries from 5–10 min (partially expired).
+//   - Bucket 2 stores entries from 5–10 min (mix of valid and expired).
 //   - Bucket 3 stores entries from 10–15 min (valid).
 //
 // On each tick (i.e., every TTL interval), the active bucket index advances modulo 3.
 // For example, after a tick at time = 15 min:
-//   - Bucket 1 (previously 0–5 min) is cleared and reused — it is now the **active bucket** (15–20 min).
-//   - Bucket 2 (5–10 min) is now the **oldest** — entries are considered expired and ignored.
-//   - Bucket 3 (10–15 min) may still contain valid entries depending on the exact query time.
+//   - Bucket 1 (previously 0–5 min) now stores entries received between 15–20 min, where all entries are now valid.
+//   - Bucket 2 still stores entries received between 5–10 min, but all entries are now completely expired.
+//   - Bucket 3 still stores entries received between 10–15 min, but the entries can be either valid or expired.
 //
 // The cache behaviour is:
 //   - `Add()` inserts an entry into the current active bucket (latest time window).

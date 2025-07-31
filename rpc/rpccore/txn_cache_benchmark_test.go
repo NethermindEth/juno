@@ -14,7 +14,7 @@ func BenchmarkCache(b *testing.B) {
 	const (
 		totalEntries = 10000
 		numTicks     = 10
-		ttl          = 1
+		ttl          = 1 // Only affects Contains(), effectively marking all entries as extinct. Irrelvant here.
 	)
 
 	cache := rpccore.NewTxnCache(ttl, totalEntries)
@@ -42,7 +42,7 @@ func BenchmarkCache(b *testing.B) {
 				cache.Add(keys[keyID])
 				keyID++
 			}
-			// Trigger the eviction given one tick ("second") has passed
+			// Trigger the eviction given one tick has passed
 			fakeClock <- time.Now()
 		}
 	}
