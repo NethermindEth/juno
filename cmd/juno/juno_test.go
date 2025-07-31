@@ -57,6 +57,7 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
 	defaultPendingPollInterval := 5 * time.Second
+	defaultPreConfirmedPollInterval := time.Second
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
@@ -88,6 +89,7 @@ func TestConfigPrecedence(t *testing.T) {
 		PprofPort:                          defaultPprofPort,
 		Colour:                             defaultColour,
 		PendingPollInterval:                defaultPendingPollInterval,
+		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -100,6 +102,7 @@ func TestConfigPrecedence(t *testing.T) {
 		HTTPUpdatePort:                     0,
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+		ReadinessBlockTolerance:            6,
 	}
 
 	expectedConfig2 := node.Config{
@@ -123,6 +126,7 @@ func TestConfigPrecedence(t *testing.T) {
 		MetricsPort:                        defaultMetricsPort,
 		Colour:                             defaultColour,
 		PendingPollInterval:                defaultPendingPollInterval,
+		PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 		MaxVMs:                             defaultMaxVMs,
 		MaxVMQueue:                         2 * defaultMaxVMs,
 		RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -135,6 +139,7 @@ func TestConfigPrecedence(t *testing.T) {
 		HTTPUpdatePort:                     0,
 		SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 		SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+		ReadinessBlockTolerance:            6,
 	}
 	tests := map[string]struct {
 		cfgFile         bool
@@ -219,6 +224,7 @@ pprof: true
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -231,6 +237,7 @@ pprof: true
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"config file with some settings but without any other flags": {
@@ -260,6 +267,7 @@ http-port: 4576
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -272,6 +280,7 @@ http-port: 4576
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"all flags without config file": {
@@ -307,11 +316,13 @@ http-port: 4576
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
 				GatewayTimeouts:                    defaultGwTimeout,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some flags without config file": {
@@ -340,6 +351,7 @@ http-port: 4576
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -352,6 +364,7 @@ http-port: 4576
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"all setting set in both config file and flags": {
@@ -375,13 +388,14 @@ pprof: true
 pprof-host: 0.0.0.0
 pprof-port: 6064
 pending-poll-interval: 5s
+preconfirmed-poll-interval: 1s
 db-cache-size: 1024
 `,
 			inputArgs: []string{
 				"--log-level", "error", "--http", "--http-port", "4577", "--http-host", "127.0.0.1", "--ws", "--ws-port", "4577", "--ws-host", "127.0.0.1",
 				"--grpc", "--grpc-port", "4577", "--grpc-host", "127.0.0.1", "--metrics", "--metrics-port", "4577", "--metrics-host", "127.0.0.1",
 				"--db-path", "/home/flag/.juno", "--network", "mainnet", "--pprof", "--pending-poll-interval", time.Millisecond.String(),
-				"--db-cache-size", "9",
+				"--preconfirmed-poll-interval", time.Millisecond.String(), "--db-cache-size", "9",
 			},
 			expectedConfig: &node.Config{
 				LogLevel:                           "error",
@@ -404,6 +418,7 @@ db-cache-size: 1024
 				PprofPort:                          6064,
 				Colour:                             defaultColour,
 				PendingPollInterval:                time.Millisecond,
+				PreConfirmedPollInterval:           time.Millisecond,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -416,6 +431,7 @@ db-cache-size: 1024
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both config file and flags": {
@@ -447,6 +463,7 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -459,6 +476,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in default, config file and flags": {
@@ -486,6 +504,7 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -498,6 +517,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"only set env variables": {
@@ -523,6 +543,7 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -535,6 +556,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both env variables and flags": {
@@ -561,6 +583,7 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -573,6 +596,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 		"some setting set in both env variables and config file": {
@@ -599,6 +623,7 @@ network: sepolia
 				PprofPort:                          defaultPprofPort,
 				Colour:                             defaultColour,
 				PendingPollInterval:                defaultPendingPollInterval,
+				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
 				MaxVMs:                             defaultMaxVMs,
 				MaxVMQueue:                         2 * defaultMaxVMs,
 				RPCMaxBlockScan:                    defaultRPCMaxBlockScan,
@@ -612,6 +637,7 @@ network: sepolia
 				HTTPUpdatePort:                     0,
 				SubmittedTransactionsCacheSize:     defaultSubmittedTransactionsCacheSize,
 				SubmittedTransactionsCacheEntryTTL: defaultSubmittedTransactionsCacheEntryTTL,
+				ReadinessBlockTolerance:            6,
 			},
 		},
 	}

@@ -37,6 +37,16 @@ on:
         required: true
       TEST_ACCOUNT_PRIVATE_KEY:
         required: true
+      TEST_ACCOUNT_ADDRESS_2:
+        required: true
+      TEST_ACCOUNT_PRIVATE_KEY_2:
+        required: true
+      TEST_ACCOUNT_ADDRESS_3:
+        required: true
+      TEST_ACCOUNT_PRIVATE_KEY_3:
+        required: true
+      TEST_ACCOUNT_PUBLIC_KEY_3:
+        required: true
       AUTH_TOKEN:
         required: true
 
@@ -91,7 +101,7 @@ jobs:
             
       - name: Verify Deployment Version
         run: |
-          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
+          bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }} ${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
 
   starknet-rs:
     needs: [deploy]
@@ -99,33 +109,48 @@ jobs:
     secrets:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
-  starknet-js:
+  starknet-js-rpcv08:
     needs: [deploy]
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
       test_mode: ${{ inputs.test_mode }}
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_7?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
       TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY }}
 
-  starknet-go-rpcv07:
+  starknet-js-rpcv09:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-go-tests.yml
+    uses: ./.github/workflows/starknet-js-tests.yml
     with:
-      ref: 1ede19210c10f1f1f9c3cb49a42f737cd90eda5e
-      rpc_version: v0_7
+      test_mode: ${{ inputs.test_mode }}
     secrets:
-      TEST_RPC_URL: ${{ secrets.RPC_URL }}
-      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_WS_URL: ${{ secrets.WS_RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
+      TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_2 }}
+      TEST_ACCOUNT_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_2 }}
 
   starknet-go-rpcv08:
     needs: [deploy]
     uses: ./.github/workflows/starknet-go-tests.yml
     with:
-      ref: f7891b64e5ce4f0dafdfe8d0b9854d763452f66e
+      ref: 8ab778d86f42c344ac789acae897d9621530e3de
       rpc_version: v0_8
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
       TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}
       AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+
+  starknet-go-rpcv09:
+    needs: [deploy]
+    uses: ./.github/workflows/starknet-go-tests.yml
+    with:
+      ref: 5f5517021c173741e06a552dd81d6bd8a477713c
+      rpc_version: v0_9
+    secrets:
+      TEST_RPC_URL: ${{ secrets.RPC_URL }}
+      TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}
+      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+      STARKNET_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
+      STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
+      STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}

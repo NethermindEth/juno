@@ -45,14 +45,14 @@ type Reader interface {
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
-	EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error)
+	EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error)
 
 	Network() *utils.Network
 }
 
 var (
 	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	SupportedStarknetVersion  = semver.MustParse("0.13.3")
+	SupportedStarknetVersion  = semver.MustParse("0.14.0")
 )
 
 func CheckBlockVersion(protocolVersion string) error {
@@ -82,13 +82,12 @@ var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
 type Blockchain struct {
-	network        *utils.Network
-	database       db.KeyValueStore
-	listener       EventListener
-	l1HeadFeed     *feed.Feed[*core.L1Head]
-	pendingBlockFn func() *core.Block
-	cachedFilters  *AggregatedBloomFilterCache
-	runningFilter  *core.RunningEventFilter
+	network       *utils.Network
+	database      db.KeyValueStore
+	listener      EventListener
+	l1HeadFeed    *feed.Feed[*core.L1Head]
+	cachedFilters *AggregatedBloomFilterCache
+	runningFilter *core.RunningEventFilter
 }
 
 func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
@@ -108,11 +107,6 @@ func New(database db.KeyValueStore, network *utils.Network) *Blockchain {
 		cachedFilters: &cachedFilters,
 		runningFilter: runningFilter,
 	}
-}
-
-func (b *Blockchain) WithPendingBlockFn(pendingBlockFn func() *core.Block) *Blockchain {
-	b.pendingBlockFn = pendingBlockFn
-	return b
 }
 
 func (b *Blockchain) WithListener(listener EventListener) *Blockchain {
@@ -410,14 +404,14 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
-func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt) (EventFilterer, error) {
+func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, b.pendingBlockFn, b.cachedFilters, b.runningFilter), nil
+	return newEventFilter(b.database, from, keys, 0, latest, pendingBlockFn, b.cachedFilters, b.runningFilter), nil
 }
 
 // RevertHead reverts the head block

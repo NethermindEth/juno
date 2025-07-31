@@ -397,16 +397,16 @@ func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transa
 	}
 
 	if id.Pending {
-		pending, err := h.syncReader.Pending()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(&id)
@@ -438,7 +438,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -679,10 +679,8 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.Execution = TxnSuccess
 	case starknet.Reverted:
 		status.Execution = TxnFailure
-		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
 	default: // Omit the field on error. It's optional in the spec.
 	}
 

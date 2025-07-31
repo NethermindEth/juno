@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	syncpkg "github.com/NethermindEth/juno/sync"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +28,7 @@ func createTestHash(value uint64) starknet.Hash {
 func createTestBuildResult() *builder.BuildResult {
 	blockNumber := rand.Uint64()
 	return &builder.BuildResult{
-		Pending: &syncpkg.Pending{
+		Preconfirmed: &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
 					Number: blockNumber,

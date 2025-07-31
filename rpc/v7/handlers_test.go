@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/node"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	rpcv7 "github.com/NethermindEth/juno/rpc/v7"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,17 +18,8 @@ import (
 
 func nopCloser() error { return nil }
 
-func TestVersion(t *testing.T) {
-	const version = "1.2.3-rc1"
-
-	handler := rpcv7.New(nil, nil, nil, version, &utils.Mainnet, nil)
-	ver, err := handler.Version()
-	require.Nil(t, err)
-	assert.Equal(t, version, ver)
-}
-
 func TestSpecVersion(t *testing.T) {
-	handler := rpcv7.New(nil, nil, nil, "", &utils.Mainnet, nil)
+	handler := rpcv7.New(nil, nil, nil, &utils.Mainnet, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.7.1", version)
@@ -42,7 +34,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpcv7.New(mockReader, mockSyncReader, throttledVM, "", &utils.Mainnet, nil)
+	handler := rpcv7.New(mockReader, mockSyncReader, throttledVM, &utils.Mainnet, nil)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -99,6 +91,8 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
+		pending := sync.NewPending(nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)

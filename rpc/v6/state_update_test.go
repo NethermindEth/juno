@@ -36,9 +36,9 @@ func TestStateUpdate(t *testing.T) {
 			chain := blockchain.New(memory.New(), n)
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
-				mockSyncReader.EXPECT().Pending().Return(nil, sync.ErrPendingBlockNotFound)
+				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
-			handler := rpc.New(chain, mockSyncReader, nil, "", n, nil)
+			handler := rpc.New(chain, mockSyncReader, nil, n, nil)
 
 			update, rpcErr := handler.StateUpdate(id)
 			assert.Nil(t, update)
@@ -47,7 +47,7 @@ func TestStateUpdate(t *testing.T) {
 	}
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, "", n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 
@@ -142,15 +142,47 @@ func TestStateUpdate(t *testing.T) {
 		}
 	})
 
-	t.Run("pending", func(t *testing.T) {
+	t.Run("pending starknet version < 0.14.0", func(t *testing.T) {
 		update21656.BlockHash = nil
 		update21656.NewRoot = nil
-		mockSyncReader.EXPECT().Pending().Return(&sync.Pending{
-			StateUpdate: update21656,
-		}, nil)
+		pending := sync.NewPending(nil, update21656, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&pending,
+			nil,
+		)
 
 		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
 		require.Nil(t, rpcErr)
 		checkUpdate(t, update21656, update)
+	})
+
+	t.Run("pending starknet version >= 0.14.0", func(t *testing.T) {
+		update21656, err := mainnetGw.StateUpdate(t.Context(), 21656)
+		require.NoError(t, err)
+
+		preConfirmed := core.NewPreConfirmed(nil, nil, nil, nil)
+		mockSyncReader.EXPECT().PendingData().Return(
+			&preConfirmed,
+			nil,
+		)
+
+		mockReader.EXPECT().HeadsHeader().Return(&core.Header{
+			GlobalStateRoot: update21656.NewRoot,
+			Number:          21656,
+		}, nil)
+
+		update, rpcErr := handler.StateUpdate(rpc.BlockID{Pending: true})
+		require.Nil(t, rpcErr)
+		checkUpdate(t, &core.StateUpdate{
+			OldRoot: update21656.NewRoot,
+			StateDiff: &core.StateDiff{
+				StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
+				Nonces:            make(map[felt.Felt]*felt.Felt),
+				DeployedContracts: make(map[felt.Felt]*felt.Felt),
+				DeclaredV0Classes: make([]*felt.Felt, 0),
+				DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+				ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+			},
+		}, update)
 	})
 }

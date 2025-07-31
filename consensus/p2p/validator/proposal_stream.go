@@ -24,6 +24,7 @@ type proposalStream struct {
 	transition         Transition
 	stateMachine       ProposalStateMachine
 	nextSequenceNumber uint64
+	started            bool
 }
 
 func newSingleProposalStream(
@@ -42,6 +43,7 @@ func newSingleProposalStream(
 		transition:         transition,
 		stateMachine:       &InitialState{},
 		nextSequenceNumber: 0,
+		started:            false,
 	}
 }
 
@@ -59,6 +61,7 @@ func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.Stre
 	switch state := s.stateMachine.(type) {
 	case *AwaitingBlockInfoOrCommitmentState:
 		s.nextSequenceNumber = 1
+		s.started = true
 		return state.Header.Height, nil
 	default:
 		return 0, fmt.Errorf("proposal stream is not in a valid state after ProposalInit")
@@ -116,10 +119,9 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
 				case s.outputs <- *state.Proposal:
-					return nil
 				}
+				return nil
 			default:
 				return fmt.Errorf("stream does not end with proposal fin")
 			}

@@ -477,7 +477,7 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB := h.syncReader.PendingBlock()
+		pendingB := h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -509,16 +509,16 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	}
 
 	if blockID.IsPending() {
-		pending, err := h.syncReader.Pending()
+		pending, err := h.PendingData()
 		if err != nil {
 			return nil, rpccore.ErrBlockNotFound
 		}
 
-		if uint64(txIndex) > pending.Block.TransactionCount {
+		if uint64(txIndex) >= pending.GetBlock().TransactionCount {
 			return nil, rpccore.ErrInvalidTxIndex
 		}
 
-		return AdaptTransaction(pending.Block.Transactions[txIndex]), nil
+		return AdaptTransaction(pending.GetBlock().Transactions[txIndex]), nil
 	}
 
 	header, rpcErr := h.blockHeaderByID(blockID)
@@ -550,7 +550,7 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 			return nil, rpccore.ErrInternal.CloneWithData(err)
 		}
 
-		pendingB = h.syncReader.PendingBlock()
+		pendingB = h.PendingBlock()
 		if pendingB == nil {
 			return nil, rpccore.ErrTxnHashNotFound
 		}
@@ -606,7 +606,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		err *jsonrpc.Error
 	)
 	if h.memPool != nil {
-		res, err = h.addToMempool(&tx)
+		res, err = h.addToMempool(ctx, &tx)
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
 	}
@@ -622,12 +622,12 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	return res, nil
 }
 
-func (h *Handler) addToMempool(tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	if err = h.memPool.Push(&mempool.BroadcastedTransaction{
+	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
@@ -802,7 +802,7 @@ func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error {
 	case gateway.InvalidTransactionNonce:
 		return rpccore.ErrInvalidTransactionNonce
 	case gateway.CompilationFailed:
-		return rpccore.ErrCompilationFailed
+		return rpccore.ErrCompilationFailed.CloneWithData(gatewayErr.Message)
 	case gateway.InvalidCompiledClassHash:
 		return rpccore.ErrCompiledClassHashMismatch
 	case gateway.InvalidTransactionVersion:
@@ -947,7 +947,9 @@ func adaptTransactionStatus(txStatus *starknet.TransactionStatus) (*TransactionS
 		status.FailureReason = txStatus.RevertError
 	case starknet.Rejected:
 		status.Finality = TxnStatusRejected
-		status.FailureReason = txStatus.RevertError
+		if txStatus.FailureReason != nil {
+			status.FailureReason = txStatus.FailureReason.Message
+		}
 	default: // Omit the field on error. It's optional in the spec.
 	}
 

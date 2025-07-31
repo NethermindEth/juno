@@ -601,6 +601,18 @@ func TestTransactionStatusRevertError(t *testing.T) {
 	require.NotEmpty(t, status.RevertError)
 }
 
+func TestTransactionStatusTransactionFailureReason(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+
+	txnHash := utils.HexToFelt(t, "0x1111")
+	expectedMessage := "some error"
+	expectedErrorCode := "SOME_ERROR_CODE"
+	status, err := client.Transaction(t.Context(), txnHash)
+	require.NoError(t, err)
+	require.Equal(t, expectedMessage, status.FailureReason.Message)
+	require.Equal(t, expectedErrorCode, status.FailureReason.Code)
+}
+
 func TestPublicKey(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 
@@ -765,4 +777,21 @@ func TestClientRetryBehavior(t *testing.T) {
 		require.NotNil(t, block)
 		require.Equal(t, 2, requestCount)
 	})
+}
+
+func TestPreConfirmedBlock(t *testing.T) {
+	client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+
+	snPreConfirmedBlock, err := client.PreConfirmedBlock(t.Context(), strconv.Itoa(1204672))
+	assert.NoError(t, err)
+
+	assert.Equal(t, "0.14.0", snPreConfirmedBlock.Version)
+	assert.Equal(t, len(snPreConfirmedBlock.Transactions), len(snPreConfirmedBlock.Receipts))
+	assert.Equal(t, len(snPreConfirmedBlock.TransactionStateDiffs), len(snPreConfirmedBlock.Receipts))
+	assert.NotNil(t, snPreConfirmedBlock.L1DAMode)
+	assert.NotNil(t, snPreConfirmedBlock.L1GasPrice)
+	assert.NotNil(t, snPreConfirmedBlock.L1DataGasPrice)
+	assert.NotNil(t, snPreConfirmedBlock.L2GasPrice)
+	assert.NotNil(t, snPreConfirmedBlock.SequencerAddress)
+	assert.NotNil(t, snPreConfirmedBlock.Timestamp)
 }
