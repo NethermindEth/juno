@@ -16,6 +16,8 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/consensus"
+	"github.com/NethermindEth/juno/consensus/datasource"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -100,6 +102,13 @@ type Config struct {
 	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
 	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
 	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
+
+	Consensus          bool   `mapstructure:"consensus"`
+	ConsensusAddr      string `mapstructure:"consensus-addr"`
+	ConsensusPeers     string `mapstructure:"consensus-peers"`
+	ConsensusDBPath    string `mapstructure:"consensus-db-path"`
+	ConsensusMockIndex int    `mapstructure:"consensus-mock-index"` // TODO: remove this
+	ConsensusMockCount int    `mapstructure:"consensus-mock-count"` // TODO: remove this
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -224,19 +233,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
-		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
-		synchronizer = sync.New(
-			chain,
-			feederGatewayDataSource,
-			log,
-			cfg.PendingPollInterval,
-			cfg.PreConfirmedPollInterval,
-			dbIsRemote,
-			database,
-		)
-		synchronizer.WithPlugin(junoPlugin)
-
 		gatewayClient = gateway.NewClient(cfg.Network.GatewayURL, log).WithUserAgent(ua).WithAPIKey(cfg.GatewayAPIKey)
+
+		var syncDataSource sync.DataSource
+		var mempool mempool.Pool
 
 		if cfg.P2P {
 			if cfg.Network == utils.Mainnet {
@@ -244,10 +244,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 			log.Warnw("P2P features enabled. Please note P2P is in experimental stage")
 
-			if !cfg.P2PFeederNode {
-				// Do not start the feeder synchronisation
-				synchronizer = nil
+			if cfg.P2PFeederNode {
+				syncDataSource = sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 			}
+
 			p2pService, err = p2p.New(cfg.P2PAddr, cfg.P2PPublicAddr, version, cfg.P2PPeers, cfg.P2PPrivateKey, cfg.P2PFeederNode,
 				chain, &cfg.Network, log, database)
 			if err != nil {
@@ -255,10 +255,49 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			}
 
 			services = append(services, p2pService)
+		} else if cfg.Consensus {
+			// TODO: Replace these mock components with the actual ones
+			mockConsensusServices := consensus.InitMockServices(0, 0, cfg.ConsensusMockIndex, cfg.ConsensusMockCount)
+
+			consensusDB, err := pebble.NewWithOptions(cfg.ConsensusDBPath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
+			if err != nil {
+				return nil, fmt.Errorf("open consensus DB: %w", err)
+			}
+
+			consensusServices, err := consensus.Init(
+				log,
+				consensusDB,
+				chain,
+				nodeVM,
+				&mockConsensusServices.NodeAddress,
+				mockConsensusServices.Validators,
+				mockConsensusServices.TimeoutFn,
+				cfg.ConsensusAddr,
+				mockConsensusServices.PrivateKey,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("init consensus services: %w", err)
+			}
+
+			if err := consensus.Connect(context.Background(), consensusServices.Host, cfg.ConsensusPeers); err != nil {
+				return nil, fmt.Errorf("connect to consensus peers: %w", err)
+			}
+
+			dataSource := datasource.New(consensusServices.CommitListener, consensusServices.Proposer, consensusServices.P2P)
+
+			syncDataSource = dataSource
+			mempool = consensusServices.Proposer
+			gatewayClient = nil
+
+			services = append(services, consensusServices.Proposer, consensusServices.P2P, consensusServices.Driver, dataSource)
+		} else {
+			syncDataSource = sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		}
 
 		var syncReader sync.Reader = &sync.NoopSynchronizer{}
-		if synchronizer != nil {
+		if syncDataSource != nil {
+			synchronizer = sync.New(chain, syncDataSource, log, cfg.PendingPollInterval, cfg.PreConfirmedPollInterval, dbIsRemote, database)
+			synchronizer.WithPlugin(junoPlugin)
 			syncReader = synchronizer
 		}
 
@@ -268,6 +307,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		)
 
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
+			WithMempool(mempool).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
 			WithSubmittedTransactionsCache(submittedTransactionsCache)
@@ -476,7 +516,7 @@ func (n *Node) Run(ctx context.Context) {
 		return
 	}
 
-	if n.cfg.Sequencer {
+	if n.cfg.Sequencer || n.cfg.Consensus {
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
 			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
