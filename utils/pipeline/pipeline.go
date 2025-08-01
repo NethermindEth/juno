@@ -62,14 +62,11 @@ func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	return out
 }
 
-func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
-	out := make(chan T)
+func Bridge[T any](ctx context.Context, out chan T, chanCh <-chan <-chan T) {
 	if chanCh == nil {
-		close(out)
-		return out
+		return
 	}
 	go func() {
-		defer close(out)
 		for {
 			var ch <-chan T
 			select {
@@ -98,5 +95,4 @@ func Bridge[T any](ctx context.Context, chanCh <-chan <-chan T) <-chan T {
 			}
 		}
 	}()
-	return out
 }

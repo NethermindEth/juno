@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
-	"time"
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	"github.com/NethermindEth/juno/blockchain"
@@ -40,6 +39,8 @@ type Service struct {
 	blockchain *blockchain.Blockchain
 	listener   junoSync.EventListener
 	log        utils.SimpleLogger
+
+	blockCh chan BlockBody
 }
 
 func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
@@ -49,12 +50,18 @@ func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.Sim
 		blockchain: bc,
 		log:        log,
 		listener:   &junoSync.SelectiveListener{},
+		blockCh:    make(chan BlockBody),
 	}
+}
+
+func (s *Service) Listen() <-chan BlockBody {
+	return s.blockCh
 }
 
 func (s *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer close(s.blockCh)
 
 	s.client = NewClient(s.randomPeerStream, s.network, s.log)
 
@@ -76,12 +83,11 @@ func (s *Service) Run(ctx context.Context) {
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
-		if err := s.processBlock(iterCtx, blockNumber); err != nil {
+		if err = s.processBlock(iterCtx, blockNumber); err != nil {
 			s.logError("Failed to process block", fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err))
 			cancelIteration()
 			continue
 		}
-
 		cancelIteration()
 	}
 }
@@ -122,7 +128,7 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		return fmt.Errorf("failed to get state diffs: %w", err)
 	}
 
-	blocksCh := pipeline.Bridge(ctx, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
+	pipeline.Bridge(ctx, s.blockCh, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
 		pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
 		pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
 		pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
@@ -130,20 +136,6 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
 	)))
 
-	for b := range blocksCh {
-		if b.err != nil {
-			return fmt.Errorf("failed to process block: %w", b.err)
-		}
-
-		storeTimer := time.Now()
-		if err := s.blockchain.Store(b.block, b.commitments, b.stateUpdate, b.newClasses); err != nil {
-			return fmt.Errorf("failed to store block: %w", err)
-		}
-
-		s.log.Infow("Stored Block", "number", b.block.Number, "hash", b.block.Hash.ShortString(),
-			"root", b.block.GlobalStateRoot.ShortString())
-		s.listener.OnSyncStepDone(junoSync.OpStore, b.block.Number, time.Since(storeTimer))
-	}
 	return nil
 }
 
@@ -167,20 +159,20 @@ func (s *Service) logError(msg string, err error) {
 	}
 }
 
-// blockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
-type blockBody struct {
-	block       *core.Block
-	stateUpdate *core.StateUpdate
-	newClasses  map[felt.Felt]core.Class
-	commitments *core.BlockCommitments
-	err         error
+// BlockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
+type BlockBody struct {
+	Block       *core.Block
+	StateUpdate *core.StateUpdate
+	NewClasses  map[felt.Felt]core.Class
+	Commitments *core.BlockCommitments
+	Err         error
 }
 
 //nolint:gocyclo
 func (s *Service) processSpecBlockParts(
 	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
-) <-chan <-chan blockBody {
-	orderedBlockBodiesCh := make(chan (<-chan blockBody))
+) <-chan <-chan BlockBody {
+	orderedBlockBodiesCh := make(chan (<-chan BlockBody))
 
 	go func() {
 		defer close(orderedBlockBodiesCh)
@@ -279,13 +271,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 	receipts []*receipt.Receipt,
 	events []*event.Event,
 	prevBlockRoot *felt.Felt,
-) <-chan blockBody {
-	bodyCh := make(chan blockBody)
+) <-chan BlockBody {
+	bodyCh := make(chan BlockBody)
 	go func() {
 		defer close(bodyCh)
 		select {
 		case <-ctx.Done():
-			bodyCh <- blockBody{err: ctx.Err()}
+			bodyCh <- BlockBody{Err: ctx.Err()}
 		default:
 			coreBlock := new(core.Block)
 
@@ -339,7 +331,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 				coreC := p2p2core.AdaptClass(cls)
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %v", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -368,7 +360,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("failed to parse block version: %w", err)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to parse block version: %w", err)}
 				return
 			}
 
@@ -376,13 +368,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]
 				post0132Hash, _, err := core.Post0132Hash(coreBlock, stateDiff)
 				if err != nil {
-					bodyCh <- blockBody{err: fmt.Errorf("failed to compute p2p hash: %w", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to compute p2p hash: %w", err)}
 					return
 				}
 
 				if !expectedHash.Equal(post0132Hash) {
 					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
-					bodyCh <- blockBody{err: err}
+					bodyCh <- BlockBody{Err: err}
 					return
 				}
 			}
@@ -396,13 +388,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
 			if err != nil {
-				bodyCh <- blockBody{err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
 			}
 
 			select {
 			case <-ctx.Done():
-			case bodyCh <- blockBody{block: coreBlock, stateUpdate: stateUpdate, newClasses: newClasses, commitments: commitments}:
+			case bodyCh <- BlockBody{Block: coreBlock, StateUpdate: stateUpdate, NewClasses: newClasses, Commitments: commitments}:
 			}
 		}
 	}()

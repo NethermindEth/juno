@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
+	"github.com/NethermindEth/juno/service"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
@@ -34,6 +35,13 @@ const (
 	routingTableRefreshPeriod = 1 * time.Second
 	clientName                = "juno"
 )
+
+type BlockListener interface {
+	service.Service
+	Listen() <-chan p2pSync.BlockBody
+}
+
+var _ BlockListener = (*Service)(nil)
 
 type Service struct {
 	host host.Host
@@ -198,6 +206,10 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	}
 
 	return prvKey, nil
+}
+
+func (s *Service) Listen() <-chan p2pSync.BlockBody {
+	return s.synchroniser.Listen()
 }
 
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
