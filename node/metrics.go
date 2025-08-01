@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -300,6 +301,11 @@ func makeL1Metrics(bcReader blockchain.Reader, l1Subscriber l1.Subscriber) l1.Ev
 	prometheus.MustRegister(requestLatencies)
 
 	return l1.SelectiveListener{
+		OnNewL1HeadCb: func(head *core.L1Head) {
+			// Callback needed to keep L1 head update notifications working
+			// Metrics are now handled by GaugeFunc, but this callback
+			// is still required for the event notification system to function
+		},
 		OnL1CallCb: func(method string, took time.Duration) {
 			requestLatencies.WithLabelValues(method).Observe(took.Seconds())
 		},
