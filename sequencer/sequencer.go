@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/plugin"
@@ -210,12 +211,12 @@ func (s *Sequencer) PendingBlock() *core.Block {
 	return s.buildState.PendingBlock()
 }
 
-func (s *Sequencer) PendingState() (core.StateReader, func() error, error) {
+func (s *Sequencer) PendingState() (state.StateReader, error) {
 	return s.builder.PendingState(s.buildState)
 }
 
-func (s *Sequencer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.ErrUnsupported
+func (s *Sequencer) PendingStateBeforeIndex(index int) (state.StateReader, error) {
+	return nil, errors.ErrUnsupported
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {
