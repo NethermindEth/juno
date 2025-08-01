@@ -114,6 +114,8 @@ type Config struct {
 
 	HTTPUpdateHost string `mapstructure:"http-update-host"`
 	HTTPUpdatePort uint16 `mapstructure:"http-update-port"`
+
+	NewState bool `mapstructure:"new-state"`
 }
 
 type Node struct {
