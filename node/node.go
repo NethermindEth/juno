@@ -441,6 +441,13 @@ func (n *Node) Run(ctx context.Context) {
 		}
 	}()
 
+	defer func() {
+		if err := n.blockchain.Stop(); err != nil {
+			n.log.Errorw("Error while stopping the blockchain", "err", err)
+		}
+		n.log.Infow("TrieDB Journal saved")
+	}()
+
 	cfg := make(map[string]any)
 	err := mapstructure.Decode(n.cfg, &cfg)
 	if err != nil {

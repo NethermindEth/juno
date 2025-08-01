@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -28,7 +29,8 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(&address)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state. Remove db.ErrKeyNotFound after integration
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, state.ErrContractNotDeployed) {
 			return nil, rpccore.ErrContractNotFound
 		}
 		h.log.Errorw("Failed to get contract nonce", "err", err)
@@ -40,5 +42,5 @@ func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *js
 		return nil, rpccore.ErrInternal
 	}
 
-	return value, nil
+	return &value, nil
 }

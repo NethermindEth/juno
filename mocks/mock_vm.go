@@ -14,6 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	felt "github.com/NethermindEth/juno/core/felt"
+	commonstate "github.com/NethermindEth/juno/core/state/commonstate"
 	utils "github.com/NethermindEth/juno/utils"
 	vm "github.com/NethermindEth/juno/vm"
 	gomock "go.uber.org/mock/gomock"
@@ -44,7 +45,7 @@ func (m *MockVM) EXPECT() *MockVMMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (vm.CallResult, error) {
+func (m *MockVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state commonstate.StateReader, network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (vm.CallResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Call", callInfo, blockInfo, state, network, maxSteps, sierraVersion, structuredErrStack, returnStateDiff)
 	ret0, _ := ret[0].(vm.CallResult)
@@ -59,7 +60,7 @@ func (mr *MockVMMockRecorder) Call(callInfo, blockInfo, state, network, maxSteps
 }
 
 // Execute mocks base method.
-func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool) (vm.ExecutionResults, error) {
+func (m *MockVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *vm.BlockInfo, state commonstate.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool) (vm.ExecutionResults, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", txns, declaredClasses, paidFeesOnL1, blockInfo, state, network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch)
 	ret0, _ := ret[0].(vm.ExecutionResults)

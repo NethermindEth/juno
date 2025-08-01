@@ -62,7 +62,7 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
 
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("non-existent contract", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -172,11 +172,11 @@ func TestStorageProof(t *testing.T) {
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
+	mockState := mocks.NewMockStateReader(mockCtrl)
 	mockReader.EXPECT().HeadState().Return(mockState, func() error { return nil }, nil).AnyTimes()
+	mockReader.EXPECT().Height().Return(blockNumber, nil).AnyTimes()
 	mockReader.EXPECT().Head().Return(headBlock, nil).AnyTimes()
 	mockReader.EXPECT().BlockByNumber(blockNumber).Return(headBlock, nil).AnyTimes()
-	mockState.EXPECT().ChainHeight().Return(blockNumber, nil).AnyTimes()
 	mockState.EXPECT().ClassTrie().Return(tempTrie, nil).AnyTimes()
 	mockState.EXPECT().ContractTrie().Return(tempTrie, nil).AnyTimes()
 
@@ -642,16 +642,16 @@ func TestStorageProof_StorageRoots(t *testing.T) {
 		contractTrie, err := reader.ContractTrie()
 		assert.NoError(t, err)
 
-		clsRoot, err := classTrie.Root()
+		clsRoot, err := classTrie.Hash()
 		assert.NoError(t, err)
 
-		stgRoot, err := contractTrie.Root()
+		stgRoot, err := contractTrie.Hash()
 		assert.NoError(t, err)
 
 		assert.Equal(t, expectedClsRoot, clsRoot, clsRoot.String())
 		assert.Equal(t, expectedStgRoot, stgRoot, stgRoot.String())
 
-		verifyGlobalStateRoot(t, expectedGlobalRoot, clsRoot, stgRoot)
+		verifyGlobalStateRoot(t, expectedGlobalRoot, &clsRoot, &stgRoot)
 	})
 
 	t.Run("check requested contract and storage slot exists", func(t *testing.T) {

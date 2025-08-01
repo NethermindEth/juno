@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
+	commonstate "github.com/NethermindEth/juno/core/state/commonstate"
 	sync "github.com/NethermindEth/juno/sync"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -85,10 +86,10 @@ func (mr *MockSyncReaderMockRecorder) PendingData() *gomock.Call {
 }
 
 // PendingState mocks base method.
-func (m *MockSyncReader) PendingState() (core.StateReader, func() error, error) {
+func (m *MockSyncReader) PendingState() (commonstate.StateReader, func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingState")
-	ret0, _ := ret[0].(core.StateReader)
+	ret0, _ := ret[0].(commonstate.StateReader)
 	ret1, _ := ret[1].(func() error)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -101,10 +102,10 @@ func (mr *MockSyncReaderMockRecorder) PendingState() *gomock.Call {
 }
 
 // PendingStateBeforeIndex mocks base method.
-func (m *MockSyncReader) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (m *MockSyncReader) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PendingStateBeforeIndex", index)
-	ret0, _ := ret[0].(core.StateReader)
+	ret0, _ := ret[0].(commonstate.StateReader)
 	ret1, _ := ret[1].(func() error)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
