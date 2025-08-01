@@ -19,7 +19,8 @@
           "uid": "${logsDatasource}"
         },
         "enable": true,
-        "expr": "{pod=\"$pod\"} |= \"Shutting down Juno...\"",
+        "expr": "{job=\"juno\"} |= \"Shutting down Juno...\"",
+        "hide": false,
         "iconColor": "green",
         "name": "Node Shut Down",
         "tagKeys": "",
@@ -32,7 +33,8 @@
           "uid": "${logsDatasource}"
         },
         "enable": true,
-        "expr": "{pod=\"$pod\"} |= \"Juno is a Go implementation of a Starknet full-node client created by Nethermind.\"",
+        "expr": "{job=\"juno\"} |= \"Juno is a Go implementation of a Starknet full-node client created by Nethermind.\"",
+        "hide": false,
         "iconColor": "orange",
         "instant": false,
         "name": "Node Start"
@@ -42,11 +44,9 @@
   "description": "Juno - Metrics",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "gnetId": 13240,
   "graphTooltip": 0,
-  "id": 13,
+  "id": 5,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "collapsed": false,
@@ -74,7 +74,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               },
               {
                 "color": "red",
@@ -98,6 +98,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -109,7 +110,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.0.0-67977",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -119,7 +120,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "juno_info{kubernetes_pod_name=\"$pod\"}",
+          "expr": "juno_info{job=\"juno\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -138,6 +139,10 @@
         "type": "loki",
         "uid": "${logsDatasource}"
       },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 10,
         "w": 21,
@@ -147,6 +152,7 @@
       "id": 37,
       "options": {
         "dedupStrategy": "none",
+        "enableInfiniteScrolling": false,
         "enableLogDetails": true,
         "prettifyLogMessage": false,
         "showCommonLabels": false,
@@ -155,20 +161,66 @@
         "sortOrder": "Descending",
         "wrapLogMessage": false
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "loki",
             "uid": "${logsDatasource}"
           },
+          "direction": "backward",
           "editorMode": "code",
-          "expr": "{pod=\"$pod\"} |= ``",
+          "expr": "{job=\"juno\"} |= ``",
           "maxLines": 1000,
           "queryType": "range",
           "refId": "A"
         }
       ],
-      "title": "Logs",
+      "title": "Logs (last 1000 lines)",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "${logsDatasource}"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 70,
+      "options": {
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": false,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "${logsDatasource}"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "{job=\"juno\"} |= \"ERROR\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Error logs",
       "type": "logs"
     },
     {
@@ -184,7 +236,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": null
+                "value": 0
               },
               {
                 "color": "green",
@@ -200,7 +252,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 11
+        "y": 18
       },
       "id": 44,
       "options": {
@@ -208,6 +260,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -219,7 +272,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.0.0-67977",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -227,7 +280,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(increase(sync_blocks{kubernetes_pod_name=\"$pod\"}[15m]))",
+          "expr": "increase(sync_blocks{job=\"juno\"}[15m])",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -254,6 +307,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -285,7 +339,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -297,7 +351,7 @@
         "h": 7,
         "w": 18,
         "x": 6,
-        "y": 11
+        "y": 18
       },
       "id": 29,
       "options": {
@@ -312,12 +366,13 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -327,7 +382,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(sync_blocks{kubernetes_pod_name=\"$pod\"}[15m]))",
+          "expr": "increase(sync_blocks{job=\"juno\"}[15m])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -337,6 +392,7 @@
           "useBackend": false
         }
       ],
+      "title": "",
       "type": "timeseries"
     },
     {
@@ -345,12 +401,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 25
       },
       "id": 40,
       "panels": [],
-      "repeat": "kubernetes_pod_name",
-      "repeatDirection": "h",
       "title": "Sync operations",
       "type": "row"
     },
@@ -367,7 +421,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               }
             ]
           },
@@ -379,7 +433,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 19
+        "y": 26
       },
       "id": 52,
       "options": {
@@ -387,6 +441,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -398,24 +453,304 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.0.0-67977",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "editorMode": "builder",
+          "disableTextWrap": false,
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sync_blockchain_height{kubernetes_pod_name=\"$pod\"}",
+          "expr": "sync_blockchain_height{job=\"juno\"}",
           "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
           "instant": true,
           "legendFormat": "Blockchain Height",
           "range": false,
-          "refId": "A"
+          "refId": "A",
+          "useBackend": false
         }
       ],
-      "title": "Blockchain Height",
+      "title": "L2 Sync Head",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 26
+      },
+      "id": 72,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "l1_finalised_height{job=\"juno\"}",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "Blockchain Height",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "L1 Finalised",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 73,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sync_blockchain_height{job=\"juno\"} - l1_l2_finalised_height{job=\"juno\"}",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "Blockchain Height",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "L2 Finalization Lag",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "id": 59,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "l1_l2_finalised_height{job=\"juno\"}",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "Blockchain Height",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "L2 Head on L1",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 30
+      },
+      "id": 74,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "l1_latest_height{job=\"juno\"}",
+          "format": "time_series",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "Blockchain Height",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "L1 Latest",
       "type": "stat"
     },
     {
@@ -436,6 +771,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 20,
             "gradientMode": "scheme",
@@ -467,7 +803,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": null
+                "value": 0
               },
               {
                 "color": "red",
@@ -480,9 +816,114 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 18,
-        "x": 6,
-        "y": 19
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 68,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sync_reorganisations{job=\"juno\"} ",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Reorgs",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd",
+            "seriesBy": "max"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 3,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
       },
       "id": 50,
       "options": {
@@ -497,12 +938,13 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.2.0-60477",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -511,7 +953,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum((sync_best_known_block_number{kubernetes_pod_name=\"$pod\"} - sync_blockchain_height{kubernetes_pod_name=\"$pod\"})\r\n* \r\n(sync_blockchain_height{kubernetes_pod_name=\"$pod\"} != bool 0))\r\nwithout (instance, controller_revision_hash) ",
+          "expr": "(sync_best_known_block_number{job=\"juno\"} - sync_blockchain_height{job=\"juno\"}) * (sync_blockchain_height{job=\"juno\"} != bool 0) ",
           "instant": false,
           "legendFormat": "Blocks Behind",
           "range": true,
@@ -520,74 +962,6 @@
       ],
       "title": "Blocks Behind",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 23
-      },
-      "id": 59,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.0.0-67977",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "exemplar": false,
-          "expr": "l1_height{kubernetes_pod_name=\"$pod\"}",
-          "format": "time_series",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": true,
-          "legendFormat": "Blockchain Height",
-          "range": false,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "L1 Height",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -613,7 +987,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 42
       },
       "id": 46,
       "maxDataPoints": 25,
@@ -644,6 +1018,7 @@
           "value": "ff"
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "showColorScale": false,
           "yHistogram": false
@@ -655,7 +1030,7 @@
           "unit": "s"
         }
       },
-      "pluginVersion": "11.0.0-67348",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -664,7 +1039,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(sync_timers_bucket{kubernetes_pod_name=\"$pod\", op=\"verify\"}[$__interval])) by (le)",
+          "expr": "increase(sync_timers_bucket{job=\"juno\", op=\"verify\"}[$__interval])",
           "format": "heatmap",
           "instant": false,
           "legendFormat": "{{le}}",
@@ -690,7 +1065,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -705,11 +1081,17 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 42
       },
       "id": 47,
       "options": {
         "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
         "maxVizHeight": 300,
         "minVizHeight": 10,
         "minVizWidth": 0,
@@ -726,7 +1108,7 @@
         "sizing": "auto",
         "valueMode": "color"
       },
-      "pluginVersion": "11.0.0-67348",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -734,7 +1116,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(increase(sync_timers_bucket{kubernetes_pod_name=\"$pod\", op=\"verify\"}[$__range])) by (le)",
+          "expr": "increase(sync_timers_bucket{job=\"juno\", op=\"verify\"}[$__range])",
           "format": "heatmap",
           "instant": false,
           "legendFormat": "{{le}}",
@@ -769,7 +1151,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 35
+        "y": 50
       },
       "id": 48,
       "maxDataPoints": 25,
@@ -800,6 +1182,7 @@
           "value": "ff"
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "showColorScale": false,
           "yHistogram": false
@@ -811,7 +1194,7 @@
           "unit": "s"
         }
       },
-      "pluginVersion": "11.0.0-67348",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -820,7 +1203,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(increase(sync_timers_bucket{kubernetes_pod_name=\"$pod\", op=\"store\"}[$__interval])) by (le)",
+          "expr": "increase(sync_timers_bucket{job=\"juno\", op=\"store\"}[$__interval])",
           "format": "heatmap",
           "instant": false,
           "legendFormat": "{{le}}",
@@ -846,7 +1229,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -861,11 +1245,17 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 50
       },
       "id": 49,
       "options": {
         "displayMode": "gradient",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
         "maxVizHeight": 300,
         "minVizHeight": 10,
         "minVizWidth": 0,
@@ -882,7 +1272,7 @@
         "sizing": "auto",
         "valueMode": "color"
       },
-      "pluginVersion": "11.0.0-67348",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -890,7 +1280,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(increase(sync_timers_bucket{kubernetes_pod_name=\"$pod\", op=\"store\"}[$__range])) by (le)",
+          "expr": "increase(sync_timers_bucket{job=\"juno\", op=\"store\"}[$__range])",
           "format": "heatmap",
           "instant": false,
           "legendFormat": "{{le}}",
@@ -907,7 +1297,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 58
       },
       "id": 31,
       "panels": [],
@@ -931,6 +1321,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 8,
             "gradientMode": "none",
@@ -961,7 +1352,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -977,7 +1369,7 @@
         "h": 14,
         "w": 8,
         "x": 0,
-        "y": 44
+        "y": 59
       },
       "id": 36,
       "options": {
@@ -991,10 +1383,13 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -1002,9 +1397,9 @@
             "uid": "${datasource}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum(rate(rpc_server_requests{kubernetes_pod_name=\"$pod\"}[5m]))",
+          "expr": "rate(rpc_server_requests{job=\"juno\"}[5m])",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1036,6 +1431,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1066,7 +1462,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               }
             ]
           },
@@ -1099,7 +1496,7 @@
         "h": 14,
         "w": 16,
         "x": 8,
-        "y": 44
+        "y": 59
       },
       "id": 35,
       "options": {
@@ -1115,11 +1512,13 @@
           "sortDesc": true
         },
         "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "8.3.3",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -1128,7 +1527,7 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "sum(rate(rpc_server_requests{kubernetes_pod_name=\"$pod\"}[5m])) by (method)",
+          "expr": "sum(rate(rpc_server_requests{job=\"juno\"}[5m])) by (method)",
           "hide": false,
           "interval": "",
           "legendFormat": "{{method}}",
@@ -1156,6 +1555,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -1186,7 +1586,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1202,29 +1603,140 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 73
       },
       "id": 56,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+            "mean",
+            "p95",
+            "p99"
+          ],
           "displayMode": "list",
           "placement": "right",
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ebe6299f-8e9e-48c5-9359-fb23cdf14369"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(rpc_server_requests_latency_bucket{kubernetes_pod_name=\"$pod\"}[5m])) by (method, le))",
+          "expr": "rate(rpc_server_requests_latency_sum{job=\"juno\"}[5m]) / rate(rpc_server_requests_latency_count{job=\"juno\"}[5m])",
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "AVG Server Processing Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$datasource"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "id": 71,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "p95",
+            "p99"
+          ],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.0-16636675413",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, rate(rpc_server_requests_latency_bucket{job=\"juno\"}[5m]))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -1251,6 +1763,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1281,7 +1794,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1297,7 +1811,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 90
       },
       "id": 57,
       "options": {
@@ -1310,18 +1824,21 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ebe6299f-8e9e-48c5-9359-fb23cdf14369"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(rpc_server_failed_requests{kubernetes_pod_name=\"$pod\"}[5m])) by (method)",
+          "expr": "sum(rate(rpc_server_failed_requests{job=\"juno\"}[5m])) by (method)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -1348,6 +1865,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -1378,7 +1896,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1394,7 +1913,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 98
       },
       "id": 65,
       "options": {
@@ -1405,18 +1924,21 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ebe6299f-8e9e-48c5-9359-fb23cdf14369"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "vm_jobs{kubernetes_pod_name=\"$pod\"}",
+          "expr": "vm_jobs{job=\"juno\"}",
           "instant": false,
           "legendFormat": "running",
           "range": true,
@@ -1428,7 +1950,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "vm_queue{kubernetes_pod_name=\"$pod\"}",
+          "expr": "vm_queue{job=\"juno\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "queue",
@@ -1445,7 +1967,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 84
+        "y": 106
       },
       "id": 61,
       "panels": [],
@@ -1469,6 +1991,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -1499,7 +2022,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1515,7 +2039,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 85
+        "y": 107
       },
       "id": 60,
       "options": {
@@ -1526,18 +2050,20 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
+          "hideZeros": false,
+          "mode": "multi",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ebe6299f-8e9e-48c5-9359-fb23cdf14369"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(feeder_client_request_latency_bucket{kubernetes_pod_name=\"$pod\"}[5m])) by (method, le))",
+          "expr": "histogram_quantile(0.95, sum(rate(feeder_client_request_latency_bucket{job=\"juno\"}[5m])) by (method, le))",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -1549,7 +2075,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum(rate(gateway_client_request_latency_bucket{kubernetes_pod_name=\"$pod\"}[5m])) by (method, le))",
+          "expr": "histogram_quantile(0.95, sum(rate(gateway_client_request_latency_bucket{job=\"juno\"}[5m])) by (method, le))",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -1577,6 +2103,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -1607,7 +2134,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1623,7 +2151,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 95
+        "y": 117
       },
       "id": 64,
       "options": {
@@ -1634,18 +2162,20 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ebe6299f-8e9e-48c5-9359-fb23cdf14369"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(feeder_client_request_latency_count{kubernetes_pod_name=\"$pod\", status!=\"200\"}[5m])) by (method, status)",
+          "expr": "sum(rate(feeder_client_request_latency_count{job=\"juno\", status!=\"200\"}[5m])) by (method, status)",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
@@ -1657,7 +2187,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(gateway_client_request_latency_count{kubernetes_pod_name=\"$pod\", status!=\"200\"}[5m])) by (method, status)",
+          "expr": "sum(rate(gateway_client_request_latency_count{job=\"juno\", status!=\"200\"}[5m])) by (method, status)",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
@@ -1674,7 +2204,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 105
+        "y": 127
       },
       "id": 27,
       "panels": [],
@@ -1693,7 +2223,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1709,7 +2240,7 @@
         "h": 8,
         "w": 3,
         "x": 0,
-        "y": 106
+        "y": 128
       },
       "id": 58,
       "options": {
@@ -1717,6 +2248,7 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -1728,7 +2260,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "11.0.0-67348",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -1738,7 +2270,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "go_info{kubernetes_pod_name=\"$pod\"}",
+          "expr": "go_info{job=\"juno\"}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1770,6 +2302,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -1801,7 +2334,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1817,7 +2351,7 @@
         "h": 8,
         "w": 21,
         "x": 3,
-        "y": 106
+        "y": 128
       },
       "id": 33,
       "options": {
@@ -1832,11 +2366,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -1844,7 +2379,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(process_cpu_seconds_total{kubernetes_pod_name=\"$pod\"}[5m]) * 100) without (instance, controller_revision_hash)",
+          "expr": "rate(process_cpu_seconds_total{job=\"juno\"}[5m]) * 100",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "CPU Usage",
@@ -1872,6 +2407,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -1903,7 +2439,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -1919,7 +2456,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 114
+        "y": 136
       },
       "id": 16,
       "options": {
@@ -1934,11 +2471,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -1946,7 +2484,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(jemalloc_active{kubernetes_pod_name=~\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "jemalloc_active{job=\"juno\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memory",
@@ -1974,6 +2512,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2005,7 +2544,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2021,7 +2561,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 114
+        "y": 136
       },
       "id": 67,
       "options": {
@@ -2036,11 +2576,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2048,7 +2589,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(pebble_block_cache_size{kubernetes_pod_name=~\"$pod\"})",
+          "expr": "sum(pebble_block_cache_size{job=\"juno\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "pebble_block_cache_size",
@@ -2076,6 +2617,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2107,7 +2649,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2123,7 +2666,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 122
+        "y": 144
       },
       "id": 66,
       "options": {
@@ -2138,11 +2681,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2150,7 +2694,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_sys_bytes{kubernetes_pod_name=~\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "sum(go_memstats_sys_bytes{job=\"juno\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memory",
@@ -2178,6 +2722,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -2208,7 +2753,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2249,7 +2795,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 122
+        "y": 144
       },
       "id": 34,
       "options": {
@@ -2260,10 +2806,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2271,7 +2819,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(db_read_latency_count{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash) ",
+          "expr": "sum(rate(db_read_latency_count{job=\"juno\"}[5m]))",
           "instant": false,
           "legendFormat": "read",
           "range": true,
@@ -2283,7 +2831,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(db_write_latency_count{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash) ",
+          "expr": "sum(rate(db_write_latency_count{job=\"juno\"}[5m]))",
           "hide": false,
           "instant": false,
           "legendFormat": "write",
@@ -2296,7 +2844,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(delta(db_read_latency_sum{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash) / \r\nsum(delta(db_read_latency_count{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash)",
+          "expr": "sum(delta(db_read_latency_sum{job=\"juno\"}[5m])) / sum(delta(db_read_latency_count{job=\"juno\"}[5m]))",
           "hide": false,
           "instant": false,
           "legendFormat": "avg read latency",
@@ -2309,7 +2857,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(delta(db_write_latency_sum{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash) / \r\nsum(delta(db_write_latency_count{kubernetes_pod_name=~\"$pod\"}[5m])) without (instance, controller_revision_hash)",
+          "expr": "sum(delta(db_write_latency_sum{job=\"juno\"}[5m])) / sum(delta(db_write_latency_count{job=\"juno\"}[5m]))",
           "hide": false,
           "instant": false,
           "legendFormat": "avg write latency",
@@ -2337,6 +2885,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 8,
             "gradientMode": "none",
@@ -2367,7 +2916,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2383,7 +2933,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 130
+        "y": 152
       },
       "id": 26,
       "options": {
@@ -2394,11 +2944,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2406,7 +2957,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_mspan_inuse_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_mspan_inuse_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_mspan_inuse_bytes",
@@ -2419,7 +2970,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_mspan_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_mspan_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_mspan_sys_bytes",
@@ -2432,7 +2983,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_mcache_inuse_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_mcache_inuse_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_mcache_inuse_bytes",
@@ -2445,7 +2996,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_mcache_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_mcache_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_mcache_sys_bytes",
@@ -2458,7 +3009,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_buck_hash_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_buck_hash_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_buck_hash_sys_bytes",
@@ -2471,7 +3022,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_gc_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_gc_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_gc_sys_bytes",
@@ -2484,7 +3035,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_other_sys_bytes{kubernetes_pod_name=\"$pod\"} - go_memstats_other_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_other_sys_bytes{job=\"juno\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "bytes of memory are used for other runtime allocations",
@@ -2497,7 +3048,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_next_gc_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_next_gc_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_next_gc_bytes",
@@ -2525,6 +3076,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2555,7 +3107,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2571,7 +3124,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 130
+        "y": 152
       },
       "id": 12,
       "options": {
@@ -2582,11 +3135,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2594,7 +3148,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_heap_alloc_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_heap_alloc_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_heap_alloc_bytes",
@@ -2607,7 +3161,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_heap_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_heap_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_heap_sys_bytes",
@@ -2620,7 +3174,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_heap_idle_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_heap_idle_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_heap_idle_bytes",
@@ -2633,7 +3187,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_heap_inuse_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_heap_inuse_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_heap_inuse_bytes",
@@ -2646,7 +3200,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_heap_released_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_heap_released_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_heap_released_bytes",
@@ -2674,6 +3228,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2705,7 +3260,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2721,7 +3277,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 138
+        "y": 160
       },
       "id": 24,
       "options": {
@@ -2732,11 +3288,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2744,7 +3301,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_stack_inuse_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_stack_inuse_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_stack_inuse_bytes",
@@ -2757,7 +3314,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_stack_sys_bytes{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_stack_sys_bytes{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_stack_sys_byte",
@@ -2786,6 +3343,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2817,7 +3375,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2833,7 +3392,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 138
+        "y": 160
       },
       "id": 20,
       "options": {
@@ -2844,11 +3403,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2857,7 +3417,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(go_memstats_mallocs_total{kubernetes_pod_name=\"$pod\"}[5m])",
+          "expr": "rate(go_memstats_mallocs_total{job=\"juno\"}[5m])",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -2888,6 +3448,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
@@ -2919,7 +3480,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -2935,7 +3497,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 146
+        "y": 168
       },
       "id": 22,
       "options": {
@@ -2946,11 +3508,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -2958,7 +3521,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_memstats_mallocs_total{kubernetes_pod_name=\"$pod\"} - go_memstats_frees_total{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_memstats_mallocs_total{job=\"juno\"} - go_memstats_frees_total{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Number of Live Objects",
@@ -2986,6 +3549,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -3016,7 +3580,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -3031,7 +3596,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 146
+        "y": 168
       },
       "id": 8,
       "options": {
@@ -3042,11 +3607,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -3054,7 +3620,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_goroutines{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_goroutines{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "goroutines",
@@ -3082,6 +3648,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -3112,7 +3679,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -3128,7 +3696,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 154
+        "y": 176
       },
       "id": 14,
       "options": {
@@ -3139,11 +3707,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -3151,7 +3720,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(rate(go_memstats_alloc_bytes_total{kubernetes_pod_name=\"$pod\"}[5m])) without (instance, controller_revision_hash) ",
+          "expr": "rate(go_memstats_alloc_bytes_total{job=\"juno\"}[5m])",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "memstats_alloc_bytes_total",
@@ -3179,6 +3748,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 25,
             "gradientMode": "none",
@@ -3209,7 +3779,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -3225,7 +3796,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 154
+        "y": 176
       },
       "id": 4,
       "options": {
@@ -3236,11 +3807,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.0-cloud.3.2a3062e8",
+      "pluginVersion": "12.2.0-16636675413",
       "targets": [
         {
           "datasource": {
@@ -3248,7 +3820,7 @@
             "uid": "$datasource"
           },
           "editorMode": "code",
-          "expr": "sum(go_gc_duration_seconds{kubernetes_pod_name=\"$pod\"}) without (instance, controller_revision_hash) ",
+          "expr": "go_gc_duration_seconds{job=\"juno\"} ",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{quantile}}",
@@ -3260,114 +3832,47 @@
       "type": "timeseries"
     }
   ],
-  "refresh": false,
-  "schemaVersion": 39,
+  "preload": false,
+  "refresh": "5s",
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "juno-prod",
-          "value": "b8934de3-79ac-4d72-b311-d6f02bef7dd1"
+          "text": "prometheus",
+          "value": "cetkzaaeg6jgge"
         },
-        "hide": 0,
         "includeAll": false,
         "label": "datasource",
-        "multi": false,
         "name": "datasource",
         "options": [],
         "query": "prometheus",
-        "queryValue": "",
         "refresh": 1,
-        "regex": "juno-.*",
-        "skipUrlSync": false,
         "type": "datasource"
       },
       {
         "current": {
-          "selected": false,
-          "text": "juno-prod-loki",
-          "value": "ddf6e87b-a759-406a-a24c-4236ad27ca43"
+          "text": "loki",
+          "value": "fetkzfxy7t8n4c"
         },
-        "hide": 0,
         "includeAll": false,
         "label": "logs",
-        "multi": false,
         "name": "logsDatasource",
         "options": [],
         "query": "loki",
-        "queryValue": "",
         "refresh": 1,
-        "regex": "juno-.*",
-        "skipUrlSync": false,
         "type": "datasource"
-      },
-      {
-        "current": {
-          "selected": false,
-          "text": "juno-sepolia-0",
-          "value": "juno-sepolia-0"
-        },
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${datasource}"
-        },
-        "definition": "label_values(go_goroutines,kubernetes_pod_name)",
-        "hide": 0,
-        "includeAll": false,
-        "label": "pod",
-        "multi": false,
-        "name": "pod",
-        "options": [],
-        "query": {
-          "query": "label_values(go_goroutines,kubernetes_pod_name)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 0,
-        "tagValuesQuery": "",
-        "tagsQuery": "",
-        "type": "query",
-        "useTags": false
       }
     ]
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-3h",
     "to": "now"
   },
-  "timeRangeUpdatedDuringEditOrView": false,
-  "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m",
-      "5m",
-      "15m",
-      "30m",
-      "1h",
-      "2h",
-      "1d"
-    ],
-    "time_options": [
-      "5m",
-      "15m",
-      "1h",
-      "6h",
-      "12h",
-      "24h",
-      "2d",
-      "7d",
-      "30d"
-    ]
-  },
+  "timepicker": {},
   "timezone": "",
-  "title": "Node Performance",
-  "uid": "a3f859e0-2ef9-4f10-b9f7-beca263ac99e",
-  "version": 64,
-  "weekStart": ""
+  "title": "Juno Node Performance (Generic)",
+  "uid": "1a3f859e0-2ef9-4f10-b9f7-beca263ac99e",
+  "version": 5
 }

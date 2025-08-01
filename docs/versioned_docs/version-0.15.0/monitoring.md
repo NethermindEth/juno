@@ -32,6 +32,8 @@ docker run -d \
 
 ## Configure Grafana dashboard
 
+The Juno Grafana dashboard is optimized for single-node deployments and uses generic metric selectors that work with standard Prometheus configurations.
+
 ### 1. Set up Grafana
 
 - Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to install Grafana.
