@@ -533,23 +533,6 @@ func (b *Blockchain) Simulate(
 	}, nil
 }
 
-// StoreSimulated stores the simulated block. There is no need to recomute the state roots etc
-func (b *Blockchain) StoreSimulated(
-	block *core.Block,
-	stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class,
-	commitments *core.BlockCommitments,
-	sign utils.BlockSignFunc,
-) error {
-	if err := b.signBlock(block, stateUpdate, sign); err != nil {
-		return err
-	}
-	if err := b.storeBlockData(block, stateUpdate, commitments); err != nil {
-		return err
-	}
-	return core.WriteChainHeight(b.database, block.Number)
-}
-
 // Finalise checks the block correctness and appends it to the chain
 func (b *Blockchain) Finalise(
 	block *core.Block,
@@ -567,10 +550,18 @@ func (b *Blockchain) Finalise(
 	if err := b.signBlock(block, stateUpdate, sign); err != nil {
 		return err
 	}
-	if err := b.storeBlockData(block, stateUpdate, commitments); err != nil {
+
+	batch := b.database.NewBatch()
+
+	if err := b.storeBlockData(batch, block, stateUpdate, commitments); err != nil {
 		return err
 	}
-	if err := core.WriteChainHeight(b.database, block.Number); err != nil {
+
+	if err := core.WriteChainHeight(batch, block.Number); err != nil {
+		return err
+	}
+
+	if err := batch.Write(); err != nil {
 		return err
 	}
 
@@ -590,13 +581,12 @@ func (b *Blockchain) updateStateRoots(
 	}
 
 	header, _ := core.GetBlockHeaderByNumber(b.database, height)
-	var st *state.State
+	stateRoot := &felt.Zero
 	if header != nil {
-		st, err = state.New(header.GlobalStateRoot, b.StateDB)
-	} else {
-		st, err = state.New(&felt.Zero, b.StateDB)
+		stateRoot = header.GlobalStateRoot
 	}
 
+	st, err := state.New(stateRoot, b.StateDB)
 	if err != nil {
 		return err
 	}
@@ -677,34 +667,35 @@ func (b *Blockchain) signBlock(
 
 // storeBlockData persists all block-related data to the database
 func (b *Blockchain) storeBlockData(
+	w db.KeyValueWriter,
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	commitments *core.BlockCommitments,
 ) error {
 	// Store block header
-	if err := core.WriteBlockHeader(b.database, block.Header); err != nil {
+	if err := core.WriteBlockHeader(w, block.Header); err != nil {
 		return err
 	}
 
 	// Store transactions and receipts
 	for i, tx := range block.Transactions {
-		if err := core.WriteTxAndReceipt(b.database, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
+		if err := core.WriteTxAndReceipt(w, block.Number, uint64(i), tx, block.Receipts[i]); err != nil {
 			return err
 		}
 	}
 
 	// Store state update
-	if err := core.WriteStateUpdateByBlockNum(b.database, block.Number, stateUpdate); err != nil {
+	if err := core.WriteStateUpdateByBlockNum(w, block.Number, stateUpdate); err != nil {
 		return err
 	}
 
 	// Store block commitments
-	if err := core.WriteBlockCommitment(b.database, block.Number, commitments); err != nil {
+	if err := core.WriteBlockCommitment(w, block.Number, commitments); err != nil {
 		return err
 	}
 
 	// Store L1 handler message hashes
-	if err := core.WriteL1HandlerMsgHashes(b.database, block.Transactions); err != nil {
+	if err := core.WriteL1HandlerMsgHashes(w, block.Transactions); err != nil {
 		return err
 	}
 

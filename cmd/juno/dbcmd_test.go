@@ -80,12 +80,12 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	require.NoError(t, err)
 
 	chain := blockchain.New(testDB, network)
-	var stateUpdate *core.StateUpdate
+
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
 		block, err := gw.BlockByNumber(t.Context(), blockNumber)
 		require.NoError(t, err)
 
-		stateUpdate, err = gw.StateUpdate(t.Context(), blockNumber)
+		stateUpdate, err := gw.StateUpdate(t.Context(), blockNumber)
 		require.NoError(t, err)
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
