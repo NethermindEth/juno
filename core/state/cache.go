@@ -81,7 +81,9 @@ func (c *stateCache) PopLayer(stateRoot, parentRoot *felt.Felt) error {
 
 	node, ok := c.rootMap[*stateRoot]
 	if !ok {
-		return fmt.Errorf("layer with state root %v not found", stateRoot)
+		// There should be no error when layer is not found in the cache.
+		// The layer might not be cached (i. e. after node shutdown).
+		return nil
 	}
 
 	if node.child != nil {

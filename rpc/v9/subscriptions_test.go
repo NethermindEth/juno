@@ -14,6 +14,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -450,9 +451,12 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
+func (fs *fakeSyncer) PendingState() (commonstate.StateReader, func() error, error) {
+	return nil, nil, nil
+}
+
+func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
 	return nil, nil, nil
 }
 

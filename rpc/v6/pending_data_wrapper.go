@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/sync"
 )
 
@@ -36,7 +37,7 @@ func (h *Handler) PendingBlock() *core.Block {
 	return pending.GetBlock()
 }
 
-func (h *Handler) PendingState() (core.StateReader, func() error, error) {
+func (h *Handler) PendingState() (commonstate.StateReader, func() error, error) {
 	pending, err := h.syncReader.PendingData()
 	if err != nil {
 		if errors.Is(err, sync.ErrPendingBlockNotFound) {
