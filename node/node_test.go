@@ -2,11 +2,13 @@ package node_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/node"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
@@ -14,6 +16,11 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
 
 // Create a new node with all services enabled.
 func TestNewNode(t *testing.T) {
@@ -72,7 +79,7 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			database, err := pebble.New(dbPath)
 			require.NoError(t, err)
-			chain := blockchain.New(database, &network)
+			chain := blockchain.New(database, &network, statetestutils.UseNewState())
 			ctx, cancel := context.WithCancel(t.Context())
 			dataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(feeder.NewTestClient(t, &network)))
 			syncer := sync.New(chain, dataSource, log, 0, 0, false, database).

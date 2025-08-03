@@ -276,8 +276,8 @@ type StateFactory struct {
 	stateDB     *state.StateDB
 }
 
-func NewStateFactory(useNewState bool, triedb *triedb.Database, stateDB *state.StateDB) (*StateFactory, error) {
-	if !useNewState {
+func NewStateFactory(newState bool, triedb *triedb.Database, stateDB *state.StateDB) (*StateFactory, error) {
+	if !newState {
 		return &StateFactory{UseNewState: false}, nil
 	}
 

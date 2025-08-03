@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"flag"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -16,6 +17,12 @@ import (
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
 )
+
+var newState bool
+
+func init() {
+	flag.BoolVar(&newState, "use-new-state", false, "...")
+}
 
 func testBloomWithRandomKeys(t *testing.T, numKeys uint) *bloom.BloomFilter {
 	t.Helper()
@@ -67,7 +74,7 @@ func TestRunningEventFilter_LazyInitialization_EmptyDB(t *testing.T) {
 func TestRunningEventFilter_LazyInitialization_Preload(t *testing.T) {
 	testDB := memory.New()
 	n := &utils.Sepolia
-	chain := blockchain.New(testDB, n)
+	chain := blockchain.New(testDB, n, newState)
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
 

@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -108,7 +109,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 
 			if description == "pending" { //nolint:goconst
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -160,7 +161,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		latest := blockIDLatest(t)
 		block, rpcErr := handler.BlockWithTxHashes(&latest)
@@ -171,7 +172,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		hash := blockIDHash(t, latestBlockHash)
 		block, rpcErr := handler.BlockWithTxHashes(&hash)
@@ -182,7 +183,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		number := blockIDNumber(t, latestBlockNumber)
 		block, rpcErr := handler.BlockWithTxHashes(&number)
@@ -193,7 +194,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
 			StateRoot:   latestBlock.GlobalStateRoot,
@@ -215,7 +216,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			&pending,
 			nil,
 		)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		pendingID := blockIDPending(t)
 		block, rpcErr := handler.BlockWithTxHashes(&pendingID)
@@ -233,7 +234,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 		)
 
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
 		blockWTxHashes, rpcErr := handler.BlockWithTxHashes(&pending)
 		require.Nil(t, rpcErr)
@@ -278,7 +279,7 @@ func TestBlockWithTxs(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
-			chain := blockchain.New(memory.New(), n)
+			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
 
 			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
@@ -331,7 +332,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		latest := blockIDLatest(t)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&latest)
@@ -345,7 +346,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	t.Run("blockID - hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockByHash(latestBlockHash).Return(latestBlock, nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		hash := blockIDHash(t, latestBlockHash)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&hash)
@@ -359,7 +360,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	t.Run("blockID - number", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		number := blockIDNumber(t, latestBlockNumber)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&number)
@@ -376,7 +377,7 @@ func TestBlockWithTxs(t *testing.T) {
 
 	t.Run("blockID - number accepted on l1", func(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: latestBlockNumber,
 			BlockHash:   latestBlockHash,
 			StateRoot:   latestBlock.GlobalStateRoot,
@@ -403,7 +404,7 @@ func TestBlockWithTxs(t *testing.T) {
 			&pending,
 			nil,
 		).Times(2)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		pendingID := blockIDPending(t)
 		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(&pendingID)
@@ -425,7 +426,7 @@ func TestBlockWithTxs(t *testing.T) {
 		)
 
 		mockReader.EXPECT().HeadsHeader().Return(latestBlock.Header, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		pending := blockIDPending(t)
 		blockWithTxs, rpcErr := handler.BlockWithTxs(&pending)
 		require.Nil(t, rpcErr)
@@ -466,7 +467,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	require.True(t, ok)
 
 	mockReader.EXPECT().BlockByNumber(gomock.Any()).Return(coreBlock, nil)
-	mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
+	mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 	blockID := blockIDNumber(t, blockNumber)
 	got, rpcErr := handler.BlockWithTxs(&blockID)
@@ -561,7 +562,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 		err := errors.New("l1 failure")
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block, nil)
-		mockReader.EXPECT().L1Head().Return(nil, err)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, err)
 
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
 		assert.Nil(t, resp)
@@ -580,7 +581,7 @@ func TestBlockWithReceipts(t *testing.T) {
 			&pending,
 			nil,
 		)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{}, nil)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, nil)
 
 		blockID := blockIDPending(t)
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
@@ -630,7 +631,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		)
 
 		mockReader.EXPECT().HeadsHeader().Return(block0.Header, nil)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		blockID := blockIDPending(t)
 		resp, rpcErr := handler.BlockWithReceipts(&blockID)
@@ -662,7 +663,7 @@ func TestBlockWithReceipts(t *testing.T) {
 		blockID := blockIDNumber(t, block1.Number)
 
 		mockReader.EXPECT().BlockByNumber(blockID.Number()).Return(block1, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{
+		mockReader.EXPECT().L1Head().Return(core.L1Head{
 			BlockNumber: block1.Number + 1,
 		}, nil)
 
@@ -721,7 +722,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 		require.NoError(t, err)
 		latestBlock.Header.SequencerAddress = nil
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
-		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
+		mockReader.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound).Times(2)
 
 		blockID := blockIDLatest(t)
 		block, rpcErr := handler.BlockWithTxs(&blockID)

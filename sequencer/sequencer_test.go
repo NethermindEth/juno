@@ -3,6 +3,7 @@ package sequencer_test
 import (
 	"context"
 	"crypto/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
@@ -23,13 +25,18 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
+
 func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt) (sequencer.Sequencer, *blockchain.Blockchain) {
 	t.Helper()
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	emptyStateDiff := core.EmptyStateDiff()
 	require.NoError(t, bc.StoreGenesis(&emptyStateDiff, nil))
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
@@ -103,7 +110,7 @@ func getGenesisSequencer(
 
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	log := utils.NewNopZapLogger()
 	privKey, err := ecdsa.GenerateKey(rand.Reader)
 	require.NoError(t, err)

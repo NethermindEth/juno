@@ -3,6 +3,7 @@ package proposer_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/mempool"
@@ -36,6 +38,11 @@ const (
 )
 
 var allBatchSizes = []int{1, 0, 3, 2, 4, 0, 1}
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
 
 func TestProposer(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -173,7 +180,7 @@ func getBlockchain(t *testing.T) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	bc := blockchain.New(testDB, network)
+	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	return bc
 }
 

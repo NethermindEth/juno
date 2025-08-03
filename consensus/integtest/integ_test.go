@@ -2,6 +2,7 @@ package integtest
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/utils"
@@ -74,6 +76,11 @@ func getTimeoutFn(cfg *testConfig) func(types.Step, types.Round) time.Duration {
 	}
 }
 
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
+
 func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -92,7 +99,7 @@ func getBuilder(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[fel
 	network := &utils.Mainnet
 	log := utils.NewNopZapLogger()
 
-	bc := bc.New(testDB, network)
+	bc := bc.New(testDB, network, statetestutils.UseNewState())
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 
 	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)

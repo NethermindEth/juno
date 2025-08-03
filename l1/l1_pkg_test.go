@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/l1/contract"
 	"github.com/NethermindEth/juno/mocks"
@@ -111,6 +113,11 @@ var longSequenceOfBlocks = []*l1Block{
 		},
 		expectedL2BlockHash: new(felt.Felt).SetUint64(9),
 	},
+}
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
 }
 
 func TestClient(t *testing.T) {
@@ -336,7 +343,7 @@ func TestClient(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			nopLog := utils.NewNopZapLogger()
 			network := utils.Mainnet
-			chain := blockchain.New(memory.New(), &network)
+			chain := blockchain.New(memory.New(), &network, statetestutils.UseNewState())
 
 			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
@@ -384,7 +391,7 @@ func TestClient(t *testing.T) {
 						BlockHash:   block.expectedL2BlockHash,
 						StateRoot:   block.expectedL2BlockHash,
 					}
-					assert.Equal(t, want, got)
+					assert.Equal(t, want, &got)
 				}
 			}
 		})
@@ -397,7 +404,7 @@ func TestUnreliableSubscription(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
-	chain := blockchain.New(memory.New(), &network)
+	chain := blockchain.New(memory.New(), &network, statetestutils.UseNewState())
 	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")
@@ -462,7 +469,7 @@ func TestUnreliableSubscription(t *testing.T) {
 				BlockHash:   block.expectedL2BlockHash,
 				StateRoot:   block.expectedL2BlockHash,
 			}
-			assert.Equal(t, want, got)
+			assert.Equal(t, want, &got)
 		}
 	}
 }

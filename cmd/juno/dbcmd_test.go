@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"os"
 	"strconv"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	juno "github.com/NethermindEth/juno/cmd/juno"
 	"github.com/NethermindEth/juno/core"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/pebble"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -15,6 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
 
 var emptyCommitments = core.BlockCommitments{}
 
@@ -55,7 +62,7 @@ func TestDBCmd(t *testing.T) {
 			require.NoError(t, db.Close())
 		})
 
-		chain := blockchain.New(db, &network)
+		chain := blockchain.New(db, &network, statetestutils.UseNewState())
 		block, err := chain.Head()
 		require.NoError(t, err)
 		assert.Equal(t, revertToBlock, block.Number)
@@ -79,7 +86,7 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	chain := blockchain.New(testDB, network)
+	chain := blockchain.New(testDB, network, statetestutils.UseNewState())
 
 	for blockNumber := uint64(0); blockNumber <= syncToBlock; blockNumber++ {
 		block, err := gw.BlockByNumber(t.Context(), blockNumber)

@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state/commonstate"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -345,7 +346,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
 			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
 			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
@@ -356,7 +357,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		l1Head := &core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(l1Head, nil)
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil)
 		handler.l1Heads.Send(l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
@@ -497,10 +498,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet)
+	chain = blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(t.Context())

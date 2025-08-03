@@ -2,11 +2,13 @@ package plugin_test
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -16,6 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
+}
 
 func TestPlugin(t *testing.T) {
 	timeout := time.Second
@@ -38,7 +45,7 @@ func TestPlugin(t *testing.T) {
 		require.NoError(t, err)
 		plugin.EXPECT().NewBlock(block, su, gomock.Any())
 	}
-	bc := blockchain.New(testDB, &utils.Integration)
+	bc := blockchain.New(testDB, &utils.Integration, statetestutils.UseNewState())
 	dataSource := sync.NewFeederGatewayDataSource(bc, integGw)
 	synchronizer := sync.New(bc, dataSource, utils.NewNopZapLogger(), 0, 0, false, nil).WithPlugin(plugin)
 
@@ -48,7 +55,7 @@ func TestPlugin(t *testing.T) {
 	require.NoError(t, bc.Stop())
 
 	t.Run("resync to mainnet with the same db", func(t *testing.T) {
-		bc := blockchain.New(testDB, &utils.Mainnet)
+		bc := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 
 		// Ensure current head is Integration head
 		head, err := bc.HeadsHeader()

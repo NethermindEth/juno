@@ -933,7 +933,7 @@ func (b *Blockchain) WriteRunningEventFilter() error {
 }
 
 func (b *Blockchain) Stop() error {
-	if b.trieDB.Scheme() == triedb.PathScheme {
+	if b.trieDB.Scheme() == triedb.PathScheme && b.StateFactory.UseNewState {
 		head, err := b.HeadsHeader()
 		if err != nil {
 			return err

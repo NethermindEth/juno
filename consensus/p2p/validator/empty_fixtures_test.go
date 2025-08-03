@@ -2,6 +2,7 @@ package validator
 
 import (
 	"math/rand/v2"
+	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -9,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
@@ -23,6 +25,11 @@ type EmptyTestFixture struct {
 	ProposalCommitment *consensus.ProposalPart
 	ProposalFin        *consensus.ProposalPart
 	Proposal           *starknet.Proposal
+}
+
+func TestMain(m *testing.M) {
+	statetestutils.Parse()
+	os.Exit(m.Run())
 }
 
 func NewEmptyTestFixture(
@@ -45,7 +52,7 @@ func NewEmptyTestFixture(
 
 	executor.RegisterBuildResult(&buildResult)
 
-	b := builder.New(blockchain.New(database, testCase.Network), executor)
+	b := builder.New(blockchain.New(database, testCase.Network, statetestutils.UseNewState()), executor)
 
 	proposalCommitment := EmptyProposalCommitment(headBlock, proposer, timestamp)
 
