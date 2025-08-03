@@ -2,7 +2,6 @@ package statetestutils
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -16,7 +15,6 @@ var (
 
 func parseFlags() {
 	flag.BoolVar(&useNewState, "use-new-state", false, "use new state implementation")
-	fmt.Println("use-new-state", useNewState)
 
 	cleanArgs := []string{os.Args[0]}
 	for i := 1; i < len(os.Args); i++ {
