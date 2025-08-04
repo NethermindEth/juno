@@ -60,6 +60,17 @@ const (
 	Blob
 )
 
+func (m L1DAMode) MarshalJSON() ([]byte, error) {
+	switch m {
+	case Calldata:
+		return []byte(`"CALLDATA"`), nil
+	case Blob:
+		return []byte(`"BLOB"`), nil
+	default:
+		return nil, errors.New("unknown L1DAMode")
+	}
+}
+
 func (m *L1DAMode) UnmarshalJSON(data []byte) error {
 	switch string(data) {
 	case `"CALLDATA"`:
