@@ -376,5 +376,11 @@
     "block_target": 800000,
     "duration_seconds": 79923.578399,
     "timestamp": "2025-08-03T14:09:18.554859+00:00"
+  },
+  {
+    "version": "v0.15.1-8-gdeb2f98a",
+    "block_target": 800000,
+    "duration_seconds": 79983.414022,
+    "timestamp": "2025-08-04T12:39:35.519323+00:00"
   }
 ]
