@@ -16,7 +16,7 @@ starknet_api = "0.15.0-rc.1"
 cairo-vm = "2.0.1"
 starknet-types-core = { version = "0.1.8", features = ["hash", "prime-bigint"] }
 indexmap = "2.1.0"
-cached = "0.55.1"
+cached = "0.56.0"
 once_cell = "1.19.0"
 lazy_static = "1.4.0"
 semver = "1.0.22"
