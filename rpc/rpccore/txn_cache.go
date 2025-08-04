@@ -13,28 +13,15 @@ const (
 	NumTimeBuckets = 3
 )
 
-// TransactionCache provides a time-bucketed cache for tracking transaction entries with TTL-based eviction.
+// The cache divides time into 3 fixed-size buckets (NumTimeBuckets), each representing one TTL interval.
+// It tracks a `curTimeBucket` index, which points to the active bucket for new entries.
 //
-// The cache divides time into 3 fixed-size buckets (NumTimeBuckets), each covering one TTL interval.
-// For example, with TTL = 5 minutes, and current time = 12 minutes:
+// The three buckets can be interpreted as:
+// - Bucket (curTimeBucket - 1) % 3: the previous bucket — entries may be valid or expired, depending on timestamp.
+// - Bucket (curTimeBucket    ) % 3: the current bucket — new entries are added here.
+// - Bucket (curTimeBucket + 1) % 3: the next bucket — cleared by the evictor-routine before reuse.
 //
-//   - Bucket 1 stores entries received between 0–5 min (expired).
-//   - Bucket 2 stores entries from 5–10 min (mix of valid and expired).
-//   - Bucket 3 stores entries from 10–15 min (valid).
-//
-// On each tick (i.e., every TTL interval), the active bucket index advances modulo 3.
-// For example, after a tick at time = 15 min:
-//   - Bucket 1 (previously 0–5 min) now stores entries received between 15–20 min, where all entries are now valid.
-//   - Bucket 2 still stores entries received between 5–10 min, but all entries are now completely expired.
-//   - Bucket 3 still stores entries received between 10–15 min, but the entries can be either valid or expired.
-//
-// The cache behaviour is:
-//   - `Add()` inserts an entry into the current active bucket (latest time window).
-//   - `Contains()` checks the two most recent buckets (excluding the oldest).
-//   - On each tick, the evictor deletes the oldest bucket in-place to reclaim memory.
-//
-// This design enables efficient TTL-based eviction without scanning the entire cache,
-// ensuring high-throughput insertion and lookup with bounded memory usage.
+// On every tick (i.e., TTL duration), the index advances and the evictor clears the oldest bucket in-place.
 type TransactionCache struct {
 	ttl           time.Duration
 	buckets       [NumTimeBuckets]map[felt.Felt]time.Time // map[txn-hash]entry-time
