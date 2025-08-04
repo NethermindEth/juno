@@ -82,9 +82,6 @@ func (c *TransactionCache) incrementTimeSlot() {
 }
 
 func (c *TransactionCache) Add(key felt.Felt) {
-	if c.Contains(key) {
-		return
-	}
 	timeSlot := c.getCurTimeSlot()
 	c.locks[timeSlot].Lock()
 	c.buckets[timeSlot][key] = time.Now()
