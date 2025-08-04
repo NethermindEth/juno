@@ -269,7 +269,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		cache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
 		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -324,7 +324,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		cache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
 		handler := New(mockChain, mockSyncer, nil, log).
 			WithFeeder(client).
 			WithGateway(mockGateway).

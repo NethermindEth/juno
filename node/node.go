@@ -262,7 +262,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			syncReader = synchronizer
 		}
 
-		submittedTransactionsCache := rpccore.NewTxnCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
+		submittedTransactionsCache := rpccore.NewTransactionCache(cfg.SubmittedTransactionsCacheEntryTTL, cfg.SubmittedTransactionsCacheSize)
 		services = append(services, submittedTransactionsCache)
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
 			WithGateway(gatewayClient).

@@ -13,7 +13,7 @@ const (
 	NumTimeBuckets = 3
 )
 
-// TxnCache provides a time-bucketed cache for tracking transaction entries with TTL-based eviction.
+// TransactionCache provides a time-bucketed cache for tracking transaction entries with TTL-based eviction.
 //
 // The cache divides time into 3 fixed-size buckets (NumTimeBuckets), each covering one TTL interval.
 // For example, with TTL = 5 minutes, and current time = 12 minutes:
@@ -35,7 +35,7 @@ const (
 //
 // This design enables efficient TTL-based eviction without scanning the entire cache,
 // ensuring high-throughput insertion and lookup with bounded memory usage.
-type TxnCache struct {
+type TransactionCache struct {
 	ttl           time.Duration
 	buckets       [NumTimeBuckets]map[felt.Felt]time.Time // map[txn-hash]entry-time
 	locks         [NumTimeBuckets]sync.RWMutex
@@ -43,9 +43,9 @@ type TxnCache struct {
 	tickC         <-chan time.Time
 }
 
-// NewTxnCache creates the cache with a default 1 s eviction ticker.
-func NewTxnCache(ttl time.Duration, cacheSizeHint uint) *TxnCache {
-	cache := &TxnCache{}
+// NewTransactionCache creates the cache with a default 1 s eviction ticker.
+func NewTransactionCache(ttl time.Duration, cacheSizeHint uint) *TransactionCache {
+	cache := &TransactionCache{}
 	for b := range NumTimeBuckets {
 		cache.buckets[b] = make(map[felt.Felt]time.Time, cacheSizeHint)
 	}
@@ -56,32 +56,32 @@ func NewTxnCache(ttl time.Duration, cacheSizeHint uint) *TxnCache {
 }
 
 // Call this _before_ Run. Should only be used for tests.
-func (c *TxnCache) WithTicker(tickC <-chan time.Time) *TxnCache {
+func (c *TransactionCache) WithTicker(tickC <-chan time.Time) *TransactionCache {
 	c.tickC = tickC
 	return c
 }
 
-func (c *TxnCache) Run(ctx context.Context) error {
+func (c *TransactionCache) Run(ctx context.Context) error {
 	c.evictor(ctx)
 	return nil
 }
 
-func (c *TxnCache) getCurTimeSlot() uint32 {
+func (c *TransactionCache) getCurTimeSlot() uint32 {
 	return atomic.LoadUint32(&c.curTimeBucket)
 }
 
-func (c *TxnCache) getExpiredTimeSlot() uint32 {
+func (c *TransactionCache) getExpiredTimeSlot() uint32 {
 	cur := atomic.LoadUint32(&c.curTimeBucket)
 	return (cur + 1) % NumTimeBuckets
 }
 
-func (c *TxnCache) incrementTimeSlot() {
+func (c *TransactionCache) incrementTimeSlot() {
 	old := atomic.LoadUint32(&c.curTimeBucket)
 	next := (old + 1) % NumTimeBuckets
 	atomic.StoreUint32(&c.curTimeBucket, next)
 }
 
-func (c *TxnCache) Add(key felt.Felt) {
+func (c *TransactionCache) Add(key felt.Felt) {
 	if c.Contains(key) {
 		return
 	}
@@ -91,7 +91,7 @@ func (c *TxnCache) Add(key felt.Felt) {
 	c.locks[timeSlot].Unlock()
 }
 
-func (c *TxnCache) Contains(key felt.Felt) bool {
+func (c *TransactionCache) Contains(key felt.Felt) bool {
 	expired := c.getExpiredTimeSlot()
 
 	for b := range uint32(NumTimeBuckets) {
@@ -108,7 +108,7 @@ func (c *TxnCache) Contains(key felt.Felt) bool {
 	return false
 }
 
-func (c *TxnCache) evictor(ctx context.Context) {
+func (c *TransactionCache) evictor(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

@@ -89,7 +89,7 @@ func (h *Handler) WithMempool(memPool mempool.Pool) *Handler {
 	return h
 }
 
-func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TxnCache) *Handler {
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
 	h.rpcv6Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv7Handler.WithSubmittedTransactionsCache(cache)
 	h.rpcv8Handler.WithSubmittedTransactionsCache(cache)

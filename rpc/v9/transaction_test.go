@@ -2054,7 +2054,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		Return(rawGatewayResponse, nil).
 		Times(2)
 	t.Run("transaction not found in db and feeder but found in cache", func(t *testing.T) {
-		submittedTransactionCache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		submittedTransactionCache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
 		fakeClock := make(chan time.Time, 1)
 		defer close(fakeClock)
 		submittedTransactionCache.WithTicker(fakeClock)
@@ -2082,7 +2082,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	})
 
 	t.Run("transaction not found in db and feeder, found in cache but expired", func(t *testing.T) {
-		submittedTransactionCache := rpccore.NewTxnCache(cacheEntryTimeOut, cacheSize)
+		submittedTransactionCache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
 		fakeClock := make(chan time.Time, 1)
 		defer close(fakeClock)
 		submittedTransactionCache.WithTicker(fakeClock)

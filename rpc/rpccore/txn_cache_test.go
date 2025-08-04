@@ -14,7 +14,7 @@ func TestBulkSetContains(t *testing.T) {
 
 	const ttl = time.Second
 
-	cache := rpccore.NewTxnCache(ttl, 1024)
+	cache := rpccore.NewTransactionCache(ttl, 1024)
 	go func() {
 		err := cache.Run(t.Context())
 		require.NoError(t, err)

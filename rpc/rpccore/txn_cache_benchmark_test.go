@@ -17,7 +17,7 @@ func BenchmarkCache(b *testing.B) {
 		ttl          = 1 // Only affects Contains(), effectively marking all entries as extinct. Irrelvant here.
 	)
 
-	cache := rpccore.NewTxnCache(ttl, totalEntries)
+	cache := rpccore.NewTransactionCache(ttl, totalEntries)
 	fakeClock := make(chan time.Time, 1)
 	cache.WithTicker(fakeClock)
 	go func() {
