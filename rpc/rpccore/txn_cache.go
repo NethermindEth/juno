@@ -86,17 +86,17 @@ func (c *TransactionCache) incrementTimeSlot() {
 	atomic.StoreUint32(&c.curTimeBucket, next)
 }
 
-func (c *TransactionCache) Add(key felt.Felt) {
+func (c *TransactionCache) Add(key *felt.Felt) {
 	timeSlot := c.getCurTimeSlot()
 	c.locks[timeSlot].Lock()
-	c.buckets[timeSlot][key] = time.Now()
+	c.buckets[timeSlot][*key] = time.Now()
 	c.locks[timeSlot].Unlock()
 }
 
-func (c *TransactionCache) Contains(key felt.Felt) bool {
+func (c *TransactionCache) Contains(key *felt.Felt) bool {
 	for _, b := range [2]uint32{c.getCurTimeSlot(), c.getPartialExpiredTimeSlot()} {
 		c.locks[b].RLock()
-		insertTime, ok := c.buckets[b][key]
+		insertTime, ok := c.buckets[b][*key]
 		c.locks[b].RUnlock()
 		if ok {
 			return time.Since(insertTime) <= c.ttl

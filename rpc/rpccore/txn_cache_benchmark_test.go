@@ -39,7 +39,7 @@ func BenchmarkCache(b *testing.B) {
 		for range numTicks {
 			// Add all the txns for this round
 			for range perTick {
-				cache.Add(keys[keyID])
+				cache.Add(&keys[keyID])
 				keyID++
 			}
 			// Trigger the eviction given one tick has passed

@@ -23,14 +23,14 @@ func TestBulkSetContains(t *testing.T) {
 
 	// Insert nKeys distinct entries
 	for i := range nKeys {
-		k := *new(felt.Felt).SetUint64(uint64(i))
+		k := new(felt.Felt).SetUint64(uint64(i))
 		cache.Add(k)
 	}
 
 	assertKeys := func(expected bool, msg string) {
 		for i := range nKeys {
 			k := *new(felt.Felt).SetUint64(uint64(i))
-			require.Equalf(t, expected, cache.Contains(k), msg, i)
+			require.Equalf(t, expected, cache.Contains(&k), msg, i)
 		}
 	}
 

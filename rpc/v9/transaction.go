@@ -630,7 +630,7 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	}
 
 	if h.submittedTransactionsCache != nil {
-		h.submittedTransactionsCache.Add(*res.TransactionHash)
+		h.submittedTransactionsCache.Add(res.TransactionHash)
 	}
 
 	return res, nil
@@ -763,7 +763,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (Transa
 
 			if h.submittedTransactionsCache != nil {
 				if txStatus.FinalityStatus == starknet.NotReceived {
-					if h.submittedTransactionsCache.Contains(hash) {
+					if h.submittedTransactionsCache.Contains(&hash) {
 						txStatus.FinalityStatus = starknet.Received
 					}
 				}
