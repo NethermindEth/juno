@@ -70,6 +70,11 @@ func (c *TransactionCache) getCurTimeSlot() uint32 {
 	return atomic.LoadUint32(&c.curTimeBucket)
 }
 
+func (c *TransactionCache) getPartialExpiredTimeSlot() uint32 {
+	cur := atomic.LoadUint32(&c.curTimeBucket)
+	return (cur + 2) % NumTimeBuckets
+}
+
 func (c *TransactionCache) getExpiredTimeSlot() uint32 {
 	cur := atomic.LoadUint32(&c.curTimeBucket)
 	return (cur + 1) % NumTimeBuckets
@@ -89,12 +94,7 @@ func (c *TransactionCache) Add(key felt.Felt) {
 }
 
 func (c *TransactionCache) Contains(key felt.Felt) bool {
-	expired := c.getExpiredTimeSlot()
-
-	for b := range uint32(NumTimeBuckets) {
-		if b == expired {
-			continue
-		}
+	for _, b := range [2]uint32{c.getCurTimeSlot(), c.getPartialExpiredTimeSlot()} {
 		c.locks[b].RLock()
 		insertTime, ok := c.buckets[b][key]
 		c.locks[b].RUnlock()
