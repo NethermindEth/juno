@@ -52,10 +52,10 @@ on:
 
 concurrency:
   group: shared_${{ inputs.environment }}_environment
-  cancel-in-progress: false 
+  cancel-in-progress: false
 
 permissions:
-  contents: read  
+  contents: read
 
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
@@ -90,7 +90,7 @@ jobs:
         run: |
           SOURCE_TAG=${{ env.DOCKER_REGISTRY }}/${{ inputs.source_repo }}/juno:${{ inputs.docker_image_tag }}
           TARGET_TAG=${{ env.DOCKER_REGISTRY }}/${{ inputs.target_repo }}/juno:${{ inputs.docker_image_tag }}
-          
+
           if [ "${{ inputs.source_repo }}" = "${{ inputs.target_repo }}" ]; then
             echo "Source and target repositories are the same, pushing as latest"
             docker buildx imagetools create -t ${{ env.DOCKER_REGISTRY }}/${{ inputs.target_repo }}/juno:latest $SOURCE_TAG
@@ -98,7 +98,7 @@ jobs:
             echo "Copying image from source to target repository"
             oras cp -r $SOURCE_TAG $TARGET_TAG,latest
           fi
-            
+
       - name: Verify Deployment Version
         run: |
           bash .github/workflow-scripts/verify_deployment.sh ${{ secrets.RPC_URL }} ${{ secrets.AUTH_TOKEN }} ${{ inputs.docker_image_tag }}
@@ -154,3 +154,53 @@ jobs:
       STARKNET_PRIVATE_KEY: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}
+
+  rps-performance:
+    needs: [deploy]
+    # uses: ./.github/workflows/starknet-rs-tests.yml
+    # secrets:
+    #   STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          repository: NethermindEth/starknet-rpc-tests
+          ref: "fix/load-tests"
+
+      # - name: Setup Go
+      #   uses: actions/setup-go@v5
+      #   with:
+      #     go-version: "1.23"
+      #
+      # - name: Install dependencies
+      #   run: go mod download
+
+      - name: Setup K6
+        uses: grafana/setup-k6-action@v1
+      - name: Run local k6 test
+        uses: grafana/run-k6-action@v1
+        env:
+          NODE_URL: "${{ secrets.TEST_RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
+          # NODE_URL: "${{ secrets.TEST_RPC_URL }}/${{ inputs.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}"
+          NETWORK: "sepolia"
+          LOAD_FACTOR: 1
+          DURATION: "30s"
+        with:
+          path: test.js
+
+      # - name: Configure test environment variables
+      #   run: |
+      #     echo
+      #     echo "WS_PROVIDER_URL=${{ secrets.TEST_WS_RPC_URL }}/${{ inputs.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}" >> $GITHUB_ENV
+      #     echo "STARKNET_PRIVATE_KEY=${{ secrets.STARKNET_PRIVATE_KEY }}" >> $GITHUB_ENV
+      #     echo "STARKNET_PUBLIC_KEY=${{ secrets.STARKNET_PUBLIC_KEY }}" >> $GITHUB_ENV
+      #     echo "STARKNET_ACCOUNT_ADDRESS=${{ secrets.STARKNET_ACCOUNT_ADDRESS }}" >> $GITHUB_ENV
+      #
+      # - name: Run RPC tests
+      #   working-directory: rpc
+      #   env:
+      #     #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block,
+      #     #  thus there will be no more pending transcations with `pending` semantics.
+      #     TESTS_TO_SKIP: "TestSubscribePendingTransactions"
+      #   run: go test -skip "$TESTS_TO_SKIP" -timeout 1200s -v -env testnet .
