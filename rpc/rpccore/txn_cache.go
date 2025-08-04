@@ -55,35 +55,9 @@ func NewTransactionCache(ttl time.Duration, cacheSizeHint uint) *TransactionCach
 	return cache
 }
 
-// Call this _before_ Run. Should only be used for tests.
-func (c *TransactionCache) WithTicker(tickC <-chan time.Time) *TransactionCache {
-	c.tickC = tickC
-	return c
-}
-
 func (c *TransactionCache) Run(ctx context.Context) error {
 	c.evictor(ctx)
 	return nil
-}
-
-func (c *TransactionCache) getCurTimeSlot() uint32 {
-	return atomic.LoadUint32(&c.curTimeBucket)
-}
-
-func (c *TransactionCache) getPartialExpiredTimeSlot() uint32 {
-	cur := atomic.LoadUint32(&c.curTimeBucket)
-	return (cur + 2) % NumTimeBuckets
-}
-
-func (c *TransactionCache) getExpiredTimeSlot() uint32 {
-	cur := atomic.LoadUint32(&c.curTimeBucket)
-	return (cur + 1) % NumTimeBuckets
-}
-
-func (c *TransactionCache) incrementTimeSlot() {
-	old := atomic.LoadUint32(&c.curTimeBucket)
-	next := (old + 1) % NumTimeBuckets
-	atomic.StoreUint32(&c.curTimeBucket, next)
 }
 
 func (c *TransactionCache) Add(key *felt.Felt) {
@@ -105,6 +79,12 @@ func (c *TransactionCache) Contains(key *felt.Felt) bool {
 	return false
 }
 
+// Call this _before_ Run. Should only be used for tests.
+func (c *TransactionCache) WithTicker(tickC <-chan time.Time) *TransactionCache {
+	c.tickC = tickC
+	return c
+}
+
 func (c *TransactionCache) evictor(ctx context.Context) {
 	for {
 		select {
@@ -121,4 +101,24 @@ func (c *TransactionCache) evictor(ctx context.Context) {
 			c.locks[expired].Unlock()
 		}
 	}
+}
+
+func (c *TransactionCache) getCurTimeSlot() uint32 {
+	return atomic.LoadUint32(&c.curTimeBucket)
+}
+
+func (c *TransactionCache) getPartialExpiredTimeSlot() uint32 {
+	cur := atomic.LoadUint32(&c.curTimeBucket)
+	return (cur + 2) % NumTimeBuckets
+}
+
+func (c *TransactionCache) getExpiredTimeSlot() uint32 {
+	cur := atomic.LoadUint32(&c.curTimeBucket)
+	return (cur + 1) % NumTimeBuckets
+}
+
+func (c *TransactionCache) incrementTimeSlot() {
+	old := atomic.LoadUint32(&c.curTimeBucket)
+	next := (old + 1) % NumTimeBuckets
+	atomic.StoreUint32(&c.curTimeBucket, next)
 }
