@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state/commonstate"
@@ -190,25 +189,20 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		}
 	}
 
-	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
+	state, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrBlockNotFound
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
-	var (
-		headState       commonstate.StateReader
-		headStateCloser blockchain.StateCloser
-	)
+	var headState commonstate.StateReader
 	if isPending {
-		headState, headStateCloser, err = h.PendingState()
+		headState, err = h.PendingState()
 	} else {
-		headState, headStateCloser, err = h.bcReader.HeadState()
+		headState, err = h.bcReader.HeadState()
 	}
 	if err != nil {
 		return nil, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
@@ -308,11 +302,10 @@ func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]Trac
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
 func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
-	state, closer, rpcErr := h.stateByBlockID(&id)
+	state, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(closer, "Failed to close state in starknet_call")
 
 	header, rpcErr := h.blockHeaderByID(&id)
 	if rpcErr != nil {

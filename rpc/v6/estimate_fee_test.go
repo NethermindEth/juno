@@ -37,7 +37,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	}
 
 	t.Run("block not found", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
 		_, err := handler.EstimateMessageFee(msg, rpc.BlockID{Latest: true})
 		require.Equal(t, rpccore.ErrBlockNotFound, err)
 	})
@@ -49,7 +49,7 @@ func TestEstimateMessageFee(t *testing.T) {
 	}
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
-	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+	mockReader.EXPECT().HeadState().Return(mockState, nil)
 	mockReader.EXPECT().HeadsHeader().Return(latestHeader, nil)
 
 	expectedGasConsumed := new(felt.Felt).SetUint64(37)

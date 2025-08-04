@@ -215,7 +215,7 @@ func TestPendingData(t *testing.T) {
 		su, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 		t.Run("pending state shouldnt exist if no pending block", func(t *testing.T) {
-			_, _, err = synchronizer.PendingState()
+			_, err = synchronizer.PendingState()
 			require.Error(t, err)
 		})
 
@@ -270,10 +270,7 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("get pending state", func(t *testing.T) {
-			_, pendingStateCloser, pErr := synchronizer.PendingState()
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
-			})
+			_, pErr := synchronizer.PendingState()
 			require.NoError(t, pErr)
 		})
 	})
@@ -290,7 +287,7 @@ func TestPendingData(t *testing.T) {
 		su, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
 		t.Run("pending state shouldnt exist if no pre_confirmed block", func(t *testing.T) {
-			_, _, err = synchronizer.PendingState()
+			_, err = synchronizer.PendingState()
 			require.Error(t, err)
 		})
 
@@ -343,11 +340,8 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("get pending state", func(t *testing.T) {
-			_, pendingStateCloser, pErr := synchronizer.PendingState()
+			_, pErr := synchronizer.PendingState()
 			require.NoError(t, pErr)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
-			})
 		})
 
 		t.Run("get pending state before index", func(t *testing.T) {
@@ -367,7 +361,7 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
 			txCount := len(preConfirmed.GetTransactions())
 
-			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
+			pendingState, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
 			require.NoError(t, pErr)
 
 			// Check storage value in two different index
@@ -381,11 +375,8 @@ func TestPendingData(t *testing.T) {
 			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
 			require.NoError(t, err)
 			require.Equal(t, *expectedVal, val)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
-			})
 
-			pendingState, pendingStateCloser, pErr = synchronizer.PendingStateBeforeIndex(txCount)
+			pendingState, pErr = synchronizer.PendingStateBeforeIndex(txCount)
 			require.NoError(t, pErr)
 			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
 			require.NoError(t, err)
@@ -396,9 +387,6 @@ func TestPendingData(t *testing.T) {
 			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
 			require.NoError(t, err)
 			require.Equal(t, *expectedVal, val)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
-			})
 		})
 	})
 }

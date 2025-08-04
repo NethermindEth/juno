@@ -77,8 +77,8 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (commonstate.StateReader, func() error, error)
-	PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error)
+	PendingState() (commonstate.StateReader, error)
+	PendingStateBeforeIndex(index int) (commonstate.StateReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -112,12 +112,12 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (commonstate.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
+func (n *NoopSynchronizer) PendingState() (commonstate.StateReader, error) {
+	return nil, errors.New("PendingState() not implemented")
 }
 
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
+func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, error) {
+	return nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -747,35 +747,35 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 var noop = func() error { return nil }
 
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (commonstate.StateReader, func() error, error) {
+func (s *Synchronizer) PendingState() (commonstate.StateReader, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pending, err := s.PendingData()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	pendingStateUpdate := pending.GetStateUpdate()
 	state, err := s.blockchain.StateFactory.NewState(pendingStateUpdate.OldRoot, txn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), noop, nil
+	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
 // up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
+func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateReader, error) {
 	txn := s.db.NewIndexedBatch()
 
 	pending, err := s.PendingData()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return nil, nil, errors.New("only supported for pre_confirmed block")
+		return nil, errors.New("only supported for pre_confirmed block")
 	}
 
 	stateDiff := core.EmptyStateDiff()
@@ -787,10 +787,10 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (commonstate.StateRead
 
 	state, err := s.blockchain.StateFactory.NewState(pending.GetStateUpdate().OldRoot, txn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return NewPendingState(&stateDiff, pending.GetNewClasses(), state), noop, nil
+	return NewPendingState(&stateDiff, pending.GetNewClasses(), state), nil
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {

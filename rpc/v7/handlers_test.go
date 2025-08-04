@@ -16,8 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func nopCloser() error { return nil }
-
 func TestSpecVersion(t *testing.T) {
 	handler := rpcv7.New(nil, nil, nil, &utils.Mainnet, nil)
 	version, rpcErr := handler.SpecVersion()
@@ -39,7 +37,7 @@ func TestThrottledVMError(t *testing.T) {
 
 	throttledErr := "VM throughput limit reached"
 	t.Run("call", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, nil)
 		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
@@ -54,7 +52,7 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("simulate", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
@@ -88,12 +86,12 @@ func TestThrottledVMError(t *testing.T) {
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 		state := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv7.ExecutionStepsHeader))

@@ -211,12 +211,12 @@ func (s *Sequencer) PendingBlock() *core.Block {
 	return s.buildState.PendingBlock()
 }
 
-func (s *Sequencer) PendingState() (commonstate.StateReader, func() error, error) {
+func (s *Sequencer) PendingState() (commonstate.StateReader, error) {
 	return s.builder.PendingState(s.buildState)
 }
 
-func (s *Sequencer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
-	return nil, nil, errors.ErrUnsupported
+func (s *Sequencer) PendingStateBeforeIndex(index int) (commonstate.StateReader, error) {
+	return nil, errors.ErrUnsupported
 }
 
 func (s *Sequencer) HighestBlockHeader() *core.Header {

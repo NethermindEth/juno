@@ -18,11 +18,10 @@ import (
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L633
 func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	stateReader, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getNonce")
 
 	nonce, err := stateReader.ContractNonce(&address)
 	if err != nil {
@@ -37,11 +36,10 @@ func (h *Handler) Nonce(id BlockID, address felt.Felt) (*felt.Felt, *jsonrpc.Err
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
 func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	stateReader, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
 	// Check if the contract exists because if it doesn't, the call to `ContractStorage` below
 	// will just return a zero-valued felt with a nil error (not an `ErrContractNotFound` error)

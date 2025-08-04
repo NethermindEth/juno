@@ -453,12 +453,12 @@ func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
 func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
-func (fs *fakeSyncer) PendingState() (commonstate.StateReader, func() error, error) {
-	return nil, nil, nil
+func (fs *fakeSyncer) PendingState() (commonstate.StateReader, error) {
+	return nil, nil
 }
 
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
-	return nil, nil, nil
+func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (commonstate.StateReader, error) {
+	return nil, nil
 }
 
 func TestSubscribeNewHeads(t *testing.T) {

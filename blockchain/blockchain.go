@@ -50,9 +50,9 @@ type Reader interface {
 }
 
 type StateProvider interface {
-	HeadState() (commonstate.StateReader, StateCloser, error)
-	StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, StateCloser, error)
-	StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, StateCloser, error)
+	HeadState() (commonstate.StateReader, error)
+	StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, error)
+	StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, error)
 }
 
 var (
@@ -432,60 +432,56 @@ func (b *Blockchain) SanityCheckNewHeight(block *core.Block, stateUpdate *core.S
 	return core.VerifyBlockHash(block, b.network, stateUpdate.StateDiff)
 }
 
-type StateCloser = func() error
-
-var noopStateCloser = func() error { return nil } // TODO: remove this once we refactor the state
-
 // HeadState returns a StateReader that provides a stable view to the latest state
-func (b *Blockchain) HeadState() (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) HeadState() (commonstate.StateReader, error) {
 	b.listener.OnRead("HeadState")
 	txn := b.database.NewIndexedBatch()
 
 	height, err := core.GetChainHeight(txn)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	header, err := core.GetBlockHeaderByNumber(txn, height)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	state, err := b.StateFactory.NewState(header.GlobalStateRoot, txn)
 
-	return state, noopStateCloser, err
+	return state, err
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
-func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateReader, error) {
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
 	header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, blockNumber)
 
-	return stateReader, noopStateCloser, err
+	return stateReader, err
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
-func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, StateCloser, error) {
+func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateReader, error) {
 	b.listener.OnRead("StateAtBlockHash")
 	if blockHash.IsZero() {
 		emptyState, err := b.StateFactory.EmptyState()
-		return emptyState, noopStateCloser, err
+		return emptyState, err
 	}
 
 	txn := b.database.NewIndexedBatch()
 	header, err := core.GetBlockHeaderByHash(txn, blockHash)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, header.Number)
-	return stateReader, noopStateCloser, err
+	return stateReader, err
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

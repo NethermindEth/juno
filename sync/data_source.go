@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/starknetdata"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type CommittedBlock struct {
@@ -81,14 +80,11 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	ctx context.Context,
 	stateUpdate *core.StateUpdate,
 ) (map[felt.Felt]core.Class, error) {
-	state, closer, err := f.blockchain.HeadState()
+	state, err := f.blockchain.HeadState()
 	if err != nil {
 		// if err is db.ErrKeyNotFound we are on an empty DB
 		if !errors.Is(err, db.ErrKeyNotFound) {
 			return nil, err
-		}
-		closer = func() error {
-			return nil
 		}
 	}
 
@@ -115,21 +111,21 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 
 	for _, classHash := range stateUpdate.StateDiff.DeployedContracts {
 		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, err
 		}
 	}
 	for _, classHash := range stateUpdate.StateDiff.DeclaredV0Classes {
 		if err = fetchIfNotFound(classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, err
 		}
 	}
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		if err = fetchIfNotFound(&classHash); err != nil {
-			return nil, utils.RunAndWrapOnError(closer, err)
+			return nil, err
 		}
 	}
 
-	return newClasses, closer()
+	return newClasses, nil
 }
 
 func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {

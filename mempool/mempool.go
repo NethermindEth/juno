@@ -272,16 +272,10 @@ func (p *SequencerMempool) validate(userTxn *BroadcastedTransaction) error {
 		return ErrTxnPoolFull
 	}
 
-	state, closer, err := p.bc.HeadState()
+	state, err := p.bc.HeadState()
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		if err := closer(); err != nil {
-			p.log.Errorw("closing state in mempool validate", "err", err)
-		}
-	}()
 
 	switch t := userTxn.Transaction.(type) {
 	case *core.DeployTransaction:

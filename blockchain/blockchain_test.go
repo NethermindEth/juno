@@ -419,7 +419,7 @@ func TestState(t *testing.T) {
 	gw := adaptfeeder.New(client)
 
 	t.Run("head with no blocks", func(t *testing.T) {
-		_, _, err := chain.HeadState()
+		_, err := chain.HeadState()
 		require.Error(t, err)
 	})
 
@@ -435,31 +435,28 @@ func TestState(t *testing.T) {
 	}
 
 	t.Run("head with blocks", func(t *testing.T) {
-		_, closer, err := chain.HeadState()
+		_, err := chain.HeadState()
 		require.NoError(t, err)
-		require.NoError(t, closer())
 	})
 
 	t.Run("existing height", func(t *testing.T) {
-		_, closer, err := chain.StateAtBlockNumber(1)
+		_, err := chain.StateAtBlockNumber(1)
 		require.NoError(t, err)
-		require.NoError(t, closer())
 	})
 
 	t.Run("non-existent height", func(t *testing.T) {
-		_, _, err := chain.StateAtBlockNumber(10)
+		_, err := chain.StateAtBlockNumber(10)
 		require.Error(t, err)
 	})
 
 	t.Run("existing hash", func(t *testing.T) {
-		_, closer, err := chain.StateAtBlockHash(existingBlockHash)
+		_, err := chain.StateAtBlockHash(existingBlockHash)
 		require.NoError(t, err)
-		require.NoError(t, closer())
 	})
 
 	t.Run("non-existent hash", func(t *testing.T) {
 		hash, _ := new(felt.Felt).SetRandom()
-		_, _, err := chain.StateAtBlockHash(hash)
+		_, err := chain.StateAtBlockHash(hash)
 		require.Error(t, err)
 	})
 
@@ -467,10 +464,9 @@ func TestState(t *testing.T) {
 		hash := new(felt.Felt)
 		require.True(t, hash.IsZero())
 
-		state, closer, err := chain.StateAtBlockHash(hash)
+		state, err := chain.StateAtBlockHash(hash)
 		require.NoError(t, err)
 		require.NotNil(t, state)
-		require.NoError(t, closer())
 	})
 }
 

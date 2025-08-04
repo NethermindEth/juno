@@ -32,7 +32,7 @@ func TestSimulateTransactions(t *testing.T) {
 	handler := rpcv7.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 	mockState := mocks.NewMockStateReader(mockCtrl)
-	mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil).AnyTimes()
+	mockReader.EXPECT().HeadState().Return(mockState, nil).AnyTimes()
 	headsHeader := &core.Header{
 		SequencerAddress: n.BlockHashMetaInfo.FallBackSequencerAddress,
 	}
@@ -211,7 +211,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			mockState := mocks.NewMockStateReader(mockCtrl)
 
 			mockReader.EXPECT().Network().Return(n)
-			mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+			mockReader.EXPECT().HeadState().Return(mockState, nil)
 			mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 
 			handler := rpcv7.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
