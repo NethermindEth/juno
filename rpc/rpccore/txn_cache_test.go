@@ -11,10 +11,11 @@ import (
 
 func TestBulkSetContains(t *testing.T) {
 	const nKeys = 2048
-
-	const ttl = time.Second
+	const ttl = 10 * time.Second
 
 	cache := rpccore.NewTransactionCache(ttl, 1024)
+	fakeClock := make(chan time.Time, 1)
+	cache.WithTicker(fakeClock)
 	go func() {
 		err := cache.Run(t.Context())
 		require.NoError(t, err)
@@ -26,46 +27,34 @@ func TestBulkSetContains(t *testing.T) {
 		cache.Add(k)
 	}
 
+	assertKeys := func(expected bool, msg string) {
+		for i := range nKeys {
+			k := *new(felt.Felt).SetUint64(uint64(i))
+			require.Equalf(t, expected, cache.Contains(k), msg, i)
+		}
+	}
+
 	// Verify all keys are present
-	for i := range nKeys {
-		k := *new(felt.Felt).SetUint64(uint64(i))
-		require.Truef(
-			t,
-			cache.Contains(k),
-			"expected key %d to be present after bulk insert",
-			i)
-	}
+	assertKeys(true, "expected key %d to be present after bulk insert")
 
-	// Wait for the entries to expire
-	time.Sleep(ttl)
+	// Trigger a tick, rotate buckets
+	fakeClock <- time.Now()
 
-	// Verify all the entries are expired
-	for i := range nKeys {
-		k := *new(felt.Felt).SetUint64(uint64(i))
-		require.Falsef(
-			t,
-			cache.Contains(k),
-			"expected key %d to be deleted after ttl was hit",
-			i)
-	}
+	// Keys still valid
+	assertKeys(true, "expected key %d to be present after first tick")
 
-	// Entries don't come back to life etc as the cache buckets rotate
-	time.Sleep(ttl)
-	for i := range nKeys {
-		k := *new(felt.Felt).SetUint64(uint64(i))
-		require.Falsef(
-			t,
-			cache.Contains(k),
-			"expected key %d to be deleted after ttl was hit",
-			i)
-	}
-	time.Sleep(ttl)
-	for i := range nKeys {
-		k := *new(felt.Felt).SetUint64(uint64(i))
-		require.Falsef(
-			t,
-			cache.Contains(k),
-			"expected key %d to be deleted after ttl was hit",
-			i)
-	}
+	// Trigger another tick
+	fakeClock <- time.Now()
+
+	// Allow the evictor to trigger time update
+	// In practice the `time.Since(insertTime) <= c.ttl` check in Contains
+	// prevents this data race. But we are overriding time here.
+	time.Sleep(10 * time.Millisecond)
+
+	// Keys should be evicted
+	assertKeys(false, "expected key %d to be deleted after ttl was hit")
+
+	// Keys should remain evicted after further rotation
+	fakeClock <- time.Now()
+	assertKeys(false, "expected key %d to be deleted after ttl was hit")
 }
