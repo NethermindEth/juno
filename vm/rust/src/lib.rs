@@ -372,7 +372,12 @@ pub extern "C" fn cairoVMExecute(
             only_query: txn_and_query_bit.query_bit,
             charge_fee,
             validate,
-            strict_nonce_check: true,
+            // we don't want to be strict with the nonce when not running
+            // validation. "strict nonce check" means that if an account 
+            // has nonce `i`, its next transaction must have nonce `i+1`.
+            // When this check is relaxed, the transaction can have any 
+            // future nonce (i.e. `i + k` with `k > 0`)
+            strict_nonce_check: validate, 
         };
 
         let txn = transaction_from_api(
