@@ -73,9 +73,6 @@ clean-testcache: ## Clean Go test cache
 test: clean-testcache rustdeps ## Run tests
 	go test $(GO_TAGS) -v ./...
 
-test: clean-testcache rustdeps ## Run tests
-	go test $(GO_TAGS) -v ./...
-
 test-new-state: clean-testcache rustdeps ## Run tests with new state
 	USE_NEW_STATE=true go test $(GO_TAGS) -v ./...
 
