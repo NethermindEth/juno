@@ -26,7 +26,7 @@ type TransactionCache struct {
 	ttl           time.Duration
 	buckets       [NumTimeBuckets]map[felt.Felt]time.Time // map[txn-hash]entry-time
 	locks         [NumTimeBuckets]sync.RWMutex
-	curTimeBucket uint32
+	curTimeBucket atomic.Uint32
 	tickC         <-chan time.Time
 }
 
@@ -36,7 +36,7 @@ func NewTransactionCache(ttl time.Duration, cacheSizeHint uint) *TransactionCach
 	for b := range NumTimeBuckets {
 		cache.buckets[b] = make(map[felt.Felt]time.Time, cacheSizeHint)
 	}
-	atomic.StoreUint32(&cache.curTimeBucket, 0)
+	cache.curTimeBucket.Store(0)
 	cache.tickC = time.NewTicker(ttl).C
 	cache.ttl = ttl
 	return cache
@@ -91,21 +91,21 @@ func (c *TransactionCache) evictor(ctx context.Context) {
 }
 
 func (c *TransactionCache) getCurTimeSlot() uint32 {
-	return atomic.LoadUint32(&c.curTimeBucket)
+	return c.curTimeBucket.Load()
 }
 
 func (c *TransactionCache) getPartialExpiredTimeSlot() uint32 {
-	cur := atomic.LoadUint32(&c.curTimeBucket)
+	cur := c.curTimeBucket.Load()
 	return (cur + 2) % NumTimeBuckets
 }
 
 func (c *TransactionCache) getExpiredTimeSlot() uint32 {
-	cur := atomic.LoadUint32(&c.curTimeBucket)
+	cur := c.curTimeBucket.Load()
 	return (cur + 1) % NumTimeBuckets
 }
 
 func (c *TransactionCache) incrementTimeSlot() {
-	old := atomic.LoadUint32(&c.curTimeBucket)
+	old := c.curTimeBucket.Load()
 	next := (old + 1) % NumTimeBuckets
-	atomic.StoreUint32(&c.curTimeBucket, next)
+	c.curTimeBucket.Store(next)
 }
