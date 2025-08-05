@@ -41,7 +41,8 @@ func TestPipeline(t *testing.T) {
 		})
 		t.Run("Bridge", func(t *testing.T) {
 			out := make(chan int)
-			Bridge[int](ctx, out, nil) // non-blocking
+			chOfInts := make(chan (<-chan int))
+			go Bridge[int](ctx, out, chOfInts) // non-blocking
 		})
 	})
 
