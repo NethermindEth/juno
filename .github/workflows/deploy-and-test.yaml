@@ -49,6 +49,8 @@ on:
         required: true
       AUTH_TOKEN:
         required: true
+      APP_PRIVATE_KEY:
+        required: true
 
 concurrency:
   group: shared_${{ inputs.environment }}_environment

@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
 
-  
 jobs:
   build:
     # Skip for PRs from forks as they don't have access to secrets
@@ -25,7 +24,7 @@ jobs:
     secrets:
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
-  
+
   smoke_test_100_blocks:
     needs: [build]
     uses: ./.github/workflows/smoke-test.yaml
@@ -36,7 +35,7 @@ jobs:
       APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
       ARTIFACTORY_NUBIA_USERNAME: ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }}
       ARTIFACTORY_NUBIA_TOKEN_DEVELOPER: ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
-      
+
   dev_deploy_test:
     needs: [build]
     uses: ./.github/workflows/deploy-and-test.yaml
@@ -59,3 +58,5 @@ jobs:
       TEST_ACCOUNT_PRIVATE_KEY_3: ${{ secrets.TEST_ACCOUNT_PRIVATE_KEY_3 }}
       TEST_ACCOUNT_PUBLIC_KEY_3: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       AUTH_TOKEN: ${{ secrets.DEV_AUTH_TOKEN }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+
