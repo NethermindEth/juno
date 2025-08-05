@@ -32,6 +32,8 @@ docker run -d \
 
 ## Configure Grafana dashboard
 
+The Juno Grafana dashboard is optimized for single-node deployments and uses generic metric selectors that work with standard Prometheus configurations.
+
 ### 1. Set up Grafana
 
 - Follow the [Set up Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/) guide to install Grafana.
@@ -87,6 +89,95 @@ To have Juno write logs to a file, use the command:
 ![Grafana dashboard](/img/grafana-1.png)
 
 ![Grafana dashboard](/img/grafana-2.png)
+
+## Health endpoints for Kubernetes
+
+Juno provides standard health endpoints that are designed to work with Kubernetes liveness and readiness probes:
+
+### `/live` endpoint
+
+The `/live` endpoint always returns a `200 OK` response to indicate that the Juno process is running. This endpoint is intended for use with Kubernetes `livenessProbe` to prevent unnecessary container restarts.
+
+```yaml title="Kubernetes livenessProbe example"
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 6060
+  initialDelaySeconds: 30
+  periodSeconds: 10
+```
+
+### `/ready` endpoint
+
+The `/ready` endpoint returns:
+- `200 OK` when the node is synced and ready to serve requests
+- `503 Service Unavailable` during migrations or when the node is not yet synced
+
+This endpoint is intended for use with Kubernetes `readinessProbe` to control traffic routing.
+
+```yaml title="Kubernetes readinessProbe example"
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 6060
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  failureThreshold: 3
+```
+
+### Configuring readiness criteria
+
+You can configure what "synced" means for the `/ready` endpoint using the `readiness-block-tolerance` configuration option:
+
+- `readiness-block-tolerance`: Maximum blocks behind the latest block for the `/ready` endpoint to return `200 OK` (default: `6`)
+
+```bash
+# Example: Allow up to 10 blocks behind latest
+./build/juno --readiness-block-tolerance 10 --http --http-port 6060
+```
+
+### Complete Kubernetes deployment example
+
+```yaml title="kubernetes-deployment.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: juno
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: juno
+  template:
+    metadata:
+      labels:
+        app: juno
+    spec:
+      containers:
+      - name: juno
+        image: nethermind/juno:latest
+        ports:
+        - containerPort: 6060
+        args:
+          - --http
+          - --http-port=6060
+          - --http-host=0.0.0.0
+          - --readiness-block-tolerance=6
+          - --eth-node=<YOUR-ETH-NODE>
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: 6060
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 6060
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          failureThreshold: 3
+```
 
 ## Change log level in runtime
 
