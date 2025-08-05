@@ -515,7 +515,7 @@ pub extern "C" fn cairoVMExecute(
                     .receipt
                     .resources
                     .computation
-                    .vm_resources
+                    .total_vm_resources()
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);

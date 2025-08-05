@@ -244,13 +244,13 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Bucket", "Size", "Count"})
-	table.AppendBulk(items)
-	table.SetFooter([]string{"Total", totalSize.String(), fmt.Sprintf("%d", totalCount)})
+	table.Header([]string{"Bucket", "Size", "Count"})
+	table.Bulk(items)
+	table.Footer([]string{"Total", totalSize.String(), fmt.Sprintf("%d", totalCount)})
 	table.Render()
 
 	tableState := tablewriter.NewWriter(os.Stdout)
-	tableState.SetHeader([]string{"State", "Size", "Count"})
+	tableState.Header([]string{"State", "Size", "Count"})
 	tableState.Append([]string{"Without history", withoutHistorySize.String(), fmt.Sprintf("%d", withoutHistoryCount)})
 	tableState.Append([]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)})
 	tableState.Render()
