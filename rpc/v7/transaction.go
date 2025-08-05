@@ -508,7 +508,7 @@ func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*Trans
 			return nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 
-		if h.submittedTransactionsCache != nil && txStatus.FinalityStatus == starknet.NotReceived {
+		if txStatus.FinalityStatus == starknet.NotReceived && h.submittedTransactionsCache != nil {
 			if h.submittedTransactionsCache.Contains(&hash) {
 				txStatus.FinalityStatus = starknet.Received
 			}
