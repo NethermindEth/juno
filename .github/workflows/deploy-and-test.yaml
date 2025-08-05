@@ -159,9 +159,6 @@ jobs:
 
   rps-performance:
     needs: [deploy]
-    # uses: ./.github/workflows/starknet-rs-tests.yml
-    # secrets:
-    #   STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - name: Generate a token
@@ -191,4 +188,4 @@ jobs:
           LOAD_FACTOR: 1
           DURATION: "30s"
         with:
-          path: test.js
+          path: load_tests/test_cases.js
