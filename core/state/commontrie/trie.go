@@ -38,7 +38,10 @@ func (ta *TrieAdapter) Get(key *felt.Felt) (felt.Felt, error) {
 
 func (ta *TrieAdapter) Hash() (felt.Felt, error) {
 	root, err := ta.Trie.Root()
-	return *root, err
+	if err != nil {
+		return felt.Zero, err
+	}
+	return *root, nil
 }
 
 func (ta *TrieAdapter) HashFn() crypto.HashFn {
