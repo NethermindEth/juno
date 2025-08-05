@@ -3,7 +3,6 @@ package sync_test
 import (
 	"context"
 	"errors"
-	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,11 +23,6 @@ import (
 )
 
 const timeout = time.Second
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestSyncBlocks(t *testing.T) {
 	mockCtrl := gomock.NewController(t)

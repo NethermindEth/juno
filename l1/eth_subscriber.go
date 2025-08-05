@@ -79,6 +79,17 @@ func (s *EthSubscriber) FinalisedHeight(ctx context.Context) (uint64, error) {
 	return head.Number.Uint64(), nil
 }
 
+func (s *EthSubscriber) LatestHeight(ctx context.Context) (uint64, error) {
+	reqTimer := time.Now()
+	height, err := s.ethClient.BlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("get latest Ethereum block number: %w", err)
+	}
+	s.listener.OnL1Call("eth_blockNumber", time.Since(reqTimer))
+
+	return height, nil
+}
+
 func (s *EthSubscriber) Close() {
 	s.ethClient.Close()
 }

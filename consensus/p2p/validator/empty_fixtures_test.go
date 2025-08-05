@@ -2,7 +2,6 @@ package validator
 
 import (
 	"math/rand/v2"
-	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -25,11 +24,6 @@ type EmptyTestFixture struct {
 	ProposalCommitment *consensus.ProposalPart
 	ProposalFin        *consensus.ProposalPart
 	Proposal           *starknet.Proposal
-}
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
 }
 
 func NewEmptyTestFixture(

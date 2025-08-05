@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -26,11 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestMigration0000(t *testing.T) {
 	testDB := memory.New()

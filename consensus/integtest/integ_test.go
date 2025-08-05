@@ -2,7 +2,6 @@ package integtest
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -74,11 +73,6 @@ func getTimeoutFn(cfg *testConfig) func(types.Step, types.Round) time.Duration {
 		}
 		return 0
 	}
-}
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
 }
 
 func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {

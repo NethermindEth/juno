@@ -1,42 +1,21 @@
 package statetestutils
 
 import (
-	"flag"
 	"os"
-	"strings"
+	"strconv"
 	"sync"
 )
 
 var (
-	once        sync.Once
-	parsed      bool
 	useNewState bool
+	once        sync.Once
 )
 
-func parseFlags() {
-	flag.BoolVar(&useNewState, "use-new-state", false, "use new state implementation")
-
-	cleanArgs := []string{os.Args[0]}
-	for i := 1; i < len(os.Args); i++ {
-		arg := os.Args[i]
-		if arg == "-use-new-state" || strings.HasPrefix(arg, "-use-new-state=") {
-			continue
-		}
-		cleanArgs = append(cleanArgs, arg)
-	}
-	os.Args = cleanArgs
-
-	flag.Parse()
-	parsed = true
-}
-
-func Parse() {
-	once.Do(parseFlags)
-}
-
 func UseNewState() bool {
-	if !parsed {
-		Parse()
-	}
+	once.Do(func() {
+		val := os.Getenv("USE_NEW_STATE")
+		parsed, err := strconv.ParseBool(val)
+		useNewState = err == nil && parsed
+	})
 	return useNewState
 }
