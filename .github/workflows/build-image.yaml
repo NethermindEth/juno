@@ -6,15 +6,11 @@ on:
       docker_image_tag:
         description: "The Docker image tag that was built"
         value: ${{ jobs.build.outputs.DOCKER_IMAGE_TAG }}
-    secrets:
-      ARTIFACTORY_NUBIA_USERNAME:
-        required: true
-      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
-        required: true
 
 permissions:
   contents: read
   actions: write
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-image-build
@@ -43,10 +39,22 @@ jobs:
           echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG" >> $GITHUB_OUTPUT
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v.3.11.1
 
-      - name: Login to registry
-        run: docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@ff5cb544114ffc152db9cea1cd3d5978d5074946 # v4.5.11
+        env:
+          JF_URL: https://${{ env.DOCKER_REGISTRY }}
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to Registry with OIDC
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
 
       - name: Build & push Docker images
         uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
