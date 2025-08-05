@@ -5,7 +5,7 @@ go 1.24.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
-	github.com/NethermindEth/cairo-vm-go v0.0.0-20241022093807-167daddfd4a4
+	github.com/NethermindEth/cairo-vm-go v0.0.0-20250328115059-9d22f172e288
 	github.com/VictoriaMetrics/fastcache v1.12.2
 	github.com/bits-and-blooms/bitset v1.22.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
