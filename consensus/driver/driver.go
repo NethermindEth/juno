@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/NethermindEth/juno/consensus/db"
@@ -114,12 +115,16 @@ func (d *Driver[V, H, A]) execute(
 	for _, action := range actions {
 		switch action := action.(type) {
 		case *types.BroadcastProposal[V, H, A]:
+			fmt.Println("types.BroadcastProposal[V, H, A]")
 			broadcasters.ProposalBroadcaster.Broadcast(ctx, types.Proposal[V, H, A](*action))
 		case *types.BroadcastPrevote[H, A]:
+			fmt.Println("types.BroadcastPrevote[V, H, A]")
 			broadcasters.PrevoteBroadcaster.Broadcast(ctx, types.Prevote[H, A](*action))
 		case *types.BroadcastPrecommit[H, A]:
+			fmt.Println("types.BroadcastPrecommit[V, H, A]")
 			broadcasters.PrecommitBroadcaster.Broadcast(ctx, types.Precommit[H, A](*action))
 		case *types.ScheduleTimeout:
+			fmt.Println("types.ScheduleTimeout[V, H, A]")
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
 				case <-ctx.Done():
@@ -127,6 +132,7 @@ func (d *Driver[V, H, A]) execute(
 				}
 			})
 		case *types.Commit[V, H, A]:
+			fmt.Println("types.Commit[V, H, A]")
 			if err := d.db.Flush(); err != nil {
 				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
 			}

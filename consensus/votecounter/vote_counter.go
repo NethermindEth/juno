@@ -1,6 +1,7 @@
 package votecounter
 
 import (
+	"fmt"
 	"iter"
 
 	"github.com/NethermindEth/juno/consensus/types"
@@ -111,10 +112,11 @@ func (v *VoteCounter[V, H, A]) AddProposal(proposal *types.Proposal[V, H, A]) bo
 		return false
 	}
 
+	fmt.Println(" [][]  v.validators.Proposer()")
 	if expectedProposer := v.validators.Proposer(proposal.Height, proposal.Round); proposal.Sender != expectedProposer {
+		fmt.Println(" [][] weird bug!!!", proposal.Sender, expectedProposer)
 		return false
 	}
-
 	return roundData.setProposal(proposal, votingPower)
 }
 

@@ -1,6 +1,8 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+)
 
 func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V, H, A] {
 	return s.processLoop(s.startRound(round), nil)
@@ -89,6 +91,9 @@ func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (act
 		roundCachedProposal = s.findProposal(*recentlyReceivedRound)
 	}
 
+	if recentlyReceivedRound != nil {
+	}
+
 	switch {
 	// Line 22
 	case cachedProposal != nil && s.uponFirstProposal(cachedProposal):
@@ -114,7 +119,7 @@ func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (act
 	case s.uponPrecommitAny():
 		return s.doPrecommitAny(), true
 
-	// Line 49
+		// Line 49
 	case roundCachedProposal != nil && s.uponCommitValue(roundCachedProposal):
 		return s.doCommitValue(roundCachedProposal), false // We should stop immediately after committing
 

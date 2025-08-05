@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	consensusSync "github.com/NethermindEth/juno/consensus/sync"
+	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -29,11 +30,14 @@ type (
 	blockchain   = driver.Blockchain[starknet.Value, starknet.Hash]
 )
 
+var comittedHeight = 0
+
 type mockBlockchain struct {
 	t *testing.T
 }
 
 func (m *mockBlockchain) Commit(height types.Height, value starknet.Value) {
+	comittedHeight = int(height)
 }
 
 func newMockBlockchain(t *testing.T) blockchain {
@@ -55,19 +59,31 @@ func newTendermintDB(t *testing.T) tendermintDB {
 	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB, types.Height(0))
 }
 
+func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
+	t.Helper()
+	ctrl := gomock.NewController(t)
+	// Ignore WAL for tests that use this
+	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
+	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
+	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
+	db.EXPECT().Flush().AnyTimes()
+	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
+	return db
+}
+
 func TestSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(t.Context())
 
-	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
-	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return([]types.Action[starknet.Value, starknet.Hash, starknet.Address]{})
-	stateMachine.EXPECT().ProcessPrecommit(gomock.Any()).Times(3).Return([]types.Action[starknet.Value, starknet.Hash, starknet.Address]{})
-	stateMachine.EXPECT().ProcessProposal(gomock.Any()).Return(
-		[]types.Action[starknet.Value, starknet.Hash, starknet.Address]{},
-	)
+	nodeAddr := starknet.Address(felt.FromUint64(123)) // Todo: don't want to propose a value during sync
+	logger := utils.NewNopZapLogger()
+	tendermintDB := newDB(t)
+	proposalStore := proposal.ProposalStore[starknet.Hash]{}
+	allNodes := newNodes(4) // Validator set at our local height 0
+	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, nil, allNodes, types.Height(0))
+	mockBC := newMockBlockchain(t)
 
 	proposalCh := make(chan starknet.Proposal)
 	prevoteCh := make(chan starknet.Prevote)
@@ -78,7 +94,7 @@ func TestSync(t *testing.T) {
 		utils.NewNopZapLogger(),
 		newTendermintDB(t),
 		stateMachine,
-		newMockBlockchain(t),
+		mockBC,
 		p2p,
 		newMockProposer(),
 		mockTimeoutFn,
@@ -90,7 +106,6 @@ func TestSync(t *testing.T) {
 
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
-	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
 	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 
@@ -102,11 +117,12 @@ func TestSync(t *testing.T) {
 	}()
 
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		cancel()
 	}()
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
+	require.NotZero(t, comittedHeight, "expected a block to be comitted")
 }
 
 func TestShutdownOnError(t *testing.T) {
@@ -137,8 +153,8 @@ func getCommittedBlock() sync.BlockBody {
 				Hash:             new(felt.Felt).SetUint64(1),
 				TransactionCount: 2,
 				EventCount:       3,
-				SequencerAddress: new(felt.Felt).SetUint64(4),
-				Number:           1,
+				SequencerAddress: new(felt.Felt).SetUint64(5),
+				Number:           0,
 			},
 		},
 		StateUpdate: &core.StateUpdate{
@@ -158,19 +174,19 @@ func getPrecommits(types.Height) []types.Precommit[starknet.Hash, starknet.Addre
 		// We don't use the round since it's not present in the spec yet
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(1),
+				Height: types.Height(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(1)),
 			},
 		},
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(1),
+				Height: types.Height(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(2)),
 			},
 		},
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
-				Height: types.Height(1),
+				Height: types.Height(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(3)),
 			},
 		},

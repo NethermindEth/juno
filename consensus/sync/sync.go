@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -12,7 +13,7 @@ import (
 	"github.com/NethermindEth/juno/p2p"
 )
 
-const syncRoundPlaceHolder = -1 // Todo: We use this value until the round is added to the spec
+const syncRoundPlaceHolder = 0 // Todo: We use this value until the round is added to the spec
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	syncService       p2p.BlockListener
@@ -94,7 +95,7 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 				case s.driverPrecommitCh <- precommit:
 				}
 			}
-
+			fmt.Println("committedBlock.Block.SequencerAddress", committedBlock.Block.SequencerAddress.Bits())
 			proposal := types.Proposal[V, H, A]{
 				MessageHeader: types.MessageHeader[A]{
 					Height: types.Height(committedBlock.Block.Number),
