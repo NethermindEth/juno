@@ -3,7 +3,6 @@ package sequencer_test
 import (
 	"context"
 	"crypto/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -24,11 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt) (sequencer.Sequencer, *blockchain.Blockchain) {
 	t.Helper()

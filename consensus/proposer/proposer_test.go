@@ -3,7 +3,6 @@ package proposer_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"slices"
 	"testing"
 	"time"
@@ -38,11 +37,6 @@ const (
 )
 
 var allBatchSizes = []int{1, 0, 3, 2, 4, 0, 1}
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestProposer(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)

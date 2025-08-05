@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -113,11 +112,6 @@ var longSequenceOfBlocks = []*l1Block{
 		},
 		expectedL2BlockHash: new(felt.Felt).SetUint64(9),
 	},
-}
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
 }
 
 func TestClient(t *testing.T) {

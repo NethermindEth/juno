@@ -3,23 +3,16 @@ package rpcv9
 import (
 	"encoding/json"
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestCreateSimulatedTransactions(t *testing.T) {
 	executionResults := vm.ExecutionResults{
