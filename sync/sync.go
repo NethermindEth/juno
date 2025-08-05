@@ -11,6 +11,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	junoplugin "github.com/NethermindEth/juno/plugin"
@@ -76,8 +77,8 @@ type Reader interface {
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
-	PendingState() (core.StateReader, func() error, error)
-	PendingStateBeforeIndex(index int) (core.StateReader, func() error, error)
+	PendingState() (state.StateReader, error)
+	PendingStateBeforeIndex(index int) (state.StateReader, error)
 }
 
 // This is temporary and will be removed once the p2p synchronizer implements this interface.
@@ -111,12 +112,12 @@ func (n *NoopSynchronizer) PendingData() (core.PendingData, error) {
 	return nil, errors.New("PendingData() is not implemented")
 }
 
-func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingState() not implemented")
+func (n *NoopSynchronizer) PendingState() (state.StateReader, error) {
+	return nil, errors.New("PendingState() not implemented")
 }
 
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
+func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (state.StateReader, error) {
+	return nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
 // Synchronizer manages a list of StarknetData to fetch the latest blockchain updates
@@ -245,7 +246,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	err = s.plugin.RevertBlock(
 		&junoplugin.BlockAndStateUpdate{Block: fromBlock, StateUpdate: fromSU},
 		toBlockAndStateUpdate,
-		reverseStateDiff)
+		&reverseStateDiff)
 	if err != nil {
 		s.log.Errorw("Plugin RevertBlock failure:", "err", err)
 	}
@@ -742,32 +743,32 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pendingData.GetBlock()
 }
 
-var noop = func() error { return nil }
-
 // PendingState returns the state resulting from execution of the pending block
-func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
+func (s *Synchronizer) PendingState() (state.StateReader, error) {
 	pending, err := s.PendingData()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
+	pendingStateUpdate := pending.GetStateUpdate()
+	state, err := state.New(pendingStateUpdate.OldRoot, s.blockchain.StateDB)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPendingState(pendingStateUpdate.StateDiff, pending.GetNewClasses(), state), nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
 // up to given index in the pre-confirmed block.
-func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	txn := s.db.NewIndexedBatch()
-
+func (s *Synchronizer) PendingStateBeforeIndex(index int) (state.StateReader, error) {
 	pending, err := s.PendingData()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if pending.Variant() != core.PreConfirmedBlockVariant {
-		return nil, nil, errors.New("only supported for pre_confirmed block")
+		return nil, errors.New("only supported for pre_confirmed block")
 	}
 
 	stateDiff := core.EmptyStateDiff()
@@ -777,7 +778,12 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 		stateDiff.Merge(txStateDiff)
 	}
 
-	return NewPendingState(&stateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
+	state, err := state.New(pending.GetStateUpdate().OldRoot, s.blockchain.StateDB)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPendingState(&stateDiff, pending.GetNewClasses(), state), nil
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {

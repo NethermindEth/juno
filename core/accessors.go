@@ -225,25 +225,25 @@ func GetReceiptByHash(r db.KeyValueReader, hash *felt.Felt) (*TransactionReceipt
 	return GetReceiptByBlockNumIndexBytes(r, val)
 }
 
-func DeleteTxsAndReceipts(batch db.IndexedBatch, blockNum, numTxs uint64) error {
+func DeleteTxsAndReceipts(r db.KeyValueReader, w db.KeyValueWriter, blockNum, numTxs uint64) error {
 	// remove txs and receipts
 	for i := range numTxs {
-		txn, err := GetTxByBlockNumIndex(batch, blockNum, i)
+		txn, err := GetTxByBlockNumIndex(r, blockNum, i)
 		if err != nil {
 			return err
 		}
 
-		if err := DeleteTxByBlockNumIndex(batch, blockNum, i); err != nil {
+		if err := DeleteTxByBlockNumIndex(w, blockNum, i); err != nil {
 			return err
 		}
-		if err := DeleteReceiptByBlockNumIndex(batch, blockNum, i); err != nil {
+		if err := DeleteReceiptByBlockNumIndex(w, blockNum, i); err != nil {
 			return err
 		}
-		if err := DeleteTxBlockNumIndexByHash(batch, txn.Hash()); err != nil {
+		if err := DeleteTxBlockNumIndexByHash(w, txn.Hash()); err != nil {
 			return err
 		}
 		if l1handler, ok := txn.(*L1HandlerTransaction); ok {
-			if err := DeleteL1HandlerTxnHashByMsgHash(batch, l1handler.MessageHash()); err != nil {
+			if err := DeleteL1HandlerTxnHashByMsgHash(w, l1handler.MessageHash()); err != nil {
 				return err
 			}
 		}

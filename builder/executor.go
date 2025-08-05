@@ -47,15 +47,10 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 		return nil
 	}
 
-	headState, headCloser, err := e.blockchain.HeadState()
+	headState, err := e.blockchain.HeadState()
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := headCloser(); err != nil {
-			e.log.Errorw("failed to close head state", "err", err)
-		}
-	}()
 
 	// Create a state writer for the transaction execution
 	stateWriter := sync.NewPendingStateWriter(state.Preconfirmed.StateUpdate.StateDiff, state.Preconfirmed.NewClasses, headState)
