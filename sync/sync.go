@@ -744,8 +744,6 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pendingData.GetBlock()
 }
 
-var noop = func() error { return nil }
-
 // PendingState returns the state resulting from execution of the pending block
 func (s *Synchronizer) PendingState() (commonstate.StateReader, error) {
 	txn := s.db.NewIndexedBatch()
