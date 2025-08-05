@@ -16,6 +16,19 @@ const (
 	Rejected
 )
 
+func (es *ExecutionStatus) MarshalJSON() ([]byte, error) {
+	switch *es {
+	case Succeeded:
+		return []byte(`"SUCCEEDED"`), nil
+	case Reverted:
+		return []byte(`"REVERTED"`), nil
+	case Rejected:
+		return []byte(`"REJECTED"`), nil
+	default:
+		return nil, fmt.Errorf("unknown ExecutionStatus: %v", es)
+	}
+}
+
 func (es *ExecutionStatus) UnmarshalText(data []byte) error {
 	switch str := string(data); str {
 	case "SUCCEEDED":

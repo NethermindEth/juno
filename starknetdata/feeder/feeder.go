@@ -2,8 +2,10 @@ package feeder
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -22,12 +24,46 @@ const (
 )
 
 type Feeder struct {
-	client *feeder.Client
+	client              *feeder.Client
+	preloadedBlocks     []starknet.StateUpdateWithBlock
+	preloadedSignatures []starknet.Signature
 }
 
 func New(client *feeder.Client) *Feeder {
+	fromBlock := 0
+	toBlock := 1000
+
+	stateFilePath := fmt.Sprintf("/Users/brbrr/Developer/neth/juno/blocks_%d_%d.json", fromBlock, toBlock)
+	bytes, err := os.ReadFile(stateFilePath)
+	if err != nil {
+		fmt.Println("Wow, a error reading a blocks file: ", stateFilePath, err)
+		panic("WOW!")
+	}
+
+	preloadedBlocks := []starknet.StateUpdateWithBlock{}
+	err = json.Unmarshal(bytes, &preloadedBlocks)
+	if err != nil {
+		fmt.Println("Wow, a error unmarshaling the file", err)
+		panic("WOW!")
+	}
+
+	sigFilePath := fmt.Sprintf("/Users/brbrr/Developer/neth/juno/signatures_%d_%d.json", fromBlock, toBlock)
+	bytes, err = os.ReadFile(sigFilePath)
+	if err != nil {
+		fmt.Println("Wow, a error reading a sig file: ", stateFilePath, err)
+		panic("WOW!")
+	}
+
+	preloadedSignatures := []starknet.Signature{}
+	err = json.Unmarshal(bytes, &preloadedSignatures)
+	if err != nil {
+		fmt.Println("Wow, a error unmarshaling the sig file", err)
+		panic("WOW!")
+	}
 	return &Feeder{
-		client: client,
+		client:              client,
+		preloadedBlocks:     preloadedBlocks,
+		preloadedSignatures: preloadedSignatures,
 	}
 }
 
@@ -130,6 +166,27 @@ func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, err
 }
 
 func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
+	var response *starknet.StateUpdateWithBlock
+	// blockNum, err := strconv.Atoi(blockID)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+	// if blockNum <= 1000 {
+	// 	response, err = f.client.StateUpdateWithBlock(ctx, blockID)
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// 	// fmt.Println("!!!! Using block from the preloaded blocks")
+	// 	// response = &f.preloadedBlocks[blockNum]
+	// } else {
+	// 	// panic("Done!")
+	// 	response, err = f.client.StateUpdateWithBlock(ctx, blockID)
+	// 	// return nil, nil, errors.New("Done with import")
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// }
+
 	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
 	if err != nil {
 		return nil, nil, err
@@ -140,11 +197,24 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 	}
 
 	var sig *starknet.Signature
-	if blockID != pendingID {
-		sig, err = f.client.Signature(ctx, blockID)
-		if err != nil {
-			return nil, nil, err
-		}
+	// if blockID != pendingID {
+	// 	if blockNum <= 1000 {
+	// 		sig, err = f.client.Signature(ctx, blockID)
+	// 		if err != nil {
+	// 			return nil, nil, err
+	// 		}
+	// 		// fmt.Println("!!!! Using block from the preloaded blocks")
+	// 		// sig = &f.preloadedSignatures[blockNum]
+	// 	} else {
+	// 		sig, err = f.client.Signature(ctx, blockID)
+	// 		if err != nil {
+	// 			return nil, nil, err
+	// 		}
+	// 	}
+	// }
+	sig, err = f.client.Signature(ctx, blockID)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	var adaptedState *core.StateUpdate
