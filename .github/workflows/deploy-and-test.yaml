@@ -25,10 +25,6 @@ on:
         default: "full"
         description: "Test mode to run (fast or full)"
     secrets:
-      ARTIFACTORY_NUBIA_USERNAME:
-        required: true
-      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
-        required: true
       RPC_URL:
         required: true
       WS_RPC_URL:
@@ -58,6 +54,7 @@ concurrency:
 
 permissions:
   contents: read
+  id-token: write
 
 env:
   DOCKER_REGISTRY: nethermind.jfrog.io
@@ -72,15 +69,26 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v.3.11.1
         id: buildx
 
-      - name: Login to registry
-        run: |
-          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+      - name: Install JFrog CLI
+        id: jfrog
+        uses: jfrog/setup-jfrog-cli@ff5cb544114ffc152db9cea1cd3d5978d5074946 # v4.5.11
+        env:
+          JF_URL: https://${{ env.DOCKER_REGISTRY }}
+        with:
+          oidc-provider-name: github-nethermindeth
+
+      - name: Login to Registry with OIDC
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ steps.jfrog.outputs.oidc-user }}
+          password: ${{ steps.jfrog.outputs.oidc-token }}
 
       - name: Setup ORAS
-        uses: oras-project/setup-oras@5c0b487ce3fe0ce3ab0d034e63669e426e294e4d
+        uses: oras-project/setup-oras@8d34698a59f5ffe24821f0b48ab62a3de8b64b20
 
       - name: Check image exists in source repository
         run: |
