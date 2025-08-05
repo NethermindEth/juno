@@ -1,10 +1,7 @@
 package consensus
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -26,7 +23,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/sourcegraph/conc/pool"
 )
 
 type ConsensusServices struct {
@@ -47,6 +43,7 @@ func Init(
 	timeoutFn driver.TimeoutFn,
 	hostAddress string,
 	hostPrivateKey crypto.PrivKey,
+	bootstrapPeersFn func() []peer.AddrInfo,
 ) (ConsensusServices, error) {
 	chainHeight, err := blockchain.Height()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
@@ -82,7 +79,7 @@ func Init(
 		return ConsensusServices{}, err
 	}
 
-	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes)
+	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
 
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
 	driver := driver.New(logger, tendermintDB, stateMachine, commitListener, p2p, timeoutFn)
@@ -94,31 +91,6 @@ func Init(
 		Driver:         &driver,
 		CommitListener: commitListener,
 	}, nil
-}
-
-func Connect(ctx context.Context, host host.Host, peers string) error {
-	if peers == "" {
-		return nil
-	}
-
-	pool := pool.New().WithErrors().WithFirstError()
-
-	for peerStr := range strings.SplitSeq(peers, ",") {
-		pool.Go(func() error {
-			peerAddr, err := peer.AddrInfoFromString(peerStr)
-			if err != nil {
-				return fmt.Errorf("unable to parse peer address %q: %w", peerStr, err)
-			}
-
-			if err := host.Connect(ctx, *peerAddr); err != nil {
-				return fmt.Errorf("unable to connect to %q: %w", peerStr, err)
-			}
-
-			return nil
-		})
-	}
-
-	return pool.Wait()
 }
 
 func toValue(value *felt.Felt) starknet.Value {
