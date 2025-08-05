@@ -126,7 +126,10 @@ func (csa *CoreStateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Tr
 
 func (csa *CoreStateAdapter) Commitment() (felt.Felt, error) {
 	root, err := csa.State.Root()
-	return *root, err
+	if err != nil {
+		return felt.Felt{}, err
+	}
+	return *root, nil
 }
 
 // StateAdapter wraps state.State to implement CommonState
