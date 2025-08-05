@@ -19,11 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
-
 func TestCallDeprecatedCairo(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()

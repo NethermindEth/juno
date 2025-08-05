@@ -41,11 +41,6 @@ func setupDatabase(dbPath string, dltExisting bool) (db.KeyValueStore, func(), e
 	return persistentPool, closer, nil
 }
 
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
-
 func TestMempool(t *testing.T) {
 	testDB, dbCloser, err := setupDatabase("testmempool", true)
 	log := utils.NewNopZapLogger()

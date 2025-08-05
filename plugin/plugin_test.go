@@ -2,7 +2,6 @@ package plugin_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -18,11 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestPlugin(t *testing.T) {
 	timeout := time.Second

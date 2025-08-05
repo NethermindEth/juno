@@ -2,7 +2,6 @@ package rpcv6_test
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -22,11 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 func TestBlockId(t *testing.T) {
 	t.Parallel()

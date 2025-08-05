@@ -420,7 +420,7 @@ func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockcha
 	l1Client := l1.NewClient(ethSubscriber, chain, log)
 
 	if includeMetrics {
-		l1Client.WithEventListener(makeL1Metrics())
+		l1Client.WithEventListener(makeL1Metrics(chain, ethSubscriber))
 	}
 	return l1Client, nil
 }

@@ -2,7 +2,6 @@ package node_test
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -16,11 +15,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 // Create a new node with all services enabled.
 func TestNewNode(t *testing.T) {

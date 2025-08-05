@@ -1,7 +1,6 @@
 package main_test
 
 import (
-	"os"
 	"strconv"
 	"testing"
 
@@ -17,11 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	statetestutils.Parse()
-	os.Exit(m.Run())
-}
 
 var emptyCommitments = core.BlockCommitments{}
 
