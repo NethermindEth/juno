@@ -162,19 +162,21 @@ jobs:
     #   STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
     runs-on: ubuntu-latest
     steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: "starknet-rpc-tests"
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
           repository: NethermindEth/starknet-rpc-tests
           ref: "fix/load-tests"
-
-      # - name: Setup Go
-      #   uses: actions/setup-go@v5
-      #   with:
-      #     go-version: "1.23"
-      #
-      # - name: Install dependencies
-      #   run: go mod download
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Setup K6
         uses: grafana/setup-k6-action@v1
@@ -188,19 +190,3 @@ jobs:
           DURATION: "30s"
         with:
           path: test.js
-
-      # - name: Configure test environment variables
-      #   run: |
-      #     echo
-      #     echo "WS_PROVIDER_URL=${{ secrets.TEST_WS_RPC_URL }}/${{ inputs.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}" >> $GITHUB_ENV
-      #     echo "STARKNET_PRIVATE_KEY=${{ secrets.STARKNET_PRIVATE_KEY }}" >> $GITHUB_ENV
-      #     echo "STARKNET_PUBLIC_KEY=${{ secrets.STARKNET_PUBLIC_KEY }}" >> $GITHUB_ENV
-      #     echo "STARKNET_ACCOUNT_ADDRESS=${{ secrets.STARKNET_ACCOUNT_ADDRESS }}" >> $GITHUB_ENV
-      #
-      # - name: Run RPC tests
-      #   working-directory: rpc
-      #   env:
-      #     #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block,
-      #     #  thus there will be no more pending transcations with `pending` semantics.
-      #     TESTS_TO_SKIP: "TestSubscribePendingTransactions"
-      #   run: go test -skip "$TESTS_TO_SKIP" -timeout 1200s -v -env testnet .
