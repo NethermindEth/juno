@@ -19,11 +19,10 @@ import (
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/a789ccc3432c57777beceaa53a34a7ae2f25fda0/api/starknet_api_openrpc.json#L110
 func (h *Handler) StorageAt(address, key felt.Felt, id BlockID) (*felt.Felt, *jsonrpc.Error) {
-	stateReader, stateCloser, rpcErr := h.stateByBlockID(&id)
+	stateReader, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
-	defer h.callAndLogErr(stateCloser, "Error closing state reader in getStorageAt")
 
 	// This checks if the contract exists because if a key doesn't exist in contract storage,
 	// the returned value is always zero and error is nil.

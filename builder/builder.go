@@ -125,18 +125,18 @@ func (b *Builder) getRevealedBlockHash(blockHeight uint64) (*felt.Felt, error) {
 	return header.Hash, nil
 }
 
-func (b *Builder) PendingState(buildState *BuildState) (commonstate.StateReader, func() error, error) {
+func (b *Builder) PendingState(buildState *BuildState) (commonstate.StateReader, error) {
 	if buildState.Preconfirmed == nil {
-		return nil, nil, sync.ErrPendingBlockNotFound
+		return nil, sync.ErrPendingBlockNotFound
 	}
 
-	headState, headCloser, err := b.blockchain.HeadState()
+	headState, err := b.blockchain.HeadState()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), headCloser, nil
+	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), nil
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {
