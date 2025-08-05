@@ -20,8 +20,8 @@ func newMockP2PSyncService(syncReceiveCh chan sync.BlockBody) mockP2PSyncService
 	}
 }
 
-func (m *mockP2PSyncService) shouldTriggerErr(triggerErr bool) {
-	m.triggerErr = triggerErr
+func (m *mockP2PSyncService) shouldTriggerErr() {
+	m.triggerErr = true
 }
 
 func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {

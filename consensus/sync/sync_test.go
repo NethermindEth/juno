@@ -126,7 +126,7 @@ func TestShutdownOnError(t *testing.T) {
 	cancel()
 	consensusSyncService.Run(ctx)
 
-	mockP2PSyncService.shouldTriggerErr(true)
+	mockP2PSyncService.shouldTriggerErr()
 	consensusSyncService.Run(t.Context())
 }
 
