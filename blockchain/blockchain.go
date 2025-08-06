@@ -90,7 +90,7 @@ type Blockchain struct {
 	network       *utils.Network
 	database      db.KeyValueStore
 	trieDB        *triedb.Database
-	stateDB       *state.StateDB // TODO(weiihann): not sure if it's a good idea to expose this
+	stateDB       *state.StateDB
 	listener      EventListener
 	l1HeadFeed    *feed.Feed[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
