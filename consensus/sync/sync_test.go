@@ -36,16 +36,19 @@ var (
 )
 
 type mockBlockchain struct {
-	t *testing.T
+	t      *testing.T
+	cancel context.CancelFunc
 }
 
 func (m *mockBlockchain) Commit(height types.Height, value starknet.Value) {
 	comittedHeight = int(height)
+	m.cancel() // Shut the service down
 }
 
-func newMockBlockchain(t *testing.T) blockchain {
+func newMockBlockchain(t *testing.T, cancel context.CancelFunc) blockchain {
 	return &mockBlockchain{
-		t: t,
+		t:      t,
+		cancel: cancel,
 	}
 }
 
@@ -80,7 +83,7 @@ func TestSync(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 
-	nodeAddr := starknet.Address(felt.FromUint64(123)) // Todo: don't want to propose a value during sync
+	nodeAddr := starknet.Address(felt.FromUint64(123))
 	logger := utils.NewNopZapLogger()
 	tendermintDB := newDB(t)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
@@ -88,7 +91,7 @@ func TestSync(t *testing.T) {
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
 	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
-	mockBC := newMockBlockchain(t)
+	mockBC := newMockBlockchain(t, cancel)
 
 	proposalCh := make(chan starknet.Proposal)
 	prevoteCh := make(chan starknet.Prevote)
@@ -121,10 +124,6 @@ func TestSync(t *testing.T) {
 		mockP2PSyncService.recieveBlockOverP2P(block0)
 	}()
 
-	go func() {
-		time.Sleep(1 * time.Second)
-		cancel()
-	}()
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
 	require.NotEqual(t, comittedHeight, -1, "expected a block to be comitted")
