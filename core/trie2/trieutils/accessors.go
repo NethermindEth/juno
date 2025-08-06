@@ -78,7 +78,7 @@ func WritePersistedStateID(w db.KeyValueWriter, id uint64) error {
 func ReadTrieJournal(r db.KeyValueReader) ([]byte, error) {
 	var journal []byte
 	if err := r.Get(db.TrieJournal.Key(), func(value []byte) error {
-		journal = value
+		journal = append([]byte(nil), value...)
 		return nil
 	}); err != nil {
 		return nil, err
