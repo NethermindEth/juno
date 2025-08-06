@@ -71,13 +71,13 @@ clean-testcache: ## Clean Go test cache
 	go clean -testcache
 
 test: clean-testcache rustdeps ## Run tests
-	go test $(GO_TAGS) -v ./...
+	go test $(GO_TAGS) ./...
 
 test-new-state: clean-testcache rustdeps ## Run tests with new state
-	USE_NEW_STATE=true go test $(GO_TAGS) -v ./...
+	USE_NEW_STATE=true go test $(GO_TAGS) ./...
 
 test-cached: rustdeps ## Run cached tests
-	go test $(GO_TAGS) ./... -args
+	go test $(GO_TAGS) ./...
 
 test-race: clean-testcache rustdeps ## Run tests with race detection
 	go test $(GO_TAGS) ./... -race $(TEST_RACE_LDFLAGS)
