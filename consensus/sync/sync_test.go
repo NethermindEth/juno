@@ -79,7 +79,6 @@ func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, 
 
 func TestSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(t.Context())
 
