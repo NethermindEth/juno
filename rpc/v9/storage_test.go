@@ -195,8 +195,8 @@ func TestStorageProof(t *testing.T) {
 		_, _ = tempTrie.Put(key2, value2)
 		_ = tempTrie.Commit()
 		trieRoot, _ = tempTrie.Root()
-		classTrie = commontrie.NewTrieAdapter(tempTrie)
-		contractTrie = commontrie.NewTrieAdapter(tempTrie)
+		classTrie = commontrie.NewDeprecatedTrieAdapter(tempTrie)
+		contractTrie = commontrie.NewDeprecatedTrieAdapter(tempTrie)
 	} else {
 		newComm := new(felt.Felt).SetUint64(1)
 		createTrie := func(t *testing.T, id trieutils.TrieID, trieDB *trie2.TestNodeDatabase) *trie2.Trie {
@@ -222,8 +222,8 @@ func TestStorageProof(t *testing.T) {
 		require.NoError(t, err)
 		contractTrie2, err = trie2.New(trieutils.NewContractTrieID(*newComm), 251, crypto.Pedersen, &trieDB)
 		require.NoError(t, err)
-		classTrie = commontrie.NewTrie2Adapter(classTrie2)
-		contractTrie = commontrie.NewTrie2Adapter(contractTrie2)
+		classTrie = commontrie.NewTrieAdapter(classTrie2)
+		contractTrie = commontrie.NewTrieAdapter(contractTrie2)
 	}
 
 	headBlock := &core.Block{Header: &core.Header{Hash: blkHash, Number: blockNumber}}
@@ -846,9 +846,9 @@ func emptyCommonTrie(t *testing.T) commontrie.Trie {
 	if statetestutils.UseNewState() {
 		tempTrie, err := trie2.NewEmptyPedersen()
 		require.NoError(t, err)
-		return commontrie.NewTrie2Adapter(tempTrie)
+		return commontrie.NewTrieAdapter(tempTrie)
 	} else {
-		return commontrie.NewTrieAdapter(emptyTrie(t))
+		return commontrie.NewDeprecatedTrieAdapter(emptyTrie(t))
 	}
 }
 
