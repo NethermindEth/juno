@@ -128,13 +128,19 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 		return fmt.Errorf("failed to get state diffs: %w", err)
 	}
 
-	pipeline.Bridge(ctx, s.blockCh, s.processSpecBlockParts(ctx, blockNumber, pipeline.FanIn(ctx,
-		pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
-		pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
-		pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
-		pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
-		pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
-	)))
+	pipeline.Bridge(
+		ctx,
+		s.blockCh,
+		s.processSpecBlockParts(
+			ctx,
+			blockNumber,
+			pipeline.FanIn(ctx,
+				pipeline.Stage(ctx, headersAndSigsCh, specBlockPartsFunc[specBlockHeaderAndSigs]),
+				pipeline.Stage(ctx, classesCh, specBlockPartsFunc[specClasses]),
+				pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
+				pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
+				pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
+			)))
 
 	return nil
 }
