@@ -196,4 +196,4 @@ jobs:
           LOAD_FACTOR: 1
           DURATION: "30s"
         with:
-          path: load_tests/test_cases.js
+          path: ./load_tests/test_cases.js
