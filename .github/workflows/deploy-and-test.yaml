@@ -186,10 +186,9 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
           path: starknet-rpc-tests
 
-      - run: ls -la
-
       - name: Setup K6
         uses: grafana/setup-k6-action@v1
+
       - name: Run local k6 test
         uses: grafana/run-k6-action@v1
         env:
