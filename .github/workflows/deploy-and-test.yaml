@@ -193,7 +193,7 @@ jobs:
       - name: Run local k6 test
         uses: grafana/run-k6-action@v1
         env:
-          NODE_URL: "${{ secrets.TEST_RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
+          NODE_URL: "${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
           NETWORK: "sepolia"
           LOAD_FACTOR: 1
           DURATION: "30s"
