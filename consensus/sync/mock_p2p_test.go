@@ -24,7 +24,6 @@ func (m *mockListener[M]) Listen() <-chan M {
 }
 
 type mockBroadcaster[M starknet.Message] struct {
-	wg                  sync.WaitGroup
 	mu                  sync.Mutex
 	broadcastedMessages []M
 }
@@ -33,7 +32,6 @@ func (m *mockBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.broadcastedMessages = append(m.broadcastedMessages, msg)
-	m.wg.Done()
 }
 
 type mockP2P struct {

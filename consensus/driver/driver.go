@@ -93,10 +93,12 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
 			case p := <-listeners.ProposalListener.Listen():
+				fmt.Println(" {} ProposalListener")
 				actions = d.stateMachine.ProcessProposal(&p)
 			case p := <-listeners.PrevoteListener.Listen():
 				actions = d.stateMachine.ProcessPrevote(&p)
 			case p := <-listeners.PrecommitListener.Listen():
+				fmt.Println(" {} PrecommitListener")
 				actions = d.stateMachine.ProcessPrecommit(&p)
 			}
 

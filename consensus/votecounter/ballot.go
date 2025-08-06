@@ -1,6 +1,8 @@
 package votecounter
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+)
 
 type VoteType uint8
 
@@ -38,7 +40,6 @@ func (b *ballotSet[A]) add(addr *A, addrPower types.VotingPower, voteType VoteTy
 	ballot := b.ballots[*addr]
 	ballot[voteType] = true
 	b.ballots[*addr] = ballot
-
 	b.perVoteType[voteType] += addrPower
 	return true
 }

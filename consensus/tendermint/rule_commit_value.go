@@ -1,8 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
-
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
@@ -28,7 +26,6 @@ func (s *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 
 	// This is checked here instead of inside execution, because it's the only case in execution in this rule
 	isValid := cachedProposal.Valid
-	fmt.Println("hasQuorum && isValid", hasQuorum && isValid, isValid, hasQuorum)
 	// h_p never goes backward, so it's safe to assume that decision_p[h_p] is nil
 	return hasQuorum && isValid
 }

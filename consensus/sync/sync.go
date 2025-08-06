@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/builder"
@@ -95,12 +94,11 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 				case s.driverPrecommitCh <- precommit:
 				}
 			}
-			fmt.Println("committedBlock.Block.SequencerAddress", committedBlock.Block.SequencerAddress.Bits())
 			proposal := types.Proposal[V, H, A]{
 				MessageHeader: types.MessageHeader[A]{
 					Height: types.Height(committedBlock.Block.Number),
 					Round:  syncRoundPlaceHolder,
-					Sender: committedBlock.Block.SequencerAddress.Bits(),
+					Sender: A(committedBlock.Block.SequencerAddress.Bits()),
 				},
 				ValidRound: -1,
 				Value:      &msgV,

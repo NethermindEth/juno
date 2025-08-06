@@ -30,7 +30,10 @@ type (
 	blockchain   = driver.Blockchain[starknet.Value, starknet.Hash]
 )
 
-var comittedHeight = 0
+var (
+	comittedHeight = 0
+	blockID        = uint64(9)
+)
 
 type mockBlockchain struct {
 	t *testing.T
@@ -81,8 +84,10 @@ func TestSync(t *testing.T) {
 	logger := utils.NewNopZapLogger()
 	tendermintDB := newDB(t)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	allNodes := newNodes(4) // Validator set at our local height 0
-	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, nil, allNodes, types.Height(0))
+	allNodes := newNodes(4) // Proposer set to 5
+	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
+	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
+	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
 	mockBC := newMockBlockchain(t)
 
 	proposalCh := make(chan starknet.Proposal)
@@ -150,7 +155,7 @@ func getCommittedBlock() sync.BlockBody {
 	return sync.BlockBody{
 		Block: &core.Block{
 			Header: &core.Header{
-				Hash:             new(felt.Felt).SetUint64(1),
+				Hash:             new(felt.Felt).SetUint64(blockID),
 				TransactionCount: 2,
 				EventCount:       3,
 				SequencerAddress: new(felt.Felt).SetUint64(5),
@@ -170,25 +175,31 @@ func toValue(in *felt.Felt) starknet.Value {
 }
 
 func getPrecommits(types.Height) []types.Precommit[starknet.Hash, starknet.Address] {
+	blockID := starknet.Hash(*new(felt.Felt).SetUint64(blockID))
 	return []types.Precommit[starknet.Hash, starknet.Address]{
-		// We don't use the round since it's not present in the spec yet
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
+				Round:  types.Round(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(1)),
 			},
+			ID: &blockID,
 		},
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
+				Round:  types.Round(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(2)),
 			},
+			ID: &blockID,
 		},
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
+				Round:  types.Round(0),
 				Sender: starknet.Address(*new(felt.Felt).SetUint64(3)),
 			},
+			ID: &blockID,
 		},
 	}
 }

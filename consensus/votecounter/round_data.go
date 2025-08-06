@@ -66,7 +66,6 @@ func (r *roundData[V, H, A]) countVote(voteType VoteType, id *H) types.VotingPow
 	} else {
 		perVote = &r.nilVotes
 	}
-
 	return perVote.perVoteType[voteType]
 }
 

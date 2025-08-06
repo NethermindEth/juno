@@ -1,7 +1,6 @@
 package sync_test
 
 import (
-	"fmt"
 	"math/rand/v2"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
@@ -25,9 +24,9 @@ func (n nodes) ValidatorVotingPower(height types.Height, addr *starknet.Address)
 
 // Randomised proposer selection, with prime coefficients so that for each height, the order of proposers is different.
 func (n nodes) Proposer(height types.Height, round types.Round) starknet.Address {
-	qwe := starknet.Address(*new(felt.Felt).SetUint64(5))
-	fmt.Println(" [][] Proposer", height, round, qwe.AsFelt(), qwe.String())
-	return qwe
+	f := new(felt.Felt).SetUint64(5)
+	addr := starknet.Address(*f)
+	return addr
 }
 
 func testAddress(i uint64) starknet.Address {
