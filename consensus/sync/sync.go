@@ -43,22 +43,31 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 }
 
-func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
+func (s *Sync[V, H, A]) Run(originalCtx context.Context) error {
 	ctx, cancel := context.WithCancel(originalCtx)
 	defer cancel()
+
+	errCh := make(chan error, 1)
 
 	go func() {
 		defer cancel()
 		err := s.syncService.Run(ctx)
-		if err != nil {
-			return
-		}
+		errCh <- err
 	}()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			select {
+			case err := <-errCh:
+				return err
+			default:
+				return ctx.Err()
+			}
+
+		case err := <-errCh:
+			return err
+
 		case committedBlock := <-s.syncService.Listen():
 			msgV := s.toValue(committedBlock.Block.Hash)
 			msgH := msgV.Hash()
@@ -78,22 +87,19 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 					BlockCommitments: committedBlock.Commitments,
 					ConcatCount:      concatCommitments,
 				},
-				// Todo: this needs added to the spec.
-				L2GasConsumed: 1,
+				L2GasConsumed: 1, // TODO
 			}
 			s.proposalStore.Store(msgH, &buildResult)
 
-			// Todo: we can optimise this by performing a height
-			// check before pushing everything through consensus.
-			// ie skip if syncBlock.Height != DB.Height+1
 			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
 			for _, precommit := range precommits {
 				select {
 				case <-ctx.Done():
-					return
+					return ctx.Err()
 				case s.driverPrecommitCh <- precommit:
 				}
 			}
+
 			proposal := types.Proposal[V, H, A]{
 				MessageHeader: types.MessageHeader[A]{
 					Height: types.Height(committedBlock.Block.Number),
@@ -106,7 +112,7 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) {
 
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			case s.driverProposalCh <- proposal:
 			}
 		}
