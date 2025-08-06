@@ -18,7 +18,7 @@ func AddrCmp[A Addr](a, b A) bool {
 
 func addrToFelt[A Addr](a A) felt.Felt {
 	var b [32]byte
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		binary.BigEndian.PutUint64(b[i*8:], a[i])
 	}
 	return *new(felt.Felt).SetBytes(b[:])

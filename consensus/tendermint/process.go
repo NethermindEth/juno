@@ -91,9 +91,6 @@ func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (act
 		roundCachedProposal = s.findProposal(*recentlyReceivedRound)
 	}
 
-	if recentlyReceivedRound != nil {
-	}
-
 	switch {
 	// Line 22
 	case cachedProposal != nil && s.uponFirstProposal(cachedProposal):

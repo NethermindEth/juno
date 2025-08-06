@@ -28,11 +28,3 @@ func (n nodes) Proposer(height types.Height, round types.Round) starknet.Address
 	addr := starknet.Address(*f)
 	return addr
 }
-
-func testAddress(i uint64) starknet.Address {
-	return starknet.Address(*new(felt.Felt).SetUint64(i))
-}
-
-func testAddressIndex(addr *starknet.Address) int {
-	return int(addr.AsFelt().Uint64())
-}
