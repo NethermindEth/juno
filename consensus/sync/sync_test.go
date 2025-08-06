@@ -31,7 +31,7 @@ type (
 )
 
 var (
-	comittedHeight = 0
+	comittedHeight = -1
 	blockID        = uint64(9)
 )
 
@@ -127,7 +127,7 @@ func TestSync(t *testing.T) {
 	}()
 	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
-	require.NotZero(t, comittedHeight, "expected a block to be comitted")
+	require.NotEqual(t, comittedHeight, -1, "expected a block to be comitted")
 }
 
 func TestShutdownOnError(t *testing.T) {
