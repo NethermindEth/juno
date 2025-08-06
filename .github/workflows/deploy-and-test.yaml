@@ -165,7 +165,7 @@ jobs:
       STARKNET_PUBLIC_KEY: ${{ secrets.TEST_ACCOUNT_PUBLIC_KEY_3 }}
       STARKNET_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS_3 }}
 
-  rps-performance:
+  rpc-performance:
     needs: [deploy]
     runs-on: ubuntu-latest
     steps:
