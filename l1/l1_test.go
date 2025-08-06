@@ -171,6 +171,7 @@ func newTestL1Client(service service) *rpc.Server {
 
 type service interface {
 	GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error)
+	BlockNumber(ctx context.Context) (string, error)
 }
 
 type testService struct{}
@@ -193,10 +194,18 @@ func (testService) GetBlockByNumber(ctx context.Context, number string, fullTx b
 	}, nil
 }
 
+func (testService) BlockNumber(ctx context.Context) (string, error) {
+	return "0xc8", nil // 200 in hex
+}
+
 type testEmptyService struct{}
 
 func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
 	return nil, nil
+}
+
+func (testEmptyService) BlockNumber(ctx context.Context) (string, error) {
+	return "", errors.New("empty service")
 }
 
 type testFaultyService struct{}
@@ -205,15 +214,37 @@ func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fu
 	return uint(0), nil
 }
 
+func (testFaultyService) BlockNumber(ctx context.Context) (string, error) {
+	return "invalid", nil
+}
+
 func TestEthSubscriber_FinalisedHeight(t *testing.T) {
-	tests := map[string]struct {
+	tests := createEthSubscriberTests(100)
+	testEthSubscriberHeight(t, tests, func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
+		return subscriber.FinalisedHeight(ctx)
+	})
+}
+
+func TestEthSubscriber_LatestHeight(t *testing.T) {
+	tests := createEthSubscriberTests(200)
+	testEthSubscriberHeight(t, tests, func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
+		return subscriber.LatestHeight(ctx)
+	})
+}
+
+func createEthSubscriberTests(testServiceExpectedHeight uint64) map[string]struct {
+	service        service
+	expectedHeight uint64
+	expectedError  bool
+} {
+	return map[string]struct {
 		service        service
 		expectedHeight uint64
 		expectedError  bool
 	}{
 		"testService": {
 			service:        testService{},
-			expectedHeight: 100,
+			expectedHeight: testServiceExpectedHeight,
 			expectedError:  false,
 		},
 		"testEmptyService": {
@@ -227,21 +258,28 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			expectedError:  true,
 		},
 	}
+}
+
+func testEthSubscriberHeight(t *testing.T, tests map[string]struct {
+	service        service
+	expectedHeight uint64
+	expectedError  bool
+}, heightFunc func(*l1.EthSubscriber, context.Context) (uint64, error),
+) {
+	startServer := func(addr string, service service) (*rpc.Server, net.Listener) {
+		srv := newTestL1Client(service)
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			t.Fatal("can't listen:", err)
+		}
+		go func() {
+			_ = http.Serve(l, srv.WebsocketHandler([]string{"*"}))
+		}()
+		return srv, l
+	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			startServer := func(addr string, service service) (*rpc.Server, net.Listener) {
-				srv := newTestL1Client(service)
-				l, err := net.Listen("tcp", addr)
-				if err != nil {
-					t.Fatal("can't listen:", err)
-				}
-				go func() {
-					_ = http.Serve(l, srv.WebsocketHandler([]string{"*"}))
-				}()
-				return srv, l
-			}
-
 			ctx, cancel := context.WithTimeout(t.Context(), 12*time.Second)
 			defer cancel()
 
@@ -252,7 +290,7 @@ func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 			require.NoError(t, err)
 			defer subscriber.Close()
 
-			height, err := subscriber.FinalisedHeight(ctx)
+			height, err := heightFunc(subscriber, ctx)
 			require.Equal(t, test.expectedHeight, height)
 			require.Equal(t, test.expectedError, err != nil)
 		})

@@ -1,76 +1,78 @@
-package commontrie_test
+package commontrie
 
 import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/state/commontrie"
+	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTrieAdapter_Update(t *testing.T) {
-	trie := &commontrie.TrieAdapter{}
-	key := &felt.Felt{}
-	value := &felt.Felt{}
-
-	err := trie.Update(key, value)
+func TestDeprecatedTrieAdapter(t *testing.T) {
+	memDB := memory.New()
+	txn := memDB.NewIndexedBatch()
+	storage := trie.NewStorage(txn, db.ContractStorage.Key([]byte{0}))
+	trie, err := trie.NewTriePedersen(storage, 0)
 	require.NoError(t, err)
+	adapter := NewDeprecatedTrieAdapter(trie)
+
+	t.Run("Update", func(t *testing.T) {
+		err := adapter.Update(&felt.Zero, &felt.Zero)
+		require.NoError(t, err)
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		err := adapter.Update(&felt.Zero, &felt.Zero)
+		require.NoError(t, err)
+
+		gotValue, err := adapter.Get(&felt.Zero)
+		require.NoError(t, err)
+		assert.Equal(t, felt.Zero, gotValue)
+	})
+
+	t.Run("Hash", func(t *testing.T) {
+		hash, err := adapter.Hash()
+		require.NoError(t, err)
+		assert.Equal(t, felt.Zero, hash)
+	})
+
+	t.Run("HashFn", func(t *testing.T) {
+		hashFn := adapter.HashFn()
+		assert.NotNil(t, hashFn)
+	})
 }
 
-func TestTrieAdapter_Get(t *testing.T) {
-	trie := &commontrie.TrieAdapter{}
-	key := &felt.Felt{}
-
-	value, err := trie.Get(key)
+func TestTrieAdapter(t *testing.T) {
+	trie, err := trie2.NewEmptyPedersen()
 	require.NoError(t, err)
-	assert.Equal(t, felt.Zero, value)
-}
+	adapter := NewTrieAdapter(trie)
 
-func TestTrieAdapter_Hash(t *testing.T) {
-	trie := &commontrie.TrieAdapter{}
+	t.Run("Update", func(t *testing.T) {
+		err := adapter.Update(&felt.Zero, &felt.Zero)
+		require.NoError(t, err)
+	})
 
-	hash, err := trie.Hash()
-	require.NoError(t, err)
-	assert.Equal(t, felt.Zero, hash)
-}
+	t.Run("Get", func(t *testing.T) {
+		err := adapter.Update(&felt.Zero, &felt.Zero)
+		require.NoError(t, err)
 
-func TestTrieAdapter_HashFn(t *testing.T) {
-	trie := &commontrie.TrieAdapter{}
+		gotValue, err := adapter.Get(&felt.Zero)
+		require.NoError(t, err)
+		assert.Equal(t, felt.Zero, gotValue)
+	})
 
-	hashFn := trie.HashFn()
-	assert.NotNil(t, hashFn)
-}
+	t.Run("Hash", func(t *testing.T) {
+		hash, err := adapter.Hash()
+		require.NoError(t, err)
+		assert.Equal(t, felt.Zero, hash)
+	})
 
-func TestTrie2Adapter_Update(t *testing.T) {
-	trie := &commontrie.Trie2Adapter{}
-	key := &felt.Felt{}
-	value := &felt.Felt{}
-
-	err := trie.Update(key, value)
-	require.NoError(t, err)
-}
-
-func TestTrie2Adapter_Get(t *testing.T) {
-	trie := &commontrie.Trie2Adapter{}
-	key := &felt.Felt{}
-
-	value, err := trie.Get(key)
-	require.NoError(t, err)
-	assert.Equal(t, felt.Zero, value)
-}
-
-func TestTrie2Adapter_Hash(t *testing.T) {
-	trie := &commontrie.Trie2Adapter{}
-
-	hash, err := trie.Hash()
-	require.NoError(t, err)
-	assert.Equal(t, felt.Zero, hash)
-}
-
-func TestTrie2Adapter_HashFn(t *testing.T) {
-	trie := &commontrie.Trie2Adapter{}
-
-	hashFn := trie.HashFn()
-	assert.NotNil(t, hashFn)
+	t.Run("HashFn", func(t *testing.T) {
+		hashFn := adapter.HashFn()
+		assert.NotNil(t, hashFn)
+	})
 }
