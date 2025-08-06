@@ -1,4 +1,5 @@
 name: Check Juno Snapshot Age
+permissions: none
 
 on:
   schedule:
