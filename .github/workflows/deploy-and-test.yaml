@@ -184,6 +184,9 @@ jobs:
           repository: NethermindEth/starknet-rpc-tests
           ref: "fix/load-tests"
           token: ${{ steps.generate-token.outputs.token }}
+          path: starknet-rpc-tests
+
+      - run: ls -la
 
       - name: Setup K6
         uses: grafana/setup-k6-action@v1
@@ -195,4 +198,4 @@ jobs:
           LOAD_FACTOR: 1
           DURATION: "30s"
         with:
-          path: ./starknet-rpc-tests/load_tests/test_cases.js
+          path: ./starknet-rpc-tests/load-tests/test_cases.js
