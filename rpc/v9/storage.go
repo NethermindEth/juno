@@ -285,7 +285,7 @@ func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateRe
 	}, nil
 }
 
-func getContractProofWithTrie(tr *trie2.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
@@ -296,15 +296,15 @@ func getContractProofWithTrie(tr *trie2.Trie, state commonstate.StateReader, con
 
 		root := tr.Hash()
 
-		nonce, err := state.ContractNonce(&contract)
+		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
+			if errors.Is(err, state.ErrContractNotDeployed) { // contract does not exist, skip getting leaf data
 				continue
 			}
 			return nil, err
 		}
 
-		classHash, err := state.ContractClassHash(&contract)
+		classHash, err := st.ContractClassHash(&contract)
 		if err != nil {
 			return nil, err
 		}

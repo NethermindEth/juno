@@ -292,7 +292,6 @@ func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contra
 		if err := tr.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
-		fmt.Println("contractProof", *contractProof)
 
 		root := tr.Hash()
 
