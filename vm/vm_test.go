@@ -38,9 +38,10 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	require.NoError(t, err)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
+	newRoot := utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8")
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -59,6 +60,12 @@ func TestCallDeprecatedCairo(t *testing.T) {
 	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
+
+	// if new state, we need to create a new state with the new root
+	if statetestutils.UseNewState() {
+		testState, err = stateFactory.NewState(newRoot, txn)
+		require.NoError(t, err)
+	}
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x3d452fbb3c3a32fe85b1a3fbbcdec316d5fc940cefc028ee808ad25a15991c8"),
@@ -142,9 +149,10 @@ func TestCallCairo(t *testing.T) {
 	require.NoError(t, err)
 	testState, err := stateFactory.NewState(&felt.Zero, txn)
 	require.NoError(t, err)
+	newRoot := utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84")
 	require.NoError(t, testState.Update(0, &core.StateUpdate{
 		OldRoot: &felt.Zero,
-		NewRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),
+		NewRoot: newRoot,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
 				*contractAddr: classHash,
@@ -170,6 +178,12 @@ func TestCallCairo(t *testing.T) {
 	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
+
+	// if new state, we need to create a new state with the new root
+	if statetestutils.UseNewState() {
+		testState, err = stateFactory.NewState(newRoot, txn)
+		require.NoError(t, err)
+	}
 
 	require.NoError(t, testState.Update(1, &core.StateUpdate{
 		OldRoot: utils.HexToFelt(t, "0x2650cef46c190ec6bb7dc21a5a36781132e7c883b27175e625031149d4f1a84"),

@@ -3,6 +3,7 @@ package rpcv8_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/state/commontrie"
 	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/core/trie"
@@ -337,9 +339,13 @@ func TestStorageProof(t *testing.T) {
 		verifyIf(t, trieRoot, key2, value2, proof.ClassesProof, classTrie.HashFn())
 	})
 	t.Run("storage trie address does not exist in a trie", func(t *testing.T) {
-		mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)     // TODO(maksym): after integration change to state.ErrContractNotDeployed
-		mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0) // TODO(maksym): after integration change to state.ErrContractNotDeployed
-
+		if statetestutils.UseNewState() {
+			mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(1)
+			mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, state.ErrContractNotDeployed).Times(0)
+		} else {
+			mockState.EXPECT().ContractNonce(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(1)
+			mockState.EXPECT().ContractClassHash(noSuchKey).Return(felt.Zero, db.ErrKeyNotFound).Times(0)
+		}
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*noSuchKey}, nil)
 		require.Nil(t, rpcErr)
 		require.NotNil(t, proof)
@@ -802,6 +808,7 @@ func verifyIf(
 
 	proofSet := trie.NewProofNodeSet()
 	for _, hn := range proof {
+		fmt.Println("hn", hn, "hash", hn.Hash, "node", hn.Node)
 		proofSet.Put(*hn.Hash, hn.Node.AsProofNode())
 	}
 

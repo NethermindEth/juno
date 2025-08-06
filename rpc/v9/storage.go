@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
@@ -40,7 +41,8 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state. Remove db.ErrKeyNotFound after integration
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, state.ErrContractNotDeployed) {
 			return nil, rpccore.ErrContractNotFound
 		}
 		h.log.Errorw("Failed to get contract nonce", "err", err)
@@ -392,15 +394,15 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 		switch n := nodeList[i].(type) {
 		case *trienode.BinaryNode:
 			node = &BinaryNode{
-				Left:  &hash,
-				Right: &hash,
+				Left:  nodeFelt(n.Children[0]),
+				Right: nodeFelt(n.Children[1]),
 			}
 		case *trienode.EdgeNode:
-			path := n.Path.Felt()
+			pathFelt := n.Path.Felt()
 			node = &EdgeNode{
-				Path:   path.String(),
+				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  &hash,
+				Child:  nodeFelt(n.Child),
 			}
 		}
 
@@ -411,6 +413,17 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 	}
 
 	return nodes
+}
+
+func nodeFelt(n trienode.Node) *felt.Felt {
+	switch n := n.(type) {
+	case *trienode.HashNode:
+		return (*felt.Felt)(n)
+	case *trienode.ValueNode:
+		return (*felt.Felt)(n)
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
 }
 
 type StorageKeys struct {

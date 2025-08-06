@@ -285,26 +285,26 @@ func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateRe
 	}, nil
 }
 
-func getContractProofWithTrie(tr *trie2.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
-
 	for i, contract := range contracts {
 		if err := tr.Prove(&contract, contractProof); err != nil {
 			return nil, err
 		}
+		fmt.Println("contractProof", *contractProof)
 
 		root := tr.Hash()
 
-		nonce, err := state.ContractNonce(&contract)
+		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
+			if errors.Is(err, state.ErrContractNotDeployed) { // contract does not exist, skip getting leaf data
 				continue
 			}
 			return nil, err
 		}
 
-		classHash, err := state.ContractClassHash(&contract)
+		classHash, err := st.ContractClassHash(&contract)
 		if err != nil {
 			return nil, err
 		}
@@ -394,15 +394,15 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 		switch n := nodeList[i].(type) {
 		case *trienode.BinaryNode:
 			node = &BinaryNode{
-				Left:  &hash,
-				Right: &hash,
+				Left:  nodeFelt(n.Children[0]),
+				Right: nodeFelt(n.Children[1]),
 			}
 		case *trienode.EdgeNode:
-			path := n.Path.Felt()
+			pathFelt := n.Path.Felt()
 			node = &EdgeNode{
-				Path:   path.String(),
+				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  &hash,
+				Child:  nodeFelt(n.Child),
 			}
 		}
 
@@ -413,6 +413,17 @@ func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 	}
 
 	return nodes
+}
+
+func nodeFelt(n trienode.Node) *felt.Felt {
+	switch n := n.(type) {
+	case *trienode.HashNode:
+		return (*felt.Felt)(n)
+	case *trienode.ValueNode:
+		return (*felt.Felt)(n)
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
 }
 
 type StorageKeys struct {
