@@ -8,16 +8,12 @@ import (
 )
 
 type mockP2PSyncService struct {
-	syncReceiveCh   chan sync.BlockBody // blocks received over p2p go here
-	blockListenerCh chan sync.BlockBody // Listener will get this
-	triggerErr      bool
+	blockCh    chan sync.BlockBody
+	triggerErr bool
 }
 
-func newMockP2PSyncService(syncReceiveCh chan sync.BlockBody) mockP2PSyncService {
-	return mockP2PSyncService{
-		syncReceiveCh:   syncReceiveCh,
-		blockListenerCh: make(chan sync.BlockBody),
-	}
+func newMockP2PSyncService(blockCh chan sync.BlockBody) mockP2PSyncService {
+	return mockP2PSyncService{blockCh: blockCh}
 }
 
 func (m *mockP2PSyncService) shouldTriggerErr() {
@@ -25,23 +21,17 @@ func (m *mockP2PSyncService) shouldTriggerErr() {
 }
 
 func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {
-	m.syncReceiveCh <- block
+	m.blockCh <- block
 }
 
 func (m *mockP2PSyncService) Listen() <-chan sync.BlockBody {
-	return m.blockListenerCh
+	return m.blockCh
 }
 
 func (m *mockP2PSyncService) Run(ctx context.Context) error {
 	if m.triggerErr {
 		return errors.New("mock sync returned an error")
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case committedBlock := <-m.syncReceiveCh:
-			m.blockListenerCh <- committedBlock
-		}
-	}
+	<-ctx.Done()
+	return nil
 }
