@@ -191,9 +191,8 @@ jobs:
         uses: grafana/run-k6-action@v1
         env:
           NODE_URL: "${{ secrets.TEST_RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
-          # NODE_URL: "${{ secrets.TEST_RPC_URL }}/${{ inputs.rpc_version }}?apikey=${{ secrets.AUTH_TOKEN }}"
           NETWORK: "sepolia"
           LOAD_FACTOR: 1
           DURATION: "30s"
         with:
-          path: ./load_tests/test_cases.js
+          path: ./starknet-rpc-tests/load_tests/test_cases.js
