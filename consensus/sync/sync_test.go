@@ -172,7 +172,7 @@ func toValue(in *felt.Felt) starknet.Value {
 	return starknet.Value(*in)
 }
 
-func getPrecommits(types.Height) []types.Precommit[starknet.Hash, starknet.Address] {
+func getPrecommits(*sync.BlockBody) []types.Precommit[starknet.Hash, starknet.Address] {
 	blockID := starknet.Hash(*new(felt.Felt).SetUint64(blockID))
 	return []types.Precommit[starknet.Hash, starknet.Address]{
 		{

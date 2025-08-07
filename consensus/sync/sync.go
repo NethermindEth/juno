@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p"
+	"github.com/NethermindEth/juno/p2p/sync"
 )
 
 const syncRoundPlaceHolder = 0 // Todo: We use this value until the round is added to the spec
@@ -20,7 +21,7 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
 	// In practice, this information needs to be exposed by peers.
-	getPrecommits func(types.Height) []types.Precommit[H, A]
+	getPrecommits func(*sync.BlockBody) []types.Precommit[H, A]
 	toValue       func(*felt.Felt) V
 	proposalStore *proposal.ProposalStore[H]
 }
@@ -29,7 +30,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	syncService p2p.BlockListener,
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
-	getPrecommits func(types.Height) []types.Precommit[H, A],
+	getPrecommits func(*sync.BlockBody) []types.Precommit[H, A],
 	toValue func(*felt.Felt) V,
 	proposalStore *proposal.ProposalStore[H],
 ) Sync[V, H, A] {
@@ -91,7 +92,7 @@ func (s *Sync[V, H, A]) Run(originalCtx context.Context) error {
 			}
 			s.proposalStore.Store(msgH, &buildResult)
 
-			precommits := s.getPrecommits(types.Height(committedBlock.Block.Number))
+			precommits := s.getPrecommits(&committedBlock)
 			for _, precommit := range precommits {
 				select {
 				case <-ctx.Done():
