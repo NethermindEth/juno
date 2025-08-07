@@ -26,13 +26,11 @@ import (
 )
 
 const (
-	topicName           = "test-buffered-topic-subscription"
-	discoveryServiceTag = "test-buffered-topic-subscription-discovery"
-	nodeCount           = 20
-	messageCount        = 100
-	throttledRate       = 5 * nodeCount * time.Millisecond
-	logLevel            = zapcore.ErrorLevel
-	retryInterval       = 1 * time.Second
+	topicName     = "test-buffered-topic-subscription"
+	nodeCount     = 20
+	messageCount  = 100
+	logLevel      = zapcore.ErrorLevel
+	retryInterval = 1 * time.Second
 )
 
 type node struct {
@@ -109,7 +107,6 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 				for _, message := range source.messages {
 					logger.Debugw("publishing", "message", message)
 					broadcaster.Broadcast(t.Context(), message)
-					time.Sleep(throttledRate)
 				}
 			})
 		}()
@@ -158,7 +155,12 @@ func getNode(t *testing.T) node {
 	)
 	require.NoError(t, err)
 
-	gossipSub, err := pubsub.NewGossipSub(t.Context(), host)
+	gossipSub, err := pubsub.NewGossipSub(
+		t.Context(),
+		host,
+		pubsub.WithValidateQueueSize(nodeCount*messageCount),
+		pubsub.WithPeerOutboundQueueSize(nodeCount*messageCount),
+	)
 	require.NoError(t, err)
 
 	topic, err := gossipSub.Join(topicName)
