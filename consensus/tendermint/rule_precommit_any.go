@@ -15,6 +15,7 @@ func (s *stateMachine[V, H, A]) uponPrecommitAny() bool {
 	isFirstTime := !s.state.timeoutPrecommitScheduled
 
 	hasQuorum := s.voteCounter.HasQuorumForAny(s.state.round, votecounter.Precommit)
+
 	return hasQuorum && isFirstTime
 }
 

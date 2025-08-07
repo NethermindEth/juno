@@ -40,6 +40,7 @@ func (b *ballotSet[A]) add(addr *A, addrPower types.VotingPower, voteType VoteTy
 	ballot := b.ballots[*addr]
 	ballot[voteType] = true
 	b.ballots[*addr] = ballot
+
 	b.perVoteType[voteType] += addrPower
 	return true
 }

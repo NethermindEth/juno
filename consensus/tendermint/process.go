@@ -116,7 +116,7 @@ func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (act
 	case s.uponPrecommitAny():
 		return s.doPrecommitAny(), true
 
-		// Line 49
+	// Line 49
 	case roundCachedProposal != nil && s.uponCommitValue(roundCachedProposal):
 		return s.doCommitValue(roundCachedProposal), false // We should stop immediately after committing
 
