@@ -67,7 +67,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) error {
 					BlockCommitments: committedBlock.Commitments,
 					ConcatCount:      concatCommitments,
 				},
-				L2GasConsumed: 1, // TODO: compute this locally
+				L2GasConsumed: committedBlock.Block.L2GasConsumed(),
 			}
 			s.proposalStore.Store(msgH, &buildResult)
 
