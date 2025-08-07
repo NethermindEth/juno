@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTrieAdapter(t *testing.T) {
+func TestDeprecatedTrieAdapter(t *testing.T) {
 	memDB := memory.New()
 	txn := memDB.NewIndexedBatch()
 	storage := trie.NewStorage(txn, db.ContractStorage.Key([]byte{0}))
 	trie, err := trie.NewTriePedersen(storage, 0)
 	require.NoError(t, err)
-	adapter := NewTrieAdapter(trie)
+	adapter := NewDeprecatedTrieAdapter(trie)
 
 	t.Run("Update", func(t *testing.T) {
 		err := adapter.Update(&felt.Zero, &felt.Zero)
@@ -46,10 +46,10 @@ func TestTrieAdapter(t *testing.T) {
 	})
 }
 
-func TestTrie2Adapter(t *testing.T) {
+func TestTrieAdapter(t *testing.T) {
 	trie, err := trie2.NewEmptyPedersen()
 	require.NoError(t, err)
-	adapter := NewTrie2Adapter(trie)
+	adapter := NewTrieAdapter(trie)
 
 	t.Run("Update", func(t *testing.T) {
 		err := adapter.Update(&felt.Zero, &felt.Zero)

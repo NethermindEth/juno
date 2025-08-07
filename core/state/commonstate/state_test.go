@@ -1,4 +1,4 @@
-package commonstate_test
+package commonstate
 
 import (
 	"testing"
@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
-	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ func TestCoreStateAdapter(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
-	coreStateAdapter := commonstate.NewCoreStateAdapter(state)
+	coreStateAdapter := NewDeprecatedStateAdapter(state)
 	assert.NotNil(t, coreStateAdapter)
 }
 
@@ -32,7 +31,7 @@ func TestStateAdapter(t *testing.T) {
 	state, err := state.New(&felt.Zero, stateDB)
 	require.NoError(t, err)
 
-	stateAdapter := commonstate.NewStateAdapter(state)
+	stateAdapter := NewStateAdapter(state)
 	assert.NotNil(t, stateAdapter)
 }
 
@@ -41,7 +40,7 @@ func TestCoreStateReaderAdapter(t *testing.T) {
 	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
-	coreStateReaderAdapter := commonstate.NewCoreStateReaderAdapter(state)
+	coreStateReaderAdapter := NewDeprecatedStateReaderAdapter(state)
 	assert.NotNil(t, coreStateReaderAdapter)
 }
 
@@ -55,6 +54,6 @@ func TestStateReaderAdapter(t *testing.T) {
 	state, err := state.New(&felt.Zero, stateDB)
 	require.NoError(t, err)
 
-	stateReaderAdapter := commonstate.NewStateReaderAdapter(state)
+	stateReaderAdapter := NewStateReaderAdapter(state)
 	assert.NotNil(t, stateReaderAdapter)
 }

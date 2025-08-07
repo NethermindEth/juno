@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/core/state/commontrie"
 	"github.com/NethermindEth/juno/core/trie"
@@ -40,7 +41,8 @@ func (h *Handler) StorageAt(address, key *felt.Felt, id *BlockID) (*felt.Felt, *
 	// the returned value is always zero and error is nil.
 	_, err := stateReader.ContractClassHash(address)
 	if err != nil {
-		if errors.Is(err, db.ErrKeyNotFound) {
+		// TODO(maksymmalick): state.ErrContractNotDeployed is returned by new state. Remove db.ErrKeyNotFound after integration
+		if errors.Is(err, db.ErrKeyNotFound) || errors.Is(err, state.ErrContractNotDeployed) {
 			return nil, rpccore.ErrContractNotFound
 		}
 		h.log.Errorw("Failed to get contract nonce", "err", err)
@@ -211,22 +213,22 @@ func (h *Handler) isBlockSupported(blockID *BlockID, chainHeight uint64) *jsonrp
 
 func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	switch t := tr.(type) {
-	case *commontrie.TrieAdapter:
+	case *commontrie.DeprecatedTrieAdapter:
 		classProof := trie.NewProofNodeSet()
 		for _, class := range classes {
-			if err := t.Trie.Prove(&class, classProof); err != nil {
+			if err := (*trie.Trie)(t).Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
-		return adaptTrie1ProofNodes(classProof), nil
-	case *commontrie.Trie2Adapter:
+		return adaptDeprecatedTrieProofNodes(classProof), nil
+	case *commontrie.TrieAdapter:
 		classProof := trie2.NewProofNodeSet()
 		for _, class := range classes {
-			if err := t.Trie.Prove(&class, classProof); err != nil {
+			if err := (*trie2.Trie)(t).Prove(&class, classProof); err != nil {
 				return nil, err
 			}
 		}
-		return adaptTrie2ProofNodes(classProof), nil
+		return adaptTrieProofNodes(classProof), nil
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
 	}
@@ -234,16 +236,16 @@ func getClassProof(tr commontrie.Trie, classes []felt.Felt) ([]*HashToNode, erro
 
 func getContractProof(tr commontrie.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	switch t := tr.(type) {
+	case *commontrie.DeprecatedTrieAdapter:
+		return getContractProofWithDeprecatedTrie((*trie.Trie)(t), state, contracts)
 	case *commontrie.TrieAdapter:
-		return getContractProofWithTrie1(t.Trie, state, contracts)
-	case *commontrie.Trie2Adapter:
-		return getContractProofWithTrie2(t.Trie, state, contracts)
+		return getContractProofWithTrie((*trie2.Trie)(t), state, contracts)
 	default:
 		return nil, fmt.Errorf("unknown trie type: %T", tr)
 	}
 }
 
-func getContractProofWithTrie1(tr *trie.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithDeprecatedTrie(tr *trie.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
@@ -278,12 +280,12 @@ func getContractProofWithTrie1(tr *trie.Trie, state commonstate.StateReader, con
 	}
 
 	return &ContractProof{
-		Nodes:      adaptTrie1ProofNodes(contractProof),
+		Nodes:      adaptDeprecatedTrieProofNodes(contractProof),
 		LeavesData: contractLeavesData,
 	}, nil
 }
 
-func getContractProofWithTrie2(tr *trie2.Trie, state commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProofWithTrie(tr *trie2.Trie, st commonstate.StateReader, contracts []felt.Felt) (*ContractProof, error) {
 	contractProof := trie2.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 
@@ -294,15 +296,15 @@ func getContractProofWithTrie2(tr *trie2.Trie, state commonstate.StateReader, co
 
 		root := tr.Hash()
 
-		nonce, err := state.ContractNonce(&contract)
+		nonce, err := st.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
+			if errors.Is(err, state.ErrContractNotDeployed) { // contract does not exist, skip getting leaf data
 				continue
 			}
 			return nil, err
 		}
 
-		classHash, err := state.ContractClassHash(&contract)
+		classHash, err := st.ContractClassHash(&contract)
 		if err != nil {
 			return nil, err
 		}
@@ -315,7 +317,7 @@ func getContractProofWithTrie2(tr *trie2.Trie, state commonstate.StateReader, co
 	}
 
 	return &ContractProof{
-		Nodes:      adaptTrie2ProofNodes(contractProof),
+		Nodes:      adaptTrieProofNodes(contractProof),
 		LeavesData: contractLeavesData,
 	}, nil
 }
@@ -329,22 +331,22 @@ func getContractStorageProof(state commonstate.StateReader, storageKeys []Storag
 		}
 
 		switch t := contractStorageTrie.(type) {
-		case *commontrie.TrieAdapter:
+		case *commontrie.DeprecatedTrieAdapter:
 			contractStorageProof := trie.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
-				if err := t.Trie.Prove(&key, contractStorageProof); err != nil {
+				if err := (*trie.Trie)(t).Prove(&key, contractStorageProof); err != nil {
 					return nil, err
 				}
 			}
-			contractStorageRes[i] = adaptTrie1ProofNodes(contractStorageProof)
-		case *commontrie.Trie2Adapter:
+			contractStorageRes[i] = adaptDeprecatedTrieProofNodes(contractStorageProof)
+		case *commontrie.TrieAdapter:
 			contractStorageProof := trie2.NewProofNodeSet()
 			for _, key := range storageKey.Keys {
-				if err := t.Trie.Prove(&key, contractStorageProof); err != nil {
+				if err := (*trie2.Trie)(t).Prove(&key, contractStorageProof); err != nil {
 					return nil, err
 				}
 			}
-			contractStorageRes[i] = adaptTrie2ProofNodes(contractStorageProof)
+			contractStorageRes[i] = adaptTrieProofNodes(contractStorageProof)
 		default:
 			return nil, fmt.Errorf("unknown trie type: %T", contractStorageTrie)
 		}
@@ -353,7 +355,7 @@ func getContractStorageProof(state commonstate.StateReader, storageKeys []Storag
 	return contractStorageRes, nil
 }
 
-func adaptTrie1ProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
+func adaptDeprecatedTrieProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
 	for i, hash := range proof.Keys() {
@@ -383,7 +385,7 @@ func adaptTrie1ProofNodes(proof *trie.ProofNodeSet) []*HashToNode {
 	return nodes
 }
 
-func adaptTrie2ProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
+func adaptTrieProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 	nodes := make([]*HashToNode, proof.Size())
 	nodeList := proof.List()
 	for i, hash := range proof.Keys() {
@@ -392,15 +394,15 @@ func adaptTrie2ProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 		switch n := nodeList[i].(type) {
 		case *trienode.BinaryNode:
 			node = &BinaryNode{
-				Left:  &hash,
-				Right: &hash,
+				Left:  nodeFelt(n.Children[0]),
+				Right: nodeFelt(n.Children[1]),
 			}
 		case *trienode.EdgeNode:
-			path := n.Path.Felt()
+			pathFelt := n.Path.Felt()
 			node = &EdgeNode{
-				Path:   path.String(),
+				Path:   pathFelt.String(),
 				Length: int(n.Path.Len()),
-				Child:  &hash,
+				Child:  nodeFelt(n.Child),
 			}
 		}
 
@@ -411,6 +413,17 @@ func adaptTrie2ProofNodes(proof *trie2.ProofNodeSet) []*HashToNode {
 	}
 
 	return nodes
+}
+
+func nodeFelt(n trienode.Node) *felt.Felt {
+	switch n := n.(type) {
+	case *trienode.HashNode:
+		return (*felt.Felt)(n)
+	case *trienode.ValueNode:
+		return (*felt.Felt)(n)
+	default:
+		panic(fmt.Sprintf("unknown node type: %T", n))
+	}
 }
 
 type StorageKeys struct {

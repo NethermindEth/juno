@@ -90,7 +90,7 @@ type Blockchain struct {
 	network       *utils.Network
 	database      db.KeyValueStore
 	trieDB        *triedb.Database
-	StateDB       *state.StateDB // TODO(weiihann): not sure if it's a good idea to expose this
+	stateDB       *state.StateDB
 	listener      EventListener
 	l1HeadFeed    *feed.Feed[*core.L1Head]
 	cachedFilters *AggregatedBloomFilterCache
@@ -121,7 +121,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 	return &Blockchain{
 		database:      database,
 		trieDB:        trieDB,
-		StateDB:       stateDB,
+		stateDB:       stateDB,
 		network:       network,
 		listener:      &SelectiveListener{},
 		l1HeadFeed:    feed.New[*core.L1Head](),
@@ -215,7 +215,7 @@ func (b *Blockchain) StateUpdateByHash(hash *felt.Felt) (*core.StateUpdate, erro
 
 func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (felt.Felt, error) {
 	b.listener.OnRead("L1HandlerTxnHash")
-	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes()) // TODO: return felt value
+	return core.GetL1HandlerTxnHashByMsgHash(b.database, msgHash.Bytes())
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
@@ -554,7 +554,7 @@ func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
 	if err != nil {
 		return ret, err
 	}
-	state, err := state.New(stateUpdate.NewRoot, b.StateDB)
+	state, err := state.New(stateUpdate.NewRoot, b.stateDB)
 	if err != nil {
 		return ret, err
 	}
@@ -635,7 +635,7 @@ func (b *Blockchain) revertHead() error {
 	if err != nil {
 		return err
 	}
-	state, err := state.New(stateUpdate.NewRoot, b.StateDB)
+	state, err := state.New(stateUpdate.NewRoot, b.stateDB)
 	if err != nil {
 		return err
 	}
