@@ -9,14 +9,13 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/p2p"
 	"github.com/NethermindEth/juno/p2p/sync"
 )
 
 const syncRoundPlaceHolder = 0 // Todo: We use this value until the round is added to the spec
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	syncService       p2p.BlockListener
+	blockListener     <-chan sync.BlockBody // sync service to br run seperately
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
@@ -27,7 +26,7 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	syncService p2p.BlockListener,
+	blockListener <-chan sync.BlockBody,
 	driverProposalCh chan types.Proposal[V, H, A],
 	driverPrecommitCh chan types.Precommit[H, A],
 	getPrecommits func(*sync.BlockBody) []types.Precommit[H, A],
@@ -35,7 +34,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	proposalStore *proposal.ProposalStore[H],
 ) Sync[V, H, A] {
 	return Sync[V, H, A]{
-		syncService:       syncService,
+		blockListener:     blockListener,
 		driverProposalCh:  driverProposalCh,
 		driverPrecommitCh: driverPrecommitCh,
 		getPrecommits:     getPrecommits,
@@ -44,32 +43,12 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 }
 
-func (s *Sync[V, H, A]) Run(originalCtx context.Context) error {
-	ctx, cancel := context.WithCancel(originalCtx)
-	defer cancel()
-
-	errCh := make(chan error, 1)
-
-	go func() {
-		defer cancel()
-		err := s.syncService.Run(ctx)
-		errCh <- err
-	}()
-
+func (s *Sync[V, H, A]) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			select {
-			case err := <-errCh:
-				return err
-			default:
-				return ctx.Err()
-			}
-
-		case err := <-errCh:
-			return err
-
-		case committedBlock := <-s.syncService.Listen():
+			return ctx.Err()
+		case committedBlock := <-s.blockListener:
 			msgV := s.toValue(committedBlock.Block.Hash)
 			msgH := msgV.Hash()
 			concatCommitments := core.ConcatCounts(

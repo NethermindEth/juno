@@ -114,7 +114,7 @@ func TestSync(t *testing.T) {
 	mockInCh := make(chan sync.BlockBody)
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
+	consensusSyncService := consensusSync.New(mockP2PSyncService.Listen(), proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 
 	block0 := getCommittedBlock()
 	block0Hash := block0.Block.Hash
@@ -141,7 +141,7 @@ func TestShutdownOnError(t *testing.T) {
 	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 
-	consensusSyncService := consensusSync.New(&mockP2PSyncService, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
+	consensusSyncService := consensusSync.New(mockP2PSyncService.Listen(), proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 	cancel()
 	consensusSyncService.Run(ctx)
 
