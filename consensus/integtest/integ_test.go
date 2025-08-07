@@ -2,8 +2,10 @@ package integtest
 
 import (
 	"fmt"
+	"maps"
+	"slices"
+	gosync "sync"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus"
@@ -16,7 +18,7 @@ import (
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +29,6 @@ import (
 const (
 	commitBufferSize = 1024
 	maxLag           = 10
-	gst              = 2 * time.Second // 2 Heartbeats should be enough for the nodes to connect to its peers
 	hostAddress      = "/ip4/0.0.0.0/tcp/0"
 )
 
@@ -78,18 +79,15 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 
 func initNode(
 	t *testing.T,
-	gstChan chan struct{},
 	index int,
 	logger *utils.ZapLogger,
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
 	genesisClasses map[felt.Felt]core.Class,
-) host.Host {
+	ready chan struct{},
+) networkNodeConfig {
 	t.Helper()
-	defer func() {
-		logger.Debug("finished initNode")
-	}()
 
 	mockServices := consensus.InitMockServices(0, 0, index, cfg.nodeCount)
 
@@ -97,6 +95,12 @@ func initNode(
 	consensusDB := memory.New()
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
 	vm := vm.New(false, logger)
+
+	adjacentNodes := make(map[int]peer.AddrInfo)
+	bootstrapPeers := gosync.OnceValue(func() []peer.AddrInfo {
+		<-ready
+		return slices.Collect(maps.Values(adjacentNodes))
+	})
 
 	services, err := consensus.Init(
 		logger,
@@ -108,6 +112,7 @@ func initNode(
 		mockServices.TimeoutFn,
 		hostAddress,
 		mockServices.PrivateKey,
+		bootstrapPeers,
 	)
 	require.NoError(t, err)
 
@@ -119,7 +124,6 @@ func initNode(
 		require.NoError(t, services.P2P.Run(t.Context()))
 	})
 	wg.Go(func() {
-		<-gstChan
 		require.NoError(t, services.Driver.Run(t.Context()))
 	})
 	wg.Go(func() {
@@ -127,7 +131,10 @@ func initNode(
 	})
 	t.Cleanup(wg.Wait)
 
-	return services.Host
+	return networkNodeConfig{
+		host:          services.Host,
+		adjacentNodes: adjacentNodes,
+	}
 }
 
 func writeBlock(
@@ -233,20 +240,16 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	commits := make(chan commit, commitBufferSize)
 
-	gstChan := make(chan struct{})
+	ready := make(chan struct{})
 
 	hosts := make(networkConfig, honestNodeCount)
 	iterator := iter.Iterator[networkNodeConfig]{MaxGoroutines: honestNodeCount}
 	iterator.ForEachIdx(hosts, func(i int, nodeConfig *networkNodeConfig) {
-		*nodeConfig = networkNodeConfig{
-			host:          initNode(t, gstChan, i, logger, commits, &cfg, genesisDiff, genesisClasses),
-			adjacentNodes: make(map[int]struct{}),
-		}
+		*nodeConfig = initNode(t, i, logger, commits, &cfg, genesisDiff, genesisClasses, ready)
 	})
-	hosts.setup(t, cfg.networkSetup)
 
-	time.Sleep(gst)
-	close(gstChan)
+	cfg.networkSetup(t, hosts)
+	close(ready)
 
 	assertCommits(t, commits, cfg, logger)
 }
