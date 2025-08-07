@@ -16,6 +16,7 @@ type CommittedBlock struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
 	NewClasses  map[felt.Felt]core.Class
+	Persisted   chan struct{} // This is used to signal that the block has been persisted
 }
 
 type DataSource interface {
@@ -52,6 +53,7 @@ func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber
 		Block:       block,
 		StateUpdate: stateUpdate,
 		NewClasses:  newClasses,
+		Persisted:   make(chan struct{}),
 	}, nil
 }
 
