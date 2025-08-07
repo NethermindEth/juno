@@ -123,30 +123,10 @@ func TestSync(t *testing.T) {
 		mockP2PSyncService.recieveBlockOverP2P(block0)
 	}()
 
-	consensusSyncService.Run(ctx)                     // Driver should trigger stopSyncCh and shut this service down
+	// Driver should trigger stopSyncCh and shut this service down
+	require.EqualError(t, consensusSyncService.Run(ctx), context.Canceled.Error())
 	require.NotEmpty(t, proposalStore.Get(valueHash)) // Ensure the Driver sees the correct proposal
 	require.NotEqual(t, comittedHeight, -1, "expected a block to be committed")
-}
-
-func TestShutdownOnError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx, cancel := context.WithCancel(t.Context())
-
-	proposalCh := make(chan starknet.Proposal)
-	precommitCh := make(chan starknet.Precommit)
-
-	mockInCh := make(chan sync.BlockBody)
-	mockP2PSyncService := newMockP2PSyncService(mockInCh)
-	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-
-	consensusSyncService := consensusSync.New(mockP2PSyncService.Listen(), proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
-	cancel()
-	consensusSyncService.Run(ctx)
-
-	mockP2PSyncService.shouldTriggerErr()
-	consensusSyncService.Run(t.Context())
 }
 
 func getCommittedBlock() sync.BlockBody {

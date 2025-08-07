@@ -15,7 +15,7 @@ import (
 const syncRoundPlaceHolder = 0 // Todo: We use this value until the round is added to the spec
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	blockListener     <-chan sync.BlockBody // sync service to br run seperately
+	blockListener     <-chan sync.BlockBody // sync service to be run separately
 	driverProposalCh  chan types.Proposal[V, H, A]
 	driverPrecommitCh chan types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
@@ -67,7 +67,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) error {
 					BlockCommitments: committedBlock.Commitments,
 					ConcatCount:      concatCommitments,
 				},
-				L2GasConsumed: 1, // TODO
+				L2GasConsumed: 1, // TODO: compute this locally
 			}
 			s.proposalStore.Store(msgH, &buildResult)
 
