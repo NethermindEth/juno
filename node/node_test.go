@@ -18,28 +18,27 @@ import (
 // Create a new node with all services enabled.
 func TestNewNode(t *testing.T) {
 	config := &node.Config{
-		LogLevel:                           "info",
-		HTTP:                               true,
-		HTTPPort:                           0,
-		Websocket:                          true,
-		WebsocketPort:                      0,
-		GRPC:                               true,
-		GRPCPort:                           0,
-		DatabasePath:                       t.TempDir(),
-		Network:                            utils.Sepolia, // P2P will only work with Sepolia (for the time being)
-		EthNode:                            "",
-		DisableL1Verification:              true,
-		Pprof:                              true,
-		PprofPort:                          0,
-		Colour:                             true,
-		PendingPollInterval:                time.Second,
-		PreConfirmedPollInterval:           time.Second,
-		Metrics:                            true,
-		MetricsPort:                        0,
-		P2P:                                true,
-		P2PAddr:                            "",
-		P2PPeers:                           "",
-		SubmittedTransactionsCacheEntryTTL: time.Second,
+		LogLevel:                 "info",
+		HTTP:                     true,
+		HTTPPort:                 0,
+		Websocket:                true,
+		WebsocketPort:            0,
+		GRPC:                     true,
+		GRPCPort:                 0,
+		DatabasePath:             t.TempDir(),
+		Network:                  utils.Sepolia, // P2P will only work with Sepolia (for the time being)
+		EthNode:                  "",
+		DisableL1Verification:    true,
+		Pprof:                    true,
+		PprofPort:                0,
+		Colour:                   true,
+		PendingPollInterval:      time.Second,
+		PreConfirmedPollInterval: time.Second,
+		Metrics:                  true,
+		MetricsPort:              0,
+		P2P:                      true,
+		P2PAddr:                  "",
+		P2PPeers:                 "",
 	}
 
 	logLevel := utils.NewLogLevel(utils.INFO)
@@ -89,10 +88,9 @@ func TestNetworkVerificationOnNonEmptyDB(t *testing.T) {
 
 			logLevel := utils.NewLogLevel(utils.INFO)
 			_, err = node.New(&node.Config{
-				DatabasePath:                       dbPath,
-				Network:                            test.network,
-				DisableL1Verification:              true,
-				SubmittedTransactionsCacheEntryTTL: time.Second,
+				DatabasePath:          dbPath,
+				Network:               test.network,
+				DisableL1Verification: true,
 			}, "v0.1", logLevel)
 			if test.errString == "" {
 				require.NoError(t, err)

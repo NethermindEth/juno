@@ -27,7 +27,7 @@ type (
 	listeners                       = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters                    = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
 	tendermintDB                    = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
-	commitListener                  = driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	blockchain                      = driver.Blockchain[starknet.Value, starknet.Hash]
 )
 
 const (
@@ -165,8 +165,9 @@ func TestDriver(t *testing.T) {
 		utils.NewNopZapLogger(),
 		newTendermintDB(t),
 		stateMachine,
-		newMockCommitListener(t, &commitAction),
+		newMockBlockchain(t, &commitAction),
 		p2p,
+		newMockProposer(),
 		mockTimeoutFn,
 	)
 

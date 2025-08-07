@@ -44,7 +44,7 @@ type Handler struct {
 	subscriptions stdsync.Map // map[string]*subscription
 
 	blockTraceCache            *lru.Cache[rpccore.TraceCacheKey, []TracedBlockTransaction]
-	submittedTransactionsCache *rpccore.TransactionCache
+	submittedTransactionsCache *rpccore.SubmittedTransactionsCache
 
 	filterLimit  uint
 	callMaxSteps uint64
@@ -124,7 +124,7 @@ func (h *Handler) WithGateway(gatewayClient rpccore.Gateway) *Handler {
 	return h
 }
 
-func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.TransactionCache) *Handler {
+func (h *Handler) WithSubmittedTransactionsCache(cache *rpccore.SubmittedTransactionsCache) *Handler {
 	h.submittedTransactionsCache = cache
 	return h
 }

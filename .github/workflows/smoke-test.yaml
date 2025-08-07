@@ -9,13 +9,18 @@ on:
       APP_PRIVATE_KEY:
         required: true
         description: 'Private key for the GitHub App used to generate tokens.'
+      ARTIFACTORY_NUBIA_USERNAME:
+        required: true
+        description: 'Username for the Artifactory Docker registry.'
+      ARTIFACTORY_NUBIA_TOKEN_DEVELOPER:
+        required: true
+        description: 'Token/Password for the Artifactory Docker registry.'
       APP_ID:
         required: true
         description: 'The ID of the GitHub App.'
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   run:
@@ -40,23 +45,12 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: "juno,juno-smoke-tests"
 
-      - name: Install JFrog CLI
-        id: jfrog
-        uses: jfrog/setup-jfrog-cli@ff5cb544114ffc152db9cea1cd3d5978d5074946 # v4.5.11
+      - name: Login and pull docker image
         env:
-          JF_URL: https://${{ env.DOCKER_REGISTRY }}
-        with:
-          oidc-provider-name: github-nethermindeth
-
-      - name: Login to Registry with OIDC
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ steps.jfrog.outputs.oidc-user }}
-          password: ${{ steps.jfrog.outputs.oidc-token }}
-
-      - name: Pull docker image
-        run: docker pull ${{ env.FULL_IMAGE_PATH }}
+          IMAGE_TO_PULL: ${{ env.FULL_IMAGE_PATH }}
+        run: |
+          docker login ${{ env.DOCKER_REGISTRY }} -u ${{ secrets.ARTIFACTORY_NUBIA_USERNAME }} -p ${{ secrets.ARTIFACTORY_NUBIA_TOKEN_DEVELOPER }}
+          docker pull $IMAGE_TO_PULL
 
       - name: Checkout Juno Smoke Tests
         uses: actions/checkout@v4
