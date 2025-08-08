@@ -84,7 +84,7 @@ func (s *Sync[V, H, A]) Run(ctx context.Context) error {
 				MessageHeader: types.MessageHeader[A]{
 					Height: types.Height(committedBlock.Block.Number),
 					Round:  syncRoundPlaceHolder,
-					Sender: A(committedBlock.Block.SequencerAddress.Bits()),
+					Sender: A(*committedBlock.Block.SequencerAddress),
 				},
 				ValidRound: -1,
 				Value:      &msgV,
