@@ -13,14 +13,35 @@ concurrency:
 
 jobs:
   test:
-    name: Run Tests
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
+        include:
+          # Test
+          - os: ubuntu-latest
+            stage: Run Tests
+            USE_NEW_STATE: false
+          - os: macos-latest
+            stage: Run Tests
+            USE_NEW_STATE: false
+          - os: ubuntu-arm64-4-core
+            stage: Run Tests
+            USE_NEW_STATE: false
+          # New state tests
+          - os: ubuntu-latest
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
+          - os: macos-latest
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
+          - os: ubuntu-arm64-4-core
+            stage: Run Tests [New State]
+            USE_NEW_STATE: true
     runs-on: ${{ matrix.os }}
+    name: ${{matrix.stage }}
     env:
       VM_DEBUG: true
+      USE_NEW_STATE: ${{ matrix.USE_NEW_STATE }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up go
@@ -54,67 +75,6 @@ jobs:
 
       - name: Tests (No Coverage)
         if: matrix.os != 'ubuntu-latest'
-        run: make test
-
-      #    Tests with race condition detector are flaky; we're disabling them for now
-      #      - name: Tests (Race Detection)
-      #        if: matrix.os == 'ubuntu-latest'
-      #        run: make test-race
-
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-          files: coverage.out
-
-  test-new-stage:
-    name: Run Tests [New State]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, ubuntu-arm64-4-core]
-    runs-on: ${{ matrix.os }}
-    env:
-      VM_DEBUG: true
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: rust-toolchain-${{ matrix.os }}
-          workspaces: |
-            vm/rust
-            core/rust
-            starknet/compiler/rust
-
-      - name: Install deps
-        run: make install-deps
-
-      - name: Install Jemalloc (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 libbz2-dev
-
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install jemalloc
-
-      - name: Tests (Coverage)
-        if: matrix.os == 'ubuntu-latest'
-        env:
-          USE_NEW_STATE: true
-        run: make test-cover
-
-      - name: Tests (No Coverage)
-        if: matrix.os != 'ubuntu-latest'
-        env:
-          USE_NEW_STATE: true
         run: make test
 
       #    Tests with race condition detector are flaky; we're disabling them for now
