@@ -140,7 +140,9 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 				pipeline.Stage(ctx, stateDiffsCh, specBlockPartsFunc[specContractDiffs]),
 				pipeline.Stage(ctx, txsCh, specBlockPartsFunc[specTxWithReceipts]),
 				pipeline.Stage(ctx, eventsCh, specBlockPartsFunc[specEvents]),
-			)))
+			),
+		),
+	)
 
 	return nil
 }
