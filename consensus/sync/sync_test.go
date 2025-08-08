@@ -97,7 +97,7 @@ func TestSync(t *testing.T) {
 	block0Hash := block0.Block.Hash
 	valueHash := toValue(block0Hash).Hash()
 	go func() {
-		mockP2PSyncService.recieveBlockOverP2P(block0)
+		mockP2PSyncService.receiveBlockOverP2P(block0)
 	}()
 
 	require.NoError(t, consensusSyncService.Run(ctx))
