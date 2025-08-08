@@ -93,7 +93,7 @@ func TestSync(t *testing.T) {
 
 	consensusSyncService := consensusSync.New(mockP2PSyncService.Listen(), proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 
-	block0 := getCommittedBlock()
+	block0 := getCommittedBlock(allNodes)
 	block0Hash := block0.Block.Hash
 	valueHash := toValue(block0Hash).Hash()
 	go func() {
@@ -105,14 +105,15 @@ func TestSync(t *testing.T) {
 	require.NotEqual(t, comittedHeight, -1, "expected a block to be committed")
 }
 
-func getCommittedBlock() sync.BlockBody {
+func getCommittedBlock(allNodes nodes) sync.BlockBody {
+	proposerAddr := allNodes.Proposer(types.Height(0), types.Round(0))
 	return sync.BlockBody{
 		Block: &core.Block{
 			Header: &core.Header{
 				Hash:             new(felt.Felt).SetUint64(blockID),
 				TransactionCount: 2,
 				EventCount:       3,
-				SequencerAddress: new(felt.Felt).SetUint64(5),
+				SequencerAddress: (*felt.Felt)(&proposerAddr),
 				Number:           0,
 			},
 		},

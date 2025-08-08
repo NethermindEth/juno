@@ -111,7 +111,7 @@ func (v *VoteCounter[V, H, A]) AddProposal(proposal *types.Proposal[V, H, A]) bo
 		return false
 	}
 
-	if expectedProposer := v.validators.Proposer(proposal.Height, proposal.Round); types.AddrCmp(proposal.Sender, expectedProposer) {
+	if expectedProposer := v.validators.Proposer(proposal.Height, proposal.Round); proposal.Sender != expectedProposer {
 		return false
 	}
 
