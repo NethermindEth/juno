@@ -202,7 +202,14 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(ctx, committedBlock.Block, committedBlock.StateUpdate, committedBlock.NewClasses, resetStreams)
+					return s.verifierTask(
+						ctx,
+						committedBlock.Block,
+						committedBlock.StateUpdate,
+						committedBlock.NewClasses,
+						resetStreams,
+						committedBlock.Persisted,
+					)
 				})
 			}
 		}
@@ -255,7 +262,7 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 
 //nolint:gocyclo
 func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc,
+	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc, persisted chan struct{},
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
@@ -267,6 +274,8 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 		case <-ctx.Done():
 			return
 		default:
+			defer close(persisted)
+
 			if err != nil {
 				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
 				resetStreams()

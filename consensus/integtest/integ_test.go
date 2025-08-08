@@ -5,38 +5,31 @@ import (
 	"testing"
 	"time"
 
-	bc "github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/builder"
+	"github.com/NethermindEth/juno/blockchain"
+	"github.com/NethermindEth/juno/consensus"
 	"github.com/NethermindEth/juno/consensus/driver"
-	"github.com/NethermindEth/juno/consensus/mocks"
-	"github.com/NethermindEth/juno/consensus/p2p"
-	"github.com/NethermindEth/juno/consensus/p2p/config"
-	"github.com/NethermindEth/juno/consensus/proposal"
-	"github.com/NethermindEth/juno/consensus/proposer"
 	"github.com/NethermindEth/juno/consensus/starknet"
-	"github.com/NethermindEth/juno/consensus/tendermint"
-	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 )
 
 const (
-	commitBufferSize   = 1024
-	maxLag             = 10
-	timeoutBase        = 500 * time.Microsecond
-	timeoutRoundFactor = 100 * time.Millisecond
-	gst                = 2 * time.Second // 2 Heartbeats should be enough for the nodes to connect to its peers
+	commitBufferSize = 1024
+	maxLag           = 10
+	gst              = 2 * time.Second // 2 Heartbeats should be enough for the nodes to connect to its peers
+	hostAddress      = "/ip4/0.0.0.0/tcp/0"
 )
 
 var (
@@ -44,50 +37,23 @@ var (
 	logLevel = zap.DebugLevel
 )
 
+type commit struct {
+	nodeIndex      int
+	committedBlock sync.CommittedBlock
+}
+
 type testConfig struct {
 	// Number of nodes in the network
 	nodeCount int
 	// Number of faulty nodes in the network
 	faultyNodeCount int
 	// Number of blocks to run the test for
-	targetHeight types.Height
+	targetHeight uint64
 	// Network setup
 	networkSetup networkConfigFn
 }
 
-func getTimeoutFn(cfg *testConfig) func(types.Step, types.Round) time.Duration {
-	return func(step types.Step, round types.Round) time.Duration {
-		// Total number of messages are N^2, so the load is roughly proportional to O(N^2)
-		// Every round increases the timeout by timeoutRoundFactor. It also guarantees that the timeout will be at least timeoutRoundFactor
-		delta := time.Duration(cfg.nodeCount*cfg.nodeCount)*timeoutBase + time.Duration(round+1)*timeoutRoundFactor
-
-		// The formulae follow the lemma in the paper
-		switch step {
-		case types.StepPropose:
-			prevDelta := delta - timeoutRoundFactor
-			return (prevDelta + delta) * 2
-		case types.StepPrevote:
-			return delta * 2
-		case types.StepPrecommit:
-			return delta * 2
-		}
-		return 0
-	}
-}
-
-func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
-	t.Helper()
-	ctrl := gomock.NewController(t)
-	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
-	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
-	db.EXPECT().Flush().AnyTimes()
-	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return db
-}
-
-func getBuilder(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[felt.Felt]core.Class) *builder.Builder {
+func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[felt.Felt]core.Class) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
@@ -95,10 +61,7 @@ func getBuilder(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[fel
 
 	bc := bc.New(testDB, network, statetestutils.UseNewState())
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
-
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
-	testBuilder := builder.New(bc, executor)
-	return &testBuilder
+	return bc
 }
 
 func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.Felt]core.Class) {
@@ -116,49 +79,90 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 	return diff, classes
 }
 
-func toValue(value *felt.Felt) starknet.Value {
-	return starknet.Value(*value)
-}
-
 func initNode(
 	t *testing.T,
 	gstChan chan struct{},
-	nodes *nodes,
-	p2pHost *networkNodeConfig,
+	index int,
 	logger *utils.ZapLogger,
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
 	genesisClasses map[felt.Felt]core.Class,
-) {
+) host.Host {
 	t.Helper()
 	defer func() {
 		logger.Debug("finished initNode")
 	}()
 
-	nodeAddr := testAddress(p2pHost.index)
-	logger = &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprint(p2pHost.index))}
-	tendermintDB := newDB(t)
-	builder := getBuilder(t, genesisDiff, genesisClasses)
-	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	proposer := proposer.New(logger, builder, &proposalStore, nodeAddr, toValue)
-	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, proposer, nodes, types.Height(0))
-	p2p := p2p.New(p2pHost.host, logger, builder, &proposalStore, types.Height(0), &config.DefaultBufferSizes)
-	bc := newBlockchain(commits, &nodeAddr)
-	driver := driver.New(logger, tendermintDB, stateMachine, bc, p2p, proposer, getTimeoutFn(cfg))
+	mockServices := consensus.InitMockServices(0, 0, index, cfg.nodeCount)
+
+	logger = &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprint(index))}
+	consensusDB := memory.New()
+	bc := getBlockchain(t, genesisDiff, genesisClasses)
+	vm := vm.New(false, logger)
+
+	services, err := consensus.Init(
+		logger,
+		consensusDB,
+		bc,
+		vm,
+		&mockServices.NodeAddress,
+		mockServices.Validators,
+		mockServices.TimeoutFn,
+		hostAddress,
+		mockServices.PrivateKey,
+	)
+	require.NoError(t, err)
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
-		require.NoError(t, proposer.Run(t.Context()))
+		require.NoError(t, services.Proposer.Run(t.Context()))
 	})
 	wg.Go(func() {
-		require.NoError(t, p2p.Run(t.Context()))
+		require.NoError(t, services.P2P.Run(t.Context()))
 	})
 	wg.Go(func() {
 		<-gstChan
-		require.NoError(t, driver.Run(t.Context()))
+		require.NoError(t, services.Driver.Run(t.Context()))
+	})
+	wg.Go(func() {
+		writeBlock(t, index, bc, services.CommitListener, commits)
 	})
 	t.Cleanup(wg.Wait)
+
+	return services.Host
+}
+
+func writeBlock(
+	t *testing.T,
+	index int,
+	bc *blockchain.Blockchain,
+	commitListener driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address],
+	commits chan commit,
+) {
+	t.Helper()
+	for {
+		select {
+		case <-t.Context().Done():
+			return
+		case committedBlock := <-commitListener.Listen():
+			commitments, err := bc.SanityCheckNewHeight(committedBlock.Block, committedBlock.StateUpdate, committedBlock.NewClasses)
+			require.NoError(t, err)
+			require.NoError(t, bc.Store(committedBlock.Block, commitments, committedBlock.StateUpdate, committedBlock.NewClasses))
+
+			close(committedBlock.Persisted)
+
+			commit := commit{
+				nodeIndex:      index,
+				committedBlock: committedBlock,
+			}
+			select {
+			case <-t.Context().Done():
+				return
+			case commits <- commit:
+			}
+		}
+	}
 }
 
 func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *utils.ZapLogger) {
@@ -167,46 +171,47 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
 
 	// node index -> height. This is to verify that the nodes reach the target height.
-	heights := make([]types.Height, honestNodeCount)
+	heights := make([]uint64, honestNodeCount)
 	// height -> committed value. This is to verify that the nodes reach consensus.
-	committedValues := make([]*starknet.Value, cfg.targetHeight)
+	committedValues := make([]*felt.Felt, cfg.targetHeight+1)
 	// height -> number of nodes that committed at this height. This is for debugging purposes.
-	commitCount := make(map[types.Height]int)
+	commitCount := make(map[uint64]int)
 
-	nextHeight := types.Height(0)
+	nextHeight := uint64(1)
 	for commit := range commits {
+		blockNumber := commit.committedBlock.Block.Number
+		blockHash := commit.committedBlock.Block.Hash
 		// Ignore commits after the target height
-		if commit.height >= cfg.targetHeight {
+		if blockNumber > cfg.targetHeight {
 			continue
 		}
 
 		require.Falsef(
 			t,
-			commit.height > nextHeight+maxLag,
+			blockNumber > nextHeight+maxLag,
 			"finished height %d is too far behind committed height %d",
 			nextHeight,
-			commit.height,
+			blockNumber,
 		)
 
 		// Ignore faulty nodes
-		nodeIdx := testAddressIndex(commit.nodeAddr)
-		if nodeIdx >= honestNodeCount {
+		if commit.nodeIndex >= honestNodeCount {
 			continue
 		}
 
 		// Must commit in order
-		assert.Equal(t, heights[nodeIdx], commit.height)
-		heights[nodeIdx]++
+		heights[commit.nodeIndex]++
+		assert.Equal(t, heights[commit.nodeIndex], blockNumber)
 
 		// If subsequent committer, check the value, otherwise store the value
-		if value := committedValues[commit.height]; value != nil {
-			assert.Equal(t, *value, commit.value)
+		if value := committedValues[blockNumber]; value != nil {
+			assert.Equal(t, value, blockHash)
 		} else {
-			committedValues[commit.height] = &commit.value
+			committedValues[blockNumber] = blockHash
 		}
 
 		// Count the number of nodes that committed at this height
-		commitCount[commit.height]++
+		commitCount[blockNumber]++
 
 		// If all honest nodes committed at this height, increment the finished counter
 		for commitCount[nextHeight] == honestNodeCount && nextHeight < cfg.targetHeight {
@@ -229,18 +234,19 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	honestNodeCount := cfg.nodeCount - cfg.faultyNodeCount
 
-	allNodes := newNodes(cfg.nodeCount)
 	commits := make(chan commit, commitBufferSize)
-
-	p2pHosts := cfg.networkSetup(t, honestNodeCount)
-	p2pHosts.setup(t)
 
 	gstChan := make(chan struct{})
 
+	hosts := make(networkConfig, honestNodeCount)
 	iterator := iter.Iterator[networkNodeConfig]{MaxGoroutines: honestNodeCount}
-	iterator.ForEach(p2pHosts, func(p2pHost *networkNodeConfig) {
-		initNode(t, gstChan, &allNodes, p2pHost, logger, commits, &cfg, genesisDiff, genesisClasses)
+	iterator.ForEachIdx(hosts, func(i int, nodeConfig *networkNodeConfig) {
+		*nodeConfig = networkNodeConfig{
+			host:          initNode(t, gstChan, i, logger, commits, &cfg, genesisDiff, genesisClasses),
+			adjacentNodes: make(map[int]struct{}),
+		}
 	})
+	hosts.setup(t, cfg.networkSetup)
 
 	time.Sleep(gst)
 	close(gstChan)
