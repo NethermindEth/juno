@@ -3,7 +3,6 @@ package rpcv8_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -808,7 +807,6 @@ func verifyIf(
 
 	proofSet := trie.NewProofNodeSet()
 	for _, hn := range proof {
-		fmt.Println("hn", hn, "hash", hn.Hash, "node", hn.Node)
 		proofSet.Put(*hn.Hash, hn.Node.AsProofNode())
 	}
 

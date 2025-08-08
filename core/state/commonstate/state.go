@@ -19,7 +19,12 @@ type State interface {
 	ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error)
 	ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error)
 
-	Update(blockNum uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.Class, skipVerifyNewRoot bool) error
+	Update(blockNum uint64,
+		update *core.StateUpdate,
+		declaredClasses map[felt.Felt]core.Class,
+		skipVerifyNewRoot bool,
+		flushChanges bool,
+	) error
 	Revert(blockNum uint64, update *core.StateUpdate) error
 	Commitment() (felt.Felt, error)
 }

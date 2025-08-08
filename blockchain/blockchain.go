@@ -290,7 +290,7 @@ func (b *Blockchain) storeCoreState(
 		}
 
 		state := core.NewState(txn)
-		if err := state.Update(block.Number, stateUpdate, newClasses, false); err != nil {
+		if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
 			return err
 		}
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
@@ -342,7 +342,7 @@ func (b *Blockchain) store(
 	if err != nil {
 		return err
 	}
-	if err := state.Update(block.Number, stateUpdate, newClasses, false); err != nil {
+	if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
 		return err
 	}
 	batch := b.database.NewBatch()
@@ -693,8 +693,7 @@ func (b *Blockchain) Simulate(
 	// Simulate without commit
 	txn := b.database.NewIndexedBatch()
 	defer txn.Reset()
-
-	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+	if err := b.updateStateRoots(txn, block, stateUpdate, newClasses, false); err != nil {
 		return SimulateResult{}, err
 	}
 
@@ -729,7 +728,7 @@ func (b *Blockchain) Finalise(
 ) error {
 	if !b.StateFactory.UseNewState {
 		err := b.database.Update(func(txn db.IndexedBatch) error {
-			if err := b.updateStateRoots(txn, block, stateUpdate, newClasses); err != nil {
+			if err := b.updateStateRoots(txn, block, stateUpdate, newClasses, true); err != nil {
 				return err
 			}
 			commitments, err := b.updateBlockHash(block, stateUpdate)
@@ -751,7 +750,7 @@ func (b *Blockchain) Finalise(
 		return b.runningFilter.Insert(block.EventsBloom, block.Number)
 	} else {
 		batch := b.database.NewBatch()
-		if err := b.updateStateRoots(nil, block, stateUpdate, newClasses); err != nil {
+		if err := b.updateStateRoots(nil, block, stateUpdate, newClasses, true); err != nil {
 			return err
 		}
 		commitments, err := b.updateBlockHash(block, stateUpdate)
@@ -780,6 +779,7 @@ func (b *Blockchain) updateStateRoots(
 	block *core.Block,
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
+	flushChanges bool,
 ) error {
 	var height uint64
 	var err error
@@ -808,7 +808,7 @@ func (b *Blockchain) updateStateRoots(
 	stateUpdate.OldRoot = &oldStateRoot
 
 	// Apply state update
-	if err = state.Update(block.Number, stateUpdate, newClasses, true); err != nil {
+	if err = state.Update(block.Number, stateUpdate, newClasses, true, flushChanges); err != nil {
 		return err
 	}
 

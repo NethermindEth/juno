@@ -233,14 +233,6 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
-func makeByteFromBool(b bool) byte {
-	var boolByte byte
-	if b {
-		boolByte = 1
-	}
-	return boolByte
-}
-
 func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state commonstate.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
