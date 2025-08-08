@@ -21,9 +21,9 @@ func TestPipeline(t *testing.T) {
 			_, open := <-FanIn[int](t.Context(), nil, nil, nil)
 			assert.False(t, open)
 		})
-		t.Run("Bridge", func(t *testing.T) {
-			_, open := <-Bridge[int](t.Context(), nil)
-			assert.False(t, open)
+		t.Run("Bridge doesn't call out", func(t *testing.T) {
+			out := make(chan int)
+			Bridge[int](t.Context(), out, nil) // non-blocking
 		})
 	})
 
@@ -40,8 +40,9 @@ func TestPipeline(t *testing.T) {
 			assert.False(t, open)
 		})
 		t.Run("Bridge", func(t *testing.T) {
-			_, open := <-Bridge[int](ctx, nil)
-			assert.False(t, open)
+			out := make(chan int)
+			chOfInts := make(chan (<-chan int))
+			go Bridge[int](ctx, out, chOfInts) // non-blocking
 		})
 	})
 
@@ -108,10 +109,18 @@ func TestPipeline(t *testing.T) {
 			}
 		}()
 
+		out := make(chan int)
+		go Bridge[int](ctx, out, chOfInts) // Blocking writes into `out`
+
 		i := 0
-		for n := range Bridge(ctx, chOfInts) {
+		for n := range out {
 			assert.Equal(t, i, n)
 			i++
+
+			// All values have been ordered, so `out` has completed its task
+			if i == len(nums) {
+				break
+			}
 		}
 	})
 }
