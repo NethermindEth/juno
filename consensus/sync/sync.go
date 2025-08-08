@@ -16,8 +16,8 @@ const syncRoundPlaceHolder = 0 // Todo: We use this value until the round is add
 
 type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	blockListener     <-chan sync.BlockBody // sync service to be run separately
-	driverProposalCh  chan types.Proposal[V, H, A]
-	driverPrecommitCh chan types.Precommit[H, A]
+	driverProposalCh  chan<- types.Proposal[V, H, A]
+	driverPrecommitCh chan<- types.Precommit[H, A]
 	// Todo: for now we can forge the precommit votes of our peers
 	// In practice, this information needs to be exposed by peers.
 	getPrecommits func(*sync.BlockBody) []types.Precommit[H, A]
@@ -27,8 +27,8 @@ type Sync[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	blockListener <-chan sync.BlockBody,
-	driverProposalCh chan types.Proposal[V, H, A],
-	driverPrecommitCh chan types.Precommit[H, A],
+	driverProposalCh chan<- types.Proposal[V, H, A],
+	driverPrecommitCh chan<- types.Precommit[H, A],
 	getPrecommits func(*sync.BlockBody) []types.Precommit[H, A],
 	toValue func(*felt.Felt) V,
 	proposalStore *proposal.ProposalStore[H],

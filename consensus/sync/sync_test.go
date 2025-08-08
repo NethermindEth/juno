@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
@@ -15,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -35,18 +37,6 @@ func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
 	return 10 * time.Second
 }
 
-func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
-	t.Helper()
-	ctrl := gomock.NewController(t)
-	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-	db.EXPECT().GetWALEntries(gomock.Any()).AnyTimes()
-	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
-	db.EXPECT().Flush().AnyTimes()
-	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return db
-}
-
 func TestSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
@@ -54,7 +44,14 @@ func TestSync(t *testing.T) {
 
 	nodeAddr := starknet.Address(felt.FromUint64(123))
 	logger := utils.NewNopZapLogger()
-	tendermintDB := newDB(t)
+
+	dbPath := t.TempDir()
+	testDB, err := pebble.New(dbPath)
+	require.NoError(t, err)
+
+	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB, types.Height(0))
+	require.NotNil(t, tmDB)
+
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
@@ -68,7 +65,7 @@ func TestSync(t *testing.T) {
 			cancel()
 		})
 
-	stateMachine := tendermint.New(tendermintDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
+	stateMachine := tendermint.New(tmDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
 
 	proposalCh := make(chan starknet.Proposal)
 	prevoteCh := make(chan starknet.Prevote)
@@ -77,7 +74,7 @@ func TestSync(t *testing.T) {
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
-		tendermintDB,
+		tmDB,
 		stateMachine,
 		mockCommitListener,
 		p2p,
@@ -89,15 +86,15 @@ func TestSync(t *testing.T) {
 	}()
 
 	mockInCh := make(chan sync.BlockBody)
-	mockP2PSyncService := newMockP2PSyncService(mockInCh)
 
-	consensusSyncService := consensusSync.New(mockP2PSyncService.Listen(), proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
+	consensusSyncService := consensusSync.New(mockInCh, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
 
 	block0 := getCommittedBlock(allNodes)
 	block0Hash := block0.Block.Hash
 	valueHash := toValue(block0Hash).Hash()
 	go func() {
-		mockP2PSyncService.receiveBlockOverP2P(block0)
+		// P2P Sync service inserts block into mockInCh
+		mockInCh <- block0
 	}()
 
 	require.NoError(t, consensusSyncService.Run(ctx))
