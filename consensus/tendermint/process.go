@@ -1,6 +1,8 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+)
 
 func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V, H, A] {
 	return s.processLoop(s.startRound(round), nil)

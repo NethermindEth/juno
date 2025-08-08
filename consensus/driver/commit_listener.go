@@ -12,6 +12,8 @@ import (
 )
 
 // CommitListener is a component that is used to notify different components that a new committed block is available.
+//
+//go:generate mockgen -destination=../mocks/mock_commit_listener.go -package=mocks github.com/NethermindEth/juno/consensus/driver CommitListener
 type CommitListener[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
 	Commit(context.Context, types.Height, V)

@@ -200,6 +200,10 @@ func privateKey(privKeyStr string) (crypto.PrivKey, error) {
 	return prvKey, nil
 }
 
+func (s *Service) Listen() <-chan p2pSync.BlockBody {
+	return s.synchroniser.Listen()
+}
+
 // Run starts the p2p service. Calling any other function before run is undefined behaviour
 func (s *Service) Run(ctx context.Context) error {
 	defer func() {
