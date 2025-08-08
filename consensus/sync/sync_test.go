@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/p2p"
@@ -16,7 +15,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
@@ -31,20 +29,10 @@ var (
 type (
 	listeners    = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
-	tendermintDB = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
 )
 
 func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
 	return 10 * time.Second
-}
-
-func newTendermintDB(t *testing.T) tendermintDB {
-	t.Helper()
-	dbPath := t.TempDir()
-	pebbleDB, err := pebble.New(dbPath)
-	require.NoError(t, err)
-
-	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB, types.Height(0))
 }
 
 func newDB(t *testing.T) *mocks.MockTendermintDB[starknet.Value, starknet.Hash, starknet.Address] {
@@ -89,7 +77,7 @@ func TestSync(t *testing.T) {
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
-		newTendermintDB(t),
+		tendermintDB,
 		stateMachine,
 		mockCommitListener,
 		p2p,
