@@ -56,7 +56,7 @@ func TestSync(t *testing.T) {
 	logger := utils.NewNopZapLogger()
 	tendermintDB := newDB(t)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	allNodes := newNodes(4) // Proposer set to 5
+	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
 	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](ctrl)

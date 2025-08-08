@@ -24,7 +24,8 @@ func (n nodes) ValidatorVotingPower(height types.Height, addr *starknet.Address)
 
 // Randomised proposer selection, with prime coefficients so that for each height, the order of proposers is different.
 func (n nodes) Proposer(height types.Height, round types.Round) starknet.Address {
-	f := new(felt.Felt).SetUint64(5)
-	addr := starknet.Address(*f)
-	return addr
+	nodeIndex := (int(height)*17 + int(round)*31) % len(n)
+	nodeID := n[nodeIndex]
+	f := new(felt.Felt).SetUint64(uint64(nodeID))
+	return starknet.Address(*f)
 }
