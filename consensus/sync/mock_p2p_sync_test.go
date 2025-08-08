@@ -14,7 +14,7 @@ func newMockP2PSyncService(blockCh chan sync.BlockBody) mockP2PSyncService {
 	return mockP2PSyncService{blockCh: blockCh}
 }
 
-func (m *mockP2PSyncService) recieveBlockOverP2P(block sync.BlockBody) {
+func (m *mockP2PSyncService) receiveBlockOverP2P(block sync.BlockBody) {
 	m.blockCh <- block
 }
 
