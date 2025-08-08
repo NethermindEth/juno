@@ -22,6 +22,9 @@ var emptyCommitments = core.BlockCommitments{}
 func TestDBCmd(t *testing.T) {
 	t.Run("retrieve info when db contains block0", func(t *testing.T) {
 		cmd := juno.DBInfoCmd()
+		if statetestutils.UseNewState() {
+			require.NoError(t, cmd.Flags().Set("new-state", "true"))
+		}
 		executeCmdInDB(t, cmd)
 	})
 
@@ -45,6 +48,9 @@ func TestDBCmd(t *testing.T) {
 
 		require.NoError(t, cmd.Flags().Set("db-path", dbPath))
 		require.NoError(t, cmd.Flags().Set("to-block", strconv.Itoa(int(revertToBlock))))
+		if statetestutils.UseNewState() {
+			require.NoError(t, cmd.Flags().Set("new-state", "true"))
+		}
 		require.NoError(t, cmd.Execute())
 
 		// unfortunately we cannot use blockchain from prepareDB because
@@ -91,6 +97,7 @@ func prepareDB(t *testing.T, network *utils.Network, syncToBlock uint64) string 
 
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
+	require.NoError(t, chain.Stop())
 	require.NoError(t, testDB.Close())
 
 	return dbPath

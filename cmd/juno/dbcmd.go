@@ -83,7 +83,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	stateVersion, err := cmd.Flags().GetBool(newStateF)
+	newState, err := cmd.Flags().GetBool(newStateF)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func dbInfo(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	chain := blockchain.New(database, nil, stateVersion)
+	chain := blockchain.New(database, nil, newState)
 	var info DBInfo
 
 	// Get the latest block information
@@ -154,7 +154,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--%v cannot be 0", dbRevertToBlockF)
 	}
 
-	stateVersion, err := cmd.Flags().GetBool(newStateF)
+	newState, err := cmd.Flags().GetBool(newStateF)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	defer database.Close()
 
 	for {
-		chain := blockchain.New(database, nil, stateVersion)
+		chain := blockchain.New(database, nil, newState)
 		head, err := chain.Head()
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block information: %v", err)
