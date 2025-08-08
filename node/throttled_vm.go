@@ -3,6 +3,7 @@ package node
 import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -19,7 +20,7 @@ func NewThrottledVM(res vm.VM, concurrenyBudget uint, maxQueueLen int32) *Thrott
 	}
 }
 
-func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state core.StateReader,
+func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, state commonstate.StateReader,
 	network *utils.Network, maxSteps uint64, sierraVersion string, errStack, returnStateDiff bool,
 ) (vm.CallResult, error) {
 	ret := vm.CallResult{}
@@ -31,7 +32,7 @@ func (tvm *ThrottledVM) Call(callInfo *vm.CallInfo, blockInfo *vm.BlockInfo, sta
 }
 
 func (tvm *ThrottledVM) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *vm.BlockInfo, state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack,
+	blockInfo *vm.BlockInfo, state commonstate.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack,
 	allowBinarySearch bool,
 ) (vm.ExecutionResults, error) {
 	var executionResult vm.ExecutionResults

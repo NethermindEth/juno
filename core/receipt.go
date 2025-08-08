@@ -74,6 +74,7 @@ func receiptCommitment(receipts []*TransactionReceipt) (*felt.Felt, error) {
 	)
 }
 
+// TODO(maksymmalick): change this to trie2 after integration done
 type (
 	onTempTrieFunc     func(uint8, func(*trie.Trie) error) error
 	processFunc[T any] func(T) *felt.Felt
