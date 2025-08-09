@@ -42,8 +42,7 @@ func (h Handler) Version(ctx context.Context, _ *emptypb.Empty) (*gen.VersionRep
 }
 
 func (h Handler) Tx(server gen.KV_TxServer) error {
-	dbTx := h.db.NewIndexedBatch()
-	tx := newTx(dbTx)
+	tx := newTx(h.db)
 
 	for {
 		var (

@@ -19,11 +19,10 @@ import (
 
 func TestRemote(t *testing.T) {
 	memDB := memory.New()
-	require.NoError(t, memDB.Update(func(txn db.IndexedBatch) error {
+
+	require.NoError(t, memDB.Update(func(txn db.Batch) error {
 		for i := byte(0); i < 3; i++ {
-			if err := txn.Put([]byte{i}, []byte{i}); err != nil {
-				return err
-			}
+			require.NoError(t, txn.Put([]byte{i}, []byte{i}))
 		}
 		return nil
 	}))
@@ -104,7 +103,7 @@ func TestRemote(t *testing.T) {
 	})
 
 	t.Run("write", func(t *testing.T) {
-		err := remoteDB.Update(func(txn db.IndexedBatch) error {
+		err := remoteDB.Update(func(txn db.Batch) error {
 			assert.EqualError(t, txn.Delete(nil), "read only DB")
 			assert.EqualError(t, txn.Put(nil, nil), "read only DB")
 			return nil
