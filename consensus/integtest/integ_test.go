@@ -57,9 +57,8 @@ func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
-	log := utils.NewNopZapLogger()
 
-	bc := bc.New(testDB, network, statetestutils.UseNewState())
+	bc := blockchain.New(testDB, network, statetestutils.UseNewState())
 	require.NoError(t, bc.StoreGenesis(&genesisDiff, genesisClasses))
 	return bc
 }

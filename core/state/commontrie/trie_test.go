@@ -76,3 +76,76 @@ func TestTrieAdapter(t *testing.T) {
 		assert.NotNil(t, hashFn)
 	})
 }
+
+func BenchmarkDeprecatedTrieAdapter(b *testing.B) {
+	memDB := memory.New()
+	txn := memDB.NewIndexedBatch()
+	storage := trie.NewStorage(txn, db.ContractStorage.Key([]byte{0}))
+	trie, err := trie.NewTriePedersen(storage, 251) // Set a suitable height
+	if err != nil {
+		b.Fatalf("Failed to create trie: %v", err)
+	}
+	adapter := NewDeprecatedTrieAdapter(trie)
+
+	b.Run("Update", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			key := felt.FromUint64(uint64(i))
+			value := felt.FromUint64(uint64(i))
+			if err := adapter.Update(&key, &value); err != nil {
+				b.Fatalf("Update failed: %v", err)
+			}
+		}
+	})
+
+	b.Run("Get", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			key := felt.FromUint64(uint64(i))
+			if _, err := adapter.Get(&key); err != nil {
+				b.Fatalf("Get failed: %v", err)
+			}
+		}
+	})
+
+	b.Run("Hash", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if _, err := adapter.Hash(); err != nil {
+				b.Fatalf("Hash failed: %v", err)
+			}
+		}
+	})
+}
+
+func BenchmarkTrieAdapter(b *testing.B) {
+	trie, err := trie2.NewEmptyPedersen()
+	if err != nil {
+		b.Fatalf("Failed to create trie: %v", err)
+	}
+	adapter := NewTrieAdapter(trie)
+
+	b.Run("Update", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			key := felt.FromUint64(uint64(i))
+			value := felt.FromUint64(uint64(i))
+			if err := adapter.Update(&key, &value); err != nil {
+				b.Fatalf("Update failed: %v", err)
+			}
+		}
+	})
+
+	b.Run("Get", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			key := felt.FromUint64(uint64(i))
+			if _, err := adapter.Get(&key); err != nil {
+				b.Fatalf("Get failed: %v", err)
+			}
+		}
+	})
+
+	b.Run("Hash", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			if _, err := adapter.Hash(); err != nil {
+				b.Fatalf("Hash failed: %v", err)
+			}
+		}
+	})
+}
