@@ -1,6 +1,7 @@
 package blockchain_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -695,4 +696,56 @@ func TestSubscribeL1Head(t *testing.T) {
 	got, ok := <-sub.Recv()
 	require.True(t, ok)
 	assert.Equal(t, l1Head, got)
+}
+
+func fetchStateUpdatesAndBlocks(samples int) ([]*core.StateUpdate, []*core.Block, error) {
+	client := feeder.NewClient(utils.Mainnet.FeederURL)
+	gw := adaptfeeder.New(client)
+
+	suList := make([]*core.StateUpdate, samples)
+	blocks := make([]*core.Block, samples)
+	for i := 0; i < samples; i++ {
+		fmt.Println("fetching", i)
+		su, err := gw.StateUpdate(context.Background(), uint64(i))
+		if err != nil {
+			return nil, nil, err
+		}
+		suList[i] = su
+		block, err := gw.BlockByNumber(context.Background(), uint64(i))
+		if err != nil {
+			return nil, nil, err
+		}
+		blocks[i] = block
+	}
+	return suList, blocks, nil
+}
+
+func BenchmarkBlockchainStore(b *testing.B) {
+	samples := 100
+	stateUpdates, blocks, err := fetchStateUpdatesAndBlocks(samples)
+	require.NoError(b, err)
+
+	b.Run("new", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			chain := blockchain.New(memory.New(), &utils.Mainnet, true)
+			b.StartTimer()
+
+			for j := 0; j < samples; j++ {
+				chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil)
+			}
+		}
+	})
+
+	b.Run("old", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			chain := blockchain.New(memory.New(), &utils.Mainnet, false)
+			b.StartTimer()
+
+			for j := range samples {
+				chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil)
+			}
+		}
+	})
 }

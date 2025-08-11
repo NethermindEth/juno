@@ -2,6 +2,7 @@ package commonstate
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/clients/feeder"
@@ -9,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie2/triedb"
+	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
@@ -55,6 +57,7 @@ func fetchStateUpdates(samples int) ([]*core.StateUpdate, error) {
 
 	suList := make([]*core.StateUpdate, samples)
 	for i := 0; i < samples; i++ {
+		fmt.Println("fetching", i)
 		su, err := gw.StateUpdate(context.Background(), uint64(i))
 		if err != nil {
 			return nil, err
@@ -64,30 +67,23 @@ func fetchStateUpdates(samples int) ([]*core.StateUpdate, error) {
 	return suList, nil
 }
 
-func BenchmarkStateUpdateNewState(b *testing.B) {
-	suList, err := fetchStateUpdates(100)
+func BenchmarkStateUpdate(b *testing.B) {
+	samples := 50
+	suList, err := fetchStateUpdates(samples)
 	require.NoError(b, err)
 
-	for n := 0; n < b.N; n++ {
-		b.Run("NewState", func(b *testing.B) {
+	b.Run("NewState", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+
 			b.ReportAllocs()
 
 			b.StopTimer()
 
-			memDB := memory.New()
-			trieDB, err := triedb.New(memDB, nil)
-			require.NoError(b, err)
-			stateDB := state.NewStateDB(memDB, trieDB)
-			txn := memDB.NewIndexedBatch()
-			stateFactory, err := NewStateFactory(true, trieDB, stateDB)
-			require.NoError(b, err)
-
-			state, err := stateFactory.NewState(&felt.Zero, txn)
-			require.NoError(b, err)
+			state, stateFactory, txn := prepareState(b, true)
 
 			b.StartTimer()
 
-			for i := 0; i < len(suList); i++ {
+			for i := 0; i < samples; i++ {
 				declaredClasses := make(map[felt.Felt]core.Class)
 				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
 					b.Fatalf("Update failed: %v", err)
@@ -95,39 +91,41 @@ func BenchmarkStateUpdateNewState(b *testing.B) {
 				state, err = stateFactory.NewState(suList[i].NewRoot, txn)
 				require.NoError(b, err)
 			}
-		})
-	}
-}
+		}
+	})
 
-func BenchmarkStateUpdateOldState(b *testing.B) {
-	suList, err := fetchStateUpdates(300)
-	require.NoError(b, err)
+	b.Run("OldState", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
 
-	for n := 0; n < b.N; n++ {
-		b.Run("OldState", func(b *testing.B) {
 			b.ReportAllocs()
 
 			b.StopTimer()
 
-			memDB := memory.New()
-			trieDB, err := triedb.New(memDB, nil)
-			require.NoError(b, err)
-			stateDB := state.NewStateDB(memDB, trieDB)
-			txn := memDB.NewIndexedBatch()
-			stateFactory, err := NewStateFactory(false, trieDB, stateDB)
-			require.NoError(b, err)
-
-			state, err := stateFactory.NewState(&felt.Zero, txn)
-			require.NoError(b, err)
+			state, _, _ := prepareState(b, false)
 
 			b.StartTimer()
 
-			for i := 0; i < len(suList); i++ {
+			for i := 0; i < samples; i++ {
 				declaredClasses := make(map[felt.Felt]core.Class)
 				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
 					b.Fatalf("Update failed: %v", err)
 				}
 			}
-		})
-	}
+		}
+	})
+}
+
+func prepareState(b *testing.B, newState bool) (State, *StateFactory, db.IndexedBatch) {
+	memDB := memory.New()
+	trieDB, err := triedb.New(memDB, nil)
+	require.NoError(b, err)
+	stateDB := state.NewStateDB(memDB, trieDB)
+	txn := memDB.NewIndexedBatch()
+	stateFactory, err := NewStateFactory(newState, trieDB, stateDB)
+	require.NoError(b, err)
+
+	state, err := stateFactory.NewState(&felt.Zero, txn)
+	require.NoError(b, err)
+
+	return state, stateFactory, txn
 }
