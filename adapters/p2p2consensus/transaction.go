@@ -6,6 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/p2p2core"
 	consensus "github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
@@ -32,7 +33,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 		return consensus.Transaction{
 			Transaction: p2p2core.AdaptDeclareV3TxnCommon(tx.Common, &common.Hash{Elements: classHashBytes[:]}, t.TransactionHash),
 			Class:       &class,
-			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+			PaidFeeOnL1: nil,
 		}, nil
 
 	case *p2pconsensus.ConsensusTransaction_DeployAccountV3:
@@ -40,7 +41,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 		return consensus.Transaction{
 			Transaction: p2p2core.AdaptDeployAccountV3TxnCommon(tx, t.TransactionHash),
 			Class:       nil,
-			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+			PaidFeeOnL1: nil,
 		}, nil
 
 	case *p2pconsensus.ConsensusTransaction_InvokeV3:
@@ -48,7 +49,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 		return consensus.Transaction{
 			Transaction: p2p2core.AdaptInvokeV3TxnCommon(tx, t.TransactionHash),
 			Class:       nil,
-			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+			PaidFeeOnL1: nil,
 		}, nil
 
 	case *p2pconsensus.ConsensusTransaction_L1Handler:
@@ -56,7 +57,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction) (consensus.Transacti
 		return consensus.Transaction{
 			Transaction: p2p2core.AdaptL1Handler(tx, t.TransactionHash),
 			Class:       nil,
-			PaidFeeOnL1: nil, // TODO: Double check if we need this field
+			PaidFeeOnL1: felt.One.Clone(),
 		}, nil
 
 	default:
