@@ -22,6 +22,7 @@ type BufferSizes struct {
 	VoteProtoBroadcaster      int
 	PubSubQueueSize           int
 	RetryInterval             time.Duration
+	RebroadcastInterval       time.Duration
 }
 
 var DefaultBufferSizes = BufferSizes{
@@ -36,4 +37,5 @@ var DefaultBufferSizes = BufferSizes{
 	VoteProtoBroadcaster:      1024,
 	PubSubQueueSize:           1024,
 	RetryInterval:             1 * time.Second,
+	RebroadcastInterval:       5 * time.Second,
 }
