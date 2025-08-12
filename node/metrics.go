@@ -117,7 +117,9 @@ func makeWSMetrics() jsonrpc.NewRequestListener {
 	}
 }
 
-func makeRPCMetrics(version1, version2, version3 string) (jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener) {
+func makeRPCMetrics(
+	version1, version2, version3, version4 string,
+) (jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener, jsonrpc.EventListener) {
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "rpc",
 		Subsystem: "server",
@@ -168,6 +170,17 @@ func makeRPCMetrics(version1, version2, version3 string) (jsonrpc.EventListener,
 			},
 			OnRequestFailedCb: func(method string, data any) {
 				failedRequests.WithLabelValues(method, version3).Inc()
+			},
+		},
+		&jsonrpc.SelectiveListener{
+			OnNewRequestCb: func(method string) {
+				requests.WithLabelValues(method, version4).Inc()
+			},
+			OnRequestHandledCb: func(method string, took time.Duration) {
+				requestLatencies.WithLabelValues(method, version4).Observe(took.Seconds())
+			},
+			OnRequestFailedCb: func(method string, data any) {
+				failedRequests.WithLabelValues(method, version4).Inc()
 			},
 		}
 }
