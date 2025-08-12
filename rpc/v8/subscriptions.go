@@ -202,11 +202,13 @@ func (h *Handler) SubscribeEvents(
 
 	nextBlock := headHeader.Number + 1
 	eventsPreviouslySent := make(map[SentEvent]struct{})
-
+	pendingID := &BlockID{typeID: pending}
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
+			fromB := BlockIDFromNumber(requestedHeader.Number)
+			toB := BlockIDFromNumber(headHeader.Number)
 			return h.processEvents(
-				ctx, w, id, requestedHeader.Number, headHeader.Number, fromAddr, keys, nil,
+				ctx, w, id, &fromB, &toB, fromAddr, keys, nil, headHeader.Number,
 			)
 		},
 		onReorg: func(
@@ -219,8 +221,10 @@ func (h *Handler) SubscribeEvents(
 			return nil
 		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
+			fromB := BlockIDFromNumber(nextBlock)
+			toB := BlockIDFromNumber(head.Number)
 			err := h.processEvents(
-				ctx, w, id, nextBlock, head.Number, fromAddr, keys, eventsPreviouslySent,
+				ctx, w, id, &fromB, &toB, fromAddr, keys, eventsPreviouslySent, head.Number,
 			)
 			if err != nil {
 				return err
@@ -234,7 +238,15 @@ func (h *Handler) SubscribeEvents(
 			}
 
 			return h.processEvents(
-				ctx, w, id, nextBlock, nextBlock, fromAddr, keys, eventsPreviouslySent,
+				ctx,
+				w,
+				id,
+				pendingID,
+				pendingID,
+				fromAddr,
+				keys,
+				eventsPreviouslySent,
+				pending.GetBlock().Number-1,
 			)
 		},
 	}
@@ -350,8 +362,16 @@ func (h *Handler) checkTxStatus(
 	return status.Finality, nil
 }
 
-func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to uint64, fromAddr *felt.Felt,
-	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]struct{},
+// processEvents queries database for events and stream filtered events.
+func (h *Handler) processEvents(
+	ctx context.Context,
+	w jsonrpc.Conn,
+	id string,
+	from, to *BlockID,
+	fromAddr *felt.Felt,
+	keys [][]felt.Felt,
+	eventsPreviouslySent map[SentEvent]struct{},
+	height uint64,
 ) error {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
@@ -361,9 +381,7 @@ func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, 
 
 	defer h.callAndLogErr(filter.Close, "Error closing event filter in events subscription")
 
-	fromBlockID := BlockIDFromNumber(from)
-	toBlockID := BlockIDFromNumber(to)
-	err = setEventFilterRange(filter, &fromBlockID, &toBlockID, to)
+	err = setEventFilterRange(filter, from, to, height)
 	if err != nil {
 		h.log.Warnw("Error setting event filter range", "err", err)
 		return err
