@@ -375,40 +375,34 @@ func (h *Handler) processEvents(
 ) error {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
-		h.log.Warnw("Error creating event filter", "err", err)
 		return err
 	}
 
-	defer h.callAndLogErr(filter.Close, "Error closing event filter in events subscription")
+	defer h.callAndLogErr(filter.Close, "error closing event filter in events subscription")
 
 	err = setEventFilterRange(filter, from, to, height)
 	if err != nil {
-		h.log.Warnw("Error setting event filter range", "err", err)
 		return err
 	}
 
 	filteredEvents, cToken, err := filter.Events(nil, subscribeEventsChunkSize)
 	if err != nil {
-		h.log.Warnw("Error filtering events", "err", err)
 		return err
 	}
 
 	err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
 	if err != nil {
-		h.log.Warnw("Error sending events", "err", err)
 		return err
 	}
 
 	for cToken != nil {
 		filteredEvents, cToken, err = filter.Events(cToken, subscribeEventsChunkSize)
 		if err != nil {
-			h.log.Warnw("Error filtering events", "err", err)
 			return err
 		}
 
 		err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id)
 		if err != nil {
-			h.log.Warnw("Error sending events", "err", err)
 			return err
 		}
 	}
