@@ -235,6 +235,11 @@ func TestSubscribeEvents(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(mockEventFilterer, nil).AnyTimes()
+	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+		Return(nil).AnyTimes()
+	mockEventFilterer.EXPECT().Close().AnyTimes()
 
 	handler := New(mockChain, mockSyncer, nil, log)
 
@@ -262,12 +267,7 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil).Times(1)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(2)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
-			mockEventFilterer.EXPECT().Close()
 		},
 		steps: []stepInfo{
 			{
@@ -305,12 +305,7 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(2)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
-			mockEventFilterer.EXPECT().Close()
 		},
 		steps: []stepInfo{
 			{
@@ -349,13 +344,8 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:       nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil).Times(2)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(4)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmed1Filtered, nil, nil)
-			mockEventFilterer.EXPECT().Close().Times(2)
 		},
 		steps: []stepInfo{
 			{
@@ -386,13 +376,8 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(2)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, b2Filtered...), nil, nil)
-			mockEventFilterer.EXPECT().Close()
 		},
 		steps: []stepInfo{
 			{
@@ -409,15 +394,11 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 
 			cToken := new(blockchain.ContinuationToken)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
-			mockEventFilterer.EXPECT().Close()
 		},
 		steps: []stepInfo{
 			{
@@ -460,7 +441,7 @@ func TestSubscribeEvents(t *testing.T) {
 		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 	)
 
-	eventsWithFromAddressAndPreConfirmed := testCase{
+	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
 		description:    "Events with from_address filter, finality PRE_CONFIRMED",
 		blockID:        nil,
 		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
@@ -468,13 +449,8 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:           nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil).Times(2)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(4)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredBySenders, nil, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySenders, nil, nil)
-			mockEventFilterer.EXPECT().Close().Times(2)
 		},
 		steps: []stepInfo{
 			{
@@ -534,7 +510,7 @@ func TestSubscribeEvents(t *testing.T) {
 		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
 	)
 
-	eventsWithAllFilterAndPreConfirmed := testCase{
+	eventsWithAllFilterAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
 		description:    "Events with from_address and key, finality PRE_CONFIRMED",
 		blockID:        nil,
 		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
@@ -542,13 +518,8 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:           keys,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(mockEventFilterer, nil).Times(2)
-			mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-				Return(nil).Times(4)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredByFromAddressAndKey, nil, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySendersAndKey, nil, nil)
-			mockEventFilterer.EXPECT().Close().Times(2)
 		},
 		steps: []stepInfo{
 			{
@@ -1357,7 +1328,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		})
 	}
 
-	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
+	t.Run("Return error if too many addresses in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
 		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
@@ -1645,7 +1616,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		})
 	}
 
-	t.Run("Returns error if to many address in filter", func(t *testing.T) {
+	t.Run("Returns error if to many address in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
 		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()

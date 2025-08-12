@@ -307,8 +307,16 @@ func (h *Handler) SubscribeEvents(
 }
 
 // processEvents queries database for events and stream filtered events.
-func (h *Handler) processEvents(ctx context.Context, w jsonrpc.Conn, id string, from, to *BlockID, fromAddr *felt.Felt,
-	keys [][]felt.Felt, eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1, height uint64, finalityStatus TxnFinalityStatusWithoutL1,
+func (h *Handler) processEvents(
+	ctx context.Context,
+	w jsonrpc.Conn,
+	id string,
+	from, to *BlockID,
+	fromAddr *felt.Felt,
+	keys [][]felt.Felt,
+	eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1,
+	height uint64,
+	finalityStatus TxnFinalityStatusWithoutL1,
 ) error {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
