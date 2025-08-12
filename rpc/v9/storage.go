@@ -67,6 +67,8 @@ func (h *Handler) StorageProof(
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
+	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
+
 	chainHeight, err := state.ChainHeight()
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -86,8 +88,6 @@ func (h *Handler) StorageProof(
 	if rpcErr := h.isBlockSupported(id, chainHeight); rpcErr != nil {
 		return nil, rpcErr
 	}
-
-	defer h.callAndLogErr(closer, "Error closing state reader in getStorageProof")
 
 	classTrie, err := state.ClassTrie()
 	if err != nil {
