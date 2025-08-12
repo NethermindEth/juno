@@ -926,7 +926,7 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	var receiptBlockNumber *uint64
 
 	// Do not return block number for pending block
-	// Return block number for canonical blocks and pending block
+	// Return block number for canonical blocks and pre_confirmed block
 	if blockHash != nil || finalityStatus == TxnPreConfirmed {
 		receiptBlockNumber = &blockNumber
 	}
