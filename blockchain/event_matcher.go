@@ -34,7 +34,7 @@ func makeKeysMaps(filterKeys [][]felt.Felt) []map[felt.Felt]struct{} {
 	return filterKeysMaps
 }
 
-func (e *EventMatcher) matchesEventKeys(eventKeys []*felt.Felt) bool {
+func (e *EventMatcher) MatchesEventKeys(eventKeys []*felt.Felt) bool {
 	// short circuit if event doest have enough keys
 	for i := len(eventKeys); i < len(e.keysMap); i++ {
 		if len(e.keysMap[i]) > 0 {
@@ -148,7 +148,8 @@ func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, he
 		for i, event := range receipt.Events {
 			var blockNumber *uint64
 			// if header.Hash == nil it's a pending block
-			if header.Hash != nil {
+			// if header.Hash == nil and header.ParentHash is nil preconfirmed block
+			if header.Hash != nil || header.ParentHash == nil {
 				blockNumber = &header.Number
 			}
 
@@ -164,7 +165,7 @@ func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, he
 				continue
 			}
 
-			if !e.matchesEventKeys(event.Keys) {
+			if !e.MatchesEventKeys(event.Keys) {
 				processedEvents++
 				continue
 			}
