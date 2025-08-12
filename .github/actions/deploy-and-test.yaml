@@ -113,13 +113,13 @@ jobs:
 
   starknet-rs:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-rs-tests.yml
+    uses: ./.github/actions/starknet-rs-tests.yml
     secrets:
       STARKNET_RPC: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
 
   starknet-js-rpcv08:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-js-tests.yml
+    uses: ./.github/actions/starknet-js-tests.yml
     with:
       test_mode: ${{ inputs.test_mode }}
     secrets:
@@ -129,7 +129,7 @@ jobs:
 
   starknet-js-rpcv09:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-js-tests.yml
+    uses: ./.github/actions/starknet-js-tests.yml
     with:
       test_mode: ${{ inputs.test_mode }}
     secrets:
@@ -140,7 +140,7 @@ jobs:
 
   starknet-go-rpcv08:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-go-tests.yml
+    uses: ./.github/actions/starknet-go-tests.yml
     with:
       ref: 8ab778d86f42c344ac789acae897d9621530e3de
       rpc_version: v0_8
@@ -151,7 +151,7 @@ jobs:
 
   starknet-go-rpcv09:
     needs: [deploy]
-    uses: ./.github/workflows/starknet-go-tests.yml
+    uses: ./.github/actions/starknet-go-tests.yml
     with:
       ref: 5f5517021c173741e06a552dd81d6bd8a477713c
       rpc_version: v0_9

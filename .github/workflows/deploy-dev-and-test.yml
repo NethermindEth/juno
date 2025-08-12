@@ -22,11 +22,11 @@ jobs:
       actions: write
       contents: read
       id-token: write
-    uses: ./.github/workflows/build-image.yaml
+    uses: ./.github/actions/build-image.yaml
 
   smoke_test_100_blocks:
     needs: [build]
-    uses: ./.github/workflows/smoke-test.yaml
+    uses: ./.github/actions/smoke-test.yaml
     with:
       docker_image_tag: ${{ needs.build.outputs.docker_image_tag }}
     secrets:
@@ -35,7 +35,7 @@ jobs:
 
   dev_deploy_test:
     needs: [build]
-    uses: ./.github/workflows/deploy-and-test.yaml
+    uses: ./.github/actions/deploy-and-test.yaml
     with:
       docker_image_tag: ${{ needs.build.outputs.docker_image_tag }}
       environment: Development
