@@ -15,17 +15,23 @@ import (
 	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/sourcegraph/conc"
 )
 
 type topicName string
 
 const (
-	proposalTopicName topicName = "consensus_proposals"
-	voteTopicName     topicName = "consensus_votes"
-	gossipSubHistory            = 60
+	protocolPrefix                = "starknet"
+	chainID                       = "1" // TODO: Make this configurable
+	consensusProtocolID           = "consensus"
+	proposalTopicName   topicName = "consensus_proposals"
+	voteTopicName       topicName = "consensus_votes"
+	gossipSubHistory              = 60
 )
 
 type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
@@ -36,12 +42,14 @@ type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 }
 
 type p2p[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	host            host.Host
-	log             utils.Logger
-	commitNotifier  chan types.Height
-	broadcasters    Broadcasters[V, H, A]
-	listeners       Listeners[V, H, A]
-	topicAttachment map[topicName][]attachedToTopic
+	host             host.Host
+	log              utils.Logger
+	commitNotifier   chan types.Height
+	broadcasters     Broadcasters[V, H, A]
+	listeners        Listeners[V, H, A]
+	topicAttachment  map[topicName][]attachedToTopic
+	pubSubQueueSize  int
+	bootstrapPeersFn func() []peer.AddrInfo
 }
 
 type attachedToTopic interface {
@@ -55,6 +63,7 @@ func New(
 	proposalStore *proposal.ProposalStore[starknet.Hash],
 	currentHeight types.Height,
 	bufferSizeConfig *config.BufferSizes,
+	bootstrapPeersFn func() []peer.AddrInfo,
 ) P2P[starknet.Value, starknet.Hash, address.Address] {
 	commitNotifier := make(chan types.Height, bufferSizeConfig.ProposalCommitNotifier)
 
@@ -104,12 +113,14 @@ func New(
 	}
 
 	return &p2p[starknet.Value, starknet.Hash, address.Address]{
-		host:            host,
-		log:             log,
-		commitNotifier:  commitNotifier,
-		broadcasters:    broadcasters,
-		listeners:       listeners,
-		topicAttachment: topicAttachment,
+		host:             host,
+		log:              log,
+		commitNotifier:   commitNotifier,
+		broadcasters:     broadcasters,
+		listeners:        listeners,
+		topicAttachment:  topicAttachment,
+		pubSubQueueSize:  bufferSizeConfig.PubSubQueueSize,
+		bootstrapPeersFn: bootstrapPeersFn,
 	}
 }
 
@@ -122,7 +133,27 @@ func (p *p2p[V, H, A]) getGossipSubOptions() pubsub.Option {
 }
 
 func (p *p2p[V, H, A]) Run(ctx context.Context) error {
-	gossipSub, err := pubsub.NewGossipSub(ctx, p.host, p.getGossipSubOptions())
+	dht, err := dht.New(
+		ctx,
+		p.host,
+		dht.ProtocolPrefix("/"+protocolPrefix),
+		dht.ProtocolExtension("/"+chainID),
+		dht.ProtocolExtension("/"+consensusProtocolID),
+		dht.BootstrapPeersFunc(p.bootstrapPeersFn),
+		dht.Mode(dht.ModeServer),
+	)
+	if err != nil {
+		return fmt.Errorf("unable to create dht with error: %w", err)
+	}
+
+	gossipSub, err := pubsub.NewGossipSub(
+		ctx,
+		p.host,
+		p.getGossipSubOptions(),
+		pubsub.WithPeerOutboundQueueSize(p.pubSubQueueSize),
+		pubsub.WithValidateQueueSize(p.pubSubQueueSize),
+		pubsub.WithDiscovery(routing.NewRoutingDiscovery(dht)),
+	)
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
 	}

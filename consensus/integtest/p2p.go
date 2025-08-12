@@ -1,22 +1,17 @@
 package integtest
 
 import (
-	"fmt"
 	"math/rand"
-	"slices"
-	"strings"
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/sourcegraph/conc/iter"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/require"
 )
 
 type networkNodeConfig struct {
 	host          host.Host
-	adjacentNodes map[int]struct{}
+	adjacentNodes map[int]peer.AddrInfo
 }
 
 func (c networkNodeConfig) isConnected(to int) bool {
@@ -26,35 +21,8 @@ func (c networkNodeConfig) isConnected(to int) bool {
 
 type networkConfig []networkNodeConfig
 
-func (c networkConfig) setup(t *testing.T, configFn networkConfigFn) {
-	t.Helper()
-
-	configFn(t, c)
-
-	iter.Iterator[networkNodeConfig]{MaxGoroutines: len(c)}.ForEach(c, func(thisNodeConfig *networkNodeConfig) {
-		peers := make([]string, 0, len(thisNodeConfig.adjacentNodes))
-
-		for otherNode := range thisNodeConfig.adjacentNodes {
-			otherNodeHost := c[otherNode].host
-
-			localAddrIndex := slices.IndexFunc(otherNodeHost.Addrs(), func(addr multiaddr.Multiaddr) bool {
-				return addr[0].Value() == "127.0.0.1"
-			})
-			require.GreaterOrEqual(t, localAddrIndex, 0)
-			localAddr := otherNodeHost.Addrs()[localAddrIndex]
-
-			peerAddr := fmt.Sprintf("%s/p2p/%s", localAddr, otherNodeHost.ID())
-			peers = append(peers, peerAddr)
-		}
-
-		if len(peers) > 0 {
-			require.NoError(t, consensus.Connect(t.Context(), thisNodeConfig.host, strings.Join(peers, ",")))
-		}
-	})
-}
-
 func (c networkConfig) add(from, to int) {
-	c[from].adjacentNodes[to] = struct{}{}
+	c[from].adjacentNodes[to] = peer.AddrInfo{ID: c[to].host.ID(), Addrs: c[to].host.Addrs()}
 }
 
 //nolint:gosec // The whole package is for testing purpose only, so it's safe to use weak random.
