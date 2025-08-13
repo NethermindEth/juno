@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
 	_ "github.com/NethermindEth/juno/encoder/registry"
@@ -46,7 +47,7 @@ func TestMempool(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
@@ -62,7 +63,7 @@ func TestMempool(t *testing.T) {
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -85,7 +86,7 @@ func TestMempool(t *testing.T) {
 	for i := uint64(4); i < 6; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -121,7 +122,7 @@ func TestRestoreMempool(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 	chain := mocks.NewMockReader(mockCtrl)
 	testDB, dbDeleter, err := setupDatabase("testrestoremempool", true)
 	require.NoError(t, err)
@@ -139,7 +140,7 @@ func TestRestoreMempool(t *testing.T) {
 	for i := uint64(1); i < 4; i++ {
 		senderAddress := new(felt.Felt).SetUint64(i)
 		chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-		state.EXPECT().ContractNonce(senderAddress).Return(new(felt.Felt).SetUint64(0), nil)
+		state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 		tx := mempool.BroadcastedTransaction{
 			Transaction: &core.InvokeTransaction{
 				TransactionHash: new(felt.Felt).SetUint64(i),
@@ -194,7 +195,7 @@ func TestWait(t *testing.T) {
 	defer dbCloser()
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
-	bc := blockchain.New(testDB, &utils.Sepolia)
+	bc := blockchain.New(testDB, &utils.Sepolia, statetestutils.UseNewState())
 	block0, err := gw.BlockByNumber(t.Context(), 0)
 	require.NoError(t, err)
 	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
@@ -233,7 +234,7 @@ func TestPopBatch(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	chain := mocks.NewMockReader(mockCtrl)
-	state := mocks.NewMockStateHistoryReader(mockCtrl)
+	state := mocks.NewMockStateReader(mockCtrl)
 
 	require.NoError(t, err)
 	defer dbCloser()
@@ -262,7 +263,7 @@ func TestPopBatch(t *testing.T) {
 		for i := start; i <= end; i++ {
 			senderAddress := new(felt.Felt).SetUint64(i)
 			chain.EXPECT().HeadState().Return(state, func() error { return nil }, nil)
-			state.EXPECT().ContractNonce(senderAddress).Return(&felt.Zero, nil)
+			state.EXPECT().ContractNonce(senderAddress).Return(felt.Zero, nil)
 			require.NoError(t, pool.Push(t.Context(), &mempool.BroadcastedTransaction{
 				Transaction: &core.InvokeTransaction{
 					TransactionHash: new(felt.Felt).SetUint64(i),

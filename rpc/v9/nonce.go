@@ -26,5 +26,5 @@ func (h *Handler) Nonce(id *BlockID, address *felt.Felt) (*felt.Felt, *jsonrpc.E
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	return nonce, nil
+	return &nonce, nil
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/state/commonstate"
+	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/feed"
@@ -401,7 +403,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		// Accepted on l1 Status
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
+		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 
 		handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1}})
 
@@ -410,7 +412,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		l1Head := &core.L1Head{BlockNumber: block.Number}
 		mockChain.EXPECT().TransactionByHash(txHash).Return(block.Transactions[0], nil)
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockChain.EXPECT().L1Head().Return(l1Head, nil)
+		mockChain.EXPECT().L1Head().Return(*l1Head, nil)
 		handler.l1Heads.Send(l1Head)
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
@@ -453,9 +455,12 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
+func (fs *fakeSyncer) PendingState() (commonstate.StateReader, func() error, error) {
+	return nil, nil, nil
+}
+
+func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (commonstate.StateReader, func() error, error) {
 	return nil, nil, nil
 }
 
@@ -548,10 +553,10 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	require.NoError(t, err)
 
 	testDB := memory.New()
-	chain := blockchain.New(testDB, &utils.Mainnet)
+	chain := blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	assert.NoError(t, chain.Store(block0, &emptyCommitments, stateUpdate0, nil))
 
-	chain = blockchain.New(testDB, &utils.Mainnet)
+	chain = blockchain.New(testDB, &utils.Mainnet, statetestutils.UseNewState())
 	syncer := newFakeSyncer()
 
 	ctx, cancel := context.WithCancel(t.Context())

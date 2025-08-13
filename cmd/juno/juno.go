@@ -144,6 +144,7 @@ const (
 	defaultHTTPUpdatePort                     = 0
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
+	defaultNewState                           = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -418,7 +419,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		defaultSubmittedTransactionsCacheEntryTTL,
 		submittedTransactionsCacheEntryTTL,
 	)
-	junoCmd.Flags().Bool(newStateF, false, newStateUsage)
+	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd

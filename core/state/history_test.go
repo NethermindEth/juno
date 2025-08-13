@@ -126,7 +126,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	}
 	state, err := New(&felt.Zero, stateDB)
 	require.NoError(t, err)
-	err = state.Update(0, stateUpdate, classes, false)
+	err = state.Update(0, stateUpdate, classes, false, true)
 	require.NoError(t, err)
 	stateComm, err := state.Commitment()
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 
 	state, err = New(&stateComm, stateDB)
 	require.NoError(t, err)
-	err = state.Update(1, stateUpdate, classes2, false)
+	err = state.Update(1, stateUpdate, classes2, false, true)
 	require.NoError(t, err)
 
 	historyBlock0, err := NewStateHistory(0, &felt.Zero, stateDB)
