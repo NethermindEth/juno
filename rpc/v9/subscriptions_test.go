@@ -1859,7 +1859,7 @@ func assertNextTransactions(t *testing.T, conn net.Conn, id SubscriptionID, tran
 	t.Helper()
 
 	for _, txn := range transactions {
-		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactions", txn)
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransaction", txn)
 	}
 }
 

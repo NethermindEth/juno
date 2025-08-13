@@ -1096,7 +1096,7 @@ func processCandidateTransactions(
 
 // sendTransaction creates a response and sends it to the client
 func sendTransaction(w jsonrpc.Conn, result *SubscriptionNewTransaction, id string) error {
-	return sendResponse("starknet_subscriptionNewTransactions", w, id, result)
+	return sendResponse("starknet_subscriptionNewTransaction", w, id, result)
 }
 
 // sendTxnStatus creates a response and sends it to the client
