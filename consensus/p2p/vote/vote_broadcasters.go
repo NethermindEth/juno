@@ -2,16 +2,16 @@ package vote
 
 import (
 	"context"
-	"time"
 
 	"github.com/NethermindEth/juno/consensus/p2p/buffered"
+	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
 type voteBroadcaster[H types.Hash, A types.Addr] struct {
-	buffered.ProtoBroadcaster
+	buffered.ProtoBroadcaster[*consensus.Vote]
 	log         utils.Logger
 	voteAdapter VoteAdapter[H, A]
 }
@@ -19,13 +19,19 @@ type voteBroadcaster[H types.Hash, A types.Addr] struct {
 func NewVoteBroadcaster[H types.Hash, A types.Addr](
 	log utils.Logger,
 	voteAdapter VoteAdapter[H, A],
-	bufferSize int,
-	retryInterval time.Duration,
+	bufferSizeConfig *config.BufferSizes,
 ) voteBroadcaster[H, A] {
 	return voteBroadcaster[H, A]{
-		log:              log,
-		voteAdapter:      voteAdapter,
-		ProtoBroadcaster: buffered.NewProtoBroadcaster(log, bufferSize, retryInterval),
+		log:         log,
+		voteAdapter: voteAdapter,
+		ProtoBroadcaster: buffered.NewProtoBroadcaster(
+			log,
+			bufferSizeConfig.VoteProtoBroadcaster,
+			bufferSizeConfig.RetryInterval,
+			buffered.NewRebroadcastStrategy(bufferSizeConfig.RebroadcastInterval, func(msg *consensus.Vote) consensus.Vote_VoteType {
+				return msg.VoteType
+			}),
+		),
 	}
 }
 

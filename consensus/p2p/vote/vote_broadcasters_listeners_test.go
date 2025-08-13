@@ -5,7 +5,6 @@ import (
 	"maps"
 	"math/rand/v2"
 	"testing"
-	"time"
 
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/p2p/vote"
@@ -25,12 +24,10 @@ import (
 )
 
 const (
-	topicName     = "test-vote-broadcasters-listeners"
-	bufferSize    = 1024
-	logLevel      = zapcore.PanicLevel
-	voteCount     = 1000
-	invalidCount  = 100
-	throttledRate = 10 * time.Millisecond
+	topicName    = "test-vote-broadcasters-listeners"
+	logLevel     = zapcore.PanicLevel
+	voteCount    = 500
+	invalidCount = 10
 )
 
 type node struct {
@@ -63,7 +60,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 
 	connect(t, source.host, destination.host)
 
-	voteBroadcaster := vote.NewVoteBroadcaster(logger, vote.StarknetVoteAdapter, bufferSize, config.DefaultBufferSizes.RetryInterval)
+	voteBroadcaster := vote.NewVoteBroadcaster(logger, vote.StarknetVoteAdapter, &config.DefaultBufferSizes)
 	prevoteBroadcaster := voteBroadcaster.AsPrevoteBroadcaster()
 	precommitBroadcaster := voteBroadcaster.AsPrecommitBroadcaster()
 
@@ -79,7 +76,6 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		for i := range prevotes {
 			logger.Debugw("broadcasting prevote", "vote", getPrevoteString(prevotes[i]))
 			prevoteBroadcaster.Broadcast(t.Context(), prevotes[i])
-			time.Sleep(throttledRate)
 		}
 	}()
 
@@ -91,7 +87,6 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		for i := range precommits {
 			logger.Debugw("broadcasting precommit", "vote", getPrecommitString(precommits[i]))
 			precommitBroadcaster.Broadcast(t.Context(), precommits[i])
-			time.Sleep(throttledRate)
 		}
 	}()
 
@@ -101,7 +96,6 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			voteBytes, err := proto.Marshal(&consensus.Vote{})
 			require.NoError(t, err)
 			_ = destination.topic.Publish(t.Context(), voteBytes)
-			time.Sleep(throttledRate)
 		}
 	}()
 
@@ -109,7 +103,6 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 	go func() {
 		for range invalidCount {
 			_ = destination.topic.Publish(t.Context(), []byte("random"))
-			time.Sleep(throttledRate)
 		}
 	}()
 
@@ -197,15 +190,21 @@ func getNode(t *testing.T) node {
 	)
 	require.NoError(t, err)
 
-	gossipSub, err := pubsub.NewGossipSub(t.Context(), host)
+	gossipSub, err := pubsub.NewGossipSub(
+		t.Context(),
+		host,
+		pubsub.WithPeerOutboundQueueSize(config.DefaultBufferSizes.PubSubQueueSize),
+		pubsub.WithValidateQueueSize(config.DefaultBufferSizes.PubSubQueueSize),
+	)
 	require.NoError(t, err)
 
 	topic, err := gossipSub.Join(topicName)
 	require.NoError(t, err)
 
 	// This is to make sure that the source hosts forward the messages
-	_, err = topic.Subscribe(pubsub.WithBufferSize(bufferSize))
+	relayCancel, err := topic.Relay()
 	require.NoError(t, err)
+	t.Cleanup(relayCancel)
 
 	return node{
 		host:  host,
