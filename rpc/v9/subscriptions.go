@@ -246,7 +246,7 @@ func (h *Handler) SubscribeEvents(
 			}
 
 			if *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
-				preConfirmedID := BlockID{typeID: preConfirmed}
+				preConfirmedID := BlockIDPreConfirmed()
 				return h.processEvents(
 					ctx,
 					w,

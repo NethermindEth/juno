@@ -202,7 +202,7 @@ func (h *Handler) SubscribeEvents(
 
 	nextBlock := headHeader.Number + 1
 	eventsPreviouslySent := make(map[SentEvent]struct{})
-	pendingID := &BlockID{typeID: pending}
+	pendingID := BlockIDPending()
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromB := BlockIDFromNumber(requestedHeader.Number)
@@ -241,8 +241,8 @@ func (h *Handler) SubscribeEvents(
 				ctx,
 				w,
 				id,
-				pendingID,
-				pendingID,
+				&pendingID,
+				&pendingID,
 				fromAddr,
 				keys,
 				eventsPreviouslySent,
