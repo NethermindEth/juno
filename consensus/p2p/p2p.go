@@ -77,8 +77,7 @@ func New(
 	voteBroadcaster := vote.NewVoteBroadcaster(
 		log,
 		vote.StarknetVoteAdapter,
-		bufferSizeConfig.VoteProtoBroadcaster,
-		bufferSizeConfig.RetryInterval,
+		bufferSizeConfig,
 	)
 	broadcasters := Broadcasters[starknet.Value, starknet.Hash, address.Address]{
 		ProposalBroadcaster:  &proposalBroadcaster,

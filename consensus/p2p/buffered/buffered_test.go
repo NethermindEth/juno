@@ -26,19 +26,19 @@ import (
 )
 
 const (
-	topicName           = "test-buffered-topic-subscription"
-	discoveryServiceTag = "test-buffered-topic-subscription-discovery"
-	nodeCount           = 20
-	messageCount        = 100
-	throttledRate       = 5 * nodeCount * time.Millisecond
-	logLevel            = zapcore.ErrorLevel
-	retryInterval       = 1 * time.Second
+	topicName     = "test-buffered-topic-subscription"
+	nodeCount     = 20
+	messageCount  = 100
+	logLevel      = zapcore.ErrorLevel
+	retryInterval = 1 * time.Second
 )
+
+type TestMessage = consensus.ConsensusStreamId
 
 type node struct {
 	host     host.Host
 	topic    *pubsub.Topic
-	messages []proto.Message
+	messages []*TestMessage
 }
 
 func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
@@ -67,7 +67,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 		allMessages := make(map[string]struct{})
 
 		for i := range nodes {
-			nodes[i].messages = make([]proto.Message, messageCount)
+			nodes[i].messages = make([]*TestMessage, messageCount)
 			for j := range nodes[i].messages {
 				msg := getTestMessage(i, j)
 				nodes[i].messages[j] = msg
@@ -88,6 +88,10 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("destination-%d", i))}
 				pending := maps.Clone(allMessages)
 				subscription := buffered.NewTopicSubscription(logger, nodeCount*messageCount, func(ctx context.Context, msg *pubsub.Message) {
+					if len(pending) == 0 {
+						return
+					}
+
 					delete(pending, string(msg.Message.Data))
 					if len(pending) == 0 {
 						wg.Done()
@@ -104,12 +108,17 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			iterator.ForEachIdx(nodes, func(i int, source *node) {
 				logger := &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprintf("source-%d", i))}
-				broadcaster := buffered.NewProtoBroadcaster(logger, messageCount, retryInterval)
+				var rebroadcastStrategy buffered.RebroadcastStrategy[*TestMessage]
+				if i%2 == 0 {
+					rebroadcastStrategy = buffered.NewRebroadcastStrategy(retryInterval, func(msg *TestMessage) uint64 {
+						return msg.BlockNumber
+					})
+				}
+				broadcaster := buffered.NewProtoBroadcaster(logger, messageCount, retryInterval, rebroadcastStrategy)
 				go broadcaster.Loop(t.Context(), source.topic)
 				for _, message := range source.messages {
 					logger.Debugw("publishing", "message", message)
 					broadcaster.Broadcast(t.Context(), message)
-					time.Sleep(throttledRate)
 				}
 			})
 		}()
@@ -138,8 +147,8 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 	})
 }
 
-func getTestMessage(node, messageIndex int) proto.Message {
-	return &consensus.ConsensusStreamId{
+func getTestMessage(node, messageIndex int) *TestMessage {
+	return &TestMessage{
 		Nonce: uint64(node*messageCount + messageIndex),
 	}
 }
@@ -158,7 +167,12 @@ func getNode(t *testing.T) node {
 	)
 	require.NoError(t, err)
 
-	gossipSub, err := pubsub.NewGossipSub(t.Context(), host)
+	gossipSub, err := pubsub.NewGossipSub(
+		t.Context(),
+		host,
+		pubsub.WithValidateQueueSize(nodeCount*messageCount),
+		pubsub.WithPeerOutboundQueueSize(nodeCount*messageCount),
+	)
 	require.NoError(t, err)
 
 	topic, err := gossipSub.Join(topicName)
@@ -171,7 +185,7 @@ func getNode(t *testing.T) node {
 	return node{
 		host:     host,
 		topic:    topic,
-		messages: make([]proto.Message, messageCount),
+		messages: make([]*TestMessage, messageCount),
 	}
 }
 

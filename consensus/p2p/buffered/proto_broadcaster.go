@@ -10,21 +10,28 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type ProtoBroadcaster struct {
-	log           utils.Logger
-	ch            chan proto.Message
-	retryInterval time.Duration
+type ProtoBroadcaster[M proto.Message] struct {
+	log                 utils.Logger
+	ch                  chan M
+	retryInterval       time.Duration
+	rebroadcastStrategy RebroadcastStrategy[M]
 }
 
-func NewProtoBroadcaster(log utils.Logger, bufferSize int, retryInterval time.Duration) ProtoBroadcaster {
-	return ProtoBroadcaster{
-		log:           log,
-		ch:            make(chan proto.Message, bufferSize),
-		retryInterval: retryInterval,
+func NewProtoBroadcaster[M proto.Message](
+	log utils.Logger,
+	bufferSize int,
+	retryInterval time.Duration,
+	rebroadcastStrategy RebroadcastStrategy[M],
+) ProtoBroadcaster[M] {
+	return ProtoBroadcaster[M]{
+		log:                 log,
+		ch:                  make(chan M, bufferSize),
+		retryInterval:       retryInterval,
+		rebroadcastStrategy: rebroadcastStrategy,
 	}
 }
 
-func (b ProtoBroadcaster) Broadcast(ctx context.Context, msg proto.Message) {
+func (b ProtoBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 	select {
 	case <-ctx.Done():
 		return
@@ -32,8 +39,9 @@ func (b ProtoBroadcaster) Broadcast(ctx context.Context, msg proto.Message) {
 	}
 }
 
-func (b ProtoBroadcaster) Loop(ctx context.Context, topic *pubsub.Topic) {
+func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 	readinessOpt := pubsub.WithReadiness(pubsub.MinTopicSize(1))
+	var rebroadcasted rebroadcastMessages
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,6 +60,16 @@ func (b ProtoBroadcaster) Loop(ctx context.Context, topic *pubsub.Topic) {
 					continue
 				}
 				break
+			}
+
+			if b.rebroadcastStrategy != nil {
+				rebroadcasted = b.rebroadcastStrategy.Receive(msg, msgBytes)
+			}
+		case <-rebroadcasted.trigger:
+			for msgBytes := range rebroadcasted.messages {
+				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
+					b.log.Errorw("unable to rebroadcast message", "error", err)
+				}
 			}
 		}
 	}
