@@ -978,12 +978,6 @@ func (h *Handler) SubscribeNewTransactions(
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			return nil
 		},
-		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
-			if err := sendReorg(w, reorg, id); err != nil {
-				return err
-			}
-			return nil
-		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
 				return nil
