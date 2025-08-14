@@ -372,7 +372,7 @@ func processBlockEvents(
 	var blockNumber *uint64
 	// if header.Hash == nil and parentHash != nil it's a pending block
 	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
-	if block.Hash != nil || block.ParentHash == nil {
+	if isNotPending := block.Hash != nil || block.ParentHash == nil; isNotPending {
 		blockNumber = &block.Number
 	}
 
