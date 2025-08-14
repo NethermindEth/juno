@@ -962,8 +962,6 @@ func (h *Handler) SubscribeNewTransactions(
 
 	if len(finalityStatus) == 0 {
 		finalityStatus = []TxnStatusWithoutL1{
-			TxnStatusWithoutL1(TxnStatusCandidate),
-			TxnStatusWithoutL1(TxnStatusPreConfirmed),
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		}
 	} else {

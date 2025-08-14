@@ -1120,63 +1120,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
+	// Only ACCEPTED_ON_L2 as default
 	defaultFinality := testCase{
-		description:   "Basic subcription - default finality status. Starknet version >= 0.14.0, Transactions from pre_confirmed block",
+		description:   "Basic subcription - default finality status. Starknet version >= 0.14.0",
 		statuses:      nil,
-		senderAddress: nil,
-		steps: []stepInfo{
-			{
-				description: "on new head receive all txs with ACCEPTED_ON_L2",
-				notify: func() {
-					syncer.newHeads.Send(newHead1)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
-				},
-			},
-			{
-				description: "on new pre_confirmed receive PRE_CONFIRMED and CANDIDATE txs",
-				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead2.Transactions[:initialPreconfirmedCount], TxnStatusWithoutL1(TxnStatusPreConfirmed)),
-					toTransactionsWithFinalityStatus(newHead2.Transactions[initialPreconfirmedCount:], TxnStatusWithoutL1(TxnStatusCandidate)),
-				},
-			},
-			{
-				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup.",
-				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead2.Transactions[initialPreconfirmedCount:secondPreConfirmedCount], TxnStatusWithoutL1(TxnStatusPreConfirmed)),
-				},
-			},
-			{
-				description: "on pre_confirmed update all candidates moved to PRE_CONFIRMED, without dup.",
-				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, thirdPreConfirmedCount)))
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead2.Transactions[secondPreConfirmedCount:], TxnStatusWithoutL1(TxnStatusPreConfirmed)),
-				},
-			},
-			{
-				description: "pre_confirmed become new head",
-				notify: func() {
-					syncer.newHeads.Send(newHead2)
-				},
-				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead2.Transactions, TxnStatusWithoutL1(TxnAcceptedOnL2)),
-				},
-			},
-		},
-	}
-
-	onlyAcceptedOnL2 := testCase{
-		description:   "Basic subcription - only ACCEPTED_ON_L2",
-		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusAcceptedOnL2)},
 		senderAddress: nil,
 		steps: []stepInfo{
 			{
@@ -1207,6 +1154,93 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 	}
 
+	onlyPreConfirmed := testCase{
+		description:   "Basic subcription - only PRE_CONFIRMED",
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusPreConfirmed)},
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "on new pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:initialPreconfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup.",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:secondPreConfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "pre_confirmed become new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+		},
+	}
+
+	onlyCandidate := testCase{
+		description:   "Basic subcription - only CANDIDATE",
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusCandidate)},
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "on new pre_confirmed, only stream CANDIDATES",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusCandidate),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup. do not stream",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "pre_confirmed become new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+		},
+	}
+
 	allStatuses := testCase{
 		description: "Basic Subscription- all statuses",
 		statuses: []TxnStatusWithoutL1{
@@ -1227,17 +1261,56 @@ func TestSubscribeNewTransactions(t *testing.T) {
 			// 	},
 			// },
 			{
-				description: "on new pre_confirmed with candidates",
+				description: "on new head receive all txs with ACCEPTED_ON_L2",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
+				},
+			},
+			{
+				description: "on new pre_confirmed receive PRE_CONFIRMED and CANDIDATE txs",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:initialPreconfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusCandidate),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup.",
 				notify: func() {
 					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
 				},
 				expect: [][]*SubscriptionNewTransaction{
-					toTransactionsWithFinalityStatus(newHead2.Transactions[:secondPreConfirmedCount], TxnStatusWithoutL1(TxnStatusPreConfirmed)),
-					toTransactionsWithFinalityStatus(newHead2.Transactions[secondPreConfirmedCount:], TxnStatusWithoutL1(TxnStatusCandidate)),
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:secondPreConfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
 				},
 			},
 			{
-				description: "pre_confirmed becomes new head",
+				description: "on pre_confirmed update all candidates moved to PRE_CONFIRMED, without dup.",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, thirdPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[secondPreConfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "pre_confirmed become new head",
 				notify: func() {
 					syncer.newHeads.Send(newHead2)
 				},
@@ -1308,8 +1381,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	testCases := []testCase{
 		preStarknet0_14_0DefaultFinality,
-		defaultFinality,
-		onlyAcceptedOnL2,
+		defaultFinality, // onlyAcceptedOnL2
+		onlyPreConfirmed,
+		onlyCandidate,
 		allStatuses,
 		allStatusesWithFilter,
 	}
