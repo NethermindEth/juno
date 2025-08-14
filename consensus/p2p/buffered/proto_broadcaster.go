@@ -42,6 +42,9 @@ func (b ProtoBroadcaster[M]) Broadcast(ctx context.Context, msg M) {
 func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 	readinessOpt := pubsub.WithReadiness(pubsub.MinTopicSize(1))
 	var rebroadcasted rebroadcastMessages
+
+	time.Sleep(pubsub.GossipSubHeartbeatInitialDelay * 2)
+
 	for {
 		select {
 		case <-ctx.Done():

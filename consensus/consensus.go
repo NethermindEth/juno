@@ -19,14 +19,11 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 type ConsensusServices struct {
-	Host           host.Host
 	Proposer       proposer.Proposer[starknet.Value, starknet.Hash]
 	P2P            p2p.P2P[starknet.Value, starknet.Hash, starknet.Address]
 	Driver         *driver.Driver[starknet.Value, starknet.Hash, starknet.Address]
@@ -34,6 +31,7 @@ type ConsensusServices struct {
 }
 
 func Init(
+	host host.Host,
 	logger *utils.ZapLogger,
 	database db.KeyValueStore,
 	blockchain *blockchain.Blockchain,
@@ -41,8 +39,6 @@ func Init(
 	nodeAddress *starknet.Address,
 	validators votecounter.Validators[starknet.Address],
 	timeoutFn driver.TimeoutFn,
-	hostAddress string,
-	hostPrivateKey crypto.PrivKey,
 	bootstrapPeersFn func() []peer.AddrInfo,
 ) (ConsensusServices, error) {
 	chainHeight, err := blockchain.Height()
@@ -60,32 +56,12 @@ func Init(
 	proposer := proposer.New(logger, &builder, &proposalStore, *nodeAddress, toValue)
 	stateMachine := tendermint.New(tendermintDB, logger, *nodeAddress, proposer, validators, currentHeight)
 
-	host, err := libp2p.New(
-		libp2p.ListenAddrStrings(hostAddress),
-		libp2p.Identity(hostPrivateKey),
-		// libp2p.UserAgent(makeAgentName(version)),
-		// // Use address factory to add the public address to the list of
-		// // addresses that the node will advertise.
-		// libp2p.AddrsFactory(addressFactory),
-		// If we know the public ip, enable the relay service.
-		libp2p.EnableRelayService(),
-		// When listening behind NAT, enable peers to try to poke thought the
-		// NAT in order to reach the node.
-		libp2p.EnableHolePunching(),
-		// Try to open a port in the NAT router to accept incoming connections.
-		libp2p.NATPortMap(),
-	)
-	if err != nil {
-		return ConsensusServices{}, err
-	}
-
 	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
 
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
 	driver := driver.New(logger, tendermintDB, stateMachine, commitListener, p2p, timeoutFn)
 
 	return ConsensusServices{
-		Host:           host,
 		Proposer:       proposer,
 		P2P:            p2p,
 		Driver:         &driver,
