@@ -36,7 +36,7 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 ) *Handler {
 	receivedTxFeed := feed.New[core.Transaction]()
 	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger, receivedTxFeed)
-	// rpcv7 utilizes rpcv6 for AddTransaction under the hood thus does not need receivedTxFeed
+	// rpcv7 utilises rpcv6 for AddTransaction under the hood thus does not need receivedTxFeed
 	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, network, logger)
 	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger, receivedTxFeed)
 	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger, receivedTxFeed)

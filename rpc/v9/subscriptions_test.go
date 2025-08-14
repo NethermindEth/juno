@@ -1260,7 +1260,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 				description: "on receiving new transaction",
 				notify: func() {
 					handler.receivedTxFeed.Send(newHead2.Transactions[0])
-					// NOTE(Ege): Introduce artifical lag to avoid current feed to drop values.
+					// NOTE(Ege): Introduce artificial lag to avoid current feed to drop values.
 					// Remove once more robust MPMC fanout mechanism introduced
 					time.Sleep(5 * time.Millisecond)
 					handler.receivedTxFeed.Send(newHead2.Transactions[1])
