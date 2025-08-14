@@ -839,8 +839,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
 
 			default:
-				h.log.Errorw("unexptected pending_data variant %v", v)
-				return nil
+				return fmt.Errorf("unknown pending variant %v", v)
 			}
 
 			return processBlockReceipts(
