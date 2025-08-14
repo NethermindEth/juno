@@ -16,7 +16,6 @@ import (
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
 	"github.com/NethermindEth/juno/sync"
-	"github.com/NethermindEth/juno/utils"
 )
 
 const subscribeEventsChunkSize = 1024
@@ -218,6 +217,7 @@ func (h *Handler) SubscribeEvents(
 	for _, k := range keys {
 		lenKeys += len(k)
 	}
+
 	if lenKeys > rpccore.MaxEventFilterKeys {
 		return "", rpccore.ErrTooManyKeysInFilter
 	}
@@ -225,10 +225,6 @@ func (h *Handler) SubscribeEvents(
 	requestedHeader, headHeader, rpcErr := h.resolveBlockRange(blockID)
 	if rpcErr != nil {
 		return "", rpcErr
-	}
-	// default to ACCEPTED_ON_L2
-	if finalityStatus == nil {
-		finalityStatus = utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnAcceptedOnL2))
 	}
 
 	eventsPreviouslySent := make(map[SentEvent]TxnFinalityStatusWithoutL1)
@@ -253,7 +249,7 @@ func (h *Handler) SubscribeEvents(
 				return err
 			}
 
-			if *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+			if finalityStatus != nil && *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 				preConfirmedID := BlockIDPreConfirmed()
 				return h.processEvents(
 					ctx,
@@ -291,7 +287,7 @@ func (h *Handler) SubscribeEvents(
 			case core.PendingBlockVariant:
 				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
 			case core.PreConfirmedBlockVariant:
-				if *finalityStatus != TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+				if finalityStatus == nil || *finalityStatus != TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 					return nil
 				}
 				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
@@ -788,9 +784,13 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 
 	if len(finalityStatuses) == 0 {
 		finalityStatuses = []TxnFinalityStatusWithoutL1{TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)}
-	} else {
-		finalityStatuses = utils.Set(finalityStatuses)
 	}
+
+	// Cache presence flags early, then discard original slice
+	shouldStreamAcceptedOnL2 := slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2))
+	shouldStreamPreConfirmed := slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed))
+
+	clear(finalityStatuses) // release slice no longer needed
 
 	receiptsPreviouslySent := make(map[SentReceipt]TxnFinalityStatusWithoutL1)
 	lastParentHash := felt.Zero
@@ -798,7 +798,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 
 	subscriber := subscriber{
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
-			if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
+			if !shouldStreamAcceptedOnL2 {
 				return nil
 			}
 
@@ -819,7 +819,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 			var blockFinalityStatus TxnFinalityStatusWithoutL1
 			switch v := pending.Variant(); v {
 			case core.PendingBlockVariant:
-				if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
+				if !shouldStreamAcceptedOnL2 {
 					return nil
 				}
 
@@ -832,7 +832,7 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
 
 			case core.PreConfirmedBlockVariant:
-				if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
+				if !shouldStreamPreConfirmed {
 					return nil
 				}
 
@@ -967,39 +967,44 @@ func (h *Handler) SubscribeNewTransactions(
 		finalityStatus = []TxnStatusWithoutL1{
 			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
 		}
-	} else {
-		finalityStatus = utils.Set(finalityStatus)
 	}
 
 	sentTransactions := make(map[SentTransaction]TxnStatusWithoutL1)
 	lastParentHash := felt.Zero
 	lastBlockNumber := uint64(0)
 
+	// Cache presence flags early, then discard original slice
+	shouldStreamAcceptedOnL2 := slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
+	shouldStreamPreConfirmed := slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed))
+	shouldStreamCandidate := slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate))
+	shouldStreamReceived := slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusReceived))
+
+	clear(finalityStatus) // release slice no longer needed
+
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return nil
-		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
-			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
+			if !shouldStreamAcceptedOnL2 {
 				return nil
 			}
 			return processBlockTransactions(id, w, senderAddr, head, sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
 			if pending == nil {
-				return nil
+				return fmt.Errorf("pending data is nil")
 			}
 
 			switch pending.Variant() {
 			case core.PendingBlockVariant:
-				if slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
-					parentHash := pending.GetBlock().ParentHash
-					if !parentHash.Equal(&lastParentHash) {
-						clear(sentTransactions)
-						lastParentHash = *parentHash
-					}
-					return processBlockTransactions(id, w, senderAddr, pending.GetBlock(), sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
+				if !shouldStreamAcceptedOnL2 {
+					return nil
 				}
+
+				parentHash := pending.GetBlock().ParentHash
+				if !parentHash.Equal(&lastParentHash) {
+					clear(sentTransactions)
+					lastParentHash = *parentHash
+				}
+				return processBlockTransactions(id, w, senderAddr, pending.GetBlock(), sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
 
 			case core.PreConfirmedBlockVariant:
 				blockNumber := pending.GetBlock().Number
@@ -1008,21 +1013,21 @@ func (h *Handler) SubscribeNewTransactions(
 					lastBlockNumber = blockNumber
 				}
 
-				if slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
+				if shouldStreamPreConfirmed {
 					err := processBlockTransactions(id, w, senderAddr, pending.GetBlock(), sentTransactions, TxnStatusWithoutL1(TxnStatusPreConfirmed))
 					if err != nil {
 						return err
 					}
 				}
 
-				if slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
+				if shouldStreamCandidate {
 					return processCandidateTransactions(id, w, senderAddr, pending, sentTransactions)
 				}
 			}
 			return nil
 		},
 		onReceivedTx: func(ctx context.Context, id string, _ *subscription, txn core.Transaction) error {
-			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusReceived)) {
+			if !shouldStreamReceived {
 				return nil
 			}
 

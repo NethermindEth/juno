@@ -2051,6 +2051,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	require.NoError(t, err)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
+	mockReader.EXPECT().Network().Return(&network).Times(2)
+
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockGateway := mocks.NewMockGateway(mockCtrl)
 	mockGateway.
