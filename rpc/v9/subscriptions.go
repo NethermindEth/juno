@@ -789,9 +789,6 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 	lastBlockNumber := uint64(0)
 
 	subscriber := subscriber{
-		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
-			return sendReorg(w, reorg, id)
-		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
 				return nil
