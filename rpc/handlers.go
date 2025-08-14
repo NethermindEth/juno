@@ -5,6 +5,8 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mempool"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
@@ -24,15 +26,20 @@ type Handler struct {
 	rpcv8Handler *rpcv8.Handler
 	rpcv9Handler *rpcv9.Handler
 	version      string
+
+	// Shared feed for received transactions
+	receivedTxFeed *feed.Feed[core.Transaction]
 }
 
 func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, version string,
 	logger utils.Logger, network *utils.Network,
 ) *Handler {
-	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger)
+	receivedTxFeed := feed.New[core.Transaction]()
+	handlerv6 := rpcv6.New(bcReader, syncReader, virtualMachine, network, logger, receivedTxFeed)
+	// rpcv7 utilizes rpcv6 for AddTransaction under the hood thus does not need receivedTxFeed
 	handlerv7 := rpcv7.New(bcReader, syncReader, virtualMachine, network, logger)
-	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger)
-	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger)
+	handlerv8 := rpcv8.New(bcReader, syncReader, virtualMachine, logger, receivedTxFeed)
+	handlerv9 := rpcv9.New(bcReader, syncReader, virtualMachine, logger, receivedTxFeed)
 
 	return &Handler{
 		rpcv6Handler: handlerv6,
@@ -40,6 +47,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		rpcv8Handler: handlerv8,
 		rpcv9Handler: handlerv9,
 		version:      version,
+
+		receivedTxFeed: receivedTxFeed,
 	}
 }
 

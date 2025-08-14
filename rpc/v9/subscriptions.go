@@ -96,6 +96,7 @@ type subscriber struct {
 	onNewHead     on[*core.Block]
 	onPendingData on[core.PendingData]
 	onL1Head      on[*core.L1Head]
+	onReceivedTx  on[core.Transaction]
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
@@ -130,6 +131,7 @@ func (h *Handler) subscribe(
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
 	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
+	receivedTxSub, receivedTxRecv := getSubscription(subscriber.onReceivedTx, h.receivedTxFeed)
 
 	sub.wg.Go(func() {
 		defer func() {
@@ -138,6 +140,7 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
 			unsubscribeFeedSubscription(pendingDataSub)
+			unsubscribeFeedSubscription(receivedTxSub)
 		}()
 
 		if subscriber.onStart != nil {
@@ -169,6 +172,11 @@ func (h *Handler) subscribe(
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
 					h.log.Warnw("Error on pending data", "id", id, "err", err)
+					return
+				}
+			case receivedTx := <-receivedTxRecv:
+				if err := subscriber.onReceivedTx(subscriptionCtx, id, sub, receivedTx); err != nil {
+					h.log.Warnw("Error on received transaction", "id", id, "err", err)
 					return
 				}
 			}
@@ -1012,6 +1020,26 @@ func (h *Handler) SubscribeNewTransactions(
 				}
 			}
 			return nil
+		},
+		onReceivedTx: func(ctx context.Context, id string, _ *subscription, txn core.Transaction) error {
+			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusReceived)) {
+				return nil
+			}
+
+			if !filterTxBySender(txn, senderAddr) {
+				return nil
+			}
+
+			response := SubscriptionNewTransaction{
+				Transaction:    *AdaptTransaction(txn),
+				FinalityStatus: TxnStatusWithoutL1(TxnStatusReceived),
+			}
+
+			return sendTransaction(
+				w,
+				&response,
+				id,
+			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)

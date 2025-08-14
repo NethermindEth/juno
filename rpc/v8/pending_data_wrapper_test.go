@@ -23,7 +23,7 @@ func TestPendingDataWrapper_PendingData(t *testing.T) {
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, log, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -106,7 +106,7 @@ func TestPendingDataWrapper_PendingState(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 	t.Run("Returns pending state when starknet version < 0.14.0", func(t *testing.T) {

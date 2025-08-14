@@ -102,7 +102,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		keys := make([][]felt.Felt, 1024+1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
@@ -125,7 +125,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
@@ -241,7 +241,7 @@ func TestSubscribeEvents(t *testing.T) {
 		Return(nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().AnyTimes()
 
-	handler := New(mockChain, mockSyncer, nil, log)
+	handler := New(mockChain, mockSyncer, nil, log, nil)
 
 	type stepInfo struct {
 		description string
@@ -606,7 +606,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).WithSubmittedTransactionsCache(cache)
+		handler := New(mockChain, mockSyncer, nil, log, nil).WithSubmittedTransactionsCache(cache)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
@@ -628,7 +628,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -654,14 +654,17 @@ func TestSubscribeTxnStatus(t *testing.T) {
 	t.Run("Multiple transaction status update", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
-
-		client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
+		network := &utils.SepoliaIntegration
+		client := feeder.NewTestClient(t, network)
 		mockGateway := mocks.NewMockGateway(mockCtrl)
 		adapterFeeder := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
+		mockChain.EXPECT().Network().Return(network).AnyTimes()
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		cache := rpccore.NewTransactionCache(cacheEntryTimeOut, cacheSize)
-		handler := New(mockChain, mockSyncer, nil, log).
+
+		testReceivedTxFeed := feed.New[core.Transaction]()
+		handler := New(mockChain, mockSyncer, nil, log, testReceivedTxFeed).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(cache)
@@ -761,7 +764,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -807,7 +810,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 		mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
-		handler, server := setupRPC(t, ctx, mockChain, syncer)
+		handler, server := setupRPC(t, ctx, mockChain, syncer, nil)
 		conn := createWsConn(t, ctx, server)
 
 		id := "1"
@@ -850,7 +853,7 @@ func TestSubscribeNewHeadsHistorical(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
-	handler, server := setupRPC(t, ctx, chain, syncer)
+	handler, server := setupRPC(t, ctx, chain, syncer, nil)
 
 	conn := createWsConn(t, ctx, server)
 
@@ -890,7 +893,7 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
+	handler, server := setupRPC(t, ctx, mockChain, syncer, nil)
 
 	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 
@@ -962,7 +965,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
 	syncer := newFakeSyncer()
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
+	handler, server := setupRPC(t, ctx, mockChain, syncer, nil)
 
 	testCases := []struct {
 		name            string
@@ -1041,7 +1044,9 @@ func TestSubscribeNewTransactions(t *testing.T) {
 	syncer := newFakeSyncer()
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-	handler, _ := setupRPC(t, ctx, mockChain, syncer)
+
+	testReceivedTxFeed := feed.New[core.Transaction]()
+	handler, _ := setupRPC(t, ctx, mockChain, syncer, testReceivedTxFeed)
 
 	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -1251,15 +1256,19 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: nil,
 		steps: []stepInfo{
-			// {
-			// 	description: "on receiving new transaction",
-			// 	notify: func() {
-			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			// 	},
-			// 	expect: [][]*NewTransactionSubscriptionResponse{
-			// 		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
-			// 	},
-			// },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTxFeed.Send(newHead2.Transactions[0])
+					// NOTE(Ege): Introduce artifical lag to avoid current feed to drop values.
+					// Remove once more robust MPMC fanout mechanism introduced
+					time.Sleep(5 * time.Millisecond)
+					handler.receivedTxFeed.Send(newHead2.Transactions[1])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead2.Transactions[:2], TxnStatusWithoutL1(TxnStatusReceived)),
+				},
+			},
 			{
 				description: "on new head receive all txs with ACCEPTED_ON_L2",
 				notify: func() {
@@ -1340,15 +1349,15 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		},
 		senderAddress: []felt.Felt{*senderAddress},
 		steps: []stepInfo{
-			//  {
-			//  	description: "on receiving new transaction",
-			//  	notify: func() {
-			//  		handler.receivedTxFeed.Send(newHead2.Transactions[0])
-			//  	},
-			//  	expect: [][]*NewTransactionSubscriptionResponse{
-			//  		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
-			//  	},
-			//  },
+			{
+				description: "on receiving new transaction",
+				notify: func() {
+					handler.receivedTxFeed.Send(newHead2.Transactions[0])
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
+				},
+			},
 			{
 				description: "on new pre_confirmed full of candidates",
 				notify: func() {
@@ -1429,7 +1438,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	syncer := newFakeSyncer()
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-	handler, _ := setupRPC(t, ctx, mockChain, syncer)
+	handler, _ := setupRPC(t, ctx, mockChain, syncer, nil)
 
 	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -1715,7 +1724,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		success, rpcErr := handler.Unsubscribe(t.Context(), "1")
 		assert.False(t, success)
@@ -1728,7 +1737,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -1747,7 +1756,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		// Create original subscription
 		serverConn1, _ := net.Pipe()
@@ -1781,7 +1790,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -1847,11 +1856,11 @@ func newHeadsResponse(id string) string {
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
-func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
+func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader, receivedTxFeed *feed.Feed[core.Transaction]) (*Handler, *jsonrpc.Server) {
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
-	handler := New(chain, syncer, nil, log)
+	handler := New(chain, syncer, nil, log, receivedTxFeed)
 
 	go func() {
 		require.NoError(t, handler.Run(ctx))

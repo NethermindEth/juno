@@ -619,6 +619,12 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 		h.submittedTransactionsCache.Add(res.TransactionHash)
 	}
 
+	adaptedTxn, _, _, aErr := AdaptBroadcastedTransaction(&tx, h.bcReader.Network())
+	if aErr != nil {
+		return nil, rpccore.ErrInternal.CloneWithData(aErr.Error())
+	}
+	h.receivedTxFeed.Send(adaptedTxn)
+
 	return res, nil
 }
 

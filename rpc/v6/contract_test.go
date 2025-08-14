@@ -24,7 +24,7 @@ func TestNonce(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, log, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
@@ -110,7 +110,7 @@ func TestStorageAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	log := utils.NewNopZapLogger()
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, log)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, log, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)

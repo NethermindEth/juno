@@ -57,7 +57,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		keys := make([][]felt.Felt, 1024+1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
@@ -80,7 +80,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		keys := make([][]felt.Felt, 1)
 		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
@@ -147,7 +147,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -174,7 +174,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
@@ -196,7 +196,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
@@ -221,7 +221,7 @@ func TestSubscribeEvents(t *testing.T) {
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
 		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
 
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
 		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -266,7 +266,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound).AnyTimes()
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
@@ -287,7 +287,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 		handler.WithFeeder(feeder.NewTestClient(t, &utils.SepoliaIntegration))
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -327,7 +327,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		gw := adaptfeeder.New(client)
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 		handler.WithFeeder(client)
 
 		block, err := gw.BlockByNumber(t.Context(), 38748)
@@ -413,7 +413,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -874,7 +874,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		success, rpcErr := handler.Unsubscribe(t.Context(), "1")
 		assert.False(t, success)
@@ -887,7 +887,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -906,7 +906,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		// Create original subscription
 		serverConn1, _ := net.Pipe()
@@ -940,7 +940,7 @@ func TestUnsubscribe(t *testing.T) {
 
 		mockChain := mocks.NewMockReader(mockCtrl)
 		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+		handler := New(mockChain, mockSyncer, nil, log, nil)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -1010,7 +1010,7 @@ func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
-	handler := New(chain, syncer, nil, log)
+	handler := New(chain, syncer, nil, log, nil)
 
 	go func() {
 		require.NoError(t, handler.Run(ctx))

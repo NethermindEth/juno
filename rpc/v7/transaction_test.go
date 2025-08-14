@@ -94,7 +94,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			func(hash *felt.Felt) (core.Transaction, error) {
 				return latestBlock.Transactions[index], nil
 			})
-		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil)
+		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil, nil)
 
 		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, index)
 		require.Nil(t, rpcErr)
@@ -124,7 +124,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			func(hash *felt.Felt) (core.Transaction, error) {
 				return latestBlock.Transactions[index], nil
 			})
-		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil)
+		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil, nil)
 
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
@@ -151,7 +151,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			func(hash *felt.Felt) (core.Transaction, error) {
 				return latestBlock.Transactions[index], nil
 			})
-		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil)
+		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil, nil)
 
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)
@@ -180,7 +180,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 			func(hash *felt.Felt) (core.Transaction, error) {
 				return latestBlock.Transactions[index], nil
 			})
-		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil)
+		rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil, nil)
 
 		txn2, rpcErr := rpcv6Handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
 		require.Nil(t, rpcErr)

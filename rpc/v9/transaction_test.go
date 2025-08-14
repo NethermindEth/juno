@@ -15,6 +15,7 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -40,7 +41,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*txHash)
 	assert.Nil(t, tx)
@@ -70,7 +71,7 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader.EXPECT().TransactionByHash(searchTxHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil)
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	tx, rpcErr := handler.TransactionByHash(*searchTxHash)
 	assert.Nil(t, tx)
@@ -431,7 +432,7 @@ func TestTransactionByHash(t *testing.T) {
 			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
 				return gw.Transaction(t.Context(), hash)
 			}).Times(1)
-			handler := rpc.New(mockReader, nil, nil, nil)
+			handler := rpc.New(mockReader, nil, nil, nil, nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
 			require.NoError(t, err)
@@ -466,7 +467,7 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
 	require.NoError(t, err)
 	mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil).Times(2)
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
@@ -501,7 +502,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -682,7 +683,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
@@ -1314,6 +1315,8 @@ func TestAddTransaction(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 
+			mockReader := mocks.NewMockReader(mockCtrl)
+			mockReader.EXPECT().Network().Return(n).AnyTimes()
 			mockGateway := mocks.NewMockGateway(mockCtrl)
 			mockGateway.
 				EXPECT().
@@ -1332,7 +1335,8 @@ func TestAddTransaction(t *testing.T) {
 				}`), nil).
 				Times(1)
 
-			handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger())
+			testReceivedTxFeed := feed.New[core.Transaction]()
+			handler := rpc.New(mockReader, nil, nil, utils.NewNopZapLogger(), testReceivedTxFeed)
 			_, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
@@ -1404,7 +1408,7 @@ func TestAddTransaction(t *testing.T) {
 					AddTransaction(gomock.Any(), gomock.Any()).
 					Return(nil, tc.gatewayError)
 
-				handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger()).WithGateway(mockGateway)
+				handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger(), nil).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(t.Context(), tests["invoke v0"].txn)
 
 				require.Nil(t, addTxRes)
@@ -1462,7 +1466,7 @@ func TestTransactionStatus(t *testing.T) {
 					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
-					handler := rpc.New(mockReader, nil, nil, nil)
+					handler := rpc.New(mockReader, nil, nil, nil, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL2,
@@ -1480,7 +1484,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, log)
+					handler := rpc.New(mockReader, nil, nil, log, nil)
 
 					want := &rpc.TransactionStatus{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1498,7 +1502,7 @@ func TestTransactionStatus(t *testing.T) {
 						BlockNumber: block.Number + 1,
 					}, nil)
 
-					handler := rpc.New(mockReader, nil, nil, log)
+					handler := rpc.New(mockReader, nil, nil, log, nil)
 
 					want := &rpc.TransactionStatusV0_7{
 						Finality:  rpc.TxnStatusAcceptedOnL1,
@@ -1531,7 +1535,7 @@ func TestTransactionStatus(t *testing.T) {
 						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
 						mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(4)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(4)
-						handler := rpc.New(mockReader, mockSyncReader, nil, log)
+						handler := rpc.New(mockReader, mockSyncReader, nil, log, nil)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
 						require.Equal(t, rpccore.ErrTxnHashNotFound.Code, err.Code)
 
@@ -1550,7 +1554,7 @@ func TestTransactionStatus(t *testing.T) {
 				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
 				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
-				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+				handler := rpc.New(mockReader, mockSyncReader, nil, log, nil).WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -1570,7 +1574,7 @@ func TestTransactionStatus(t *testing.T) {
 				preConfirmedTx := preConfirmed.Block.Transactions[0].Hash()
 				mockReader.EXPECT().TransactionByHash(preConfirmedTx).Return(nil, db.ErrKeyNotFound)
 				mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
-				handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+				handler := rpc.New(mockReader, mockSyncReader, nil, log, nil).WithFeeder(client)
 
 				status, err := handler.TransactionStatus(ctx, *preConfirmedTx)
 				require.Nil(t, err)
@@ -1586,7 +1590,7 @@ func TestTransactionStatus(t *testing.T) {
 				for _, candidateTx := range preConfirmed.CandidateTxs {
 					mockReader.EXPECT().TransactionByHash(candidateTx.Hash()).Return(nil, db.ErrKeyNotFound)
 					mockSyncReader.EXPECT().PendingData().Return(&preConfirmed, nil).Times(2)
-					handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+					handler := rpc.New(mockReader, mockSyncReader, nil, log, nil).WithFeeder(client)
 
 					status, err := handler.TransactionStatus(ctx, *candidateTx.Hash())
 					require.Nil(t, err)
@@ -1603,7 +1607,7 @@ func TestTransactionStatus(t *testing.T) {
 			txHash, err := new(felt.Felt).SetString("0x1111")
 			require.NoError(t, err)
 
-			handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
+			handler := rpc.New(mockReader, mockSyncReader, nil, log, nil).WithFeeder(client)
 			mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
 			mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
@@ -2064,8 +2068,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			err := submittedTransactionCache.Run(ctx)
 			require.NoError(t, err)
 		}()
-
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).
+		testReceivedTxFeed := feed.New[core.Transaction]()
+		handler := rpc.New(mockReader, mockSyncReader, nil, log, testReceivedTxFeed).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
@@ -2091,8 +2095,8 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			err := submittedTransactionCache.Run(ctx)
 			require.NoError(t, err)
 		}()
-
-		handler := rpc.New(mockReader, mockSyncReader, nil, log).
+		testReceivedTxFeed := feed.New[core.Transaction]()
+		handler := rpc.New(mockReader, mockSyncReader, nil, log, testReceivedTxFeed).
 			WithFeeder(client).
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
