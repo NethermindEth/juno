@@ -130,8 +130,8 @@ func (c *ContractUpdater) UpdateNonce(nonce *felt.Felt) error {
 }
 
 // ContractRoot returns the root of the contract storage.
-func ContractRoot(addr *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	cStorage, err := storage(addr, txn)
+func ContractRoot(addr *felt.Felt, txn db.IndexedBatch, snapshot db.Snapshot) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ type OnValueChanged = func(location, oldValue *felt.Felt) error
 
 // UpdateStorage applies a change-set to the contract storage.
 func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValueChanged) error {
-	cStorage, err := storage(c.Address, c.txn)
+	cStorage, err := storage(c.Address, c.txn, nil)
 	if err != nil {
 		return err
 	}
@@ -163,8 +163,8 @@ func (c *ContractUpdater) UpdateStorage(diff map[felt.Felt]*felt.Felt, cb OnValu
 	return cStorage.Commit()
 }
 
-func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch) (*felt.Felt, error) {
-	cStorage, err := storage(addr, txn)
+func ContractStorage(addr, key *felt.Felt, txn db.IndexedBatch, snapshot db.Snapshot) (*felt.Felt, error) {
+	cStorage, err := storage(addr, txn, snapshot)
 	if err != nil {
 		return nil, err
 	}
@@ -192,8 +192,8 @@ func (c *ContractUpdater) Replace(classHash *felt.Felt) error {
 
 // storage returns the [core.Trie] that represents the
 // storage of the contract.
-func storage(addr *felt.Felt, txn db.IndexedBatch) (*trie.Trie, error) {
+func storage(addr *felt.Felt, txn db.IndexedBatch, snapshot db.Snapshot) (*trie.Trie, error) {
 	addrBytes := addr.Marshal()
-	trieTxn := trie.NewStorage(txn, db.ContractStorage.Key(addrBytes))
+	trieTxn := trie.NewStorage(txn, snapshot, db.ContractStorage.Key(addrBytes))
 	return trie.NewTriePedersen(trieTxn, ContractStorageTrieHeight)
 }
