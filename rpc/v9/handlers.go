@@ -168,7 +168,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.9.0-rc2", nil
+	return "0.9.0", nil
 }
 
 // Currently only used for testing
