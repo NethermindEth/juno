@@ -811,7 +811,8 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				return nil
 			}
 			block := pending.GetBlock()
-			switch pending.Variant() {
+			var blockFinalityStatus TxnFinalityStatusWithoutL1
+			switch v := pending.Variant(); v {
 			case core.PendingBlockVariant:
 				if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
 					return nil
@@ -823,14 +824,8 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 					lastParentHash = *parentHash
 				}
 
-				return processBlockReceipts(
-					id,
-					w,
-					senderAddress,
-					block,
-					receiptsPreviouslySent,
-					TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
-				)
+				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
+
 			case core.PreConfirmedBlockVariant:
 				if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnPreConfirmed)) {
 					return nil
@@ -841,17 +836,21 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 					clear(receiptsPreviouslySent)
 					lastBlockNumber = blockNumber
 				}
+				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
 
-				return processBlockReceipts(
-					id,
-					w,
-					senderAddress,
-					block,
-					receiptsPreviouslySent,
-					TxnFinalityStatusWithoutL1(TxnPreConfirmed),
-				)
+			default:
+				h.log.Errorw("unexptected pending_data variant %v", v)
+				return nil
 			}
-			return nil
+
+			return processBlockReceipts(
+				id,
+				w,
+				senderAddress,
+				block,
+				receiptsPreviouslySent,
+				blockFinalityStatus,
+			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
