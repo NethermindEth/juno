@@ -175,5 +175,6 @@ formatters:
       - builtin$
       - examples$
 
-    run:
-      timeout: 10m
+
+run:
+  timeout: 10m
