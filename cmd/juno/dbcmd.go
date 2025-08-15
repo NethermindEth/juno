@@ -245,15 +245,32 @@ func dbSize(cmd *cobra.Command, args []string) error {
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.Header([]string{"Bucket", "Size", "Count"})
-	table.Bulk(items)
+	err = table.Bulk(items)
+	if err != nil {
+		return err
+	}
 	table.Footer([]string{"Total", totalSize.String(), fmt.Sprintf("%d", totalCount)})
-	table.Render()
+	err = table.Render()
+	if err != nil {
+		return err
+	}
 
 	tableState := tablewriter.NewWriter(os.Stdout)
 	tableState.Header([]string{"State", "Size", "Count"})
-	tableState.Append([]string{"Without history", withoutHistorySize.String(), fmt.Sprintf("%d", withoutHistoryCount)})
-	tableState.Append([]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)})
-	tableState.Render()
+	err = tableState.Append(
+		[]string{"Without history", withoutHistorySize.String(), fmt.Sprintf("%d", withoutHistoryCount)},
+	)
+	if err != nil {
+		return err
+	}
+	err = tableState.Append([]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)})
+	if err != nil {
+		return err
+	}
+	err = tableState.Render()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

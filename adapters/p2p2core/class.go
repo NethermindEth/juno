@@ -69,8 +69,8 @@ func AdaptClass(cls *class.Class) core.Class {
 			Program:      cairo0.Program,
 		}
 	case *class.Class_Cairo1:
-		class := AdaptCairo1Class(cls.Cairo1)
-		return &class
+		cairoClass := AdaptCairo1Class(cls.Cairo1)
+		return &cairoClass
 	default:
 		panic(fmt.Errorf("unsupported class %T", cls))
 	}
