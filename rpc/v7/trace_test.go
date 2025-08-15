@@ -311,10 +311,10 @@ func TestTraceTransaction(t *testing.T) {
 		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
 		mockReader.EXPECT().BlockByHash(header.Hash).Return(block, nil)
 
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(headState, nil)
 
 		innerExecutionResources := `{
 			"pedersen": 0,
@@ -411,10 +411,10 @@ func TestTraceTransaction(t *testing.T) {
 			&pending,
 			nil,
 		).Times(2)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 
 		innerExecutionResources := `{
 			"pedersen": 0,
@@ -682,12 +682,12 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 		state := mocks.NewMockStateReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockSyncReader.EXPECT().PendingState().Return(headState, nil)
 
 		paidL1Fees := []*felt.Felt{(&felt.Felt{}).SetUint64(1)}
 		vmTraceJSON := json.RawMessage(`{
@@ -786,10 +786,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
 
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(nil, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
-		mockReader.EXPECT().HeadState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(headState, nil)
 
 		vmTraceJSON := json.RawMessage(`{
 			"type":"INVOKE",
@@ -1480,7 +1480,7 @@ func TestCall(t *testing.T) {
 	handler := rpcv7.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
 
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().HeadState().Return(nil, db.ErrKeyNotFound)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, res)
@@ -1488,7 +1488,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block hash", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, db.ErrKeyNotFound)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{}, rpcv7.BlockID{Hash: &felt.Zero})
 		require.Nil(t, res)
@@ -1496,7 +1496,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("non-existent block number", func(t *testing.T) {
-		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, nil, db.ErrKeyNotFound)
+		mockReader.EXPECT().StateAtBlockNumber(uint64(0)).Return(nil, db.ErrKeyNotFound)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{}, rpcv7.BlockID{Number: 0})
 		require.Nil(t, res)
@@ -1506,7 +1506,7 @@ func TestCall(t *testing.T) {
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	t.Run("call - unknown contract", func(t *testing.T) {
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(felt.Zero, errors.New("unknown contract"))
 
@@ -1545,7 +1545,7 @@ func TestCall(t *testing.T) {
 			},
 		}
 
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
@@ -1600,7 +1600,7 @@ func TestCall(t *testing.T) {
 				new(felt.Felt),
 			},
 		}
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
@@ -1646,7 +1646,7 @@ func TestCall(t *testing.T) {
 				new(felt.Felt),
 			},
 		}
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
@@ -1686,7 +1686,7 @@ func TestCall(t *testing.T) {
 				new(felt.Felt),
 			},
 		}
-		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(*classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
