@@ -175,6 +175,7 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+//nolint:funlen // todo(rdr): refactor this function
 func dbSize(cmd *cobra.Command, args []string) error {
 	dbPath, err := cmd.Flags().GetString(dbPathF)
 	if err != nil {
