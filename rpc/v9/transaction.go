@@ -660,7 +660,10 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	return res, nil
 }
 
-func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) pushToFeederGateway(
+	ctx context.Context,
+	tx BroadcastedTransaction, //nolint:gocritic // todo(rdr): update this herecy
+) (*AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {

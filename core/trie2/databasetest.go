@@ -112,11 +112,7 @@ func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienod
 
 	rootVal := *root
 
-	for {
-		if rootVal == d.root {
-			break
-		}
-
+	for rootVal != d.root {
 		nodes, ok := d.nodes[rootVal]
 		if !ok {
 			break

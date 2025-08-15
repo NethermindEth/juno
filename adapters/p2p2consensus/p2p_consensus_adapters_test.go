@@ -18,14 +18,14 @@ func testP2PToConsensusToP2P[C, P any](
 	p2pToConsensus func(*P) (C, error),
 	consensusToP2P func(*C) P,
 ) {
-	consensus, p2p := getTestData(t)
+	consensusData, p2pData := getTestData(t)
 
-	convertedConsensus, err := p2pToConsensus(p2p)
+	convertedConsensus, err := p2pToConsensus(p2pData)
 	require.NoError(t, err)
-	require.Equal(t, consensus, convertedConsensus)
+	require.Equal(t, consensusData, convertedConsensus)
 
 	convertedP2P := consensusToP2P(&convertedConsensus)
-	require.Equal(t, *p2p, convertedP2P)
+	require.Equal(t, *p2pData, convertedP2P)
 }
 
 func TestAdaptProposalInit(t *testing.T) {

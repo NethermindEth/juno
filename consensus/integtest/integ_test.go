@@ -71,7 +71,7 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 		"../../genesis/classes/strk.json", "../../genesis/classes/account.json",
 		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000) //nolint:gomnd
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000)
 	require.NoError(t, err)
 
 	return diff, classes

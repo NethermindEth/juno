@@ -32,7 +32,8 @@ func TestRemote(t *testing.T) {
 	grpcSrv := grpc.NewServer()
 	gen.RegisterKVServer(grpcSrv, grpcHandler)
 
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	var lc net.ListenConfig
+	l, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	go func() {
 		require.NoError(t, grpcSrv.Serve(l))
