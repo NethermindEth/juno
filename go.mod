@@ -1,6 +1,5 @@
 module github.com/NethermindEth/juno
 
-// if version specified as "1.22" (without bugfix) it breaks CodeQL github build
 go 1.24.1
 
 require (
@@ -194,10 +193,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
-
-// TODO: Remove the replacement once there is a newer release.
-// The indirect dependency of github.com/cockroachdb/swiss can't be used in go1.24.
-// So it is replaced with the commit that supports go1.24.
-replace github.com/cockroachdb/swiss v0.0.0-20240612210725-f4de07ae6964 => github.com/cockroachdb/swiss v0.0.0-20250327203710-2932b022f6df
 
 replace github.com/starknet-io/starknet-p2pspecs => ./starknet-p2pspecs
