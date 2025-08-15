@@ -28,4 +28,4 @@ jobs:
       - name: Install Jemalloc (Ubuntu or self-hosted)
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
       - name: golangci-lint
-        uses: golangci/golangci-int-action@v8
+        uses: golangci/golangci-lint-action@v8
