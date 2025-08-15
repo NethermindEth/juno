@@ -7,6 +7,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/consensus2p2p"
 	"github.com/NethermindEth/juno/adapters/consensus2p2p/testutils"
 	"github.com/NethermindEth/juno/adapters/p2p2consensus"
+	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
 )
@@ -40,20 +41,21 @@ func TestAdaptProposalCommitment(t *testing.T) {
 }
 
 func TestAdaptProposalTransaction(t *testing.T) {
-	consensusTransactions, p2pTransactions := testutils.GetTestTransactions(t, []testutils.TransactionFactory{
-		testutils.GetTestDeclareTransaction,
-		testutils.GetTestDeployAccountTransaction,
-		testutils.GetTestInvokeTransaction,
-		testutils.GetTestL1HandlerTransaction,
-	})
+	consensusTransactions, p2pTransactions := transactiontestutils.GetTestTransactions(
+		t,
+		testutils.TransactionBuilder.GetTestDeclareTransaction,
+		testutils.TransactionBuilder.GetTestDeployAccountTransaction,
+		testutils.TransactionBuilder.GetTestInvokeTransaction,
+		testutils.TransactionBuilder.GetTestL1HandlerTransaction,
+	)
 
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Transaction), func(t *testing.T) {
 			convertedConsensusTransaction, err := p2p2consensus.AdaptTransaction(p2pTransactions[i])
 			require.NoError(t, err)
 
-			testutils.StripCompilerFields(t, &consensusTransactions[i])
-			testutils.StripCompilerFields(t, &convertedConsensusTransaction)
+			transactiontestutils.StripCompilerFields(t, consensusTransactions[i].Class)
+			transactiontestutils.StripCompilerFields(t, convertedConsensusTransaction.Class)
 			require.Equal(t, consensusTransactions[i], convertedConsensusTransaction)
 
 			convertedP2PTransaction, err := consensus2p2p.AdaptTransaction(&consensusTransactions[i])
@@ -70,8 +72,8 @@ func TestAdaptProposalTransaction(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := range consensusTransactions {
-			testutils.StripCompilerFields(t, &consensusTransactions[i])
-			testutils.StripCompilerFields(t, &convertedConsensusTransactions[i])
+			transactiontestutils.StripCompilerFields(t, consensusTransactions[i].Class)
+			transactiontestutils.StripCompilerFields(t, convertedConsensusTransactions[i].Class)
 		}
 		require.Equal(t, consensusTransactions, convertedConsensusTransactions)
 

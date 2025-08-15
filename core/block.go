@@ -71,6 +71,14 @@ type Block struct {
 	Receipts     []*TransactionReceipt
 }
 
+func (b *Block) L2GasConsumed() uint64 {
+	l2GasConsumed := uint64(0)
+	for _, t := range b.Receipts {
+		l2GasConsumed += t.ExecutionResources.TotalGasConsumed.L2Gas
+	}
+	return l2GasConsumed
+}
+
 type BlockCommitments struct {
 	TransactionCommitment *felt.Felt
 	EventCommitment       *felt.Felt
