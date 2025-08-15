@@ -92,7 +92,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				return mockReader.BlockByNumber(test.blockNumber)
 			})
 
-			handler := rpc.New(mockReader, nil, nil, n, nil)
+			handler := rpc.New(mockReader, nil, nil, n, nil, nil)
 			handler = handler.WithFeeder(client)
 			traces, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: test.blockNumber})
 			if n == &utils.Sepolia && description == "newer block" {
@@ -128,7 +128,7 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
-		handler := rpc.New(mockReader, nil, nil, n, nil)
+		handler := rpc.New(mockReader, nil, nil, n, nil, nil)
 
 		tracedBlocks, jErr := handler.TraceBlockTransactions(t.Context(), rpc.BlockID{Number: blockNumber})
 
@@ -238,7 +238,7 @@ func TestTraceTransaction(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockReader.EXPECT().Network().Return(&utils.Mainnet).AnyTimes()
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, mockVM, &utils.Mainnet, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, mockSyncReader, mockVM, &utils.Mainnet, utils.NewNopZapLogger(), nil)
 
 	t.Run("not found", func(t *testing.T) {
 		hash := utils.HexToFelt(t, "0xBBBB")
@@ -375,7 +375,7 @@ func TestTraceTransaction(t *testing.T) {
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
 		n := &utils.Sepolia
 
-		handler := rpc.New(mockReader, mockSyncReader, mockVM, n, utils.NewNopZapLogger())
+		handler := rpc.New(mockReader, mockSyncReader, mockVM, n, utils.NewNopZapLogger(), nil)
 
 		client := feeder.NewTestClient(t, n)
 		handler.WithFeeder(client)
@@ -508,7 +508,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n)
-			handler := rpc.New(chain, nil, nil, n, log)
+			handler := rpc.New(chain, nil, nil, n, log, nil)
 
 			update, rpcErr := handler.TraceBlockTransactions(t.Context(), id)
 			assert.Nil(t, update)
@@ -526,7 +526,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 	log := utils.NewNopZapLogger()
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	handler := rpc.New(mockReader, nil, mockVM, n, log)
+	handler := rpc.New(mockReader, nil, mockVM, n, log, nil)
 
 	t.Run("pending block", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
@@ -1090,7 +1090,7 @@ func TestCall(t *testing.T) {
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
-	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger())
+	handler := rpc.New(mockReader, nil, mockVM, n, utils.NewNopZapLogger(), nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(nil, nil, db.ErrKeyNotFound)

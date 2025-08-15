@@ -94,7 +94,7 @@ func TestBlockNumber(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, &utils.Mainnet, nil)
+	handler := rpc.New(mockReader, nil, nil, &utils.Mainnet, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		expectedHeight := uint64(0)
@@ -121,7 +121,7 @@ func TestBlockHashAndNumber(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, n, nil)
+	handler := rpc.New(mockReader, nil, nil, n, nil, nil)
 
 	t.Run("empty blockchain", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(nil, errors.New("empty blockchain"))
@@ -154,7 +154,7 @@ func TestBlockTransactionCount(t *testing.T) {
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 	n := utils.HeapPtr(utils.Sepolia)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -278,7 +278,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
-			handler := rpc.New(chain, mockSyncReader, nil, n, log)
+			handler := rpc.New(chain, mockSyncReader, nil, n, log, nil)
 
 			block, rpcErr := handler.BlockWithTxHashes(id)
 			assert.Nil(t, block)
@@ -287,7 +287,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 	}
 
 	n := &utils.Sepolia
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -434,7 +434,7 @@ func TestBlockWithTxs(t *testing.T) {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
-			handler := rpc.New(chain, mockSyncReader, nil, n, log)
+			handler := rpc.New(chain, mockSyncReader, nil, n, log, nil)
 
 			block, rpcErr := handler.BlockWithTxs(id)
 			assert.Nil(t, block)
@@ -443,7 +443,7 @@ func TestBlockWithTxs(t *testing.T) {
 	}
 
 	n := &utils.Mainnet
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)
@@ -593,7 +593,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, n, nil)
+	handler := rpc.New(mockReader, nil, nil, n, nil, nil)
 
 	blockNumber := uint64(16350)
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
@@ -662,7 +662,7 @@ func TestBlockWithReceipts(t *testing.T) {
 
 	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
+	handler := rpc.New(mockReader, mockSyncReader, nil, n, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
 		blockID := rpc.BlockID{Number: 777}
@@ -811,7 +811,7 @@ func TestRpcBlockAdaptation(t *testing.T) {
 
 	n := &utils.Sepolia
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpc.New(mockReader, nil, nil, n, nil)
+	handler := rpc.New(mockReader, nil, nil, n, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

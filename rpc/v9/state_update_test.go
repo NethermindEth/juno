@@ -41,7 +41,7 @@ func TestStateUpdate(t *testing.T) {
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}
 			log := utils.NewNopZapLogger()
-			handler := rpcv9.New(chain, mockSyncReader, nil, log)
+			handler := rpcv9.New(chain, mockSyncReader, nil, log, nil)
 
 			update, rpcErr := handler.StateUpdate(&id)
 			assert.Empty(t, update)
@@ -51,7 +51,7 @@ func TestStateUpdate(t *testing.T) {
 
 	log := utils.NewNopZapLogger()
 	mockReader := mocks.NewMockReader(mockCtrl)
-	handler := rpcv9.New(mockReader, mockSyncReader, nil, log)
+	handler := rpcv9.New(mockReader, mockSyncReader, nil, log, nil)
 	client := feeder.NewTestClient(t, n)
 	mainnetGw := adaptfeeder.New(client)
 

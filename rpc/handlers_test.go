@@ -45,11 +45,12 @@ func TestRun(t *testing.T) {
 	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
 	mockSyncReader.EXPECT().SubscribePendingData().Return(sync.PendingDataSubscription{Subscription: pendingDataSub.Subscribe()}).AnyTimes()
 
+	testReceivedTxFeed := feed.New[core.Transaction]()
 	handler := &Handler{
-		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),
+		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil, testReceivedTxFeed),
 		rpcv7Handler: rpcv7.New(mockBcReader, mockSyncReader, nil, nil, nil),
-		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, nil),
-		rpcv9Handler: rpcv9.New(mockBcReader, mockSyncReader, nil, nil),
+		rpcv8Handler: rpcv8.New(mockBcReader, mockSyncReader, nil, nil, testReceivedTxFeed),
+		rpcv9Handler: rpcv9.New(mockBcReader, mockSyncReader, nil, nil, testReceivedTxFeed),
 		version:      "",
 	}
 

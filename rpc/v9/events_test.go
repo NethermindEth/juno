@@ -48,7 +48,7 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger())
+	handler := rpc.New(chain, mockSyncReader, nil, utils.NewNopZapLogger(), nil)
 	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	blockNumber := blockIDNumber(t, 0)
 	latest := blockIDLatest(t)

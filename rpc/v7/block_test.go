@@ -290,7 +290,7 @@ func TestBlockWithTxs(t *testing.T) {
 	// Use v6 handler as v7 `starknet_getTransactionByHash` uses v6 handler
 	mockSyncReaderV6 := mocks.NewMockSyncReader(mockCtrl)
 	mockReaderV6 := mocks.NewMockReader(mockCtrl)
-	rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil)
+	rpcv6Handler := rpcv6.New(mockReaderV6, mockSyncReaderV6, nil, n, nil, nil)
 
 	client := feeder.NewTestClient(t, n)
 	gw := adaptfeeder.New(client)

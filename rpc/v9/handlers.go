@@ -39,6 +39,9 @@ type Handler struct {
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
 	l1Heads     *feed.Feed[*core.L1Head]
+	// Unlike other feeds received tx feed should not be Teed, instead serve as MPMC fanout mechanism.
+	// Upon receiving transaction, it should be broadcasted via feed for rpcv9 to consume.
+	receivedTxFeed *feed.Feed[core.Transaction]
 
 	idgen         func() string
 	subscriptions stdsync.Map // map[string]*subscription
@@ -59,8 +62,12 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
 	logger utils.Logger,
+	parentReceivedTxFeed *feed.Feed[core.Transaction],
 ) *Handler {
 	contractABI, err := abi.JSON(strings.NewReader(contract.StarknetMetaData.ABI))
 	if err != nil {
@@ -77,10 +84,11 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return fmt.Sprintf("%d", n)
 		},
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[core.PendingData](),
-		l1Heads:     feed.New[*core.L1Head](),
+		newHeads:       feed.New[*core.Block](),
+		reorgs:         feed.New[*sync.ReorgBlockRange](),
+		pendingData:    feed.New[core.PendingData](),
+		l1Heads:        feed.New[*core.L1Head](),
+		receivedTxFeed: parentReceivedTxFeed,
 
 		blockTraceCache: lru.NewCache[rpccore.TraceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
@@ -135,10 +143,12 @@ func (h *Handler) Run(ctx context.Context) error {
 	reorgsSub := h.syncReader.SubscribeReorg().Subscription
 	pendingData := h.syncReader.SubscribePendingData().Subscription
 	l1HeadsSub := h.bcReader.SubscribeL1Head().Subscription
+
 	defer newHeadsSub.Unsubscribe()
 	defer reorgsSub.Unsubscribe()
 	defer pendingData.Unsubscribe()
 	defer l1HeadsSub.Unsubscribe()
+
 	feed.Tee(newHeadsSub, h.newHeads)
 	feed.Tee(reorgsSub, h.reorgs)
 	feed.Tee(pendingData, h.pendingData)

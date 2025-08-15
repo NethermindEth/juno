@@ -41,6 +41,10 @@ type Handler struct {
 	blockTraceCache            *lru.Cache[traceCacheKey, []TracedBlockTransaction]
 	submittedTransactionsCache *rpccore.TransactionCache
 
+	// Unlike other feeds received tx feed should not be Teed, instead serve as MPMC fanout mechanism.
+	// Upon receiving transaction, it should be broadcasted via feed for rpcv9 to consume.
+	receivedTxFeed *feed.Feed[core.Transaction]
+
 	filterLimit  uint
 	callMaxSteps uint64
 }
@@ -51,8 +55,13 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, network *utils.Network,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	network *utils.Network,
 	logger utils.Logger,
+	parentReceivedTxFeed *feed.Feed[core.Transaction],
 ) *Handler {
 	return &Handler{
 		bcReader:   bcReader,
@@ -65,7 +74,8 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 			}
 			return n
 		},
-		newHeads: feed.New[*core.Block](),
+		newHeads:       feed.New[*core.Block](),
+		receivedTxFeed: parentReceivedTxFeed,
 
 		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
 		filterLimit:     math.MaxUint,
