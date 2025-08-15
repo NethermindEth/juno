@@ -5,7 +5,7 @@ on:
       - v*
     branches:
       - main
-  pull_request:
+  # pull_request:
 permissions:
   contents: read
   pull-requests: read
