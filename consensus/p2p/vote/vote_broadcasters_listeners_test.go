@@ -5,18 +5,15 @@ import (
 	"maps"
 	"math/rand/v2"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/consensus/p2p/vote"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/libp2p/go-libp2p"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -24,16 +21,14 @@ import (
 )
 
 const (
-	topicName    = "test-vote-broadcasters-listeners"
+	chainID      = "1"
+	protocolID   = "test-vote-broadcasters-listeners-protocol"
+	topicName    = "test-vote-broadcasters-listeners-topic"
 	logLevel     = zapcore.PanicLevel
 	voteCount    = 500
 	invalidCount = 10
+	maxWait      = 5 * time.Second
 )
-
-type node struct {
-	host  host.Host
-	topic *pubsub.Topic
-}
 
 func TestVoteBroadcastersAndListeners(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
@@ -55,10 +50,11 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 
 	pending := maps.Clone(voteSet)
 
-	source := getNode(t)
-	destination := getNode(t)
+	nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(2))
+	topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
 
-	connect(t, source.host, destination.host)
+	source := topics[0]
+	destination := topics[1]
 
 	voteBroadcaster := vote.NewVoteBroadcaster(logger, vote.StarknetVoteAdapter, &config.DefaultBufferSizes)
 	prevoteBroadcaster := voteBroadcaster.AsPrevoteBroadcaster()
@@ -95,25 +91,25 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 		for range invalidCount {
 			voteBytes, err := proto.Marshal(&consensus.Vote{})
 			require.NoError(t, err)
-			_ = destination.topic.Publish(t.Context(), voteBytes)
+			_ = destination.Publish(t.Context(), voteBytes)
 		}
 	}()
 
 	// Self broadcast non-votes and make sure they are not processed
 	go func() {
 		for range invalidCount {
-			_ = destination.topic.Publish(t.Context(), []byte("random"))
+			_ = destination.Publish(t.Context(), []byte("random"))
 		}
 	}()
 
 	// Start the broadcaster loop
 	go func() {
-		voteBroadcaster.Loop(t.Context(), source.topic)
+		voteBroadcaster.Loop(t.Context(), source)
 	}()
 
 	// Start the listener loop
 	go func() {
-		voteListeners.Loop(t.Context(), destination.topic)
+		voteListeners.Loop(t.Context(), destination)
 	}()
 
 	for {
@@ -128,6 +124,8 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 			require.Contains(t, voteSet, voteStr)
 			logger.Debugw("received precommit", "vote", voteStr)
 			delete(pending, voteStr)
+		case <-time.After(maxWait):
+			require.FailNow(t, "timeout")
 		}
 
 		logger.Infow("remaining", "pending", len(pending))
@@ -174,49 +172,4 @@ func getVoteString(prefix string, vote starknet.Vote) string {
 	}
 
 	return fmt.Sprintf("%v-%v-%v-%v-%v", prefix, vote.Height, vote.Round, vote.Sender, id)
-}
-
-func getNode(t *testing.T) node {
-	t.Helper()
-
-	addr, err := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/0")
-	require.NoError(t, err)
-
-	host, err := libp2p.New(
-		libp2p.ListenAddrs(addr),
-		libp2p.EnableRelayService(),
-		libp2p.EnableHolePunching(),
-		libp2p.NATPortMap(),
-	)
-	require.NoError(t, err)
-
-	gossipSub, err := pubsub.NewGossipSub(
-		t.Context(),
-		host,
-		pubsub.WithPeerOutboundQueueSize(config.DefaultBufferSizes.PubSubQueueSize),
-		pubsub.WithValidateQueueSize(config.DefaultBufferSizes.PubSubQueueSize),
-	)
-	require.NoError(t, err)
-
-	topic, err := gossipSub.Join(topicName)
-	require.NoError(t, err)
-
-	// This is to make sure that the source hosts forward the messages
-	relayCancel, err := topic.Relay()
-	require.NoError(t, err)
-	t.Cleanup(relayCancel)
-
-	return node{
-		host:  host,
-		topic: topic,
-	}
-}
-
-func connect(t *testing.T, source, destination host.Host) {
-	t.Helper()
-	peer := peer.AddrInfo{
-		ID:    destination.ID(),
-		Addrs: destination.Addrs(),
-	}
-	require.NoError(t, source.Connect(t.Context(), peer))
 }
