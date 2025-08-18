@@ -115,9 +115,9 @@ The WebSocket server provides a `starknet_subscribeNewHeads` method that emits a
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "result": 6178305545967232212,
-    "id": 1
+  "jsonrpc": "2.0",
+  "result": 6178305545967232212,
+  "id": 1
 }
 ```
 
@@ -128,33 +128,33 @@ When a new block is added, you will receive a message like this:
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "starknet_subscriptionNewHeads",
-    "params": {
-        "result": {
-            "block_hash": "0x662757cbae602a3146cd96e5b661e92cf5d120ccc1d9ac6e78bee200afddfd5",
-            "parent_hash": "0x348c37f50bf689c7fbf9ee971bf4378cf9232882e7a61eb2117486ee61236b1",
-            "block_number": 69061,
-            "new_root": "0x128eabdfcabc8043d1a7f30faed9fdc077e57fdce7aeb072c514b132e99c499",
-            "timestamp": 1739977268,
-            "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
-            "l1_gas_price": {
-                "price_in_fri": "0xd177c25056f4",
-                "price_in_wei": "0x4769a28dd"
-            },
-            "l1_data_gas_price": {
-                "price_in_fri": "0x963",
-                "price_in_wei": "0x1"
-            },
-            "l1_da_mode": "BLOB",
-            "starknet_version": "0.13.4",
-            "l2_gas_price": {
-                "price_in_fri": "0x157312ab4",
-                "price_in_wei": "0x7500b"
-            }
-        },
-        "subscription_id": 6178305545967232212
-    }
+  "jsonrpc": "2.0",
+  "method": "starknet_subscriptionNewHeads",
+  "params": {
+    "result": {
+      "block_hash": "0x662757cbae602a3146cd96e5b661e92cf5d120ccc1d9ac6e78bee200afddfd5",
+      "parent_hash": "0x348c37f50bf689c7fbf9ee971bf4378cf9232882e7a61eb2117486ee61236b1",
+      "block_number": 69061,
+      "new_root": "0x128eabdfcabc8043d1a7f30faed9fdc077e57fdce7aeb072c514b132e99c499",
+      "timestamp": 1739977268,
+      "sequencer_address": "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+      "l1_gas_price": {
+        "price_in_fri": "0xd177c25056f4",
+        "price_in_wei": "0x4769a28dd"
+      },
+      "l1_data_gas_price": {
+        "price_in_fri": "0x963",
+        "price_in_wei": "0x1"
+      },
+      "l1_da_mode": "BLOB",
+      "starknet_version": "0.13.4",
+      "l2_gas_price": {
+        "price_in_fri": "0x157312ab4",
+        "price_in_wei": "0x7500b"
+      }
+    },
+    "subscription_id": 6178305545967232212
+  }
 }
 ```
 
@@ -167,12 +167,12 @@ You can subscribe to events using the `starknet_subscribeEvents` method:
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "starknet_subscribeEvents",
-    "params": {
-        "block_id": "latest"
-    },
-    "id": 1
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeEvents",
+  "params": {
+    "block_id": "latest"
+  },
+  "id": 1
 }
 ```
 
@@ -181,9 +181,9 @@ You can subscribe to events using the `starknet_subscribeEvents` method:
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "result": 12301735893776740437,
-    "id": 1
+  "jsonrpc": "2.0",
+  "result": 12301735893776740437,
+  "id": 1
 }
 ```
 
@@ -199,14 +199,15 @@ You can track the status of transactions using the `starknet_subscribeTransactio
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "starknet_subscribeTransactionStatus",
-    "params": {
-        "transaction_hash": "0x22a6cd68819aa4813fed5db5cbaa0f396936b7bd53e4de51ef19ab57317de7c"
-    },
-    "id": 1
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribeTransactionStatus",
+  "params": {
+    "transaction_hash": "0x22a6cd68819aa4813fed5db5cbaa0f396936b7bd53e4de51ef19ab57317de7c"
+  },
+  "id": 1
 }
 ```
+
 </TabItem>
 </Tabs>
 
@@ -219,9 +220,9 @@ You can subscribe to pending transactions using the `starknet_subscribePendingTr
 
 ```json
 {
-	"jsonrpc":"2.0",
-	"method":"starknet_subscribePendingTransactions",
-	"id":1
+  "jsonrpc": "2.0",
+  "method": "starknet_subscribePendingTransactions",
+  "id": 1
 }
 ```
 
@@ -279,3 +280,47 @@ $ websocat -v ws://localhost:6061
     {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
     {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
 ```
+
+## Supported Starknet API versions
+
+Juno supports the following Starknet API versions:
+
+- **v0.9.0**: Accessible via endpoint `/ws/v0_9`
+- **v0.8.0**: Accessible via endpoint `/ws/v0_8`
+- **v0.7.0**: Accessible via endpoint `/ws/v0_7`
+
+To use a specific API version, specify the version endpoint in your WS calls:
+
+<Tabs>
+<TabItem value="latest" label="Latest">
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_9
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+```
+
+</TabItem>
+<TabItem value="v8" label="v0.8.0">
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_8
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+```
+
+</TabItem>
+<TabItem value="v7" label="v0.7.0">
+
+```bash
+# wscat
+$ wscat -c ws://localhost:6061/ws/v0_7
+    > {"jsonrpc": "2.0", "method": "juno_version", "id": 1}
+    < {"jsonrpc": "2.0", "result": "v0.14.3", "id": 1}
+```
+
+</TabItem>
+</Tabs>
+
