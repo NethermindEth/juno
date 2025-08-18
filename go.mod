@@ -19,7 +19,7 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/libp2p/go-libp2p v0.43.0
 	github.com/libp2p/go-libp2p-kad-dht v0.34.0
-	github.com/libp2p/go-libp2p-pubsub v0.14.1
+	github.com/libp2p/go-libp2p-pubsub v0.14.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.16.1
 	github.com/olekukonko/tablewriter v1.0.9
@@ -195,3 +195,5 @@ require (
 )
 
 replace github.com/starknet-io/starknet-p2pspecs => ./starknet-p2pspecs
+
+replace github.com/libp2p/go-libp2p-pubsub v0.14.2 => github.com/infrmtcs/go-libp2p-pubsub v0.0.0-20250818055235-0d5c6026369b
