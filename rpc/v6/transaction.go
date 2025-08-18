@@ -630,7 +630,9 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 }
 
 // AddTransaction relays a transaction to the gateway.
-func (h *Handler) pushToFeederGateway(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) pushToFeederGateway(
+	ctx context.Context, tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
