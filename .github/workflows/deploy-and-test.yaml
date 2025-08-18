@@ -194,7 +194,7 @@ jobs:
         env:
           NODE_URL: "${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
           NETWORK: "sepolia"
-          LOAD_FACTOR: 1
-          DURATION: "30s"
+          LOAD_FACTOR: 10
+          DURATION: "60s"
         with:
           path: ./starknet-rpc-tests/load-tests/test_cases.js
