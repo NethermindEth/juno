@@ -10,13 +10,14 @@ import (
 	"github.com/NethermindEth/juno/utils"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/sourcegraph/conc"
+	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
 type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	log             utils.Logger
 	proposalAdapter ProposerAdapter[V, H, A]
 	proposalStore   *proposal.ProposalStore[H]
-	broadcaster     buffered.ProtoBroadcaster
+	broadcaster     buffered.ProtoBroadcaster[*consensus.StreamMessage]
 	proposals       chan types.Proposal[V, H, A]
 }
 
@@ -31,7 +32,7 @@ func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
 		log:             log,
 		proposalAdapter: proposalAdapter,
 		proposalStore:   proposalStore,
-		broadcaster:     buffered.NewProtoBroadcaster(log, bufferSize, retryInterval),
+		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](log, bufferSize, retryInterval, nil),
 		proposals:       make(chan types.Proposal[V, H, A], bufferSize),
 	}
 }

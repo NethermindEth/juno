@@ -9,18 +9,18 @@ import (
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func toAddress(felt felt.Felt) *common.Address {
-	feltBytes := felt.Bytes()
+func toAddress(val felt.Felt) *common.Address {
+	feltBytes := val.Bytes()
 	return &common.Address{Elements: feltBytes[:]}
 }
 
-func toHash(felt felt.Felt) *common.Hash {
-	feltBytes := felt.Bytes()
+func toHash(val felt.Felt) *common.Hash {
+	feltBytes := val.Bytes()
 	return &common.Hash{Elements: feltBytes[:]}
 }
 
-func toFelt252(felt felt.Felt) *common.Felt252 {
-	feltBytes := felt.Bytes()
+func toFelt252(val felt.Felt) *common.Felt252 {
+	feltBytes := val.Bytes()
 	return &common.Felt252{Elements: feltBytes[:]}
 }
 

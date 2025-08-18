@@ -267,7 +267,8 @@ func testEthSubscriberHeight(t *testing.T, tests map[string]struct {
 ) {
 	startServer := func(addr string, service service) (*rpc.Server, net.Listener) {
 		srv := newTestL1Client(service)
-		l, err := net.Listen("tcp", addr)
+		var lc net.ListenConfig
+		l, err := lc.Listen(t.Context(), "tcp", addr)
 		if err != nil {
 			t.Fatal("can't listen:", err)
 		}
