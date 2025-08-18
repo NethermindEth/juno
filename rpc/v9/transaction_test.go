@@ -1205,7 +1205,7 @@ func TestAddTransaction(t *testing.T) {
 				"nonce": "0x11",
 				"class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
 				},
 				"compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724",
 				"sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
@@ -1252,7 +1252,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
 				}
 			  }`,
 		},
@@ -1343,7 +1343,7 @@ func TestAddTransaction(t *testing.T) {
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &rpc.AddTxResponse{
+			require.Equal(t, rpc.AddTxResponse{
 				TransactionHash: utils.HexToFelt(t, "0x1"),
 				ContractAddress: utils.HexToFelt(t, "0x2"),
 				ClassHash:       utils.HexToFelt(t, "0x3"),
@@ -1411,8 +1411,8 @@ func TestAddTransaction(t *testing.T) {
 				handler := rpc.New(nil, nil, nil, utils.NewNopZapLogger()).WithGateway(mockGateway)
 				addTxRes, rpcErr := handler.AddTransaction(t.Context(), tests["invoke v0"].txn)
 
-				require.Nil(t, addTxRes)
 				require.Equal(t, tc.expectedError, rpcErr)
+				require.Zero(t, addTxRes)
 			})
 		}
 	})
