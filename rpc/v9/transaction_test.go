@@ -1056,15 +1056,15 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
+	txWithoutClass := func(hash string) *rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
-		return rpc.BroadcastedTransaction{
+		return &rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
-		txn          rpc.BroadcastedTransaction
+		txn          *rpc.BroadcastedTransaction
 		expectedJSON string
 	}{
 		"invoke v0": {
@@ -1187,8 +1187,10 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v2": {
-			txn: func() rpc.BroadcastedTransaction {
-				tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
+			txn: func() *rpc.BroadcastedTransaction {
+				tx := txWithoutClass(
+					"0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4",
+				)
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
 			}(),
@@ -1211,8 +1213,10 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v3": {
-			txn: func() rpc.BroadcastedTransaction {
-				tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
+			txn: func() *rpc.BroadcastedTransaction {
+				tx := txWithoutClass(
+					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				)
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
 			}(),
@@ -2070,7 +2074,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
 
-		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
@@ -2097,7 +2101,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
 
-		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)

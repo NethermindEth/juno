@@ -687,7 +687,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 		addRes, addErr := handler.AddTransaction(
 			t.Context(),
-			txToBroadcast,
+			&txToBroadcast,
 		)
 		require.Nil(t, addErr)
 		txHash := addRes.TransactionHash
