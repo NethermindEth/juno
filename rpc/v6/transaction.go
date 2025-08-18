@@ -580,7 +580,9 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
-func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) AddTransaction(
+	ctx context.Context, tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	var (
 		res AddTxResponse
 		err *jsonrpc.Error
