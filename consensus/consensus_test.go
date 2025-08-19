@@ -1,24 +1,24 @@
-package integtest
+package consensus_test
 
 import (
 	"fmt"
-	"maps"
-	"slices"
-	gosync "sync"
+	goitre "iter"
 	"testing"
+	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus"
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/starknet"
+	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/genesis"
+	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/assert"
@@ -28,8 +28,7 @@ import (
 
 const (
 	commitBufferSize = 1024
-	maxLag           = 10
-	hostAddress      = "/ip4/0.0.0.0/tcp/0"
+	maxRoundWait     = types.Round(5)
 )
 
 var (
@@ -50,7 +49,7 @@ type testConfig struct {
 	// Number of blocks to run the test for
 	targetHeight uint64
 	// Network setup
-	networkSetup networkConfigFn
+	networkSetup testutils.NetworkConfigFn
 }
 
 func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[felt.Felt]core.Class) *blockchain.Blockchain {
@@ -64,14 +63,14 @@ func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[
 
 func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.Felt]core.Class) {
 	t.Helper()
-	genesisConfig, err := genesis.Read("../../genesis/genesis_prefund_accounts.json")
+	genesisConfig, err := genesis.Read("../genesis/genesis_prefund_accounts.json")
 	require.NoError(t, err)
 
 	genesisConfig.Classes = []string{
-		"../../genesis/classes/strk.json", "../../genesis/classes/account.json",
-		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
+		"../genesis/classes/strk.json", "../genesis/classes/account.json",
+		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000) //nolint:gomnd
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000)
 	require.NoError(t, err)
 
 	return diff, classes
@@ -80,13 +79,13 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 func initNode(
 	t *testing.T,
 	index int,
+	node *testutils.Node,
 	logger *utils.ZapLogger,
 	commits chan commit,
 	cfg *testConfig,
 	genesisDiff core.StateDiff,
 	genesisClasses map[felt.Felt]core.Class,
-	ready chan struct{},
-) networkNodeConfig {
+) {
 	t.Helper()
 
 	mockServices := consensus.InitMockServices(0, 0, index, cfg.nodeCount)
@@ -96,13 +95,8 @@ func initNode(
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
 	vm := vm.New(false, logger)
 
-	adjacentNodes := make(map[int]peer.AddrInfo)
-	bootstrapPeers := gosync.OnceValue(func() []peer.AddrInfo {
-		<-ready
-		return slices.Collect(maps.Values(adjacentNodes))
-	})
-
 	services, err := consensus.Init(
+		node.Host,
 		logger,
 		consensusDB,
 		bc,
@@ -110,9 +104,7 @@ func initNode(
 		&mockServices.NodeAddress,
 		mockServices.Validators,
 		mockServices.TimeoutFn,
-		hostAddress,
-		mockServices.PrivateKey,
-		bootstrapPeers,
+		node.GetBootstrapPeers,
 	)
 	require.NoError(t, err)
 
@@ -130,11 +122,6 @@ func initNode(
 		writeBlock(t, index, bc, services.CommitListener, commits)
 	})
 	t.Cleanup(wg.Wait)
-
-	return networkNodeConfig{
-		host:          services.Host,
-		adjacentNodes: adjacentNodes,
-	}
 }
 
 func writeBlock(
@@ -169,6 +156,29 @@ func writeBlock(
 	}
 }
 
+func commitStream(t *testing.T, nodeCount int, commits chan commit) goitre.Seq[commit] {
+	t.Helper()
+
+	timeoutFn := consensus.MockTimeoutFn(nodeCount)
+	var maxCommitWait time.Duration
+	for round := range maxRoundWait {
+		maxCommitWait += timeoutFn(types.StepPropose, round) + timeoutFn(types.StepPrevote, round) + timeoutFn(types.StepPrecommit, round)
+	}
+	return func(yield func(commit) bool) {
+		t.Helper()
+		for {
+			select {
+			case commit := <-commits:
+				if !yield(commit) {
+					return
+				}
+			case <-time.After(maxCommitWait):
+				require.FailNow(t, "timed out waiting for commit")
+			}
+		}
+	}
+}
+
 func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *utils.ZapLogger) {
 	t.Helper()
 
@@ -182,21 +192,22 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 	commitCount := make(map[uint64]int)
 
 	nextHeight := uint64(1)
-	for commit := range commits {
+	for commit := range commitStream(t, cfg.nodeCount, commits) {
 		blockNumber := commit.committedBlock.Block.Number
 		blockHash := commit.committedBlock.Block.Hash
-		// Ignore commits after the target height
-		if blockNumber > cfg.targetHeight {
-			continue
-		}
 
 		require.Falsef(
 			t,
-			blockNumber > nextHeight+maxLag,
+			blockNumber > nextHeight+cfg.targetHeight,
 			"finished height %d is too far behind committed height %d",
 			nextHeight,
 			blockNumber,
 		)
+
+		// Ignore commits after the target height
+		if blockNumber > cfg.targetHeight {
+			continue
+		}
 
 		// Ignore faulty nodes
 		if commit.nodeIndex >= honestNodeCount {
@@ -218,12 +229,12 @@ func assertCommits(t *testing.T, commits chan commit, cfg testConfig, logger *ut
 		commitCount[blockNumber]++
 
 		// If all honest nodes committed at this height, increment the finished counter
-		for commitCount[nextHeight] == honestNodeCount && nextHeight < cfg.targetHeight {
+		for commitCount[nextHeight] == honestNodeCount && nextHeight <= cfg.targetHeight {
 			logger.Infow("all honest nodes committed", "height", nextHeight)
 			nextHeight++
 		}
 
-		if nextHeight == cfg.targetHeight {
+		if nextHeight > cfg.targetHeight {
 			break
 		}
 	}
@@ -240,16 +251,12 @@ func runTest(t *testing.T, cfg testConfig) {
 
 	commits := make(chan commit, commitBufferSize)
 
-	ready := make(chan struct{})
+	nodes := testutils.BuildNetworks(t, cfg.networkSetup(honestNodeCount))
 
-	hosts := make(networkConfig, honestNodeCount)
-	iterator := iter.Iterator[networkNodeConfig]{MaxGoroutines: honestNodeCount}
-	iterator.ForEachIdx(hosts, func(i int, nodeConfig *networkNodeConfig) {
-		*nodeConfig = initNode(t, i, logger, commits, &cfg, genesisDiff, genesisClasses, ready)
+	iterator := iter.Iterator[testutils.Node]{MaxGoroutines: honestNodeCount}
+	iterator.ForEachIdx(nodes, func(i int, node *testutils.Node) {
+		initNode(t, i, node, logger, commits, &cfg, genesisDiff, genesisClasses)
 	})
-
-	cfg.networkSetup(t, hosts)
-	close(ready)
 
 	assertCommits(t, commits, cfg, logger)
 }
@@ -275,18 +282,18 @@ func TestTendermintCluster(t *testing.T) {
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    4,
 		targetHeight: 10,
-		networkSetup: lineNetworkConfig,
+		networkSetup: testutils.LineNetworkConfig,
 	})
 
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    20,
 		targetHeight: 60,
-		networkSetup: smallWorldNetworkConfig,
+		networkSetup: testutils.SmallWorldNetworkConfig,
 	})
 
 	runWithAllHonestAndSilentFaultyNodes(t, testConfig{
 		nodeCount:    50,
 		targetHeight: 15,
-		networkSetup: smallWorldNetworkConfig,
+		networkSetup: testutils.SmallWorldNetworkConfig,
 	})
 }

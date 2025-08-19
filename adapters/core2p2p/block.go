@@ -12,14 +12,14 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/header"
 )
 
-func AdaptBlockID(header *core.Header) *common.BlockID {
-	if header == nil {
+func AdaptBlockID(blockHeader *core.Header) *common.BlockID {
+	if blockHeader == nil {
 		return nil
 	}
 
 	return &common.BlockID{
-		Number: header.Number,
-		Header: AdaptHash(header.Hash),
+		Number: blockHeader.Number,
+		Header: AdaptHash(blockHeader.Hash),
 	}
 }
 

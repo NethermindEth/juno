@@ -179,7 +179,9 @@ func (g *grpcService) Run(ctx context.Context) error {
 
 	portStr := strconv.FormatUint(uint64(g.port), 10)
 	addr := net.JoinHostPort(g.host, portStr)
-	l, err := net.Listen("tcp", addr)
+
+	var lc net.ListenConfig
+	l, err := lc.Listen(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on addr %s: %w", addr, err)
 	}

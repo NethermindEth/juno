@@ -95,7 +95,7 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 	case TxnStatusPreConfirmed:
 		return []byte("PRE_CONFIRMED"), nil
 	default:
-		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
+		return nil, fmt.Errorf("unknown TxnStatus %v", s)
 	}
 }
 
@@ -660,7 +660,10 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 	return res, nil
 }
 
-func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) pushToFeederGateway(
+	ctx context.Context,
+	tx BroadcastedTransaction, //nolint:gocritic // todo(rdr): update this herecy
+) (*AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
@@ -924,10 +927,10 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	}
 
 	var receiptBlockNumber *uint64
-	// TODO(Ege): case for preconfirmed blocks: they don't have blockHash
-	// but they do have block number, so far we were not returning blocknumber for pending block
-	// pending block didnt had blocknumber, clarify whether we need to return number or not
-	if blockHash != nil {
+
+	// Do not return block number for pending block
+	// Return block number for canonical blocks and pre_confirmed block
+	if blockHash != nil || finalityStatus == TxnPreConfirmed {
 		receiptBlockNumber = &blockNumber
 	}
 
