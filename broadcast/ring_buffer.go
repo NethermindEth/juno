@@ -7,8 +7,10 @@ import (
 )
 
 // Returned when the requested sequence is ahead of the latest published (not yet available).
-var ErrFutureSeq = errors.New("requested seq. not published yet")
-var ErrInvalidSequence = errors.New("invalid sequence: 0")
+var (
+	ErrFutureSeq       = errors.New("requested seq. not published yet")
+	ErrInvalidSequence = errors.New("invalid sequence: 0")
+)
 
 // LaggedError indicates the requested sequence was overwritten by newer writes.
 // - MissedSeq: the requested sequence that was lost.
@@ -46,7 +48,7 @@ type ringBuffer[T any] struct {
 	mask     uint64
 }
 
-// Rounds capacity up to the next power of two; initializes tail=1, mask=capacity-1, and allocates slots.
+// Rounds capacity up to the next power of two; initialises tail=1, mask=capacity-1, and allocates slots.
 func newRingBuffer[T any](capacity uint64) *ringBuffer[T] {
 	capacity = nextPowerOfTwo(capacity)
 	rb := ringBuffer[T]{
@@ -59,7 +61,7 @@ func newRingBuffer[T any](capacity uint64) *ringBuffer[T] {
 }
 
 // Push writes a new value:
-// - Acquire tailMu (serialize writers and provide a consistent newest).
+// - Acquire tailMu (serialise writers and provide a consistent newest).
 // - Lock the slot at index (tail-1)&mask; write data first, then publish seq=tail.
 // - Unlock the slot, then advance tail (newest becomes tail-1), and release tailMu.
 func (rb *ringBuffer[T]) Push(val T) {
