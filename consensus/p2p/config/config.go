@@ -20,6 +20,8 @@ type BufferSizes struct {
 	PrecommitOutput           int
 	ProposalProtoBroadcaster  int
 	VoteProtoBroadcaster      int
+	MempoolBroadcaster        int
+	MempoolListener           int
 	PubSubQueueSize           int
 	RetryInterval             time.Duration
 	RebroadcastInterval       time.Duration
@@ -35,6 +37,8 @@ var DefaultBufferSizes = BufferSizes{
 	PrecommitOutput:           1024,
 	ProposalProtoBroadcaster:  1024,
 	VoteProtoBroadcaster:      1024,
+	MempoolBroadcaster:        1024,
+	MempoolListener:           1024,
 	PubSubQueueSize:           1024,
 	RetryInterval:             1 * time.Second,
 	RebroadcastInterval:       5 * time.Second,
