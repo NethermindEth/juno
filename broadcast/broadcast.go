@@ -101,7 +101,7 @@ func New[T any](capacity uint64) *Broadcast[T] {
 
 // Send publishes msg to the ring and wakes subscribers.
 //   - Returns ErrClosed if closed is already set (a concurrent Close after this check may still allow this Push).
-//   - Push is serialized via ring’s tailMu.
+//   - Push is serialised via ring’s tailMu.
 //   - Wakes subscribers by iterating subs under subMu.RLock and attempting non-blocking sends on their notifyC.
 func (b *Broadcast[T]) Send(msg T) error {
 	if b.closed.Load() {
@@ -134,14 +134,14 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	next := b.ring.tail
 	b.ring.tailMu.RUnlock()
 
-	subId := b.nextSubID.Add(1)
+	subID := b.nextSubID.Add(1)
 	sub := &Subscription[T]{
 		bcast:   b,
 		seq:     next, // next msg to read
 		notifyC: make(chan struct{}, 1),
 		out:     make(chan EventOrLag[T], 1),
 		done:    make(chan struct{}),
-		id:      subId,
+		id:      subID,
 	}
 
 	b.subMu.Lock()

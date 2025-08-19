@@ -57,20 +57,14 @@ func TestMultipleSubscribersReceiveSameData(t *testing.T) {
 	bcast := broadcast.New[int](uint64(numEvents))
 	defer bcast.Close()
 
-	// subscribe first
-	subs := make([]*broadcast.Subscription[int], numSubscribers)
-	for i := range numSubscribers {
-		subs[i] = bcast.Subscribe()
-		defer subs[i].Unsubscribe()
-	}
-
 	// start consumers
 	var wg sync.WaitGroup
 	wg.Add(numSubscribers)
-	for si := range numSubscribers {
-		sub := subs[si]
+	for range numSubscribers {
+		sub := bcast.Subscribe()
 		go func(sub *broadcast.Subscription[int]) {
 			defer wg.Done()
+			defer sub.Unsubscribe()
 			for i := range numEvents {
 				ev, ok := recvWithTimeout(t, sub.Recv(), time.Second)
 				require.True(t, ok, "subscriber out closed early")
@@ -138,13 +132,14 @@ func TestConcurrentProducers_AllDelivered_NoLag(t *testing.T) {
 
 func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 	// One slow subscriber; producer sends bursts that overrun notifyC (buffer=1).
-	bc := broadcast.New[int](64)
+	bufferSize := uint64(64)
+	bc := broadcast.New[int](bufferSize)
 
 	sub := bc.Subscribe()
 	defer sub.Unsubscribe()
 
 	// Slow consumer
-	var recvCount int
+	var recvCount uint64
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -187,20 +182,25 @@ func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 	bc.Close()
 
 	wg.Wait()
-	require.GreaterOrEqual(t, recvCount, 1, "subscriber must make progress despite coalesced notifies")
+	require.GreaterOrEqual(
+		t,
+		recvCount,
+		bufferSize,
+		"subscriber must make progress despite coalesced notifies",
+	)
 }
 
 func TestLaggedDetection(t *testing.T) {
 	bc := broadcast.New[int](2)
 	sub := bc.Subscribe()
-	bc.Send(1)
-	bc.Send(2)
+	require.NoError(t, bc.Send(1))
+	require.NoError(t, bc.Send(2))
 	// wait for subscriber to take first value to chan and
 	// second value to memory to avoid race and consistency of test
 	time.Sleep(5 * time.Millisecond)
-	bc.Send(3)
-	bc.Send(4)
-	bc.Send(5) // Lag
+	require.NoError(t, bc.Send(3))
+	require.NoError(t, bc.Send(4))
+	require.NoError(t, bc.Send(5)) // Lag
 
 	// move cursor to missing seq 3
 	for i := range 2 {
@@ -225,13 +225,13 @@ func TestLaggedDetection(t *testing.T) {
 func TestLagResyncAfterError(t *testing.T) {
 	bc := broadcast.New[int](2)
 	sub := bc.Subscribe()
-	bc.Send(1) // in out chan
-	bc.Send(2)
+	require.NoError(t, bc.Send(1)) // in out chan
+	require.NoError(t, bc.Send(2))
 	// Sleep to allow forwarder goroutine to put 1 to chan and 2 to memory
 	time.Sleep(5 * time.Millisecond)
-	bc.Send(3)
-	bc.Send(4)
-	bc.Send(5) // lag
+	require.NoError(t, bc.Send(3))
+	require.NoError(t, bc.Send(4))
+	require.NoError(t, bc.Send(5)) // lag
 
 	for i := range 2 {
 		ev := <-sub.Recv()
@@ -263,7 +263,7 @@ func TestLagResyncAfterError(t *testing.T) {
 func TestCloseBroadcast(t *testing.T) {
 	bc := broadcast.New[int](2)
 	sub := bc.Subscribe()
-	bc.Send(1)
+	require.NoError(t, bc.Send(1))
 	time.Sleep(5 * time.Millisecond)
 	bc.Close()
 	out := sub.Recv()
@@ -334,7 +334,7 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 	defer bc.Close()
 
 	// Hot publisher
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
@@ -456,7 +456,6 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 				b.ResetTimer()
 				// All subscribers start draining at once
 				for _, sub := range subs {
-					sub := sub
 					go func(sub *broadcast.Subscription[int]) {
 						defer wg.Done()
 						ctr := 0
@@ -471,9 +470,7 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 							if ctr == numMsg {
 								return
 							}
-
 						}
-
 					}(sub)
 				}
 
@@ -609,7 +606,7 @@ func benchmarkBroadcastSenderThroughput[T any](
 
 					var totalRecvd uint64
 					var totalLag uint64
-					minRecvd := uint64(^uint64(0)) // max uint64
+					minRecvd := ^uint64(0) // max uint64
 					maxRecvd := uint64(0)
 
 					for c := range countCh {
