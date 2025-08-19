@@ -1173,15 +1173,15 @@ func TestAdaptTransaction(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
+	txWithoutClass := func(hash string) *rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
-		return rpc.BroadcastedTransaction{
+		return &rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
-		txn          rpc.BroadcastedTransaction
+		txn          *rpc.BroadcastedTransaction
 		expectedJSON string
 	}{
 		"invoke v0": {
@@ -1300,7 +1300,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v2": {
-			txn: func() rpc.BroadcastedTransaction {
+			txn: func() *rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1316,7 +1316,7 @@ func TestAddTransaction(t *testing.T) {
 				"nonce": "0x11",
 				"class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
 				},
 				"compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724",
 				"sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
@@ -1324,7 +1324,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v3": {
-			txn: func() rpc.BroadcastedTransaction {
+			txn: func() *rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1357,7 +1357,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
+					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
 				}
 			  }`,
 		},
@@ -1424,7 +1424,7 @@ func TestAddTransaction(t *testing.T) {
 				EXPECT().
 				AddTransaction(gomock.Any(), gomock.Any()).
 				Do(func(_ context.Context, txnJSON json.RawMessage) error {
-					assert.JSONEq(t, test.expectedJSON, string(txnJSON), string(txnJSON))
+					assert.JSONEq(t, test.expectedJSON, string(txnJSON))
 					gatewayTx := starknet.Transaction{}
 					// Ensure the Starknet transaction can be unmarshaled properly.
 					require.NoError(t, json.Unmarshal(txnJSON, &gatewayTx))
@@ -1444,11 +1444,15 @@ func TestAddTransaction(t *testing.T) {
 			handler = handler.WithGateway(mockGateway)
 			got, rpcErr := handler.AddTransaction(t.Context(), test.txn)
 			require.Nil(t, rpcErr)
-			require.Equal(t, &rpc.AddTxResponse{
-				TransactionHash: utils.HexToFelt(t, "0x1"),
-				ContractAddress: utils.HexToFelt(t, "0x2"),
-				ClassHash:       utils.HexToFelt(t, "0x3"),
-			}, got)
+			require.Equal(
+				t,
+				rpc.AddTxResponse{
+					TransactionHash: utils.HexToFelt(t, "0x1"),
+					ContractAddress: utils.HexToFelt(t, "0x2"),
+					ClassHash:       utils.HexToFelt(t, "0x3"),
+				},
+				got,
+			)
 		})
 	}
 }
@@ -1735,7 +1739,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
 
-		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
@@ -1763,7 +1767,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			WithGateway(mockGateway).
 			WithSubmittedTransactionsCache(submittedTransactionCache)
 
-		res, err := handler.AddTransaction(ctx, *broadcastedTxn)
+		res, err := handler.AddTransaction(ctx, broadcastedTxn)
 		require.Nil(t, err)
 		mockReader.EXPECT().TransactionByHash(res.TransactionHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
