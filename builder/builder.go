@@ -49,6 +49,10 @@ func New(
 	}
 }
 
+func (b *Builder) Network() *utils.Network {
+	return b.blockchain.Network()
+}
+
 func (b *Builder) Finalise(preconfirmed *core.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
 	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
 }

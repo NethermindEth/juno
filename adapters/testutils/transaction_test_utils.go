@@ -30,15 +30,15 @@ type TransactionBuilder[C, P any] struct {
 	ToP2PL1Handler toP2PType[P, *transaction.L1HandlerV0]
 }
 
-type factory[C, P any] func(t *testing.T) (C, P)
+type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
 
-func GetTestTransactions[C, P any](t *testing.T, factories ...factory[C, P]) ([]C, []P) {
+func GetTestTransactions[C, P any](t *testing.T, network *utils.Network, factories ...factory[C, P]) ([]C, []P) {
 	t.Helper()
 	consensusTransactions := make([]C, len(factories))
 	p2pTransactions := make([]P, len(factories))
 
 	for i := range factories {
-		consensusTransactions[i], p2pTransactions[i] = factories[i](t)
+		consensusTransactions[i], p2pTransactions[i] = factories[i](t, network)
 	}
 
 	return consensusTransactions, p2pTransactions
@@ -136,66 +136,66 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
 	return classHash, cairo1Class
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T) (C, P) {
+func getTransactionHash(t *testing.T, tx core.Transaction, network *utils.Network) (*felt.Felt, *common.Hash) {
 	t.Helper()
-	transactionHash, transactionHashBytes := getRandomFelt(t)
+	hash, err := core.TransactionHash(tx, network)
+	require.NoError(t, err)
+	return hash, core2p2p.AdaptHash(hash)
+}
+
+func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *utils.Network) (C, P) {
+	t.Helper()
 	classHash, cairo1Class := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
 	version := new(core.TransactionVersion).SetUint64(3)
-	compiledClassHash, compiledClassHashBytes := getRandomFelt(t)
 	resourceBounds, p2pResourceBounds := getRandomResourceBounds(t)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 	accountDeploymentData, accountDeploymentDataBytes := getRandomFeltSlice(t)
 
-	consensusDeclareTransaction := b.ToCore(
-		&core.DeclareTransaction{
-			TransactionHash:       &transactionHash,
-			ClassHash:             &classHash,
-			SenderAddress:         &senderAddress,
-			MaxFee:                nil, // Unused field
-			TransactionSignature:  transactionSignature,
-			Nonce:                 &nonce,
-			Version:               version,
-			CompiledClassHash:     &compiledClassHash,
-			ResourceBounds:        resourceBounds,
-			Tip:                   tip,
-			PaymasterData:         paymasterData,
-			AccountDeploymentData: accountDeploymentData,
-			NonceDAMode:           core.DAModeL2,
-			FeeDAMode:             core.DAModeL2,
-		},
-		cairo1Class,
-		nil,
-	)
+	consensusDeclareTransaction := core.DeclareTransaction{
+		TransactionHash:       nil,
+		ClassHash:             &classHash,
+		SenderAddress:         &senderAddress,
+		MaxFee:                nil, // Unused field
+		TransactionSignature:  transactionSignature,
+		Nonce:                 &nonce,
+		Version:               version,
+		CompiledClassHash:     cairo1Class.Compiled.Hash(),
+		ResourceBounds:        resourceBounds,
+		Tip:                   tip,
+		PaymasterData:         paymasterData,
+		AccountDeploymentData: accountDeploymentData,
+		NonceDAMode:           core.DAModeL2,
+		FeeDAMode:             core.DAModeL2,
+	}
 
-	p2pTransaction := b.ToP2PDeclare(
-		&transaction.DeclareV3WithClass{
-			Common: &transaction.DeclareV3Common{
-				Sender:                    &common.Address{Elements: senderAddressBytes},
-				Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
-				Nonce:                     &common.Felt252{Elements: nonceBytes},
-				CompiledClassHash:         &common.Hash{Elements: compiledClassHashBytes},
-				ResourceBounds:            p2pResourceBounds,
-				Tip:                       tip,
-				PaymasterData:             toFelt252Slice(paymasterDataBytes),
-				AccountDeploymentData:     toFelt252Slice(accountDeploymentDataBytes),
-				NonceDataAvailabilityMode: common.VolitionDomain_L2,
-				FeeDataAvailabilityMode:   common.VolitionDomain_L2,
-			},
-			Class: core2p2p.AdaptCairo1Class(cairo1Class),
+	p2pTransaction := transaction.DeclareV3WithClass{
+		Common: &transaction.DeclareV3Common{
+			Sender:                    &common.Address{Elements: senderAddressBytes},
+			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			Nonce:                     &common.Felt252{Elements: nonceBytes},
+			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
+			ResourceBounds:            p2pResourceBounds,
+			Tip:                       tip,
+			PaymasterData:             toFelt252Slice(paymasterDataBytes),
+			AccountDeploymentData:     toFelt252Slice(accountDeploymentDataBytes),
+			NonceDataAvailabilityMode: common.VolitionDomain_L2,
+			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
 		},
-		&common.Hash{Elements: transactionHashBytes},
-	)
+		Class: core2p2p.AdaptCairo1Class(cairo1Class),
+	}
 
-	return consensusDeclareTransaction, p2pTransaction
+	var p2pHash *common.Hash
+	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
+
+	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil), b.ToP2PDeclare(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
 	t.Helper()
-	transactionHash, transactionHashBytes := getRandomFelt(t)
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
@@ -208,51 +208,46 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 
-	consensusDeployAccountTransaction := b.ToCore(
-		&core.DeployAccountTransaction{
-			DeployTransaction: core.DeployTransaction{
-				TransactionHash:     &transactionHash,
-				ContractAddressSalt: &contractAddressSalt,
-				ContractAddress:     contractAddress,
-				ClassHash:           &classHash,
-				ConstructorCallData: constructorCallData,
-				Version:             version,
-			},
-			MaxFee:               nil, // Unused field
-			TransactionSignature: transactionSignature,
-			Nonce:                &nonce,
-			ResourceBounds:       resourceBounds,
-			Tip:                  tip,
-			PaymasterData:        paymasterData,
-			NonceDAMode:          core.DAModeL2,
-			FeeDAMode:            core.DAModeL2,
+	consensusDeployAccountTransaction := core.DeployAccountTransaction{
+		DeployTransaction: core.DeployTransaction{
+			TransactionHash:     nil,
+			ContractAddressSalt: &contractAddressSalt,
+			ContractAddress:     contractAddress,
+			ClassHash:           &classHash,
+			ConstructorCallData: constructorCallData,
+			Version:             version,
 		},
-		nil,
-		nil,
-	)
+		MaxFee:               nil, // Unused field
+		TransactionSignature: transactionSignature,
+		Nonce:                &nonce,
+		ResourceBounds:       resourceBounds,
+		Tip:                  tip,
+		PaymasterData:        paymasterData,
+		NonceDAMode:          core.DAModeL2,
+		FeeDAMode:            core.DAModeL2,
+	}
 
-	p2pTransaction := b.ToP2PDeploy(
-		&transaction.DeployAccountV3{
-			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
-			ClassHash:                 &common.Hash{Elements: classHashBytes},
-			Nonce:                     &common.Felt252{Elements: nonceBytes},
-			AddressSalt:               &common.Felt252{Elements: contractAddressSaltBytes},
-			Calldata:                  toFelt252Slice(constructorCallDataBytes),
-			ResourceBounds:            p2pResourceBounds,
-			Tip:                       tip,
-			PaymasterData:             toFelt252Slice(paymasterDataBytes),
-			NonceDataAvailabilityMode: common.VolitionDomain_L2,
-			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
-		},
-		&common.Hash{Elements: transactionHashBytes},
-	)
+	p2pTransaction := transaction.DeployAccountV3{
+		Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+		ClassHash:                 &common.Hash{Elements: classHashBytes},
+		Nonce:                     &common.Felt252{Elements: nonceBytes},
+		AddressSalt:               &common.Felt252{Elements: contractAddressSaltBytes},
+		Calldata:                  toFelt252Slice(constructorCallDataBytes),
+		ResourceBounds:            p2pResourceBounds,
+		Tip:                       tip,
+		PaymasterData:             toFelt252Slice(paymasterDataBytes),
+		NonceDataAvailabilityMode: common.VolitionDomain_L2,
+		FeeDataAvailabilityMode:   common.VolitionDomain_L2,
+	}
 
-	return consensusDeployAccountTransaction, p2pTransaction
+	var p2pHash *common.Hash
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeployAccountTransaction, network)
+
+	return b.ToCore(&consensusDeployAccountTransaction, nil, nil), b.ToP2PDeploy(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, network *utils.Network) (C, P) {
 	t.Helper()
-	transactionHash, transactionHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(3)
@@ -262,80 +257,71 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T) (C, P)
 	tip := rand.Uint64()
 	paymasterData, paymasterDataBytes := getRandomFeltSlice(t)
 
-	consensusInvokeTransaction := b.ToCore(
-		&core.InvokeTransaction{
-			TransactionHash:       &transactionHash,
-			CallData:              constructorCallData,
-			TransactionSignature:  transactionSignature,
-			MaxFee:                nil, // Unused field
-			ContractAddress:       nil, // TODO: Figure out why the original adapter doesn't set this field
-			Version:               version,
-			EntryPointSelector:    nil, // TODO: Figure out why the original adapter doesn't set this field
-			Nonce:                 &nonce,
-			SenderAddress:         &senderAddress,
-			ResourceBounds:        resourceBounds,
-			Tip:                   tip,
-			PaymasterData:         paymasterData,
-			AccountDeploymentData: nil, // TODO: Figure out why the original adapter doesn't set this field
-			NonceDAMode:           core.DAModeL2,
-			FeeDAMode:             core.DAModeL2,
-		},
-		nil,
-		nil,
-	)
+	consensusInvokeTransaction := core.InvokeTransaction{
+		TransactionHash:       nil,
+		CallData:              constructorCallData,
+		TransactionSignature:  transactionSignature,
+		MaxFee:                nil, // Unused field
+		ContractAddress:       nil, // TODO: Figure out why the original adapter doesn't set this field
+		Version:               version,
+		EntryPointSelector:    nil, // TODO: Figure out why the original adapter doesn't set this field
+		Nonce:                 &nonce,
+		SenderAddress:         &senderAddress,
+		ResourceBounds:        resourceBounds,
+		Tip:                   tip,
+		PaymasterData:         paymasterData,
+		AccountDeploymentData: nil, // TODO: Figure out why the original adapter doesn't set this field
+		NonceDAMode:           core.DAModeL2,
+		FeeDAMode:             core.DAModeL2,
+	}
 
-	p2pTransaction := b.ToP2PInvoke(
-		&transaction.InvokeV3{
-			Sender:                    &common.Address{Elements: senderAddressBytes},
-			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
-			Calldata:                  toFelt252Slice(constructorCallDataBytes),
-			ResourceBounds:            p2pResourceBounds,
-			Tip:                       tip,
-			PaymasterData:             toFelt252Slice(paymasterDataBytes),
-			AccountDeploymentData:     nil, // TODO: Figure out why the original adapter doesn't set this field
-			NonceDataAvailabilityMode: common.VolitionDomain_L2,
-			FeeDataAvailabilityMode:   common.VolitionDomain_L2,
-			Nonce:                     &common.Felt252{Elements: nonceBytes},
-		},
-		&common.Hash{Elements: transactionHashBytes},
-	)
+	p2pTransaction := transaction.InvokeV3{
+		Sender:                    &common.Address{Elements: senderAddressBytes},
+		Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+		Calldata:                  toFelt252Slice(constructorCallDataBytes),
+		ResourceBounds:            p2pResourceBounds,
+		Tip:                       tip,
+		PaymasterData:             toFelt252Slice(paymasterDataBytes),
+		AccountDeploymentData:     nil, // TODO: Figure out why the original adapter doesn't set this field
+		NonceDataAvailabilityMode: common.VolitionDomain_L2,
+		FeeDataAvailabilityMode:   common.VolitionDomain_L2,
+		Nonce:                     &common.Felt252{Elements: nonceBytes},
+	}
 
-	return consensusInvokeTransaction, p2pTransaction
+	var p2pHash *common.Hash
+	consensusInvokeTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusInvokeTransaction, network)
+
+	return b.ToCore(&consensusInvokeTransaction, nil, nil), b.ToP2PInvoke(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *utils.Network) (C, P) {
 	t.Helper()
-	transactionHash, transactionHashBytes := getRandomFelt(t)
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
 	nonce, nonceBytes := getRandomFelt(t)
 	callData, callDataBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(0)
 
-	consensusL1HandlerTransaction := b.ToCore(
-		&core.L1HandlerTransaction{
-			TransactionHash:    &transactionHash,
-			ContractAddress:    &contractAddress,
-			EntryPointSelector: &entryPointSelector,
-			Nonce:              &nonce,
-			CallData:           callData,
-			Version:            version,
-		},
-		nil,
-		felt.One.Clone(),
-	)
+	consensusL1HandlerTransaction := core.L1HandlerTransaction{
+		TransactionHash:    nil,
+		ContractAddress:    &contractAddress,
+		EntryPointSelector: &entryPointSelector,
+		Nonce:              &nonce,
+		CallData:           callData,
+		Version:            version,
+	}
 
-	p2pTransaction := b.ToP2PL1Handler(
-		&transaction.L1HandlerV0{
-			Nonce:              &common.Felt252{Elements: nonceBytes},
-			Address:            &common.Address{Elements: contractAddressBytes},
-			EntryPointSelector: &common.Felt252{Elements: entryPointSelectorBytes},
-			Calldata:           toFelt252Slice(callDataBytes),
-		},
-		&common.Hash{Elements: transactionHashBytes},
-	)
+	p2pTransaction := transaction.L1HandlerV0{
+		Nonce:              &common.Felt252{Elements: nonceBytes},
+		Address:            &common.Address{Elements: contractAddressBytes},
+		EntryPointSelector: &common.Felt252{Elements: entryPointSelectorBytes},
+		Calldata:           toFelt252Slice(callDataBytes),
+	}
 
-	return consensusL1HandlerTransaction, p2pTransaction
+	var p2pHash *common.Hash
+	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusL1HandlerTransaction, network)
+
+	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
 }
 
 // StripCompilerFields strips the some fields related to compiler in the compiled class.

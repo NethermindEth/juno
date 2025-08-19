@@ -66,7 +66,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 		received := make(chan *mempool.BroadcastedTransaction, txCount)
 		pool := mockMempool(received)
 
-		p2p := p2p.New(node.Host, logger, &pool, &config.DefaultBufferSizes, node.GetBootstrapPeers)
+		p2p := p2p.New(&utils.Mainnet, node.Host, logger, &pool, &config.DefaultBufferSizes, node.GetBootstrapPeers)
 
 		peerWait.Go(func() {
 			require.NoError(t, p2p.Run(t.Context()))
@@ -111,7 +111,7 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 func getRandomTransactions(t *testing.T) []mempool.BroadcastedTransaction {
 	transactions := make([]mempool.BroadcastedTransaction, txCount)
 	for i := range txCount {
-		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(t)
+		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(t, &utils.Mainnet)
 	}
 	return transactions
 }
