@@ -95,7 +95,7 @@ func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, e
 	}
 
 	// slice of 2-element tuples where first value is pc, and second value is slice of hints
-	var hints = make([][2]any, len(classHints))
+	hints := make([][2]any, len(classHints))
 	var count int
 	for pc, hintItems := range utils.SortedMap(classHints) {
 		hints[count] = [2]any{pc, hintItems}
