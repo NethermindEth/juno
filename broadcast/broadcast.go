@@ -20,7 +20,9 @@ type Broadcast[T any] struct {
 	closed atomic.Bool
 
 	subMu sync.RWMutex
-	subs  map[*Subscription[T]]struct{}
+	subs  map[uint64]*Subscription[T]
+	// monotonically increasing subsctiption ID to assign to next subscriber
+	nextSubID atomic.Uint64
 }
 
 // Subscription represents one consumer.
@@ -28,6 +30,7 @@ type Broadcast[T any] struct {
 //   - seq: next sequence to read.
 //   - notifyC: 1-buffered wakeup channel (coalesced notifications).
 //   - isClosed: ensures Unsubscribe runs only once.
+//   - id: subscription id
 //   - out: user-facing channel for events or lag notifications.
 //   - done: closed by Unsubscribe; run observes it to abort blocking sends
 type Subscription[T any] struct {
@@ -35,6 +38,7 @@ type Subscription[T any] struct {
 	seq      uint64
 	notifyC  chan struct{}
 	isClosed atomic.Bool
+	id       uint64
 
 	out  chan EventOrLag[T] // user-facing channel for messages
 	done chan struct{}      // to shutdown goroutine
@@ -87,7 +91,7 @@ type LaggedInfo struct {
 func New[T any](capacity uint64) *Broadcast[T] {
 	return &Broadcast[T]{
 		ring: newRingBuffer[T](capacity),
-		subs: make(map[*Subscription[T]]struct{}),
+		subs: make(map[uint64]*Subscription[T]),
 	}
 }
 
@@ -105,7 +109,7 @@ func (b *Broadcast[T]) Send(msg T) error {
 	b.subMu.RLock()
 	defer b.subMu.RUnlock()
 	// Wake subscribers (only if someone is blocked)
-	for sub := range b.subs {
+	for _, sub := range b.subs {
 		select {
 		case sub.notifyC <- struct{}{}:
 		default:
@@ -126,16 +130,18 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	next := b.ring.tail
 	b.ring.tailMu.RUnlock()
 
+	subId := b.nextSubID.Add(1)
 	sub := &Subscription[T]{
 		bcast:   b,
 		seq:     next, // next msg to read
 		notifyC: make(chan struct{}, 1),
 		out:     make(chan EventOrLag[T], 1),
 		done:    make(chan struct{}),
+		id:      subId,
 	}
 
 	b.subMu.Lock()
-	b.subs[sub] = struct{}{}
+	b.subs[sub.id] = sub
 	b.subMu.Unlock()
 	go sub.run()
 
@@ -155,10 +161,10 @@ func (b *Broadcast[T]) Close() {
 	b.subMu.Lock()
 	defer b.subMu.Unlock()
 
-	for sub := range b.subs {
+	for _, sub := range b.subs {
 		close(sub.notifyC) // Drain mode
 	}
-	b.subs = make(map[*Subscription[T]]struct{})
+	b.subs = make(map[uint64]*Subscription[T])
 }
 
 // Unsubscribe removes this subscriber from the broadcast (if still present) and
@@ -172,7 +178,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 
 	if sub.bcast != nil {
 		sub.bcast.subMu.Lock()
-		delete(sub.bcast.subs, sub)
+		delete(sub.bcast.subs, sub.id)
 		sub.bcast.subMu.Unlock()
 	}
 	close(sub.done) // signal goroutine to exit
