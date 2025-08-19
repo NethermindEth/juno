@@ -423,7 +423,7 @@ func sendEvents(
 				finalityStatus = TxnPreConfirmed
 			case *event.BlockNumber <= l1Head:
 				finalityStatus = TxnAcceptedOnL1
-			default: // Canonical block not finalized on L1
+			default: // Canonical block not finalised on L1
 				finalityStatus = TxnAcceptedOnL2
 			}
 
