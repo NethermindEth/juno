@@ -182,14 +182,22 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
+	)
+
+	_, b1EmittedAsAcceptedOnL1 := createTestEvents(
+		t,
+		b1,
+		nil,
+		nil,
+		TxnAcceptedOnL1,
 	)
 	b2Filtered, b2Emitted := createTestEvents(
 		t,
 		b2,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 
 	pendingB := createTestPendingBlock(t, b2, 6)
@@ -199,7 +207,7 @@ func TestSubscribeEvents(t *testing.T) {
 		pendingB,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 	pendingB2 := createTestPendingBlock(t, b2, 10)
 
@@ -209,7 +217,7 @@ func TestSubscribeEvents(t *testing.T) {
 		pendingB2,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 	preConfirmed1 := createTestPreConfirmed(t, b2, 3)
 	preConfirmed2 := createTestPreConfirmed(t, b2, 6)
@@ -219,14 +227,14 @@ func TestSubscribeEvents(t *testing.T) {
 		preConfirmed1.Block,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 	_, preConfirmed2Emitted := createTestEvents(
 		t,
 		preConfirmed2.Block,
 		nil,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 
 	mockCtrl := gomock.NewController(t)
@@ -267,6 +275,11 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil).Times(1)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
+
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		},
 		steps: []stepInfo{
@@ -305,6 +318,10 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		},
 		steps: []stepInfo{
@@ -344,8 +361,11 @@ func TestSubscribeEvents(t *testing.T) {
 		fromAddr:       nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmed1Filtered, nil, nil)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, preConfirmed1Filtered...), nil, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -370,19 +390,27 @@ func TestSubscribeEvents(t *testing.T) {
 	}
 
 	eventsFromHistoricalBlocks := testCase{
-		description: "Events from historical blocks - default status",
+		description: "Events from historical blocks - default status, events from 2 block",
 		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
 		keys:        nil,
 		fromAddr:    nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: b1.Header.Number},
+				nil,
+			)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, b2Filtered...), nil, nil)
 		},
 		steps: []stepInfo{
 			{
-				description: "events from last 2 blocks",
-				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, b2Emitted...)},
+				description: "events from ACCEPTED_ON_L1 on start, with blockNumber query",
+				expect:      [][]*SubscriptionEmittedEvent{b1EmittedAsAcceptedOnL1},
+			},
+			{
+				description: "events from ACCEPTED_ON_L2 on start",
+				expect:      [][]*SubscriptionEmittedEvent{b2Emitted},
 			},
 		},
 	}
@@ -395,7 +423,10 @@ func TestSubscribeEvents(t *testing.T) {
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
 			cToken := new(blockchain.ContinuationToken)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
 			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
@@ -414,7 +445,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		targetAddress,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 
 	preConfirmedFilteredBySenders, preConfirmedEmittedFiltered := createTestEvents(
@@ -422,7 +453,7 @@ func TestSubscribeEvents(t *testing.T) {
 		preConfirmed1.Block,
 		targetAddress,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 
 	_, preConfirmed2EmittedFiltered := createTestEvents(
@@ -430,7 +461,7 @@ func TestSubscribeEvents(t *testing.T) {
 		preConfirmed2.Block,
 		targetAddress,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 
 	_, b2EmittedFiltered := createTestEvents(
@@ -438,7 +469,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2,
 		targetAddress,
 		nil,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 
 	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
@@ -449,8 +480,11 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:           nil,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredBySenders, nil, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySenders, nil, nil)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredBySenders, preConfirmedFilteredBySenders...), nil, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -483,7 +517,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b1,
 		targetAddress,
 		keys,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 
 	preConfirmedFilteredBySendersAndKey, preConfirmedEmittedWFilters := createTestEvents(
@@ -491,7 +525,7 @@ func TestSubscribeEvents(t *testing.T) {
 		preConfirmed1.Block,
 		targetAddress,
 		keys,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 
 	_, preConfirmed2EmittedWFilters := createTestEvents(
@@ -499,7 +533,7 @@ func TestSubscribeEvents(t *testing.T) {
 		preConfirmed2.Block,
 		targetAddress,
 		keys,
-		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+		TxnPreConfirmed,
 	)
 
 	_, b2EmittedWFilters := createTestEvents(
@@ -507,7 +541,7 @@ func TestSubscribeEvents(t *testing.T) {
 		b2,
 		targetAddress,
 		keys,
-		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+		TxnAcceptedOnL2,
 	)
 
 	eventsWithAllFilterAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
@@ -518,8 +552,11 @@ func TestSubscribeEvents(t *testing.T) {
 		keys:           keys,
 		setupMocks: func() {
 			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredByFromAddressAndKey, nil, nil)
-			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySendersAndKey, nil, nil)
+			mockChain.EXPECT().L1Head().Return(
+				&core.L1Head{BlockNumber: uint64(max(0, int(b1.Header.Number)-1))},
+				nil,
+			)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1FilteredByFromAddressAndKey, preConfirmedFilteredBySendersAndKey...), nil, nil)
 		},
 		steps: []stepInfo{
 			{
@@ -960,7 +997,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-
+	mockChain.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: 0}, nil)
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
@@ -1991,7 +2028,7 @@ func createTestEvents(
 	b *core.Block,
 	fromAddress *felt.Felt,
 	keys [][]felt.Felt,
-	finalityStatus TxnFinalityStatusWithoutL1,
+	finalityStatus TxnFinalityStatus,
 ) ([]*blockchain.FilteredEvent, []*SubscriptionEmittedEvent) {
 	t.Helper()
 	var blockNumber *uint64
