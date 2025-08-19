@@ -1,3 +1,7 @@
+// Package broadcast implements fan-out event streaming and notification systems
+// where multiple consumers need to receive all messages or be informed about lost messages,
+// while the producers manages a bounded buffer with overwrites.
+// Safe for multi-producer multi-consumer setting.
 package broadcast
 
 import (
@@ -14,14 +18,14 @@ var ErrClosed = errors.New("broadcast channel closed")
 // - closed: atomic flag indicating broadcast has been closed.
 // - subMu: protects the subs map.
 // - subs: set of current subscriptions.
+// - nextSubID: monotonically increasing subsctiption ID to assign to next subscriber.
 type Broadcast[T any] struct {
 	ring *ringBuffer[T]
 
 	closed atomic.Bool
 
-	subMu sync.RWMutex
-	subs  map[uint64]*Subscription[T]
-	// monotonically increasing subsctiption ID to assign to next subscriber
+	subMu     sync.RWMutex
+	subs      map[uint64]*Subscription[T]
 	nextSubID atomic.Uint64
 }
 
