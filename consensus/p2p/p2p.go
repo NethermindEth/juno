@@ -13,25 +13,22 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/address"
+	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/sourcegraph/conc"
 )
 
 type topicName string
 
 const (
-	protocolPrefix                = "starknet"
 	chainID                       = "1" // TODO: Make this configurable
 	consensusProtocolID           = "consensus"
 	proposalTopicName   topicName = "consensus_proposals"
 	voteTopicName       topicName = "consensus_votes"
-	gossipSubHistory              = 60
 )
 
 type P2P[V types.Hashable[H], H types.Hash, A types.Addr] interface {
@@ -53,7 +50,7 @@ type p2p[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 type attachedToTopic interface {
-	Loop(ctx context.Context, topic *pubsub.Topic)
+	Loop(ctx context.Context, topic *libp2p.Topic)
 }
 
 func New(
@@ -77,8 +74,7 @@ func New(
 	voteBroadcaster := vote.NewVoteBroadcaster(
 		log,
 		vote.StarknetVoteAdapter,
-		bufferSizeConfig.VoteProtoBroadcaster,
-		bufferSizeConfig.RetryInterval,
+		bufferSizeConfig,
 	)
 	broadcasters := Broadcasters[starknet.Value, starknet.Hash, address.Address]{
 		ProposalBroadcaster:  &proposalBroadcaster,
@@ -124,64 +120,50 @@ func New(
 	}
 }
 
-func (p *p2p[V, H, A]) getGossipSubOptions() pubsub.Option {
-	params := pubsub.DefaultGossipSubParams()
-	params.HistoryLength = gossipSubHistory
-	params.HistoryGossip = gossipSubHistory
-
-	return pubsub.WithGossipSubParams(params)
-}
-
 func (p *p2p[V, H, A]) Run(ctx context.Context) error {
-	dht, err := dht.New(
+	gossipSub, err := pubsub.Run(
 		ctx,
+		chainID,
+		consensusProtocolID,
 		p.host,
-		dht.ProtocolPrefix("/"+protocolPrefix),
-		dht.ProtocolExtension("/"+chainID),
-		dht.ProtocolExtension("/"+consensusProtocolID),
-		dht.BootstrapPeersFunc(p.bootstrapPeersFn),
-		dht.Mode(dht.ModeServer),
-	)
-	if err != nil {
-		return fmt.Errorf("unable to create dht with error: %w", err)
-	}
-
-	gossipSub, err := pubsub.NewGossipSub(
-		ctx,
-		p.host,
-		p.getGossipSubOptions(),
-		pubsub.WithPeerOutboundQueueSize(p.pubSubQueueSize),
-		pubsub.WithValidateQueueSize(p.pubSubQueueSize),
-		pubsub.WithDiscovery(routing.NewRoutingDiscovery(dht)),
+		p.pubSubQueueSize,
+		p.bootstrapPeersFn,
 	)
 	if err != nil {
 		return fmt.Errorf("unable to create gossipsub with error: %w", err)
 	}
 
-	topics := make(map[topicName]*pubsub.Topic)
+	topics := make([]*libp2p.Topic, 0, len(p.topicAttachment))
+	relayCancels := make([]func(), 0, len(p.topicAttachment))
 	defer func() {
+		for _, cancel := range relayCancels {
+			cancel()
+		}
 		for _, topic := range topics {
 			topic.Close()
 		}
 	}()
 
 	wg := conc.NewWaitGroup()
-
-	for topicName := range p.topicAttachment {
-		if topics[topicName], err = gossipSub.Join(string(topicName)); err != nil {
-			return fmt.Errorf("unable to join topic %s with error: %w", topicName, err)
-		}
-	}
+	defer wg.Wait()
 
 	for topicName, services := range p.topicAttachment {
+		topic, relayCancel, err := pubsub.JoinTopic(gossipSub, string(topicName))
+		if err != nil {
+			return fmt.Errorf("unable to join topic %s with error: %w", topicName, err)
+		}
+
+		topics = append(topics, topic)
+		relayCancels = append(relayCancels, relayCancel)
+
 		for _, service := range services {
 			wg.Go(func() {
-				service.Loop(ctx, topics[topicName])
+				service.Loop(ctx, topic)
 			})
 		}
 	}
 
-	wg.Wait()
+	<-ctx.Done()
 	return nil
 }
 

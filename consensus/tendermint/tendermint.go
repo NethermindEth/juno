@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+//go:generate mockgen -destination=../mocks/mock_application.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint Application
 type Application[V types.Hashable[H], H types.Hash] interface {
 	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V

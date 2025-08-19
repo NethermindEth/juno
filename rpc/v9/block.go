@@ -83,6 +83,12 @@ func BlockIDFromHash(blockHash *felt.Felt) BlockID {
 	}
 }
 
+func BlockIDPreConfirmed() BlockID {
+	return BlockID{
+		typeID: preConfirmed,
+	}
+}
+
 func (b *BlockID) Type() blockIDType {
 	return b.typeID
 }

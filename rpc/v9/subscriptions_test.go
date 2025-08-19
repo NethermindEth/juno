@@ -48,7 +48,52 @@ func (fc *fakeConn) Equal(other jsonrpc.Conn) bool {
 	return fc.w == fc2.w
 }
 
-func TestSubscribeEvents(t *testing.T) {
+type fakeSyncer struct {
+	newHeads    *feed.Feed[*core.Block]
+	reorgs      *feed.Feed[*sync.ReorgBlockRange]
+	pendingData *feed.Feed[core.PendingData]
+}
+
+func newFakeSyncer() *fakeSyncer {
+	return &fakeSyncer{
+		newHeads:    feed.New[*core.Block](),
+		reorgs:      feed.New[*sync.ReorgBlockRange](),
+		pendingData: feed.New[core.PendingData](),
+	}
+}
+
+func (fs *fakeSyncer) SubscribeNewHeads() sync.NewHeadSubscription {
+	return sync.NewHeadSubscription{Subscription: fs.newHeads.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
+	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
+}
+
+func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
+	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
+}
+
+func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
+	return 0, nil
+}
+
+func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
+	return nil
+}
+
+func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
+	return nil, sync.ErrPendingBlockNotFound
+}
+func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
+
+func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
+
+func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+	return nil, nil, nil
+}
+
+func TestSubscribeEventsInvalidInputs(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
 	t.Run("Return error if too many keys in filter", func(t *testing.T) {
@@ -69,7 +114,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil)
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil, nil)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
@@ -102,7 +147,7 @@ func TestSubscribeEvents(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -112,11 +157,15 @@ func TestSubscribeEvents(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
 	})
+}
+
+func TestSubscribeEvents(t *testing.T) {
+	log := utils.NewNopZapLogger()
 
 	n := &utils.Sepolia
 	client := feeder.NewTestClient(t, n)
@@ -128,126 +177,413 @@ func TestSubscribeEvents(t *testing.T) {
 	b2, err := gw.BlockByNumber(t.Context(), 56378)
 	require.NoError(t, err)
 
-	pending1 := createTestPendingBlock(t, b2, 3)
-	pending2 := createTestPendingBlock(t, b2, 6)
+	b1Filtered, b1Emitted := createTestEvents(
+		t,
+		b1,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
+	b2Filtered, b2Emitted := createTestEvents(
+		t,
+		b2,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
 
-	fromAddr := new(felt.Felt).SetBytes([]byte("some address"))
-	keys := [][]felt.Felt{{*new(felt.Felt).SetBytes([]byte("key1"))}}
+	pendingB := createTestPendingBlock(t, b2, 6)
+	pending := sync.NewPending(pendingB, nil, nil)
+	_, pendingEmitted := createTestEvents(
+		t,
+		pendingB,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
+	pendingB2 := createTestPendingBlock(t, b2, 10)
 
-	b1Filtered, b1Emitted := createTestEvents(t, b1)
-	b2Filtered, b2Emitted := createTestEvents(t, b2)
-	pending1Filtered, pending1Emitted := createTestEvents(t, pending1)
-	pending2Filtered, pending2Emitted := createTestEvents(t, pending2)
+	pending2 := sync.NewPending(pendingB2, nil, nil)
+	_, pending2Emitted := createTestEvents(
+		t,
+		pendingB2,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
+	preConfirmed1 := createTestPreConfirmed(t, b2, 3)
+	preConfirmed2 := createTestPreConfirmed(t, b2, 6)
 
-	t.Run("Events from new blocks", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+	preConfirmed1Filtered, preConfirmed1Emitted := createTestEvents(
+		t,
+		preConfirmed1.Block,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
+	_, preConfirmed2Emitted := createTestEvents(
+		t,
+		preConfirmed2.Block,
+		nil,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
 
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
 
-		handler := New(mockChain, mockSyncer, nil, log)
+	mockChain := mocks.NewMockReader(mockCtrl)
+	mockSyncer := mocks.NewMockSyncReader(mockCtrl)
+	mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(mockEventFilterer, nil).AnyTimes()
+	mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+		Return(nil).AnyTimes()
+	mockEventFilterer.EXPECT().Close().AnyTimes()
 
-		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(mockEventFilterer, nil).AnyTimes()
-		mockChain.EXPECT().BlockByNumber(gomock.Any()).Return(b1, nil).AnyTimes()
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
-			Return(nil).AnyTimes()
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
-		mockEventFilterer.EXPECT().Close().AnyTimes()
+	handler := New(mockChain, mockSyncer, nil, log)
 
-		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
+	type stepInfo struct {
+		description string
+		setupMocks  func()
+		notify      func()
+		expect      [][]*SubscriptionEmittedEvent
+	}
 
-		assertNextEvents(t, clientConn, id, b1Emitted)
+	type testCase struct {
+		description    string
+		blockID        *SubscriptionBlockID
+		finalityStatus *TxnFinalityStatusWithoutL1
+		keys           [][]felt.Felt
+		fromAddr       *felt.Felt
+		steps          []stepInfo
+		setupMocks     func()
+	}
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
-		handler.newHeads.Send(b2)
-		assertNextEvents(t, clientConn, id, b2Emitted)
-	})
+	preStarknet0_14_0basicSubscription := testCase{
+		description: "Events from new blocks - default status, Starknet version < 0.14.0",
+		blockID:     nil,
+		keys:        nil,
+		fromAddr:    nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil).Times(1)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest on start",
+				expect:      [][]*SubscriptionEmittedEvent{b1Emitted},
+			},
+			{
+				description: "on pending block",
+				notify: func() {
+					handler.pendingData.Send(&pending)
+				},
+				expect: [][]*SubscriptionEmittedEvent{pendingEmitted},
+			},
+			{
+				description: "on pending block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&pending2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{pending2Emitted[len(pendingEmitted):]},
+			},
+			{
+				description: "on new head, without duplicates",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{b2Emitted[len(pending2Emitted):]},
+			},
+		},
+	}
 
-	t.Run("Events from old blocks", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+	basicSubscription := testCase{
+		description: "Events from new blocks - default status",
+		blockID:     nil,
+		keys:        nil,
+		fromAddr:    nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest on start",
+				expect:      [][]*SubscriptionEmittedEvent{b1Emitted},
+			},
+			{
+				description: "on pre_confirmed block",
+				notify: func() {
+					handler.pendingData.Send(&preConfirmed1)
+				},
+				expect: [][]*SubscriptionEmittedEvent{},
+			},
+			{
+				description: "on pre_confirmed block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{},
+			},
+			{
+				description: "on new head",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{b2Emitted},
+			},
+		},
+	}
 
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+	basicSubscriptionWithPreConfirmed := testCase{
+		description:    "Events from new blocks - status PRE_CONFIRMED",
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		blockID:        nil,
+		keys:           nil,
+		fromAddr:       nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmed1Filtered, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest and preconfirmed",
+				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, preConfirmed1Emitted...)},
+			},
+			{
+				description: "on pre_confirmed block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{preConfirmed2Emitted[len(preConfirmed1Emitted):]},
+			},
+			{
+				description: "on new head",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{b2Emitted},
+			},
+		},
+	}
 
-		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+	eventsFromHistoricalBlocks := testCase{
+		description: "Events from historical blocks - default status",
+		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
+		keys:        nil,
+		fromAddr:    nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(append(b1Filtered, b2Filtered...), nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from last 2 blocks",
+				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, b2Emitted...)},
+			},
+		},
+	}
 
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
-		mockEventFilterer.EXPECT().Close().AnyTimes()
+	eventsWithContinuationToken := testCase{
+		description: "Events with continuation token - default status",
+		blockID:     utils.HeapPtr(SubscriptionBlockID(BlockIDFromNumber(b1.Number))),
+		keys:        nil,
+		fromAddr:    nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b2.Header, nil)
+			mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 
-		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
+			cToken := new(blockchain.ContinuationToken)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from last 2 blocks with continuation token",
+				expect:      [][]*SubscriptionEmittedEvent{append(b1Emitted, b2Emitted...)},
+			},
+		},
+	}
+	targetAddress, err := new(felt.Felt).SetString("0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3")
+	require.NoError(t, err)
+	b1FilteredBySenders, b1EmittedFiltered := createTestEvents(
+		t,
+		b1,
+		targetAddress,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
 
-		assertNextEvents(t, clientConn, id, b1Emitted)
-	})
+	preConfirmedFilteredBySenders, preConfirmedEmittedFiltered := createTestEvents(
+		t,
+		preConfirmed1.Block,
+		targetAddress,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
 
-	t.Run("Events when continuation token is not nil", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+	_, preConfirmed2EmittedFiltered := createTestEvents(
+		t,
+		preConfirmed2.Block,
+		targetAddress,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
 
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
-		handler := New(mockChain, mockSyncer, nil, log)
+	_, b2EmittedFiltered := createTestEvents(
+		t,
+		b2,
+		targetAddress,
+		nil,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
 
-		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
+	eventsWithFromAddressAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
+		description:    "Events with from_address filter, finality PRE_CONFIRMED",
+		blockID:        nil,
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		fromAddr:       targetAddress,
+		keys:           nil,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredBySenders, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySenders, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest and preconfirmed",
+				expect:      [][]*SubscriptionEmittedEvent{append(b1EmittedFiltered, preConfirmedEmittedFiltered...)},
+			},
+			{
+				description: "on pre_confirmed block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{preConfirmed2EmittedFiltered[len(preConfirmedEmittedFiltered):]},
+			},
+			{
+				description: "on new head",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{b2EmittedFiltered},
+			},
+		},
+	}
 
-		cToken := new(blockchain.ContinuationToken)
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
-		mockEventFilterer.EXPECT().Close().AnyTimes()
+	targetKey, err := new(felt.Felt).SetString("0x1dcde06aabdbca2f80aa51392b345d7549d7757aa855f7e37f5d335ac8243b1")
+	require.NoError(t, err)
+	keys := [][]felt.Felt{{*targetKey}}
 
-		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, &b1.Number)
+	b1FilteredByFromAddressAndKey, b1EmittedWFilters := createTestEvents(
+		t,
+		b1,
+		targetAddress,
+		keys,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
 
-		assertNextEvents(t, clientConn, id, b1Emitted)
-	})
+	preConfirmedFilteredBySendersAndKey, preConfirmedEmittedWFilters := createTestEvents(
+		t,
+		preConfirmed1.Block,
+		targetAddress,
+		keys,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
 
-	t.Run("Events from pending block without duplicates", func(t *testing.T) {
-		mockCtrl := gomock.NewController(t)
-		t.Cleanup(mockCtrl.Finish)
+	_, preConfirmed2EmittedWFilters := createTestEvents(
+		t,
+		preConfirmed2.Block,
+		targetAddress,
+		keys,
+		TxnFinalityStatusWithoutL1(TxnPreConfirmed),
+	)
 
-		mockChain := mocks.NewMockReader(mockCtrl)
-		mockSyncer := mocks.NewMockSyncReader(mockCtrl)
-		mockEventFilterer := mocks.NewMockEventFilterer(mockCtrl)
+	_, b2EmittedWFilters := createTestEvents(
+		t,
+		b2,
+		targetAddress,
+		keys,
+		TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+	)
 
-		handler := New(mockChain, mockSyncer, nil, log)
+	eventsWithAllFilterAndPreConfirmed := testCase{ //nolint:dupl // params and return values are different
+		description:    "Events with from_address and key, finality PRE_CONFIRMED",
+		blockID:        nil,
+		finalityStatus: utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnPreConfirmed)),
+		fromAddr:       targetAddress,
+		keys:           keys,
+		setupMocks: func() {
+			mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1FilteredByFromAddressAndKey, nil, nil)
+			mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(preConfirmedFilteredBySendersAndKey, nil, nil)
+		},
+		steps: []stepInfo{
+			{
+				description: "events from latest and preconfirmed on start",
+				expect:      [][]*SubscriptionEmittedEvent{append(b1EmittedWFilters, preConfirmedEmittedWFilters...)},
+			},
+			{
+				description: "on pre_confirmed block update, without duplicates",
+				notify: func() {
+					handler.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{preConfirmed2EmittedWFilters[len(preConfirmedEmittedWFilters):]},
+			},
+			{
+				description: "on new head",
+				notify: func() {
+					handler.newHeads.Send(b2)
+				},
+				expect: [][]*SubscriptionEmittedEvent{b2EmittedWFilters},
+			},
+		},
+	}
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		mockEventFilterer.EXPECT().Close().AnyTimes()
+	testCases := []testCase{
+		preStarknet0_14_0basicSubscription,
+		basicSubscription,
+		basicSubscriptionWithPreConfirmed,
+		eventsFromHistoricalBlocks,
+		eventsWithContinuationToken,
+		eventsWithFromAddressAndPreConfirmed,
+		eventsWithAllFilterAndPreConfirmed,
+	}
 
-		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			if tc.setupMocks != nil {
+				tc.setupMocks()
+			}
+			subID, conn := createTestEventsWebsocket(
+				t,
+				handler,
+				tc.fromAddr,
+				tc.keys,
+				tc.blockID,
+				tc.finalityStatus,
+			)
 
-		id, clientConn := createTestEventsWebsocket(t, handler, fromAddr, keys, nil)
+			for _, step := range tc.steps {
+				t.Run(step.description, func(t *testing.T) {
+					if step.setupMocks != nil {
+						step.setupMocks()
+					}
 
-		assertNextEvents(t, clientConn, id, b1Emitted)
+					if step.notify != nil {
+						step.notify()
+					}
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
-		pendingData1 := sync.NewPending(pending1, nil, nil)
-		handler.pendingData.Send(&pendingData1)
-		assertNextEvents(t, clientConn, id, pending1Emitted)
-
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
-		pendingData2 := sync.NewPending(pending2, nil, nil)
-		handler.pendingData.Send(&pendingData2)
-		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
-
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
-		handler.newHeads.Send(b2)
-		assertNextEvents(t, clientConn, id, b2Emitted[len(pending2Emitted):])
-	})
+					for _, expectedEvents := range step.expect {
+						assertNextEvents(t, conn, subID, expectedEvents)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestSubscribeTxnStatus(t *testing.T) {
@@ -416,53 +752,10 @@ func TestSubscribeTxnStatus(t *testing.T) {
 	})
 }
 
-type fakeSyncer struct {
-	newHeads    *feed.Feed[*core.Block]
-	reorgs      *feed.Feed[*sync.ReorgBlockRange]
-	pendingData *feed.Feed[core.PendingData]
-}
-
-func newFakeSyncer() *fakeSyncer {
-	return &fakeSyncer{
-		newHeads:    feed.New[*core.Block](),
-		reorgs:      feed.New[*sync.ReorgBlockRange](),
-		pendingData: feed.New[core.PendingData](),
-	}
-}
-
-func (fs *fakeSyncer) SubscribeNewHeads() sync.NewHeadSubscription {
-	return sync.NewHeadSubscription{Subscription: fs.newHeads.Subscribe()}
-}
-
-func (fs *fakeSyncer) SubscribeReorg() sync.ReorgSubscription {
-	return sync.ReorgSubscription{Subscription: fs.reorgs.Subscribe()}
-}
-
-func (fs *fakeSyncer) SubscribePendingData() sync.PendingDataSubscription {
-	return sync.PendingDataSubscription{Subscription: fs.pendingData.Subscribe()}
-}
-
-func (fs *fakeSyncer) StartingBlockNumber() (uint64, error) {
-	return 0, nil
-}
-
-func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
-	return nil
-}
-
-func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
-	return nil, sync.ErrPendingBlockNotFound
-}
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
-func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
-func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
-	return nil, nil, nil
-}
-
 func TestSubscribeNewHeads(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
-	t.Run("Return error if block is too far back", func(t *testing.T) {
+	t.Run("BlockID - Number, Invalid Input", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -479,7 +772,7 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		t.Run("head is 1024", func(t *testing.T) {
+		t.Run("BlockID head is 1024", func(t *testing.T) {
 			mockChain.EXPECT().HeadsHeader().Return(&core.Header{Number: 1024}, nil)
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
@@ -737,7 +1030,7 @@ func TestSubscriptionReorg(t *testing.T) {
 	}
 }
 
-func TestSubscribePendingTxs(t *testing.T) {
+func TestSubscribeNewTransactions(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 
@@ -745,167 +1038,372 @@ func TestSubscribePendingTxs(t *testing.T) {
 	t.Cleanup(mockCtrl.Finish)
 
 	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
 	l1Feed := feed.New[*core.L1Head]()
 	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
-	mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(3)
-	syncer := newFakeSyncer()
-	handler, server := setupRPC(t, ctx, mockChain, syncer)
+	handler, _ := setupRPC(t, ctx, mockChain, syncer)
 
-	t.Run("Basic subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
+	n := &utils.Sepolia
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
 
-		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions"}`
-		id := "1"
-		handler.WithIDGen(func() string { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
+	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
+	require.NoError(t, err)
 
-		parentHash := new(felt.Felt).SetUint64(1)
+	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
+	require.NoError(t, err)
 
-		hash1 := new(felt.Felt).SetUint64(1)
-		addr1 := new(felt.Felt).SetUint64(11)
-
-		hash2 := new(felt.Felt).SetUint64(2)
-		addr2 := new(felt.Felt).SetUint64(22)
-
-		hash3 := new(felt.Felt).SetUint64(3)
-		hash4 := new(felt.Felt).SetUint64(4)
-		hash5 := new(felt.Felt).SetUint64(5)
-
-		syncer.pendingData.Send(&sync.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: parentHash,
-				},
-				Transactions: []core.Transaction{
-					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-					&core.DeployTransaction{TransactionHash: hash3},
-					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-					&core.L1HandlerTransaction{TransactionHash: hash5},
-				},
-			},
-		})
-
-		for _, expectedResult := range []string{"0x1", "0x2", "0x3", "0x4", "0x5"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
-			want = fmt.Sprintf(want, expectedResult, id)
-			_, pendingTxsGot, err := conn.Read(ctx)
-			require.NoError(t, err)
-			require.Equal(t, want, string(pendingTxsGot))
+	toTransactionsWithFinalityStatus := func(txs []core.Transaction, finalityStatus TxnStatusWithoutL1) []*SubscriptionNewTransaction {
+		txsWithStatus := make([]*SubscriptionNewTransaction, len(txs))
+		for i, txn := range txs {
+			txsWithStatus[i] = &SubscriptionNewTransaction{
+				Transaction:    *AdaptTransaction(txn),
+				FinalityStatus: finalityStatus,
+			}
 		}
-	})
+		return txsWithStatus
+	}
 
-	t.Run("Filtered subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
+	pendingBlockTxCount := 6
+	pendingBlock := createTestPendingBlock(t, newHead2, pendingBlockTxCount)
+	pending := sync.NewPending(pendingBlock, nil, nil)
 
-		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions", "params":{"sender_address":["0xb", "0x16"]}}`
-		id := "1"
-		handler.WithIDGen(func() string { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
+	initialPreconfirmedCount := 3
+	secondPreConfirmedCount := 6
+	thirdPreConfirmedCount := len(newHead2.Transactions)
 
-		parentHash := new(felt.Felt).SetUint64(1)
+	type stepInfo struct {
+		description string
+		notify      func()
+		expect      [][]*SubscriptionNewTransaction
+	}
 
-		hash1 := new(felt.Felt).SetUint64(1)
-		addr1 := new(felt.Felt).SetUint64(11)
+	type testCase struct {
+		description   string
+		statuses      []TxnStatusWithoutL1
+		senderAddress []felt.Felt
+		steps         []stepInfo
+	}
 
-		hash2 := new(felt.Felt).SetUint64(2)
-		addr2 := new(felt.Felt).SetUint64(22)
-
-		hash3 := new(felt.Felt).SetUint64(3)
-		hash4 := new(felt.Felt).SetUint64(4)
-		hash5 := new(felt.Felt).SetUint64(5)
-
-		hash6 := new(felt.Felt).SetUint64(6)
-		addr6 := new(felt.Felt).SetUint64(66)
-
-		hash7 := new(felt.Felt).SetUint64(7)
-		addr7 := new(felt.Felt).SetUint64(77)
-
-		syncer.pendingData.Send(&sync.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: parentHash,
+	preStarknet0_14_0DefaultFinality := testCase{
+		description:   "Basic subcription - default finality status. Starknet version < 0.14.0, Pending txs without duplicates",
+		statuses:      nil,
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "onNewHead",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
 				},
-				Transactions: []core.Transaction{
-					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
-					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
-					&core.DeployTransaction{TransactionHash: hash3},
-					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
-					&core.L1HandlerTransaction{TransactionHash: hash5},
-					&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
-					&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
 				},
 			},
-		})
+			{
+				description: "onPendingBLock",
+				notify: func() {
+					syncer.pendingData.Send(&pending)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(pendingBlock.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
+				},
+			},
+			{
+				description: "pending becomes new head without duplicates",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead2.Transactions[pendingBlockTxCount:], TxnStatusWithoutL1(TxnAcceptedOnL2)),
+				},
+			},
+		},
+	}
 
-		for _, expectedResult := range []string{"0x1", "0x2"} {
-			want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":"%s","subscription_id":"%s"}}`
-			want = fmt.Sprintf(want, expectedResult, id)
-			_, pendingTxsGot, err := conn.Read(ctx)
-			require.NoError(t, err)
-			require.Equal(t, want, string(pendingTxsGot))
+	// Only ACCEPTED_ON_L2 as default
+	defaultFinality := testCase{
+		description:   "Basic subcription - default finality status. Starknet version >= 0.14.0",
+		statuses:      nil,
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on new head receive all txs with ACCEPTED_ON_L2",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
+				},
+			},
+			{
+				description: "on new pre_confirmed no stream",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "pre_confirmed become new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead2.Transactions, TxnStatusWithoutL1(TxnAcceptedOnL2)),
+				},
+			},
+		},
+	}
+
+	onlyPreConfirmed := testCase{
+		description:   "Basic subcription - only PRE_CONFIRMED",
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusPreConfirmed)},
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "on new pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:initialPreconfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup.",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:secondPreConfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "pre_confirmed become new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+		},
+	}
+
+	onlyCandidate := testCase{
+		description:   "Basic subcription - only CANDIDATE",
+		statuses:      []TxnStatusWithoutL1{TxnStatusWithoutL1(TxnStatusCandidate)},
+		senderAddress: nil,
+		steps: []stepInfo{
+			{
+				description: "on new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "on new pre_confirmed, only stream CANDIDATES",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusCandidate),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup. do not stream",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+			{
+				description: "pre_confirmed become new head do not stream",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{},
+			},
+		},
+	}
+
+	allStatuses := testCase{
+		description: "Basic Subscription- all statuses",
+		statuses: []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusReceived),
+			TxnStatusWithoutL1(TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+		},
+		senderAddress: nil,
+		steps: []stepInfo{
+			// {
+			// 	description: "on receiving new transaction",
+			// 	notify: func() {
+			// 		handler.receivedTxFeed.Send(newHead2.Transactions[0])
+			// 	},
+			// 	expect: [][]*NewTransactionSubscriptionResponse{
+			// 		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
+			// 	},
+			// },
+			{
+				description: "on new head receive all txs with ACCEPTED_ON_L2",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead1.Transactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)),
+				},
+			},
+			{
+				description: "on new pre_confirmed receive PRE_CONFIRMED and CANDIDATE txs",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, initialPreconfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[:initialPreconfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusCandidate),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update subset of candidates moved to PRE_CONFIRMED, without dup.",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, secondPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[initialPreconfirmedCount:secondPreConfirmedCount],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "on pre_confirmed update all candidates moved to PRE_CONFIRMED, without dup.",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, thirdPreConfirmedCount)))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(
+						newHead2.Transactions[secondPreConfirmedCount:],
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					),
+				},
+			},
+			{
+				description: "pre_confirmed become new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(newHead2.Transactions, TxnStatusWithoutL1(TxnAcceptedOnL2)),
+				},
+			},
+		},
+	}
+
+	senderAddress := AdaptTransaction(newHead2.Transactions[0]).SenderAddress
+	senderFilter := []felt.Felt{*senderAddress}
+	senderTransactions := make([]core.Transaction, 0)
+	for _, txn := range newHead2.Transactions {
+		if filterTxBySender(txn, senderFilter) {
+			senderTransactions = append(senderTransactions, txn)
 		}
-	})
+	}
 
-	t.Run("Full details subscription", func(t *testing.T) {
-		conn := createWsConn(t, ctx, server)
-
-		subMsg := `{"jsonrpc":"2.0","id":"1","method":"starknet_subscribePendingTransactions", "params":{"transaction_details": true}}`
-		id := "1"
-		handler.WithIDGen(func() string { return id })
-		got := sendWsMessage(t, ctx, conn, subMsg)
-		require.Equal(t, subResp(id), got)
-
-		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.pendingData.Send(&sync.Pending{
-			Block: &core.Block{
-				Header: &core.Header{
-					ParentHash: parentHash,
+	allStatusesWithFilter := testCase{
+		description: "Subscription with sender filter - all statuses",
+		statuses: []TxnStatusWithoutL1{
+			TxnStatusWithoutL1(TxnStatusReceived),
+			TxnStatusWithoutL1(TxnStatusCandidate),
+			TxnStatusWithoutL1(TxnStatusPreConfirmed),
+			TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+		},
+		senderAddress: []felt.Felt{*senderAddress},
+		steps: []stepInfo{
+			//  {
+			//  	description: "on receiving new transaction",
+			//  	notify: func() {
+			//  		handler.receivedTxFeed.Send(newHead2.Transactions[0])
+			//  	},
+			//  	expect: [][]*NewTransactionSubscriptionResponse{
+			//  		toTransactionsWithFinalityStatus(newHead2.Transactions[:1], TxnStatusWithoutL1(TxnStatusReceived)),
+			//  	},
+			//  },
+			{
+				description: "on new pre_confirmed full of candidates",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, 0)))
 				},
-				Transactions: []core.Transaction{
-					&core.InvokeTransaction{
-						TransactionHash:      new(felt.Felt).SetUint64(1),
-						CallData:             []*felt.Felt{new(felt.Felt).SetUint64(2)},
-						TransactionSignature: []*felt.Felt{new(felt.Felt).SetUint64(3)},
-						MaxFee:               new(felt.Felt).SetUint64(4),
-						ContractAddress:      new(felt.Felt).SetUint64(5),
-						Version:              new(core.TransactionVersion).SetUint64(3),
-						EntryPointSelector:   new(felt.Felt).SetUint64(6),
-						Nonce:                new(felt.Felt).SetUint64(7),
-						SenderAddress:        new(felt.Felt).SetUint64(8),
-						ResourceBounds: map[core.Resource]core.ResourceBounds{
-							core.ResourceL1Gas: {
-								MaxAmount:       1,
-								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
-							},
-							core.ResourceL2Gas: {
-								MaxAmount:       1,
-								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
-							},
-							core.ResourceL1DataGas: {
-								MaxAmount:       1,
-								MaxPricePerUnit: new(felt.Felt).SetUint64(1),
-							},
-						},
-						Tip:                   9,
-						PaymasterData:         []*felt.Felt{new(felt.Felt).SetUint64(10)},
-						AccountDeploymentData: []*felt.Felt{new(felt.Felt).SetUint64(11)},
-					},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(senderTransactions, TxnStatusWithoutL1(TxnStatusCandidate)),
 				},
 			},
+			{
+				description: "on new pre_confirmed full of preconfirmed",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))))
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(senderTransactions, TxnStatusWithoutL1(TxnStatusPreConfirmed)),
+				},
+			},
+			{
+				description: "pre_confirmed becomes new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*SubscriptionNewTransaction{
+					toTransactionsWithFinalityStatus(senderTransactions, TxnStatusWithoutL1(TxnAcceptedOnL2)),
+				},
+			},
+		},
+	}
+
+	testCases := []testCase{
+		preStarknet0_14_0DefaultFinality,
+		defaultFinality, // onlyAcceptedOnL2
+		onlyPreConfirmed,
+		onlyCandidate,
+		allStatuses,
+		allStatusesWithFilter,
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			subID, conn := createTestNewTransactionsWebsocket(t, handler, tc.statuses, tc.senderAddress)
+			for _, step := range tc.steps {
+				t.Run(step.description, func(t *testing.T) {
+					step.notify()
+					for _, expectedTransactions := range step.expect {
+						assertNextTransactions(t, conn, subID, expectedTransactions)
+					}
+				})
+			}
 		})
+	}
 
-		want := `{"jsonrpc":"2.0","method":"starknet_subscriptionPendingTransactions","params":{"result":{"transaction_hash":"0x1","type":"INVOKE","version":"0x3","nonce":"0x7","max_fee":"0x4","contract_address":"0x5","sender_address":"0x8","signature":["0x3"],"calldata":["0x2"],"entry_point_selector":"0x6","resource_bounds":{"l1_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l2_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"},"l1_data_gas":{"max_amount":"0x1","max_price_per_unit":"0x1"}},"tip":"0x9","paymaster_data":["0xa"],"account_deployment_data":["0xb"],"nonce_data_availability_mode":"L1","fee_data_availability_mode":"L1"},"subscription_id":"%s"}}`
-		want = fmt.Sprintf(want, id)
-		_, pendingTxsGot, err := conn.Read(ctx)
-		require.NoError(t, err)
-		require.Equal(t, want, string(pendingTxsGot))
-	})
-
-	t.Run("Return error if too many addresses in filter", func(t *testing.T) {
-		addresses := make([]felt.Felt, 1024+1)
+	t.Run("Return error if too many addresses in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
+		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -914,7 +1412,295 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribePendingTxs(subCtx, false, addresses)
+		id, rpcErr := handler.SubscribeNewTransactions(subCtx, nil, addresses)
+		assert.Zero(t, id)
+		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
+	})
+}
+
+func TestSubscribeTransactionReceipts(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+
+	mockCtrl := gomock.NewController(t)
+	t.Cleanup(mockCtrl.Finish)
+
+	mockChain := mocks.NewMockReader(mockCtrl)
+	syncer := newFakeSyncer()
+	l1Feed := feed.New[*core.L1Head]()
+	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+	handler, _ := setupRPC(t, ctx, mockChain, syncer)
+
+	n := &utils.Sepolia
+	client := feeder.NewTestClient(t, n)
+	gw := adaptfeeder.New(client)
+
+	newHead1, err := gw.BlockByNumber(t.Context(), 56377)
+	require.NoError(t, err)
+
+	newHead2, err := gw.BlockByNumber(t.Context(), 56378)
+	require.NoError(t, err)
+
+	type stepInfo struct {
+		description string
+		notify      func()
+		expect      [][]*TransactionReceipt
+	}
+
+	type testCase struct {
+		description   string
+		statuses      []TxnFinalityStatusWithoutL1
+		senderAddress []felt.Felt
+		steps         []stepInfo
+	}
+
+	toAdaptedReceiptsWithFilter := func(b *core.Block, senderAddress []felt.Felt, finalityStatus TxnFinalityStatus) []*TransactionReceipt {
+		receipts := make([]*TransactionReceipt, 0)
+		for i, receipt := range b.Receipts {
+			txn := b.Transactions[i]
+			if filterTxBySender(txn, senderAddress) {
+				receipts = append(receipts, AdaptReceipt(receipt, txn, finalityStatus, b.Hash, b.Number))
+			}
+		}
+		return receipts
+	}
+
+	pendingB1TxCount := 3
+	pendingB2TxCount := 6
+	pendingBlock1 := createTestPendingBlock(t, newHead2, pendingB1TxCount)
+	pendingBlock2 := createTestPendingBlock(t, newHead2, pendingB2TxCount)
+
+	preStarknet0_14_0defaultFinalityStatus := testCase{
+		description: "Basic subscription with default finality status, starknet version < 0.14.0",
+		statuses:    nil,
+		steps: []stepInfo{
+			{
+				description: "on new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+				},
+			},
+			{
+				description: "on pending",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock1, nil, nil)))
+				},
+				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2)},
+			},
+			{
+				description: "on pending block update, without duplicates",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock2, nil, nil)))
+				},
+				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock2, nil, TxnAcceptedOnL2)[pendingB1TxCount:]},
+			},
+			{
+				description: "on next head, without duplicates",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2)[pendingB2TxCount:],
+				},
+			},
+		},
+	}
+
+	preConfirmedB1TxCount := 3
+	preConfirmedB2TxCount := 6
+	preConfirmed1 := createTestPreConfirmed(t, newHead2, preConfirmedB1TxCount)
+	preConfirmed2 := createTestPreConfirmed(t, newHead2, preConfirmedB2TxCount)
+
+	defaultFinalityStatus := testCase{
+		description: "Basic subscription with default finality status",
+		statuses:    nil,
+		steps: []stepInfo{
+			{
+				description: "on new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+				},
+			},
+			{
+				description: "on pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(utils.HeapPtr(createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))))
+				},
+				expect: [][]*TransactionReceipt{},
+			},
+			{
+				description: "on next head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
+				},
+			},
+		},
+	}
+
+	onlyPreConfirmed := testCase{
+		description: "Basic subscription with only PRE_CONFIRMED status",
+		statuses:    []TxnFinalityStatusWithoutL1{TxnFinalityStatusWithoutL1(TxnPreConfirmed)},
+		steps: []stepInfo{
+			{
+				description: "on new head, no response",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*TransactionReceipt{},
+			},
+			{
+				description: "on pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed1)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), nil, TxnPreConfirmed),
+				},
+			},
+			{
+				description: "on pre_confirmed update, without duplicates",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(preConfirmed2.GetBlock(), nil, TxnPreConfirmed)[preConfirmedB1TxCount:],
+				},
+			},
+			{
+				description: "on next head, no response",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*TransactionReceipt{},
+			},
+		},
+	}
+
+	allStatuses := testCase{
+		description: "Basic subscription with all statuses",
+		statuses:    []TxnFinalityStatusWithoutL1{TxnFinalityStatusWithoutL1(TxnPreConfirmed), TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)},
+		steps: []stepInfo{
+			{
+				description: "on new head",
+				notify: func() {
+					syncer.newHeads.Send(newHead1)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead1, nil, TxnAcceptedOnL2),
+				},
+			},
+			{
+				description: "on pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed1)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), nil, TxnPreConfirmed),
+				},
+			},
+			{
+				description: "on pre_confirmed update, without duplicates",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(preConfirmed2.GetBlock(), nil, TxnPreConfirmed)[preConfirmedB1TxCount:],
+				},
+			},
+			{
+				description: "on next head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead2, nil, TxnAcceptedOnL2),
+				},
+			},
+		},
+	}
+
+	preConfirmed3 := createTestPreConfirmed(t, newHead2, len(newHead2.Transactions))
+	senderAddress := AdaptTransaction(newHead2.Transactions[0]).SenderAddress
+	senderFilter := []felt.Felt{*senderAddress}
+	preConfirmed1FilteredReceipts := toAdaptedReceiptsWithFilter(preConfirmed1.GetBlock(), senderFilter, TxnPreConfirmed)
+
+	allStatusesWithFilter := testCase{
+		description:   "subscription with filter and all statuses",
+		senderAddress: senderFilter,
+		statuses:      []TxnFinalityStatusWithoutL1{TxnFinalityStatusWithoutL1(TxnPreConfirmed), TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)},
+		steps: []stepInfo{
+			{
+				description: "on pre_confirmed",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed1)
+				},
+				expect: [][]*TransactionReceipt{
+					preConfirmed1FilteredReceipts,
+				},
+			},
+			{
+				description: "on pre_confirmed update, without duplicates",
+				notify: func() {
+					syncer.pendingData.Send(&preConfirmed3)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(preConfirmed3.GetBlock(), senderFilter, TxnPreConfirmed)[len(preConfirmed1FilteredReceipts):],
+				},
+			},
+			{
+				description: "on next head",
+				notify: func() {
+					syncer.newHeads.Send(newHead2)
+				},
+				expect: [][]*TransactionReceipt{
+					toAdaptedReceiptsWithFilter(newHead2, senderFilter, TxnAcceptedOnL2),
+				},
+			},
+		},
+	}
+
+	testCases := []testCase{
+		defaultFinalityStatus,
+		preStarknet0_14_0defaultFinalityStatus,
+		allStatuses,
+		allStatusesWithFilter,
+		onlyPreConfirmed,
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			subID, conn := createTestTransactionReceiptsWebsocket(t, handler, tc.senderAddress, tc.statuses)
+			for _, step := range tc.steps {
+				t.Run(step.description, func(t *testing.T) {
+					step.notify()
+					for _, expectedReceipts := range step.expect {
+						assertNextReceipts(t, conn, subID, expectedReceipts)
+					}
+				})
+			}
+		})
+	}
+
+	t.Run("Returns error if to many address in filter", func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
+		addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
+
+		serverConn, _ := net.Pipe()
+		t.Cleanup(func() {
+			require.NoError(t, serverConn.Close())
+		})
+
+		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
+
+		id, rpcErr := handler.SubscribeNewTransactionReceipts(subCtx, addresses, nil)
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyAddressesInFilter, rpcErr)
 	})
@@ -1127,7 +1913,7 @@ func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash 
 	})
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*rpcv6.EmittedEvent) {
+func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*SubscriptionEmittedEvent) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -1135,82 +1921,135 @@ func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEve
 	}
 }
 
+func assertNextReceipts(t *testing.T, conn net.Conn, id SubscriptionID, receipts []*TransactionReceipt) {
+	t.Helper()
+
+	for _, receipt := range receipts {
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransactionReceipts", receipt)
+	}
+}
+
+func assertNextTransactions(t *testing.T, conn net.Conn, id SubscriptionID, transactions []*SubscriptionNewTransaction) {
+	t.Helper()
+
+	for _, txn := range transactions {
+		assertNextMessage(t, conn, id, "starknet_subscriptionNewTransaction", txn)
+	}
+}
+
 func createTestPendingBlock(t *testing.T, b *core.Block, txCount int) *core.Block {
 	t.Helper()
 
-	pending := *b
-	pending.Header.Number = 0
-	pending.Header.Hash = nil
-	pending.Hash = nil
-	pending.Transactions = pending.Transactions[:txCount]
-	pending.Receipts = pending.Receipts[:txCount]
+	pending := core.Block{
+		Header: &core.Header{
+			// Pending block does not have number but we internaly set it
+			Number:           b.Number,
+			ParentHash:       b.ParentHash,
+			SequencerAddress: b.SequencerAddress,
+		},
+	}
+
+	pending.Transactions = b.Transactions[:txCount]
+	pending.Receipts = b.Receipts[:txCount]
 	return &pending
 }
 
-//nolint:unused // retained for future use in 0.9.0-rc3, currently unused
-func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) *core.PreConfirmed {
+func createTestPreConfirmed(t *testing.T, b *core.Block, preConfirmedCount int) core.PreConfirmed {
 	t.Helper()
 
 	actualTxCount := len(b.Transactions)
 	var preConfirmed core.PreConfirmed
 	if candidateCount := actualTxCount - preConfirmedCount; candidateCount > 0 {
-		preConfirmed.CandidateTxs = make([]core.Transaction, 0, candidateCount)
-		for i := actualTxCount - candidateCount; i < actualTxCount; i++ {
-			preConfirmed.CandidateTxs = append(preConfirmed.CandidateTxs, b.Transactions[i])
+		preConfirmed.CandidateTxs = make([]core.Transaction, candidateCount)
+		candidateIndex := actualTxCount - candidateCount
+		for i := range candidateCount {
+			preConfirmed.CandidateTxs[i] = b.Transactions[candidateIndex]
+			candidateIndex += 1
 		}
 	}
 
-	preConfirmedBlock := *b
-	preConfirmedBlock.Header.Number = 0
-	preConfirmedBlock.Header.Hash = nil
-	preConfirmedBlock.Hash = nil
-	preConfirmedBlock.Transactions = preConfirmedBlock.Transactions[:preConfirmedCount]
-	preConfirmedBlock.Receipts = preConfirmedBlock.Receipts[:preConfirmedCount]
+	preConfirmedBlock := core.Block{
+		Header: &core.Header{
+			Hash:             nil,
+			ParentHash:       nil,
+			Number:           b.Number,
+			GlobalStateRoot:  b.GlobalStateRoot,
+			SequencerAddress: b.SequencerAddress,
+			TransactionCount: uint64(preConfirmedCount),
+		},
+	}
 
+	preConfirmedBlock.Transactions = b.Transactions[:preConfirmedCount]
+	preConfirmedBlock.Receipts = b.Receipts[:preConfirmedCount]
+	preConfirmedBlock.EventsBloom = core.EventsBloom(preConfirmedBlock.Receipts)
 	preConfirmed.Block = &preConfirmedBlock
-	return &preConfirmed
+	return preConfirmed
 }
 
-func createTestEvents(t *testing.T, b *core.Block) ([]*blockchain.FilteredEvent, []*rpcv6.EmittedEvent) {
+func createTestEvents(
+	t *testing.T,
+	b *core.Block,
+	fromAddress *felt.Felt,
+	keys [][]felt.Felt,
+	finalityStatus TxnFinalityStatusWithoutL1,
+) ([]*blockchain.FilteredEvent, []*SubscriptionEmittedEvent) {
 	t.Helper()
-
+	var blockNumber *uint64
+	// if header.Hash == nil and parentHash != nil it's a pending block
+	// if header.Hash == nil and parentHash == nil it's a pre_confirmed block
+	if b.Hash != nil || b.ParentHash == nil {
+		blockNumber = &b.Number
+	}
+	eventMatcher := blockchain.NewEventMatcher(fromAddress, keys)
 	var filtered []*blockchain.FilteredEvent
-	var emitted []*rpcv6.EmittedEvent
+	var responses []*SubscriptionEmittedEvent
 	for _, receipt := range b.Receipts {
 		for i, event := range receipt.Events {
+			if fromAddress != nil && !event.From.Equal(fromAddress) {
+				continue
+			}
+
+			if !eventMatcher.MatchesEventKeys(event.Keys) {
+				continue
+			}
+
 			filtered = append(filtered, &blockchain.FilteredEvent{
 				Event:           event,
-				BlockNumber:     &b.Number,
+				BlockNumber:     blockNumber,
 				BlockHash:       b.Hash,
 				TransactionHash: receipt.TransactionHash,
 				EventIndex:      i,
 			})
-			emitted = append(emitted, &rpcv6.EmittedEvent{
-				Event: &rpcv6.Event{
-					From: event.From,
-					Keys: event.Keys,
-					Data: event.Data,
+			responses = append(responses, &SubscriptionEmittedEvent{
+				EmittedEvent: rpcv6.EmittedEvent{
+					Event: &rpcv6.Event{
+						From: event.From,
+						Keys: event.Keys,
+						Data: event.Data,
+					},
+					BlockNumber:     blockNumber,
+					BlockHash:       b.Hash,
+					TransactionHash: receipt.TransactionHash,
 				},
-				BlockNumber:     &b.Number,
-				BlockHash:       b.Hash,
-				TransactionHash: receipt.TransactionHash,
+				FinalityStatus: finalityStatus,
 			})
 		}
 	}
-	return filtered, emitted
+	return filtered, responses
 }
 
 func createTestEventsWebsocket(
-	t *testing.T, h *Handler, fromAddr *felt.Felt, keys [][]felt.Felt, startBlock *uint64,
+	t *testing.T,
+	h *Handler,
+	fromAddr *felt.Felt,
+	keys [][]felt.Felt,
+	blockID *SubscriptionBlockID,
+	finalityStatus *TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
-		if startBlock != nil {
-			blockID := SubscriptionBlockID(BlockIDFromNumber(*startBlock))
-			return h.SubscribeEvents(ctx, fromAddr, keys, &blockID)
-		}
-		return h.SubscribeEvents(ctx, fromAddr, keys, nil)
+		return h.SubscribeEvents(ctx, fromAddr, keys, blockID, finalityStatus)
 	})
 }
 
@@ -1221,6 +2060,26 @@ func createTestTxStatusWebsocket(
 
 	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
 		return h.SubscribeTransactionStatus(ctx, txHash)
+	})
+}
+
+func createTestNewTransactionsWebsocket(
+	t *testing.T, h *Handler, finalityStatus []TxnStatusWithoutL1, senderAddress []felt.Felt,
+) (SubscriptionID, net.Conn) {
+	t.Helper()
+
+	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
+		return h.SubscribeNewTransactions(ctx, finalityStatus, senderAddress)
+	})
+}
+
+func createTestTransactionReceiptsWebsocket(
+	t *testing.T, h *Handler, senderAddress []felt.Felt, finalityStatus []TxnFinalityStatusWithoutL1,
+) (SubscriptionID, net.Conn) {
+	t.Helper()
+
+	return createTestWebsocket(t, func(ctx context.Context) (SubscriptionID, *jsonrpc.Error) {
+		return h.SubscribeNewTransactionReceipts(ctx, senderAddress, finalityStatus)
 	})
 }
 

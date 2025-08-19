@@ -18,10 +18,7 @@ func Sign(privKey *ecdsa.PrivateKey) BlockSignFunc {
 		}
 		sig := make([]*felt.Felt, 0)
 		for start := 0; start < len(signatureBytes); {
-			step := len(signatureBytes[start:])
-			if step > felt.Bytes {
-				step = felt.Bytes
-			}
+			step := min(len(signatureBytes[start:]), felt.Bytes)
 			sig = append(sig, new(felt.Felt).SetBytes(signatureBytes[start:step]))
 			start += step
 		}
