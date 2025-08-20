@@ -26,7 +26,7 @@ type Broadcast[T any] struct {
 
 	subMu     sync.RWMutex
 	subs      map[uint64]*Subscription[T]
-	nextSubID atomic.Uint64
+	nextSubID uint64
 }
 
 // Subscription represents one consumer.
@@ -128,7 +128,9 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	next := b.ring.tail
 	b.ring.tailMu.RUnlock()
 
-	subID := b.nextSubID.Add(1)
+	b.subMu.Lock()
+	subID := b.nextSubID
+	b.nextSubID++
 	sub := &Subscription[T]{
 		bcast:   b,
 		seq:     next, // next msg to read
@@ -138,7 +140,6 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 		id:      subID,
 	}
 
-	b.subMu.Lock()
 	b.subs[sub.id] = sub
 	b.subMu.Unlock()
 	go sub.run()
