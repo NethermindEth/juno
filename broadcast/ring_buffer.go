@@ -1,29 +1,9 @@
 package broadcast
 
 import (
-	"errors"
-	"fmt"
 	"math/bits"
 	"sync"
 )
-
-// Returned when the requested sequence is ahead of the latest published (not yet available).
-var (
-	ErrFutureSeq       = errors.New("requested seq. not published yet")
-	ErrInvalidSequence = errors.New("invalid sequence: 0")
-)
-
-// LaggedError indicates the requested sequence was overwritten by newer writes.
-// - MissedSeq: the requested sequence that was lost.
-// - NextSeq: the oldest sequence still available (resume point).
-type LaggedError struct {
-	MissedSeq uint64 // The sequence the subscriber attempted to read
-	NextSeq   uint64 // The oldest available sequence in the buffer (where subscriber resumes)
-}
-
-func (e *LaggedError) Error() string {
-	return fmt.Sprintf("subscriber lagged: missed seq=%d, next available seq=%d", e.MissedSeq, e.NextSeq)
-}
 
 // A single ring buffer slot with a per-slot RWMutex.
 // - seq: published sequence number currently stored in this slot.

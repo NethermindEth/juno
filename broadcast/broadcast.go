@@ -10,23 +10,40 @@ import (
 	"sync/atomic"
 )
 
-// Returned when the broadcast is closed and no more sends are possible.
-var ErrClosed = errors.New("broadcast channel closed")
+// EventOrLag is a tagged union:
+//   - If isLag is false, event holds a regular message.
+//   - If isLag is true, lag holds the lag notification.
+type EventOrLag[T any] struct {
+	event T           // For a regular message
+	lag   LaggedError // For a lag notification
+	isLag bool
+}
 
-// Broadcast is the main fan-out structure.
-// - ring: the shared ring buffer used by all senders/readers.
-// - closed: atomic flag indicating broadcast has been closed.
-// - subMu: protects the subs map.
-// - subs: set of current subscriptions.
-// - nextSubID: monotonically increasing subsctiption ID to assign to next subscriber.
-type Broadcast[T any] struct {
-	ring *ringBuffer[T]
+// IsEvent returns true if the EventOrLag contains a regular Event.
+func (e *EventOrLag[T]) IsEvent() bool {
+	return !e.isLag
+}
 
-	closed atomic.Bool
+// IsLag returns true if the EventOrLag contains a lag notification.
+func (e *EventOrLag[T]) IsLag() bool {
+	return e.isLag
+}
 
-	subMu     sync.RWMutex
-	subs      map[uint64]*Subscription[T]
-	nextSubID uint64
+// Event returns the event value or an error if none.
+func (e *EventOrLag[T]) Event() (T, error) {
+	var zero T
+	if e.isLag {
+		return zero, errors.New("no event present")
+	}
+	return e.event, nil
+}
+
+// Lag returns the lag info or an error if none.
+func (e *EventOrLag[T]) Lag() (LaggedError, error) {
+	if !e.isLag {
+		return LaggedError{}, errors.New("no lag info present")
+	}
+	return e.lag, nil
 }
 
 // Subscription represents one consumer.
@@ -48,124 +65,6 @@ type Subscription[T any] struct {
 	done chan struct{}      // to shutdown goroutine
 }
 
-// EventOrLag is a tagged union:
-//   - If isLag is false, event holds a regular message.
-//   - If isLag is true, lag holds the lag notification.
-type EventOrLag[T any] struct {
-	event T           // For a regular message
-	lag   LaggedError // For a lag notification
-	isLag bool
-}
-
-// IsEvent returns true if the EventOrLag contains a regular Event.
-func (e EventOrLag[T]) IsEvent() bool {
-	return !e.isLag
-}
-
-// IsLag returns true if the EventOrLag contains a lag notification.
-func (e EventOrLag[T]) IsLag() bool {
-	return e.isLag
-}
-
-// Event returns the event value or an error if none.
-func (e EventOrLag[T]) Event() (T, error) {
-	var zero T
-	if e.isLag {
-		return zero, errors.New("no event present")
-	}
-	return e.event, nil
-}
-
-// Lag returns the lag info or an error if none.
-func (e EventOrLag[T]) Lag() (LaggedError, error) {
-	if !e.isLag {
-		return LaggedError{}, errors.New("no lag info present")
-	}
-	return e.lag, nil
-}
-
-// New constructs a Broadcast with a ring buffer of at least the given capacity
-// (capacity is rounded up to the next power of two).
-func New[T any](capacity uint64) *Broadcast[T] {
-	return &Broadcast[T]{
-		ring: newRingBuffer[T](capacity),
-		subs: make(map[uint64]*Subscription[T]),
-	}
-}
-
-// Send publishes msg to the ring and wakes subscribers.
-//   - Returns ErrClosed if closed is already set (a concurrent Close after this check may still allow this Push).
-//   - Push is serialised via ring’s tailMu.
-//   - Wakes subscribers by iterating subs under subMu.RLock and attempting non-blocking sends on their notifyC.
-func (b *Broadcast[T]) Send(msg T) error {
-	if b.closed.Load() {
-		return ErrClosed
-	}
-	// Push writes the data and advances tail under ring locks.
-	b.ring.Push(msg)
-
-	b.subMu.RLock()
-	defer b.subMu.RUnlock()
-	// Wake subscribers (only if someone is blocked)
-	for _, sub := range b.subs {
-		select {
-		case sub.notifyC <- struct{}{}:
-		default:
-		}
-	}
-	return nil
-}
-
-// Subscribe adds a new subscriber starting at the current tail (next message).
-// Subscription must be ended by calling Unsubscribe to terminate forwarder goroutine and cleanup resources,
-// or after user facing channel is closed after draining the buffer when broadcast is closed.
-//
-// - Acquires subMu to add to the subs map.
-// - Reads ring.tail under ring's tail lock to set starting sequence.
-// - Spawns a goroutine to deliver messages to sub.out.
-func (b *Broadcast[T]) Subscribe() *Subscription[T] {
-	b.ring.tailMu.RLock()
-	next := b.ring.tail
-	b.ring.tailMu.RUnlock()
-
-	b.subMu.Lock()
-	subID := b.nextSubID
-	b.nextSubID++
-	sub := &Subscription[T]{
-		bcast:   b,
-		seq:     next, // next msg to read
-		notifyC: make(chan struct{}, 1),
-		out:     make(chan EventOrLag[T], 1),
-		done:    make(chan struct{}),
-		id:      subID,
-	}
-
-	b.subs[sub.id] = sub
-	b.subMu.Unlock()
-	go sub.run()
-
-	return sub
-}
-
-// Close marks the broadcast as closed (single-run via CAS),
-// closes all subscribers notifyC channel(drain-mode), and clears the subs map.
-// It does not close per-sub user facing channels here;
-// each subscription’s run goroutine is responsible for exiting (draining up to the latest) and
-// will close its out channel on return.
-func (b *Broadcast[T]) Close() {
-	if !b.closed.CompareAndSwap(false, true) {
-		return
-	}
-
-	b.subMu.Lock()
-	defer b.subMu.Unlock()
-
-	for _, sub := range b.subs {
-		close(sub.notifyC) // Drain mode
-	}
-	b.subs = make(map[uint64]*Subscription[T])
-}
-
 // Unsubscribe removes this subscriber from the broadcast (if still present) and
 // closes its control channels.
 //   - single-run via CAS.
@@ -174,11 +73,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 	if !sub.isClosed.CompareAndSwap(false, true) {
 		return
 	}
-
-	sub.bcast.subMu.Lock()
-	delete(sub.bcast.subs, sub.id)
-	sub.bcast.subMu.Unlock()
-
+	sub.bcast.unsubscribe(sub.id)
 	close(sub.done) // signal goroutine to exit
 }
 
@@ -274,4 +169,110 @@ func (sub *Subscription[T]) tryRecv() (T, error) {
 // Recv returns the user-facing channel for this subscription.
 func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 	return sub.out
+}
+
+// Broadcast is the main fan-out structure.
+// - ring: the shared ring buffer used by all senders/readers.
+// - closed: atomic flag indicating broadcast has been closed.
+// - subMu: protects the subs map.
+// - subs: set of current subscriptions.
+// - nextSubID: monotonically increasing subsctiption ID to assign to next subscriber.
+type Broadcast[T any] struct {
+	ring *ringBuffer[T]
+
+	closed atomic.Bool
+
+	subMu     sync.RWMutex
+	subs      map[uint64]*Subscription[T]
+	nextSubID uint64
+}
+
+// New constructs a Broadcast with a ring buffer of at least the given capacity
+// (capacity is rounded up to the next power of two).
+func New[T any](capacity uint64) *Broadcast[T] {
+	return &Broadcast[T]{
+		ring: newRingBuffer[T](capacity),
+		subs: make(map[uint64]*Subscription[T]),
+	}
+}
+
+// Send publishes msg to the ring and wakes subscribers.
+//   - Returns ErrClosed if closed is already set (a concurrent Close after this check may still allow this Push).
+//   - Push is serialised via ring’s tailMu.
+//   - Wakes subscribers by iterating subs under subMu.RLock and attempting non-blocking sends on their notifyC.
+func (b *Broadcast[T]) Send(msg T) error {
+	if b.closed.Load() {
+		return ErrClosed
+	}
+	// Push writes the data and advances tail under ring locks.
+	b.ring.Push(msg)
+
+	b.subMu.RLock()
+	defer b.subMu.RUnlock()
+	// Wake subscribers (only if someone is blocked)
+	for _, sub := range b.subs {
+		select {
+		case sub.notifyC <- struct{}{}:
+		default:
+		}
+	}
+	return nil
+}
+
+// Subscribe adds a new subscriber starting at the current tail (next message).
+// Subscription must be ended by calling Unsubscribe to terminate forwarder goroutine and cleanup resources,
+// or after user facing channel is closed after draining the buffer when broadcast is closed.
+//
+// - Acquires subMu to add to the subs map.
+// - Reads ring.tail under ring's tail lock to set starting sequence.
+// - Spawns a goroutine to deliver messages to sub.out.
+func (b *Broadcast[T]) Subscribe() *Subscription[T] {
+	b.ring.tailMu.RLock()
+	next := b.ring.tail
+	b.ring.tailMu.RUnlock()
+
+	b.subMu.Lock()
+	subID := b.nextSubID
+	b.nextSubID++
+	sub := &Subscription[T]{
+		bcast:   b,
+		seq:     next, // next msg to read
+		notifyC: make(chan struct{}, 1),
+		out:     make(chan EventOrLag[T], 1),
+		done:    make(chan struct{}),
+		id:      subID,
+	}
+
+	b.subs[sub.id] = sub
+	b.subMu.Unlock()
+	go sub.run()
+
+	return sub
+}
+
+// unsubscribe removes subscriber from subsribers map.
+// Subsequent calls are no-op.
+func (b *Broadcast[T]) unsubscribe(subId uint64) {
+	b.subMu.Lock()
+	delete(b.subs, subId)
+	b.subMu.Unlock()
+}
+
+// Close marks the broadcast as closed (single-run via CAS),
+// closes all subscribers notifyC channel(drain-mode), and clears the subs map.
+// It does not close per-sub user facing channels here;
+// each subscription’s run goroutine is responsible for exiting (draining up to the latest) and
+// will close its out channel on return.
+func (b *Broadcast[T]) Close() {
+	if !b.closed.CompareAndSwap(false, true) {
+		return
+	}
+
+	b.subMu.Lock()
+	defer b.subMu.Unlock()
+
+	for _, sub := range b.subs {
+		close(sub.notifyC) // Drain mode
+	}
+	b.subs = make(map[uint64]*Subscription[T])
 }
