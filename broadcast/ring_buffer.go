@@ -20,7 +20,7 @@ type LaggedError struct {
 	NextSeq   uint64 // The oldest available sequence in the buffer (where subscriber resumes)
 }
 
-func (e LaggedError) Error() string {
+func (e *LaggedError) Error() string {
 	return fmt.Sprintf("subscriber lagged: missed seq=%d, next available seq=%d", e.MissedSeq, e.NextSeq)
 }
 
@@ -117,7 +117,7 @@ func (rb *ringBuffer[T]) Get(seq uint64) (T, error) {
 	if newest >= rb.capacity {
 		oldest := newest - rb.capacity + 1
 		if seq < oldest {
-			return zero, LaggedError{
+			return zero, &LaggedError{
 				MissedSeq: seq,
 				NextSeq:   oldest,
 			}

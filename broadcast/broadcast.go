@@ -228,12 +228,12 @@ func (sub *Subscription[T]) run() {
 			}
 		}
 
-		var e LaggedError
+		var e *LaggedError
 		if errors.As(err, &e) {
 			sub.seq = e.NextSeq
 			// Lagged, notify consumer about lag
 			res := EventOrLag[T]{
-				lag:   LaggedInfo(e),
+				lag:   LaggedInfo(*e),
 				isLag: true,
 			}
 			select {
