@@ -55,6 +55,12 @@ func BlockIDFromHash(blockHash *felt.Felt) BlockID {
 	}
 }
 
+func BlockIDPending() BlockID {
+	return BlockID{
+		typeID: pending,
+	}
+}
+
 func (b *BlockID) Type() blockIDType {
 	return b.typeID
 }

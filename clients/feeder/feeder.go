@@ -157,10 +157,7 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 			if wait < c.minWait {
 				wait = c.minWait
 			}
-			wait = c.backoff(wait)
-			if wait > c.maxWait {
-				wait = c.maxWait
-			}
+			wait = min(c.backoff(wait), c.maxWait)
 
 			currentTimeout := timeouts.GetCurrentTimeout()
 			if currentTimeout >= mediumGrowThreshold {

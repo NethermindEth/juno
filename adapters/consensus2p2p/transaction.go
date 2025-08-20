@@ -31,7 +31,7 @@ func AdaptTransaction(tx *consensus.Transaction) (*p2pconsensus.ConsensusTransac
 						Class:  core2p2p.AdaptCairo1Class(class),
 					},
 				},
-				TransactionHash: toHash(*t.TransactionHash),
+				TransactionHash: toHash(t.TransactionHash),
 			}, nil
 		default:
 			return nil, fmt.Errorf("unsupported class type %T", class)
@@ -42,21 +42,21 @@ func AdaptTransaction(tx *consensus.Transaction) (*p2pconsensus.ConsensusTransac
 			Txn: &p2pconsensus.ConsensusTransaction_DeployAccountV3{
 				DeployAccountV3: core2p2p.AdaptDeployAccountV3Transaction(t),
 			},
-			TransactionHash: toHash(*t.TransactionHash),
+			TransactionHash: toHash(t.TransactionHash),
 		}, nil
 	case *core.InvokeTransaction:
 		return &p2pconsensus.ConsensusTransaction{
 			Txn: &p2pconsensus.ConsensusTransaction_InvokeV3{
 				InvokeV3: core2p2p.AdaptInvokeV3Transaction(t),
 			},
-			TransactionHash: toHash(*t.TransactionHash),
+			TransactionHash: toHash(t.TransactionHash),
 		}, nil
 	case *core.L1HandlerTransaction:
 		return &p2pconsensus.ConsensusTransaction{
 			Txn: &p2pconsensus.ConsensusTransaction_L1Handler{
 				L1Handler: core2p2p.AdaptL1HandlerTransaction(t),
 			},
-			TransactionHash: toHash(*t.TransactionHash),
+			TransactionHash: toHash(t.TransactionHash),
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported tx type %T", t)

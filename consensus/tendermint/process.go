@@ -1,6 +1,8 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+)
 
 func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V, H, A] {
 	return s.processLoop(s.startRound(round), nil)
@@ -84,7 +86,7 @@ func (s *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action types.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := s.findProposal(s.state.round)
 
-	var roundCachedProposal *CachedProposal[V, H, A]
+	roundCachedProposal := cachedProposal
 	if recentlyReceivedRound != nil {
 		roundCachedProposal = s.findProposal(*recentlyReceivedRound)
 	}

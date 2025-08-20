@@ -95,7 +95,7 @@ func (s TxnStatus) MarshalText() ([]byte, error) {
 	case TxnStatusPreConfirmed:
 		return []byte("PRE_CONFIRMED"), nil
 	default:
-		return nil, fmt.Errorf("unknown ExecutionStatus %v", s)
+		return nil, fmt.Errorf("unknown TxnStatus %v", s)
 	}
 }
 
@@ -614,19 +614,19 @@ func (h *Handler) TransactionReceiptByHash(hash felt.Felt) (*TransactionReceipt,
 }
 
 // AddTransaction relays a transaction to the gateway, or to the sequencer if enabled
-func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) AddTransaction(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
 	var (
-		res *AddTxResponse
+		res AddTxResponse
 		err *jsonrpc.Error
 	)
 	if h.memPool != nil {
-		res, err = h.addToMempool(ctx, &tx)
+		res, err = h.addToMempool(ctx, tx)
 	} else {
 		res, err = h.pushToFeederGateway(ctx, tx)
 	}
 
 	if err != nil {
-		return nil, err
+		return AddTxResponse{}, err
 	}
 
 	if h.submittedTransactionsCache != nil {
@@ -636,55 +636,58 @@ func (h *Handler) AddTransaction(ctx context.Context, tx BroadcastedTransaction)
 	return res, nil
 }
 
-func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
 	if err = h.memPool.Push(ctx, &mempool.BroadcastedTransaction{
 		Transaction:   userTxn,
 		DeclaredClass: userClass,
 		PaidFeeOnL1:   paidFeeOnL1,
 	}); err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 	}
-	res := &AddTxResponse{TransactionHash: userTxn.Hash()}
+	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
 		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
 	} else if tx.Type == TxnDeclare {
 		res.ClassHash, err = userClass.Hash()
 		if err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(err.Error())
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
 		}
 	}
 	return res, nil
 }
 
-func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransaction) (*AddTxResponse, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) pushToFeederGateway(
+	ctx context.Context,
+	tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
-			return nil, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
+			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
 		}
 
 		sierraProgBytes, errIn := json.Marshal(sierraProg)
 		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
 
 		gwSierraProg, errIn := utils.Gzip64Encode(sierraProgBytes)
 		if errIn != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
+			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
 
 		contractClass["sierra_program"] = gwSierraProg
 		newContractClass, err := json.Marshal(contractClass)
 		if err != nil {
-			return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
 		tx.ContractClass = newContractClass
 	}
@@ -697,16 +700,16 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 		ContractClass: tx.ContractClass,
 	})
 	if err != nil {
-		return nil, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
 	}
 
 	if h.gatewayClient == nil {
-		return nil, rpccore.ErrInternal.CloneWithData("no gateway client configured")
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData("no gateway client configured")
 	}
 
 	respJSON, err := h.gatewayClient.AddTransaction(ctx, txJSON)
 	if err != nil {
-		return nil, makeJSONErrorFromGatewayError(err)
+		return AddTxResponse{}, makeJSONErrorFromGatewayError(err)
 	}
 
 	var gatewayResponse struct {
@@ -715,10 +718,10 @@ func (h *Handler) pushToFeederGateway(ctx context.Context, tx BroadcastedTransac
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
 	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
-		return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
+		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
 	}
 
-	return &AddTxResponse{
+	return AddTxResponse{
 		TransactionHash: gatewayResponse.TransactionHash,
 		ContractAddress: gatewayResponse.ContractAddress,
 		ClassHash:       gatewayResponse.ClassHash,
@@ -924,10 +927,10 @@ func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finali
 	}
 
 	var receiptBlockNumber *uint64
-	// TODO(Ege): case for preconfirmed blocks: they don't have blockHash
-	// but they do have block number, so far we were not returning blocknumber for pending block
-	// pending block didnt had blocknumber, clarify whether we need to return number or not
-	if blockHash != nil {
+
+	// Do not return block number for pending block
+	// Return block number for canonical blocks and pre_confirmed block
+	if blockHash != nil || finalityStatus == TxnPreConfirmed {
 		receiptBlockNumber = &blockNumber
 	}
 

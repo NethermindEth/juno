@@ -128,27 +128,27 @@ provider.getBlockLatestAccepted().then((blockHashAndNumber) => {
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/rpc"
-	"github.com/NethermindEth/starknet.go/utils"
+ "context"
+ "fmt"
+ "log"
+ "github.com/NethermindEth/juno/core/felt"
+ "github.com/NethermindEth/starknet.go/rpc"
+ "github.com/NethermindEth/starknet.go/utils"
 )
 
 func main() {
-	rpcUrl := "http://localhost:6060"
-	client, err := rpc.NewClient(rpcUrl)
-	if err != nil {
-		log.Fatal(err)
-	}
+ rpcUrl := "http://localhost:6060"
+ client, err := rpc.NewClient(rpcUrl)
+ if err != nil {
+  log.Fatal(err)
+ }
 
-	provider := rpc.NewProvider(client)
-	result, err := provider.BlockHashAndNumber(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("BlockHashAndNumber:", result)
+ provider := rpc.NewProvider(client)
+ result, err := provider.BlockHashAndNumber(context.Background())
+ if err != nil {
+  log.Fatal(err)
+ }
+ fmt.Println("BlockHashAndNumber:", result)
 }
 ```
 
@@ -221,10 +221,10 @@ curl --location 'http://localhost:6060' \
 ```
 
 </TabItem>
-<TabItem value="v7" label="v0.7.0">
+<TabItem value="v8" label="v0.8.0">
 
 ```bash
-curl --location 'http://localhost:6060/v0_7' \
+curl --location 'http://localhost:6060/v0_8' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",
@@ -235,10 +235,10 @@ curl --location 'http://localhost:6060/v0_7' \
 ```
 
 </TabItem>
-<TabItem value="v6" label="v0.6.0">
+<TabItem value="v7" label="v0.7.0">
 
 ```bash
-curl --location 'http://localhost:6060/v0_6' \
+curl --location 'http://localhost:6060/v0_7' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",

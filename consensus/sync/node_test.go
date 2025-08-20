@@ -1,4 +1,4 @@
-package integtest
+package sync_test
 
 import (
 	"math/rand/v2"
@@ -24,14 +24,8 @@ func (n nodes) ValidatorVotingPower(height types.Height, addr *starknet.Address)
 
 // Randomised proposer selection, with prime coefficients so that for each height, the order of proposers is different.
 func (n nodes) Proposer(height types.Height, round types.Round) starknet.Address {
-	idx := (int(height)*31 + int(round)*17) % len(n)
-	return testAddress(n[idx])
-}
-
-func testAddress(i int) starknet.Address {
-	return starknet.Address(felt.FromUint64(uint64(i)))
-}
-
-func testAddressIndex(addr *starknet.Address) int {
-	return int(addr.AsFelt().Uint64())
+	nodeIndex := (int(height)*17 + int(round)*31) % len(n)
+	nodeID := n[nodeIndex]
+	f := new(felt.Felt).SetUint64(uint64(nodeID))
+	return starknet.Address(*f)
 }
