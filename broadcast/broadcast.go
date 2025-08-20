@@ -68,7 +68,7 @@ type Subscription[T any] struct {
 // Unsubscribe removes this subscriber from the broadcast (if still present) and
 // closes its control channels.
 //   - single-run via CAS.
-//   - Deletes from subs under subMu.Lock, then closes done (to stop run).
+//   - Unsubscribes from broadcast, then closes done (to stop run).
 func (sub *Subscription[T]) Unsubscribe() {
 	if !sub.isClosed.CompareAndSwap(false, true) {
 		return
@@ -85,6 +85,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 //   - On close:
 //     If broadcast is closed drain-on-close semantics on. Drains the buffer then exits and closes out.
 //     If subscription is closed via Unsubscribe, returns immediately upon receiving done signal.
+//     run exits by closing the out channel so consumer knows no further messages.
 func (sub *Subscription[T]) run() {
 	defer close(sub.out)
 	defer sub.Unsubscribe()
@@ -176,7 +177,7 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 // - closed: atomic flag indicating broadcast has been closed.
 // - subMu: protects the subs map and nextSubID.
 // - subs: set of current subscriptions.
-// - nextSubID: monotonically increasing subsctiption ID to assign to next subscriber.
+// - nextSubID: monotonically increasing subscription ID to assign to next subscriber.
 type Broadcast[T any] struct {
 	ring *ringBuffer[T]
 
@@ -259,7 +260,9 @@ func (b *Broadcast[T]) unsubscribe(subId uint64) {
 }
 
 // Close marks the broadcast as closed (single-run via CAS),
-// closes all subscribers notifyC channel(drain-mode), and clears the subs map.
+// clears the subs map, closes all subscribers notifyC channel.
+// Closing notifyC causes subscribers run loops to enter "drain mode",
+// eventually completing subscription lifecycle.
 // It does not close per-sub user facing channels here;
 // each subscription’s run goroutine is responsible for exiting (draining up to the latest) and
 // will close its out channel on return.
