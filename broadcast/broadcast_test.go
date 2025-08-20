@@ -62,7 +62,7 @@ func TestMultipleSubscribersReceiveSameData(t *testing.T) {
 	wg.Add(numSubscribers)
 	for range numSubscribers {
 		sub := bcast.Subscribe()
-		go func(sub *broadcast.Subscription[int]) {
+		go func(sub broadcast.Subscription[int]) {
 			defer wg.Done()
 			defer sub.Unsubscribe()
 			for i := range numEvents {
@@ -179,6 +179,7 @@ func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 		}
 		time.Sleep(1 * time.Millisecond) // small pause between bursts
 	}
+	time.Sleep(1 * time.Second)
 	bc.Close()
 
 	wg.Wait()
@@ -401,7 +402,7 @@ func TestCloseDuringHotSendAndSubscribe(t *testing.T) {
 	for range 8 {
 		sub := bc.Subscribe()
 		subWg.Add(1)
-		go func(s *broadcast.Subscription[int]) {
+		go func(s broadcast.Subscription[int]) {
 			defer subWg.Done()
 			for range s.Recv() {
 				// drain until closed
@@ -440,7 +441,7 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 			b.Run("subs="+strconv.Itoa(nSubs)+", msg_count="+strconv.Itoa(numMsg), func(b *testing.B) {
 				bc := broadcast.New[int](uint64(numMsg))
 
-				subs := make([]*broadcast.Subscription[int], nSubs)
+				subs := make([]broadcast.Subscription[int], nSubs)
 				for i := range subs {
 					subs[i] = bc.Subscribe()
 				}
@@ -456,7 +457,7 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 				b.ResetTimer()
 				// All subscribers start draining at once
 				for _, sub := range subs {
-					go func(sub *broadcast.Subscription[int]) {
+					go func(sub broadcast.Subscription[int]) {
 						defer wg.Done()
 						ctr := 0
 						out := sub.Recv()
@@ -490,7 +491,7 @@ func BenchmarkSubsribe(b *testing.B) {
 		b.Run("subs="+strconv.Itoa(nSubs), func(b *testing.B) {
 			bc := broadcast.New[int](1024)
 
-			subs := make([]*broadcast.Subscription[int], nSubs)
+			subs := make([]broadcast.Subscription[int], nSubs)
 
 			for b.Loop() {
 				for i := range nSubs {
@@ -509,7 +510,7 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 	bc := broadcast.New[int](1024)
 
 	const nSubs = 32
-	subs := make([]*broadcast.Subscription[int], nSubs)
+	subs := make([]broadcast.Subscription[int], nSubs)
 	for i := range nSubs {
 		subs[i] = bc.Subscribe()
 	}
@@ -517,7 +518,7 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 	var wg sync.WaitGroup
 	wg.Add(nSubs)
 	for _, sub := range subs {
-		go func(s *broadcast.Subscription[int]) {
+		go func(s broadcast.Subscription[int]) {
 			defer wg.Done()
 			for range s.Recv() {
 				// drain
@@ -542,7 +543,7 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 
 func benchmarkBroadcastSenderThroughput[T any](
 	b *testing.B,
-	newBroadcast func(uint64) *broadcast.Broadcast[T],
+	newBroadcast func(uint64) broadcast.Broadcast[T],
 	makePayload func(i int) T,
 	label string,
 	bufferSizes []uint64,
@@ -554,7 +555,7 @@ func benchmarkBroadcastSenderThroughput[T any](
 				b.Run(fmt.Sprintf("subs=%d", nSubs), func(b *testing.B) {
 					bc := newBroadcast(bufSize)
 
-					subs := make([]*broadcast.Subscription[T], nSubs)
+					subs := make([]broadcast.Subscription[T], nSubs)
 					for i := range subs {
 						subs[i] = bc.Subscribe()
 					}
@@ -569,7 +570,7 @@ func benchmarkBroadcastSenderThroughput[T any](
 					countCh := make(chan counts, nSubs)
 
 					for _, sub := range subs {
-						go func(sub *broadcast.Subscription[T]) {
+						go func(sub broadcast.Subscription[T]) {
 							defer wg.Done()
 							defer sub.Unsubscribe()
 
@@ -643,7 +644,7 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 
 	// Run benchmark with int values as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(capacity uint64) *broadcast.Broadcast[int] {
+		func(capacity uint64) broadcast.Broadcast[int] {
 			return broadcast.New[int](capacity)
 		},
 		func(i int) int {
@@ -655,7 +656,7 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 
 	// Run benchmark with pointers to int as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(capacity uint64) *broadcast.Broadcast[*int] {
+		func(capacity uint64) broadcast.Broadcast[*int] {
 			return broadcast.New[*int](capacity)
 		},
 		func(i int) *int {
