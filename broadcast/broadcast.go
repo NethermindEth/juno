@@ -48,7 +48,7 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 
 // Subscription represents one consumer.
 //   - bcast: back-reference to the Broadcast.
-//   - seq: next sequence to read.
+//   - nextSeq: next sequence to read.
 //   - notifyC: 1-buffered wakeup channel (coalesced notifications).
 //   - isClosed: ensures Unsubscribe runs only once.
 //   - id: subscription id
@@ -56,7 +56,7 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 //   - done: closed by Unsubscribe; run observes it to abort blocking sends
 type Subscription[T any] struct {
 	bcast    *Broadcast[T]
-	seq      uint64
+	nextSeq  uint64
 	notifyC  chan struct{}
 	isClosed atomic.Bool
 	id       uint64
@@ -78,9 +78,9 @@ func (sub *Subscription[T]) Unsubscribe() {
 }
 
 // run is the delivery goroutine for a subscription.
-//   - Repeatedly tries to receive from ring at sub.seq.
+//   - Repeatedly tries to receive from ring at sub.nextSeq.
 //   - On event: sends to out (blocks unless done is closed).
-//   - On lag: updates seq to NextSeq and emits a lag notification.
+//   - On lag: updates sub.nextSeq to NextSeq and emits a lag notification.
 //   - On not-yet-available (ErrFutureSeq): waits on notifyC or done.
 //   - On close:
 //     If broadcast is closed drain-on-close semantics on. Drains the buffer then exits and closes out.
@@ -120,7 +120,7 @@ func (sub *Subscription[T]) run() {
 
 		var e *LaggedError
 		if errors.As(err, &e) {
-			sub.seq = e.NextSeq
+			sub.nextSeq = e.NextSeq
 			// Lagged, notify consumer about lag
 			res := EventOrLag[T]{
 				lag:   *e,
@@ -139,22 +139,22 @@ func (sub *Subscription[T]) run() {
 }
 
 // tryRecv fetches the next message if available:
-//   - On success, returns (msg, nil) and increments seq.
+//   - On success, returns (msg, nil) and increments nextSeq.
 //   - If not yet available, returns ErrFutureSeq.
 //   - If overwritten, returns LaggedError with the resume sequence.
-//   - If broadcast is closed and next seq is not available (i.e., draining has reached newest),
+//   - If broadcast is closed and nextSeq is not available (i.e., draining has reached newest),
 //     returns ErrClosed to end the run loop.
 func (sub *Subscription[T]) tryRecv() (T, error) {
 	var zero T
 
 	b := sub.bcast
 
-	seq := sub.seq
+	seq := sub.nextSeq
 
 	msg, err := b.ring.Get(seq)
 
 	if err == nil {
-		sub.seq++
+		sub.nextSeq++
 		return msg, nil
 	}
 
@@ -174,7 +174,7 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 // Broadcast is the main fan-out structure.
 // - ring: the shared ring buffer used by all senders/readers.
 // - closed: atomic flag indicating broadcast has been closed.
-// - subMu: protects the subs map.
+// - subMu: protects the subs map and nextSubID.
 // - subs: set of current subscriptions.
 // - nextSubID: monotonically increasing subsctiption ID to assign to next subscriber.
 type Broadcast[T any] struct {
@@ -236,7 +236,7 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	b.nextSubID++
 	sub := &Subscription[T]{
 		bcast:   b,
-		seq:     next, // next msg to read
+		nextSeq: next, // next msg to read
 		notifyC: make(chan struct{}, 1),
 		out:     make(chan EventOrLag[T], 1),
 		done:    make(chan struct{}),
