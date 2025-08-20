@@ -1,9 +1,8 @@
 name: Check Juno Snapshot Age
-permissions: none
 
 on:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 jobs:
@@ -57,3 +56,4 @@ jobs:
           else
             echo "✅ OK: $NETWORK_NAME snapshot is fresh ($AGE_DAYS days old). No alert needed."
           fi
+
