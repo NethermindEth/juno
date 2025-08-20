@@ -298,7 +298,7 @@ func (h *Handler) SubscribeEvents(
 	return h.subscribe(ctx, w, subscriber)
 }
 
-// processEvents queries database for events and stream filtered events.
+// processHistoricalEvents queries database for events and stream filtered events.
 func (h *Handler) processHistoricalEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
