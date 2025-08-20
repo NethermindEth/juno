@@ -253,9 +253,9 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 
 // unsubscribe removes subscriber from subsribers map.
 // Subsequent calls are no-op.
-func (b *Broadcast[T]) unsubscribe(subId uint64) {
+func (b *Broadcast[T]) unsubscribe(subID uint64) {
 	b.subMu.Lock()
-	delete(b.subs, subId)
+	delete(b.subs, subID)
 	b.subMu.Unlock()
 }
 
