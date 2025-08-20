@@ -52,8 +52,8 @@ type Subscription[T any] struct {
 //   - If isLag is false, event holds a regular message.
 //   - If isLag is true, lag holds the lag notification.
 type EventOrLag[T any] struct {
-	event T          // For a regular message
-	lag   LaggedInfo // For a lag notification
+	event T           // For a regular message
+	lag   LaggedError // For a lag notification
 	isLag bool
 }
 
@@ -77,17 +77,11 @@ func (e EventOrLag[T]) Event() (T, error) {
 }
 
 // Lag returns the lag info or an error if none.
-func (e EventOrLag[T]) Lag() (LaggedInfo, error) {
+func (e EventOrLag[T]) Lag() (LaggedError, error) {
 	if !e.isLag {
-		return LaggedInfo{}, errors.New("no lag info present")
+		return LaggedError{}, errors.New("no lag info present")
 	}
 	return e.lag, nil
-}
-
-// LaggedInfo is a transport-friendly struct to deliver lag information to subscribers.
-type LaggedInfo struct {
-	MissedSeq uint64
-	NextSeq   uint64
 }
 
 // New constructs a Broadcast with a ring buffer of at least the given capacity
@@ -233,7 +227,7 @@ func (sub *Subscription[T]) run() {
 			sub.seq = e.NextSeq
 			// Lagged, notify consumer about lag
 			res := EventOrLag[T]{
-				lag:   LaggedInfo(*e),
+				lag:   *e,
 				isLag: true,
 			}
 			select {
