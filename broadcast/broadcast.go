@@ -180,11 +180,10 @@ func (sub *Subscription[T]) Unsubscribe() {
 		return
 	}
 
-	if sub.bcast != nil {
-		sub.bcast.subMu.Lock()
-		delete(sub.bcast.subs, sub.id)
-		sub.bcast.subMu.Unlock()
-	}
+	sub.bcast.subMu.Lock()
+	delete(sub.bcast.subs, sub.id)
+	sub.bcast.subMu.Unlock()
+
 	close(sub.done) // signal goroutine to exit
 }
 
