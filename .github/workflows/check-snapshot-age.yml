@@ -44,7 +44,12 @@ jobs:
 
           echo "$NETWORK_NAME snapshot last modified on: $LAST_MODIFIED_STRING"
 
-          LAST_MODIFIED_TIMESTAMP=$(date -d "$LAST_MODIFIED_STRING" +%s)
+          LAST_MODIFIED_TIMESTAMP=$(date -d "$LAST_MODIFIED_STRING" +%s 2>/dev/null)
+          if [ $? -ne 0 ] || [ -z "$LAST_MODIFIED_TIMESTAMP" ]; then
+            MESSAGE="⚠️ *WARNING:* Unable to parse Last-Modified header for *$NETWORK_NAME* snapshot. The date format may be unrecognized by the system.\n\n- *Network:* $NETWORK_NAME\n- *URL:* <$SNAPSHOT_URL|Snapshot Link>\n- *Last-Modified Header:* \`$LAST_MODIFIED_STRING\`"
+            curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" "$SLACK_WEBHOOK_URL"
+            exit 1
+          fi
           CURRENT_TIMESTAMP=$(date +%s)
           AGE_SECONDS=$((CURRENT_TIMESTAMP - LAST_MODIFIED_TIMESTAMP))
           AGE_DAYS=$((AGE_SECONDS / 86400))
