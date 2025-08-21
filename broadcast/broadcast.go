@@ -6,6 +6,7 @@ package broadcast
 
 import (
 	"errors"
+	"math/bits"
 	"sync"
 	"sync/atomic"
 )
@@ -57,9 +58,7 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 type Subscription[T any] struct {
 	bcast    *Broadcast[T]
 	nextSeq  uint64
-	notifyC  chan struct{}
 	isClosed atomic.Bool
-	id       uint64
 
 	out  chan EventOrLag[T] // user-facing channel for messages
 	done chan struct{}      // to shutdown goroutine
@@ -73,7 +72,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 	if !sub.isClosed.CompareAndSwap(false, true) {
 		return
 	}
-	sub.bcast.unsubscribe(sub.id)
+
 	close(sub.done) // signal goroutine to exit
 }
 
@@ -90,63 +89,86 @@ func (sub *Subscription[T]) run() {
 	defer close(sub.out)
 	defer sub.Unsubscribe()
 	for {
-		msg, err := sub.bcast.ring.Get(sub.nextSeq)
-
-		if err == nil {
-			sub.nextSeq++
-			// Got msg! Deliver to user-facing channel (may block if user's channel is full)
-			res := EventOrLag[T]{
-				event: msg,
-				isLag: false,
-			}
-
-			select {
-			case sub.out <- res:
-				continue
-			case <-sub.done:
+		// slow path, wait for next
+		// Drain-on-close semantics. Drains the buffer even if closed.
+		for {
+			if sub.isClosed.Load() {
 				return
 			}
-		}
 
-		// Drain-on-close semantics. Drains the buffer even if closed.
-		if errors.Is(err, ErrFutureSeq) {
+			if sub.nextSeq < sub.bcast.tail.Load() {
+				break
+			}
+
 			if sub.bcast.closed.Load() {
 				return
 			}
-			// Wait for new message or closure
+
+			notify := sub.bcast.loadNotify()
+
 			select {
-			case <-sub.notifyC:
-				// when channel is closed drain mode.
-				// exit when drained the buffer or upon Unsubscribe.
-				continue
+			case <-notify:
 			case <-sub.done:
 				return
 			}
 		}
 
-		var e *LaggedError
-		if errors.As(err, &e) {
-			sub.nextSeq = e.NextSeq
+		idx := sub.nextSeq & sub.bcast.mask
+		slot := &sub.bcast.buffer[idx]
+		msg, slotSeq := slot.read()
+		var res EventOrLag[T]
+		if slotSeq == sub.nextSeq {
+			// fmt.Print("Match\n")
+			sub.nextSeq++
+			// Got msg! Deliver to user-facing channel (may block if user's channel is full)
+			res = EventOrLag[T]{
+				event: msg,
+				isLag: false,
+			}
+		} else {
+			// Check if queried seq. is overwritten.
+			// We should end up this branch only on overwrite thus newest -rb.capacity should never underflow.
+			newest := sub.bcast.tail.Load() - 1
+			oldest := newest - sub.bcast.capacity + 1
 			// Lagged, notify consumer about lag
-			res := EventOrLag[T]{
-				lag:   *e,
+			res = EventOrLag[T]{
+				lag: LaggedError{
+					MissedSeq: sub.nextSeq,
+					NextSeq:   oldest,
+				},
 				isLag: true,
 			}
-			select {
-			case sub.out <- res:
-				continue
-			case <-sub.done:
-				return
-			}
+			sub.nextSeq = oldest
 		}
-		// ErrClosed or unexpected error
-		return
+
+		select {
+		case sub.out <- res:
+			continue
+		case <-sub.done:
+			return
+		}
 	}
 }
 
 // Recv returns the user-facing channel for this subscription.
 func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 	return sub.out
+}
+
+// A single ring buffer slot with a per-slot RWMutex.
+// - seq: published sequence number currently stored in this slot.
+// - mu: coordinates access to this slot.
+// - data: payload for the sequence in this slot.
+type slot[T any] struct {
+	seq  uint64
+	mu   sync.RWMutex
+	data T
+}
+
+func (s *slot[T]) read() (T, uint64) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.data, s.seq
 }
 
 // Broadcast is the main fan-out structure.
@@ -156,22 +178,36 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 // - subs: set of current subscriptions.
 // - nextSubID: monotonically increasing subscription ID to assign to next subscriber.
 type Broadcast[T any] struct {
-	ring *ringBuffer[T]
+	buffer []slot[T]
+	tailMu sync.RWMutex
+	tail   atomic.Uint64
+
+	capacity uint64
+	mask     uint64
+
+	notifyChan atomic.Value // stores chan struct{}
 
 	closed atomic.Bool
-
-	subMu     sync.RWMutex
-	subs      map[uint64]*Subscription[T]
-	nextSubID uint64
 }
 
 // New constructs a Broadcast with a ring buffer of at least the given capacity
 // (capacity is rounded up to the next power of two).
 func New[T any](capacity uint64) *Broadcast[T] {
-	return &Broadcast[T]{
-		ring: newRingBuffer[T](capacity),
-		subs: make(map[uint64]*Subscription[T]),
+	capacity = nextPowerOfTwo(capacity)
+	b := &Broadcast[T]{
+		buffer:   make([]slot[T], capacity),
+		capacity: capacity,
+		mask:     capacity - 1,
 	}
+	b.tail.Store(0)
+	b.notifyChan.Store(make(chan struct{}))
+	return b
+}
+
+// loadNotify atomically returns the current notify channel.
+// Producers close-and-swap this channel to wake all waiters.
+func (b *Broadcast[T]) loadNotify() chan struct{} {
+	return b.notifyChan.Load().(chan struct{})
 }
 
 // Send publishes msg to the ring and wakes subscribers.
@@ -179,21 +215,28 @@ func New[T any](capacity uint64) *Broadcast[T] {
 //   - Push is serialised via ring’s tailMu.
 //   - Wakes subscribers by iterating subs under subMu.RLock and attempting non-blocking sends on their notifyC.
 func (b *Broadcast[T]) Send(msg T) error {
+	b.tailMu.Lock()
+	defer b.tailMu.Unlock()
+
 	if b.closed.Load() {
 		return ErrClosed
 	}
-	// Push writes the data and advances tail under ring locks.
-	b.ring.Push(msg)
 
-	b.subMu.RLock()
-	defer b.subMu.RUnlock()
-	// Wake subscribers (only if someone is blocked)
-	for _, sub := range b.subs {
-		select {
-		case sub.notifyC <- struct{}{}:
-		default:
-		}
-	}
+	tail := b.tail.Load()
+	idx := tail & b.mask
+
+	slot := &b.buffer[idx]
+	slot.mu.Lock()
+	slot.data = msg
+	slot.seq = tail
+	slot.mu.Unlock()
+	b.tail.Add(1)
+
+	// Wake all waiters by closing the current notify channel and swapping a new one.
+	notify := b.loadNotify()
+	close(notify)
+	b.notifyChan.Store(make(chan struct{}))
+
 	return nil
 }
 
@@ -205,33 +248,16 @@ func (b *Broadcast[T]) Send(msg T) error {
 // - Reads ring.tail under ring's tail lock to set starting sequence.
 // - Spawns a goroutine to deliver messages to sub.out.
 func (b *Broadcast[T]) Subscribe() *Subscription[T] {
-	next := b.ring.tail.Load()
-
-	b.subMu.Lock()
-	subID := b.nextSubID
-	b.nextSubID++
 	sub := &Subscription[T]{
 		bcast:   b,
-		nextSeq: next, // next msg to read
-		notifyC: make(chan struct{}, 1),
+		nextSeq: b.tail.Load(), // next msg to read
 		out:     make(chan EventOrLag[T], 1),
 		done:    make(chan struct{}),
-		id:      subID,
 	}
 
-	b.subs[sub.id] = sub
-	b.subMu.Unlock()
 	go sub.run()
 
 	return sub
-}
-
-// unsubscribe removes subscriber from subsribers map.
-// Subsequent calls are no-op.
-func (b *Broadcast[T]) unsubscribe(subID uint64) {
-	b.subMu.Lock()
-	delete(b.subs, subID)
-	b.subMu.Unlock()
 }
 
 // Close marks the broadcast as closed (single-run via CAS),
@@ -242,15 +268,20 @@ func (b *Broadcast[T]) unsubscribe(subID uint64) {
 // each subscription’s run goroutine is responsible for exiting (draining up to the latest) and
 // will close its out channel on return.
 func (b *Broadcast[T]) Close() {
+	b.tailMu.Lock()
+	defer b.tailMu.Unlock()
+	// Must be done under mutex to avoid races to close chanel with send
 	if !b.closed.CompareAndSwap(false, true) {
 		return
 	}
 
-	b.subMu.Lock()
-	defer b.subMu.Unlock()
+	close(b.loadNotify())
+}
 
-	for _, sub := range b.subs {
-		close(sub.notifyC) // Drain mode
+// nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
+func nextPowerOfTwo(x uint64) uint64 {
+	if x == 0 {
+		return 1
 	}
-	b.subs = make(map[uint64]*Subscription[T])
+	return 1 << uint(bits.Len64(x-1))
 }
