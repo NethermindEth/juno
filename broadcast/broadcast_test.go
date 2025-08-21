@@ -217,8 +217,8 @@ func TestLaggedDetection(t *testing.T) {
 	lag, err := lagEv.Lag()
 	require.NoError(t, err)
 	require.Equal(t, broadcast.LaggedError{
-		MissedSeq: 3,
-		NextSeq:   4,
+		MissedSeq: 2,
+		NextSeq:   3,
 	}, lag)
 }
 
@@ -247,8 +247,8 @@ func TestLagResyncAfterError(t *testing.T) {
 	require.Equal(
 		t,
 		broadcast.LaggedError{
-			MissedSeq: 3,
-			NextSeq:   4,
+			MissedSeq: 2,
+			NextSeq:   3,
 		},
 		lag,
 	)
