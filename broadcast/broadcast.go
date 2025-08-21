@@ -89,10 +89,11 @@ func (sub *Subscription[T]) Unsubscribe() {
 func (sub *Subscription[T]) run() {
 	defer close(sub.out)
 	defer sub.Unsubscribe()
-
 	for {
-		msg, err := sub.tryRecv()
+		msg, err := sub.bcast.ring.Get(sub.nextSeq)
+
 		if err == nil {
+			sub.nextSeq++
 			// Got msg! Deliver to user-facing channel (may block if user's channel is full)
 			res := EventOrLag[T]{
 				event: msg,
@@ -107,7 +108,11 @@ func (sub *Subscription[T]) run() {
 			}
 		}
 
+		// Drain-on-close semantics. Drains the buffer even if closed.
 		if errors.Is(err, ErrFutureSeq) {
+			if sub.bcast.closed.Load() {
+				return
+			}
 			// Wait for new message or closure
 			select {
 			case <-sub.notifyC:
@@ -137,34 +142,6 @@ func (sub *Subscription[T]) run() {
 		// ErrClosed or unexpected error
 		return
 	}
-}
-
-// tryRecv fetches the next message if available:
-//   - On success, returns (msg, nil) and increments nextSeq.
-//   - If not yet available, returns ErrFutureSeq.
-//   - If overwritten, returns LaggedError with the resume sequence.
-//   - If broadcast is closed and nextSeq is not available (i.e., draining has reached newest),
-//     returns ErrClosed to end the run loop.
-func (sub *Subscription[T]) tryRecv() (T, error) {
-	var zero T
-
-	b := sub.bcast
-
-	seq := sub.nextSeq
-
-	msg, err := b.ring.Get(seq)
-
-	if err == nil {
-		sub.nextSeq++
-		return msg, nil
-	}
-
-	// Drain-on-close semantics. Drains the buffer even if closed.
-	if errors.Is(err, ErrFutureSeq) && b.closed.Load() {
-		return zero, ErrClosed
-	}
-
-	return zero, err
 }
 
 // Recv returns the user-facing channel for this subscription.
