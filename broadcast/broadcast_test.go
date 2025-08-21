@@ -614,7 +614,7 @@ func benchmarkBroadcastSenderThroughput[T any](
 						totalLag += c.lag
 
 						minRecvd = min(minRecvd, c.recvd)
-						maxRecvd = min(maxRecvd, c.recvd)
+						maxRecvd = max(maxRecvd, c.recvd)
 					}
 
 					avgRecvd := float64(totalRecvd) / float64(nSubs)

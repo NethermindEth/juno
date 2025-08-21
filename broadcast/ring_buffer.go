@@ -3,6 +3,7 @@ package broadcast
 import (
 	"math/bits"
 	"sync"
+	"sync/atomic"
 )
 
 // A single ring buffer slot with a per-slot RWMutex.
@@ -23,7 +24,7 @@ type slot[T any] struct {
 type ringBuffer[T any] struct {
 	buffer []slot[T]
 	tailMu sync.RWMutex
-	tail   uint64
+	tail   atomic.Uint64
 
 	capacity uint64
 	mask     uint64
@@ -35,9 +36,9 @@ func newRingBuffer[T any](capacity uint64) *ringBuffer[T] {
 	rb := ringBuffer[T]{
 		buffer:   make([]slot[T], capacity),
 		capacity: capacity,
-		tail:     1,
 		mask:     capacity - 1,
 	}
+	rb.tail.Store(1)
 	return &rb
 }
 
@@ -48,7 +49,7 @@ func newRingBuffer[T any](capacity uint64) *ringBuffer[T] {
 func (rb *ringBuffer[T]) Push(val T) {
 	rb.tailMu.Lock()
 	defer rb.tailMu.Unlock()
-	tail := rb.tail
+	tail := rb.tail.Load()
 	wPos := tail - 1
 	idx := wPos & rb.mask
 
@@ -57,7 +58,7 @@ func (rb *ringBuffer[T]) Push(val T) {
 	slot.data = val
 	slot.seq = tail
 	slot.mu.Unlock()
-	rb.tail++
+	rb.tail.Add(1)
 }
 
 // Get reads the value for sequence seq:
@@ -76,6 +77,13 @@ func (rb *ringBuffer[T]) Get(seq uint64) (T, error) {
 		return zero, ErrInvalidSequence
 	}
 
+	tail := rb.tail.Load()
+	newest := tail - 1
+	if seq > newest {
+		// Requested seq is ahead of newest -> not ready yet.
+		return zero, ErrFutureSeq
+	}
+
 	idx := (seq - 1) & rb.mask
 	slot := &rb.buffer[idx]
 	slot.mu.RLock()
@@ -86,36 +94,20 @@ func (rb *ringBuffer[T]) Get(seq uint64) (T, error) {
 		slot.mu.RUnlock()
 		return val, nil
 	}
-	// Mismatch: either not written yet or overwritten.
-	slot.mu.RUnlock()
 
-	// Read newest under tail read lock for consistent view.
-	rb.tailMu.RLock()
-	newest := rb.tail - 1
-	rb.tailMu.RUnlock()
+	// Lag!: slot.seq > seq
+	// Release slot.mu before acquiring tailMu,
+	// otherwise concurrent producer will cause deadlock.
+	slot.mu.RUnlock()
 
 	// Check if queried seq. is overwritten.
-	if newest >= rb.capacity {
-		oldest := newest - rb.capacity + 1
-		if seq < oldest {
-			return zero, &LaggedError{
-				MissedSeq: seq,
-				NextSeq:   oldest,
-			}
-		}
-	}
+	// We should end up this branch only on overwrite thus newest -rb.capacity should never underflow.
+	oldest := newest - rb.capacity + 1
 
-	// Re-check slot again, it might have been just written.
-	slot.mu.RLock()
-	if slot.seq == seq {
-		val := slot.data
-		slot.mu.RUnlock()
-		return val, nil
+	return zero, &LaggedError{
+		MissedSeq: seq,
+		NextSeq:   oldest,
 	}
-	slot.mu.RUnlock()
-
-	// Requested seq is ahead of newest -> not ready yet.
-	return zero, ErrFutureSeq
 }
 
 // nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
