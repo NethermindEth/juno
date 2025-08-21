@@ -187,7 +187,7 @@ jobs:
           path: starknet-rpc-tests
 
       - name: Setup K6
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@ffe7d7290dfa715e48c2ccc924d068444c94bde2
 
       - name: Run k6 (bash)
         env:
@@ -197,13 +197,3 @@ jobs:
           DURATION: "60s"
         run: |
           k6 run ./starknet-rpc-tests/load-tests/test_cases.js
-
-      # - name: Run local k6 test
-      #   uses: grafana/run-k6-action@v1
-      #   env:
-      #     NODE_URL: "${{ secrets.RPC_URL }}?apikey=${{ secrets.AUTH_TOKEN }}"
-      #     NETWORK: "sepolia"
-      #     LOAD_FACTOR: 10
-      #     DURATION: "60s"
-      #   with:
-      #     path: ./starknet-rpc-tests/load-tests/test_cases.js
