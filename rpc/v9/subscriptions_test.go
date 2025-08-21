@@ -1016,6 +1016,16 @@ func TestSubscriptionReorg(t *testing.T) {
 			subscribeMethod: "starknet_subscribeEvents",
 			ignoreFirst:     false,
 		},
+		{
+			name:            "reorg event in starknet_subscribeNewTransactionReceipts",
+			subscribeMethod: "starknet_subscribeNewTransactionReceipts",
+			ignoreFirst:     false,
+		},
+		{
+			name:            "reorg event in starknet_subscribeNewTransactions",
+			subscribeMethod: "starknet_subscribeNewTransactions",
+			ignoreFirst:     false,
+		},
 		// TODO: test reorg event in TransactionStatus
 	}
 
@@ -1026,7 +1036,7 @@ func TestSubscriptionReorg(t *testing.T) {
 		Return(nil, nil, nil).AnyTimes()
 	mockEventFilterer.EXPECT().Close().Return(nil).AnyTimes()
 
-	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(len(testCases))
+	mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil).Times(2)
 	mockChain.EXPECT().EventFilter(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(mockEventFilterer, nil).AnyTimes()
 

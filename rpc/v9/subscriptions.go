@@ -858,6 +858,9 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				blockFinalityStatus,
 			)
 		},
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+			return sendReorg(w, reorg, id)
+		},
 	}
 	return h.subscribe(ctx, w, subscriber)
 }
@@ -978,8 +981,8 @@ func (h *Handler) SubscribeNewTransactions(
 	lastBlockNumber := uint64(0)
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return nil
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+			return sendReorg(w, reorg, id)
 		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
