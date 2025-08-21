@@ -1,3 +1,4 @@
+permissions: {}
 name: Check Juno Snapshot Age
 
 on:
