@@ -1,11 +1,6 @@
 name: Check Juno Snapshot Age
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
   schedule:
     - cron: "0 8 * * *"
   workflow_dispatch:
@@ -25,7 +20,7 @@ jobs:
             url: "https://juno-snapshots.nethermind.io/files/sepolia-integration/latest"
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      MAX_AGE_DAYS: 1
+      MAX_AGE_DAYS: 7
 
     steps:
       - name: Check snapshot age for ${{ matrix.network.name }}
