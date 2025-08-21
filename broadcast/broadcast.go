@@ -228,9 +228,7 @@ func (b *Broadcast[T]) Send(msg T) error {
 // - Reads ring.tail under ring's tail lock to set starting sequence.
 // - Spawns a goroutine to deliver messages to sub.out.
 func (b *Broadcast[T]) Subscribe() *Subscription[T] {
-	b.ring.tailMu.RLock()
-	next := b.ring.tail
-	b.ring.tailMu.RUnlock()
+	next := b.ring.tail.Load()
 
 	b.subMu.Lock()
 	subID := b.nextSubID
