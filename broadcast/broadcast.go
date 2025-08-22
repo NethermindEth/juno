@@ -10,7 +10,6 @@ import (
 	"math/bits"
 	"sync"
 	"sync/atomic"
-	"unsafe"
 )
 
 // EventOrLag is a tagged union:
@@ -75,9 +74,9 @@ func (sub *Subscription[T]) run() {
 
 	for {
 		// Drain-on-close semantics. Drains the buffer even if closed.
+		notify := bcast.loadNotify()
 		for sub.nextSeq >= bcast.tail.Load() {
 			// slow path, wait for next
-			notify := bcast.loadNotify()
 			select {
 			case <-notify:
 				continue
@@ -145,10 +144,6 @@ func (s *slot[T]) write(data T, seq uint64) {
 	s.seq = seq
 }
 
-type cacheLinePad struct {
-	_ [128 - unsafe.Sizeof(uint64(0))%128]byte
-}
-
 // Broadcast is the main fan-out structure.
 // - ring: the shared ring buffer used by all senders/readers.
 // - closed: atomic flag indicating broadcast has been closed.
@@ -159,10 +154,8 @@ type Broadcast[T any] struct {
 	buffer []slot[T]
 	mu     sync.Mutex
 	tail   atomic.Uint64
-	_      cacheLinePad
 
 	notifyChan atomic.Value // stores chan struct{}
-	_          cacheLinePad
 
 	capacity uint64
 	mask     uint64
