@@ -1,0 +1,65 @@
+permissions: {}
+name: Check Juno Snapshot Age
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  check-age:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        network:
+          - name: "Mainnet"
+            url: "https://juno-snapshots.nethermind.io/files/mainnet/latest"
+          - name: "Sepolia"
+            url: "https://juno-snapshots.nethermind.io/files/sepolia/latest"
+          - name: "Sepolia Integration"
+            url: "https://juno-snapshots.nethermind.io/files/sepolia-integration/latest"
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      MAX_AGE_DAYS: 7
+
+    steps:
+      - name: Check snapshot age for ${{ matrix.network.name }}
+        run: |
+          set -eo pipefail
+
+          MAX_AGE_SECONDS=$((MAX_AGE_DAYS * 24 * 60 * 60))
+          NETWORK_NAME="${{ matrix.network.name }}"
+          SNAPSHOT_URL="${{ matrix.network.url }}"
+
+          echo "Checking $NETWORK_NAME snapshot: $SNAPSHOT_URL"
+
+          LAST_MODIFIED_STRING=$(curl -s -I -L "$SNAPSHOT_URL" | grep -i '^last-modified:' | sed -E 's/last-modified: //i' | tr -d '\r')
+
+          if [ -z "$LAST_MODIFIED_STRING" ]; then
+            MESSAGE="⚠️ *WARNING:* Unable to retrieve Last-Modified header for *$NETWORK_NAME* snapshot. Check if the URL is accessible or changed.\n\n- *Network:* $NETWORK_NAME\n- *URL:* <$SNAPSHOT_URL|Snapshot Link>"
+            curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" "$SLACK_WEBHOOK_URL"
+            exit 1
+          fi
+
+          echo "$NETWORK_NAME snapshot last modified on: $LAST_MODIFIED_STRING"
+
+          LAST_MODIFIED_TIMESTAMP=$(date -d "$LAST_MODIFIED_STRING" +%s 2>/dev/null)
+          if [ $? -ne 0 ] || [ -z "$LAST_MODIFIED_TIMESTAMP" ]; then
+            MESSAGE="⚠️ *WARNING:* Unable to parse Last-Modified header for *$NETWORK_NAME* snapshot. The date format may be unrecognized by the system.\n\n- *Network:* $NETWORK_NAME\n- *URL:* <$SNAPSHOT_URL|Snapshot Link>\n- *Last-Modified Header:* \`$LAST_MODIFIED_STRING\`"
+            curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" "$SLACK_WEBHOOK_URL"
+            exit 1
+          fi
+          CURRENT_TIMESTAMP=$(date +%s)
+          AGE_SECONDS=$((CURRENT_TIMESTAMP - LAST_MODIFIED_TIMESTAMP))
+          AGE_DAYS=$((AGE_SECONDS / 86400))
+
+          if [ "$AGE_SECONDS" -gt "$MAX_AGE_SECONDS" ]; then
+            MESSAGE="🚨 *ALERT: Juno $NETWORK_NAME Snapshot is Outdated!* 🚨\n\nThe latest $NETWORK_NAME snapshot is *$AGE_DAYS days old*, exceeding the $MAX_AGE_DAYS-day threshold.\n\n- *Network:* $NETWORK_NAME\n- *URL:* <$SNAPSHOT_URL|Latest Snapshot>\n- *Last Modified:* \`$LAST_MODIFIED_STRING\`"
+            echo "ALERT: $NETWORK_NAME snapshot is $AGE_DAYS days old. Sending Slack notification."
+            curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" "$SLACK_WEBHOOK_URL"
+            exit 1
+          else
+            echo "✅ OK: $NETWORK_NAME snapshot is fresh ($AGE_DAYS days old). No alert needed."
+          fi
+
