@@ -27,11 +27,10 @@ func recvWithTimeout[T any](t *testing.T, ch <-chan T, d time.Duration) (T, bool
 
 func TestBasicSendRecvNoLag(t *testing.T) {
 	numEvents := 100
-	bcast := broadcast.New[int](uint64(numEvents))
-	defer bcast.Close()
 
-	sub := bcast.Subscribe()
-	defer sub.Unsubscribe()
+	bcast := broadcast.New[int](t.Context(), uint64(numEvents))
+
+	sub := bcast.Subscribe(t.Context())
 
 	// produce
 	go func() {
@@ -54,17 +53,17 @@ func TestBasicSendRecvNoLag(t *testing.T) {
 func TestMultipleSubscribersReceiveSameData(t *testing.T) {
 	numEvents := 1000
 	numSubscribers := 100
-	bcast := broadcast.New[int](uint64(numEvents))
-	defer bcast.Close()
+	bcast := broadcast.New[int](t.Context(), uint64(numEvents))
 
 	// start consumers
 	var wg sync.WaitGroup
 	wg.Add(numSubscribers)
 	for range numSubscribers {
-		sub := bcast.Subscribe()
+		subCtx, subCancel := context.WithCancel(t.Context())
+		sub := bcast.Subscribe(subCtx)
 		go func(sub *broadcast.Subscription[int]) {
 			defer wg.Done()
-			defer sub.Unsubscribe()
+			defer subCancel()
 			for i := range numEvents {
 				ev, ok := recvWithTimeout(t, sub.Recv(), time.Second)
 				require.True(t, ok, "subscriber out closed early")
@@ -92,11 +91,9 @@ func TestConcurrentProducers_AllDelivered_NoLag(t *testing.T) {
 	M := 8                    // producers
 	K := 500                  // messages per producer
 	capacity := uint64(M * K) // ensure no overwrite to keep test simple
-	bc := broadcast.New[payload](capacity)
-	defer bc.Close()
+	bc := broadcast.New[payload](t.Context(), capacity)
 
-	sub := bc.Subscribe()
-	defer sub.Unsubscribe()
+	sub := bc.Subscribe(t.Context())
 
 	// launch producers
 	var wg sync.WaitGroup
@@ -133,10 +130,10 @@ func TestConcurrentProducers_AllDelivered_NoLag(t *testing.T) {
 func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 	// One slow subscriber; producer sends bursts that overrun notifyC (buffer=1).
 	bufferSize := uint64(64)
-	bc := broadcast.New[int](bufferSize)
+	bcastCtx, bcastCancel := context.WithCancel(t.Context())
+	bc := broadcast.New[int](bcastCtx, bufferSize)
 
-	sub := bc.Subscribe()
-	defer sub.Unsubscribe()
+	sub := bc.Subscribe(t.Context())
 
 	// Slow consumer
 	var recvCount uint64
@@ -179,7 +176,7 @@ func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 		}
 		time.Sleep(1 * time.Millisecond) // small pause between bursts
 	}
-	bc.Close()
+	bcastCancel()
 
 	wg.Wait()
 	require.GreaterOrEqual(
@@ -191,8 +188,8 @@ func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 }
 
 func TestLaggedDetection(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
+	bc := broadcast.New[int](t.Context(), 2)
+	sub := bc.Subscribe(t.Context())
 	require.NoError(t, bc.Send(1))
 	require.NoError(t, bc.Send(2))
 	// wait for subscriber to take first value to chan and
@@ -223,8 +220,8 @@ func TestLaggedDetection(t *testing.T) {
 }
 
 func TestLagResyncAfterError(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
+	bc := broadcast.New[int](t.Context(), 2)
+	sub := bc.Subscribe(t.Context())
 	require.NoError(t, bc.Send(1)) // in out chan
 	require.NoError(t, bc.Send(2))
 	// Sleep to allow forwarder goroutine to put 1 to chan and 2 to memory
@@ -261,11 +258,12 @@ func TestLagResyncAfterError(t *testing.T) {
 }
 
 func TestCloseBroadcast(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
+	bcastCtx, bcastCancel := context.WithCancel(t.Context())
+	bc := broadcast.New[int](bcastCtx, 2)
+	sub := bc.Subscribe(t.Context())
 	require.NoError(t, bc.Send(1))
 	time.Sleep(5 * time.Millisecond)
-	bc.Close()
+	bcastCancel()
 	out := sub.Recv()
 	// receive one
 	val, open := <-out
@@ -279,9 +277,10 @@ func TestCloseBroadcast(t *testing.T) {
 }
 
 func TestUnsubscribe_ClosesOut(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
-	sub.Unsubscribe()
+	bc := broadcast.New[int](t.Context(), 2)
+	subCtx, subCancel := context.WithCancel(t.Context())
+	sub := bc.Subscribe(subCtx)
+	subCancel()
 
 	_, open := recvWithTimeout(t, sub.Recv(), 500*time.Millisecond)
 	require.False(t, open, "out must be closed after Unsubscribe")
@@ -291,15 +290,16 @@ func TestErrClosedHandled_RunExitsAfterDrain(t *testing.T) {
 	// This test expects the subscriber goroutine to exit promptly after Close.
 	// If the implementation spins on ErrClosed in sub.run(), this test will fail (timeout).
 	numEvents := uint64(64)
-	bc := broadcast.New[uint64](numEvents)
-	sub := bc.Subscribe()
+	bcastCtx, bcastCancel := context.WithCancel(t.Context())
+	bc := broadcast.New[uint64](bcastCtx, numEvents)
+	sub := bc.Subscribe(t.Context())
 
 	for i := range numEvents {
 		require.NoError(t, bc.Send(i))
 	}
 
 	// Close immediately, then ensure Out closes soon
-	bc.Close()
+	bcastCancel()
 
 	// Drain the buffer
 	for i := range numEvents {
@@ -314,24 +314,8 @@ func TestErrClosedHandled_RunExitsAfterDrain(t *testing.T) {
 	require.False(t, ok, "out should be closed after drain")
 }
 
-func TestUnsubscribe(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
-	sub.Unsubscribe()
-	_, open := <-sub.Recv()
-	require.False(t, open)
-}
-
-func TestUnsubscribe_Idempotent(t *testing.T) {
-	bc := broadcast.New[int](2)
-	sub := bc.Subscribe()
-	sub.Unsubscribe()
-	sub.Unsubscribe() // should not panic
-}
-
 func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
-	bc := broadcast.New[int](64)
-	defer bc.Close()
+	bc := broadcast.New[int](t.Context(), 64)
 
 	// Hot publisher
 	ctx, cancel := context.WithCancel(t.Context())
@@ -358,7 +342,8 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for range 50 {
-				sub := bc.Subscribe()
+				subCtx, subCancel := context.WithCancel(t.Context())
+				sub := bc.Subscribe(subCtx)
 				// read a few items and unsubscribe
 				read := 0
 				for read < 3 {
@@ -368,7 +353,7 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 						read++
 					}
 				}
-				sub.Unsubscribe()
+				subCancel()
 			}
 		}()
 	}
@@ -378,7 +363,8 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 }
 
 func TestCloseDuringHotSendAndSubscribe(t *testing.T) {
-	bc := broadcast.New[int](1024)
+	bcCtx, bcCancel := context.WithCancel(t.Context())
+	bc := broadcast.New[int](bcCtx, 1024)
 
 	// start publishers
 	var pubWg sync.WaitGroup
@@ -399,7 +385,7 @@ func TestCloseDuringHotSendAndSubscribe(t *testing.T) {
 	// start subscribers
 	var subWg sync.WaitGroup
 	for range 8 {
-		sub := bc.Subscribe()
+		sub := bc.Subscribe(t.Context())
 		subWg.Add(1)
 		go func(s *broadcast.Subscription[int]) {
 			defer subWg.Done()
@@ -412,7 +398,7 @@ func TestCloseDuringHotSendAndSubscribe(t *testing.T) {
 	// Close during activity
 	time.AfterFunc(100*time.Millisecond, func() {
 		stop.Store(true)
-		bc.Close()
+		bcCancel()
 	})
 
 	// Ensure subscribers close within timeout
@@ -438,18 +424,19 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 	for _, nSubs := range numSubscribers {
 		for _, numMsg := range numMessages {
 			b.Run("subs="+strconv.Itoa(nSubs)+", msg_count="+strconv.Itoa(numMsg), func(b *testing.B) {
-				bc := broadcast.New[int](uint64(numMsg))
+				bcCtx, bcCancel := context.WithCancel(b.Context())
+				bc := broadcast.New[int](bcCtx, uint64(numMsg))
 
 				subs := make([]*broadcast.Subscription[int], nSubs)
 				for i := range subs {
-					subs[i] = bc.Subscribe()
+					subs[i] = bc.Subscribe(bcCtx)
 				}
 
 				for i := range numMsg {
 					require.NoError(b, bc.Send(i))
 				}
 				// Close broadcast. Drain-on-close semantics.
-				bc.Close()
+				bcCancel()
 				var wg sync.WaitGroup
 				wg.Add(len(subs))
 
@@ -476,9 +463,6 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 
 				wg.Wait()
 				b.StopTimer()
-				for _, sub := range subs {
-					sub.Unsubscribe()
-				}
 			})
 		}
 	}
@@ -488,30 +472,30 @@ func BenchmarkSubsribe(b *testing.B) {
 	numSubscribers := []int{1, 4, 32, 128, 256, 512, 1024}
 	for _, nSubs := range numSubscribers {
 		b.Run("subs="+strconv.Itoa(nSubs), func(b *testing.B) {
-			bc := broadcast.New[int](1024)
+			bcCtx, bcCancel := context.WithCancel(b.Context())
+			bc := broadcast.New[int](bcCtx, 1024)
 
 			subs := make([]*broadcast.Subscription[int], nSubs)
 
 			for b.Loop() {
 				for i := range nSubs {
-					subs[i] = bc.Subscribe()
+					subs[i] = bc.Subscribe(b.Context())
 				}
 			}
 
-			for _, sub := range subs {
-				sub.Unsubscribe()
-			}
+			bcCancel()
 		})
 	}
 }
 
 func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
-	bc := broadcast.New[int](1024)
+	bcCtx, bcCancel := context.WithCancel(b.Context())
+	bc := broadcast.New[int](bcCtx, 1024)
 
 	const nSubs = 32
 	subs := make([]*broadcast.Subscription[int], nSubs)
 	for i := range nSubs {
-		subs[i] = bc.Subscribe()
+		subs[i] = bc.Subscribe(b.Context())
 	}
 
 	var wg sync.WaitGroup
@@ -536,13 +520,12 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 	}
 	b.StopTimer()
 
-	bc.Close()
+	bcCancel()
 	wg.Wait()
 }
 
 func benchmarkBroadcastSenderThroughput[T any](
 	b *testing.B,
-	newBroadcast func(uint64) *broadcast.Broadcast[T],
 	makePayload func(i int) T,
 	label string,
 	bufferSizes []uint64,
@@ -552,11 +535,12 @@ func benchmarkBroadcastSenderThroughput[T any](
 			numSubscribers := []int{1, 4, 32, 128, 256, 512, 1024}
 			for _, nSubs := range numSubscribers {
 				b.Run(fmt.Sprintf("subs=%d", nSubs), func(b *testing.B) {
-					bc := newBroadcast(bufSize)
+					bcastCtx, bcastCancel := context.WithCancel(b.Context())
+					bc := broadcast.New[T](bcastCtx, bufSize)
 
 					subs := make([]*broadcast.Subscription[T], nSubs)
 					for i := range subs {
-						subs[i] = bc.Subscribe()
+						subs[i] = bc.Subscribe(b.Context())
 					}
 
 					var wg sync.WaitGroup
@@ -571,8 +555,6 @@ func benchmarkBroadcastSenderThroughput[T any](
 					for _, sub := range subs {
 						go func(sub *broadcast.Subscription[T]) {
 							defer wg.Done()
-							defer sub.Unsubscribe()
-
 							recvd := uint64(0)
 							lag := uint64(0)
 							out := sub.Recv()
@@ -598,7 +580,7 @@ func benchmarkBroadcastSenderThroughput[T any](
 					}
 					b.StopTimer()
 
-					bc.Close()
+					bcastCancel()
 					wg.Wait()
 					close(countCh)
 
@@ -643,9 +625,6 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 
 	// Run benchmark with int values as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(capacity uint64) *broadcast.Broadcast[int] {
-			return broadcast.New[int](capacity)
-		},
 		func(i int) int {
 			return i
 		},
@@ -655,9 +634,6 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 
 	// Run benchmark with pointers to int as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(capacity uint64) *broadcast.Broadcast[*int] {
-			return broadcast.New[*int](capacity)
-		},
 		func(i int) *int {
 			v := i
 			return &v
