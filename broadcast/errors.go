@@ -12,6 +12,8 @@ var (
 	ErrFutureSeq = errors.New("requested seq. not published yet")
 	// Returned when the requested sequence is 0. Which is indicates unitialized sequence in this system.
 	ErrInvalidSequence = errors.New("invalid sequence: 0")
+	ErrNoEvent         = errors.New("no event present")
+	ErrNoLag           = errors.New("no lag info present")
 )
 
 // LaggedError indicates the requested sequence was overwritten by newer writes.

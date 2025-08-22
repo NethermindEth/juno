@@ -1,12 +1,17 @@
-// Package broadcast implements fan-out event streaming and notification systems
-// where multiple consumers need to receive all messages or be informed about lost messages,
-// while the producers manages a bounded buffer with overwrites.
-// Safe for multi-producer multi-consumer setting.
+// Package broadcast implements a fan-out event stream with overwrite-on-full semantics.
+// Multiple producers can call Send concurrently and multiple consumers can Subscribe.
+// Every consumer receives every message in order unless it has fallen behind far enough
+// that its next sequence has been overwritten; in that case the consumer receives a
+// lag notification (LaggedError) indicating where to resume.
+// Notes:
+//   - Producers are serialized by a global mutex (b.mu), so producer-side throughput
+//     is effectively single-writer (MPMC-safe but not truly parallel on Send).
+//   - The ring is bounded and overwriting; backpressure to producers does not apply,
+//     except that producers can stall when wrapping to a slot currently being read.
 package broadcast
 
 import (
 	"context"
-	"errors"
 	"math/bits"
 	"sync"
 	"sync/atomic"
@@ -35,7 +40,7 @@ func (e *EventOrLag[T]) IsLag() bool {
 func (e *EventOrLag[T]) Event() (T, error) {
 	var zero T
 	if e.isLag {
-		return zero, errors.New("no event present")
+		return zero, ErrNoEvent
 	}
 	return e.event, nil
 }
@@ -43,60 +48,76 @@ func (e *EventOrLag[T]) Event() (T, error) {
 // Lag returns the lag info or an error if none.
 func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 	if !e.isLag {
-		return LaggedError{}, errors.New("no lag info present")
+		return LaggedError{}, ErrNoLag
 	}
 	return e.lag, nil
 }
 
-// Subscription represents one consumer.
-//   - bcast: back-reference to the Broadcast.
-//   - nextSeq: next sequence to read.
-//   - out: user-facing channel for events or lag notifications.
+// Subscription represents a single consumer of the broadcast.
+// - nextSeq: next sequence number to fetch from the ring.
+// - out:     user-facing channel that delivers EventOrLag values.
+//
+// A Subscription is driven by a dedicated goroutine started by Subscribe.
+// To stop receiving, cancel the context passed to Subscribe; this terminates the
+// delivery goroutine and closes the 'out' channel once it exits.
+//
+// NOTE (semantics on close):
+//   - If the Broadcast's context is canceled, producers stop. Each subscription's
+//     goroutine will drain any messages already present up to the current tail,
+//     then exit and close 'out'.
+//   - If only the subscription context is canceled, the goroutine returns promptly
+//     (without draining) and closes 'out'.
 type Subscription[T any] struct {
-	bcast   *Broadcast[T]
 	nextSeq uint64
-
-	out chan EventOrLag[T] // user-facing channel for messages
-	ctx context.Context
+	out     chan EventOrLag[T] // user-facing channel for messages
 }
 
-// run is the delivery goroutine for a subscription.
-//   - Repeatedly tries to receive from ring at sub.nextSeq.
-//   - On event: sends to out (blocks unless done is closed).
-//   - On lag: updates sub.nextSeq to NextSeq and emits a lag notification.
-//   - On close:
-//     If broadcast is closed drain-on-close semantics on. Drains the buffer then exits and closes out.
-//     If subscription is closed via Unsubscribe, returns immediately upon receiving done signal.
-//     run exits by closing the out channel so consumer knows no further messages.
-func (sub *Subscription[T]) run() {
+// run delivers messages to the subscription's out channel.
+// Algorithm outline:
+// - Wait until tail advances beyond nextSeq (using a broadcast-style notify channel).
+// - Compute the slot index = nextSeq & mask and read the slot.
+//   - If the slot's seq matches nextSeq: deliver the event and advance nextSeq.
+//   - Else: the slot has been overwritten; compute the current oldest sequence and
+//     emit a lag notification. Jump nextSeq to the oldest and continue.
+//   - On Broadcast ctx cancellation, this goroutine drains remaining messages (until
+//     nextSeq == tail at the time of checking), then exits.
+//   - On subscription ctx cancellation, this goroutine exits immediately and closes out.
+func (sub *Subscription[T]) run(subCtx context.Context, bcast *Broadcast[T]) {
 	defer close(sub.out)
-	bcast := sub.bcast
 
 	for {
-		// Drain-on-close semantics. Drains the buffer even if closed.
+		// Wait until sub.nextSeq is published.
+		// We snapshot the current notify channel once per outer iteration. Producers
+		// close the channel after publishing a message and swap a new one in; observing
+		// a closed notify ensures we see the tail increment (channel close establishes
+		// a happens-before edge for preceding writes in Send).
 		notify := bcast.loadNotify()
-		for sub.nextSeq >= bcast.tail.Load() {
+		if sub.nextSeq >= bcast.tail.Load() {
 			// slow path, wait for next
 			select {
 			case <-notify:
 				continue
 			case <-bcast.ctx.Done():
+				// Drain-on-close semantics are handled by not hitting this path.
 				return
-			case <-sub.ctx.Done():
+			case <-subCtx.Done():
+				// Subscription canceled: stop promptly without draining.
 				return
 			}
 		}
-
+		// There is data available at nextSeq; try to read it
 		idx := sub.nextSeq & bcast.mask
 		msg, slotSeq := bcast.buffer[idx].read()
 		var res EventOrLag[T]
 		if slotSeq == sub.nextSeq {
 			sub.nextSeq++
 			res.event = msg
-			res.isLag = false
 		} else {
-			// Check if queried seq. is overwritten.
-			// We should end up this branch only on overwrite thus newest -rb.capacity should never underflow.
+			// Slot has been overwritten; compute the oldest sequence that is still
+			// available and inform the subscriber to skip ahead.
+			// newest and oldest are derived from the current tail. Because we only
+			// reach here when overwriting has happened, newest - bcast.capacity + 1 cannot
+			// underflow.
 			newest := bcast.tail.Load() - 1
 			oldest := newest - bcast.capacity + 1
 
@@ -106,11 +127,12 @@ func (sub *Subscription[T]) run() {
 
 			sub.nextSeq = oldest
 		}
-
+		// Deliver the result. If the downstream is slow (out is full), this blocks
+		// until either the subscriber reads or the subscription context is canceled.
 		select {
 		case sub.out <- res:
 			continue
-		case <-sub.ctx.Done():
+		case <-subCtx.Done():
 			return
 		}
 	}
@@ -131,12 +153,16 @@ type slot[T any] struct {
 	data T
 }
 
+// read returns the slot's data and sequence under a shared read lock.
+// Readers are synchronized with writers to avoid tearing data/seq pairs
 func (s *slot[T]) read() (T, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.data, s.seq
 }
 
+// write updates the slot's data and sequence under an exclusive write lock.
+// Writers are serialized per-slot; they are also globally serialized by Broadcast.Send.
 func (s *slot[T]) write(data T, seq uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -145,11 +171,16 @@ func (s *slot[T]) write(data T, seq uint64) {
 }
 
 // Broadcast is the main fan-out structure.
-// - ring: the shared ring buffer used by all senders/readers.
-// - closed: atomic flag indicating broadcast has been closed.
-// - subMu: protects the subs map and nextSubID.
-// - subs: set of current subscriptions.
-// - nextSubID: monotonically increasing subscription ID to assign to next subscriber.
+// Fields:
+//   - buffer: ring buffer of slots.
+//   - mu:     global mutex serializing all Send operations across producers.
+//   - tail:   next sequence to assign; number of messages published so far.
+//   - notifyChan: atomic holder for a "wake-up" channel. Each Send closes the current
+//     channel to wake all waiters and swaps in a new channel for future sends.
+//   - capacity: ring capacity (power of two).
+//   - mask:     capacity-1 for index masking.
+//   - ctx:      context signaling Broadcast lifetime; when canceled, Send returns ErrClosed
+//     and subscriptions drain outstanding messages before terminating.
 type Broadcast[T any] struct {
 	buffer []slot[T]
 	mu     sync.Mutex
@@ -163,8 +194,9 @@ type Broadcast[T any] struct {
 	ctx context.Context
 }
 
-// New constructs a Broadcast with a ring buffer of at least the given capacity
-// (capacity is rounded up to the next power of two).
+// New constructs a Broadcast with a ring of at least the given capacity.
+// The actual capacity is rounded up to the next power of two.
+// A fresh notify channel is created and stored so that waiters can select on it.
 func New[T any](ctx context.Context, capacity uint64) *Broadcast[T] {
 	capacity = nextPowerOfTwo(capacity)
 	b := &Broadcast[T]{
@@ -179,15 +211,20 @@ func New[T any](ctx context.Context, capacity uint64) *Broadcast[T] {
 }
 
 // loadNotify atomically returns the current notify channel.
-// Producers close-and-swap this channel to wake all waiters.
+// Producers close-and-swap this channel to wake all subscribers waiting for new data.
+// Receiving from a closed channel establishes a happens-before relationship with
+// the Send that performed the close, ensuring tail advancement is visible.
 func (b *Broadcast[T]) loadNotify() chan struct{} {
 	return b.notifyChan.Load().(chan struct{})
 }
 
 // Send publishes msg to the ring and wakes subscribers.
-//   - Returns ErrClosed if closed is already set (a concurrent Close after this check may still allow this Push).
-//   - Push is serialised via ring’s tailMu.
-//   - Wakes subscribers by iterating subs under subMu.RLock and attempting non-blocking sends on their notifyC.
+// Behavior:
+// - Returns ErrClosed if the Broadcast context is done at entry.
+// - Serializes all producers via b.mu; Send is effectively single-writer.
+// - Writes the message and its sequence into the computed slot.
+// - Increments tail to point to the next sequence to be written.
+// - Wakes all waiters by closing the current notify channel and swapping in a new one.
 func (b *Broadcast[T]) Send(msg T) error {
 	select {
 	case <-b.ctx.Done():
@@ -211,20 +248,17 @@ func (b *Broadcast[T]) Send(msg T) error {
 	}
 }
 
-// Subscribe adds a new subscriber starting at the current tail (next message).
-// Subscription must be ended by calling Unsubscribe to terminate forwarder goroutine and cleanup resources,
-// or after user facing channel is closed after draining the buffer when broadcast is closed.
-//
-// - Spawns a goroutine to deliver messages to sub.out.
+// Subscribe creates a new subscription that starts from the current tail (i.e., it
+// will receive the next message published). The returned Subscription spawns an
+// internal delivery goroutine. To stop receiving, cancel the context; the out
+// channel is closed on termination.
 func (b *Broadcast[T]) Subscribe(ctx context.Context) *Subscription[T] {
 	sub := &Subscription[T]{
-		bcast:   b,
 		nextSeq: b.tail.Load(), // next msg to read
 		out:     make(chan EventOrLag[T], 1),
-		ctx:     ctx,
 	}
 
-	go sub.run()
+	go sub.run(ctx, b)
 
 	return sub
 }
