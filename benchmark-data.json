@@ -496,5 +496,11 @@
     "block_target": 800000,
     "duration_seconds": 75843.257738,
     "timestamp": "2025-08-21T15:07:07.151573+00:00"
+  },
+  {
+    "version": "v0.15.2-2-g632f6974",
+    "block_target": 800000,
+    "duration_seconds": 74763.059461,
+    "timestamp": "2025-08-22T20:47:21.090046+00:00"
   }
 ]
