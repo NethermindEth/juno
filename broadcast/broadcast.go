@@ -4,7 +4,7 @@
 // that its next sequence has been overwritten; in that case the consumer receives a
 // lag notification (LaggedError) indicating where to resume.
 // Notes:
-//   - Producers are serialized by a global mutex (b.mu), so producer-side throughput
+//   - Producers are serialised by a global mutex (b.mu), so producer-side throughput
 //     is effectively single-writer (MPMC-safe but not truly parallel on Send).
 //   - The ring is bounded and overwriting; backpressure to producers does not apply,
 //     except that producers can stall when wrapping to a slot currently being read.
@@ -154,7 +154,7 @@ type slot[T any] struct {
 }
 
 // read returns the slot's data and sequence under a shared read lock.
-// Readers are synchronized with writers to avoid tearing data/seq pairs
+// Readers are synchronised with writers to avoid tearing data/seq pairs
 func (s *slot[T]) read() (T, uint64) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -162,7 +162,7 @@ func (s *slot[T]) read() (T, uint64) {
 }
 
 // write updates the slot's data and sequence under an exclusive write lock.
-// Writers are serialized per-slot; they are also globally serialized by Broadcast.Send.
+// Writers are serialised per-slot; they are also globally serialized by Broadcast.Send.
 func (s *slot[T]) write(data T, seq uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -173,13 +173,13 @@ func (s *slot[T]) write(data T, seq uint64) {
 // Broadcast is the main fan-out structure.
 // Fields:
 //   - buffer: ring buffer of slots.
-//   - mu:     global mutex serializing all Send operations across producers.
+//   - mu:     global mutex serialising all Send operations across producers.
 //   - tail:   next sequence to assign; number of messages published so far.
 //   - notifyChan: atomic holder for a "wake-up" channel. Each Send closes the current
 //     channel to wake all waiters and swaps in a new channel for future sends.
 //   - capacity: ring capacity (power of two).
 //   - mask:     capacity-1 for index masking.
-//   - ctx:      context signaling Broadcast lifetime; when canceled, Send returns ErrClosed
+//   - ctx:      context signalling Broadcast lifetime; when canceled, Send returns ErrClosed
 //     and subscriptions drain outstanding messages before terminating.
 type Broadcast[T any] struct {
 	buffer []slot[T]
@@ -219,9 +219,9 @@ func (b *Broadcast[T]) loadNotify() chan struct{} {
 }
 
 // Send publishes msg to the ring and wakes subscribers.
-// Behavior:
+// Behaviour:
 // - Returns ErrClosed if the Broadcast context is done at entry.
-// - Serializes all producers via b.mu; Send is effectively single-writer.
+// - Serialises all producers via b.mu; Send is effectively single-writer.
 // - Writes the message and its sequence into the computed slot.
 // - Increments tail to point to the next sequence to be written.
 // - Wakes all waiters by closing the current notify channel and swapping in a new one.
