@@ -230,24 +230,23 @@ func (b *Broadcast[T]) Send(msg T) error {
 	// Acquire lock upfront to avoid races around Close.
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	for {
-		select {
-		case <-b.ctx.Done():
-			return ErrClosed
-		default:
-			tail := b.tail.Load()
-			idx := tail & b.mask
-			slot := &b.buffer[idx]
 
-			slot.cond.L.Lock()
-			slot.data = msg
-			slot.seq = tail + 1
-			b.tail.Add(1)
-			slot.cond.Broadcast()
-			slot.cond.L.Unlock()
+	select {
+	case <-b.ctx.Done():
+		return ErrClosed
+	default:
+		tail := b.tail.Load()
+		idx := tail & b.mask
+		slot := &b.buffer[idx]
 
-			return nil
-		}
+		slot.cond.L.Lock()
+		slot.data = msg
+		slot.seq = tail + 1
+		b.tail.Add(1)
+		slot.cond.Broadcast()
+		slot.cond.L.Unlock()
+
+		return nil
 	}
 }
 
