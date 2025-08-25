@@ -11,7 +11,27 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
 )
 
-func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash, txnHash *common.Hash) *core.DeclareTransaction {
+func AdaptDeclareV3WithClass(
+	tx *transaction.DeclareV3WithClass,
+	txnHash *common.Hash,
+) (*core.DeclareTransaction, *core.Cairo1Class, error) {
+	class := AdaptCairo1Class(tx.Class)
+
+	classHash, err := class.Hash()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	declareCommon := AdaptDeclareV3TxnCommon(tx.Common, classHash, txnHash)
+	if *class.Compiled.Hash() != *declareCommon.CompiledClassHash {
+		err := fmt.Errorf("compiled class hash mismatch: expected %s, got %s", class.Compiled.Hash(), declareCommon.CompiledClassHash)
+		return nil, nil, err
+	}
+
+	return declareCommon, &class, nil
+}
+
+func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash *felt.Felt, txnHash *common.Hash) *core.DeclareTransaction {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode))
@@ -22,7 +42,7 @@ func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash, txnHash
 	}
 	declareTx := &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(txnHash),
-		ClassHash:            AdaptHash(classHash),
+		ClassHash:            classHash,
 		SenderAddress:        AdaptAddress(tx.Sender),
 		MaxFee:               nil, // in 3 version this field was removed
 		TransactionSignature: adaptAccountSignature(tx.Signature),
@@ -202,7 +222,7 @@ func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Netw
 		return declareTx
 	case *synctransaction.TransactionInBlock_DeclareV3:
 		tx := t.GetDeclareV3()
-		return AdaptDeclareV3TxnCommon(tx.Common, tx.ClassHash, t.TransactionHash)
+		return AdaptDeclareV3TxnCommon(tx.Common, AdaptHash(tx.ClassHash), t.TransactionHash)
 	case *synctransaction.TransactionInBlock_Deploy_:
 		tx := t.GetDeploy()
 
