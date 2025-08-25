@@ -172,7 +172,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 // - data: payload for the sequence in this slot.
 type slot[T any] struct {
 	seq  uint64
-	mu   sync.RWMutex
+	mu   sync.Mutex
 	cond sync.Cond
 	data T
 }
