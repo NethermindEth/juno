@@ -61,22 +61,13 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 	}
 }
 
-func BenchmarkSubsribe(b *testing.B) {
-	numSubscribers := []int{1, 4, 32, 128, 256, 512, 1024}
-	for _, nSubs := range numSubscribers {
-		b.Run("subs="+strconv.Itoa(nSubs), func(b *testing.B) {
-			bc := broadcast.New[int](1024)
+func BenchmarkSubsribeUnsubscribe(b *testing.B) {
+	bc := broadcast.New[int](1024)
+	defer bc.Close()
 
-			subs := make([]*broadcast.Subscription[int], nSubs)
-
-			for b.Loop() {
-				for i := range nSubs {
-					subs[i] = bc.Subscribe()
-				}
-			}
-
-			bc.Close()
-		})
+	for b.Loop() {
+		sub := bc.Subscribe()
+		sub.Unsubscribe()
 	}
 }
 
