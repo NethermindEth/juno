@@ -196,13 +196,13 @@ type Broadcast[T any] struct {
 
 // New constructs a Broadcast with a ring of at least the given capacity.
 // - The actual capacity is rounded up to the next power of two.
-// - Each slot’s condition variable is initialized to use the slot’s mutex.
+// - Each slot’s condition variable is initialised to use the slot’s mutex.
 // - The initial tail is 0 (no messages published).
 func New[T any](capacity uint64) *Broadcast[T] {
 	ctx, cancel := context.WithCancel(context.Background())
 	capacity = nextPowerOfTwo(capacity)
 	rb := make([]slot[T], capacity)
-	for i := range len(rb) {
+	for i := range rb {
 		slot := &rb[i]
 		slot.cond = *sync.NewCond(&slot.mu)
 	}
@@ -218,7 +218,7 @@ func New[T any](capacity uint64) *Broadcast[T] {
 }
 
 // Send publishes msg to the ring.
-// Behavior:
+// Behaviour:
 //   - Returns ErrClosed if the Broadcast context is already canceled.
 //   - Serialises concurrent producers via b.mu.
 //   - Writes msg to slot at index (tail & mask), sets slot.seq to tail+1, and
