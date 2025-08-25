@@ -53,63 +53,67 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 	return e.lag, nil
 }
 
-// Subscription represents a single consumer of the broadcast.
-// - nextSeq: next sequence number to fetch from the ring.
-// - out:     user-facing channel that delivers EventOrLag values.
+// Subscription represents a single consumer.
+// Fields:
+// - bcast: back reference to broadcast
+// - nextSeq: next sequence number this subscriber expects to receive.
+// - out:     user-facing channel delivering EventOrLag values.
+// - done:    internal stop signal for this subscription.
 //
-// A Subscription is driven by a dedicated goroutine started by Subscribe.
-// To stop receiving, cancel the context passed to Subscribe; this terminates the
-// delivery goroutine and closes the 'out' channel once it exits.
-//
-// NOTE (semantics on close):
-//   - If the Broadcast's context is canceled, producers stop. Each subscription's
-//     goroutine will drain any messages already present up to the current tail,
-//     then exit and close 'out'.
-//   - If only the subscription context is canceled, the goroutine returns promptly
-//     (without draining) and closes 'out'.
+// Lifecycle:
+//   - Created by Broadcast.Subscribe, which spawns a delivery goroutine (run).
+//   - Call Unsubscribe to stop; it requests the goroutine to exit promptly and
+//     wakes it if blocked, then the goroutine closes out upon return.
+//   - If Broadcast.Close is called, subscriptions will only exit once
+//     they can observe the closed context in their run loop, after draining the channel.
 type Subscription[T any] struct {
+	bcast   *Broadcast[T]
 	nextSeq uint64
 	out     chan EventOrLag[T] // user-facing channel for messages
+	done    chan struct{}
 }
 
 // run delivers messages to the subscription's out channel.
-// Algorithm outline:
-// - Wait until tail advances beyond nextSeq (using a broadcast-style notify channel).
-// - Compute the slot index = nextSeq & mask and read the slot.
-//   - If the slot's seq matches nextSeq: deliver the event and advance nextSeq.
-//   - Else: the slot has been overwritten; compute the current oldest sequence and
-//     emit a lag notification. Jump nextSeq to the oldest and continue.
-//   - On Broadcast ctx cancellation, this goroutine drains remaining messages (until
-//     nextSeq == tail at the time of checking), then exits.
-//   - On subscription ctx cancellation, this goroutine exits immediately and closes out.
-func (sub *Subscription[T]) run(subCtx context.Context, bcast *Broadcast[T]) {
-	defer close(sub.out)
 
+// Algorithm Outline:
+// - Compute the ring slot index for the next expected sequence (idx = nextSeq & mask).
+// - Acquire that slot’s lock and read slot.seq.
+//   - While slot.seq <= nextSeq: wait on that slot’s cond, unless Unsubscribe or
+//     Broadcast context cancellation is detected before blocking.
+//   - Once slot.seq > nextSeq, copy slot.data while holding the lock and release it.
+//   - If slot.seq == nextSeq+1, deliver the event and advance nextSeq by 1.
+//   - Otherwise, the slot has been overwritten at least once since nextSeq+1; compute
+//     the oldest available sequence from the current tail and deliver a lag
+//     notification with MissedSeq=prevNextSeq and NextSeq=oldest, then jump nextSeq to oldest.
+//   - Deliver the result to sub.out; if sub.out is full, block until either the value
+//     is delivered or Unsubscribe is requested (done is closed).
+func (sub *Subscription[T]) run() {
+	defer close(sub.out)
+	bcast := sub.bcast
 	for {
-		// Wait until sub.nextSeq is published.
-		// We snapshot the current notify channel once per outer iteration. Producers
-		// close the channel after publishing a message and swap a new one in; observing
-		// a closed notify ensures we see the tail increment (channel close establishes
-		// a happens-before edge for preceding writes in Send).
-		notify := bcast.loadNotify()
-		if sub.nextSeq >= bcast.tail.Load() {
-			// slow path, wait for next
+		idx := sub.nextSeq & bcast.mask
+		slot := &bcast.buffer[idx]
+
+		slot.cond.L.Lock()
+		slotSeq := slot.seq
+		for slotSeq <= sub.nextSeq {
 			select {
-			case <-notify:
-				continue
+			case <-sub.done:
+				slot.cond.L.Unlock()
+				return
 			case <-bcast.ctx.Done():
-				// Drain-on-close semantics are handled by not hitting this path.
+				slot.cond.L.Unlock()
 				return
-			case <-subCtx.Done():
-				// Subscription canceled: stop promptly without draining.
-				return
+			default:
+				slot.cond.Wait()
+				slotSeq = slot.seq
 			}
 		}
-		// There is data available at nextSeq; try to read it
-		idx := sub.nextSeq & bcast.mask
-		msg, slotSeq := bcast.buffer[idx].read()
+		msg := slot.data
+		slot.cond.L.Unlock()
+
 		var res EventOrLag[T]
-		if slotSeq == sub.nextSeq {
+		if slotSeq == sub.nextSeq+1 {
 			sub.nextSeq++
 			res.event = msg
 		} else {
@@ -118,7 +122,8 @@ func (sub *Subscription[T]) run(subCtx context.Context, bcast *Broadcast[T]) {
 			// newest and oldest are derived from the current tail. Because we only
 			// reach here when overwriting has happened, newest - bcast.capacity + 1 cannot
 			// underflow.
-			newest := bcast.tail.Load() - 1
+			tail := bcast.tail.Load()
+			newest := tail - 1
 			oldest := newest - bcast.capacity + 1
 
 			res.lag.MissedSeq = sub.nextSeq
@@ -132,7 +137,7 @@ func (sub *Subscription[T]) run(subCtx context.Context, bcast *Broadcast[T]) {
 		select {
 		case sub.out <- res:
 			continue
-		case <-subCtx.Done():
+		case <-sub.done:
 			return
 		}
 	}
@@ -143,6 +148,18 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 	return sub.out
 }
 
+// Recv returns the user-facing channel for this subscription.
+func (sub *Subscription[T]) Unsubscribe() {
+	close(sub.done)
+	// wake waiting goroutines
+	bcast := sub.bcast
+	idx := sub.nextSeq & bcast.mask
+	slot := &bcast.buffer[idx]
+	slot.cond.L.Lock()
+	slot.cond.Broadcast()
+	slot.cond.L.Unlock()
+}
+
 // A single ring buffer slot with a per-slot RWMutex.
 // - seq: published sequence number currently stored in this slot.
 // - mu: coordinates access to this slot.
@@ -150,117 +167,122 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 type slot[T any] struct {
 	seq  uint64
 	mu   sync.RWMutex
+	cond sync.Cond
 	data T
 }
 
-// read returns the slot's data and sequence under a shared read lock.
-// Readers are synchronised with writers to avoid tearing data/seq pairs
-func (s *slot[T]) read() (T, uint64) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.data, s.seq
-}
-
-// write updates the slot's data and sequence under an exclusive write lock.
-// Writers are serialised per-slot; they are also globally serialized by Broadcast.Send.
-func (s *slot[T]) write(data T, seq uint64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.data = data
-	s.seq = seq
-}
-
-// Broadcast is the main fan-out structure.
+// Broadcast is the fan-out ring buffer.
 // Fields:
-//   - buffer: ring buffer of slots.
-//   - mu:     global mutex serialising all Send operations across producers.
-//   - tail:   next sequence to assign; number of messages published so far.
-//   - notifyChan: atomic holder for a "wake-up" channel. Each Send closes the current
-//     channel to wake all waiters and swaps in a new channel for future sends.
-//   - capacity: ring capacity (power of two).
-//   - mask:     capacity-1 for index masking.
-//   - ctx:      context signalling Broadcast lifetime; when canceled, Send returns ErrClosed
-//     and subscriptions drain outstanding messages before terminating.
+// - buffer:   ring buffer of slots.
+// - mu:       global mutex serialising all Send calls (MPMC-safe, single-writer).
+// - tail:     next sequence to assign (number of messages published so far).
+// - capacity: ring capacity (power of two, rounded up from the requested value).
+// - mask:     capacity-1 for index masking.
+// - ctx:      broadcast lifetime context; when canceled, Send returns ErrClosed.
+// - cancel:   function to cancel ctx
 type Broadcast[T any] struct {
 	buffer []slot[T]
 	mu     sync.Mutex
 	tail   atomic.Uint64
 
-	notifyChan atomic.Value // stores chan struct{}
-
 	capacity uint64
 	mask     uint64
 
-	ctx context.Context
+	ctx    context.Context
+	cancel func()
 }
 
 // New constructs a Broadcast with a ring of at least the given capacity.
-// The actual capacity is rounded up to the next power of two.
-// A fresh notify channel is created and stored so that waiters can select on it.
-func New[T any](ctx context.Context, capacity uint64) *Broadcast[T] {
+// - The actual capacity is rounded up to the next power of two.
+// - Each slot’s condition variable is initialized to use the slot’s mutex.
+// - The initial tail is 0 (no messages published).
+func New[T any](capacity uint64) *Broadcast[T] {
+	ctx, cancel := context.WithCancel(context.Background())
 	capacity = nextPowerOfTwo(capacity)
+	rb := make([]slot[T], capacity)
+	for i := range len(rb) {
+		slot := &rb[i]
+		slot.cond = *sync.NewCond(&slot.mu)
+	}
 	b := &Broadcast[T]{
-		buffer:   make([]slot[T], capacity),
+		buffer:   rb,
 		capacity: capacity,
 		mask:     capacity - 1,
 		ctx:      ctx,
+		cancel:   cancel,
 	}
 	b.tail.Store(0)
-	b.notifyChan.Store(make(chan struct{}))
 	return b
 }
 
-// loadNotify atomically returns the current notify channel.
-// Producers close-and-swap this channel to wake all subscribers waiting for new data.
-// Receiving from a closed channel establishes a happens-before relationship with
-// the Send that performed the close, ensuring tail advancement is visible.
-func (b *Broadcast[T]) loadNotify() chan struct{} {
-	return b.notifyChan.Load().(chan struct{})
-}
-
-// Send publishes msg to the ring and wakes subscribers.
-// Behaviour:
-// - Returns ErrClosed if the Broadcast context is done at entry.
-// - Serialises all producers via b.mu; Send is effectively single-writer.
-// - Writes the message and its sequence into the computed slot.
-// - Increments tail to point to the next sequence to be written.
-// - Wakes all waiters by closing the current notify channel and swapping in a new one.
+// Send publishes msg to the ring.
+// Behavior:
+//   - Returns ErrClosed if the Broadcast context is already canceled.
+//   - Serialises concurrent producers via b.mu.
+//   - Writes msg to slot at index (tail & mask), sets slot.seq to tail+1, and
+//     broadcasts on that slot’s condition variable to wake any waiters on that slot.
+//   - Increments tail by 1.
+//   - No backpressure: Send does not wait for readers (aside from brief acquisition
+//     of the per-slot lock).
 func (b *Broadcast[T]) Send(msg T) error {
-	select {
-	case <-b.ctx.Done():
-		return ErrClosed
-	default:
-		b.mu.Lock()
-		defer b.mu.Unlock()
-		tail := b.tail.Load()
-		idx := tail & b.mask
+	// Acquire lock upfront to avoid races around Close.
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for {
+		select {
+		case <-b.ctx.Done():
+			return ErrClosed
+		default:
+			tail := b.tail.Load()
+			idx := tail & b.mask
+			slot := &b.buffer[idx]
 
-		b.buffer[idx].write(msg, tail)
+			slot.cond.L.Lock()
+			slot.data = msg
+			slot.seq = tail + 1
+			b.tail.Add(1)
+			slot.cond.Broadcast()
+			slot.cond.L.Unlock()
 
-		b.tail.Add(1)
-
-		// Wake all waiters by closing the current notify channel and swapping a new one.
-		notify := b.loadNotify()
-		close(notify)
-		b.notifyChan.Store(make(chan struct{}))
-
-		return nil
+			return nil
+		}
 	}
 }
 
 // Subscribe creates a new subscription that starts from the current tail (i.e., it
 // will receive the next message published). The returned Subscription spawns an
-// internal delivery goroutine. To stop receiving, cancel the context; the out
+// internal delivery goroutine. To stop receiving, call Unsubscribe; the out
 // channel is closed on termination.
-func (b *Broadcast[T]) Subscribe(ctx context.Context) *Subscription[T] {
+func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	sub := &Subscription[T]{
 		nextSeq: b.tail.Load(), // next msg to read
 		out:     make(chan EventOrLag[T], 1),
+		done:    make(chan struct{}),
+		bcast:   b,
 	}
 
-	go sub.run(ctx, b)
+	go sub.run()
 
 	return sub
+}
+
+// Close cancels the Broadcast context (preventing further successful Send calls).
+// It then broadcasts on the cond of the slot at index (tail & mask) to wake any
+// waiters on that slot. Subscribers only waits for tail thus only broadcasting to tail slot
+// should wake all waiting goroutines. Closes under global lock to avoid race with producers
+// in order to preserve the integratiy of single slot broadcast closing.
+func (b *Broadcast[T]) Close() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.cancel()
+
+	tail := b.tail.Load()
+	idx := tail & b.mask
+	// Wake all waiters
+	slot := &b.buffer[idx]
+	slot.cond.L.Lock()
+	slot.cond.Broadcast()
+	slot.cond.L.Unlock()
 }
 
 // nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
