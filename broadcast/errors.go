@@ -9,7 +9,7 @@ var (
 	// Returned when the broadcast is closed and no more sends are possible.
 	ErrClosed = errors.New("broadcast channel closed")
 	// Returned when the requested sequence is ahead of the latest published (not yet available).
-	ErrFutureSeq = errors.New("requested seq. not published yet")
+	ErrFutureSeq = errors.New("requested sequence is not published yet")
 	// Returned when the requested sequence is 0. Which is indicates unitialized sequence in this system.
 	ErrInvalidSequence = errors.New("invalid sequence: 0")
 	ErrNoEvent         = errors.New("no event present")
