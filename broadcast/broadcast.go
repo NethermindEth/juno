@@ -151,14 +151,19 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 
 // Unsubscribe terminates the subscribers delivery goroutine.
 func (sub *Subscription[T]) Unsubscribe() {
-	close(sub.done)
-	// wake if subscriber is waiting
-	bcast := sub.bcast
-	idx := sub.nextSeq.Load() & bcast.mask
-	slot := &bcast.buffer[idx]
-	slot.cond.L.Lock()
-	slot.cond.Broadcast()
-	slot.cond.L.Unlock()
+	select {
+	case <-sub.done:
+		// Already closed
+	default:
+		close(sub.done)
+		// wake if subscriber is waiting
+		bcast := sub.bcast
+		idx := sub.nextSeq.Load() & bcast.mask
+		slot := &bcast.buffer[idx]
+		slot.cond.L.Lock()
+		slot.cond.Broadcast()
+		slot.cond.L.Unlock()
+	}
 }
 
 // A single ring buffer slot with a per-slot RWMutex.
@@ -189,8 +194,7 @@ type Broadcast[T any] struct {
 	capacity uint64
 	mask     uint64
 
-	closeOnce sync.Once
-	done      chan struct{}
+	done chan struct{}
 }
 
 // New constructs a Broadcast with a ring of at least the given capacity.
@@ -270,11 +274,14 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 // should wake all waiting goroutines. Closes under global lock to avoid race with producers
 // in order to preserve the integrity of single slot broadcast closing.
 func (b *Broadcast[T]) Close() {
-	b.closeOnce.Do(func() {
-		b.mu.Lock()
-		defer b.mu.Unlock()
-		close(b.done)
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
+	select {
+	case <-b.done:
+		// already closed
+	default:
+		close(b.done)
 		tail := b.tail.Load()
 		idx := tail & b.mask
 		// Wake all waiters
@@ -282,7 +289,7 @@ func (b *Broadcast[T]) Close() {
 		slot.cond.L.Lock()
 		slot.cond.Broadcast()
 		slot.cond.L.Unlock()
-	})
+	}
 }
 
 // nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
