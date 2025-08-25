@@ -272,7 +272,7 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 // It then broadcasts on the cond of the slot at index (tail & mask) to wake any
 // waiters on that slot. Subscribers only waits for tail thus only broadcasting to tail slot
 // should wake all waiting goroutines. Closes under global lock to avoid race with producers
-// in order to preserve the integratiy of single slot broadcast closing.
+// in order to preserve the integrity of single slot broadcast closing.
 func (b *Broadcast[T]) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
