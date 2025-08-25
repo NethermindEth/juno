@@ -9,7 +9,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.0
 	github.com/bits-and-blooms/bloom/v3 v3.7.0
 	github.com/cockroachdb/pebble v1.1.5
-	github.com/cockroachdb/pebble/v2 v2.0.6
+	github.com/cockroachdb/pebble/v2 v2.0.7
 	github.com/coder/websocket v1.8.13
 	github.com/consensys/gnark-crypto v0.18.0
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a
