@@ -232,7 +232,7 @@ func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 		Field3 string     // string header, pointer + len
 		Field4 float64    // 8 bytes
 	}
-	var payloadBig = BigStruct{
+	payloadBig := BigStruct{
 		Field3: "benchmark big struct payload",
 	}
 	benchmarkBroadcastSenderThroughput(b,
