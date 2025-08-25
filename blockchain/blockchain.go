@@ -461,14 +461,32 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateRe
 	b.listener.OnRead("StateAtBlockNumber")
 	txn := b.database.NewIndexedBatch()
 
-	header, err := core.GetBlockHeaderByNumber(txn, blockNumber)
+	_, err := core.GetBlockHeaderByNumber(txn, blockNumber)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, blockNumber)
+	if !b.StateFactory.UseNewState {
+		coreState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(coreState, blockNumber)
+		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+	}
 
-	return stateReader, noopStateCloser, err
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	header, err := core.GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	history, err := state.NewStateHistory(blockNumber, header.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
 }
 
 // StateAtBlockHash returns a StateReader that provides a stable view to the state at the given block hash
@@ -484,8 +502,27 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateRe
 	if err != nil {
 		return nil, nil, err
 	}
-	stateReader, err := b.StateFactory.NewStateReader(header.GlobalStateRoot, txn, header.Number)
-	return stateReader, noopStateCloser, err
+	if !b.StateFactory.UseNewState {
+		coreState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(coreState, header.Number)
+		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
+	}
+
+	height, err := core.GetChainHeight(txn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	headHeader, err := core.GetBlockHeaderByNumber(txn, height)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	history, err := state.NewStateHistory(header.Number, headHeader.GlobalStateRoot, b.stateDB)
+	if err != nil {
+		return nil, nil, err
+	}
+	return commonstate.NewStateReaderAdapter(&history), noopStateCloser, nil
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain

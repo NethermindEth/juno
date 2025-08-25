@@ -309,20 +309,6 @@ func (sf *StateFactory) NewState(stateRoot *felt.Felt, txn db.IndexedBatch) (Sta
 	return NewStateAdapter(stateState), nil
 }
 
-func (sf *StateFactory) NewStateReader(stateRoot *felt.Felt, txn db.IndexedBatch, blockNumber uint64) (StateReader, error) {
-	if !sf.UseNewState {
-		coreState := core.NewState(txn)
-		snapshot := core.NewStateSnapshot(coreState, blockNumber)
-		return NewDeprecatedStateReaderAdapter(snapshot), nil
-	}
-
-	history, err := state.NewStateHistory(blockNumber, stateRoot, sf.stateDB)
-	if err != nil {
-		return nil, err
-	}
-	return NewStateReaderAdapter(&history), nil
-}
-
 func (sf *StateFactory) EmptyState() (StateReader, error) {
 	if !sf.UseNewState {
 		memDB := memory.New()
