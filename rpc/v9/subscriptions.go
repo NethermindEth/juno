@@ -180,7 +180,7 @@ func (h *Handler) subscribe(
 
 type SubscriptionEmittedEvent struct {
 	rpcv6.EmittedEvent
-	FinalityStatus TxnFinalityStatusWithoutL1 `json:"finality_status"`
+	FinalityStatus TxnFinalityStatus `json:"finality_status"`
 }
 
 // Currently the order of transactions is deterministic, so the transaction always execute on a deterministic state
@@ -223,14 +223,25 @@ func (h *Handler) SubscribeEvents(
 		finalityStatus = utils.HeapPtr(TxnFinalityStatusWithoutL1(TxnAcceptedOnL2))
 	}
 
-	eventsPreviouslySent := make(map[SentEvent]TxnFinalityStatusWithoutL1)
+	l1Head, err := h.bcReader.L1Head()
+	if err != nil {
+		return "", rpccore.ErrInternal.CloneWithData(err.Error())
+	}
+
+	l1HeadNumber := l1Head.BlockNumber
+	eventsPreviouslySent := make(map[SentEvent]TxnFinalityStatus)
 	eventMatcher := blockchain.NewEventMatcher(fromAddr, keys)
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			fromBlock := BlockIDFromNumber(requestedHeader.Number)
-			toBlock := BlockIDFromNumber(headHeader.Number)
+			var toBlock BlockID
+			if *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
+				toBlock = BlockIDPreConfirmed()
+			} else {
+				toBlock = BlockIDFromNumber(headHeader.Number)
+			}
 
-			if err := h.processEvents(
+			return h.processHistoricalEvents(
 				ctx,
 				w,
 				id,
@@ -240,27 +251,8 @@ func (h *Handler) SubscribeEvents(
 				keys,
 				eventsPreviouslySent,
 				headHeader.Number,
-				TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
-			); err != nil {
-				return err
-			}
-
-			if *finalityStatus == TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
-				preConfirmedID := BlockIDPreConfirmed()
-				return h.processEvents(
-					ctx,
-					w,
-					id,
-					&preConfirmedID,
-					&preConfirmedID,
-					fromAddr,
-					keys,
-					eventsPreviouslySent,
-					headHeader.Number,
-					TxnFinalityStatusWithoutL1(TxnPreConfirmed),
-				)
-			}
-			return nil
+				l1HeadNumber,
+			)
 		},
 		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
 			return sendReorg(w, reorg, id)
@@ -274,19 +266,19 @@ func (h *Handler) SubscribeEvents(
 				fromAddr,
 				&eventMatcher,
 				eventsPreviouslySent,
-				TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+				TxnAcceptedOnL2,
 			)
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
-			var blockFinalityStatus TxnFinalityStatusWithoutL1
+			var blockFinalityStatus TxnFinalityStatus
 			switch v := pending.Variant(); v {
 			case core.PendingBlockVariant:
-				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)
+				blockFinalityStatus = TxnAcceptedOnL2
 			case core.PreConfirmedBlockVariant:
 				if *finalityStatus != TxnFinalityStatusWithoutL1(TxnPreConfirmed) {
 					return nil
 				}
-				blockFinalityStatus = TxnFinalityStatusWithoutL1(TxnPreConfirmed)
+				blockFinalityStatus = TxnPreConfirmed
 			default:
 				return fmt.Errorf("unknown pending variant %v", v)
 			}
@@ -306,17 +298,17 @@ func (h *Handler) SubscribeEvents(
 	return h.subscribe(ctx, w, subscriber)
 }
 
-// processEvents queries database for events and stream filtered events.
-func (h *Handler) processEvents(
+// processHistoricalEvents queries database for events and stream filtered events.
+func (h *Handler) processHistoricalEvents(
 	ctx context.Context,
 	w jsonrpc.Conn,
 	id string,
 	from, to *BlockID,
 	fromAddr *felt.Felt,
 	keys [][]felt.Felt,
-	eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1,
+	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
 	height uint64,
-	finalityStatus TxnFinalityStatusWithoutL1,
+	l1Head uint64,
 ) error {
 	filter, err := h.bcReader.EventFilter(fromAddr, keys, h.PendingBlock)
 	if err != nil {
@@ -335,7 +327,7 @@ func (h *Handler) processEvents(
 		return err
 	}
 
-	err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id, finalityStatus)
+	err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id, height, l1Head)
 	if err != nil {
 		return err
 	}
@@ -346,7 +338,7 @@ func (h *Handler) processEvents(
 			return err
 		}
 
-		err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id, finalityStatus)
+		err = sendEvents(ctx, w, filteredEvents, eventsPreviouslySent, id, height, l1Head)
 		if err != nil {
 			return err
 		}
@@ -362,8 +354,8 @@ func processBlockEvents(
 	block *core.Block,
 	fromAddr *felt.Felt,
 	eventMatcher *blockchain.EventMatcher,
-	eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1,
-	finalityStatus TxnFinalityStatusWithoutL1,
+	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
+	finalityStatus TxnFinalityStatus,
 ) error {
 	if isMatch := eventMatcher.TestBloom(block.EventsBloom); !isMatch {
 		return nil
@@ -409,14 +401,32 @@ func processBlockEvents(
 }
 
 // sendEvents streams filtered events, does not stream last sent status multiple times
-func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1, id string, finalityStatus TxnFinalityStatusWithoutL1,
+func sendEvents(
+	ctx context.Context,
+	w jsonrpc.Conn,
+	events []*blockchain.FilteredEvent,
+	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
+	id string,
+	height uint64,
+	l1Head uint64,
 ) error {
 	for _, event := range events {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
+			var finalityStatus TxnFinalityStatus
+			switch {
+			case event.BlockNumber == nil: // pending block
+				finalityStatus = TxnAcceptedOnL2
+			case *event.BlockNumber > height: // pre_confirmed block
+				finalityStatus = TxnPreConfirmed
+			case *event.BlockNumber <= l1Head:
+				finalityStatus = TxnAcceptedOnL1
+			default: // Canonical block not finalised on L1
+				finalityStatus = TxnAcceptedOnL2
+			}
+
 			if err := sendEventWithoutDuplicate(w, event, eventsPreviouslySent, id, finalityStatus); err != nil {
 				return err
 			}
@@ -429,9 +439,9 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 func sendEventWithoutDuplicate(
 	w jsonrpc.Conn,
 	event *blockchain.FilteredEvent,
-	eventsPreviouslySent map[SentEvent]TxnFinalityStatusWithoutL1,
+	eventsPreviouslySent map[SentEvent]TxnFinalityStatus,
 	id string,
-	finalityStatus TxnFinalityStatusWithoutL1,
+	finalityStatus TxnFinalityStatus,
 ) error {
 	if eventsPreviouslySent != nil {
 		sentEvent := SentEvent{
@@ -848,6 +858,9 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				blockFinalityStatus,
 			)
 		},
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+			return sendReorg(w, reorg, id)
+		},
 	}
 	return h.subscribe(ctx, w, subscriber)
 }
@@ -968,8 +981,8 @@ func (h *Handler) SubscribeNewTransactions(
 	lastBlockNumber := uint64(0)
 
 	subscriber := subscriber{
-		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
-			return nil
+		onReorg: func(ctx context.Context, id string, _ *subscription, reorg *sync.ReorgBlockRange) error {
+			return sendReorg(w, reorg, id)
 		},
 		onNewHead: func(ctx context.Context, id string, _ *subscription, head *core.Block) error {
 			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
