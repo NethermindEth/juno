@@ -226,7 +226,7 @@ func New[T any](capacity uint64) *Broadcast[T] {
 //   - Increments tail by 1.
 //   - No backpressure: Send does not wait for readers (aside from brief acquisition
 //     of the per-slot lock).
-func (b *Broadcast[T]) Send(msg T) error {
+func (b *Broadcast[T]) Send(msg *T) error {
 	// Acquire lock upfront to avoid races around Close.
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -240,7 +240,7 @@ func (b *Broadcast[T]) Send(msg T) error {
 		slot := &b.buffer[idx]
 
 		slot.cond.L.Lock()
-		slot.data = msg
+		slot.data = *msg
 		slot.seq = tail + 1
 		b.tail.Add(1)
 		slot.cond.Broadcast()
