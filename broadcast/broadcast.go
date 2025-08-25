@@ -150,10 +150,10 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 	return sub.out
 }
 
-// Recv returns the user-facing channel for this subscription.
+// Unsubscribe terminates the subscribers delivery goroutine.
 func (sub *Subscription[T]) Unsubscribe() {
 	close(sub.done)
-	// wake waiting goroutines
+	// wake if subscriber is waiting
 	bcast := sub.bcast
 	idx := sub.nextSeq.Load() & bcast.mask
 	slot := &bcast.buffer[idx]
