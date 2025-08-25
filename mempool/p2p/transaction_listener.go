@@ -13,6 +13,7 @@ import (
 )
 
 func NewTransactionListener(
+	network *utils.Network,
 	log utils.Logger,
 	pool mempool.Pool,
 	bufferSize int,
@@ -24,7 +25,7 @@ func NewTransactionListener(
 			return
 		}
 
-		transaction, err := p2p2mempool.AdaptTransaction(&p2pTransaction)
+		transaction, err := p2p2mempool.AdaptTransaction(&p2pTransaction, network)
 		if err != nil {
 			log.Errorw("unable to convert transaction message to transaction", "error", err)
 			return
