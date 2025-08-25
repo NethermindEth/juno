@@ -68,7 +68,7 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 //     they can observe the closed context in their run loop, after draining the channel.
 type Subscription[T any] struct {
 	bcast   *Broadcast[T]
-	nextSeq uint64
+	nextSeq atomic.Uint64
 	out     chan EventOrLag[T] // user-facing channel for messages
 	done    chan struct{}
 }
@@ -91,12 +91,14 @@ func (sub *Subscription[T]) run() {
 	defer close(sub.out)
 	bcast := sub.bcast
 	for {
-		idx := sub.nextSeq & bcast.mask
+		nextSeq := sub.nextSeq.Load()
+
+		idx := nextSeq & bcast.mask
 		slot := &bcast.buffer[idx]
 
 		slot.cond.L.Lock()
 		slotSeq := slot.seq
-		for slotSeq <= sub.nextSeq {
+		for slotSeq <= nextSeq {
 			select {
 			case <-sub.done:
 				slot.cond.L.Unlock()
@@ -113,8 +115,8 @@ func (sub *Subscription[T]) run() {
 		slot.cond.L.Unlock()
 
 		var res EventOrLag[T]
-		if slotSeq == sub.nextSeq+1 {
-			sub.nextSeq++
+		if slotSeq == nextSeq+1 {
+			sub.nextSeq.Add(1)
 			res.event = msg
 		} else {
 			// Slot has been overwritten; compute the oldest sequence that is still
@@ -126,11 +128,11 @@ func (sub *Subscription[T]) run() {
 			newest := tail - 1
 			oldest := newest - bcast.capacity + 1
 
-			res.lag.MissedSeq = sub.nextSeq
+			res.lag.MissedSeq = nextSeq
 			res.lag.NextSeq = oldest
 			res.isLag = true
 
-			sub.nextSeq = oldest
+			sub.nextSeq.Store(oldest)
 		}
 		// Deliver the result. If the downstream is slow (out is full), this blocks
 		// until either the subscriber reads or the subscription context is canceled.
@@ -153,7 +155,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 	close(sub.done)
 	// wake waiting goroutines
 	bcast := sub.bcast
-	idx := sub.nextSeq & bcast.mask
+	idx := sub.nextSeq.Load() & bcast.mask
 	slot := &bcast.buffer[idx]
 	slot.cond.L.Lock()
 	slot.cond.Broadcast()
@@ -255,11 +257,11 @@ func (b *Broadcast[T]) Send(msg T) error {
 // channel is closed on termination.
 func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 	sub := &Subscription[T]{
-		nextSeq: b.tail.Load(), // next msg to read
-		out:     make(chan EventOrLag[T], 1),
-		done:    make(chan struct{}),
-		bcast:   b,
+		out:   make(chan EventOrLag[T], 1),
+		done:  make(chan struct{}),
+		bcast: b,
 	}
+	sub.nextSeq.Store(b.tail.Load())
 
 	go sub.run()
 
