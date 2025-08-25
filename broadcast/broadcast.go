@@ -86,30 +86,23 @@ func (sub *Subscription[T]) run(subCtx context.Context, bcast *Broadcast[T]) {
 	defer close(sub.out)
 
 	for {
-		// Wait until sub.nextSeq is published.
-		// We snapshot the current notify channel once per outer iteration. Producers
-		// close the channel after publishing a message and swap a new one in; observing
-		// a closed notify ensures we see the tail increment (channel close establishes
-		// a happens-before edge for preceding writes in Send).
-		notify := bcast.loadNotify()
-		if sub.nextSeq >= bcast.tail.Load() {
-			// slow path, wait for next
+		idx := sub.nextSeq & bcast.mask
+		msg, slotSeq := bcast.buffer[idx].read()
+		// wait if next seq is not ready
+		for slotSeq <= sub.nextSeq {
 			select {
-			case <-notify:
+			case bcast.wait <- struct{}{}:
+				msg, slotSeq = bcast.buffer[idx].read()
 				continue
-			case <-bcast.ctx.Done():
-				// Drain-on-close semantics are handled by not hitting this path.
-				return
 			case <-subCtx.Done():
-				// Subscription canceled: stop promptly without draining.
+				return
+			case <-bcast.ctx.Done():
 				return
 			}
 		}
-		// There is data available at nextSeq; try to read it
-		idx := sub.nextSeq & bcast.mask
-		msg, slotSeq := bcast.buffer[idx].read()
+
 		var res EventOrLag[T]
-		if slotSeq == sub.nextSeq {
+		if slotSeq == sub.nextSeq+1 {
 			sub.nextSeq++
 			res.event = msg
 		} else {
@@ -167,7 +160,7 @@ func (s *slot[T]) write(data T, seq uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.data = data
-	s.seq = seq
+	s.seq = seq + 1
 }
 
 // Broadcast is the main fan-out structure.
@@ -186,7 +179,7 @@ type Broadcast[T any] struct {
 	mu     sync.Mutex
 	tail   atomic.Uint64
 
-	notifyChan atomic.Value // stores chan struct{}
+	wait chan struct{}
 
 	capacity uint64
 	mask     uint64
@@ -204,18 +197,11 @@ func New[T any](ctx context.Context, capacity uint64) *Broadcast[T] {
 		capacity: capacity,
 		mask:     capacity - 1,
 		ctx:      ctx,
+		wait:     make(chan struct{}),
 	}
 	b.tail.Store(0)
-	b.notifyChan.Store(make(chan struct{}))
-	return b
-}
 
-// loadNotify atomically returns the current notify channel.
-// Producers close-and-swap this channel to wake all subscribers waiting for new data.
-// Receiving from a closed channel establishes a happens-before relationship with
-// the Send that performed the close, ensuring tail advancement is visible.
-func (b *Broadcast[T]) loadNotify() chan struct{} {
-	return b.notifyChan.Load().(chan struct{})
+	return b
 }
 
 // Send publishes msg to the ring and wakes subscribers.
@@ -239,12 +225,14 @@ func (b *Broadcast[T]) Send(msg T) error {
 
 		b.tail.Add(1)
 
-		// Wake all waiters by closing the current notify channel and swapping a new one.
-		notify := b.loadNotify()
-		close(notify)
-		b.notifyChan.Store(make(chan struct{}))
-
-		return nil
+		// Wake all waiters by draining wait chan.
+		for {
+			select {
+			case <-b.wait:
+			default:
+				return nil
+			}
+		}
 	}
 }
 
