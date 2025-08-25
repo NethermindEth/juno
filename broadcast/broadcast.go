@@ -11,7 +11,6 @@
 package broadcast
 
 import (
-	"context"
 	"math/bits"
 	"sync"
 	"sync/atomic"
@@ -103,7 +102,7 @@ func (sub *Subscription[T]) run() {
 			case <-sub.done:
 				slot.cond.L.Unlock()
 				return
-			case <-bcast.ctx.Done():
+			case <-bcast.done:
 				slot.cond.L.Unlock()
 				return
 			default:
@@ -190,8 +189,8 @@ type Broadcast[T any] struct {
 	capacity uint64
 	mask     uint64
 
-	ctx    context.Context
-	cancel func()
+	closeOnce sync.Once
+	done      chan struct{}
 }
 
 // New constructs a Broadcast with a ring of at least the given capacity.
@@ -199,7 +198,6 @@ type Broadcast[T any] struct {
 // - Each slot’s condition variable is initialised to use the slot’s mutex.
 // - The initial tail is 0 (no messages published).
 func New[T any](capacity uint64) *Broadcast[T] {
-	ctx, cancel := context.WithCancel(context.Background())
 	capacity = nextPowerOfTwo(capacity)
 	rb := make([]slot[T], capacity)
 	for i := range rb {
@@ -210,8 +208,7 @@ func New[T any](capacity uint64) *Broadcast[T] {
 		buffer:   rb,
 		capacity: capacity,
 		mask:     capacity - 1,
-		ctx:      ctx,
-		cancel:   cancel,
+		done:     make(chan struct{}),
 	}
 	b.tail.Store(0)
 	return b
@@ -232,7 +229,7 @@ func (b *Broadcast[T]) Send(msg *T) error {
 	defer b.mu.Unlock()
 
 	select {
-	case <-b.ctx.Done():
+	case <-b.done:
 		return ErrClosed
 	default:
 		tail := b.tail.Load()
@@ -273,17 +270,19 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 // should wake all waiting goroutines. Closes under global lock to avoid race with producers
 // in order to preserve the integrity of single slot broadcast closing.
 func (b *Broadcast[T]) Close() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.cancel()
+	b.closeOnce.Do(func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		close(b.done)
 
-	tail := b.tail.Load()
-	idx := tail & b.mask
-	// Wake all waiters
-	slot := &b.buffer[idx]
-	slot.cond.L.Lock()
-	slot.cond.Broadcast()
-	slot.cond.L.Unlock()
+		tail := b.tail.Load()
+		idx := tail & b.mask
+		// Wake all waiters
+		slot := &b.buffer[idx]
+		slot.cond.L.Lock()
+		slot.cond.Broadcast()
+		slot.cond.L.Unlock()
+	})
 }
 
 // nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
