@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/broadcast"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,10 +32,11 @@ func TestBasicSendRecvNoLag(t *testing.T) {
 
 	sub := bcast.Subscribe()
 	defer sub.Unsubscribe()
+
 	// produce
 	go func() {
 		for i := range numEvents {
-			require.NoError(t, bcast.Send(i))
+			require.NoError(t, bcast.Send(&i))
 		}
 	}()
 
@@ -76,7 +78,7 @@ func TestMultipleSubscribersReceiveSameData(t *testing.T) {
 
 	// publish
 	for i := range numEvents {
-		require.NoError(t, bcast.Send(i))
+		require.NoError(t, bcast.Send(&i))
 	}
 
 	wg.Wait()
@@ -102,7 +104,7 @@ func TestConcurrentProducers_AllDelivered_NoLag(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for i := range K {
-				require.NoError(t, bc.Send(payload{Prod: pid, Seq: i}))
+				require.NoError(t, bc.Send(&payload{Prod: pid, Seq: i}))
 			}
 		}()
 	}
@@ -169,7 +171,8 @@ func TestNotifyCoalescingDoesNotDeadlock(t *testing.T) {
 	// Producer sends bursts
 	for b := range 30 {
 		for i := range 20 {
-			require.NoError(t, bc.Send(b*1000+i))
+			msg := b*1000 + i
+			require.NoError(t, bc.Send(&msg))
 			sent++
 		}
 		time.Sleep(1 * time.Millisecond) // small pause between bursts
@@ -191,14 +194,17 @@ func TestLaggedDetection(t *testing.T) {
 	sub := bc.Subscribe()
 	defer sub.Unsubscribe()
 
-	require.NoError(t, bc.Send(1))
-	require.NoError(t, bc.Send(2))
+	for i := range 2 {
+		msg := i + 1
+		require.NoError(t, bc.Send(&msg))
+	}
+
 	// wait for subscriber to take first value to chan and
 	// second value to memory to avoid race and consistency of test
 	time.Sleep(5 * time.Millisecond)
-	require.NoError(t, bc.Send(3))
-	require.NoError(t, bc.Send(4))
-	require.NoError(t, bc.Send(5)) // Lag
+	require.NoError(t, bc.Send(utils.HeapPtr(3)))
+	require.NoError(t, bc.Send(utils.HeapPtr(4)))
+	require.NoError(t, bc.Send(utils.HeapPtr(5))) // Lag
 
 	// move cursor to missing seq 3
 	for i := range 2 {
@@ -226,13 +232,16 @@ func TestLagResyncAfterError(t *testing.T) {
 	sub := bc.Subscribe()
 	defer sub.Unsubscribe()
 
-	require.NoError(t, bc.Send(1)) // in out chan
-	require.NoError(t, bc.Send(2))
+	for i := range 2 {
+		msg := i + 1
+		require.NoError(t, bc.Send(&msg))
+	}
+
 	// Sleep to allow forwarder goroutine to put 1 to chan and 2 to memory
 	time.Sleep(5 * time.Millisecond)
-	require.NoError(t, bc.Send(3))
-	require.NoError(t, bc.Send(4))
-	require.NoError(t, bc.Send(5)) // lag
+	require.NoError(t, bc.Send(utils.HeapPtr(3)))
+	require.NoError(t, bc.Send(utils.HeapPtr(4)))
+	require.NoError(t, bc.Send(utils.HeapPtr(5))) // Lag
 
 	for i := range 2 {
 		ev := <-sub.Recv()
@@ -264,7 +273,8 @@ func TestLagResyncAfterError(t *testing.T) {
 func TestCloseBroadcast(t *testing.T) {
 	bc := broadcast.New[int](2)
 	sub := bc.Subscribe()
-	require.NoError(t, bc.Send(1))
+	msg := 1
+	require.NoError(t, bc.Send(&msg))
 	time.Sleep(5 * time.Millisecond)
 	bc.Close()
 	out := sub.Recv()
@@ -276,7 +286,8 @@ func TestCloseBroadcast(t *testing.T) {
 	require.Equal(t, 1, event)
 	_, open = <-out
 	require.False(t, open)
-	require.ErrorIs(t, bc.Send(42), broadcast.ErrClosed)
+	msg = 42
+	require.ErrorIs(t, bc.Send(&msg), broadcast.ErrClosed)
 }
 
 func TestUnsubscribe_ClosesOut(t *testing.T) {
@@ -296,7 +307,7 @@ func TestErrClosedHandled_RunExitsAfterDrain(t *testing.T) {
 	sub := bc.Subscribe()
 
 	for i := range numEvents {
-		require.NoError(t, bc.Send(i))
+		require.NoError(t, bc.Send(&i))
 	}
 
 	// Close immediately, then ensure Out closes soon
@@ -329,7 +340,7 @@ func TestSubscribeUnsubscribeDuringHotSend(t *testing.T) {
 			case <-ctx.Done():
 				return
 			default:
-				_ = bc.Send(i) // ignore ErrClosed on shutdown
+				_ = bc.Send(&i) // ignore ErrClosed on shutdown
 				i++
 			}
 		}
@@ -375,7 +386,7 @@ func TestCloseDuringHotSendAndSubscribe(t *testing.T) {
 			defer pubWg.Done()
 			i := 0
 			for !stop.Load() {
-				_ = bc.Send(i) // will return ErrClosed after Close; that's fine to ignore here
+				_ = bc.Send(&i) // will return ErrClosed after Close; that's fine to ignore here
 				i++
 			}
 		}()

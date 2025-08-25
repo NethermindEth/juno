@@ -26,7 +26,7 @@ func BenchmarkBroadcastReceiverDrain_PreFill(b *testing.B) {
 				}
 
 				for i := range numMsg {
-					require.NoError(b, bc.Send(i))
+					require.NoError(b, bc.Send(&i))
 				}
 				// Close broadcast. Drain-on-close semantics.
 				bc.Close()
@@ -102,7 +102,7 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 
 	b.ResetTimer()
 	for i := range b.N {
-		if err := bc.Send(i); err != nil {
+		if err := bc.Send(&i); err != nil {
 			if err == broadcast.ErrClosed {
 				break
 			}
@@ -117,7 +117,7 @@ func BenchmarkBroadcastSenderThroughput_Small(b *testing.B) {
 
 func benchmarkBroadcastSenderThroughput[T any](
 	b *testing.B,
-	makePayload func(i int) T,
+	payload T,
 	label string,
 	bufferSizes []uint64,
 ) {
@@ -160,15 +160,12 @@ func benchmarkBroadcastSenderThroughput[T any](
 						}(sub)
 					}
 
-					b.ResetTimer()
 					start := time.Now()
-					for i := range b.N {
-						payload := makePayload(i)
-						if err := bc.Send(payload); err != nil {
+					for b.Loop() {
+						if err := bc.Send(&payload); err != nil {
 							b.Fatal(err)
 						}
 					}
-					b.StopTimer()
 
 					bc.Close()
 					wg.Wait()
@@ -213,22 +210,40 @@ func benchmarkBroadcastSenderThroughput[T any](
 func BenchmarkBroadcastPublisherThroughput(b *testing.B) {
 	bufferSizes := []uint64{64, 256, 512, 1024, 2048, 4096}
 
+	payload := 10
 	// Run benchmark with int values as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(i int) int {
-			return i
-		},
+		payload,
 		"int_value",
 		bufferSizes,
 	)
 
 	// Run benchmark with pointers to int as payload
 	benchmarkBroadcastSenderThroughput(b,
-		func(i int) *int {
-			v := i
-			return &v
-		},
+		&payload,
 		"int_ptr",
+		bufferSizes,
+	)
+
+	// Benchmark with a large struct payload to simulate heavy payloads
+	type BigStruct struct {
+		Field1 [128]byte  // 128 bytes
+		Field2 [256]int64 // 256 * 8 = 2048 bytes
+		Field3 string     // string header, pointer + len
+		Field4 float64    // 8 bytes
+	}
+	var payloadBig = BigStruct{
+		Field3: "benchmark big struct payload",
+	}
+	benchmarkBroadcastSenderThroughput(b,
+		payloadBig,
+		"big_struct_value",
+		bufferSizes,
+	)
+
+	benchmarkBroadcastSenderThroughput(b,
+		&payloadBig,
+		"big_struct_ptr",
 		bufferSizes,
 	)
 }
