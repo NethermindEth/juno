@@ -4,15 +4,20 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTrieAdapter(t *testing.T) {
-	trie, err := trie2.NewEmptyPedersen()
+func TestDeprecatedTrieAdapter(t *testing.T) {
+	memDB := memory.New()
+	txn := memDB.NewIndexedBatch()
+	storage := trie.NewStorage(txn, db.ContractStorage.Key([]byte{0}))
+	trie, err := trie.NewTriePedersen(storage, 0)
 	require.NoError(t, err)
-	adapter := NewTrieAdapter(trie)
+	adapter := NewDeprecatedTrieAdapter(trie)
 
 	t.Run("Update", func(t *testing.T) {
 		err := adapter.Update(&felt.Zero, &felt.Zero)
