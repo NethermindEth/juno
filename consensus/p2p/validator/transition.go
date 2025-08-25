@@ -11,11 +11,13 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mempool"
+	"github.com/NethermindEth/juno/utils"
 )
 
 var errHashMismatch = errors.New("hash mismatch")
 
 type Transition interface {
+	Network() *utils.Network
 	OnProposalInit(
 		context.Context,
 		*InitialState,
@@ -58,7 +60,10 @@ func NewTransition(builder *builder.Builder) Transition {
 	}
 }
 
-// TODO: Implement this function properly
+func (t *transition) Network() *utils.Network {
+	return t.builder.Network()
+}
+
 func (t *transition) OnProposalInit(
 	ctx context.Context,
 	state *InitialState,
@@ -74,7 +79,6 @@ func (t *transition) OnProposalInit(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition) OnEmptyBlockCommitment(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
@@ -108,7 +112,6 @@ func (t *transition) OnEmptyBlockCommitment(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition) OnBlockInfo(
 	ctx context.Context,
 	state *AwaitingBlockInfoOrCommitmentState,
@@ -134,7 +137,6 @@ func (t *transition) OnBlockInfo(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition) OnTransactions(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
@@ -156,7 +158,6 @@ func (t *transition) OnTransactions(
 	return state, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition) OnProposalCommitment(
 	ctx context.Context,
 	state *ReceivingTransactionsState,
@@ -177,7 +178,6 @@ func (t *transition) OnProposalCommitment(
 	}, nil
 }
 
-// TODO: Implement this function properly
 func (t *transition) OnProposalFin(
 	ctx context.Context,
 	state *AwaitingProposalFinState,

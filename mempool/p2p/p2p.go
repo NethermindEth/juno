@@ -31,6 +31,7 @@ type P2P struct {
 }
 
 func New(
+	network *utils.Network,
 	host host.Host,
 	log utils.Logger,
 	pool mempool.Pool,
@@ -42,7 +43,7 @@ func New(
 		log:              log,
 		pool:             pool,
 		broadcaster:      NewTransactionBroadcaster(log, config.MempoolBroadcaster, config.RetryInterval),
-		listener:         NewTransactionListener(log, pool, config.MempoolListener),
+		listener:         NewTransactionListener(network, log, pool, config.MempoolListener),
 		config:           config,
 		bootstrapPeersFn: bootstrapPeersFn,
 	}
