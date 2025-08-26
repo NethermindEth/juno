@@ -19,3 +19,7 @@ MANIFEST-*
 OPTIONS-*
 CURRENT
 LOCK
+
+# standard file naming when generating benchmarks through "go ppof"
+mem*.out
+cpu*.out
