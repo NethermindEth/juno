@@ -47,7 +47,7 @@ func fetchStateUpdates(samples int) ([]*core.StateUpdate, error) {
 	gw := adaptfeeder.New(client)
 
 	suList := make([]*core.StateUpdate, samples)
-	for i := 0; i < samples; i++ {
+	for i := range samples {
 		fmt.Println("fetching", i)
 		su, err := gw.StateUpdate(context.Background(), uint64(i))
 		if err != nil {
@@ -64,8 +64,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 	require.NoError(b, err)
 
 	b.Run("NewState", func(b *testing.B) {
-		for n := 0; n < b.N; n++ {
-
+		for b.Loop() {
 			b.ReportAllocs()
 
 			b.StopTimer()
@@ -74,7 +73,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 
 			b.StartTimer()
 
-			for i := 0; i < samples; i++ {
+			for i := range samples {
 				declaredClasses := make(map[felt.Felt]core.Class)
 				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
 					b.Fatalf("Update failed: %v", err)
@@ -86,8 +85,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 	})
 
 	b.Run("OldState", func(b *testing.B) {
-		for n := 0; n < b.N; n++ {
-
+		for b.Loop() {
 			b.ReportAllocs()
 
 			b.StopTimer()
@@ -96,7 +94,7 @@ func BenchmarkStateUpdate(b *testing.B) {
 
 			b.StartTimer()
 
-			for i := 0; i < samples; i++ {
+			for i := range samples {
 				declaredClasses := make(map[felt.Felt]core.Class)
 				if err := state.Update(uint64(i), suList[i], declaredClasses, false, true); err != nil {
 					b.Fatalf("Update failed: %v", err)

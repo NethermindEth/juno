@@ -704,7 +704,7 @@ func fetchStateUpdatesAndBlocks(samples int) ([]*core.StateUpdate, []*core.Block
 
 	suList := make([]*core.StateUpdate, samples)
 	blocks := make([]*core.Block, samples)
-	for i := 0; i < samples; i++ {
+	for i := range samples {
 		fmt.Println("fetching", i)
 		su, err := gw.StateUpdate(context.Background(), uint64(i))
 		if err != nil {
@@ -726,25 +726,25 @@ func BenchmarkBlockchainStore(b *testing.B) {
 	require.NoError(b, err)
 
 	b.Run("new", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			b.StopTimer()
 			chain := blockchain.New(memory.New(), &utils.Mainnet, true)
 			b.StartTimer()
 
-			for j := 0; j < samples; j++ {
-				chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil)
+			for j := range samples {
+				require.NoError(b, chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil))
 			}
 		}
 	})
 
 	b.Run("old", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			b.StopTimer()
 			chain := blockchain.New(memory.New(), &utils.Mainnet, false)
 			b.StartTimer()
 
 			for j := range samples {
-				chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil)
+				require.NoError(b, chain.Store(blocks[j], &emptyCommitments, stateUpdates[j], nil))
 			}
 		}
 	})

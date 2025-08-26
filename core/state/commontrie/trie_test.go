@@ -4,7 +4,10 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +54,7 @@ func BenchmarkDeprecatedTrieAdapter(b *testing.B) {
 	adapter := NewDeprecatedTrieAdapter(trie)
 
 	b.Run("Update", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			key := felt.FromUint64(uint64(i))
 			value := felt.FromUint64(uint64(i))
 			if err := adapter.Update(&key, &value); err != nil {
@@ -61,7 +64,7 @@ func BenchmarkDeprecatedTrieAdapter(b *testing.B) {
 	})
 
 	b.Run("Get", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			key := felt.FromUint64(uint64(i))
 			if _, err := adapter.Get(&key); err != nil {
 				b.Fatalf("Get failed: %v", err)
@@ -70,7 +73,7 @@ func BenchmarkDeprecatedTrieAdapter(b *testing.B) {
 	})
 
 	b.Run("Hash", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for range b.N {
 			if _, err := adapter.Hash(); err != nil {
 				b.Fatalf("Hash failed: %v", err)
 			}
@@ -86,7 +89,7 @@ func BenchmarkTrieAdapter(b *testing.B) {
 	adapter := NewTrieAdapter(trie)
 
 	b.Run("Update", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			key := felt.FromUint64(uint64(i))
 			value := felt.FromUint64(uint64(i))
 			if err := adapter.Update(&key, &value); err != nil {
@@ -96,7 +99,7 @@ func BenchmarkTrieAdapter(b *testing.B) {
 	})
 
 	b.Run("Get", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for i := range b.N {
 			key := felt.FromUint64(uint64(i))
 			if _, err := adapter.Get(&key); err != nil {
 				b.Fatalf("Get failed: %v", err)
@@ -105,7 +108,7 @@ func BenchmarkTrieAdapter(b *testing.B) {
 	})
 
 	b.Run("Hash", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			if _, err := adapter.Hash(); err != nil {
 				b.Fatalf("Hash failed: %v", err)
 			}
