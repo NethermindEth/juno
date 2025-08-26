@@ -164,10 +164,21 @@ func (sub *Subscription[T]) Unsubscribe() {
 	})
 }
 
-// A single ring buffer slot with a per-slot RWMutex.
-// - seq: published sequence number currently stored in this slot.
-// - mu: coordinates access to this slot.
-// - data: payload for the sequence in this slot.
+// slot represents a single fixed-position element in the ring buffer,
+// coordinating concurrent access and delivery.
+//
+// Fields:
+//   - seq: the sequence number of the message currently stored in this slot.
+//     This is a monotonically increasing counter indicating the version of data.
+//     A reader compares seq with expected sequence numbers to detect
+//     overwrites or message availability.
+//   - mu:  a per-slot mutex that guards access to seq and data fields,
+//     ensuring safe concurrent reads and writes.
+//   - cond: a condition variable associated with mu, used to signal waiting
+//     readers when the slot has been updated (i.e., seq advanced).
+//     Readers block on cond when waiting for the next sequence to arrive.
+//   - data: the payload of generic type T stored in this slot, representing
+//     the event/message data for the corresponding sequence.
 type slot[T any] struct {
 	seq  uint64
 	mu   sync.Mutex
