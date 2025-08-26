@@ -62,7 +62,7 @@ sudo dnf install zstd  # or yum install zstd
 
 Create a subfolder inside `$HOME/snapshots` where to stream the download:
 
-```mkdir
+```bash
 # For Mainnet
 mkdir $HOME/snapshots/mainnet/
 ```
@@ -97,7 +97,7 @@ curl -L https://juno-snapshots.nethermind.io/files/mainnet/latest -o juno_mainne
 
 Create a subfolder inside `$HOME/snapshots` where to unzip the downloaded snapshot:
 
-```mkdir
+```bash
 # For Mainnet
 mkdir $HOME/snapshots/mainnet/
 ```
