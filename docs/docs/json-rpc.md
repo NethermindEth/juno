@@ -1,3 +1,4 @@
+
 ---
 title: JSON-RPC Interface
 ---
@@ -128,27 +129,27 @@ provider.getBlockLatestAccepted().then((blockHashAndNumber) => {
 package main
 
 import (
- "context"
- "fmt"
- "log"
- "github.com/NethermindEth/juno/core/felt"
- "github.com/NethermindEth/starknet.go/rpc"
- "github.com/NethermindEth/starknet.go/utils"
+	"context"
+	"fmt"
+	"log"
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/rpc"
+	"github.com/NethermindEth/starknet.go/utils"
 )
 
 func main() {
- rpcUrl := "http://localhost:6060"
- client, err := rpc.NewClient(rpcUrl)
- if err != nil {
-  log.Fatal(err)
- }
+	rpcUrl := "http://localhost:6060"
+	client, err := rpc.NewClient(rpcUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
 
- provider := rpc.NewProvider(client)
- result, err := provider.BlockHashAndNumber(context.Background())
- if err != nil {
-  log.Fatal(err)
- }
- fmt.Println("BlockHashAndNumber:", result)
+	provider := rpc.NewProvider(client)
+	result, err := provider.BlockHashAndNumber(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("BlockHashAndNumber:", result)
 }
 ```
 
@@ -200,8 +201,8 @@ async fn main() {
 
 Juno supports the following Starknet API versions:
 
-- **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`, or the default `/`
-- **v0.8.0**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`
+- **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`
+- **v0.8.1**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`, or the default `/`
 - **v0.7.0**: Accessible via endpoints `/v0_7`, `/rpc/v0_7`
 
 To use a specific API version, specify the version endpoint in your RPC calls:
@@ -221,21 +222,7 @@ curl --location 'http://localhost:6060' \
 ```
 
 </TabItem>
-<TabItem value="v8" label="v0.8.0">
-
-```bash
-curl --location 'http://localhost:6060/v0_8' \
---header 'Content-Type: application/json' \
---data '{
-    "jsonrpc": "2.0",
-    "method": "starknet_chainId",
-    "params": [],
-    "id": 1
-}'
-```
-
-</TabItem>
-<TabItem value="v7" label="v0.7.0">
+<TabItem value="v9" label="v0.9.0">
 
 ```bash
 curl --location 'http://localhost:6060/v0_7' \
@@ -249,4 +236,19 @@ curl --location 'http://localhost:6060/v0_7' \
 ```
 
 </TabItem>
+<TabItem value="v8" label="v0.8.1">
+
+```bash
+curl --location 'http://localhost:6060/v0_6' \
+--header 'Content-Type: application/json' \
+--data '{
+    "jsonrpc": "2.0",
+    "method": "starknet_chainId",
+    "params": [],
+    "id": 1
+}'
+```
+
+</TabItem>
 </Tabs>
+

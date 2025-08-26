@@ -200,8 +200,8 @@ async fn main() {
 
 Juno supports the following Starknet API versions:
 
-- **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`, or the default `/`
-- **v0.8.0**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`
+- **v0.9.0**: Accessible via endpoints `/v0_9`, `/rpc/v0_9`
+- **v0.8.1**: Accessible via endpoints `/v0_8` or `/rpc/v0_8`, or the default `/`
 - **v0.7.0**: Accessible via endpoints `/v0_7`, `/rpc/v0_7`
 
 To use a specific API version, specify the version endpoint in your RPC calls:
@@ -221,7 +221,7 @@ curl --location 'http://localhost:6060' \
 ```
 
 </TabItem>
-<TabItem value="v7" label="v0.7.0">
+<TabItem value="v9" label="v0.9.0">
 
 ```bash
 curl --location 'http://localhost:6060/v0_7' \
@@ -235,7 +235,7 @@ curl --location 'http://localhost:6060/v0_7' \
 ```
 
 </TabItem>
-<TabItem value="v6" label="v0.6.0">
+<TabItem value="v8" label="v0.8.1">
 
 ```bash
 curl --location 'http://localhost:6060/v0_6' \
