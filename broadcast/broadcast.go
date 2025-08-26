@@ -66,10 +66,11 @@ func (e *EventOrLag[T]) Lag() (LaggedError, error) {
 //   - If Broadcast.Close is called, subscriptions will only exit once
 //     they can observe the closed context in their run loop, after draining the channel.
 type Subscription[T any] struct {
-	bcast   *Broadcast[T]
-	nextSeq atomic.Uint64
-	out     chan EventOrLag[T] // user-facing channel for messages
-	done    chan struct{}
+	bcast     *Broadcast[T]
+	nextSeq   atomic.Uint64
+	out       chan EventOrLag[T] // user-facing channel for messages
+	unsubOnce sync.Once
+	done      chan struct{}
 }
 
 // run delivers messages to the subscription's out channel.
@@ -151,10 +152,7 @@ func (sub *Subscription[T]) Recv() <-chan EventOrLag[T] {
 
 // Unsubscribe terminates the subscribers delivery goroutine.
 func (sub *Subscription[T]) Unsubscribe() {
-	select {
-	case <-sub.done:
-		// Already closed
-	default:
+	sub.unsubOnce.Do(func() {
 		close(sub.done)
 		// wake if subscriber is waiting
 		bcast := sub.bcast
@@ -163,7 +161,7 @@ func (sub *Subscription[T]) Unsubscribe() {
 		slot.cond.L.Lock()
 		slot.cond.Broadcast()
 		slot.cond.L.Unlock()
-	}
+	})
 }
 
 // A single ring buffer slot with a per-slot RWMutex.
@@ -194,7 +192,8 @@ type Broadcast[T any] struct {
 	capacity uint64
 	mask     uint64
 
-	done chan struct{}
+	closeOnce sync.Once
+	done      chan struct{}
 }
 
 // New constructs a Broadcast with a ring of at least the given capacity.
@@ -274,13 +273,9 @@ func (b *Broadcast[T]) Subscribe() *Subscription[T] {
 // should wake all waiting goroutines. Closes under global lock to avoid race with producers
 // in order to preserve the integrity of single slot broadcast closing.
 func (b *Broadcast[T]) Close() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	select {
-	case <-b.done:
-		// already closed
-	default:
+	b.closeOnce.Do(func() {
+		b.mu.Lock()
+		defer b.mu.Unlock()
 		close(b.done)
 		tail := b.tail.Load()
 		idx := tail & b.mask
@@ -289,7 +284,7 @@ func (b *Broadcast[T]) Close() {
 		slot.cond.L.Lock()
 		slot.cond.Broadcast()
 		slot.cond.L.Unlock()
-	}
+	})
 }
 
 // nextPowerOfTwo computes the next power-of-two >= x, returning 1 for x=0.
