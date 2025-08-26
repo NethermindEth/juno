@@ -105,7 +105,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 	}
 	stateDB := state.NewStateDB(database, trieDB)
 
-	StateFactory, err := commonstate.NewStateFactory(stateVersion, trieDB, stateDB)
+	stateFactory, err := commonstate.NewStateFactory(stateVersion, trieDB, stateDB)
 	if err != nil {
 		panic(err)
 	}
@@ -127,7 +127,7 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 		l1HeadFeed:    feed.New[*core.L1Head](),
 		cachedFilters: &cachedFilters,
 		runningFilter: runningFilter,
-		StateFactory:  StateFactory,
+		StateFactory:  stateFactory,
 	}
 }
 
@@ -272,13 +272,13 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
 	if !b.StateFactory.UseNewState {
-		return b.storeCoreState(block, blockCommitments, stateUpdate, newClasses)
+		return b.deprecatedStore(block, blockCommitments, stateUpdate, newClasses)
 	}
 
 	return b.store(block, blockCommitments, stateUpdate, newClasses)
 }
 
-func (b *Blockchain) storeCoreState(
+func (b *Blockchain) deprecatedStore(
 	block *core.Block,
 	blockCommitments *core.BlockCommitments,
 	stateUpdate *core.StateUpdate,
@@ -467,8 +467,8 @@ func (b *Blockchain) StateAtBlockNumber(blockNumber uint64) (commonstate.StateRe
 	}
 
 	if !b.StateFactory.UseNewState {
-		coreState := core.NewState(txn)
-		snapshot := core.NewStateSnapshot(coreState, blockNumber)
+		deprecatedState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(deprecatedState, blockNumber)
 		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
 	}
 
@@ -503,8 +503,8 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (commonstate.StateRe
 		return nil, nil, err
 	}
 	if !b.StateFactory.UseNewState {
-		coreState := core.NewState(txn)
-		snapshot := core.NewStateSnapshot(coreState, header.Number)
+		deprecatedState := core.NewState(txn)
+		snapshot := core.NewStateSnapshot(deprecatedState, header.Number)
 		return commonstate.NewDeprecatedStateReaderAdapter(snapshot), noopStateCloser, nil
 	}
 
@@ -539,14 +539,14 @@ func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlo
 // RevertHead reverts the head block
 func (b *Blockchain) RevertHead() error {
 	if !b.StateFactory.UseNewState {
-		return b.database.Update(b.revertHeadCoreState)
+		return b.database.Update(b.deprecatedRevertHead)
 	}
 	return b.revertHead()
 }
 
 func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 	if !b.StateFactory.UseNewState {
-		reverseStateDiff, err := b.getReverseStateDiffCoreState()
+		reverseStateDiff, err := b.deprecatedGetReverseStateDiff()
 		if err != nil {
 			return core.StateDiff{}, err
 		}
@@ -557,7 +557,7 @@ func (b *Blockchain) GetReverseStateDiff() (core.StateDiff, error) {
 }
 
 // TODO(maksymmalick): remove this once we have a new state integrated
-func (b *Blockchain) getReverseStateDiffCoreState() (*core.StateDiff, error) {
+func (b *Blockchain) deprecatedGetReverseStateDiff() (*core.StateDiff, error) {
 	var reverseStateDiff *core.StateDiff
 
 	txn := b.database.NewIndexedBatch()
@@ -604,7 +604,7 @@ func (b *Blockchain) getReverseStateDiff() (core.StateDiff, error) {
 	return ret, nil
 }
 
-func (b *Blockchain) revertHeadCoreState(txn db.IndexedBatch) error {
+func (b *Blockchain) deprecatedRevertHead(txn db.IndexedBatch) error {
 	blockNumber, err := core.GetChainHeight(txn)
 	if err != nil {
 		return err
