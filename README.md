@@ -113,7 +113,7 @@ To sync your node as fast as possible, use the provided snapshots service. Fresh
 
 ## 🌐 Interacting with Juno
 
-Juno works as gateway into Starknet and can be queried using JSON-RPC requests. Also, it allows to subscribe to real time events happening on the network and get constant updates. Read the [Interacting with Juno] section for more details.
+Juno works as gateway into Starknet and can be queried using JSON-RPC requests. Also, it allows to subscribe to real time events happening on the network and get constant updates. Read the [Interacting with Juno](https://juno.nethermind.io/json-rpc) section for more details.
 
 
 ## 👍 Contribute
