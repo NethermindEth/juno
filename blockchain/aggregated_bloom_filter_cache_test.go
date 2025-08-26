@@ -98,7 +98,10 @@ func populateAggregatedBloomFilters(
 					}
 				}
 				// track for assertion
-				events[eventIdx].expectedBlocks = append(events[eventIdx].expectedBlocks, blockNumber)
+				events[eventIdx].expectedBlocks = append(
+					events[eventIdx].expectedBlocks,
+					blockNumber,
+				)
 			}
 			require.NoError(t, filter.Insert(bloomInst, blockNumber))
 		}
@@ -206,7 +209,13 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	events := generateRandomEvents(t, 1, 3, 1)
 	test := events[0]
 	emmitedEvery := 4
-	filters := populateAggregatedBloomDeterministic(t, numAggregatedBloomFilters, test, core.NumBlocksPerFilter, uint64(emmitedEvery))
+	filters := populateAggregatedBloomDeterministic(
+		t,
+		numAggregatedBloomFilters,
+		test,
+		core.NumBlocksPerFilter,
+		uint64(emmitedEvery),
+	)
 
 	cache := blockchain.NewAggregatedBloomCache(int(numAggregatedBloomFilters))
 	cache.SetMany(filters)
@@ -220,7 +229,10 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		var start, end, blockRange uint64 = 0, core.NumBlocksPerFilter * numAggregatedBloomFilters, core.NumBlocksPerFilter / 4
 
 		for start < end {
-			currRangeEnd := min(start+blockRange-1, numAggregatedBloomFilters*core.NumBlocksPerFilter-1)
+			currRangeEnd := min(
+				start+blockRange-1,
+				numAggregatedBloomFilters*core.NumBlocksPerFilter-1,
+			)
 
 			// Create filter for event
 			iterator, err := cache.NewMatchedBlockIterator(
@@ -252,7 +264,13 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 	t.Run("maxScanned stops early", func(t *testing.T) {
 		maxScannedLimit = uint64(10_000)
 		// Create filter for event
-		iterator, err := cache.NewMatchedBlockIterator(0, chainHeight, maxScannedLimit, &eventMatcher, runningFilter)
+		iterator, err := cache.NewMatchedBlockIterator(
+			0,
+			chainHeight,
+			maxScannedLimit,
+			&eventMatcher,
+			runningFilter,
+		)
 		require.NoError(t, err)
 
 		// for 10_000 blocks scan we need
@@ -268,7 +286,13 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	t.Run("range with no matches", func(t *testing.T) {
 		// Create filter for event
-		iterator, err := cache.NewMatchedBlockIterator(1, 3, maxScannedLimit, &eventMatcher, runningFilter)
+		iterator, err := cache.NewMatchedBlockIterator(
+			1,
+			3,
+			maxScannedLimit,
+			&eventMatcher,
+			runningFilter,
+		)
 		require.NoError(t, err)
 
 		_, ok, err := iterator.Next()
@@ -278,7 +302,13 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 
 	t.Run("fromBlock > toBlock should create exhausted iterator", func(t *testing.T) {
 		// FromBlock must lte to toBlock
-		iter, err := cache.NewMatchedBlockIterator(2, 1, maxScannedLimit, &eventMatcher, runningFilter)
+		iter, err := cache.NewMatchedBlockIterator(
+			2,
+			1,
+			maxScannedLimit,
+			&eventMatcher,
+			runningFilter,
+		)
 		require.NoError(t, err)
 		blockNum, ok, err := iter.Next()
 		require.NoError(t, err)
@@ -300,7 +330,13 @@ func TestMatchedBlockIterator_BasicCases(t *testing.T) {
 		}
 		require.NoError(t, runningFilter.Insert(currBlockFilter, runningFilter.FromBlock()))
 
-		iterator, err := cache.NewMatchedBlockIterator(runningFilter.FromBlock(), runningFilter.FromBlock(), maxScannedLimit, &eventMatcher, runningFilter)
+		iterator, err := cache.NewMatchedBlockIterator(
+			runningFilter.FromBlock(),
+			runningFilter.FromBlock(),
+			maxScannedLimit,
+			&eventMatcher,
+			runningFilter,
+		)
 		require.NoError(t, err)
 
 		matchedBlock, ok, err := iterator.Next()

@@ -58,7 +58,11 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	}()
 
 	// Create a state writer for the transaction execution
-	stateWriter := sync.NewPendingStateWriter(state.Preconfirmed.StateUpdate.StateDiff, state.Preconfirmed.NewClasses, headState)
+	stateWriter := sync.NewPendingStateWriter(
+		state.Preconfirmed.StateUpdate.StateDiff,
+		state.Preconfirmed.NewClasses,
+		headState,
+	)
 
 	// Prepare declared classes, if any
 	var declaredClasses []core.Class
@@ -105,7 +109,12 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 	stateDiffs := make([]*core.StateDiff, len(vmResults.Traces))
 	for i, trace := range vmResults.Traces {
 		adaptedStateDiff := vm2core.AdaptStateDiff(trace.StateDiff)
-		adaptedReceipt := vm2core.Receipt(vmResults.OverallFees[i], txns[i].Transaction, &vmResults.Traces[i], &vmResults.Receipts[i])
+		adaptedReceipt := vm2core.Receipt(
+			vmResults.OverallFees[i],
+			txns[i].Transaction,
+			&vmResults.Traces[i],
+			&vmResults.Receipts[i],
+		)
 		receipts[i] = &adaptedReceipt
 		stateDiffs[i] = &adaptedStateDiff
 	}
@@ -121,7 +130,10 @@ func (e *executor) RunTxns(state *BuildState, txns []mempool.BroadcastedTransact
 }
 
 // processClassDeclaration handles class declaration storage for declare transactions
-func (e *executor) processClassDeclaration(txn *mempool.BroadcastedTransaction, state *sync.PendingStateWriter) error {
+func (e *executor) processClassDeclaration(
+	txn *mempool.BroadcastedTransaction,
+	state *sync.PendingStateWriter,
+) error {
 	if t, ok := (txn.Transaction).(*core.DeclareTransaction); ok {
 		if err := state.SetContractClass(t.ClassHash, txn.DeclaredClass); err != nil {
 			e.log.Errorw("failed to set contract class", "err", err)
@@ -158,5 +170,10 @@ func updatePreconfirmedBlock(
 }
 
 func (e *executor) Finish(state *BuildState) (blockchain.SimulateResult, error) {
-	return e.blockchain.Simulate(state.Preconfirmed.Block, state.Preconfirmed.StateUpdate, state.Preconfirmed.NewClasses, nil)
+	return e.blockchain.Simulate(
+		state.Preconfirmed.Block,
+		state.Preconfirmed.StateUpdate,
+		state.Preconfirmed.NewClasses,
+		nil,
+	)
 }

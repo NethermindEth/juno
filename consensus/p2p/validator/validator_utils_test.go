@@ -37,7 +37,9 @@ func GetRandomAddress(t *testing.T) *common.Address {
 func getRandomTransaction(t *testing.T) *consensus.ConsensusTransaction {
 	t.Helper()
 	return &consensus.ConsensusTransaction{
-		Txn:             &consensus.ConsensusTransaction_InvokeV3{InvokeV3: &transaction.InvokeV3{}},
+		Txn: &consensus.ConsensusTransaction_InvokeV3{
+			InvokeV3: &transaction.InvokeV3{},
+		},
 		TransactionHash: &common.Hash{Elements: getRandomFelt(t)},
 	}
 }

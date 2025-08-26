@@ -7,45 +7,53 @@ import (
 )
 
 func TestPolkaNil(t *testing.T) {
-	t.Run("Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} broadcast nil precommit", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
-		currentRound := newTestRound(t, stateMachine, 0, 0)
+	t.Run(
+		"Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} broadcast nil precommit",
+		func(t *testing.T) {
+			stateMachine := setupStateMachine(t, 4, 3)
+			currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		// Initialise state
-		currentRound.start()
+			// Initialise state
+			currentRound.start()
 
-		// Receive a proposal and move to prevote step
-		currentRound.validator(0).proposal(value(42), -1)
+			// Receive a proposal and move to prevote step
+			currentRound.validator(0).proposal(value(42), -1)
 
-		// Receive 3 prevotes
-		currentRound.validator(0).prevote(nil)
-		currentRound.validator(1).prevote(nil)
-		currentRound.validator(2).prevote(nil).expectActions(currentRound.action().broadcastPrecommit(nil))
+			// Receive 3 prevotes
+			currentRound.validator(0).prevote(nil)
+			currentRound.validator(1).prevote(nil)
+			currentRound.validator(2).
+				prevote(nil).
+				expectActions(currentRound.action().broadcastPrecommit(nil))
 
-		// Assertions - We should be in precommit step
-		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
-	})
+			// Assertions - We should be in precommit step
+			assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
+		},
+	)
 
-	t.Run("Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} from other nodes broadcast nil precommit", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
-		currentRound := newTestRound(t, stateMachine, 0, 0)
+	t.Run(
+		"Line 44: upon 2f + 1 {PREVOTE, h_p, round_p, nil} from other nodes broadcast nil precommit",
+		func(t *testing.T) {
+			stateMachine := setupStateMachine(t, 4, 3)
+			currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		// Initialise state
-		currentRound.start()
+			// Initialise state
+			currentRound.start()
 
-		// Timeout proposal
-		currentRound.processTimeout(types.StepPropose)
+			// Timeout proposal
+			currentRound.processTimeout(types.StepPropose)
 
-		// Receive 2 prevotes, combined with our own prevote due to proposal timeout
-		currentRound.validator(0).prevote(nil)
-		currentRound.validator(1).prevote(nil).expectActions(
-			currentRound.action().scheduleTimeout(types.StepPrevote),
-			currentRound.action().broadcastPrecommit(nil),
-		)
+			// Receive 2 prevotes, combined with our own prevote due to proposal timeout
+			currentRound.validator(0).prevote(nil)
+			currentRound.validator(1).prevote(nil).expectActions(
+				currentRound.action().scheduleTimeout(types.StepPrevote),
+				currentRound.action().broadcastPrecommit(nil),
+			)
 
-		// Assertions - We should be in precommit step
-		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
-	})
+			// Assertions - We should be in precommit step
+			assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
+		},
+	)
 
 	t.Run("Line 44: not enough nil prevotes (less than 2f + 1)", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
@@ -59,7 +67,9 @@ func TestPolkaNil(t *testing.T) {
 
 		// Receive 2 prevotes
 		currentRound.validator(0).prevote(nil)
-		currentRound.validator(1).prevote(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
+		currentRound.validator(1).
+			prevote(nil).
+			expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 
 		// Assertions - Only 2 validators prevote nil (not enough for 2f+1 where f=1)
 		// No expected precommit action should occur

@@ -56,11 +56,19 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 	source := topics[0]
 	destination := topics[1]
 
-	voteBroadcaster := vote.NewVoteBroadcaster(logger, vote.StarknetVoteAdapter, &config.DefaultBufferSizes)
+	voteBroadcaster := vote.NewVoteBroadcaster(
+		logger,
+		vote.StarknetVoteAdapter,
+		&config.DefaultBufferSizes,
+	)
 	prevoteBroadcaster := voteBroadcaster.AsPrevoteBroadcaster()
 	precommitBroadcaster := voteBroadcaster.AsPrecommitBroadcaster()
 
-	voteListeners := vote.NewVoteListeners[starknet.Value](logger, vote.StarknetVoteAdapter, &config.DefaultBufferSizes)
+	voteListeners := vote.NewVoteListeners[starknet.Value](
+		logger,
+		vote.StarknetVoteAdapter,
+		&config.DefaultBufferSizes,
+	)
 	prevoteListener := voteListeners.PrevoteListener
 	precommitListener := voteListeners.PrecommitListener
 

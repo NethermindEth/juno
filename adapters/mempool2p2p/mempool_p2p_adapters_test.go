@@ -27,7 +27,10 @@ func TestAdaptTransaction(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, p2pTransactions[i], convertedP2PTransaction)
 
-			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(convertedP2PTransaction, &utils.Sepolia)
+			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(
+				convertedP2PTransaction,
+				&utils.Sepolia,
+			)
 			require.NoError(t, err)
 
 			transactiontestutils.StripCompilerFields(t, mempoolTransactions[i].DeclaredClass)

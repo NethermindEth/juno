@@ -29,15 +29,30 @@ func testConsensusToP2PToConsensus[C, P any](
 }
 
 func TestAdaptProposalInit(t *testing.T) {
-	testConsensusToP2PToConsensus(t, testutils.GetTestProposalInit, consensus2p2p.AdaptProposalInit, p2p2consensus.AdaptProposalInit)
+	testConsensusToP2PToConsensus(
+		t,
+		testutils.GetTestProposalInit,
+		consensus2p2p.AdaptProposalInit,
+		p2p2consensus.AdaptProposalInit,
+	)
 }
 
 func TestAdaptBlockInfo(t *testing.T) {
-	testConsensusToP2PToConsensus(t, testutils.GetTestBlockInfo, consensus2p2p.AdaptBlockInfo, p2p2consensus.AdaptBlockInfo)
+	testConsensusToP2PToConsensus(
+		t,
+		testutils.GetTestBlockInfo,
+		consensus2p2p.AdaptBlockInfo,
+		p2p2consensus.AdaptBlockInfo,
+	)
 }
 
 func TestAdaptProposalCommitment(t *testing.T) {
-	testConsensusToP2PToConsensus(t, testutils.GetTestProposalCommitment, consensus2p2p.AdaptProposalCommitment, p2p2consensus.AdaptProposalCommitment)
+	testConsensusToP2PToConsensus(
+		t,
+		testutils.GetTestProposalCommitment,
+		consensus2p2p.AdaptProposalCommitment,
+		p2p2consensus.AdaptProposalCommitment,
+	)
 }
 
 func TestAdaptProposalTransaction(t *testing.T) {
@@ -52,11 +67,16 @@ func TestAdaptProposalTransaction(t *testing.T) {
 
 	for i := range consensusTransactions {
 		t.Run(fmt.Sprintf("%T", consensusTransactions[i].Transaction), func(t *testing.T) {
-			convertedP2PTransaction, err := consensus2p2p.AdaptTransaction(&consensusTransactions[i])
+			convertedP2PTransaction, err := consensus2p2p.AdaptTransaction(
+				&consensusTransactions[i],
+			)
 			require.NoError(t, err)
 			require.Equal(t, p2pTransactions[i], convertedP2PTransaction)
 
-			convertedConsensusTransaction, err := p2p2consensus.AdaptTransaction(convertedP2PTransaction, &utils.Mainnet)
+			convertedConsensusTransaction, err := p2p2consensus.AdaptTransaction(
+				convertedP2PTransaction,
+				&utils.Mainnet,
+			)
 			require.NoError(t, err)
 
 			transactiontestutils.StripCompilerFields(t, consensusTransactions[i].Class)
@@ -66,11 +86,16 @@ func TestAdaptProposalTransaction(t *testing.T) {
 	}
 
 	t.Run("Batch", func(t *testing.T) {
-		convertedP2PTransactions, err := consensus2p2p.AdaptProposalTransaction(consensusTransactions)
+		convertedP2PTransactions, err := consensus2p2p.AdaptProposalTransaction(
+			consensusTransactions,
+		)
 		require.NoError(t, err)
 		require.Equal(t, p2pTransactions, convertedP2PTransactions.Transactions)
 
-		convertedConsensusTransactions, err := p2p2consensus.AdaptProposalTransaction(&convertedP2PTransactions, &utils.Mainnet)
+		convertedConsensusTransactions, err := p2p2consensus.AdaptProposalTransaction(
+			&convertedP2PTransactions,
+			&utils.Mainnet,
+		)
 		require.NoError(t, err)
 		for i := range consensusTransactions {
 			transactiontestutils.StripCompilerFields(t, consensusTransactions[i].Class)
@@ -81,5 +106,10 @@ func TestAdaptProposalTransaction(t *testing.T) {
 }
 
 func TestAdaptProposalFin(t *testing.T) {
-	testConsensusToP2PToConsensus(t, testutils.GetTestProposalFin, consensus2p2p.AdaptProposalFin, p2p2consensus.AdaptProposalFin)
+	testConsensusToP2PToConsensus(
+		t,
+		testutils.GetTestProposalFin,
+		consensus2p2p.AdaptProposalFin,
+		p2p2consensus.AdaptProposalFin,
+	)
 }

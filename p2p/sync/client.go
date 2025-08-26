@@ -113,16 +113,43 @@ func (c *Client) RequestBlockHeaders(
 		ctx, c.newStream, HeadersPID(), req, c.log)
 }
 
-func (c *Client) RequestEvents(ctx context.Context, req *event.EventsRequest) (iter.Seq[*event.EventsResponse], error) {
-	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](ctx, c.newStream, EventsPID(), req, c.log)
+func (c *Client) RequestEvents(
+	ctx context.Context,
+	req *event.EventsRequest,
+) (iter.Seq[*event.EventsResponse], error) {
+	return requestAndReceiveStream[*event.EventsRequest, *event.EventsResponse](
+		ctx,
+		c.newStream,
+		EventsPID(),
+		req,
+		c.log,
+	)
 }
 
-func (c *Client) RequestClasses(ctx context.Context, req *syncclass.ClassesRequest) (iter.Seq[*syncclass.ClassesResponse], error) {
-	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](ctx, c.newStream, ClassesPID(), req, c.log)
+func (c *Client) RequestClasses(
+	ctx context.Context,
+	req *syncclass.ClassesRequest,
+) (iter.Seq[*syncclass.ClassesResponse], error) {
+	return requestAndReceiveStream[*syncclass.ClassesRequest, *syncclass.ClassesResponse](
+		ctx,
+		c.newStream,
+		ClassesPID(),
+		req,
+		c.log,
+	)
 }
 
-func (c *Client) RequestStateDiffs(ctx context.Context, req *state.StateDiffsRequest) (iter.Seq[*state.StateDiffsResponse], error) {
-	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](ctx, c.newStream, StateDiffPID(), req, c.log)
+func (c *Client) RequestStateDiffs(
+	ctx context.Context,
+	req *state.StateDiffsRequest,
+) (iter.Seq[*state.StateDiffsResponse], error) {
+	return requestAndReceiveStream[*state.StateDiffsRequest, *state.StateDiffsResponse](
+		ctx,
+		c.newStream,
+		StateDiffPID(),
+		req,
+		c.log,
+	)
 }
 
 func (c *Client) RequestTransactions(
@@ -130,5 +157,10 @@ func (c *Client) RequestTransactions(
 	req *synctransaction.TransactionsRequest,
 ) (iter.Seq[*synctransaction.TransactionsResponse], error) {
 	return requestAndReceiveStream[*synctransaction.TransactionsRequest, *synctransaction.TransactionsResponse](
-		ctx, c.newStream, TransactionsPID(), req, c.log)
+		ctx,
+		c.newStream,
+		TransactionsPID(),
+		req,
+		c.log,
+	)
 }

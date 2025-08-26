@@ -36,7 +36,11 @@ func TestStorageAt(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(nil, nil, db.ErrKeyNotFound)
 
-		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Hash: &felt.Zero})
+		storageValue, rpcErr := handler.StorageAt(
+			felt.Zero,
+			felt.Zero,
+			rpcv7.BlockID{Hash: &felt.Zero},
+		)
 		require.Nil(t, storageValue)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -73,7 +77,9 @@ func TestStorageAt(t *testing.T) {
 	t.Run("internal error while retrieving key", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
-		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(nil, errors.New("some internal error"))
+		mockState.EXPECT().
+			ContractStorage(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("some internal error"))
 
 		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Latest: true})
 		require.Nil(t, storageValue)
@@ -97,7 +103,11 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Hash: &felt.Zero})
+		storageValue, rpcErr := handler.StorageAt(
+			felt.Zero,
+			felt.Zero,
+			rpcv7.BlockID{Hash: &felt.Zero},
+		)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})
@@ -119,7 +129,11 @@ func TestStorageAt(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 		mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedStorage, nil)
 
-		storageValue, rpcErr := handler.StorageAt(felt.Zero, felt.Zero, rpcv7.BlockID{Pending: true})
+		storageValue, rpcErr := handler.StorageAt(
+			felt.Zero,
+			felt.Zero,
+			rpcv7.BlockID{Pending: true},
+		)
 		require.Nil(t, rpcErr)
 		assert.Equal(t, expectedStorage, storageValue)
 	})

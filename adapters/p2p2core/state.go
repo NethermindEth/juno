@@ -13,7 +13,11 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*state.ContractDiff, classes []*class.Class) *core.StateDiff {
+func AdaptStateDiff(
+	reader core.StateReader,
+	contractDiffs []*state.ContractDiff,
+	classes []*class.Class,
+) *core.StateDiff {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)

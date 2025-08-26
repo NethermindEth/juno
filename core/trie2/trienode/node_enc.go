@@ -151,7 +151,11 @@ func decodeValueNode(blob []byte) (Node, bool) {
 	return nil, false
 }
 
-func decodeBinaryNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (*BinaryNode, error) {
+func decodeBinaryNode(
+	blob []byte,
+	hash *felt.Felt,
+	pathLen, maxPathLen uint8,
+) (*BinaryNode, error) {
 	if len(blob) < 2*hashOrValueNodeSize {
 		return nil, fmt.Errorf("invalid binary node size: %d", len(blob))
 	}

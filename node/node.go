@@ -131,7 +131,11 @@ type Node struct {
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
 // Todo: (immediate follow-up PR) tidy this function up.
-func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) { //nolint:gocyclo,funlen
+func New(
+	cfg *Config,
+	version string,
+	logLevel *utils.LogLevel,
+) (*Node, error) { //nolint:gocyclo,funlen
 	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
 	if err != nil {
 		return nil, err
@@ -140,7 +144,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	dbIsRemote := cfg.RemoteDB != ""
 	var database db.KeyValueStore
 	if dbIsRemote {
-		database, err = remote.New(cfg.RemoteDB, context.TODO(), log, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		database, err = remote.New(
+			cfg.RemoteDB,
+			context.TODO(),
+			log,
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 	} else {
 		database, err = pebble.NewWithOptions(cfg.DatabasePath, cfg.DBCacheSize, cfg.DBMaxHandles, cfg.Colour)
 	}
@@ -168,7 +177,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 
 		// We assume that there is at least one transaction in the block or that it is a pre-0.7 block.
 		if _, err = core.VerifyBlockHash(head, &cfg.Network, stateUpdate.StateDiff); err != nil {
-			return nil, errors.New("unable to verify latest block hash; are the database and --network option compatible?")
+			return nil, errors.New(
+				"unable to verify latest block hash; are the database and --network option compatible?",
+			)
 		}
 	}
 
@@ -198,7 +209,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	}
 
 	if cfg.Sequencer {
-		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
+		pKey, kErr := ecdsa.GenerateKey(
+			rand.Reader,
+		) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
 			return nil, kErr
 		}
@@ -317,17 +330,40 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			"/ready":      readinessHandlers.HandleReadySync,
 			"/ready/sync": readinessHandlers.HandleReadySync,
 		}
-		services = append(services, makeRPCOverHTTP(cfg.HTTPHost, cfg.HTTPPort, rpcServers, httpHandlers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverHTTP(
+				cfg.HTTPHost,
+				cfg.HTTPPort,
+				rpcServers,
+				httpHandlers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	if cfg.Websocket {
-		services = append(services,
-			makeRPCOverWebsocket(cfg.WebsocketHost, cfg.WebsocketPort, rpcServers, log, cfg.Metrics, cfg.RPCCorsEnable))
+		services = append(
+			services,
+			makeRPCOverWebsocket(
+				cfg.WebsocketHost,
+				cfg.WebsocketPort,
+				rpcServers,
+				log,
+				cfg.Metrics,
+				cfg.RPCCorsEnable,
+			),
+		)
 	}
 	if cfg.HTTPUpdatePort != 0 {
 		log.Infow("Log level and feeder gateway timeouts can be changed via HTTP PUT request to " +
 			cfg.HTTPUpdateHost + ":" + fmt.Sprintf("%d", cfg.HTTPUpdatePort) + "/log/level and /feeder/timeouts",
 		)
-		earlyServices = append(earlyServices, makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client))
+		earlyServices = append(
+			earlyServices,
+			makeHTTPUpdateService(cfg.HTTPUpdateHost, cfg.HTTPUpdatePort, logLevel, client),
+		)
 	}
 	if cfg.Metrics {
 		makeJeMallocMetrics()
@@ -336,7 +372,12 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		chain.WithListener(makeBlockchainMetrics())
 		makeJunoMetrics(version)
 		database.WithListener(makeDBMetrics())
-		rpcMetricsV09, rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(pathV09, pathV08, pathV07, pathV06)
+		rpcMetricsV09, rpcMetricsV08, rpcMetricsV07, rpcMetricsV06 := makeRPCMetrics(
+			pathV09,
+			pathV08,
+			pathV07,
+			pathV06,
+		)
 		jsonrpcServerV09.WithListener(rpcMetricsV09)
 		jsonrpcServerV08.WithListener(rpcMetricsV08)
 		jsonrpcServerV07.WithListener(rpcMetricsV07)
@@ -374,7 +415,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if !n.cfg.DisableL1Verification {
 		// Due to mutually exclusive flag we can do the following.
 		if n.cfg.EthNode == "" {
-			return nil, fmt.Errorf("ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required")
+			return nil, fmt.Errorf(
+				"ethereum node address not found; Use --disable-l1-verification flag if L1 verification is not required",
+			)
 		}
 
 		var l1Client *l1.Client
@@ -396,13 +439,20 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	return n, nil
 }
 
-func newL1Client(ethNode string, includeMetrics bool, chain *blockchain.Blockchain, log utils.SimpleLogger) (*l1.Client, error) {
+func newL1Client(
+	ethNode string,
+	includeMetrics bool,
+	chain *blockchain.Blockchain,
+	log utils.SimpleLogger,
+) (*l1.Client, error) {
 	ethNodeURL, err := url.Parse(ethNode)
 	if err != nil {
 		return nil, fmt.Errorf("parse Ethereum node URL: %w", err)
 	}
 	if ethNodeURL.Scheme != "wss" && ethNodeURL.Scheme != "ws" {
-		return nil, errors.New("non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode)
+		return nil, errors.New(
+			"non-websocket Ethereum node URL (need wss://... or ws://...): " + ethNode,
+		)
 	}
 
 	network := chain.Network()
@@ -490,7 +540,12 @@ func (n *Node) Run(ctx context.Context) {
 	n.log.Infow("Shutting down Juno...")
 }
 
-func (n *Node) StartService(wg *conc.WaitGroup, ctx context.Context, cancel context.CancelFunc, s service.Service) {
+func (n *Node) StartService(
+	wg *conc.WaitGroup,
+	ctx context.Context,
+	cancel context.CancelFunc,
+	s service.Service,
+) {
 	wg.Go(func() {
 		// Immediately acknowledge panicing services by shutting down the node
 		// Without the deffered cancel(), we would have to wait for user to hit Ctrl+C

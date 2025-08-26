@@ -65,7 +65,10 @@ func DeployContract(addr, classHash *felt.Felt, txn db.IndexedBatch) (*ContractU
 }
 
 // ContractAddress computes the address of a Starknet contract.
-func ContractAddress(callerAddress, classHash, salt *felt.Felt, constructorCallData []*felt.Felt) *felt.Felt {
+func ContractAddress(
+	callerAddress, classHash, salt *felt.Felt,
+	constructorCallData []*felt.Felt,
+) *felt.Felt {
 	prefix := new(felt.Felt).SetBytes([]byte("STARKNET_CONTRACT_ADDRESS"))
 	callDataHash := crypto.PedersenArray(constructorCallData...)
 

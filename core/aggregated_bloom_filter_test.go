@@ -43,8 +43,16 @@ func TestAggregatedBloomFilter_Insert(t *testing.T) {
 	})
 
 	t.Run("Insert at out-of-range block", func(t *testing.T) {
-		require.ErrorIs(t, filter.Insert(b, filter.FromBlock()-1), core.ErrAggregatedBloomFilterBlockOutOfRange)
-		require.ErrorIs(t, filter.Insert(b, filter.ToBlock()+1), core.ErrAggregatedBloomFilterBlockOutOfRange)
+		require.ErrorIs(
+			t,
+			filter.Insert(b, filter.FromBlock()-1),
+			core.ErrAggregatedBloomFilterBlockOutOfRange,
+		)
+		require.ErrorIs(
+			t,
+			filter.Insert(b, filter.ToBlock()+1),
+			core.ErrAggregatedBloomFilterBlockOutOfRange,
+		)
 	})
 
 	t.Run("Insert with wrong-sized bloom", func(t *testing.T) {

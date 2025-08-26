@@ -46,7 +46,10 @@ func TestCompiledCasm(t *testing.T) {
 		require.Zero(t, resp)
 	})
 	t.Run("deprecated cairo", func(t *testing.T) {
-		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+		classHash := utils.HexToFelt(
+			t,
+			"0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8",
+		)
 
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)

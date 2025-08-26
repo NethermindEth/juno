@@ -21,7 +21,10 @@ import (
 type Subscriber interface {
 	FinalisedHeight(ctx context.Context) (uint64, error)
 	LatestHeight(ctx context.Context) (uint64, error)
-	WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error)
+	WatchLogStateUpdate(
+		ctx context.Context,
+		sink chan<- *contract.StarknetLogStateUpdate,
+	) (event.Subscription, error)
 	ChainID(ctx context.Context) (*big.Int, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 
@@ -70,17 +73,29 @@ func (c *Client) WithPollFinalisedInterval(delay time.Duration) *Client {
 	return c
 }
 
-func (c *Client) subscribeToUpdates(ctx context.Context, updateChan chan *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+func (c *Client) subscribeToUpdates(
+	ctx context.Context,
+	updateChan chan *contract.StarknetLogStateUpdate,
+) (event.Subscription, error) {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context canceled before resubscribe was successful: %w", ctx.Err())
+			return nil, fmt.Errorf(
+				"context canceled before resubscribe was successful: %w",
+				ctx.Err(),
+			)
 		default:
 			updateSub, err := c.l1.WatchLogStateUpdate(ctx, updateChan)
 			if err == nil {
 				return updateSub, nil
 			}
-			c.log.Debugw("Failed to subscribe to L1 state updates", "tryAgainIn", c.resubscribeDelay, "err", err)
+			c.log.Debugw(
+				"Failed to subscribe to L1 state updates",
+				"tryAgainIn",
+				c.resubscribeDelay,
+				"err",
+				err,
+			)
 			time.Sleep(c.resubscribeDelay)
 		}
 	}
@@ -99,7 +114,10 @@ func (c *Client) checkChainID(ctx context.Context) error {
 
 	// NOTE: for now we return an error. If we want to support users who fork
 	// Starknet to create a "custom" Starknet network, we will need to log a warning instead.
-	return fmt.Errorf("mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?", c.network.String())
+	return fmt.Errorf(
+		"mismatched L1 and L2 networks: L2 network %s; is the L1 node on the correct network?",
+		c.network.String(),
+	)
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -214,7 +232,12 @@ func (c *Client) setL1Head(ctx context.Context) error {
 		StateRoot:   new(felt.Felt).SetBigInt(maxFinalisedHead.GlobalRoot),
 	}
 	if err := c.l2Chain.SetL1Head(head); err != nil {
-		return fmt.Errorf("l1 head for block %d and state root %s: %w", head.BlockNumber, head.StateRoot.String(), err)
+		return fmt.Errorf(
+			"l1 head for block %d and state root %s: %w",
+			head.BlockNumber,
+			head.StateRoot.String(),
+			err,
+		)
 	}
 	c.listener.OnNewL1Head(head)
 	c.log.Infow("Updated l1 head",

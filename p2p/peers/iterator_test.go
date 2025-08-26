@@ -91,13 +91,17 @@ func TestIterator(t *testing.T) {
 			reader := mocks.NewMockReader(mockCtrl)
 			// zero limit
 			hash := randFelt(t)
-			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 1}}, nil)
+			reader.EXPECT().
+				BlockByHash(hash).
+				Return(&core.Block{Header: &core.Header{Number: 1}}, nil)
 			_, err := newIteratorByHash(reader, hash, 0, 1, false)
 			assert.Error(t, err)
 
 			// zero step
 			hash = randFelt(t)
-			reader.EXPECT().BlockByHash(hash).Return(&core.Block{Header: &core.Header{Number: 2}}, nil)
+			reader.EXPECT().
+				BlockByHash(hash).
+				Return(&core.Block{Header: &core.Header{Number: 2}}, nil)
 			_, err = newIteratorByHash(reader, hash, 1, 0, false)
 			assert.Error(t, err)
 

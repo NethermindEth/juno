@@ -52,8 +52,13 @@ type Service struct {
 	database   db.KeyValueStore
 }
 
-func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+func New(
+	addr, publicAddr, version, peers, privKeyStr string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.SimpleLogger,
+	database db.KeyValueStore,
 ) (*Service, error) {
 	if addr == "" {
 		// 0.0.0.0/tcp/0 will listen on any interface device and assing a free port.
@@ -113,8 +118,14 @@ func New(addr, publicAddr, version, peers, privKeyStr string, feederNode bool, b
 	return NewWithHost(p2pHost, peers, feederNode, bc, snNetwork, log, database)
 }
 
-func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchain.Blockchain, snNetwork *utils.Network,
-	log utils.SimpleLogger, database db.KeyValueStore,
+func NewWithHost(
+	p2phost host.Host,
+	peers string,
+	feederNode bool,
+	bc *blockchain.Blockchain,
+	snNetwork *utils.Network,
+	log utils.SimpleLogger,
+	database db.KeyValueStore,
 ) (*Service, error) {
 	var (
 		peersAddrInfoS []peer.AddrInfo
@@ -303,7 +314,10 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 		}
 
 		if peerIdx == randomPeerIdx {
-			return nil, fmt.Errorf("no reachable peers supporting %s", protocol.ConvertToStrings(pids))
+			return nil, fmt.Errorf(
+				"no reachable peers supporting %s",
+				protocol.ConvertToStrings(pids),
+			)
 		}
 	}
 }

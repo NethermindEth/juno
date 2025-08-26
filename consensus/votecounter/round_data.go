@@ -25,7 +25,10 @@ func newRoundData[V types.Hashable[H], H types.Hash, A types.Addr]() roundData[V
 	}
 }
 
-func (r *roundData[V, H, A]) setProposal(proposal *types.Proposal[V, H, A], votingPower types.VotingPower) bool {
+func (r *roundData[V, H, A]) setProposal(
+	proposal *types.Proposal[V, H, A],
+	votingPower types.VotingPower,
+) bool {
 	if r.proposal != nil {
 		return false
 	}
@@ -38,7 +41,11 @@ func (r *roundData[V, H, A]) setProposal(proposal *types.Proposal[V, H, A], voti
 	return true
 }
 
-func (r *roundData[V, H, A]) addVote(vote *types.Vote[H, A], votingPower types.VotingPower, voteType VoteType) bool {
+func (r *roundData[V, H, A]) addVote(
+	vote *types.Vote[H, A],
+	votingPower types.VotingPower,
+	voteType VoteType,
+) bool {
 	var perVote *ballotSet[A]
 	if vote.ID != nil {
 		if perVote = r.perIDVotes[*vote.ID]; perVote == nil {

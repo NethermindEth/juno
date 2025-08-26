@@ -29,7 +29,10 @@ type VoteCounter[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	futureMessages    map[types.Height]roundMap[V, H, A]
 }
 
-func New[V types.Hashable[H], H types.Hash, A types.Addr](validators Validators[A], height types.Height) VoteCounter[V, H, A] {
+func New[V types.Hashable[H], H types.Hash, A types.Addr](
+	validators Validators[A],
+	height types.Height,
+) VoteCounter[V, H, A] {
 	totalVotingPower := validators.TotalVotingPower(height)
 	return VoteCounter[V, H, A]{
 		validators:        validators,
@@ -42,7 +45,9 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](validators Validators[
 	}
 }
 
-func (v *VoteCounter[V, H, A]) LoadFromMessages(messages iter.Seq2[types.Message[V, H, A], error]) error {
+func (v *VoteCounter[V, H, A]) LoadFromMessages(
+	messages iter.Seq2[types.Message[V, H, A], error],
+) error {
 	for msg, err := range messages {
 		if err != nil {
 			return err
@@ -74,7 +79,9 @@ func (v *VoteCounter[V, H, A]) StartNewHeight() {
 	}
 }
 
-func (v *VoteCounter[V, H, A]) getRoundDataAndVotingPower(header *types.MessageHeader[A]) (*roundData[V, H, A], types.VotingPower, bool) {
+func (v *VoteCounter[V, H, A]) getRoundDataAndVotingPower(
+	header *types.MessageHeader[A],
+) (*roundData[V, H, A], types.VotingPower, bool) {
 	if header.Height < v.currentHeight {
 		return nil, 0, false
 	}

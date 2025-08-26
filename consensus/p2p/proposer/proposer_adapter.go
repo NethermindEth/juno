@@ -24,7 +24,9 @@ func NewStarknetProposerAdapter() ProposerAdapter[starknet.Value, starknet.Hash,
 	return &starknetProposerAdapter{}
 }
 
-func (a *starknetProposerAdapter) ProposalInit(proposal *starknet.Proposal) (types.ProposalInit, error) {
+func (a *starknetProposerAdapter) ProposalInit(
+	proposal *starknet.Proposal,
+) (types.ProposalInit, error) {
 	return types.ProposalInit{
 		BlockNum:   proposal.Height,
 		Round:      proposal.Round,
@@ -34,7 +36,9 @@ func (a *starknetProposerAdapter) ProposalInit(proposal *starknet.Proposal) (typ
 }
 
 // TODO: Implement this function properly
-func (a *starknetProposerAdapter) ProposalBlockInfo(buildResult *builder.BuildResult) (types.BlockInfo, error) {
+func (a *starknetProposerAdapter) ProposalBlockInfo(
+	buildResult *builder.BuildResult,
+) (types.BlockInfo, error) {
 	return types.BlockInfo{
 		BlockNumber:       buildResult.Preconfirmed.Block.Number,
 		Builder:           *buildResult.Preconfirmed.Block.SequencerAddress,
@@ -48,7 +52,9 @@ func (a *starknetProposerAdapter) ProposalBlockInfo(buildResult *builder.BuildRe
 }
 
 // TODO: Implement this function properly
-func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.BuildResult) ([]types.Transaction, error) {
+func (a *starknetProposerAdapter) ProposalTransactions(
+	buildResult *builder.BuildResult,
+) ([]types.Transaction, error) {
 	transactions := make([]types.Transaction, len(buildResult.Preconfirmed.Block.Transactions))
 	for i := range buildResult.Preconfirmed.Block.Transactions {
 		var class core.Class
@@ -75,11 +81,15 @@ func (a *starknetProposerAdapter) ProposalTransactions(buildResult *builder.Buil
 }
 
 // TODO: Implement this function properly
-func (a *starknetProposerAdapter) ProposalCommitment(buildResult *builder.BuildResult) (types.ProposalCommitment, error) {
+func (a *starknetProposerAdapter) ProposalCommitment(
+	buildResult *builder.BuildResult,
+) (types.ProposalCommitment, error) {
 	return buildResult.ProposalCommitment()
 }
 
 // TODO: Implement this function properly
-func (a *starknetProposerAdapter) ProposalFin(proposal *starknet.Proposal) (types.ProposalFin, error) {
+func (a *starknetProposerAdapter) ProposalFin(
+	proposal *starknet.Proposal,
+) (types.ProposalFin, error) {
 	return types.ProposalFin(proposal.Value.Hash()), nil
 }

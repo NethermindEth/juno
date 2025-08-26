@@ -64,7 +64,11 @@ func TestStateUpdate(t *testing.T) {
 		require.Equal(t, coreUpdate.NewRoot, rpcUpdate.NewRoot)
 		require.Equal(t, coreUpdate.OldRoot, rpcUpdate.OldRoot)
 
-		require.Equal(t, len(coreUpdate.StateDiff.StorageDiffs), len(rpcUpdate.StateDiff.StorageDiffs))
+		require.Equal(
+			t,
+			len(coreUpdate.StateDiff.StorageDiffs),
+			len(rpcUpdate.StateDiff.StorageDiffs),
+		)
 		for _, diff := range rpcUpdate.StateDiff.StorageDiffs {
 			coreDiffs := coreUpdate.StateDiff.StorageDiffs[diff.Address]
 			require.Equal(t, len(coreDiffs), len(diff.StorageEntries))
@@ -78,23 +82,49 @@ func TestStateUpdate(t *testing.T) {
 			require.Equal(t, *coreUpdate.StateDiff.Nonces[nonce.ContractAddress], nonce.Nonce)
 		}
 
-		require.Equal(t, len(coreUpdate.StateDiff.DeployedContracts), len(rpcUpdate.StateDiff.DeployedContracts))
+		require.Equal(
+			t,
+			len(coreUpdate.StateDiff.DeployedContracts),
+			len(rpcUpdate.StateDiff.DeployedContracts),
+		)
 		for _, deployedContract := range rpcUpdate.StateDiff.DeployedContracts {
-			require.Equal(t, *coreUpdate.StateDiff.DeployedContracts[deployedContract.Address], deployedContract.ClassHash)
+			require.Equal(
+				t,
+				*coreUpdate.StateDiff.DeployedContracts[deployedContract.Address],
+				deployedContract.ClassHash,
+			)
 		}
 
-		require.Equal(t, coreUpdate.StateDiff.DeclaredV0Classes, rpcUpdate.StateDiff.DeprecatedDeclaredClasses)
+		require.Equal(
+			t,
+			coreUpdate.StateDiff.DeclaredV0Classes,
+			rpcUpdate.StateDiff.DeprecatedDeclaredClasses,
+		)
 
-		require.Equal(t, len(coreUpdate.StateDiff.ReplacedClasses), len(rpcUpdate.StateDiff.ReplacedClasses))
+		require.Equal(
+			t,
+			len(coreUpdate.StateDiff.ReplacedClasses),
+			len(rpcUpdate.StateDiff.ReplacedClasses),
+		)
 		for index := range rpcUpdate.StateDiff.ReplacedClasses {
-			require.Equal(t, *coreUpdate.StateDiff.ReplacedClasses[rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress],
-				rpcUpdate.StateDiff.ReplacedClasses[index].ClassHash)
+			require.Equal(
+				t,
+				*coreUpdate.StateDiff.ReplacedClasses[rpcUpdate.StateDiff.ReplacedClasses[index].ContractAddress],
+				rpcUpdate.StateDiff.ReplacedClasses[index].ClassHash,
+			)
 		}
 
-		require.Equal(t, len(coreUpdate.StateDiff.DeclaredV1Classes), len(rpcUpdate.StateDiff.DeclaredClasses))
+		require.Equal(
+			t,
+			len(coreUpdate.StateDiff.DeclaredV1Classes),
+			len(rpcUpdate.StateDiff.DeclaredClasses),
+		)
 		for index := range rpcUpdate.StateDiff.DeclaredClasses {
-			require.Equal(t, *coreUpdate.StateDiff.DeclaredV1Classes[rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash],
-				rpcUpdate.StateDiff.DeclaredClasses[index].CompiledClassHash)
+			require.Equal(
+				t,
+				*coreUpdate.StateDiff.DeclaredV1Classes[rpcUpdate.StateDiff.DeclaredClasses[index].ClassHash],
+				rpcUpdate.StateDiff.DeclaredClasses[index].CompiledClassHash,
+			)
 		}
 	}
 

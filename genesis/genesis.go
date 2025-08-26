@@ -115,7 +115,14 @@ func GenesisStateDiff(
 		return core.StateDiff{}, nil, err
 	}
 
-	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, &genesisState, classhashToSierraVersion)
+	contractAddressToSierraVersion, err := deployContracts(
+		config,
+		v,
+		network,
+		maxSteps,
+		&genesisState,
+		classhashToSierraVersion,
+	)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
@@ -132,7 +139,10 @@ func GenesisStateDiff(
 	return genesisStateDiff, genesisClasses, nil
 }
 
-func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) (map[felt.Felt]string, error) {
+func declareClasses(
+	config *GenesisConfig,
+	genesisState *sync.PendingStateWriter,
+) (map[felt.Felt]string, error) {
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
 		return nil, err

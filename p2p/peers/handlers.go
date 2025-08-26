@@ -59,15 +59,27 @@ func getBuffer() *bytes.Buffer {
 	return buffer
 }
 
-func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
-	stream network.Stream, reqHandler func(req ReqT) (iter.Seq[proto.Message], error), log utils.SimpleLogger,
+func streamHandler[ReqT proto.Message](
+	ctx context.Context,
+	wg *sync.WaitGroup,
+	stream network.Stream,
+	reqHandler func(req ReqT) (iter.Seq[proto.Message], error),
+	log utils.SimpleLogger,
 ) {
 	wg.Add(1)
 	defer wg.Done()
 
 	defer func() {
 		if err := stream.Close(); err != nil {
-			log.Debugw("Error closing stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debugw(
+				"Error closing stream",
+				"peer",
+				stream.ID(),
+				"protocol",
+				stream.Protocol(),
+				"err",
+				err,
+			)
 		}
 	}()
 
@@ -77,7 +89,15 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	// todo add limit reader
 	// todo add read timeout
 	if _, err := buffer.ReadFrom(stream); err != nil {
-		log.Debugw("Error reading from stream", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debugw(
+			"Error reading from stream",
+			"peer",
+			stream.ID(),
+			"protocol",
+			stream.Protocol(),
+			"err",
+			err,
+		)
 		return
 	}
 
@@ -85,14 +105,30 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 	var zero ReqT
 	req := zero.ProtoReflect().New().Interface()
 	if err := proto.Unmarshal(buffer.Bytes(), req); err != nil {
-		log.Debugw("Error unmarshalling message", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debugw(
+			"Error unmarshalling message",
+			"peer",
+			stream.ID(),
+			"protocol",
+			stream.Protocol(),
+			"err",
+			err,
+		)
 		return
 	}
 
 	responseIterator, err := reqHandler(req.(ReqT))
 	if err != nil {
 		// todo report error to client?
-		log.Debugw("Error handling request", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+		log.Debugw(
+			"Error handling request",
+			"peer",
+			stream.ID(),
+			"protocol",
+			stream.Protocol(),
+			"err",
+			err,
+		)
 		return
 	}
 
@@ -103,7 +139,15 @@ func streamHandler[ReqT proto.Message](ctx context.Context, wg *sync.WaitGroup,
 
 		// todo add write timeout
 		if _, err := protodelim.MarshalTo(stream, msg); err != nil { // todo: figure out if we need buffered io here
-			log.Debugw("Error writing response", "peer", stream.ID(), "protocol", stream.Protocol(), "err", err)
+			log.Debugw(
+				"Error writing response",
+				"peer",
+				stream.ID(),
+				"protocol",
+				stream.Protocol(),
+				"err",
+				err,
+			)
 			break
 		}
 	}
@@ -129,279 +173,315 @@ func (h *Handler) StateDiffHandler(stream network.Stream) {
 	streamHandler(h.ctx, &h.wg, stream, h.onStateDiffRequest, h.log)
 }
 
-func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[proto.Message], error) {
+func (h *Handler) onHeadersRequest(
+	req *header.BlockHeadersRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &header.BlockHeadersResponse{
 		HeaderMessage: &header.BlockHeadersResponse_Fin{},
 	}
 
-	return h.processIterationRequest(req.Iteration, finMsg, func(it blockDataAccessor) (proto.Message, error) {
-		blockHeader, err := it.Header()
-		if err != nil {
-			return nil, err
-		}
-
-		h.log.Debugw("Created Header Iterator", "blockNumber", blockHeader.Number)
-
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
-		if err != nil {
-			return nil, err
-		}
-
-		blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		var commitments *core.BlockCommitments
-		if blockVer.LessThan(core.Ver0_13_2) {
-			block, err := it.Block()
+	return h.processIterationRequest(
+		req.Iteration,
+		finMsg,
+		func(it blockDataAccessor) (proto.Message, error) {
+			blockHeader, err := it.Header()
 			if err != nil {
 				return nil, err
 			}
-			_, commitments, err = core.Post0132Hash(block, stateUpdate.StateDiff)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			commitments, err = h.bcReader.BlockCommitmentsByNumber(blockHeader.Number)
-			if err != nil {
-				return nil, err
-			}
-		}
 
-		return &header.BlockHeadersResponse{
-			HeaderMessage: &header.BlockHeadersResponse_Header{
-				Header: core2p2p.AdaptHeader(blockHeader, commitments, stateUpdate.StateDiff.Hash(),
-					stateUpdate.StateDiff.Length()),
-			},
-		}, nil
-	})
+			h.log.Debugw("Created Header Iterator", "blockNumber", blockHeader.Number)
+
+			stateUpdate, err := h.bcReader.StateUpdateByNumber(blockHeader.Number)
+			if err != nil {
+				return nil, err
+			}
+
+			blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
+			if err != nil {
+				return nil, err
+			}
+
+			var commitments *core.BlockCommitments
+			if blockVer.LessThan(core.Ver0_13_2) {
+				block, err := it.Block()
+				if err != nil {
+					return nil, err
+				}
+				_, commitments, err = core.Post0132Hash(block, stateUpdate.StateDiff)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				commitments, err = h.bcReader.BlockCommitmentsByNumber(blockHeader.Number)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return &header.BlockHeadersResponse{
+				HeaderMessage: &header.BlockHeadersResponse_Header{
+					Header: core2p2p.AdaptHeader(
+						blockHeader,
+						commitments,
+						stateUpdate.StateDiff.Hash(),
+						stateUpdate.StateDiff.Length(),
+					),
+				},
+			}, nil
+		},
+	)
 }
 
 func (h *Handler) onEventsRequest(req *event.EventsRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &event.EventsResponse{
 		EventMessage: &event.EventsResponse_Fin{},
 	}
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-
-		responses := make([]proto.Message, 0, len(block.Receipts))
-		for _, receipt := range block.Receipts {
-			for _, e := range receipt.Events {
-				responses = append(responses, &event.EventsResponse{
-					EventMessage: &event.EventsResponse_Event{
-						Event: core2p2p.AdaptEvent(e, receipt.TransactionHash),
-					},
-				})
+	return h.processIterationRequestMulti(
+		req.Iteration,
+		finMsg,
+		func(it blockDataAccessor) ([]proto.Message, error) {
+			block, err := it.Block()
+			if err != nil {
+				return nil, err
 			}
-		}
 
-		return responses, nil
-	})
+			responses := make([]proto.Message, 0, len(block.Receipts))
+			for _, receipt := range block.Receipts {
+				for _, e := range receipt.Events {
+					responses = append(responses, &event.EventsResponse{
+						EventMessage: &event.EventsResponse_Event{
+							Event: core2p2p.AdaptEvent(e, receipt.TransactionHash),
+						},
+					})
+				}
+			}
+
+			return responses, nil
+		},
+	)
 }
 
-func (h *Handler) onTransactionsRequest(req *synctransaction.TransactionsRequest) (iter.Seq[proto.Message], error) {
+func (h *Handler) onTransactionsRequest(
+	req *synctransaction.TransactionsRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &synctransaction.TransactionsResponse{
 		TransactionMessage: &synctransaction.TransactionsResponse_Fin{},
 	}
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-
-		responses := make([]proto.Message, len(block.Transactions))
-		for i, tx := range block.Transactions {
-			receipt := block.Receipts[i]
-
-			responses[i] = &synctransaction.TransactionsResponse{
-				TransactionMessage: &synctransaction.TransactionsResponse_TransactionWithReceipt{
-					TransactionWithReceipt: &synctransaction.TransactionWithReceipt{
-						Transaction: core2p2p.AdaptTransaction(tx),
-						Receipt:     core2p2p.AdaptReceipt(receipt, tx),
-					},
-				},
+	return h.processIterationRequestMulti(
+		req.Iteration,
+		finMsg,
+		func(it blockDataAccessor) ([]proto.Message, error) {
+			block, err := it.Block()
+			if err != nil {
+				return nil, err
 			}
-		}
 
-		return responses, nil
-	})
+			responses := make([]proto.Message, len(block.Transactions))
+			for i, tx := range block.Transactions {
+				receipt := block.Receipts[i]
+
+				responses[i] = &synctransaction.TransactionsResponse{
+					TransactionMessage: &synctransaction.TransactionsResponse_TransactionWithReceipt{
+						TransactionWithReceipt: &synctransaction.TransactionWithReceipt{
+							Transaction: core2p2p.AdaptTransaction(tx),
+							Receipt:     core2p2p.AdaptReceipt(receipt, tx),
+						},
+					},
+				}
+			}
+
+			return responses, nil
+		},
+	)
 }
 
+//
 //nolint:gocyclo
-func (h *Handler) onStateDiffRequest(req *state.StateDiffsRequest) (iter.Seq[proto.Message], error) {
+func (h *Handler) onStateDiffRequest(
+	req *state.StateDiffsRequest,
+) (iter.Seq[proto.Message], error) {
 	finMsg := &state.StateDiffsResponse{
 		StateDiffMessage: &state.StateDiffsResponse_Fin{},
 	}
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-		blockNumber := block.Number
+	return h.processIterationRequestMulti(
+		req.Iteration,
+		finMsg,
+		func(it blockDataAccessor) ([]proto.Message, error) {
+			block, err := it.Block()
+			if err != nil {
+				return nil, err
+			}
+			blockNumber := block.Number
 
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-		if err != nil {
-			return nil, err
-		}
-		diff := stateUpdate.StateDiff
+			stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
+			if err != nil {
+				return nil, err
+			}
+			diff := stateUpdate.StateDiff
 
-		type contractDiff struct {
-			address      *felt.Felt
-			storageDiffs map[felt.Felt]*felt.Felt
-			nonce        *felt.Felt
-			classHash    *felt.Felt // set only if contract deployed or replaced
-		}
-		modifiedContracts := make(map[felt.Felt]*contractDiff)
+			type contractDiff struct {
+				address      *felt.Felt
+				storageDiffs map[felt.Felt]*felt.Felt
+				nonce        *felt.Felt
+				classHash    *felt.Felt // set only if contract deployed or replaced
+			}
+			modifiedContracts := make(map[felt.Felt]*contractDiff)
 
-		initContractDiff := func(addr *felt.Felt) *contractDiff {
-			return &contractDiff{address: addr}
-		}
-		updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
-			cDiff, ok := modifiedContracts[addr]
-			if !ok {
-				cDiff = initContractDiff(&addr)
-				if err != nil {
-					return err
+			initContractDiff := func(addr *felt.Felt) *contractDiff {
+				return &contractDiff{address: addr}
+			}
+			updateModifiedContracts := func(addr felt.Felt, f func(*contractDiff)) error {
+				cDiff, ok := modifiedContracts[addr]
+				if !ok {
+					cDiff = initContractDiff(&addr)
+					if err != nil {
+						return err
+					}
+					modifiedContracts[addr] = cDiff
 				}
-				modifiedContracts[addr] = cDiff
+
+				f(cDiff)
+				return nil
 			}
 
-			f(cDiff)
-			return nil
-		}
-
-		for addr, n := range diff.Nonces {
-			err = updateModifiedContracts(addr, func(diff *contractDiff) {
-				diff.nonce = n
-			})
-			if err != nil {
-				return nil, err
+			for addr, n := range diff.Nonces {
+				err = updateModifiedContracts(addr, func(diff *contractDiff) {
+					diff.nonce = n
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
-		}
 
-		for addr, sDiff := range diff.StorageDiffs {
-			err = updateModifiedContracts(addr, func(diff *contractDiff) {
-				diff.storageDiffs = sDiff
-			})
-			if err != nil {
-				return nil, err
+			for addr, sDiff := range diff.StorageDiffs {
+				err = updateModifiedContracts(addr, func(diff *contractDiff) {
+					diff.storageDiffs = sDiff
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
-		}
 
-		for addr, classHash := range diff.DeployedContracts {
-			classHashCopy := classHash
-			err = updateModifiedContracts(addr, func(diff *contractDiff) {
-				diff.classHash = classHashCopy
-			})
-			if err != nil {
-				return nil, err
+			for addr, classHash := range diff.DeployedContracts {
+				classHashCopy := classHash
+				err = updateModifiedContracts(addr, func(diff *contractDiff) {
+					diff.classHash = classHashCopy
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
-		}
 
-		for addr, classHash := range diff.ReplacedClasses {
-			classHashCopy := classHash
-			err = updateModifiedContracts(addr, func(diff *contractDiff) {
-				diff.classHash = classHashCopy
-			})
-			if err != nil {
-				return nil, err
+			for addr, classHash := range diff.ReplacedClasses {
+				classHashCopy := classHash
+				err = updateModifiedContracts(addr, func(diff *contractDiff) {
+					diff.classHash = classHashCopy
+				})
+				if err != nil {
+					return nil, err
+				}
 			}
-		}
 
-		var responses []proto.Message
-		for _, c := range modifiedContracts {
-			responses = append(responses, &state.StateDiffsResponse{
-				StateDiffMessage: &state.StateDiffsResponse_ContractDiff{
-					ContractDiff: core2p2p.AdaptContractDiff(c.address, c.nonce, c.classHash, c.storageDiffs),
-				},
-			})
-		}
-
-		for _, classHash := range diff.DeclaredV0Classes {
-			responses = append(responses, &state.StateDiffsResponse{
-				StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
-					DeclaredClass: &state.DeclaredClass{
-						ClassHash:         core2p2p.AdaptHash(classHash),
-						CompiledClassHash: nil, // for cairo0 it's nil
+			var responses []proto.Message
+			for _, c := range modifiedContracts {
+				responses = append(responses, &state.StateDiffsResponse{
+					StateDiffMessage: &state.StateDiffsResponse_ContractDiff{
+						ContractDiff: core2p2p.AdaptContractDiff(
+							c.address,
+							c.nonce,
+							c.classHash,
+							c.storageDiffs,
+						),
 					},
-				},
-			})
-		}
-		for classHash, compiledHash := range diff.DeclaredV1Classes {
-			responses = append(responses, &state.StateDiffsResponse{
-				StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
-					DeclaredClass: &state.DeclaredClass{
-						ClassHash:         core2p2p.AdaptHash(&classHash),
-						CompiledClassHash: core2p2p.AdaptHash(compiledHash),
-					},
-				},
-			})
-		}
+				})
+			}
 
-		return responses, nil
-	})
+			for _, classHash := range diff.DeclaredV0Classes {
+				responses = append(responses, &state.StateDiffsResponse{
+					StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
+						DeclaredClass: &state.DeclaredClass{
+							ClassHash:         core2p2p.AdaptHash(classHash),
+							CompiledClassHash: nil, // for cairo0 it's nil
+						},
+					},
+				})
+			}
+			for classHash, compiledHash := range diff.DeclaredV1Classes {
+				responses = append(responses, &state.StateDiffsResponse{
+					StateDiffMessage: &state.StateDiffsResponse_DeclaredClass{
+						DeclaredClass: &state.DeclaredClass{
+							ClassHash:         core2p2p.AdaptHash(&classHash),
+							CompiledClassHash: core2p2p.AdaptHash(compiledHash),
+						},
+					},
+				})
+			}
+
+			return responses, nil
+		},
+	)
 }
 
 func (h *Handler) onClassesRequest(req *syncclass.ClassesRequest) (iter.Seq[proto.Message], error) {
 	finMsg := &syncclass.ClassesResponse{
 		ClassMessage: &syncclass.ClassesResponse_Fin{},
 	}
-	return h.processIterationRequestMulti(req.Iteration, finMsg, func(it blockDataAccessor) ([]proto.Message, error) {
-		block, err := it.Block()
-		if err != nil {
-			return nil, err
-		}
-		blockNumber := block.Number
-
-		stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
-		if err != nil {
-			return nil, err
-		}
-
-		stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if closeErr := closer(); closeErr != nil {
-				h.log.Errorw("Failed to close state reader", "err", closeErr)
+	return h.processIterationRequestMulti(
+		req.Iteration,
+		finMsg,
+		func(it blockDataAccessor) ([]proto.Message, error) {
+			block, err := it.Block()
+			if err != nil {
+				return nil, err
 			}
-		}()
+			blockNumber := block.Number
 
-		stateDiff := stateUpdate.StateDiff
-
-		var responses []proto.Message
-		for _, hash := range stateDiff.DeclaredV0Classes {
-			cls, err := stateReader.Class(hash)
+			stateUpdate, err := h.bcReader.StateUpdateByNumber(blockNumber)
 			if err != nil {
 				return nil, err
 			}
 
-			responses = append(responses, &syncclass.ClassesResponse{
-				ClassMessage: &syncclass.ClassesResponse_Class{
-					Class: core2p2p.AdaptClass(cls.Class),
-				},
-			})
-		}
-		for classHash := range stateDiff.DeclaredV1Classes {
-			cls, err := stateReader.Class(&classHash)
+			stateReader, closer, err := h.bcReader.StateAtBlockNumber(blockNumber)
 			if err != nil {
 				return nil, err
 			}
+			defer func() {
+				if closeErr := closer(); closeErr != nil {
+					h.log.Errorw("Failed to close state reader", "err", closeErr)
+				}
+			}()
 
-			responses = append(responses, &syncclass.ClassesResponse{
-				ClassMessage: &syncclass.ClassesResponse_Class{
-					Class: core2p2p.AdaptClass(cls.Class),
-				},
-			})
-		}
+			stateDiff := stateUpdate.StateDiff
 
-		return responses, nil
-	})
+			var responses []proto.Message
+			for _, hash := range stateDiff.DeclaredV0Classes {
+				cls, err := stateReader.Class(hash)
+				if err != nil {
+					return nil, err
+				}
+
+				responses = append(responses, &syncclass.ClassesResponse{
+					ClassMessage: &syncclass.ClassesResponse_Class{
+						Class: core2p2p.AdaptClass(cls.Class),
+					},
+				})
+			}
+			for classHash := range stateDiff.DeclaredV1Classes {
+				cls, err := stateReader.Class(&classHash)
+				if err != nil {
+					return nil, err
+				}
+
+				responses = append(responses, &syncclass.ClassesResponse{
+					ClassMessage: &syncclass.ClassesResponse_Class{
+						Class: core2p2p.AdaptClass(cls.Class),
+					},
+				})
+			}
+
+			return responses, nil
+		},
+	)
 }
 
 // blockDataAccessor provides access to either entire block or header
@@ -434,7 +514,13 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 			msg, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+					h.log.Errorw(
+						"Failed to generate data",
+						"blockNumber",
+						it.BlockNumber(),
+						"err",
+						err,
+					)
 				}
 				break
 			}
@@ -457,7 +543,9 @@ func (h *Handler) processIterationRequest(iteration *synccommon.Iteration, finMs
 
 type iterationProcessorMulti = func(it blockDataAccessor) ([]proto.Message, error)
 
-func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, finMsg proto.Message,
+func (h *Handler) processIterationRequestMulti(
+	iteration *synccommon.Iteration,
+	finMsg proto.Message,
 	getMsg iterationProcessorMulti,
 ) (iter.Seq[proto.Message], error) {
 	it, err := h.newIterator(iteration)
@@ -473,7 +561,13 @@ func (h *Handler) processIterationRequestMulti(iteration *synccommon.Iteration, 
 			messages, err := getMsg(it)
 			if err != nil {
 				if !errors.Is(err, db.ErrKeyNotFound) {
-					h.log.Errorw("Failed to generate data", "blockNumber", it.BlockNumber(), "err", err)
+					h.log.Errorw(
+						"Failed to generate data",
+						"blockNumber",
+						it.BlockNumber(),
+						"err",
+						err,
+					)
 				}
 				break
 			}

@@ -12,7 +12,10 @@ type mockValidator struct {
 	votingPower map[starknet.Address]types.VotingPower
 }
 
-func newMockValidator(proposerIndex uint64, votingPower map[starknet.Address]types.VotingPower) *mockValidator {
+func newMockValidator(
+	proposerIndex uint64,
+	votingPower map[starknet.Address]types.VotingPower,
+) *mockValidator {
 	return &mockValidator{
 		proposer:    utils.HeapPtr(starknet.Address(felt.FromUint64(proposerIndex))),
 		votingPower: votingPower,
@@ -27,7 +30,10 @@ func (v mockValidator) TotalVotingPower(height types.Height) types.VotingPower {
 	return total
 }
 
-func (v mockValidator) ValidatorVotingPower(height types.Height, addr *starknet.Address) types.VotingPower {
+func (v mockValidator) ValidatorVotingPower(
+	height types.Height,
+	addr *starknet.Address,
+) types.VotingPower {
 	return v.votingPower[*addr]
 }
 

@@ -136,7 +136,9 @@ func GetTestBlockInfo(t *testing.T) (consensus.BlockInfo, *p2pconsensus.BlockInf
 	return consensusBlockInfo, &p2pBlockInfo
 }
 
-func GetTestProposalCommitment(t *testing.T) (consensus.ProposalCommitment, *p2pconsensus.ProposalCommitment) {
+func GetTestProposalCommitment(
+	t *testing.T,
+) (consensus.ProposalCommitment, *p2pconsensus.ProposalCommitment) {
 	blockNumber := rand.Uint64()
 	timestamp := rand.Uint64()
 	builder, builderBytes := getRandomFelt(t)

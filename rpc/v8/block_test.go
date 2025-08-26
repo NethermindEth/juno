@@ -322,12 +322,15 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-		if tx, found := latestBlockTxMap[*hash]; found {
-			return tx, nil
-		}
-		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 5)
+	mockReader.EXPECT().
+		TransactionByHash(gomock.Any()).
+		DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
+			if tx, found := latestBlockTxMap[*hash]; found {
+				return tx, nil
+			}
+			return nil, errors.New("txn not found")
+		}).
+		Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
@@ -513,11 +516,15 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpcv8.ResourceBoundsMap{
 					L1Gas: &rpcv8.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxAmount: new(
+							felt.Felt,
+						).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
 					L2Gas: &rpcv8.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxAmount: new(
+							felt.Felt,
+						).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: &rpcv8.ResourceBounds{

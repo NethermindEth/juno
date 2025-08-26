@@ -125,7 +125,11 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 			case messages <- message:
 			}
 		}
-		topicSubscription := buffered.NewTopicSubscription(t.log, t.bufferSizeConfig.ProposalDemux, onMessage)
+		topicSubscription := buffered.NewTopicSubscription(
+			t.log,
+			t.bufferSizeConfig.ProposalDemux,
+			onMessage,
+		)
 		topicSubscription.Loop(ctx, topic)
 	})
 
@@ -180,7 +184,10 @@ func (t *proposalStreamDemux) processCommit(height types.Height) error {
 }
 
 // processStreamMessage processes the stream message.
-func (t *proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMessage *pubsub.Message) error {
+func (t *proposalStreamDemux) processStreamMessage(
+	ctx context.Context,
+	pubsubMessage *pubsub.Message,
+) error {
 	message := consensus.StreamMessage{}
 	if err := proto.Unmarshal(pubsubMessage.Data, &message); err != nil {
 		return fmt.Errorf("unable to unmarshal stream message: %w", err)
@@ -199,7 +206,11 @@ func (t *proposalStreamDemux) processStreamMessage(ctx context.Context, pubsubMe
 }
 
 // onFirstMessage is called when the first message is received for a stream.
-func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
+func (t *proposalStreamDemux) onFirstMessage(
+	ctx context.Context,
+	streamID streamID,
+	message *consensus.StreamMessage,
+) error {
 	stream := t.getStream(streamID)
 	if stream.started {
 		// If the stream is already started, then we don't need to start it again
@@ -233,7 +244,11 @@ func (t *proposalStreamDemux) onFirstMessage(ctx context.Context, streamID strea
 
 // onSubsequentMessage is called when a subsequent message is received for a stream.
 // The message is enqueued to the stream to be processed by the stream.
-func (t *proposalStreamDemux) onSubsequentMessage(ctx context.Context, streamID streamID, message *consensus.StreamMessage) error {
+func (t *proposalStreamDemux) onSubsequentMessage(
+	ctx context.Context,
+	streamID streamID,
+	message *consensus.StreamMessage,
+) error {
 	stream := t.getStream(streamID)
 	stream.enqueueMessage(ctx, message)
 	return nil
@@ -245,7 +260,13 @@ func (t *proposalStreamDemux) getStream(id streamID) *proposalStream {
 	if stream, exists := t.streams[id]; exists {
 		return stream
 	}
-	stream := newSingleProposalStream(t.log, t.proposalStore, t.transition, t.bufferSizeConfig.ProposalSingleStreamInput, t.outputs)
+	stream := newSingleProposalStream(
+		t.log,
+		t.proposalStore,
+		t.transition,
+		t.bufferSizeConfig.ProposalSingleStreamInput,
+		t.outputs,
+	)
 	t.streams[id] = stream
 	return stream
 }

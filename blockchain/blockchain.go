@@ -33,8 +33,12 @@ type Reader interface {
 	BlockHeaderByHash(hash *felt.Felt) (header *core.Header, err error)
 
 	TransactionByHash(hash *felt.Felt) (transaction core.Transaction, err error)
-	TransactionByBlockNumberAndIndex(blockNumber, index uint64) (transaction core.Transaction, err error)
-	Receipt(hash *felt.Felt) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
+	TransactionByBlockNumberAndIndex(
+		blockNumber, index uint64,
+	) (transaction core.Transaction, err error)
+	Receipt(
+		hash *felt.Felt,
+	) (receipt *core.TransactionReceipt, blockHash *felt.Felt, blockNumber uint64, err error)
 	StateUpdateByNumber(number uint64) (update *core.StateUpdate, err error)
 	StateUpdateByHash(hash *felt.Felt) (update *core.StateUpdate, err error)
 	L1HandlerTxnHash(msgHash *common.Hash) (l1HandlerTxnHash *felt.Felt, err error)
@@ -45,7 +49,11 @@ type Reader interface {
 
 	BlockCommitmentsByNumber(blockNumber uint64) (*core.BlockCommitments, error)
 
-	EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error)
+	EventFilter(
+		from *felt.Felt,
+		keys [][]felt.Felt,
+		pendingBlockFn func() *core.Block,
+	) (EventFilterer, error)
 
 	Network() *utils.Network
 }
@@ -62,7 +70,11 @@ func CheckBlockVersion(protocolVersion string) error {
 	}
 
 	// We ignore changes in patch part of the version
-	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
+	blockVerMM, supportedVerMM := copyWithoutPatch(
+		blockVer,
+	), copyWithoutPatch(
+		SupportedStarknetVersion,
+	)
 	if blockVerMM.GreaterThan(supportedVerMM) {
 		return errors.New("unsupported block version")
 	}
@@ -206,7 +218,9 @@ func (b *Blockchain) L1HandlerTxnHash(msgHash *common.Hash) (*felt.Felt, error) 
 }
 
 // TransactionByBlockNumberAndIndex gets the transaction for a given block number and index.
-func (b *Blockchain) TransactionByBlockNumberAndIndex(blockNumber, index uint64) (core.Transaction, error) {
+func (b *Blockchain) TransactionByBlockNumberAndIndex(
+	blockNumber, index uint64,
+) (core.Transaction, error) {
 	b.listener.OnRead("TransactionByBlockNumberAndIndex")
 	return core.GetTxByBlockNumIndex(b.database, blockNumber, index)
 }
@@ -218,7 +232,9 @@ func (b *Blockchain) TransactionByHash(hash *felt.Felt) (core.Transaction, error
 }
 
 // Receipt gets the transaction receipt for a given transaction hash.
-func (b *Blockchain) Receipt(hash *felt.Felt) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
+func (b *Blockchain) Receipt(
+	hash *felt.Felt,
+) (*core.TransactionReceipt, *felt.Felt, uint64, error) {
 	b.listener.OnRead("Receipt")
 	bnIndex, err := core.GetTxBlockNumIndexByHash(b.database, hash)
 	if err != nil {
@@ -404,14 +420,27 @@ func (b *Blockchain) StateAtBlockHash(blockHash *felt.Felt) (core.StateReader, S
 }
 
 // EventFilter returns an EventFilter object that is tied to a snapshot of the blockchain
-func (b *Blockchain) EventFilter(from *felt.Felt, keys [][]felt.Felt, pendingBlockFn func() *core.Block) (EventFilterer, error) {
+func (b *Blockchain) EventFilter(
+	from *felt.Felt,
+	keys [][]felt.Felt,
+	pendingBlockFn func() *core.Block,
+) (EventFilterer, error) {
 	b.listener.OnRead("EventFilter")
 	latest, err := core.GetChainHeight(b.database)
 	if err != nil {
 		return nil, err
 	}
 
-	return newEventFilter(b.database, from, keys, 0, latest, pendingBlockFn, b.cachedFilters, b.runningFilter), nil
+	return newEventFilter(
+		b.database,
+		from,
+		keys,
+		0,
+		latest,
+		pendingBlockFn,
+		b.cachedFilters,
+		b.runningFilter,
+	), nil
 }
 
 // RevertHead reverts the head block
@@ -607,7 +636,10 @@ func (b *Blockchain) updateStateRoots(
 }
 
 // updateBlockHash computes and sets the block hash and commitments
-func (b *Blockchain) updateBlockHash(block *core.Block, stateUpdate *core.StateUpdate) (*core.BlockCommitments, error) {
+func (b *Blockchain) updateBlockHash(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+) (*core.BlockCommitments, error) {
 	blockHash, commitments, err := core.BlockHash(
 		block,
 		stateUpdate.StateDiff,

@@ -41,7 +41,9 @@ func NewAggregatedBloomCache(size int) AggregatedBloomFilterCache {
 // WithFallback sets a fallback fetch function to be used if a requested
 // AggregatedBloomFilter is not found in the cache. The provided function must
 // return a filter matching the queried range, or an error.
-func (c *AggregatedBloomFilterCache) WithFallback(fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error)) {
+func (c *AggregatedBloomFilterCache) WithFallback(
+	fallback func(EventFiltersCacheKey) (core.AggregatedBloomFilter, error),
+) {
 	c.fallbackFunc = fallback
 }
 
@@ -85,9 +87,11 @@ type MatchedBlockIterator struct {
 
 var (
 	ErrMaxScannedBlockLimitExceed       = errors.New("max scanned blocks exceeded")
-	ErrAggregatedBloomFilterFallbackNil = errors.New("aggregated bloom filter does not have fallback")
-	ErrFetchedFilterBoundsMismatch      = errors.New("fetched filter bounds mismatch")
-	ErrNilRunningFilter                 = errors.New("running filter is nil")
+	ErrAggregatedBloomFilterFallbackNil = errors.New(
+		"aggregated bloom filter does not have fallback",
+	)
+	ErrFetchedFilterBoundsMismatch = errors.New("fetched filter bounds mismatch")
+	ErrNilRunningFilter            = errors.New("running filter is nil")
 )
 
 // NewMatchedBlockIterator constructs an iterator for block numbers within [fromBlock, toBlock]
@@ -149,7 +153,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 
 	// Falls into range of running filter
 	if fromAligned == it.runningFilter.FromBlock() {
-		err := it.matcher.getCandidateBlocksForFilterInto(it.runningFilter.InnerFilter(), it.currentBits)
+		err := it.matcher.getCandidateBlocksForFilterInto(
+			it.runningFilter.InnerFilter(),
+			it.currentBits,
+		)
 		if err != nil {
 			return err
 		}
@@ -183,7 +190,10 @@ func (it *MatchedBlockIterator) loadNextWindow() error {
 		return ErrFetchedFilterBoundsMismatch
 	}
 
-	it.cache.cache.Add(EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()}, filter)
+	it.cache.cache.Add(
+		EventFiltersCacheKey{fromBlock: filter.FromBlock(), toBlock: filter.ToBlock()},
+		filter,
+	)
 
 	err = it.matcher.getCandidateBlocksForFilterInto(filter, it.currentBits)
 	if err != nil {

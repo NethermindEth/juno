@@ -16,12 +16,16 @@ import (
 func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	var validateInvocation *rpcv6.FunctionInvocation
 	if trace.ValidateInvocation != nil && trace.Type != vm.TxnL1Handler {
-		validateInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation))
+		validateInvocation = utils.HeapPtr(
+			rpcv6.AdaptVMFunctionInvocation(trace.ValidateInvocation),
+		)
 	}
 
 	var feeTransferInvocation *rpcv6.FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(
+			rpcv6.AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
+		)
 	}
 
 	var constructorInvocation *rpcv6.FunctionInvocation
@@ -31,16 +35,22 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(
+				rpcv6.AdaptVMFunctionInvocation(trace.ConstructorInvocation),
+			)
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
-			executeInvocation = utils.HeapPtr(rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation))
+			executeInvocation = utils.HeapPtr(
+				rpcv6.AdaptVMExecuteInvocation(trace.ExecuteInvocation),
+			)
 		}
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
 			if trace.FunctionInvocation.FunctionInvocation != nil {
-				functionInvocation = utils.HeapPtr(rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
+				functionInvocation = utils.HeapPtr(
+					rpcv6.AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation),
+				)
 			} else {
 				defaultResult := rpcv6.DefaultL1HandlerFunctionInvocation()
 				functionInvocation = &defaultResult
@@ -101,7 +111,10 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 		Feeder Adapters
 *****************************************************/
 
-func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(
+	block *BlockWithTxs,
+	blockTrace *starknet.BlockTrace,
+) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}

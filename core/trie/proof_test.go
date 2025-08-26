@@ -302,7 +302,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(records[start].key, records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[start].key, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			records[start].key,
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -314,7 +320,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(decrementFelt(records[start].key), records[start].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, decrementFelt(records[start].key), []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			decrementFelt(records[start].key),
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -326,7 +338,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(records[end].key, incrementFelt(records[end].key), proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[end].key, []*felt.Felt{records[end].key}, []*felt.Felt{records[end].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			records[end].key,
+			[]*felt.Felt{records[end].key},
+			[]*felt.Felt{records[end].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -339,7 +357,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err := tr.GetRangeProof(first, last, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, first, []*felt.Felt{records[start].key}, []*felt.Felt{records[start].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			first,
+			[]*felt.Felt{records[start].key},
+			[]*felt.Felt{records[start].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 
@@ -354,7 +378,13 @@ func TestOneElementRangeProof(t *testing.T) {
 		err = tr.GetRangeProof(&felt.Zero, records[0].key, proof)
 		require.NoError(t, err)
 
-		_, err = trie.VerifyRangeProof(root, records[0].key, []*felt.Felt{records[0].key}, []*felt.Felt{records[0].value}, proof)
+		_, err = trie.VerifyRangeProof(
+			root,
+			records[0].key,
+			[]*felt.Felt{records[0].key},
+			[]*felt.Felt{records[0].value},
+			proof,
+		)
 		require.NoError(t, err)
 	})
 }
@@ -414,7 +444,9 @@ func TestSingleSideRangeProof(t *testing.T) {
 
 func TestGappedRangeProof(t *testing.T) {
 	t.Parallel()
-	t.Skip("gapped keys will sometimes succeed, the current proof format is not able to handle this")
+	t.Skip(
+		"gapped keys will sometimes succeed, the current proof format is not able to handle this",
+	)
 
 	tr, records := nonRandomTrie(t, 5)
 	root, err := tr.Root()
@@ -482,14 +514,18 @@ func TestHasRightElement(t *testing.T) {
 		end     int
 		hasMore bool
 	}{
-		{-1, 1, true},                           // single element with non-existent left proof
-		{0, 1, true},                            // single element with existent left proof
-		{0, 100, true},                          // start to middle
-		{50, 100, true},                         // middle only
-		{50, len(records), false},               // middle to end
-		{len(records) - 1, len(records), false}, // Single last element with two existent proofs(point to same key)
-		{0, len(records), false},                // The whole set with existent left proof
-		{-1, len(records), false},               // The whole set with non-existent left proof
+		{-1, 1, true},             // single element with non-existent left proof
+		{0, 1, true},              // single element with existent left proof
+		{0, 100, true},            // start to middle
+		{50, 100, true},           // middle only
+		{50, len(records), false}, // middle to end
+		{
+			len(records) - 1,
+			len(records),
+			false,
+		}, // Single last element with two existent proofs(point to same key)
+		{0, len(records), false},  // The whole set with existent left proof
+		{-1, len(records), false}, // The whole set with non-existent left proof
 	}
 
 	for _, c := range cases {
@@ -575,7 +611,13 @@ func TestBadRangeProof(t *testing.T) {
 		}
 		_, err = trie.VerifyRangeProof(root, first, keys, values, proof)
 		if err == nil {
-			t.Fatalf("expected error for test case %d, index %d, start %d, end %d", testCase, index, start, end)
+			t.Fatalf(
+				"expected error for test case %d, index %d, start %d, end %d",
+				testCase,
+				index,
+				start,
+				end,
+			)
 		}
 	}
 }
@@ -694,7 +736,13 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	// (251, 0, cc)     (251, 11111.., dd)
 	records := []*keyValue{
 		{key: new(felt.Felt).SetUint64(0), value: utils.HexToFelt(t, "0xcc")},
-		{key: utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: utils.HexToFelt(t, "0xdd")},
+		{
+			key: utils.HexToFelt(
+				t,
+				"0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			),
+			value: utils.HexToFelt(t, "0xdd"),
+		},
 	}
 	return buildTrie(t, records), records
 }

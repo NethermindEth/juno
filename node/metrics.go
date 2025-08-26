@@ -221,7 +221,13 @@ func makeSyncMetrics(syncReader sync.Reader, bcReader blockchain.Reader) sync.Ev
 		return 0
 	})
 
-	prometheus.MustRegister(opTimerHistogram, blockCount, chainHeightGauge, bestBlockGauge, reorgCount)
+	prometheus.MustRegister(
+		opTimerHistogram,
+		blockCount,
+		chainHeightGauge,
+		bestBlockGauge,
+		reorgCount,
+	)
 
 	return &sync.SelectiveListener{
 		OnSyncStepDoneCb: func(op string, blockNum uint64, took time.Duration) {
@@ -372,7 +378,11 @@ func makePebbleMetrics(nodeDB db.KeyValueStore) {
 		Help:      "Hit rate of Pebble block cache (hits / (hits + misses))",
 	}, func() float64 {
 		metrics := pebbleDB.Metrics()
-		return float64(metrics.BlockCache.Hits) / float64(metrics.BlockCache.Hits+metrics.BlockCache.Misses)
+		return float64(
+			metrics.BlockCache.Hits,
+		) / float64(
+			metrics.BlockCache.Hits+metrics.BlockCache.Misses,
+		)
 	})
 	tableCacheSize := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: "pebble",
@@ -389,7 +399,11 @@ func makePebbleMetrics(nodeDB db.KeyValueStore) {
 		Help:      "Hit rate of Pebble table cache (hits / (hits + misses))",
 	}, func() float64 {
 		metrics := pebbleDB.Metrics()
-		return float64(metrics.TableCache.Hits) / float64(metrics.TableCache.Hits+metrics.TableCache.Misses)
+		return float64(
+			metrics.TableCache.Hits,
+		) / float64(
+			metrics.TableCache.Hits+metrics.TableCache.Misses,
+		)
 	})
 	prometheus.MustRegister(blockCacheSize, blockHitRate, tableCacheSize, tableHitRate)
 }

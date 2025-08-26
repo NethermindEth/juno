@@ -16,7 +16,12 @@ import (
 )
 
 // The caller is responsible for closing the connection.
-func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, listener jsonrpc.EventListener) *websocket.Conn {
+func testConnection(
+	t *testing.T,
+	ctx context.Context,
+	method jsonrpc.Method,
+	listener jsonrpc.EventListener,
+) *websocket.Conn {
 	rpc := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithListener(listener)
 	require.NoError(t, rpc.RegisterMethods(method))
 
@@ -24,7 +29,11 @@ func testConnection(t *testing.T, ctx context.Context, method jsonrpc.Method, li
 	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()))
 
 	// Client
-	conn, resp, err := websocket.Dial(ctx, srv.URL, nil) //nolint:bodyclose // websocket package closes resp.Body for us.
+	conn, resp, err := websocket.Dial(
+		ctx,
+		srv.URL,
+		nil,
+	) //nolint:bodyclose // websocket package closes resp.Body for us.
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 

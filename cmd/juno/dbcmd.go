@@ -160,7 +160,11 @@ func dbRevert(cmd *cobra.Command, args []string) error {
 		}
 
 		if head.Number == revertToBlock {
-			fmt.Fprintf(cmd.OutOrStdout(), "Successfully reverted all blocks to %d\n", revertToBlock)
+			fmt.Fprintf(
+				cmd.OutOrStdout(),
+				"Successfully reverted all blocks to %d\n",
+				revertToBlock,
+			)
 			break
 		}
 
@@ -206,17 +210,37 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	buckets := db.BucketValues()
 	items := make([][]string, 0, len(buckets)+3)
 	for _, b := range buckets {
-		fmt.Fprintf(cmd.OutOrStdout(), "Calculating size of %s, remaining buckets: %d\n", b, len(db.BucketValues())-int(b)-1)
-		bucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(b)}, true)
+		fmt.Fprintf(
+			cmd.OutOrStdout(),
+			"Calculating size of %s, remaining buckets: %d\n",
+			b,
+			len(db.BucketValues())-int(b)-1,
+		)
+		bucketItem, err := pebble.CalculatePrefixSize(
+			cmd.Context(),
+			pebbleDB.(*pebble.DB),
+			[]byte{byte(b)},
+			true,
+		)
 		if err != nil {
 			return err
 		}
-		items = append(items, []string{b.String(), bucketItem.Size.String(), fmt.Sprintf("%d", bucketItem.Count)})
+		items = append(
+			items,
+			[]string{b.String(), bucketItem.Size.String(), fmt.Sprintf("%d", bucketItem.Count)},
+		)
 
 		totalSize += bucketItem.Size
 		totalCount += bucketItem.Count
 
-		if utils.AnyOf(b, db.StateTrie, db.ContractStorage, db.Class, db.ContractNonce, db.ContractDeploymentHeight) {
+		if utils.AnyOf(
+			b,
+			db.StateTrie,
+			db.ContractStorage,
+			db.Class,
+			db.ContractNonce,
+			db.ContractDeploymentHeight,
+		) {
 			withoutHistorySize += bucketItem.Size
 			withHistorySize += bucketItem.Size
 
@@ -224,7 +248,12 @@ func dbSize(cmd *cobra.Command, args []string) error {
 			withHistoryCount += bucketItem.Count
 		}
 
-		if utils.AnyOf(b, db.ContractStorageHistory, db.ContractNonceHistory, db.ContractClassHashHistory) {
+		if utils.AnyOf(
+			b,
+			db.ContractStorageHistory,
+			db.ContractNonceHistory,
+			db.ContractClassHashHistory,
+		) {
 			withHistorySize += bucketItem.Size
 			withHistoryCount += bucketItem.Count
 		}
@@ -233,13 +262,25 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	// check if there is any data left in the db
 	lastBucket := buckets[len(buckets)-1]
 	fmt.Fprintln(cmd.OutOrStdout(), "Calculating remaining data in the db")
-	lastBucketItem, err := pebble.CalculatePrefixSize(cmd.Context(), pebbleDB.(*pebble.DB), []byte{byte(lastBucket + 1)}, false)
+	lastBucketItem, err := pebble.CalculatePrefixSize(
+		cmd.Context(),
+		pebbleDB.(*pebble.DB),
+		[]byte{byte(lastBucket + 1)},
+		false,
+	)
 	if err != nil {
 		return err
 	}
 
 	if lastBucketItem.Count > 0 {
-		items = append(items, []string{"Unknown", lastBucketItem.Size.String(), fmt.Sprintf("%d", lastBucketItem.Count)})
+		items = append(
+			items,
+			[]string{
+				"Unknown",
+				lastBucketItem.Size.String(),
+				fmt.Sprintf("%d", lastBucketItem.Count),
+			},
+		)
 		totalSize += lastBucketItem.Size
 		totalCount += lastBucketItem.Count
 	}
@@ -259,12 +300,18 @@ func dbSize(cmd *cobra.Command, args []string) error {
 	tableState := tablewriter.NewWriter(os.Stdout)
 	tableState.Header([]string{"State", "Size", "Count"})
 	err = tableState.Append(
-		[]string{"Without history", withoutHistorySize.String(), fmt.Sprintf("%d", withoutHistoryCount)},
+		[]string{
+			"Without history",
+			withoutHistorySize.String(),
+			fmt.Sprintf("%d", withoutHistoryCount),
+		},
 	)
 	if err != nil {
 		return err
 	}
-	err = tableState.Append([]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)})
+	err = tableState.Append(
+		[]string{"With history", withHistorySize.String(), fmt.Sprintf("%d", withHistoryCount)},
+	)
 	if err != nil {
 		return err
 	}

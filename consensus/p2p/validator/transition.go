@@ -91,7 +91,9 @@ func (t *transition) OnEmptyBlockCommitment(
 		L1GasPriceWEI:     felt.Zero,
 		L1DataGasPriceWEI: felt.Zero,
 		EthToStrkRate:     felt.Zero,
-		L1DAMode:          core.L1DAMode(0), // Use 0 instead of Blob or CallData to explicitly set 0
+		L1DAMode: core.L1DAMode(
+			0,
+		), // Use 0 instead of Blob or CallData to explicitly set 0
 	})
 	if err != nil {
 		return nil, err
@@ -240,11 +242,19 @@ func compareFeltField(name string, received, computed *felt.Felt) error {
 //nolint:gocyclo // Currently this is only containing simple equality checks.
 func compareProposalCommitment(computed, received *types.ProposalCommitment) error {
 	if received.BlockNumber != computed.BlockNumber {
-		return fmt.Errorf("block number mismatch: received=%d computed=%d", received.BlockNumber, computed.BlockNumber)
+		return fmt.Errorf(
+			"block number mismatch: received=%d computed=%d",
+			received.BlockNumber,
+			computed.BlockNumber,
+		)
 	}
 
 	if !received.ParentCommitment.Equal(&computed.ParentCommitment) {
-		return fmt.Errorf("parent hash mismatch: received=%s computed=%s", received.ParentCommitment.String(), computed.ParentCommitment.String())
+		return fmt.Errorf(
+			"parent hash mismatch: received=%s computed=%s",
+			received.ParentCommitment.String(),
+			computed.ParentCommitment.String(),
+		)
 	}
 
 	if err := compareFeltField("proposer address", &received.Builder, &computed.Builder); err != nil {
@@ -253,11 +263,19 @@ func compareProposalCommitment(computed, received *types.ProposalCommitment) err
 
 	// Todo: ask the SN guys about the precise checks we should perform with the timestamps
 	if received.Timestamp > computed.Timestamp {
-		return fmt.Errorf("invalid timestamp: proposal (%d) is later than header (%d)", received.Timestamp, computed.Timestamp)
+		return fmt.Errorf(
+			"invalid timestamp: proposal (%d) is later than header (%d)",
+			received.Timestamp,
+			computed.Timestamp,
+		)
 	}
 
 	if !received.ProtocolVersion.LessThanEqual(builder.CurrentStarknetVersion) {
-		return fmt.Errorf("protocol version mismatch: received=%s computed=%s", received.ProtocolVersion, computed.ProtocolVersion)
+		return fmt.Errorf(
+			"protocol version mismatch: received=%s computed=%s",
+			received.ProtocolVersion,
+			computed.ProtocolVersion,
+		)
 	}
 
 	// TODO: Validate OldStateRoot, VersionConstantCommitment, NextL2GasPriceFRI
@@ -291,7 +309,11 @@ func compareProposalCommitment(computed, received *types.ProposalCommitment) err
 	}
 
 	if received.L1DAMode != computed.L1DAMode {
-		return fmt.Errorf("L1 DA mode mismatch: received=%d computed=%d", received.L1DAMode, computed.L1DAMode)
+		return fmt.Errorf(
+			"L1 DA mode mismatch: received=%d computed=%d",
+			received.L1DAMode,
+			computed.L1DAMode,
+		)
 	}
 
 	return nil

@@ -68,7 +68,12 @@ func (s *stateContract) UnmarshalBinary(data []byte) error {
 	case contractEmptyRootEncSize:
 		return s.unmarshalEmptyRoot(data)
 	default:
-		return fmt.Errorf("invalid length for state contract: got %d, want %d or %d", len(data), contractEncSize, contractEmptyRootEncSize)
+		return fmt.Errorf(
+			"invalid length for state contract: got %d, want %d or %d",
+			len(data),
+			contractEncSize,
+			contractEmptyRootEncSize,
+		)
 	}
 }
 
@@ -91,6 +96,9 @@ func (s *stateContract) unmarshalEmptyRoot(data []byte) error {
 
 // Calculates and returns the commitment of the contract
 func (s *stateContract) commitment() felt.Felt {
-	res := crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(&s.ClassHash, &s.StorageRoot), &s.Nonce), &felt.Zero)
+	res := crypto.Pedersen(
+		crypto.Pedersen(crypto.Pedersen(&s.ClassHash, &s.StorageRoot), &s.Nonce),
+		&felt.Zero,
+	)
 	return *res
 }

@@ -17,7 +17,10 @@ type incomingMessageBuilder struct {
 
 // proposal builds and processes a Proposal message, asserts it's stored in the state machine,
 // and returns an actionAsserter to check resulting actions.
-func (t incomingMessageBuilder) proposal(val starknet.Value, validRound types.Round) actionAsserter[starknet.Proposal] {
+func (t incomingMessageBuilder) proposal(
+	val starknet.Value,
+	validRound types.Round,
+) actionAsserter[starknet.Proposal] {
 	t.testing.Helper()
 	proposal := starknet.Proposal{
 		MessageHeader: t.header,

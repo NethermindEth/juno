@@ -68,17 +68,32 @@ func TestLayersNonExistNode(t *testing.T) {
 			invalidPath := generateRandomPath(r) // very unlikely we get the same path
 
 			// Invalid class node
-			blob, err := layer.node(trieutils.NewClassTrieID(validRoot), &felt.Zero, &invalidPath, true)
+			blob, err := layer.node(
+				trieutils.NewClassTrieID(validRoot),
+				&felt.Zero,
+				&invalidPath,
+				true,
+			)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract node
-			blob, err = layer.node(trieutils.NewContractTrieID(validRoot), &felt.Zero, &invalidPath, false)
+			blob, err = layer.node(
+				trieutils.NewContractTrieID(validRoot),
+				&felt.Zero,
+				&invalidPath,
+				false,
+			)
 			require.Error(t, err)
 			require.Nil(t, blob)
 
 			// Invalid contract storage node
-			blob, err = layer.node(trieutils.NewContractStorageTrieID(felt.Zero, validRoot), &felt.Zero, &invalidPath, false)
+			blob, err = layer.node(
+				trieutils.NewContractStorageTrieID(felt.Zero, validRoot),
+				&felt.Zero,
+				&invalidPath,
+				false,
+			)
 			require.Error(t, err)
 			require.Nil(t, blob)
 		})
@@ -112,7 +127,16 @@ func TestLayersCap(t *testing.T) {
 			exp := max(0, numDiffs-tc.capLayers)
 			expDiskHash := *new(felt.Felt).SetUint64(uint64(exp))
 			actualDiskHash := tree.diskLayer().rootHash()
-			require.Equal(t, &expDiskHash, actualDiskHash, fmt.Sprintf("expected disk hash %s, got %s", expDiskHash.String(), actualDiskHash.String()))
+			require.Equal(
+				t,
+				&expDiskHash,
+				actualDiskHash,
+				fmt.Sprintf(
+					"expected disk hash %s, got %s",
+					expDiskHash.String(),
+					actualDiskHash.String(),
+				),
+			)
 		})
 	}
 }
@@ -144,9 +168,11 @@ type layerTracker struct {
 
 func newLayerTracker() *layerTracker {
 	return &layerTracker{
-		classNodes:           make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode),
-		contractNodes:        make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode),
-		contractStorageNodes: make(map[felt.Felt]map[felt.Felt]map[trieutils.Path]trienode.TrieNode),
+		classNodes:    make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode),
+		contractNodes: make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode),
+		contractStorageNodes: make(
+			map[felt.Felt]map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+		),
 		childToParent:        make(map[felt.Felt]felt.Felt),
 		classPaths:           make(map[trieutils.Path]trienode.TrieNode),
 		contractPaths:        make(map[trieutils.Path]trienode.TrieNode),
@@ -174,7 +200,10 @@ func (t *layerTracker) trackNodes(
 	t.trackLayer(root, parent)
 }
 
-func (t *layerTracker) trackClassNodes(root *felt.Felt, nodes map[trieutils.Path]trienode.TrieNode) {
+func (t *layerTracker) trackClassNodes(
+	root *felt.Felt,
+	nodes map[trieutils.Path]trienode.TrieNode,
+) {
 	for path, node := range nodes {
 		if t.classNodes[*root] == nil {
 			t.classNodes[*root] = make(map[trieutils.Path]trienode.TrieNode)
@@ -184,7 +213,10 @@ func (t *layerTracker) trackClassNodes(root *felt.Felt, nodes map[trieutils.Path
 	}
 }
 
-func (t *layerTracker) trackContractNodes(root *felt.Felt, nodes map[trieutils.Path]trienode.TrieNode) {
+func (t *layerTracker) trackContractNodes(
+	root *felt.Felt,
+	nodes map[trieutils.Path]trienode.TrieNode,
+) {
 	for path, node := range nodes {
 		if t.contractNodes[*root] == nil {
 			t.contractNodes[*root] = make(map[trieutils.Path]trienode.TrieNode)
@@ -194,7 +226,10 @@ func (t *layerTracker) trackContractNodes(root *felt.Felt, nodes map[trieutils.P
 	}
 }
 
-func (t *layerTracker) trackContractStorageNodes(root *felt.Felt, nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode) {
+func (t *layerTracker) trackContractStorageNodes(
+	root *felt.Felt,
+	nodes map[felt.Felt]map[trieutils.Path]trienode.TrieNode,
+) {
 	for owner, ownerNodes := range nodes {
 		if t.contractStorageNodes[*root] == nil {
 			t.contractStorageNodes[*root] = make(map[felt.Felt]map[trieutils.Path]trienode.TrieNode)
@@ -213,7 +248,11 @@ func (t *layerTracker) trackContractStorageNodes(root *felt.Felt, nodes map[felt
 }
 
 // resolveNode finds a node by traversing the layer hierarchy from the given root
-func (t *layerTracker) resolveNode(root, owner *felt.Felt, path *trieutils.Path, isClass bool) ([]byte, error) {
+func (t *layerTracker) resolveNode(
+	root, owner *felt.Felt,
+	path *trieutils.Path,
+	isClass bool,
+) ([]byte, error) {
 	currentRoot := root
 	for {
 		if blob, found := t.findNodeInLayer(currentRoot, owner, path, isClass); found {
@@ -231,7 +270,11 @@ func (t *layerTracker) resolveNode(root, owner *felt.Felt, path *trieutils.Path,
 }
 
 // findNodeInLayer checks if a node exists in a specific layer (without parent traversal)
-func (t *layerTracker) findNodeInLayer(root, owner *felt.Felt, path *trieutils.Path, isClass bool) ([]byte, bool) {
+func (t *layerTracker) findNodeInLayer(
+	root, owner *felt.Felt,
+	path *trieutils.Path,
+	isClass bool,
+) ([]byte, bool) {
 	if isClass {
 		if nodeMap, ok := t.classNodes[*root]; ok {
 			if node, exists := nodeMap[*path]; exists {
@@ -277,7 +320,10 @@ func generateRandomPath(r *rand.Rand) trieutils.Path {
 }
 
 // createTestNodeSet generates a MergeNodeSet with controlled overlapping paths
-func createTestNodeSet(nodeCount, layerIndex, totalLayers int, classNodesOnly bool) *trienode.MergeNodeSet {
+func createTestNodeSet(
+	nodeCount, layerIndex, totalLayers int,
+	classNodesOnly bool,
+) *trienode.MergeNodeSet {
 	// Create reusable path and owner sets for consistent overlaps
 	paths := make([]trieutils.Path, 0, nodeCount)
 	owners := make([]felt.Felt, 0, nodeCount)
@@ -403,7 +449,12 @@ func setupLayerTree(numDiffs, nodesPerLayer int) (*layerTree, *layerTracker) {
 func verifyClassNodes(layer layer, root *felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.classPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, &felt.Zero, &path, true)
-		actualBlob, actualErr := layer.node(trieutils.NewClassTrieID(*root), &felt.Zero, &path, true)
+		actualBlob, actualErr := layer.node(
+			trieutils.NewClassTrieID(*root),
+			&felt.Zero,
+			&path,
+			true,
+		)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -427,7 +478,12 @@ func verifyClassNodes(layer layer, root *felt.Felt, tracker *layerTracker) error
 func verifyContractNodes(layer layer, root *felt.Felt, tracker *layerTracker) error {
 	for path := range tracker.contractPaths {
 		expectedBlob, expectedErr := tracker.resolveNode(root, &felt.Zero, &path, false)
-		actualBlob, actualErr := layer.node(trieutils.NewContractTrieID(*root), &felt.Zero, &path, false)
+		actualBlob, actualErr := layer.node(
+			trieutils.NewContractTrieID(*root),
+			&felt.Zero,
+			&path,
+			false,
+		)
 
 		if expectedErr != nil {
 			if actualErr == nil {
@@ -450,7 +506,12 @@ func verifyContractStorageNodes(layer layer, root *felt.Felt, tracker *layerTrac
 	for owner, paths := range tracker.contractStoragePaths {
 		for path := range paths {
 			expectedBlob, expectedErr := tracker.resolveNode(root, &owner, &path, false)
-			actualBlob, actualErr := layer.node(trieutils.NewContractStorageTrieID(owner, *root), &owner, &path, false)
+			actualBlob, actualErr := layer.node(
+				trieutils.NewContractStorageTrieID(owner, *root),
+				&owner,
+				&path,
+				false,
+			)
 
 			if expectedErr != nil {
 				if actualErr == nil {

@@ -231,7 +231,10 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 	}
 
-	t.root = newCollector(&nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
+	t.root = newCollector(
+		&nodes,
+	).Collect(t.root, t.pendingUpdates > 100)
+	//nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
 	return rootHash, &nodes
 }
@@ -329,7 +332,11 @@ func (t *Trie) update(key, value *felt.Felt) error {
 // Returns whether the trie was modified, the new/updated node, and any error.
 //
 //nolint:gocyclo,funlen
-func (t *Trie) insert(n trienode.Node, prefix, key *Path, value trienode.Node) (trienode.Node, bool, error) {
+func (t *Trie) insert(
+	n trienode.Node,
+	prefix, key *Path,
+	value trienode.Node,
+) (trienode.Node, bool, error) {
 	// We reach the end of the key
 	if key.Len() == 0 {
 		if v, ok := n.(*trienode.ValueNode); ok {
@@ -578,15 +585,30 @@ func (t *Trie) String() string {
 }
 
 func NewEmptyPedersen() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	return New(
+		trieutils.NewEmptyTrieID(felt.Zero),
+		contractClassTrieHeight,
+		crypto.Pedersen,
+		triedb.NewEmptyNodeDatabase(),
+	)
 }
 
 func NewEmptyPoseidon() (*Trie, error) {
-	return New(trieutils.NewEmptyTrieID(felt.Zero), contractClassTrieHeight, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	return New(
+		trieutils.NewEmptyTrieID(felt.Zero),
+		contractClassTrieHeight,
+		crypto.Poseidon,
+		triedb.NewEmptyNodeDatabase(),
+	)
 }
 
 func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Pedersen, triedb.NewEmptyNodeDatabase())
+	trie, err := New(
+		trieutils.NewEmptyTrieID(felt.Zero),
+		height,
+		crypto.Pedersen,
+		triedb.NewEmptyNodeDatabase(),
+	)
 	if err != nil {
 		return err
 	}
@@ -594,7 +616,12 @@ func RunOnTempTriePedersen(height uint8, do func(*Trie) error) error {
 }
 
 func RunOnTempTriePoseidon(height uint8, do func(*Trie) error) error {
-	trie, err := New(trieutils.NewEmptyTrieID(felt.Zero), height, crypto.Poseidon, triedb.NewEmptyNodeDatabase())
+	trie, err := New(
+		trieutils.NewEmptyTrieID(felt.Zero),
+		height,
+		crypto.Poseidon,
+		triedb.NewEmptyNodeDatabase(),
+	)
 	if err != nil {
 		return err
 	}

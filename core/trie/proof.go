@@ -35,7 +35,12 @@ func (b *Binary) Len() uint8 {
 }
 
 func (b *Binary) String() string {
-	return fmt.Sprintf("Binary: %v:\n\tLeftHash: %v\n\tRightHash: %v\n", b.Hash(crypto.Pedersen), b.LeftHash, b.RightHash)
+	return fmt.Sprintf(
+		"Binary: %v:\n\tLeftHash: %v\n\tRightHash: %v\n",
+		b.Hash(crypto.Pedersen),
+		b.LeftHash,
+		b.RightHash,
+	)
 }
 
 type Edge struct {
@@ -57,7 +62,12 @@ func (e *Edge) Len() uint8 {
 }
 
 func (e *Edge) String() string {
-	return fmt.Sprintf("Edge: %v:\n\tChild: %v\n\tPath: %v\n", e.Hash(crypto.Pedersen), e.Child, e.Path)
+	return fmt.Sprintf(
+		"Edge: %v:\n\tChild: %v\n\tPath: %v\n",
+		e.Hash(crypto.Pedersen),
+		e.Child,
+		e.Path,
+	)
 }
 
 // Prove generates a Merkle proof for a given key in the trie.
@@ -138,7 +148,11 @@ func (t *Trie) GetRangeProof(leftKey, rightKey *felt.Felt, proofSet *ProofNodeSe
 //   - Any node's computed hash doesn't match its expected hash
 //   - The path bits don't match the key bits
 //   - The proof ends before processing all key bits
-func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) (*felt.Felt, error) {
+func VerifyProof(
+	root, keyFelt *felt.Felt,
+	proof *ProofNodeSet,
+	hash crypto.HashFn,
+) (*felt.Felt, error) {
 	keyBits := new(BitArray).SetFelt(globalTrieHeight, keyFelt)
 	expectedHash := root
 
@@ -151,7 +165,11 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 
 		// Verify the hash matches
 		if !proofNode.Hash(hash).Equal(expectedHash) {
-			return nil, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expectedHash.String(), proofNode.Hash(hash).String())
+			return nil, fmt.Errorf(
+				"proof node hash mismatch, expected hash: %s, got hash: %s",
+				expectedHash.String(),
+				proofNode.Hash(hash).String(),
+			)
 		}
 
 		switch node := proofNode.(type) {
@@ -198,10 +216,18 @@ func VerifyProof(root, keyFelt *felt.Felt, proof *ProofNodeSet, hash crypto.Hash
 // Conversely, given a binary leaf and a right-sibling last key, if the left sibling is removed, the proof would still be valid.
 // Range proof should not be valid for both of these cases, but currently is, which is an attack vector.
 // The problem probably lies in how we do root hash calculation.
-func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) { //nolint:funlen,gocyclo
+func VerifyRangeProof(
+	root, first *felt.Felt,
+	keys, values []*felt.Felt,
+	proof *ProofNodeSet,
+) (bool, error) { //nolint:funlen,gocyclo
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
-		return false, fmt.Errorf("inconsistent length of proof data, keys: %d, values: %d", len(keys), len(values))
+		return false, fmt.Errorf(
+			"inconsistent length of proof data, keys: %d, values: %d",
+			len(keys),
+			len(values),
+		)
 	}
 
 	// Ensure all keys are monotonically increasing and values contain no deletions
@@ -228,7 +254,11 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 		}
 
 		if !recomputedRoot.Equal(root) {
-			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
+			return false, fmt.Errorf(
+				"root hash mismatch, expected: %s, got: %s",
+				root.String(),
+				recomputedRoot.String(),
+			)
 		}
 
 		return false, nil // no more elements available
@@ -308,7 +338,11 @@ func VerifyRangeProof(root, first *felt.Felt, keys, values []*felt.Felt, proof *
 	}
 
 	if !recomputedRoot.Equal(root) {
-		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", root.String(), recomputedRoot.String())
+		return false, fmt.Errorf(
+			"root hash mismatch, expected: %s, got: %s",
+			root.String(),
+			recomputedRoot.String(),
+		)
 	}
 
 	return hasRightElement(rootKey, lastKey, nodes), nil
@@ -326,7 +360,11 @@ func isEdge(parentKey *BitArray, sNode StorageNode) bool {
 // storageNodeToProofNode converts a StorageNode to the ProofNode(s).
 // Juno's Trie has nodes that are Binary AND Edge, whereas the protocol requires nodes that are Binary XOR Edge.
 // We need to convert the former to the latter for proof generation.
-func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (*Edge, *Binary, error) {
+func storageNodeToProofNode(
+	tri *Trie,
+	parentKey *BitArray,
+	sNode StorageNode,
+) (*Edge, *Binary, error) {
 	var edge *Edge
 	if isEdge(parentKey, sNode) {
 		edgePath := path(sNode.key, parentKey)
@@ -375,7 +413,12 @@ func storageNodeToProofNode(tri *Trie, parentKey *BitArray, sNode StorageNode) (
 
 // proofToPath converts a Merkle proof to trie node path. All necessary nodes will be resolved and leave the remaining
 // as hashes. The given edge proof can be existent or non-existent.
-func proofToPath(root *felt.Felt, keyBits *BitArray, proof *ProofNodeSet, nodes *StorageNodeSet) (*BitArray, *felt.Felt, error) {
+func proofToPath(
+	root *felt.Felt,
+	keyBits *BitArray,
+	proof *ProofNodeSet,
+	nodes *StorageNodeSet,
+) (*BitArray, *felt.Felt, error) {
 	rootKey, val, err := buildPath(root, keyBits, 0, nil, proof, nodes)
 	if err != nil {
 		return nil, nil, err
@@ -559,7 +602,12 @@ func verifyEdgePath(key, edgePath *BitArray, curPos uint8) bool {
 }
 
 // buildTrie builds a trie from a list of storage nodes and a list of keys and values.
-func buildTrie(height uint8, rootKey *BitArray, nodes []*StorageNode, keys, values []*felt.Felt) (*Trie, error) {
+func buildTrie(
+	height uint8,
+	rootKey *BitArray,
+	nodes []*StorageNode,
+	keys, values []*felt.Felt,
+) (*Trie, error) {
 	tr, err := NewTriePedersen(newMemStorage(), height)
 	if err != nil {
 		return nil, err

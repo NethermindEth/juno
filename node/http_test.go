@@ -20,14 +20,20 @@ func TestHandleReadySync(t *testing.T) {
 	synchronizer := mocks.NewMockSyncReader(mockCtrl)
 	mockReader := mocks.NewMockReader(mockCtrl)
 	readinessBlockTolerance := uint(6)
-	readinessHandlers := node.NewReadinessHandlers(mockReader, synchronizer, readinessBlockTolerance)
+	readinessHandlers := node.NewReadinessHandlers(
+		mockReader,
+		synchronizer,
+		readinessBlockTolerance,
+	)
 	ctx := t.Context()
 
 	t.Run("ready and blockNumber outside blockRange to highestBlock", func(t *testing.T) {
 		blockNum := uint64(2)
 		highestBlock := blockNum + uint64(readinessBlockTolerance) + 1
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
-		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
+		synchronizer.EXPECT().
+			HighestBlockHeader().
+			Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready/sync", http.NoBody)
 		assert.Nil(t, err)
@@ -44,7 +50,9 @@ func TestHandleReadySync(t *testing.T) {
 		highestBlock := uint64(1)
 
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
-		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
+		synchronizer.EXPECT().
+			HighestBlockHeader().
+			Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready/sync", http.NoBody)
 		assert.Nil(t, err)
@@ -61,7 +69,9 @@ func TestHandleReadySync(t *testing.T) {
 		highestBlock := blockNum + uint64(readinessBlockTolerance)
 
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: blockNum}, nil)
-		synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
+		synchronizer.EXPECT().
+			HighestBlockHeader().
+			Return(&core.Header{Number: highestBlock, Hash: new(felt.Felt).SetUint64(highestBlock)})
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/ready/sync", http.NoBody)
 		assert.Nil(t, err)

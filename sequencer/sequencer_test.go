@@ -23,7 +23,11 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func getEmptySequencer(t *testing.T, blockTime time.Duration, seqAddr *felt.Felt) (sequencer.Sequencer, *blockchain.Blockchain) {
+func getEmptySequencer(
+	t *testing.T,
+	blockTime time.Duration,
+	seqAddr *felt.Felt,
+) (sequencer.Sequencer, *blockchain.Blockchain) {
 	t.Helper()
 	testDB := memory.New()
 	mockCtrl := gomock.NewController(t)
@@ -63,13 +67,25 @@ func getGenesisSequencer(
 			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(0),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
+				utils.HexToFelt(
+					t,
+					"0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811",
+				),
+				utils.HexToFelt(
+					t,
+					"0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972",
+				),
 			},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				utils.HexToFelt(
+					t,
+					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				),
+				utils.HexToFelt(
+					t,
+					"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+				),
 				utils.HexToFelt(t, "0x3"),
 				utils.HexToFelt(t, "0x108"),
 				utils.HexToFelt(t, "0x1"),
@@ -86,13 +102,25 @@ func getGenesisSequencer(
 			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(1),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
-				utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+				utils.HexToFelt(
+					t,
+					"0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083",
+				),
+				utils.HexToFelt(
+					t,
+					"0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5",
+				),
 			},
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				utils.HexToFelt(
+					t,
+					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				),
+				utils.HexToFelt(
+					t,
+					"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+				),
 				utils.HexToFelt(t, "0x3"),
 				utils.HexToFelt(t, "0x109"),
 				utils.HexToFelt(t, "0x1"),
@@ -115,13 +143,28 @@ func getGenesisSequencer(
 		"../genesis/classes/strk.json", "../genesis/classes/account.json",
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(false, log),
+		bc.Network(),
+		40000000,
+	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	rpcHandler := rpc.New(bc, nil, nil, utils.NewNopZapLogger()).WithMempool(txnPool)
-	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
+	return sequencer.New(
+			&testBuilder,
+			txnPool,
+			seqAddr,
+			privKey,
+			blockTime,
+			log,
+		), bc, rpcHandler, [2]rpc.BroadcastedTransaction{
+			invokeTxn,
+			invokeTxn2,
+		}
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {

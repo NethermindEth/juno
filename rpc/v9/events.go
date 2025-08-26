@@ -27,7 +27,11 @@ func (h *Handler) unsubscribe(sub *subscription, id string) {
 	h.subscriptions.Delete(id)
 }
 
-func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
+func setEventFilterRange(
+	filter blockchain.EventFilterer,
+	from, to *BlockID,
+	latestHeight uint64,
+) error {
 	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
 		if blockID == nil {
 			return nil
@@ -42,7 +46,10 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 			return filter.SetRangeEndBlockByHash(filterRange, blockID.Hash())
 		case number:
 			if filterRange == blockchain.EventFilterTo {
-				return filter.SetRangeEndBlockByNumber(filterRange, min(blockID.Number(), latestHeight))
+				return filter.SetRangeEndBlockByNumber(
+					filterRange,
+					min(blockID.Number(), latestHeight),
+				)
 			}
 			return filter.SetRangeEndBlockByNumber(filterRange, blockID.Number())
 		case l1Accepted:
@@ -84,7 +91,11 @@ func (h *Handler) Events(args EventArgs) (rpcv6.EventsChunk, *jsonrpc.Error) {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(
+		args.EventFilter.Address,
+		args.EventFilter.Keys,
+		h.PendingBlock,
+	)
 	if err != nil {
 		return rpcv6.EventsChunk{}, rpccore.ErrInternal
 	}

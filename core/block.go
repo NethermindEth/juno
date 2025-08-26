@@ -88,7 +88,11 @@ type BlockCommitments struct {
 
 // VerifyBlockHash verifies the block hash. Due to bugs in Starknet alpha, not all blocks have
 // verifiable hashes.
-func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*BlockCommitments, error) {
+func VerifyBlockHash(
+	b *Block,
+	network *utils.Network,
+	stateDiff *StateDiff,
+) (*BlockCommitments, error) {
 	if len(b.Transactions) != len(b.Receipts) {
 		return nil, fmt.Errorf("len of transactions: %v do not match len of receipts: %v",
 			len(b.Transactions), len(b.Receipts))
@@ -105,7 +109,8 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
 
-	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] && b.Number <= unverifiableRange[1] //nolint:gocritic
+	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] &&
+		b.Number <= unverifiableRange[1] //nolint:gocritic
 	// todo should we still keep it after p2p ?
 	if !skipVerification {
 		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {
@@ -142,7 +147,12 @@ func VerifyBlockHash(b *Block, network *utils.Network, stateDiff *StateDiff) (*B
 }
 
 // blockHash computes the block hash, with option to override sequence address
-func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideSeqAddr *felt.Felt) (*felt.Felt,
+func BlockHash(
+	b *Block,
+	stateDiff *StateDiff,
+	network *utils.Network,
+	overrideSeqAddr *felt.Felt,
+) (*felt.Felt,
 	*BlockCommitments, error,
 ) {
 	metaInfo := network.BlockHashMetaInfo

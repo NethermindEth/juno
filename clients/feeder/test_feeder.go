@@ -22,7 +22,12 @@ func NewTestClient(t testing.TB, network *utils.Network) *Client {
 	ua := "Juno/v0.0.1-test Starknet Implementation"
 	apiKey := "API_KEY"
 
-	c := NewClient(srv.URL).WithBackoff(NopBackoff).WithMaxRetries(0).WithUserAgent(ua).WithAPIKey(apiKey)
+	c := NewClient(
+		srv.URL,
+	).WithBackoff(NopBackoff).
+		WithMaxRetries(0).
+		WithUserAgent(ua).
+		WithAPIKey(apiKey)
 	c.client = &http.Client{
 		Transport: &http.Transport{
 			// On macOS tests often fail with the following error:
@@ -50,7 +55,11 @@ func newTestServer(t testing.TB, network *utils.Network) *httptest.Server {
 		}
 
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
-		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+		assert.Equal(
+			t,
+			[]string{"Juno/v0.0.1-test Starknet Implementation"},
+			r.Header["User-Agent"],
+		)
 
 		require.NoError(t, err)
 
@@ -140,7 +149,9 @@ func handleNotFound(dir, queryArg string, w http.ResponseWriter) {
 	// {"finality_status": "NOT_RECEIVED", "status": "NOT_RECEIVED"}
 	// instead of 404 as per real test server behaviour.
 	if dir == "transaction" && queryArg == "transactionHash" {
-		w.Write([]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}")) //nolint:errcheck
+		w.Write(
+			[]byte("{\"finality_status\": \"NOT_RECEIVED\", \"status\": \"NOT_RECEIVED\"}"),
+		) //nolint:errcheck
 	} else {
 		w.WriteHeader(http.StatusBadRequest)
 	}

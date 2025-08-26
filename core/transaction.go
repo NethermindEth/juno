@@ -138,7 +138,9 @@ var (
 	_            Transaction = (*DeclareTransaction)(nil)
 	_            Transaction = (*InvokeTransaction)(nil)
 	_            Transaction = (*L1HandlerTransaction)(nil)
-	queryVersion             = new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
+	queryVersion             = new(
+		felt.Felt,
+	).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(queryBit))
 )
 
 const (
@@ -584,7 +586,10 @@ func l1HandlerTransactionHash(l *L1HandlerTransaction, n *utils.Network) (*felt.
 	}
 }
 
-func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network) (*felt.Felt, error) {
+func deployAccountTransactionHash(
+	d *DeployAccountTransaction,
+	n *utils.Network,
+) (*felt.Felt, error) {
 	callData := append([]*felt.Felt{d.ClassHash, d.ContractAddressSalt}, d.ConstructorCallData...)
 	// There is no version 0 for deploy account
 	switch {
@@ -633,7 +638,11 @@ func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion str
 	for _, t := range txs {
 		calculatedTxHash, hErr := TransactionHash(t, n)
 		if hErr != nil {
-			return fmt.Errorf("cannot calculate transaction hash of Transaction %s, reason: %w", t.Hash(), hErr)
+			return fmt.Errorf(
+				"cannot calculate transaction hash of Transaction %s, reason: %w",
+				t.Hash(),
+				hErr,
+			)
 		}
 		if !calculatedTxHash.Equal(t.Hash()) {
 			return fmt.Errorf("cannot verify transaction hash of Transaction %s", t.Hash())
@@ -646,7 +655,10 @@ const commitmentTrieHeight = 64
 
 // transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
+func transactionCommitmentPedersen(
+	transactions []Transaction,
+	protocolVersion string,
+) (*felt.Felt, error) {
 	blockVersion, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
 		return nil, err
@@ -674,32 +686,40 @@ func transactionCommitmentPedersen(transactions []Transaction, protocolVersion s
 // transactionCommitmentPoseidon0134 handles empty signatures compared to transactionCommitmentPoseidon0132:
 // empty signatures are interpreted as [] instead of [0]
 func transactionCommitmentPoseidon0134(transactions []Transaction) (*felt.Felt, error) {
-	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
-		var digest crypto.PoseidonDigest
-		digest.Update(transaction.Hash())
+	return calculateCommitment(
+		transactions,
+		trie.RunOnTempTriePoseidon,
+		func(transaction Transaction) *felt.Felt {
+			var digest crypto.PoseidonDigest
+			digest.Update(transaction.Hash())
 
-		if txSignature := transaction.Signature(); len(txSignature) > 0 {
-			digest.Update(txSignature...)
-		}
+			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+				digest.Update(txSignature...)
+			}
 
-		return digest.Finish()
-	})
+			return digest.Finish()
+		},
+	)
 }
 
 // transactionCommitmentPoseidon0132 is used to calculate tx commitment for 0.13.2 <= block.version < 0.13.4
 func transactionCommitmentPoseidon0132(transactions []Transaction) (*felt.Felt, error) {
-	return calculateCommitment(transactions, trie.RunOnTempTriePoseidon, func(transaction Transaction) *felt.Felt {
-		var digest crypto.PoseidonDigest
-		digest.Update(transaction.Hash())
+	return calculateCommitment(
+		transactions,
+		trie.RunOnTempTriePoseidon,
+		func(transaction Transaction) *felt.Felt {
+			var digest crypto.PoseidonDigest
+			digest.Update(transaction.Hash())
 
-		if txSignature := transaction.Signature(); len(txSignature) > 0 {
-			digest.Update(txSignature...)
-		} else {
-			digest.Update(&felt.Zero)
-		}
+			if txSignature := transaction.Signature(); len(txSignature) > 0 {
+				digest.Update(txSignature...)
+			} else {
+				digest.Update(&felt.Zero)
+			}
 
-		return digest.Finish()
-	})
+			return digest.Finish()
+		},
+	)
 }
 
 type eventWithTxHash struct {
@@ -722,22 +742,26 @@ func eventCommitmentPoseidon(receipts []*TransactionReceipt) (*felt.Felt, error)
 			})
 		}
 	}
-	return calculateCommitment(items, trie.RunOnTempTriePoseidon, func(item *eventWithTxHash) *felt.Felt {
-		return crypto.PoseidonArray(
-			slices.Concat(
-				[]*felt.Felt{
-					item.Event.From,
-					item.TxHash,
-					new(felt.Felt).SetUint64(uint64(len(item.Event.Keys))),
-				},
-				item.Event.Keys,
-				[]*felt.Felt{
-					new(felt.Felt).SetUint64(uint64(len(item.Event.Data))),
-				},
-				item.Event.Data,
-			)...,
-		)
-	})
+	return calculateCommitment(
+		items,
+		trie.RunOnTempTriePoseidon,
+		func(item *eventWithTxHash) *felt.Felt {
+			return crypto.PoseidonArray(
+				slices.Concat(
+					[]*felt.Felt{
+						item.Event.From,
+						item.TxHash,
+						new(felt.Felt).SetUint64(uint64(len(item.Event.Keys))),
+					},
+					item.Event.Keys,
+					[]*felt.Felt{
+						new(felt.Felt).SetUint64(uint64(len(item.Event.Data))),
+					},
+					item.Event.Data,
+				)...,
+			)
+		},
+	)
 }
 
 // eventCommitmentPedersen computes the event commitment for a block.

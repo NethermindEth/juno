@@ -318,12 +318,15 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockReaderV6.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-		if tx, found := latestBlockTxMap[*hash]; found {
-			return tx, nil
-		}
-		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 5)
+	mockReaderV6.EXPECT().
+		TransactionByHash(gomock.Any()).
+		DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
+			if tx, found := latestBlockTxMap[*hash]; found {
+				return tx, nil
+			}
+			return nil, errors.New("txn not found")
+		}).
+		Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
@@ -355,7 +358,9 @@ func TestBlockWithTxs(t *testing.T) {
 		mockReader.EXPECT().BlockByNumber(latestBlockNumber).Return(latestBlock, nil).Times(2)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv7.BlockID{Number: latestBlockNumber})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(
+			rpcv7.BlockID{Number: latestBlockNumber},
+		)
 		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv7.BlockID{Number: latestBlockNumber})
@@ -375,7 +380,9 @@ func TestBlockWithTxs(t *testing.T) {
 			StateRoot:   latestBlock.GlobalStateRoot,
 		}, nil).Times(2)
 
-		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(rpcv7.BlockID{Number: latestBlockNumber})
+		blockWithTxHashes, rpcErr := handler.BlockWithTxHashes(
+			rpcv7.BlockID{Number: latestBlockNumber},
+		)
 		require.Nil(t, rpcErr)
 
 		blockWithTxs, rpcErr := handler.BlockWithTxs(rpcv7.BlockID{Number: latestBlockNumber})
@@ -493,11 +500,15 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpcv6.ResourceBoundsMap{
 					L1Gas: &rpcv6.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxAmount: new(
+							felt.Felt,
+						).SetUint64(tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
 					L2Gas: &rpcv6.ResourceBounds{
-						MaxAmount:       new(felt.Felt).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxAmount: new(
+							felt.Felt,
+						).SetUint64(tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 				},

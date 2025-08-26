@@ -240,15 +240,17 @@ func (invocation *FunctionInvocation) allMessages() []OrderedL2toL1Message {
 	for i := range invocation.Calls {
 		messages = append(messages, invocation.Calls[i].allMessages()...)
 	}
-	return append(messages, utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
-		e.From = &invocation.ContractAddress
-		return e
-	})...)
+	return append(
+		messages,
+		utils.Map(invocation.Messages, func(e OrderedL2toL1Message) OrderedL2toL1Message {
+			e.From = &invocation.ContractAddress
+			return e
+		})...)
 }
 
 type ExecuteInvocation struct {
 	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	*FunctionInvocation `       json:",omitempty"`
 }
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
@@ -309,7 +311,10 @@ type ExecutionResources struct {
 	DataAvailability *DataAvailability `json:"data_availability,omitempty"`
 }
 
-func NewDataAvailability(gasConsumed, dataGasConsumed *felt.Felt, mode core.L1DAMode) DataAvailability {
+func NewDataAvailability(
+	gasConsumed, dataGasConsumed *felt.Felt,
+	mode core.L1DAMode,
+) DataAvailability {
 	da := DataAvailability{}
 
 	switch mode {

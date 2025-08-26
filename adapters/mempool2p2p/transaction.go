@@ -18,7 +18,9 @@ func toHash(felt *felt.Felt) *common.Hash {
 	return &common.Hash{Elements: feltBytes[:]}
 }
 
-func AdaptTransaction(tx *mempool.BroadcastedTransaction) (*mempooltransaction.MempoolTransaction, error) {
+func AdaptTransaction(
+	tx *mempool.BroadcastedTransaction,
+) (*mempooltransaction.MempoolTransaction, error) {
 	if tx.Transaction == nil {
 		return nil, errors.New("transaction is nil")
 	}

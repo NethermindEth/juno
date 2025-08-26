@@ -91,7 +91,10 @@ func (h *Handler) blockHeaderByID(id *BlockID) (*core.Header, *jsonrpc.Error) { 
 	return header, nil
 }
 
-func adaptExecutionResources(resources *core.ExecutionResources, v0_6Response bool) *ExecutionResources {
+func adaptExecutionResources(
+	resources *core.ExecutionResources,
+	v0_6Response bool,
+) *ExecutionResources {
 	if resources == nil {
 		return &ExecutionResources{}
 	}
@@ -149,7 +152,9 @@ func feeUnit(txn core.Transaction) FeeUnit {
 	return feeUnit
 }
 
-func (h *Handler) stateByBlockID(id *BlockID) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
+func (h *Handler) stateByBlockID(
+	id *BlockID,
+) (core.StateReader, blockchain.StateCloser, *jsonrpc.Error) {
 	var reader core.StateReader
 	var closer blockchain.StateCloser
 	var err error

@@ -42,8 +42,14 @@ type CallResult struct {
 type VM interface {
 	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
 		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool,
+	Execute(
+		txns []core.Transaction,
+		declaredClasses []core.Class,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		network *utils.Network,
+		skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool,
 	) (ExecutionResults, error)
 }
 
@@ -91,8 +97,14 @@ func unwrapContext(readerHandle C.uintptr_t) *callContext {
 	return context
 }
 
+//
 //export JunoReportError
-func JunoReportError(readerHandle C.uintptr_t, txnIndex C.long, str *C.char, executionFailed C.uchar) {
+func JunoReportError(
+	readerHandle C.uintptr_t,
+	txnIndex C.long,
+	str *C.char,
+	executionFailed C.uchar,
+) {
 	context := unwrapContext(readerHandle)
 	context.errTxnIndex = int64(txnIndex)
 	context.err = C.GoString(str)
@@ -221,8 +233,14 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.l1_data_gas_price_wei[0])
-		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInFri, &cBlockInfo.l1_data_gas_price_fri[0])
+		copyFeltIntoCArray(
+			blockInfo.Header.L1DataGasPrice.PriceInWei,
+			&cBlockInfo.l1_data_gas_price_wei[0],
+		)
+		copyFeltIntoCArray(
+			blockInfo.Header.L1DataGasPrice.PriceInFri,
+			&cBlockInfo.l1_data_gas_price_fri[0],
+		)
 		cBlockInfo.use_blob_data = 1
 	}
 	if blockInfo.Header.L2GasPrice != nil {
@@ -240,8 +258,14 @@ func makeByteFromBool(b bool) byte {
 	return boolByte
 }
 
-func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
+func (v *vm) Call(
+	callInfo *CallInfo,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	network *utils.Network,
+	maxSteps uint64,
+	sierraVersion string,
+	structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -264,9 +288,10 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 		C.ulonglong(maxSteps),
 		toUchar(v.concurrencyMode),
 		cSierraVersion,
-		toUchar(structuredErrStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
-		toUchar(returnStateDiff),    //nolint:gocritic
-
+		toUchar(
+			structuredErrStack,
+		), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(returnStateDiff), //nolint:gocritic
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(chainID))
@@ -286,12 +311,21 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 			}
 		}
 	}
-	return CallResult{Result: context.response, StateDiff: stateDiff, ExecutionFailed: context.executionFailed}, nil
+	return CallResult{
+		Result:          context.response,
+		StateDiff:       stateDiff,
+		ExecutionFailed: context.executionFailed,
+	}, nil
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
+func (v *vm) Execute(
+	txns []core.Transaction,
+	declaredClasses []core.Class,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	network *utils.Network,
 	skipChargeFee, skipValidate, errOnRevert, errorStack, allowBinarySearch bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
@@ -317,7 +351,8 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	chainID := C.CString(network.L2ChainID)
-	C.cairoVMExecute(txnsJSONCstr,
+	C.cairoVMExecute(
+		txnsJSONCstr,
 		classesJSONCStr,
 		paidFeesOnL1CStr,
 		&cBlockInfo,
@@ -328,7 +363,9 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 		toUchar(errOnRevert),
 		toUchar(v.concurrencyMode),
 		toUchar(errorStack),
-		toUchar(allowBinarySearch), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
+		toUchar(
+			allowBinarySearch,
+		), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 	)
 
 	C.free(unsafe.Pointer(classesJSONCStr))
@@ -369,7 +406,10 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	}, nil
 }
 
-func marshalTxnsAndDeclaredClasses(txns []core.Transaction, declaredClasses []core.Class) (json.RawMessage, json.RawMessage, error) {
+func marshalTxnsAndDeclaredClasses(
+	txns []core.Transaction,
+	declaredClasses []core.Class,
+) (json.RawMessage, json.RawMessage, error) {
 	txnJSONs := make([]json.RawMessage, 0, len(txns))
 	for _, txn := range txns {
 		txnJSON, err := marshalTxn(txn)

@@ -46,7 +46,12 @@ type FeeEstimate struct {
 func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv6.SkipFeeChargeFlag), true)
+	result, httpHeader, err := h.simulateTransactions(
+		id,
+		broadcastedTxns,
+		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -56,7 +61,10 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), httpHeader, nil
 }
 
-func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
+func (h *Handler) EstimateMessageFee(
+	msg rpcv6.MsgFromL1,
+	id BlockID,
+) (*FeeEstimate, http.Header, *jsonrpc.Error) { //nolint:gocritic
 	return h.estimateMessageFee(msg, id, h.EstimateFee)
 }
 
@@ -64,8 +72,13 @@ type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
+//
 //nolint:gocritic
-func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimateFeeHandler) (*FeeEstimate,
+func (h *Handler) estimateMessageFee(
+	msg rpcv6.MsgFromL1,
+	id BlockID,
+	f estimateFeeHandler,
+) (*FeeEstimate,
 	http.Header, *jsonrpc.Error,
 ) {
 	calldata := make([]*felt.Felt, 0, len(msg.Payload)+1)

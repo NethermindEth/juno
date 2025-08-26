@@ -66,7 +66,14 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 		received := make(chan *mempool.BroadcastedTransaction, txCount)
 		pool := mockMempool(received)
 
-		p2p := p2p.New(&utils.Mainnet, node.Host, logger, &pool, &config.DefaultBufferSizes, node.GetBootstrapPeers)
+		p2p := p2p.New(
+			&utils.Mainnet,
+			node.Host,
+			logger,
+			&pool,
+			&config.DefaultBufferSizes,
+			node.GetBootstrapPeers,
+		)
 
 		peerWait.Go(func() {
 			require.NoError(t, p2p.Run(t.Context()))
@@ -97,7 +104,11 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 						return
 					}
 				case <-time.After(maxWait):
-					logger.Infow("missing transactions", "pending", slices.Collect(maps.Values(pending)))
+					logger.Infow(
+						"missing transactions",
+						"pending",
+						slices.Collect(maps.Values(pending)),
+					)
 					require.FailNow(t, "timed out waiting for transactions")
 				}
 			}
@@ -111,7 +122,10 @@ func TestMempoolBroadcastersAndListeners(t *testing.T) {
 func getRandomTransactions(t *testing.T) []mempool.BroadcastedTransaction {
 	transactions := make([]mempool.BroadcastedTransaction, txCount)
 	for i := range txCount {
-		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(t, &utils.Mainnet)
+		transactions[i], _ = testutils.TransactionBuilder.GetTestInvokeTransaction(
+			t,
+			&utils.Mainnet,
+		)
 	}
 	return transactions
 }

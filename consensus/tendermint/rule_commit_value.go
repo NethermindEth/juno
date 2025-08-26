@@ -12,6 +12,8 @@ Check the upon condition on line 49:
 	50: 	if valid(v) then
 	51: 		decisionp[hp] = v
 	52: 		h_p ← h_p + 1
+
+
 	53: 		reset lockedRound_p, lockedValue_p,	validRound_p and validValue_p to initial values and empty message log
 	54: 		StartRound(0)
 
@@ -22,7 +24,12 @@ There is no need to check decision_p[h_p] = nil since it is implied that decisio
 sequentially, i.e. x, x+1, x+2... .
 */
 func (s *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V, H, A]) bool {
-	hasQuorum := cachedProposal.ID != nil && s.voteCounter.HasQuorumForVote(cachedProposal.Round, votecounter.Precommit, cachedProposal.ID)
+	hasQuorum := cachedProposal.ID != nil &&
+		s.voteCounter.HasQuorumForVote(
+			cachedProposal.Round,
+			votecounter.Precommit,
+			cachedProposal.ID,
+		)
 
 	// This is checked here instead of inside execution, because it's the only case in execution in this rule
 	isValid := cachedProposal.Valid
@@ -31,7 +38,9 @@ func (s *stateMachine[V, H, A]) uponCommitValue(cachedProposal *CachedProposal[V
 	return hasQuorum && isValid
 }
 
-func (s *stateMachine[V, H, A]) doCommitValue(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doCommitValue(
+	cachedProposal *CachedProposal[V, H, A],
+) types.Action[V, H, A] {
 	s.voteCounter.StartNewHeight()
 	s.state.height++
 	s.state.lockedRound = -1

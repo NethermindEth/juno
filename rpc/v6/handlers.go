@@ -51,7 +51,11 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, network *utils.Network,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{
@@ -67,8 +71,10 @@ func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.V
 		},
 		newHeads: feed.New[*core.Block](),
 
-		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](rpccore.TraceCacheSize),
-		filterLimit:     math.MaxUint,
+		blockTraceCache: lru.NewCache[traceCacheKey, []TracedBlockTransaction](
+			rpccore.TraceCacheSize,
+		),
+		filterLimit: math.MaxUint,
 	}
 }
 

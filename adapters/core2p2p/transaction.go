@@ -140,7 +140,9 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) *transaction.
 	}
 }
 
-func adaptDeployTransaction(tx *core.DeployTransaction) *synctransaction.TransactionInBlock_Deploy_ {
+func adaptDeployTransaction(
+	tx *core.DeployTransaction,
+) *synctransaction.TransactionInBlock_Deploy_ {
 	return &synctransaction.TransactionInBlock_Deploy_{
 		Deploy: &synctransaction.TransactionInBlock_Deploy{
 			ClassHash:   AdaptHash(tx.ClassHash),
@@ -166,7 +168,9 @@ func AdaptDeclareV3Common(tx *core.DeclareTransaction) *transaction.DeclareV3Com
 	}
 }
 
-func AdaptDeployAccountV3Transaction(tx *core.DeployAccountTransaction) *transaction.DeployAccountV3 {
+func AdaptDeployAccountV3Transaction(
+	tx *core.DeployAccountTransaction,
+) *transaction.DeployAccountV3 {
 	return &transaction.DeployAccountV3{
 		Signature:                 AdaptAccountSignature(tx.Signature()),
 		ClassHash:                 AdaptHash(tx.ClassHash),

@@ -37,7 +37,12 @@ func TestHTTP(t *testing.T) {
 	client := new(http.Client)
 
 	msg := `{"jsonrpc" : "2.0", "method" : "echo", "params" : [ "abc123" ], "id" : 1}`
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL, bytes.NewReader([]byte(msg)))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		srv.URL,
+		bytes.NewReader([]byte(msg)),
+	)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -64,7 +69,12 @@ func TestHTTP(t *testing.T) {
 		})
 
 		t.Run("non-root path", func(t *testing.T) {
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/notfound", http.NoBody)
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodGet,
+				srv.URL+"/notfound",
+				http.NoBody,
+			)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)

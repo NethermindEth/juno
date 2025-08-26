@@ -36,7 +36,8 @@ func TestEstimateFee(t *testing.T) {
 
 	blockInfo := vm.BlockInfo{Header: &core.Header{}}
 	t.Run("ok with zero values", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, false, true).
+		mockVM.EXPECT().
+			Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, false, true, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -44,13 +45,18 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         123,
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{},
+			rpcv7.BlockID{Latest: true},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("ok with zero values, skip validate", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
+		mockVM.EXPECT().
+			Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -58,23 +64,36 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         123,
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			rpcv7.BlockID{Latest: true},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
 
 	t.Run("transaction execution error", func(t *testing.T) {
-		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
+		mockVM.EXPECT().
+			Execute([]core.Transaction{}, nil, []*felt.Felt{}, &blockInfo, mockState, n, true, true, true, false, true).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, httpHeader, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, rpcv7.BlockID{Latest: true})
-		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
-			TransactionIndex: 44,
-			ExecutionError:   json.RawMessage("oops"),
-		}), err)
+		_, httpHeader, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			rpcv7.BlockID{Latest: true},
+		)
+		require.Equal(
+			t,
+			rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
+				TransactionIndex: 44,
+				ExecutionError:   json.RawMessage("oops"),
+			}),
+			err,
+		)
 		require.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "0")
 	})
 
@@ -95,7 +114,11 @@ func TestEstimateFee(t *testing.T) {
 			},
 			ContractClass: json.RawMessage(`{}`),
 		}
-		_, _, err := handler.EstimateFee([]rpcv7.BroadcastedTransaction{invalidTx}, []rpcv6.SimulationFlag{}, rpcv7.BlockID{Latest: true})
+		_, _, err := handler.EstimateFee(
+			[]rpcv7.BroadcastedTransaction{invalidTx},
+			[]rpcv6.SimulationFlag{},
+			rpcv7.BlockID{Latest: true},
+		)
 		expectedErr := &jsonrpc.Error{
 			Code:    jsonrpc.InvalidParams,
 			Message: "Invalid Params",

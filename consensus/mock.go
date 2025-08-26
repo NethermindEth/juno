@@ -47,7 +47,10 @@ func (n mockValidators) TotalVotingPower(height types.Height) types.VotingPower 
 	return types.VotingPower(len(n))
 }
 
-func (n mockValidators) ValidatorVotingPower(height types.Height, addr *starknet.Address) types.VotingPower {
+func (n mockValidators) ValidatorVotingPower(
+	height types.Height,
+	addr *starknet.Address,
+) types.VotingPower {
 	return types.VotingPower(1)
 }
 
@@ -65,7 +68,11 @@ func MockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
 	return func(step types.Step, round types.Round) time.Duration {
 		// Total number of messages are N^2, so the load is roughly proportional to O(N^2)
 		// Every round increases the timeout by timeoutRoundFactor. It also guarantees that the timeout will be at least timeoutRoundFactor
-		delta := time.Duration(nodeCount*nodeCount)*timeoutBase + time.Duration(round+1)*timeoutRoundFactor
+		delta := time.Duration(
+			nodeCount*nodeCount,
+		)*timeoutBase + time.Duration(
+			round+1,
+		)*timeoutRoundFactor
 
 		// The formulae follow the lemma in the paper
 		switch step {

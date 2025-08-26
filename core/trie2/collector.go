@@ -64,7 +64,12 @@ func (c *collector) collect(path *Path, n trienode.Node, parallel bool, depth in
 }
 
 // Collects the children of a binary node, may apply parallel processing if configured
-func (c *collector) collectChildren(path *Path, n *trienode.BinaryNode, parallel bool, depth int) [2]trienode.Node {
+func (c *collector) collectChildren(
+	path *Path,
+	n *trienode.BinaryNode,
+	parallel bool,
+	depth int,
+) [2]trienode.Node {
 	children := [2]trienode.Node{}
 
 	var mu sync.Mutex

@@ -14,7 +14,11 @@ type TopicSubscription struct {
 	callback   func(context.Context, *pubsub.Message)
 }
 
-func NewTopicSubscription(log utils.Logger, bufferSize int, callback func(context.Context, *pubsub.Message)) TopicSubscription {
+func NewTopicSubscription(
+	log utils.Logger,
+	bufferSize int,
+	callback func(context.Context, *pubsub.Message),
+) TopicSubscription {
 	return TopicSubscription{
 		log:        log,
 		bufferSize: bufferSize,

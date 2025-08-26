@@ -52,7 +52,9 @@ func validateConsensusTransaction(tx *p2pconsensus.ConsensusTransaction) error {
 	return nil
 }
 
-func validateProposalCommitment(p *p2pconsensus.ProposalCommitment) error { //nolint:gocyclo // simple, repetative code
+func validateProposalCommitment(
+	p *p2pconsensus.ProposalCommitment,
+) error { //nolint:gocyclo // simple, repetative code
 	if p == nil {
 		return errors.New("proposal commitment is nil")
 	}

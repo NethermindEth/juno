@@ -64,9 +64,20 @@ func BuildNetworks(
 	return nodes
 }
 
-func (n Nodes) JoinTopic(t *testing.T, chainID, protocolID protocol.ID, topicName string) []*libp2p.Topic {
+func (n Nodes) JoinTopic(
+	t *testing.T,
+	chainID, protocolID protocol.ID,
+	topicName string,
+) []*libp2p.Topic {
 	return iter.Map(n, func(node *Node) *libp2p.Topic {
-		pubSub, err := pubsub.Run(t.Context(), chainID, protocolID, node.Host, config.DefaultBufferSizes.PubSubQueueSize, node.GetBootstrapPeers)
+		pubSub, err := pubsub.Run(
+			t.Context(),
+			chainID,
+			protocolID,
+			node.Host,
+			config.DefaultBufferSizes.PubSubQueueSize,
+			node.GetBootstrapPeers,
+		)
 		require.NoError(t, err)
 
 		topic, relayCancel, err := pubsub.JoinTopic(pubSub, topicName)

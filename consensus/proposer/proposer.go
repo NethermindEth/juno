@@ -71,17 +71,20 @@ func New[V types.Hashable[H], H types.Hash](
 	toValue func(*felt.Felt) V,
 ) Proposer[V, H] {
 	return &proposer[V, H]{
-		log:                 log,
-		builder:             b,
-		proposalStore:       proposalStore,
-		nodeAddress:         nodeAddress,
-		toValue:             toValue,
-		buildState:          atomic.Pointer[builder.BuildState]{},
-		lastValue:           make(chan V, 1),
-		seenTransactions:    make([]mempool.BroadcastedTransaction, 0),
-		commitTrigger:       make(chan commitRequest[H], 1),
-		valueTrigger:        make(chan valueRequest[V, H], 1),
-		transactionReceiver: make(chan []mempool.BroadcastedTransaction, transactionReceiverBufferSize),
+		log:              log,
+		builder:          b,
+		proposalStore:    proposalStore,
+		nodeAddress:      nodeAddress,
+		toValue:          toValue,
+		buildState:       atomic.Pointer[builder.BuildState]{},
+		lastValue:        make(chan V, 1),
+		seenTransactions: make([]mempool.BroadcastedTransaction, 0),
+		commitTrigger:    make(chan commitRequest[H], 1),
+		valueTrigger:     make(chan valueRequest[V, H], 1),
+		transactionReceiver: make(
+			chan []mempool.BroadcastedTransaction,
+			transactionReceiverBufferSize,
+		),
 	}
 }
 
@@ -138,14 +141,20 @@ func (p *proposer[V, H]) Value() V {
 	return ask(p.valueTrigger, struct{}{}, p.lastValue)
 }
 
-func (p *proposer[V, H]) Submit(ctx context.Context, transactions []mempool.BroadcastedTransaction) {
+func (p *proposer[V, H]) Submit(
+	ctx context.Context,
+	transactions []mempool.BroadcastedTransaction,
+) {
 	select {
 	case <-ctx.Done():
 	case p.transactionReceiver <- transactions:
 	}
 }
 
-func (p *proposer[V, H]) Push(ctx context.Context, transaction *mempool.BroadcastedTransaction) error {
+func (p *proposer[V, H]) Push(
+	ctx context.Context,
+	transaction *mempool.BroadcastedTransaction,
+) error {
 	p.Submit(ctx, []mempool.BroadcastedTransaction{*transaction})
 	return nil
 }
@@ -193,10 +202,13 @@ func (p *proposer[V, H]) reRunTransactions(request commitRequest[H]) {
 	p.init()
 
 	// Discard the transactions that we have already seen
-	p.seenTransactions = slices.DeleteFunc(p.seenTransactions, func(tx mempool.BroadcastedTransaction) bool {
-		_, ok := ignoredCommittedTransactions[H(*tx.Transaction.Hash())]
-		return ok
-	})
+	p.seenTransactions = slices.DeleteFunc(
+		p.seenTransactions,
+		func(tx mempool.BroadcastedTransaction) bool {
+			_, ok := ignoredCommittedTransactions[H(*tx.Transaction.Hash())]
+			return ok
+		},
+	)
 
 	// If there are no transactions to run, we're done
 	if len(p.seenTransactions) == 0 {

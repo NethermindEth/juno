@@ -103,7 +103,15 @@ func (s *stateMachine[V, H, A]) resetState(round types.Round) {
 
 func (s *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
 	if err := s.db.Flush(); err != nil {
-		s.log.Fatalf("failed to flush WAL at start of round", "height", s.state.height, "round", r, "err", err)
+		s.log.Fatalf(
+			"failed to flush WAL at start of round",
+			"height",
+			s.state.height,
+			"round",
+			r,
+			"err",
+			err,
+		)
 	}
 
 	s.resetState(r)
@@ -117,7 +125,15 @@ func (s *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 		}
 		actions := s.sendProposal(proposalValue)
 		if err := s.db.Flush(); err != nil {
-			s.log.Fatalf("failed to flush WAL when proposing a new block", "height", s.state.height, "round", r, "err", err)
+			s.log.Fatalf(
+				"failed to flush WAL when proposing a new block",
+				"height",
+				s.state.height,
+				"round",
+				r,
+				"err",
+				err,
+			)
 		}
 		return actions
 	} else {
@@ -137,7 +153,10 @@ func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H,
 
 // - Messages from past heights are ignored.
 // - All messages from current and future heights are stored, but only processed when the height is the current height.
-func (s *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
+func (s *stateMachine[V, H, A]) preprocessMessage(
+	header types.MessageHeader[A],
+	addMessage func(),
+) bool {
 	if header.Height < s.state.height || header.Round < 0 {
 		return false
 	}
@@ -170,7 +189,13 @@ func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 func (s *stateMachine[V, H, A]) ReplayWAL() {
 	walEntries, err := s.db.GetWALEntries(s.state.height)
 	if err != nil {
-		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
+		panic(
+			fmt.Errorf(
+				"ReplayWAL: failed to retrieve WAL messages for height %d: %w",
+				s.state.height,
+				err,
+			),
+		)
 	}
 	s.replayMode = true
 	for _, walEntry := range walEntries {

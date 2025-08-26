@@ -146,12 +146,20 @@ func ParseTimeouts(value string) ([]time.Duration, bool, error) {
 
 	for i := 1; i < len(timeouts); i++ {
 		if timeouts[i] <= timeouts[i-1] {
-			return nil, false, fmt.Errorf("timeout values must be in ascending order, got %v <= %v", timeouts[i], timeouts[i-1])
+			return nil, false, fmt.Errorf(
+				"timeout values must be in ascending order, got %v <= %v",
+				timeouts[i],
+				timeouts[i-1],
+			)
 		}
 	}
 
 	if len(timeouts) > timeoutsCount {
-		return nil, false, fmt.Errorf("exceeded max amount of allowed timeout parameters. Set %d but max is %d", len(timeouts), timeoutsCount)
+		return nil, false, fmt.Errorf(
+			"exceeded max amount of allowed timeout parameters. Set %d but max is %d",
+			len(timeouts),
+			timeoutsCount,
+		)
 	}
 	return timeouts, false, nil
 }

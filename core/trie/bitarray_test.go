@@ -70,7 +70,10 @@ func TestBytes(t *testing.T) {
 		},
 		{
 			name: "length == 254",
-			ba:   BitArray{len: 254, words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x3FFFFFFFFFFFFFFF}},
+			ba: BitArray{
+				len:   254,
+				words: [4]uint64{maxUint64, maxUint64, maxUint64, 0x3FFFFFFFFFFFFFFF},
+			},
 			want: func() [32]byte {
 				var b [32]byte
 				binary.BigEndian.PutUint64(b[0:8], 0x3FFFFFFFFFFFFFFF)
@@ -1769,8 +1772,14 @@ func TestCmp(t *testing.T) {
 		},
 		{
 			name: "same length, sparse bits",
-			x:    BitArray{len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAAAAA, 0, 0}},
-			y:    BitArray{len: 128, words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAA000, 0, 0}},
+			x: BitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAAAAA, 0, 0},
+			},
+			y: BitArray{
+				len:   128,
+				words: [4]uint64{0xAAAAAAAAAAAAAAAA, 0xAAAAAAAAAAAAA000, 0, 0},
+			},
 			want: 1,
 		},
 		{
@@ -2084,7 +2093,14 @@ func TestSubset(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := new(BitArray).Subset(tt.x, tt.startPos, tt.endPos)
 			if !got.Equal(tt.want) {
-				t.Errorf("Subset(%v, %d, %d) = %v, want %v", tt.x, tt.startPos, tt.endPos, got, tt.want)
+				t.Errorf(
+					"Subset(%v, %d, %d) = %v, want %v",
+					tt.x,
+					tt.startPos,
+					tt.endPos,
+					got,
+					tt.want,
+				)
 			}
 		})
 	}

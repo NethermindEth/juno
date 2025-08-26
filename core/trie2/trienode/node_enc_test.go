@@ -157,7 +157,11 @@ func TestNodeEncodingDecoding(t *testing.T) {
 
 			// Re-encode the decoded node and compare with original encoding
 			reEncoded := EncodeNode(decoded)
-			assert.True(t, bytes.Equal(encoded, reEncoded), "re-encoded node doesn't match original encoding")
+			assert.True(
+				t,
+				bytes.Equal(encoded, reEncoded),
+				"re-encoded node doesn't match original encoding",
+			)
 
 			// Test specific node type assertions and properties
 			switch n := decoded.(type) {

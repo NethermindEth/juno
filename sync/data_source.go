@@ -31,14 +31,20 @@ type feederGatewayDataSource struct {
 	starknetData starknetdata.StarknetData
 }
 
-func NewFeederGatewayDataSource(blockchain *blockchain.Blockchain, starknetData starknetdata.StarknetData) DataSource {
+func NewFeederGatewayDataSource(
+	blockchain *blockchain.Blockchain,
+	starknetData starknetdata.StarknetData,
+) DataSource {
 	return &feederGatewayDataSource{
 		blockchain:   blockchain,
 		starknetData: starknetData,
 	}
 }
 
-func (f *feederGatewayDataSource) BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error) {
+func (f *feederGatewayDataSource) BlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (CommittedBlock, error) {
 	stateUpdate, block, err := f.starknetData.StateUpdateWithBlock(ctx, blockNumber)
 	if err != nil {
 		return CommittedBlock{}, err
@@ -134,7 +140,10 @@ func (f *feederGatewayDataSource) fetchUnknownClasses(
 	return newClasses, closer()
 }
 
-func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (core.PreConfirmed, error) {
 	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return core.PreConfirmed{}, err

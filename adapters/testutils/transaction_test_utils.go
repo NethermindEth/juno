@@ -32,7 +32,11 @@ type TransactionBuilder[C, P any] struct {
 
 type factory[C, P any] func(t *testing.T, network *utils.Network) (C, P)
 
-func GetTestTransactions[C, P any](t *testing.T, network *utils.Network, factories ...factory[C, P]) ([]C, []P) {
+func GetTestTransactions[C, P any](
+	t *testing.T,
+	network *utils.Network,
+	factories ...factory[C, P],
+) ([]C, []P) {
 	t.Helper()
 	consensusTransactions := make([]C, len(factories))
 	p2pTransactions := make([]P, len(factories))
@@ -97,7 +101,9 @@ func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.Re
 	return resourceBounds, &resourceLimits
 }
 
-func getRandomResourceBounds(t *testing.T) (map[core.Resource]core.ResourceBounds, *transaction.ResourceBounds) {
+func getRandomResourceBounds(
+	t *testing.T,
+) (map[core.Resource]core.ResourceBounds, *transaction.ResourceBounds) {
 	t.Helper()
 	consensusL1ResourceLimits, p2pL1ResourceLimits := getRandomResourceLimits(t)
 	consensusL2ResourceLimits, p2pL2ResourceLimits := getRandomResourceLimits(t)
@@ -121,7 +127,9 @@ func getRandomResourceBounds(t *testing.T) (map[core.Resource]core.ResourceBound
 func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
 	t.Helper()
 	var classHash felt.Felt
-	_, err := classHash.SetString("0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b")
+	_, err := classHash.SetString(
+		"0x3cc90db763e736ca9b6c581ea4008408842b1a125947ab087438676a7e40b7b",
+	)
 	require.NoError(t, err)
 
 	client := feeder.NewTestClient(t, &utils.Sepolia)
@@ -136,14 +144,21 @@ func getSampleClass(t *testing.T) (felt.Felt, *core.Cairo1Class) {
 	return classHash, cairo1Class
 }
 
-func getTransactionHash(t *testing.T, tx core.Transaction, network *utils.Network) (*felt.Felt, *common.Hash) {
+func getTransactionHash(
+	t *testing.T,
+	tx core.Transaction,
+	network *utils.Network,
+) (*felt.Felt, *common.Hash) {
 	t.Helper()
 	hash, err := core.TransactionHash(tx, network)
 	require.NoError(t, err)
 	return hash, core2p2p.AdaptHash(hash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
 	t.Helper()
 	classHash, cairo1Class := getSampleClass(t)
 	senderAddress, senderAddressBytes := getRandomFelt(t)
@@ -174,8 +189,10 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 
 	p2pTransaction := transaction.DeclareV3WithClass{
 		Common: &transaction.DeclareV3Common{
-			Sender:                    &common.Address{Elements: senderAddressBytes},
-			Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+			Sender: &common.Address{Elements: senderAddressBytes},
+			Signature: &transaction.AccountSignature{
+				Parts: toFelt252Slice(transactionSignatureBytes),
+			},
 			Nonce:                     &common.Felt252{Elements: nonceBytes},
 			CompiledClassHash:         core2p2p.AdaptHash(cairo1Class.Compiled.Hash()),
 			ResourceBounds:            p2pResourceBounds,
@@ -189,18 +206,37 @@ func (b *TransactionBuilder[C, P]) GetTestDeclareTransaction(t *testing.T, netwo
 	}
 
 	var p2pHash *common.Hash
-	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeclareTransaction, network)
+	consensusDeclareTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeclareTransaction,
+		network,
+	)
 
-	return b.ToCore(&consensusDeclareTransaction, cairo1Class, nil), b.ToP2PDeclare(&p2pTransaction, p2pHash)
+	return b.ToCore(
+			&consensusDeclareTransaction,
+			cairo1Class,
+			nil,
+		), b.ToP2PDeclare(
+			&p2pTransaction,
+			p2pHash,
+		)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
 	t.Helper()
 	contractAddressSalt, contractAddressSaltBytes := getRandomFelt(t)
 	classHash, classHashBytes := getRandomFelt(t)
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	version := new(core.TransactionVersion).SetUint64(3)
-	contractAddress := core.ContractAddress(&felt.Zero, &classHash, &contractAddressSalt, constructorCallData)
+	contractAddress := core.ContractAddress(
+		&felt.Zero,
+		&classHash,
+		&contractAddressSalt,
+		constructorCallData,
+	)
 
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
 	nonce, nonceBytes := getRandomFelt(t)
@@ -228,7 +264,9 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 	}
 
 	p2pTransaction := transaction.DeployAccountV3{
-		Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+		Signature: &transaction.AccountSignature{
+			Parts: toFelt252Slice(transactionSignatureBytes),
+		},
 		ClassHash:                 &common.Hash{Elements: classHashBytes},
 		Nonce:                     &common.Felt252{Elements: nonceBytes},
 		AddressSalt:               &common.Felt252{Elements: contractAddressSaltBytes},
@@ -241,12 +279,26 @@ func (b *TransactionBuilder[C, P]) GetTestDeployAccountTransaction(t *testing.T,
 	}
 
 	var p2pHash *common.Hash
-	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusDeployAccountTransaction, network)
+	consensusDeployAccountTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusDeployAccountTransaction,
+		network,
+	)
 
-	return b.ToCore(&consensusDeployAccountTransaction, nil, nil), b.ToP2PDeploy(&p2pTransaction, p2pHash)
+	return b.ToCore(
+			&consensusDeployAccountTransaction,
+			nil,
+			nil,
+		), b.ToP2PDeploy(
+			&p2pTransaction,
+			p2pHash,
+		)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
 	t.Helper()
 	constructorCallData, constructorCallDataBytes := getRandomFeltSlice(t)
 	transactionSignature, transactionSignatureBytes := getRandomFeltSlice(t)
@@ -276,8 +328,10 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 	}
 
 	p2pTransaction := transaction.InvokeV3{
-		Sender:                    &common.Address{Elements: senderAddressBytes},
-		Signature:                 &transaction.AccountSignature{Parts: toFelt252Slice(transactionSignatureBytes)},
+		Sender: &common.Address{Elements: senderAddressBytes},
+		Signature: &transaction.AccountSignature{
+			Parts: toFelt252Slice(transactionSignatureBytes),
+		},
 		Calldata:                  toFelt252Slice(constructorCallDataBytes),
 		ResourceBounds:            p2pResourceBounds,
 		Tip:                       tip,
@@ -289,12 +343,19 @@ func (b *TransactionBuilder[C, P]) GetTestInvokeTransaction(t *testing.T, networ
 	}
 
 	var p2pHash *common.Hash
-	consensusInvokeTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusInvokeTransaction, network)
+	consensusInvokeTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusInvokeTransaction,
+		network,
+	)
 
 	return b.ToCore(&consensusInvokeTransaction, nil, nil), b.ToP2PInvoke(&p2pTransaction, p2pHash)
 }
 
-func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, network *utils.Network) (C, P) {
+func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(
+	t *testing.T,
+	network *utils.Network,
+) (C, P) {
 	t.Helper()
 	contractAddress, contractAddressBytes := getRandomFelt(t)
 	entryPointSelector, entryPointSelectorBytes := getRandomFelt(t)
@@ -319,9 +380,20 @@ func (b *TransactionBuilder[C, P]) GetTestL1HandlerTransaction(t *testing.T, net
 	}
 
 	var p2pHash *common.Hash
-	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(t, &consensusL1HandlerTransaction, network)
+	consensusL1HandlerTransaction.TransactionHash, p2pHash = getTransactionHash(
+		t,
+		&consensusL1HandlerTransaction,
+		network,
+	)
 
-	return b.ToCore(&consensusL1HandlerTransaction, nil, felt.One.Clone()), b.ToP2PL1Handler(&p2pTransaction, p2pHash)
+	return b.ToCore(
+			&consensusL1HandlerTransaction,
+			nil,
+			felt.One.Clone(),
+		), b.ToP2PL1Handler(
+			&p2pTransaction,
+			p2pHash,
+		)
 }
 
 // StripCompilerFields strips the some fields related to compiler in the compiled class.

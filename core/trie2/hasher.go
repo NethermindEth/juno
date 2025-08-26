@@ -61,7 +61,9 @@ func (h *hasher) hashEdgeChild(n *trienode.EdgeNode) (collapsed, cached *trienod
 	return collapsed, cached
 }
 
-func (h *hasher) hashBinaryChildren(n *trienode.BinaryNode) (collapsed, cached *trienode.BinaryNode) {
+func (h *hasher) hashBinaryChildren(
+	n *trienode.BinaryNode,
+) (collapsed, cached *trienode.BinaryNode) {
 	collapsed, cached = n.Copy(), n.Copy()
 
 	if h.parallel { // TODO(weiihann): double check this parallel strategy

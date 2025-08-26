@@ -20,7 +20,9 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 	feederCompiledClass.CompilerVersion = coreCompiledClass.CompilerVersion
 	feederCompiledClass.Hints = coreCompiledClass.Hints
 	feederCompiledClass.Prime = utils.ToHex(coreCompiledClass.Prime)
-	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(coreCompiledClass.BytecodeSegmentLengths)
+	feederCompiledClass.BytecodeSegmentLengths = AdaptSegmentLengths(
+		coreCompiledClass.BytecodeSegmentLengths,
+	)
 
 	adapt := func(ep core.CompiledEntryPoint) starknet.CompiledEntryPoint {
 		return starknet.CompiledEntryPoint{
@@ -29,9 +31,18 @@ func AdaptCompiledClass(coreCompiledClass *core.CompiledClass) starknet.Compiled
 			Offset:   ep.Offset,
 		}
 	}
-	feederCompiledClass.EntryPoints.External = utils.Map(utils.NonNilSlice(coreCompiledClass.External), adapt)
-	feederCompiledClass.EntryPoints.L1Handler = utils.Map(utils.NonNilSlice(coreCompiledClass.L1Handler), adapt)
-	feederCompiledClass.EntryPoints.Constructor = utils.Map(utils.NonNilSlice(coreCompiledClass.Constructor), adapt)
+	feederCompiledClass.EntryPoints.External = utils.Map(
+		utils.NonNilSlice(coreCompiledClass.External),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.L1Handler = utils.Map(
+		utils.NonNilSlice(coreCompiledClass.L1Handler),
+		adapt,
+	)
+	feederCompiledClass.EntryPoints.Constructor = utils.Map(
+		utils.NonNilSlice(coreCompiledClass.Constructor),
+		adapt,
+	)
 
 	return feederCompiledClass
 }

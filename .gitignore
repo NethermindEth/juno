@@ -19,3 +19,8 @@ MANIFEST-*
 OPTIONS-*
 CURRENT
 LOCK
+
+SNAPSHOTS
+mem.out
+cpu.out
+

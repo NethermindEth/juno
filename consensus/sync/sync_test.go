@@ -49,14 +49,19 @@ func TestSync(t *testing.T) {
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB, types.Height(0))
+	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](
+		testDB,
+		types.Height(0),
+	)
 	require.NotNil(t, tmDB)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
-	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](ctrl)
+	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](
+		ctrl,
+	)
 
 	mockCommitListener.EXPECT().
 		Commit(gomock.Any(), types.Height(0), gomock.Any()).
@@ -87,7 +92,14 @@ func TestSync(t *testing.T) {
 
 	mockInCh := make(chan sync.BlockBody)
 
-	consensusSyncService := consensusSync.New(mockInCh, proposalCh, precommitCh, getPrecommits, toValue, &proposalStore)
+	consensusSyncService := consensusSync.New(
+		mockInCh,
+		proposalCh,
+		precommitCh,
+		getPrecommits,
+		toValue,
+		&proposalStore,
+	)
 
 	block0 := getCommittedBlock(allNodes)
 	block0Hash := block0.Block.Hash

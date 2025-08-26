@@ -58,7 +58,9 @@ func TestStateCache(t *testing.T) {
 			root := new(felt.Felt).SetUint64(uint64(i + 1))
 			diff := &diffCache{
 				nonces: map[felt.Felt]*felt.Felt{
-					*new(felt.Felt).SetUint64(uint64(i + 100)): new(felt.Felt).SetUint64(uint64(i + 1)),
+					*new(felt.Felt).SetUint64(uint64(i + 100)): new(
+						felt.Felt,
+					).SetUint64(uint64(i + 1)),
 				},
 			}
 			cache.PushLayer(root, parent, diff)

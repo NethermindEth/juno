@@ -25,7 +25,10 @@ func validateMempoolTransaction(t *mempooltransaction.MempoolTransaction) error 
 	return nil
 }
 
-func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.Network) (mempool.BroadcastedTransaction, error) {
+func AdaptTransaction(
+	t *mempooltransaction.MempoolTransaction,
+	network *utils.Network,
+) (mempool.BroadcastedTransaction, error) {
 	if err := validateMempoolTransaction(t); err != nil {
 		return mempool.BroadcastedTransaction{}, err
 	}
@@ -55,7 +58,11 @@ func AdaptTransaction(t *mempooltransaction.MempoolTransaction, network *utils.N
 	}
 
 	if *computedTransactionHash != *tx.Hash() {
-		return mempool.BroadcastedTransaction{}, fmt.Errorf("transaction hash mismatch: computed %s, got %s", computedTransactionHash, tx.Hash())
+		return mempool.BroadcastedTransaction{}, fmt.Errorf(
+			"transaction hash mismatch: computed %s, got %s",
+			computedTransactionHash,
+			tx.Hash(),
+		)
 	}
 
 	return mempool.BroadcastedTransaction{

@@ -21,7 +21,11 @@ type nodeSet struct {
 	size uint64 // Approximate size of the node set
 }
 
-func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contractStorageNodes contractStorageNodesMap) *nodeSet {
+func newNodeSet(
+	classNodes classNodesMap,
+	contractNodes contractNodesMap,
+	contractStorageNodes contractStorageNodesMap,
+) *nodeSet {
 	ns := &nodeSet{
 		classNodes:           make(classNodesMap, len(classNodes)),
 		contractNodes:        make(contractNodesMap, len(contractNodes)),
@@ -39,7 +43,11 @@ func newNodeSet(classNodes classNodesMap, contractNodes contractNodesMap, contra
 	return ns
 }
 
-func (s *nodeSet) node(owner *felt.Felt, path *trieutils.Path, isClass bool) (trienode.TrieNode, bool) {
+func (s *nodeSet) node(
+	owner *felt.Felt,
+	path *trieutils.Path,
+	isClass bool,
+) (trienode.TrieNode, bool) {
 	// class trie nodes
 	if isClass {
 		node, ok := s.classNodes[*path]
@@ -134,7 +142,11 @@ type JournalNodeSet struct {
 
 // Writes the node set to the journal
 func (s *nodeSet) encode(w io.Writer) error {
-	nodes := make([]journalNodes, 0, len(s.contractStorageNodes)+2) // 2 because of class and contract nodes
+	nodes := make(
+		[]journalNodes,
+		0,
+		len(s.contractStorageNodes)+2,
+	) // 2 because of class and contract nodes
 
 	classEntry := journalNodes{
 		TrieType: trieutils.Class,
@@ -227,7 +239,11 @@ func (s *nodeSet) decode(data []byte) error {
 				if err := path.UnmarshalBinary(n.Path); err != nil {
 					return err
 				}
-				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(n.Blob, &n.Hash, n.IsLeaf)
+				s.contractStorageNodes[entry.Owner][path] = decodeJournalNode(
+					n.Blob,
+					&n.Hash,
+					n.IsLeaf,
+				)
 			}
 		}
 	}

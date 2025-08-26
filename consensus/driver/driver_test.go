@@ -141,7 +141,10 @@ func newTendermintDB(t *testing.T) tendermintDB {
 	pebbleDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB, types.Height(0))
+	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](
+		pebbleDB,
+		types.Height(0),
+	)
 }
 
 func TestDriver(t *testing.T) {
@@ -184,25 +187,46 @@ func TestDriver(t *testing.T) {
 	// We force the stateMachine to return a random set of actions (`generateAndRegisterRandomActions`) here just to test that
 	// the driver will actually receive them.
 	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return(
-		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutProposal)),
+		append(
+			generateAndRegisterRandomActions(random, expectedBroadcast),
+			toAction(inputTimeoutProposal),
+		),
 	)
 	stateMachine.EXPECT().ProcessProposal(&inputProposalMsg).Return(
-		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrevote)),
+		append(
+			generateAndRegisterRandomActions(random, expectedBroadcast),
+			toAction(inputTimeoutPrevote),
+		),
 	)
 	stateMachine.EXPECT().ProcessPrevote(&inputPrevoteMsg).Return(
-		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutPrecommit)),
+		append(
+			generateAndRegisterRandomActions(random, expectedBroadcast),
+			toAction(inputTimeoutPrecommit),
+		),
 	)
 	stateMachine.EXPECT().ProcessPrecommit(&inputPrecommitMsg).Return(
 		append(generateAndRegisterRandomActions(random, expectedBroadcast), &commitAction),
 	)
 	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return(nil)
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutProposal).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
-	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
+	stateMachine.EXPECT().
+		ProcessTimeout(inputTimeoutProposal).
+		Return(generateAndRegisterRandomActions(random, expectedBroadcast))
+	stateMachine.EXPECT().
+		ProcessTimeout(inputTimeoutPrevote).
+		Return(generateAndRegisterRandomActions(random, expectedBroadcast))
+	stateMachine.EXPECT().
+		ProcessTimeout(inputTimeoutPrecommit).
+		Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 
-	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
+	increaseBroadcasterWaitGroup(
+		expectedBroadcast.proposals,
+		p2p.Broadcasters().ProposalBroadcaster,
+	)
 	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
-	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
+	increaseBroadcasterWaitGroup(
+		expectedBroadcast.precommits,
+		p2p.Broadcasters().PrecommitBroadcaster,
+	)
 
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -223,7 +247,11 @@ func TestDriver(t *testing.T) {
 
 	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
 	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
-	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
+	waitAndAssertBroadcaster(
+		t,
+		expectedBroadcast.precommits,
+		p2p.Broadcasters().PrecommitBroadcaster,
+	)
 
 	cancel()
 }

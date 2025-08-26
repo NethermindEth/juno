@@ -22,7 +22,13 @@ type diskLayer struct {
 	lock    sync.RWMutex
 }
 
-func newDiskLayer(root *felt.Felt, id uint64, db *Database, cache *cleanCache, buffer *buffer) *diskLayer {
+func newDiskLayer(
+	root *felt.Felt,
+	id uint64,
+	db *Database,
+	cache *cleanCache,
+	buffer *buffer,
+) *diskLayer {
 	if cache == nil {
 		newCleanCache := newCleanCache(db.config.CleanCacheSize)
 		cache = &newCleanCache
@@ -55,7 +61,12 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
-func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
+func (dl *diskLayer) node(
+	id trieutils.TrieID,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	isLeaf bool,
+) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
 

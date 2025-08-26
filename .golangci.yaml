@@ -162,6 +162,7 @@ formatters:
   enable:
     - gci
     - gofumpt
+    - golines
   settings:
     goimports:
       local-prefixes:

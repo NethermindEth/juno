@@ -218,7 +218,11 @@ func (s *State) Update(
 
 	// Check if the new commitment matches the one in state diff
 	if !newComm.Equal(update.NewRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.NewRoot, &newComm)
+		return fmt.Errorf(
+			"state commitment mismatch: %v (expected) != %v (actual)",
+			update.NewRoot,
+			&newComm,
+		)
 	}
 
 	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
@@ -293,7 +297,11 @@ func (s *State) Revert(blockNum uint64, update *core.StateUpdate) error {
 
 	// Check if the new commitment matches the old one
 	if !newComm.Equal(update.OldRoot) {
-		return fmt.Errorf("state commitment mismatch: %v (expected) != %v (actual)", update.OldRoot, &newComm)
+		return fmt.Errorf(
+			"state commitment mismatch: %v (expected) != %v (actual)",
+			update.OldRoot,
+			&newComm,
+		)
 	}
 
 	if err := s.flush(blockNum, &stateUpdate, dirtyClasses, false); err != nil {
@@ -483,7 +491,13 @@ func (s *State) flush(
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 
 	p.Go(func() error {
-		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
+		return s.db.triedb.Update(
+			&update.curComm,
+			&update.prevComm,
+			blockNum,
+			update.classNodes,
+			update.contractNodes,
+		)
 	})
 
 	batch := s.db.disk.NewBatch()
@@ -543,7 +557,10 @@ func (s *State) flush(
 	return batch.Write()
 }
 
-func (s *State) updateClassTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefs map[felt.Felt]core.Class) error {
+func (s *State) updateClassTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefs map[felt.Felt]core.Class,
+) error {
 	for classHash, compiledClassHash := range declaredClasses {
 		if _, found := classDefs[classHash]; !found {
 			continue
@@ -613,7 +630,10 @@ func (s *State) updateContractNonces(nonces map[felt.Felt]*felt.Felt) error {
 	return nil
 }
 
-func (s *State) updateContractStorage(blockNum uint64, storage map[felt.Felt]map[felt.Felt]*felt.Felt) error {
+func (s *State) updateContractStorage(
+	blockNum uint64,
+	storage map[felt.Felt]map[felt.Felt]*felt.Felt,
+) error {
 	for addr, storage := range storage {
 		obj, err := s.getStateObject(&addr)
 		if err != nil {

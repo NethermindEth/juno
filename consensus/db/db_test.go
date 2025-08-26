@@ -27,7 +27,12 @@ func newTestTMDB(t *testing.T) (testTendermintDB, db.KeyValueStore, string) {
 	return tmState, testDB, dbPath
 }
 
-func reopenTestTMDB(t *testing.T, oldDB db.KeyValueStore, dbPath string, testHeight types.Height) (testTendermintDB, db.KeyValueStore) {
+func reopenTestTMDB(
+	t *testing.T,
+	oldDB db.KeyValueStore,
+	dbPath string,
+	testHeight types.Height,
+) (testTendermintDB, db.KeyValueStore) {
 	t.Helper()
 	require.NoError(t, oldDB.Close())
 
@@ -50,17 +55,29 @@ func TestWALLifecycle(t *testing.T) {
 	valHash1 := val1.Hash()
 
 	proposal := starknet.Proposal{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender1},
-		ValidRound:    testRound,
-		Value:         utils.HeapPtr(val1),
+		MessageHeader: starknet.MessageHeader{
+			Height: testHeight,
+			Round:  testRound,
+			Sender: sender1,
+		},
+		ValidRound: testRound,
+		Value:      utils.HeapPtr(val1),
 	}
 	prevote := starknet.Prevote{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender2},
-		ID:            &valHash1,
+		MessageHeader: starknet.MessageHeader{
+			Height: testHeight,
+			Round:  testRound,
+			Sender: sender2,
+		},
+		ID: &valHash1,
 	}
 	precommit := starknet.Precommit{
-		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender3},
-		ID:            &valHash1,
+		MessageHeader: starknet.MessageHeader{
+			Height: testHeight,
+			Round:  testRound,
+			Sender: sender3,
+		},
+		ID: &valHash1,
 	}
 	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
 

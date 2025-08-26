@@ -22,12 +22,20 @@ func NewTransactionBroadcaster(
 	retryInterval time.Duration,
 ) transactionBroadcaster {
 	return transactionBroadcaster{
-		log:              log,
-		ProtoBroadcaster: buffered.NewProtoBroadcaster[*transaction.MempoolTransaction](log, bufferSize, retryInterval, nil),
+		log: log,
+		ProtoBroadcaster: buffered.NewProtoBroadcaster[*transaction.MempoolTransaction](
+			log,
+			bufferSize,
+			retryInterval,
+			nil,
+		),
 	}
 }
 
-func (b *transactionBroadcaster) Broadcast(ctx context.Context, message *mempool.BroadcastedTransaction) {
+func (b *transactionBroadcaster) Broadcast(
+	ctx context.Context,
+	message *mempool.BroadcastedTransaction,
+) {
 	msg, err := mempool2p2p.AdaptTransaction(message)
 	if err != nil {
 		b.log.Errorw("unable to convert transaction", "error", err)

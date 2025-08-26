@@ -23,7 +23,12 @@ type DB struct {
 	listener   db.EventListener
 }
 
-func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grpc.DialOption) (*DB, error) {
+func New(
+	rawURL string,
+	ctx context.Context,
+	log utils.SimpleLogger,
+	opts ...grpc.DialOption,
+) (*DB, error) {
 	grpcClient, err := grpc.NewClient(rawURL, opts...)
 	if err != nil {
 		return nil, err
@@ -46,7 +51,11 @@ func New(rawURL string, ctx context.Context, log utils.SimpleLogger, opts ...grp
 func (d *DB) NewTransaction(write bool) (*transaction, error) {
 	start := time.Now()
 
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(
+		d.ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +136,11 @@ func (d *DB) Put(key, val []byte) error {
 func (d *DB) NewBatch() db.Batch {
 	start := time.Now()
 
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(
+		d.ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -144,7 +157,11 @@ func (d *DB) NewBatchWithSize(size int) db.Batch {
 func (d *DB) NewIndexedBatch() db.IndexedBatch {
 	start := time.Now()
 
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(
+		d.ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -170,7 +187,11 @@ func (d *DB) NewIterator(start []byte, withUpperBound bool) (db.Iterator, error)
 func (d *DB) NewSnapshot() db.Snapshot {
 	start := time.Now()
 
-	txClient, err := d.kvClient.Tx(d.ctx, grpc.MaxCallSendMsgSize(math.MaxInt), grpc.MaxCallRecvMsgSize(math.MaxInt))
+	txClient, err := d.kvClient.Tx(
+		d.ctx,
+		grpc.MaxCallSendMsgSize(math.MaxInt),
+		grpc.MaxCallRecvMsgSize(math.MaxInt),
+	)
 	if err != nil {
 		panic(err)
 	}

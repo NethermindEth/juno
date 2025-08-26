@@ -43,7 +43,10 @@ func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error)
 	}, nil
 }
 
-func (a starknetVoteAdapter) FromVote(vote *starknet.Vote, voteType consensus.Vote_VoteType) (consensus.Vote, error) {
+func (a starknetVoteAdapter) FromVote(
+	vote *starknet.Vote,
+	voteType consensus.Vote_VoteType,
+) (consensus.Vote, error) {
 	sender := vote.Sender.AsFelt().Bytes()
 
 	// This is optional since a vote can be NIL.

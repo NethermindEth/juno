@@ -45,15 +45,18 @@ func NewBucketMigrator(target db.Bucket, do BucketMigratorDoFunc) *BucketMigrato
 }
 
 func NewBucketMover(source, destination db.Bucket) *BucketMigrator {
-	return NewBucketMigrator(source, func(txn db.KeyValueWriter, key, value []byte, n *utils.Network) error {
-		err := txn.Delete(key)
-		if err != nil {
-			return err
-		}
+	return NewBucketMigrator(
+		source,
+		func(txn db.KeyValueWriter, key, value []byte, n *utils.Network) error {
+			err := txn.Delete(key)
+			if err != nil {
+				return err
+			}
 
-		key[0] = byte(destination)
-		return txn.Put(key, value)
-	})
+			key[0] = byte(destination)
+			return txn.Put(key, value)
+		},
+	)
 }
 
 func (m *BucketMigrator) WithBatchSize(batchSize uint) *BucketMigrator {

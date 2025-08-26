@@ -71,7 +71,12 @@ func TestRelocateContractStorageRootKeys(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, exampleBytes[:], val, "the correct value was not transferred to the new location")
+		require.Equal(
+			t,
+			exampleBytes[:],
+			val,
+			"the correct value was not transferred to the new location",
+		)
 
 		// Old entry does not exist.
 		oldKey := db.Peer.Key(exampleBytes[:])
@@ -147,7 +152,10 @@ func TestChangeTrieNodeEncoding(t *testing.T) {
 		// will fail with an error since they are not valid trie.Node encodings.
 		require.NoError(t, txn.Put(db.ClassesTrie.Key(), []byte{1, 2, 3}))
 		require.NoError(t, txn.Put(db.StateTrie.Key(), []byte{1, 2, 3}))
-		require.NoError(t, txn.Put(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}))
+		require.NoError(
+			t,
+			txn.Put(db.ContractStorage.Key(make([]byte, felt.Bytes)), []byte{1, 2, 3}),
+		)
 
 		for _, bucket := range buckets {
 			for i := range 5 {
@@ -223,7 +231,9 @@ func TestL1HandlerTxns(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 	}
 
-	msgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	msgHash := common.HexToHash(
+		"0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34",
+	)
 
 	// Delete the L1 handler txn hash from the database
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
@@ -242,7 +252,11 @@ func TestL1HandlerTxns(t *testing.T) {
 	msgHash = common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&msgHash)
 	require.NoError(t, err)
-	assert.Equal(t, l1HandlerTxnHash.String(), "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5")
+	assert.Equal(
+		t,
+		l1HandlerTxnHash.String(),
+		"0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5",
+	)
 }
 
 func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
@@ -256,7 +270,10 @@ func TestMigrateTrieRootKeysFromBitsetToTrieKeys(t *testing.T) {
 	err = memTxn.Put(key, bsBytes)
 	require.NoError(t, err)
 
-	require.NoError(t, migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet))
+	require.NoError(
+		t,
+		migrateTrieRootKeysFromBitsetToTrieKeys(memTxn, key, bsBytes, &utils.Mainnet),
+	)
 
 	var trieKey trie.BitArray
 	err = memTxn.Get(key, trieKey.UnmarshalBinary)
@@ -483,7 +500,12 @@ type testMigration struct {
 	before func([]byte) error
 }
 
-func (f testMigration) Migrate(ctx context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (f testMigration) Migrate(
+	ctx context.Context,
+	database db.KeyValueStore,
+	network *utils.Network,
+	_ utils.SimpleLogger,
+) ([]byte, error) {
 	return f.exec(ctx, database, network)
 }
 
@@ -502,7 +524,18 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}), "bar")
+		require.ErrorContains(
+			t,
+			migrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				migrations,
+				&HTTPConfig{},
+			),
+			"bar",
+		)
 	})
 
 	t.Run("call with new tx", func(t *testing.T) {
@@ -522,7 +555,17 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}))
+		require.NoError(
+			t,
+			migrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				migrations,
+				&HTTPConfig{},
+			),
+		)
 	})
 
 	t.Run("error during migration", func(t *testing.T) {
@@ -537,7 +580,18 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}), "foo")
+		require.ErrorContains(
+			t,
+			migrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				migrations,
+				&HTTPConfig{},
+			),
+			"foo",
+		)
 	})
 
 	t.Run("error if using new db on old version of juno", func(t *testing.T) {
@@ -552,9 +606,30 @@ func TestMigrateIfNeeded(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), migrations, &HTTPConfig{}))
+		require.NoError(
+			t,
+			migrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				migrations,
+				&HTTPConfig{},
+			),
+		)
 		want := "db is from a newer, incompatible version of Juno"
-		require.ErrorContains(t, migrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), []Migration{}, &HTTPConfig{}), want)
+		require.ErrorContains(
+			t,
+			migrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				[]Migration{},
+				&HTTPConfig{},
+			),
+			want,
+		)
 	})
 }
 
@@ -593,15 +668,26 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			OldRoot:   utils.HexToFelt(t, "0x2"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*utils.HexToFelt(t, "0x3"): {{Key: utils.HexToFelt(t, "0x4"), Value: utils.HexToFelt(t, "0x5")}},
+					*utils.HexToFelt(t, "0x3"): {
+						{Key: utils.HexToFelt(t, "0x4"), Value: utils.HexToFelt(t, "0x5")},
+					},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
 					*utils.HexToFelt(t, "0x6"): utils.HexToFelt(t, "0x7"),
 				},
-				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x8"), ClassHash: utils.HexToFelt(t, "0x9")}},
+				DeployedContracts: []oldAddressClassHashPair{
+					{Address: utils.HexToFelt(t, "0x8"), ClassHash: utils.HexToFelt(t, "0x9")},
+				},
 				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x11"), CompiledClassHash: utils.HexToFelt(t, "0x12")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")}},
+				DeclaredV1Classes: []oldDeclaredV1Class{
+					{
+						ClassHash:         utils.HexToFelt(t, "0x11"),
+						CompiledClassHash: utils.HexToFelt(t, "0x12"),
+					},
+				},
+				ReplacedClasses: []oldAddressClassHashPair{
+					{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")},
+				},
 			},
 		}
 		su0Bytes, err := encoder.Marshal(su0)
@@ -615,15 +701,26 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			OldRoot:   utils.HexToFelt(t, "0x17"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*utils.HexToFelt(t, "0x18"): {{Key: utils.HexToFelt(t, "0x19"), Value: utils.HexToFelt(t, "0x20")}},
+					*utils.HexToFelt(t, "0x18"): {
+						{Key: utils.HexToFelt(t, "0x19"), Value: utils.HexToFelt(t, "0x20")},
+					},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
 					*utils.HexToFelt(t, "0x21"): utils.HexToFelt(t, "0x22"),
 				},
-				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x23"), ClassHash: utils.HexToFelt(t, "0x24")}},
+				DeployedContracts: []oldAddressClassHashPair{
+					{Address: utils.HexToFelt(t, "0x23"), ClassHash: utils.HexToFelt(t, "0x24")},
+				},
 				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x26"), CompiledClassHash: utils.HexToFelt(t, "0x27")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")}},
+				DeclaredV1Classes: []oldDeclaredV1Class{
+					{
+						ClassHash:         utils.HexToFelt(t, "0x26"),
+						CompiledClassHash: utils.HexToFelt(t, "0x27"),
+					},
+				},
+				ReplacedClasses: []oldAddressClassHashPair{
+					{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")},
+				},
 			},
 		}
 		su1Bytes, err := encoder.Marshal(su1)

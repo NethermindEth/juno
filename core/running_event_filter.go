@@ -45,7 +45,11 @@ func (f *RunningEventFilter) ensureInit() error {
 
 // NewRunningFilter returns a RunningEventFilter that wraps the provided aggregated filter
 // with the expected next block to process.
-func NewRunningEventFilterHot(txn db.KeyValueStore, filter *AggregatedBloomFilter, nextBlock uint64) *RunningEventFilter {
+func NewRunningEventFilterHot(
+	txn db.KeyValueStore,
+	filter *AggregatedBloomFilter,
+	nextBlock uint64,
+) *RunningEventFilter {
 	return &RunningEventFilter{
 		txn:   txn,
 		inner: filter,
@@ -194,7 +198,11 @@ func (f *RunningEventFilter) OnReorg() error {
 		rangeStartAlligned := curBlock - (curBlock % NumBlocksPerFilter)
 		rangeEndAlligned := rangeStartAlligned + NumBlocksPerFilter - 1
 
-		lastStoredFilter, err := GetAggregatedBloomFilter(f.txn, rangeStartAlligned, rangeEndAlligned)
+		lastStoredFilter, err := GetAggregatedBloomFilter(
+			f.txn,
+			rangeStartAlligned,
+			rangeEndAlligned,
+		)
 		if err != nil {
 			return err
 		}
@@ -266,7 +274,11 @@ func rebuildRunningEventFilter(txn db.KeyValueStore, latest uint64) (*RunningEve
 	lastStoredFilterRangeEnd := latest - (latest % NumBlocksPerFilter) + NumBlocksPerFilter - 1
 
 	for rangeStartAlligned >= 0 {
-		_, err := GetAggregatedBloomFilter(txn, uint64(rangeStartAlligned), lastStoredFilterRangeEnd)
+		_, err := GetAggregatedBloomFilter(
+			txn,
+			uint64(rangeStartAlligned),
+			lastStoredFilterRangeEnd,
+		)
 		if err == nil {
 			break
 		}

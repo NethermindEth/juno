@@ -490,7 +490,10 @@ type SubscriptionTransactionStatus struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L151
-func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.Felt) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeTransactionStatus(
+	ctx context.Context,
+	txHash *felt.Felt,
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -539,10 +542,18 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 // therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
 // If the transaction is found during the timeout expiry, then we continue to keep track of its status otherwise the
 // websocket connection is closed after the expiry.
-func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id string, txHash *felt.Felt) (TxnStatus, error) {
+func (h *Handler) getInitialTxStatus(
+	ctx context.Context,
+	sub *subscription,
+	id string,
+	txHash *felt.Felt,
+) (TxnStatus, error) {
 	var lastStatus TxnStatus
 	var err error
-	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(
+		err,
+		errorTxnHashNotFound{*txHash},
+	) {
 		return lastStatus, err
 	}
 
@@ -555,7 +566,10 @@ func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id 
 		case <-ctx.Done():
 			return lastStatus, err
 		case <-ticker:
-			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); !errors.Is(
+				err,
+				errorTxnHashNotFound{*txHash},
+			) {
 				return lastStatus, err
 			}
 		}
@@ -572,7 +586,11 @@ func (h *Handler) checkTxStatus(
 	status, rpcErr := h.TransactionStatus(ctx, *txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
-			return lastStatus, fmt.Errorf("error while checking status for transaction %v with rpc error message: %v", txHash, rpcErr.Message)
+			return lastStatus, fmt.Errorf(
+				"error while checking status for transaction %v with rpc error message: %v",
+				txHash,
+				rpcErr.Message,
+			)
 		}
 		return lastStatus, errorTxnHashNotFound{*txHash}
 	}
@@ -596,7 +614,10 @@ func (h *Handler) checkTxStatus(
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/c2e93098b9c2ca0423b7f4d15b201f52f22d8c36/api/starknet_ws_api.json#L10
-func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeNewHeads(
+	ctx context.Context,
+	blockID *SubscriptionBlockID,
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -879,7 +900,13 @@ func processBlockReceipts(
 			continue
 		}
 
-		adaptedReceipt := AdaptReceipt(block.Receipts[i], txn, TxnFinalityStatus(finalityStatus), block.Hash, block.Number)
+		adaptedReceipt := AdaptReceipt(
+			block.Receipts[i],
+			txn,
+			TxnFinalityStatus(finalityStatus),
+			block.Hash,
+			block.Number,
+		)
 
 		if receiptsPreviouslySent != nil {
 			sentReceipt := SentReceipt{
@@ -988,7 +1015,14 @@ func (h *Handler) SubscribeNewTransactions(
 			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
 				return nil
 			}
-			return processBlockTransactions(id, w, senderAddr, head, sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
+			return processBlockTransactions(
+				id,
+				w,
+				senderAddr,
+				head,
+				sentTransactions,
+				TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+			)
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
 			if pending == nil {
@@ -1003,7 +1037,14 @@ func (h *Handler) SubscribeNewTransactions(
 						clear(sentTransactions)
 						lastParentHash = *parentHash
 					}
-					return processBlockTransactions(id, w, senderAddr, pending.GetBlock(), sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
+					return processBlockTransactions(
+						id,
+						w,
+						senderAddr,
+						pending.GetBlock(),
+						sentTransactions,
+						TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+					)
 				}
 
 			case core.PreConfirmedBlockVariant:
@@ -1014,14 +1055,27 @@ func (h *Handler) SubscribeNewTransactions(
 				}
 
 				if slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusPreConfirmed)) {
-					err := processBlockTransactions(id, w, senderAddr, pending.GetBlock(), sentTransactions, TxnStatusWithoutL1(TxnStatusPreConfirmed))
+					err := processBlockTransactions(
+						id,
+						w,
+						senderAddr,
+						pending.GetBlock(),
+						sentTransactions,
+						TxnStatusWithoutL1(TxnStatusPreConfirmed),
+					)
 					if err != nil {
 						return err
 					}
 				}
 
 				if slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusCandidate)) {
-					return processCandidateTransactions(id, w, senderAddr, pending, sentTransactions)
+					return processCandidateTransactions(
+						id,
+						w,
+						senderAddr,
+						pending,
+						sentTransactions,
+					)
 				}
 			}
 			return nil

@@ -92,8 +92,12 @@ func TestHandle(t *testing.T) {
 	}
 	methods := []jsonrpc.Method{
 		{
-			Name:   "method",
-			Params: []jsonrpc.Parameter{{Name: "num"}, {Name: "shouldError", Optional: true}, {Name: "msg", Optional: true}},
+			Name: "method",
+			Params: []jsonrpc.Parameter{
+				{Name: "num"},
+				{Name: "shouldError", Optional: true},
+				{Name: "msg", Optional: true},
+			},
 			Handler: func(num *int, shouldError bool, data any) (any, *jsonrpc.Error) {
 				if shouldError {
 					return nil, &jsonrpc.Error{Code: 44, Message: "Expected Error", Data: data}
@@ -111,8 +115,14 @@ func TestHandle(t *testing.T) {
 			},
 		},
 		{
-			Name:   "update",
-			Params: []jsonrpc.Parameter{{Name: "a"}, {Name: "b"}, {Name: "c"}, {Name: "d"}, {Name: "e"}},
+			Name: "update",
+			Params: []jsonrpc.Parameter{
+				{Name: "a"},
+				{Name: "b"},
+				{Name: "c"},
+				{Name: "d"},
+				{Name: "e"},
+			},
 			Handler: func(a, b, c, d, e int) (int, *jsonrpc.Error) {
 				return 0, nil
 			},
@@ -196,7 +206,9 @@ func TestHandle(t *testing.T) {
 	}
 
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+		WithValidator(validator.New()).
+		WithListener(&listener)
 	require.NoError(t, server.RegisterMethods(methods...))
 
 	tests := map[string]struct {
@@ -556,7 +568,9 @@ var benchHandleR http.Header
 
 func BenchmarkHandle(b *testing.B) {
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+		WithValidator(validator.New()).
+		WithListener(&listener)
 	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
 		Name:    "bench",
 		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
@@ -585,7 +599,10 @@ func TestCannotWriteToConnInHandler(t *testing.T) {
 			return 0, nil
 		},
 	}))
-	res, header, err := server.HandleReader(t.Context(), strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`))
+	res, header, err := server.HandleReader(
+		t.Context(),
+		strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test"}`),
+	)
 	require.NoError(t, err)
 	require.Equal(t, `{"jsonrpc":"2.0","result":0,"id":1}`, string(res))
 	require.NotNil(t, header)
@@ -652,7 +669,11 @@ func TestWriteToClosedConnInHandler(t *testing.T) {
 				for range 3 {
 					_, err := w.Write([]byte("test"))
 					require.ErrorIs(t, err, io.ErrClosedPipe)
-					require.ErrorContains(t, err, "there was an error while writing the initial response")
+					require.ErrorContains(
+						t,
+						err,
+						"there was an error while writing the initial response",
+					)
 				}
 			})
 			return 0, nil

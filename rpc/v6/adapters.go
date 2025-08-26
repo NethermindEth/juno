@@ -21,7 +21,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(
+			AdaptVMFunctionInvocation(trace.FeeTransferInvocation),
+		)
 	}
 
 	var constructorInvocation *FunctionInvocation
@@ -31,7 +33,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(
+				AdaptVMFunctionInvocation(trace.ConstructorInvocation),
+			)
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
@@ -40,7 +44,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	case vm.TxnL1Handler:
 		if trace.FunctionInvocation != nil {
 			if trace.FunctionInvocation.FunctionInvocation != nil {
-				functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation))
+				functionInvocation = utils.HeapPtr(
+					AdaptVMFunctionInvocation(trace.FunctionInvocation.FunctionInvocation),
+				)
 			} else {
 				defaultResult := DefaultL1HandlerFunctionInvocation()
 				functionInvocation = &defaultResult
@@ -67,7 +73,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 func AdaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(
+			AdaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
+		)
 	}
 
 	return ExecuteInvocation{
@@ -224,7 +232,10 @@ func AdaptVMStateDiff(vmStateDiff *vm.StateDiff) StateDiff {
 		Feeder Adapters
 *****************************************************/
 
-func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(
+	block *BlockWithTxs,
+	blockTrace *starknet.BlockTrace,
+) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
@@ -324,7 +335,9 @@ func AdaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
+		ExecutionResources: utils.HeapPtr(
+			adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
+		),
 	}
 }
 

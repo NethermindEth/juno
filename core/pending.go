@@ -31,7 +31,12 @@ type PreConfirmed struct {
 	CandidateTxs          []Transaction
 }
 
-func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) PreConfirmed {
+func NewPreConfirmed(
+	block *Block,
+	stateUpdate *StateUpdate,
+	transactionStateDiffs []*StateDiff,
+	candidateTxs []Transaction,
+) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,

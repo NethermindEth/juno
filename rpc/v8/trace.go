@@ -27,17 +27,17 @@ const excludedVersion = "0.13.1.1"
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"      validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"  validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"     validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *rpcv6.StateDiff    `json:"state_diff,omitempty"`
 	ExecutionResources    *ExecutionResources `json:"execution_resources"`
 }
 
 type ExecuteInvocation struct {
 	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	*FunctionInvocation `       json:",omitempty"`
 }
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
@@ -72,7 +72,10 @@ type FunctionInvocation struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, http.Header, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(
+	ctx context.Context,
+	hash felt.Felt,
+) (*TransactionTrace, http.Header, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
@@ -127,8 +130,12 @@ func (h *Handler) TraceBlockTransactions(
 	return h.traceBlockTransactions(ctx, block)
 }
 
+//
 //nolint:funlen,gocyclo
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
+func (h *Handler) traceBlockTransactions(
+	ctx context.Context,
+	block *core.Block,
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	httpHeader := http.Header{}
 	httpHeader.Set(ExecutionStepsHeader, "0")
 
@@ -273,7 +280,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	return result, httpHeader, nil
 }
 
-func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) fetchTraces(
+	ctx context.Context,
+	blockHash *felt.Felt,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	blockID := BlockIDFromHash(blockHash)
 	rpcBlock, err := h.BlockWithTxs(&blockID)
 	if err != nil {

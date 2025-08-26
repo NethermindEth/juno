@@ -80,7 +80,11 @@ type (
 )
 
 // General function for parallel processing of items and calculation of a commitment
-func calculateCommitment[T any](items []T, runOnTempTrie onTempTrieFunc, process processFunc[T]) (*felt.Felt, error) {
+func calculateCommitment[T any](
+	items []T,
+	runOnTempTrie onTempTrieFunc,
+	process processFunc[T],
+) (*felt.Felt, error) {
 	var commitment *felt.Felt
 	return commitment, runOnTempTrie(commitmentTrieHeight, func(trie *trie.Trie) error {
 		numWorkers := min(runtime.GOMAXPROCS(0), len(items))

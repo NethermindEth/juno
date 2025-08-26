@@ -49,7 +49,11 @@ func (tree *layerTree) get(root *felt.Felt) layer {
 }
 
 // Adds a new layer to the layer tree
-func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet) error {
+func (tree *layerTree) add(
+	root, parentRoot *felt.Felt,
+	block uint64,
+	mergeClassNodes, mergeContractNodes *trienode.MergeNodeSet,
+) error {
 	if root == parentRoot {
 		return errors.New("cyclic layer detected, root and parent root cannot be the same")
 	}
@@ -70,7 +74,12 @@ func (tree *layerTree) add(root, parentRoot *felt.Felt, block uint64, mergeClass
 		contractNodes, contractStorageNodes = mergeContractNodes.Flatten()
 	}
 
-	newLayer := parent.update(root, parent.stateID()+1, block, newNodeSet(classNodes, contractNodes, contractStorageNodes))
+	newLayer := parent.update(
+		root,
+		parent.stateID()+1,
+		block,
+		newNodeSet(classNodes, contractNodes, contractStorageNodes),
+	)
 
 	tree.lock.Lock()
 	tree.layers[*root] = &newLayer

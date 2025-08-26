@@ -46,7 +46,13 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 	}
 }
 
-func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
+func (d *Database) insert(
+	owner *felt.Felt,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isClass bool,
+	node trienode.TrieNode,
+) {
 	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
 	if found {
 		return
@@ -54,7 +60,13 @@ func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Fel
 	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
-func (d *Database) readNode(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (d *Database) readNode(
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
 	}
@@ -207,7 +219,12 @@ type reader struct {
 	d  *Database
 }
 
-func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (r *reader) Node(
+	owner *felt.Felt,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	return r.d.readNode(r.id.Bucket(), owner, path, hash, isLeaf)
 }
 
@@ -223,10 +240,19 @@ func (d *Database) Close() error {
 // with the state commitment are present in the db, if not, the lost data needs to be recovered
 // This will be integrated during the state refactor integration, if there is a node crash,
 // the chain needs to be reverted to the last state commitment with the trie roots present in the db
-func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) (trienode.Node, trienode.Node, error) {
+func (d *Database) GetTrieRootNodes(
+	classRootHash, contractRootHash *felt.Felt,
+) (trienode.Node, trienode.Node, error) {
 	const contractClassTrieHeight = 251
 
-	classRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ClassTrie, &felt.Zero, &trieutils.Path{}, classRootHash, false)
+	classRootBlob, err := trieutils.GetNodeByHash(
+		d.disk,
+		db.ClassTrie,
+		&felt.Zero,
+		&trieutils.Path{},
+		classRootHash,
+		false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("class root node not found: %w", err)
 	}
@@ -234,7 +260,14 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("class root node not found")
 	}
 
-	contractRootBlob, err := trieutils.GetNodeByHash(d.disk, db.ContractTrieContract, &felt.Zero, &trieutils.Path{}, contractRootHash, false)
+	contractRootBlob, err := trieutils.GetNodeByHash(
+		d.disk,
+		db.ContractTrieContract,
+		&felt.Zero,
+		&trieutils.Path{},
+		contractRootHash,
+		false,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("contract root node not found: %w", err)
 	}
@@ -242,12 +275,22 @@ func (d *Database) GetTrieRootNodes(classRootHash, contractRootHash *felt.Felt) 
 		return nil, nil, fmt.Errorf("contract root node not found")
 	}
 
-	classRootNode, err := trienode.DecodeNode(classRootBlob, classRootHash, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(
+		classRootBlob,
+		classRootHash,
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode class root node: %w", err)
 	}
 
-	contractRootNode, err := trienode.DecodeNode(contractRootBlob, contractRootHash, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(
+		contractRootBlob,
+		contractRootHash,
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode contract root node: %w", err)
 	}

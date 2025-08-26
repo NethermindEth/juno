@@ -23,7 +23,10 @@ type rebroadcastStrategy[M proto.Message, K comparable] struct {
 	cache               map[K][]byte
 }
 
-func NewRebroadcastStrategy[M proto.Message, K comparable](rebroadcastInterval time.Duration, getKey func(M) K) RebroadcastStrategy[M] {
+func NewRebroadcastStrategy[M proto.Message, K comparable](
+	rebroadcastInterval time.Duration,
+	getKey func(M) K,
+) RebroadcastStrategy[M] {
 	return &rebroadcastStrategy[M, K]{
 		rebroadcastInterval: rebroadcastInterval,
 		getKey:              getKey,

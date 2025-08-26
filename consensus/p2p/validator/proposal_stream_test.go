@@ -53,19 +53,33 @@ func TestProposalStream_Start(t *testing.T) {
 	})
 
 	t.Run("error on invalid message content", func(t *testing.T) {
-		testProposalStreamStart(t, 0, "cannot parse invalid wire-format data", &consensus.StreamMessage{
-			Message: &consensus.StreamMessage_Content{
-				Content: []byte{1, 2, 3},
+		testProposalStreamStart(
+			t,
+			0,
+			"cannot parse invalid wire-format data",
+			&consensus.StreamMessage{
+				Message: &consensus.StreamMessage_Content{
+					Content: []byte{1, 2, 3},
+				},
 			},
-		})
+		)
 	})
 
 	t.Run("error on empty proposal part", func(t *testing.T) {
-		testProposalStreamStart(t, 0, "invalid message", buildMessage(t, 0, &consensus.ProposalPart{}))
+		testProposalStreamStart(
+			t,
+			0,
+			"invalid message",
+			buildMessage(t, 0, &consensus.ProposalPart{}),
+		)
 	})
 }
 
-func buildMessage(t *testing.T, sequenceNumber uint64, proposalPart *consensus.ProposalPart) *consensus.StreamMessage {
+func buildMessage(
+	t *testing.T,
+	sequenceNumber uint64,
+	proposalPart *consensus.ProposalPart,
+) *consensus.StreamMessage {
 	t.Helper()
 	proposalPartBytes, err := proto.Marshal(proposalPart)
 	require.NoError(t, err)
@@ -78,10 +92,21 @@ func buildMessage(t *testing.T, sequenceNumber uint64, proposalPart *consensus.P
 	}
 }
 
-func testProposalStreamStart(t *testing.T, expectedHeight types.Height, expectedErrorMsg string, message *consensus.StreamMessage) {
+func testProposalStreamStart(
+	t *testing.T,
+	expectedHeight types.Height,
+	expectedErrorMsg string,
+	message *consensus.StreamMessage,
+) {
 	t.Helper()
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(nil), 0, nil)
+	stream := newSingleProposalStream(
+		utils.NewNopZapLogger(),
+		&proposalStore,
+		NewTransition(nil),
+		0,
+		nil,
+	)
 	height, err := stream.start(t.Context(), message)
 	assert.Equal(t, expectedHeight, height)
 	if expectedErrorMsg != "" {
@@ -116,9 +141,19 @@ type messageStoredStepResult struct{}
 func (e messageStoredStepResult) validate(ctx *stepValidationContext) {
 	require.NoError(ctx.t, ctx.err)
 	require.Contains(ctx.t, ctx.stream.messages, ctx.message.SequenceNumber, "message not stored")
-	assert.Equal(ctx.t, ctx.message, ctx.stream.messages[ctx.message.SequenceNumber], "message not stored correctly")
+	assert.Equal(
+		ctx.t,
+		ctx.message,
+		ctx.stream.messages[ctx.message.SequenceNumber],
+		"message not stored correctly",
+	)
 	assert.Equal(ctx.t, ctx.oldStateMachine, ctx.stream.stateMachine, "state machine changed")
-	assert.Equal(ctx.t, ctx.oldNextSequenceNumber, ctx.stream.nextSequenceNumber, "next sequence number changed")
+	assert.Equal(
+		ctx.t,
+		ctx.oldNextSequenceNumber,
+		ctx.stream.nextSequenceNumber,
+		"next sequence number changed",
+	)
 }
 
 type streamPostStateStepResult struct {
@@ -136,8 +171,18 @@ func (e streamPostStateStepResult) validate(ctx *stepValidationContext) {
 	}
 	assertNoOutput(ctx.t, ctx.outputs)
 
-	assert.Equal(ctx.t, e.stateMachine, ctx.stream.stateMachine, "state machine not changed correctly")
-	assert.Equal(ctx.t, e.nextSequenceNumber, ctx.stream.nextSequenceNumber, "next sequence number not changed correctly")
+	assert.Equal(
+		ctx.t,
+		e.stateMachine,
+		ctx.stream.stateMachine,
+		"state machine not changed correctly",
+	)
+	assert.Equal(
+		ctx.t,
+		e.nextSequenceNumber,
+		ctx.stream.nextSequenceNumber,
+		"next sequence number not changed correctly",
+	)
 }
 
 type errorStepResult string
@@ -304,10 +349,21 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 	})
 }
 
-func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, proposalInit *consensus.ProposalPart, steps []step) {
+func testProposalStreamProcessMessage(
+	t *testing.T,
+	builder *builder.Builder,
+	proposalInit *consensus.ProposalPart,
+	steps []step,
+) {
 	outputs := make(chan starknet.Proposal, 1)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(builder), 0, outputs)
+	stream := newSingleProposalStream(
+		utils.NewNopZapLogger(),
+		&proposalStore,
+		NewTransition(builder),
+		0,
+		outputs,
+	)
 	_, err := stream.start(t.Context(), buildMessage(t, 1, proposalInit))
 	require.NoError(t, err)
 
@@ -331,7 +387,11 @@ func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, pr
 	}
 }
 
-func assertOutput(t *testing.T, outputs <-chan starknet.Proposal, expectedOutput starknet.Proposal) {
+func assertOutput(
+	t *testing.T,
+	outputs <-chan starknet.Proposal,
+	expectedOutput starknet.Proposal,
+) {
 	t.Helper()
 	select {
 	case actualOutput := <-outputs:

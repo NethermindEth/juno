@@ -26,7 +26,13 @@ func IsNil(i any) bool {
 	k := v.Kind()
 
 	switch k {
-	case reflect.Chan, reflect.Func, reflect.Map, reflect.Ptr, reflect.UnsafePointer, reflect.Interface, reflect.Slice:
+	case reflect.Chan,
+		reflect.Func,
+		reflect.Map,
+		reflect.Ptr,
+		reflect.UnsafePointer,
+		reflect.Interface,
+		reflect.Slice:
 		return v.IsNil()
 	default:
 		return false

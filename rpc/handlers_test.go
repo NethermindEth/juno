@@ -40,10 +40,22 @@ func TestRun(t *testing.T) {
 
 	mockBcReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-	mockBcReader.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Sub.Subscribe()}).AnyTimes()
-	mockSyncReader.EXPECT().SubscribeNewHeads().Return(sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()}).AnyTimes()
-	mockSyncReader.EXPECT().SubscribeReorg().Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).AnyTimes()
-	mockSyncReader.EXPECT().SubscribePendingData().Return(sync.PendingDataSubscription{Subscription: pendingDataSub.Subscribe()}).AnyTimes()
+	mockBcReader.EXPECT().
+		SubscribeL1Head().
+		Return(blockchain.L1HeadSubscription{Subscription: l1Sub.Subscribe()}).
+		AnyTimes()
+	mockSyncReader.EXPECT().
+		SubscribeNewHeads().
+		Return(sync.NewHeadSubscription{Subscription: newHeadsSub.Subscribe()}).
+		AnyTimes()
+	mockSyncReader.EXPECT().
+		SubscribeReorg().
+		Return(sync.ReorgSubscription{Subscription: reorgSub.Subscribe()}).
+		AnyTimes()
+	mockSyncReader.EXPECT().
+		SubscribePendingData().
+		Return(sync.PendingDataSubscription{Subscription: pendingDataSub.Subscribe()}).
+		AnyTimes()
 
 	handler := &Handler{
 		rpcv6Handler: rpcv6.New(mockBcReader, mockSyncReader, nil, nil, nil),

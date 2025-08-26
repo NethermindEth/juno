@@ -15,7 +15,13 @@ func value(value uint64) starknet.Value {
 }
 
 // assertState asserts that the state machine is in the expected state.
-func assertState(t *testing.T, stateMachine *testStateMachine, expectedHeight types.Height, expectedRound types.Round, expectedStep types.Step) {
+func assertState(
+	t *testing.T,
+	stateMachine *testStateMachine,
+	expectedHeight types.Height,
+	expectedRound types.Round,
+	expectedStep types.Step,
+) {
 	t.Helper()
 	assert.Equal(t, expectedHeight, stateMachine.state.height, "height not equal")
 	assert.Equal(t, expectedRound, stateMachine.state.round, "round not equal")

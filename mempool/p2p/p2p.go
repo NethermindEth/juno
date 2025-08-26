@@ -39,10 +39,14 @@ func New(
 	bootstrapPeersFn func() []peer.AddrInfo,
 ) *P2P {
 	return &P2P{
-		host:             host,
-		log:              log,
-		pool:             pool,
-		broadcaster:      NewTransactionBroadcaster(log, config.MempoolBroadcaster, config.RetryInterval),
+		host: host,
+		log:  log,
+		pool: pool,
+		broadcaster: NewTransactionBroadcaster(
+			log,
+			config.MempoolBroadcaster,
+			config.RetryInterval,
+		),
 		listener:         NewTransactionListener(network, log, pool, config.MempoolListener),
 		config:           config,
 		bootstrapPeersFn: bootstrapPeersFn,

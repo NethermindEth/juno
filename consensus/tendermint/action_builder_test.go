@@ -13,11 +13,18 @@ type actionBuilder struct {
 }
 
 func (t actionBuilder) buildMessageHeader() starknet.MessageHeader {
-	return starknet.MessageHeader{Height: t.actionHeight, Round: t.actionRound, Sender: t.thisNodeAddr}
+	return starknet.MessageHeader{
+		Height: t.actionHeight,
+		Round:  t.actionRound,
+		Sender: t.thisNodeAddr,
+	}
 }
 
 // broadcastProposal builds and returns a BroadcastProposal action.
-func (t actionBuilder) broadcastProposal(val starknet.Value, validRound types.Round) starknet.Action {
+func (t actionBuilder) broadcastProposal(
+	val starknet.Value,
+	validRound types.Round,
+) starknet.Action {
 	return &starknet.BroadcastProposal{
 		MessageHeader: t.buildMessageHeader(),
 		ValidRound:    validRound,
@@ -51,7 +58,11 @@ func (t actionBuilder) scheduleTimeout(s types.Step) starknet.Action {
 }
 
 // commit returns a commit action.
-func (t actionBuilder) commit(val starknet.Value, validRound types.Round, proposer int) starknet.Action {
+func (t actionBuilder) commit(
+	val starknet.Value,
+	validRound types.Round,
+	proposer int,
+) starknet.Action {
 	return &starknet.Commit{
 		MessageHeader: starknet.MessageHeader{
 			Height: t.actionHeight,

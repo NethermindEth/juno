@@ -601,7 +601,12 @@ network: sepolia
 		},
 		"some setting set in both env variables and config file": {
 			cfgFileContents: `db-path: /home/file/.juno`,
-			env:             []string{"JUNO_DB_PATH", "/home/env/.juno", "JUNO_GW_API_KEY", "apikey"},
+			env: []string{
+				"JUNO_DB_PATH",
+				"/home/env/.juno",
+				"JUNO_GW_API_KEY",
+				"apikey",
+			},
 			expectedConfig: &node.Config{
 				LogLevel:                           defaultLogLevel,
 				HTTP:                               defaultHTTP,
@@ -650,7 +655,11 @@ network: sepolia
 				tc.inputArgs = append(tc.inputArgs, "--config", fileN)
 			}
 
-			require.True(t, len(tc.env)%2 == 0, "The number of env variables should be an even number")
+			require.True(
+				t,
+				len(tc.env)%2 == 0,
+				"The number of env variables should be an even number",
+			)
 
 			if len(tc.env) > 0 {
 				for i := range len(tc.env) / 2 {

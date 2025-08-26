@@ -30,11 +30,18 @@ func NewMockExecutor(t *testing.T, network *utils.Network) *mockExecutor {
 	}
 }
 
-func (m *mockExecutor) RunTxns(state *builder.BuildState, txns []mempool.BroadcastedTransaction) error {
+func (m *mockExecutor) RunTxns(
+	state *builder.BuildState,
+	txns []mempool.BroadcastedTransaction,
+) error {
 	executorState := m.getState(state)
 
 	for i := range txns {
-		require.Less(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.Preconfirmed.Block.Transactions))
+		require.Less(
+			m.t,
+			executorState.nextTransactionIndex,
+			len(executorState.buildResult.Preconfirmed.Block.Transactions),
+		)
 		require.Equal(
 			m.t,
 			executorState.buildResult.Preconfirmed.Block.Transactions[executorState.nextTransactionIndex].Hash(),
@@ -49,7 +56,11 @@ func (m *mockExecutor) RunTxns(state *builder.BuildState, txns []mempool.Broadca
 func (m *mockExecutor) Finish(state *builder.BuildState) (blockchain.SimulateResult, error) {
 	executorState := m.getState(state)
 
-	require.Equal(m.t, executorState.nextTransactionIndex, len(executorState.buildResult.Preconfirmed.Block.Transactions))
+	require.Equal(
+		m.t,
+		executorState.nextTransactionIndex,
+		len(executorState.buildResult.Preconfirmed.Block.Transactions),
+	)
 	*state.Preconfirmed = *executorState.buildResult.Preconfirmed
 	state.L2GasConsumed = executorState.buildResult.L2GasConsumed
 	return *executorState.buildResult.SimulateResult, nil

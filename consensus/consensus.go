@@ -47,16 +47,40 @@ func Init(
 	}
 	currentHeight := types.Height(chainHeight + 1)
 
-	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database, currentHeight)
+	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](
+		database,
+		currentHeight,
+	)
 
-	executor := builder.NewExecutor(blockchain, vm, logger, false, true) // TODO: We're currently skipping signature validation
+	executor := builder.NewExecutor(
+		blockchain,
+		vm,
+		logger,
+		false,
+		true,
+	) // TODO: We're currently skipping signature validation
 	builder := builder.New(blockchain, executor)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	proposer := proposer.New(logger, &builder, &proposalStore, *nodeAddress, toValue)
-	stateMachine := tendermint.New(tendermintDB, logger, *nodeAddress, proposer, validators, currentHeight)
+	stateMachine := tendermint.New(
+		tendermintDB,
+		logger,
+		*nodeAddress,
+		proposer,
+		validators,
+		currentHeight,
+	)
 
-	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
+	p2p := p2p.New(
+		host,
+		logger,
+		&builder,
+		&proposalStore,
+		currentHeight,
+		&config.DefaultBufferSizes,
+		bootstrapPeersFn,
+	)
 
 	commitListener := driver.NewCommitListener(logger, &proposalStore, proposer, p2p)
 	driver := driver.New(logger, tendermintDB, stateMachine, commitListener, p2p, timeoutFn)

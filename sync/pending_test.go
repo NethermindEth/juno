@@ -121,7 +121,9 @@ func TestPendingState(t *testing.T) {
 		})
 		t.Run("from head", func(t *testing.T) {
 			expectedValue := new(felt.Felt).SetUint64(0xDEADBEEF)
-			mockState.EXPECT().ContractStorage(gomock.Any(), gomock.Any()).Return(expectedValue, nil)
+			mockState.EXPECT().
+				ContractStorage(gomock.Any(), gomock.Any()).
+				Return(expectedValue, nil)
 
 			cV, cErr := state.ContractStorage(&felt.Zero, &felt.Zero)
 			require.NoError(t, cErr)

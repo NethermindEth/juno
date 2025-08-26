@@ -338,7 +338,12 @@ func TestClient(t *testing.T) {
 			network := utils.Mainnet
 			chain := blockchain.New(memory.New(), &network)
 
-			client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+			client := NewClient(
+				nil,
+				chain,
+				nopLog,
+			).WithResubscribeDelay(0).
+				WithPollFinalisedInterval(time.Nanosecond)
 
 			// We loop over each block and check that the state agrees with our expectations.
 			for _, block := range tt.blocks {
@@ -398,7 +403,12 @@ func TestUnreliableSubscription(t *testing.T) {
 	nopLog := utils.NewNopZapLogger()
 	network := utils.Mainnet
 	chain := blockchain.New(memory.New(), &network)
-	client := NewClient(nil, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := NewClient(
+		nil,
+		chain,
+		nopLog,
+	).WithResubscribeDelay(0).
+		WithPollFinalisedInterval(time.Nanosecond)
 
 	err := errors.New("test err")
 	for _, block := range longSequenceOfBlocks {

@@ -12,7 +12,9 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-var logMsgToL2SigHash = common.HexToHash("0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b")
+var logMsgToL2SigHash = common.HexToHash(
+	"0xdb80dd488acf86d17c747445b0eabb5d57c541d3bd7b6b87af987858e5066b2b",
+)
 
 type logMessageToL2 struct {
 	FromAddress *common.Address
@@ -55,7 +57,10 @@ type MsgStatus struct {
 	FailureReason   string             `json:"failure_reason,omitempty"`
 }
 
-func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) ([]MsgStatus, *jsonrpc.Error) {
+func (h *Handler) GetMessageStatus(
+	ctx context.Context,
+	l1TxnHash *common.Hash,
+) ([]MsgStatus, *jsonrpc.Error) {
 	// l1 txn hash -> (l1 handler) msg hashes
 	msgHashes, rpcErr := h.messageToL2Logs(ctx, l1TxnHash)
 	if rpcErr != nil {
@@ -66,7 +71,10 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	for i, msgHash := range msgHashes {
 		hash, err := h.bcReader.L1HandlerTxnHash(msgHash)
 		if err != nil {
-			return nil, jsonrpc.Err(jsonrpc.InternalError, fmt.Errorf("failed to retrieve L1 handler txn %v", err))
+			return nil, jsonrpc.Err(
+				jsonrpc.InternalError,
+				fmt.Errorf("failed to retrieve L1 handler txn %v", err),
+			)
 		}
 		status, rpcErr := h.TransactionStatus(ctx, *hash)
 		if rpcErr != nil {
@@ -89,7 +97,10 @@ func (h *Handler) GetMessageStatus(ctx context.Context, l1TxnHash *common.Hash) 
 	return results, nil
 }
 
-func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*common.Hash, *jsonrpc.Error) {
+func (h *Handler) messageToL2Logs(
+	ctx context.Context,
+	txHash *common.Hash,
+) ([]*common.Hash, *jsonrpc.Error) {
 	if h.l1Client == nil {
 		return nil, jsonrpc.Err(jsonrpc.InternalError, "L1 client not found")
 	}
@@ -107,7 +118,10 @@ func (h *Handler) messageToL2Logs(ctx context.Context, txHash *common.Hash) ([]*
 		var event logMessageToL2
 		err = h.coreContractABI.UnpackIntoInterface(&event, "LogMessageToL2", vLog.Data)
 		if err != nil {
-			return nil, jsonrpc.Err(rpccore.ErrInternal.Code, fmt.Errorf("failed to unpack log %v", err))
+			return nil, jsonrpc.Err(
+				rpccore.ErrInternal.Code,
+				fmt.Errorf("failed to unpack log %v", err),
+			)
 		}
 		// Extract indexed fields from topics
 		fromAddress := common.HexToAddress(vLog.Topics[1].Hex())
