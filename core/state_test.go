@@ -29,7 +29,7 @@ func TestUpdate(t *testing.T) {
 
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestContractClassHash(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestContractClassHash(t *testing.T) {
 func TestNonce(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	addr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
 	root := utils.HexToFelt(t, "0x4bdef7bf8b81a868aeab4b48ef952415fe105ab479e2f7bc671c92173542368")
@@ -246,7 +246,7 @@ func TestStateHistory(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
@@ -291,7 +291,7 @@ func TestContractIsDeployedAt(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -345,7 +345,7 @@ func TestClass(t *testing.T) {
 	cairo1Class, err := gw.Class(t.Context(), cairo0Hash)
 	require.NoError(t, err)
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, map[felt.Felt]core.Class{
@@ -370,7 +370,7 @@ func TestRevert(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
@@ -505,7 +505,7 @@ func TestRevert(t *testing.T) {
 func TestRevertGenesisStateDiff(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	addr := new(felt.Felt).SetUint64(1)
 	key := new(felt.Felt).SetUint64(2)
@@ -533,7 +533,7 @@ func TestRevertSystemContracts(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	su0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
@@ -567,7 +567,7 @@ func TestRevertSystemContracts(t *testing.T) {
 func TestRevertDeclaredClasses(t *testing.T) {
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
-	state := core.NewState(txn, nil)
+	state := core.NewState(txn)
 
 	classHash := utils.HexToFelt(t, "0xDEADBEEF")
 	sierraHash := utils.HexToFelt(t, "0xDEADBEEF2")

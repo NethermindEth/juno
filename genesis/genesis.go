@@ -107,7 +107,7 @@ func GenesisStateDiff(
 	genesisState := sync.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),
-		core.NewState(memDB.NewIndexedBatch(), nil),
+		core.NewState(memDB.NewIndexedBatch()),
 	)
 
 	classhashToSierraVersion, err := declareClasses(config, &genesisState)

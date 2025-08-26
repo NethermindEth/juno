@@ -762,7 +762,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn, nil)), noop, nil
+	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
@@ -786,7 +786,7 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 		stateDiff.Merge(txStateDiff)
 	}
 
-	return NewPendingState(&stateDiff, pending.GetNewClasses(), core.NewState(txn, nil)), noop, nil
+	return NewPendingState(&stateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {

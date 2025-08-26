@@ -55,12 +55,16 @@ type State struct {
 	snapshot db.Snapshot
 }
 
-func NewState(txn db.IndexedBatch, snapshot db.Snapshot) *State {
+func NewState(txn db.IndexedBatch) *State {
 	return &State{
-		history:  &history{txn: txn},
-		txn:      txn,
-		snapshot: snapshot,
+		history: &history{txn: txn},
+		txn:     txn,
 	}
+}
+
+func (s *State) WithSnapshot(snapshot db.Snapshot) *State {
+	s.snapshot = snapshot
+	return s
 }
 
 func (s *State) ChainHeight() (uint64, error) {
@@ -381,7 +385,8 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferBatch(s.txn)
-	bufferedState := NewState(bufferedTxn, s.snapshot)
+	bufferedState := NewState(bufferedTxn)
+	bufferedState.WithSnapshot(s.snapshot)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
 		return nil, err
