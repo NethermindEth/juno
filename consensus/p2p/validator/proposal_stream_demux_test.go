@@ -15,10 +15,9 @@ import (
 	statetestutils "github.com/NethermindEth/juno/core/state/state_test_utils"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
+	"github.com/NethermindEth/juno/p2p/pubsub/testutils"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/libp2p/go-libp2p"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/multiformats/go-multiaddr"
 	"github.com/sourcegraph/conc"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
@@ -29,7 +28,9 @@ import (
 
 const (
 	logLevel      = zapcore.DebugLevel
-	topicName     = "proposal-stream-demux-test"
+	chainID       = "1"
+	protocolID    = "proposal-stream-demux-test-protocol"
+	topicName     = "proposal-stream-demux-test-topic"
 	block0        = block1 - 1 // Block 1164618 uses block 1164617 as head block and 1164607 as revealed block
 	block1        = 1164619    // Block 1164619 uses block 1164618 as head block and 1164608 as revealed block
 	block2        = block1 + 1 // Block 1164620 uses block 1164619 as head block and 1164609 as revealed block
@@ -42,22 +43,9 @@ func TestProposalStreamDemux(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
 	require.NoError(t, err)
 
-	addr, err := multiaddr.NewMultiaddr("/ip4/0.0.0.0/tcp/0")
-	require.NoError(t, err)
-
-	host, err := libp2p.New(
-		libp2p.ListenAddrs(addr),
-		libp2p.EnableRelayService(),
-		libp2p.EnableHolePunching(),
-		libp2p.NATPortMap(),
-	)
-	require.NoError(t, err)
-
-	gossipSub, err := pubsub.NewGossipSub(t.Context(), host)
-	require.NoError(t, err)
-
-	topic, err := gossipSub.Join(topicName)
-	require.NoError(t, err)
+	nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))
+	topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+	topic := topics[0]
 
 	commitNotifier := make(chan types.Height)
 

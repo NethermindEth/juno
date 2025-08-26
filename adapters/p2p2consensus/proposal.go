@@ -6,6 +6,7 @@ import (
 	consensus "github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/utils"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
@@ -54,11 +55,11 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) (consensus.BlockInfo, error) {
 	}, nil
 }
 
-func AdaptProposalTransaction(msg *p2pconsensus.TransactionBatch) ([]consensus.Transaction, error) {
+func AdaptProposalTransaction(msg *p2pconsensus.TransactionBatch, network *utils.Network) ([]consensus.Transaction, error) {
 	var err error
 	txns := make([]consensus.Transaction, len(msg.Transactions))
 	for i := range msg.Transactions {
-		if txns[i], err = AdaptTransaction(msg.Transactions[i]); err != nil {
+		if txns[i], err = AdaptTransaction(msg.Transactions[i], network); err != nil {
 			return nil, err
 		}
 	}

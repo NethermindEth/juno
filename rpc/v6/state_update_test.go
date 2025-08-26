@@ -35,7 +35,8 @@ func TestStateUpdate(t *testing.T) {
 	for description, id := range errTests {
 		t.Run(description, func(t *testing.T) {
 			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
-			if description == "pending" {
+
+			if description == "pending" /*nolint:goconst*/ {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}

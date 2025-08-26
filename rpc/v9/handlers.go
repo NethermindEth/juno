@@ -158,7 +158,7 @@ func (h *Handler) Version() (string, *jsonrpc.Error) {
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
-	return "0.9.0-rc2", nil
+	return "0.9.0", nil
 }
 
 // Currently only used for testing
@@ -288,9 +288,19 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SpecVersion,
 		},
 		{
-			Name:    "starknet_subscribeEvents",
-			Params:  []jsonrpc.Parameter{{Name: "from_address", Optional: true}, {Name: "keys", Optional: true}, {Name: "block_id", Optional: true}},
+			Name: "starknet_subscribeEvents",
+			Params: []jsonrpc.Parameter{
+				{Name: "from_address", Optional: true},
+				{Name: "keys", Optional: true},
+				{Name: "block_id", Optional: true},
+				{Name: "finality_status", Optional: true},
+			},
 			Handler: h.SubscribeEvents,
+		},
+		{
+			Name:    "starknet_subscribeNewTransactionReceipts",
+			Params:  []jsonrpc.Parameter{{Name: "sender_address", Optional: true}, {Name: "finality_status", Optional: true}},
+			Handler: h.SubscribeNewTransactionReceipts,
 		},
 		{
 			Name:    "starknet_subscribeNewHeads",
@@ -303,9 +313,9 @@ func (h *Handler) methods() ([]jsonrpc.Method, string) { //nolint: funlen
 			Handler: h.SubscribeTransactionStatus,
 		},
 		{
-			Name:    "starknet_subscribePendingTransactions",
-			Params:  []jsonrpc.Parameter{{Name: "transaction_details", Optional: true}, {Name: "sender_address", Optional: true}},
-			Handler: h.SubscribePendingTxs,
+			Name:    "starknet_subscribeNewTransactions",
+			Params:  []jsonrpc.Parameter{{Name: "finality_status", Optional: true}, {Name: "sender_address", Optional: true}},
+			Handler: h.SubscribeNewTransactions,
 		},
 		{
 			Name:    "starknet_unsubscribe",

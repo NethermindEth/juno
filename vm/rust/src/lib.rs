@@ -373,11 +373,11 @@ pub extern "C" fn cairoVMExecute(
             charge_fee,
             validate,
             // we don't want to be strict with the nonce when not running
-            // validation. "strict nonce check" means that if an account 
+            // validation. "strict nonce check" means that if an account
             // has nonce `i`, its next transaction must have nonce `i+1`.
-            // When this check is relaxed, the transaction can have any 
+            // When this check is relaxed, the transaction can have any
             // future nonce (i.e. `i + k` with `k > 0`)
-            strict_nonce_check: validate, 
+            strict_nonce_check: validate,
         };
 
         let txn = transaction_from_api(
@@ -515,7 +515,7 @@ pub extern "C" fn cairoVMExecute(
                     .receipt
                     .resources
                     .computation
-                    .vm_resources
+                    .total_vm_resources()
                     .n_steps
                     .try_into()
                     .unwrap_or(u64::MAX);

@@ -275,7 +275,7 @@ func TestBlockWithTxHashes(t *testing.T) {
 			log := utils.NewNopZapLogger()
 			n := &utils.Mainnet
 			chain := blockchain.New(memory.New(), n, statetestutils.UseNewState())
-			if description == "pending" { //nolint:goconst
+			if description == "pending" {
 				mockSyncReader = mocks.NewMockSyncReader(mockCtrl)
 				mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 			}

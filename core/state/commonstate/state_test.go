@@ -18,15 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCoreStateAdapter(t *testing.T) {
-	testDB := memory.New()
-	txn := testDB.NewIndexedBatch()
-
-	state := core.NewState(txn)
-	coreStateAdapter := NewDeprecatedStateAdapter(state)
-	assert.NotNil(t, coreStateAdapter)
-}
-
 func TestStateAdapter(t *testing.T) {
 	memDB := memory.New()
 	db, err := triedb.New(memDB, nil)

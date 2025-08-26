@@ -84,7 +84,7 @@ func (s *ReceivingTransactionsState) OnEvent(
 ) (ProposalStateMachine, error) {
 	switch part := part.GetMessages().(type) {
 	case *consensus.ProposalPart_Transactions:
-		transactions, err := p2p2consensus.AdaptProposalTransaction(part.Transactions)
+		transactions, err := p2p2consensus.AdaptProposalTransaction(part.Transactions, transition.Network())
 		if err != nil {
 			return nil, err
 		}
