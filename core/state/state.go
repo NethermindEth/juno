@@ -681,6 +681,9 @@ func (s *State) getHistoricalValue(prefix []byte, blockNum uint64) (felt.Felt, e
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, ErrNoHistoryValue) {
+			return felt.Zero, nil
+		}
 		return felt.Zero, err
 	}
 
@@ -701,7 +704,7 @@ func (s *State) valueAt(prefix []byte, blockNum uint64, cb func(val []byte) erro
 
 	seekKey := binary.BigEndian.AppendUint64(prefix, blockNum)
 	if !it.Seek(seekKey) {
-		return ErrNoHistoryValue
+		return ErrCheckHeadState
 	}
 
 	key := it.Key()

@@ -34,7 +34,7 @@ func (s *StateHistory) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
 	}
 	ret, err := s.state.ContractClassHashAt(addr, s.blockNum)
 	if err != nil {
-		if errors.Is(err, ErrNoHistoryValue) {
+		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractClassHash(addr)
 		}
 		return felt.Felt{}, err
@@ -48,7 +48,7 @@ func (s *StateHistory) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
 	}
 	ret, err := s.state.ContractNonceAt(addr, s.blockNum)
 	if err != nil {
-		if errors.Is(err, ErrNoHistoryValue) {
+		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractNonce(addr)
 		}
 		return felt.Felt{}, err
@@ -62,7 +62,7 @@ func (s *StateHistory) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	}
 	ret, err := s.state.ContractStorageAt(addr, key, s.blockNum)
 	if err != nil {
-		if errors.Is(err, ErrNoHistoryValue) {
+		if errors.Is(err, ErrCheckHeadState) {
 			return s.state.ContractStorage(addr, key)
 		}
 		return felt.Felt{}, err
