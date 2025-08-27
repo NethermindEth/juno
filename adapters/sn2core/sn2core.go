@@ -176,7 +176,7 @@ func AdaptDeclareTransaction(t *starknet.Transaction) *core.DeclareTransaction {
 		Version:               (*core.TransactionVersion)(t.Version),
 		ClassHash:             t.ClassHash,
 		CompiledClassHash:     t.CompiledClassHash,
-		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:        adaptResourceBounds(*t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
 		PaymasterData:         utils.DerefSlice(t.PaymasterData),
 		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
@@ -193,13 +193,13 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 }
 
 func adaptResourceBounds(
-	rb *map[starknet.Resource]starknet.ResourceBounds,
-) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+	rb map[starknet.Resource]starknet.ResourceBounds,
+) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
-	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	for resource, bounds := range *rb {
+	coreBounds := make(map[core.Resource]core.ResourceBounds, len(rb))
+	for resource, bounds := range rb {
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount.Uint64(),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
@@ -238,7 +238,7 @@ func AdaptInvokeTransaction(t *starknet.Transaction) *core.InvokeTransaction {
 		MaxFee:                t.MaxFee,
 		Version:               (*core.TransactionVersion)(t.Version),
 		SenderAddress:         t.SenderAddress,
-		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:        adaptResourceBounds(*t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
 		PaymasterData:         utils.DerefSlice(t.PaymasterData),
 		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
@@ -264,7 +264,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 		MaxFee:               t.MaxFee,
 		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
-		ResourceBounds:       adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:       adaptResourceBounds(*t.ResourceBounds),
 		Tip:                  safeFeltToUint64(t.Tip),
 		PaymasterData:        utils.DerefSlice(t.PaymasterData),
 		NonceDAMode:          adaptDataAvailabilityMode(t.NonceDAMode),

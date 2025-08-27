@@ -132,9 +132,10 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, expectedStorage, storageValue)
 	})
 
+	//nolint:dupl //false alarm block tag differs
 	t.Run(
 		"blockID - pre_confirmed",
-		func(t *testing.T) { //nolint:dupl //false alarm block tag differs
+		func(t *testing.T) {
 			mockSyncReader.EXPECT().PendingState().Return(mockState, nopCloser, nil)
 			mockState.EXPECT().ContractClassHash(&felt.Zero).Return(nil, nil)
 			mockState.EXPECT().

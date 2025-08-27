@@ -231,10 +231,10 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
 	}
 
+	//nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.root = newCollector(
 		&nodes,
 	).Collect(t.root, t.pendingUpdates > 100)
-	//nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
 	return rootHash, &nodes
 }

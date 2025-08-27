@@ -109,8 +109,10 @@ func VerifyBlockHash(
 	metaInfo := network.BlockHashMetaInfo
 	unverifiableRange := metaInfo.UnverifiableRange
 
+	//nolint:gocritic // we assume if `unverifiableRange` to be non nil is always of size 2
 	skipVerification := unverifiableRange != nil && b.Number >= unverifiableRange[0] &&
-		b.Number <= unverifiableRange[1] //nolint:gocritic
+		b.Number <= unverifiableRange[1]
+
 	// todo should we still keep it after p2p ?
 	if !skipVerification {
 		if err := VerifyTransactions(b.Transactions, network, b.ProtocolVersion); err != nil {

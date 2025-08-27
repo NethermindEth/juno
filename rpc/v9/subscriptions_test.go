@@ -1562,9 +1562,10 @@ func TestSubscribeNewTransactions(t *testing.T) {
 		})
 	}
 
+	//nolint:dupl // not duplicate, similar test for different method
 	t.Run(
 		"Return error if too many addresses in filter",
-		func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
+		func(t *testing.T) {
 			addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
 			serverConn, _ := net.Pipe()
@@ -1881,9 +1882,10 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 		})
 	}
 
+	//nolint:dupl // not duplicate, similar test for different method
 	t.Run(
 		"Returns error if to many address in filter",
-		func(t *testing.T) { //nolint:dupl // not duplicate, similar test for different method
+		func(t *testing.T) {
 			addresses := make([]felt.Felt, rpccore.MaxEventFilterKeys+1)
 
 			serverConn, _ := net.Pipe()

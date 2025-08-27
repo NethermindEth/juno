@@ -319,10 +319,12 @@ func (h *Handler) fetchTraces(
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
+//
+//nolint:gocritic // todo(rdr): low prio — huge param and it should be changed to ptr
 func (h *Handler) Call(
 	funcCall FunctionCall,
 	id BlockID,
-) ([]*felt.Felt, *jsonrpc.Error) { //nolint:gocritic
+) ([]*felt.Felt, *jsonrpc.Error) {
 	state, closer, rpcErr := h.stateByBlockID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr

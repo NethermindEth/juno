@@ -61,6 +61,7 @@ func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
 	}), httpHeader, nil
 }
 
+//nolint:gocritic // todo(rdr): low prio — huge param and it should be changed to ptr
 func (h *Handler) EstimateMessageFee(
 	msg rpcv6.MsgFromL1,
 	id BlockID,
@@ -72,8 +73,7 @@ type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
 	simulationFlags []rpcv6.SimulationFlag, id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
-//
-//nolint:gocritic
+//nolint:gocritic // todo(rdr): low prio — huge param and it should be changed to ptr
 func (h *Handler) estimateMessageFee(
 	msg rpcv6.MsgFromL1,
 	id BlockID,

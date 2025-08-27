@@ -130,12 +130,13 @@ type Node struct {
 
 // New sets the config and logger to the StarknetNode.
 // Any errors while parsing the config on creating logger will be returned.
-// Todo: (immediate follow-up PR) tidy this function up.
+//
+//nolint:gocyclo,funlen // todo(rdr): this function deserves a well though refactor
 func New(
 	cfg *Config,
 	version string,
 	logLevel *utils.LogLevel,
-) (*Node, error) { //nolint:gocyclo,funlen
+) (*Node, error) {
 	log, err := utils.NewZapLogger(logLevel, cfg.Colour)
 	if err != nil {
 		return nil, err

@@ -85,7 +85,7 @@ linters:
             - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
             - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
     lll:
-      line-length: 140 # todo(rdr): change this to 100
+      line-length: 140
     misspell:
       locale: UK
     mnd:

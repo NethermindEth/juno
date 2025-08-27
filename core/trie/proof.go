@@ -216,11 +216,13 @@ func VerifyProof(
 // Conversely, given a binary leaf and a right-sibling last key, if the left sibling is removed, the proof would still be valid.
 // Range proof should not be valid for both of these cases, but currently is, which is an attack vector.
 // The problem probably lies in how we do root hash calculation.
+//
+//nolint:funlen,gocyclo // todo(rdr): this function deserves a well thought refactor
 func VerifyRangeProof(
 	root, first *felt.Felt,
 	keys, values []*felt.Felt,
 	proof *ProofNodeSet,
-) (bool, error) { //nolint:funlen,gocyclo
+) (bool, error) {
 	// Ensure the number of keys and values are the same
 	if len(keys) != len(values) {
 		return false, fmt.Errorf(

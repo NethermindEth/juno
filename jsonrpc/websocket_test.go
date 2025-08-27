@@ -29,11 +29,12 @@ func testConnection(
 	srv := httptest.NewServer(jsonrpc.NewWebsocket(rpc, nil, utils.NewNopZapLogger()))
 
 	// Client
+	//nolint:bodyclose // websocket package closes resp.Body for us.
 	conn, resp, err := websocket.Dial(
 		ctx,
 		srv.URL,
 		nil,
-	) //nolint:bodyclose // websocket package closes resp.Body for us.
+	)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
 

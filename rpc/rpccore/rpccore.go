@@ -76,7 +76,7 @@ var (
 	ErrStorageProofNotSupported = &jsonrpc.Error{
 		Code:    42,
 		Message: "the node doesn't support storage proofs for blocks that are too far in the past",
-	} //nolint:lll
+	}
 	ErrInvalidContractClass = &jsonrpc.Error{
 		Code:    50,
 		Message: "Invalid contract class",
@@ -96,11 +96,11 @@ var (
 	ErrInsufficientMaxFee = &jsonrpc.Error{
 		Code:    53,
 		Message: "Max fee is smaller than the minimal transaction cost (validation plus fee transfer)",
-	} //nolint:lll
+	}
 	ErrInsufficientResourcesForValidate = &jsonrpc.Error{
 		Code:    53,
 		Message: "The transaction’s resources don’t cover validation or the minimal transaction fee",
-	} //nolint:lll
+	}
 	ErrInsufficientAccountBalance = &jsonrpc.Error{
 		Code:    54,
 		Message: "Account balance is smaller than the transaction's max_fee",
@@ -130,7 +130,7 @@ var (
 	ErrCompiledClassHashMismatch = &jsonrpc.Error{
 		Code:    60,
 		Message: "the compiled class hash did not match the one supplied in the transaction",
-	} //nolint:lll
+	}
 	ErrUnsupportedTxVersion = &jsonrpc.Error{
 		Code:    61,
 		Message: "the transaction version is not supported",
