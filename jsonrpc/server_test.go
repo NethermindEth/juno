@@ -546,10 +546,7 @@ func TestHandle(t *testing.T) {
 }
 
 func TestServerWithDisabledBatchRequests(t *testing.T) {
-	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
-		WithValidator(validator.New()).
-		WithListener(&listener)
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
 
 	err := server.RegisterMethods(
 		jsonrpc.Method{
