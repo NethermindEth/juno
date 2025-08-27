@@ -81,16 +81,22 @@ func TestWALLifecycle(t *testing.T) {
 
 	t.Run("Commit batch and get entries", func(t *testing.T) {
 		require.NoError(t, tmState.Flush())
-		retrieved, err := tmState.GetWALEntries(testHeight)
-		require.NoError(t, err)
-		require.ElementsMatch(t, expectedEntries, retrieved)
+		index := 0
+		for entry, err := range tmState.GetWALEntries(testHeight) {
+			require.NoError(t, err)
+			require.Equal(t, expectedEntries[index], entry)
+			index++
+		}
 	})
 
 	t.Run("Reload the db and get entries", func(t *testing.T) {
 		tmState, _ = reopenTestTMDB(t, db, dbPath, testHeight)
-		retrieved, err := tmState.GetWALEntries(testHeight)
-		require.NoError(t, err)
-		require.Equal(t, expectedEntries, retrieved)
+		index := 0
+		for entry, err := range tmState.GetWALEntries(testHeight) {
+			require.NoError(t, err)
+			require.Equal(t, expectedEntries[index], entry)
+			index++
+		}
 	})
 
 	t.Run("Delete entries", func(t *testing.T) {
@@ -99,7 +105,8 @@ func TestWALLifecycle(t *testing.T) {
 
 	t.Run("Commit batch and get entries (after deletion)", func(t *testing.T) {
 		require.NoError(t, tmState.Flush())
-		_, err := tmState.GetWALEntries(testHeight)
-		require.NoError(t, err)
+		for _, err := range tmState.GetWALEntries(testHeight) {
+			require.NoError(t, err)
+		}
 	})
 }

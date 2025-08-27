@@ -168,12 +168,13 @@ func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 //
 // Panics if the replaying the messages fails for whatever reason.
 func (s *stateMachine[V, H, A]) ReplayWAL() {
-	walEntries, err := s.db.GetWALEntries(s.state.height)
-	if err != nil {
-		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
-	}
 	s.replayMode = true
-	for _, walEntry := range walEntries {
+	for walEntry, err := range s.db.GetWALEntries(s.state.height) {
+		// TODO: panic here is wrong, but this will be rewritten in the next PR.
+		if err != nil {
+			panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
+		}
+
 		switch walEntry.Type {
 		case types.MessageTypeProposal:
 			proposal, ok := (walEntry.Entry).(types.Proposal[V, H, A])
