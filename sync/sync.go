@@ -751,8 +751,6 @@ func (s *Synchronizer) PendingBlock() *core.Block {
 	return pendingData.GetBlock()
 }
 
-var noop = func() error { return nil }
-
 // PendingState returns the state resulting from execution of the pending block
 func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
@@ -762,9 +760,8 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	state := core.NewState(txn)
 	snapshot := s.db.NewSnapshot()
-	state = state.WithSnapshot(snapshot)
+	state := core.NewState(txn).WithSnapshot(snapshot)
 
 	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), state), snapshot.Close, nil
 }
@@ -790,9 +787,8 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 		stateDiff.Merge(txStateDiff)
 	}
 
-	state := core.NewState(txn)
 	snapshot := s.db.NewSnapshot()
-	state = state.WithSnapshot(snapshot)
+	state := core.NewState(txn).WithSnapshot(snapshot)
 
 	return NewPendingState(&stateDiff, pending.GetNewClasses(), state), snapshot.Close, nil
 }
