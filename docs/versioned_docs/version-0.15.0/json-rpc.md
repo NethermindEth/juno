@@ -213,7 +213,7 @@ To use a specific API version, specify the version endpoint in your RPC calls:
 <TabItem value="v9" label="v0.9.0">
 
 ```bash
-curl --location 'http://localhost:6060' \
+curl --location 'http://localhost:6060/v0_9' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",
@@ -228,7 +228,7 @@ curl --location 'http://localhost:6060' \
 <TabItem value="v8" label="v0.8.1">
 
 ```bash
-curl --location 'http://localhost:6060/v0_7' \
+curl --location 'http://localhost:6060/v0_8' \
 --header 'Content-Type: application/json' \
 --data '{
     "jsonrpc": "2.0",
