@@ -2,7 +2,6 @@ package jsonrpc_test
 
 import (
 	"context"
-	// "encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -529,7 +528,6 @@ func TestHandle(t *testing.T) {
 				assert.JSONEq(t, test.res, string(res))
 			} else {
 				assert.Equal(t, test.res, string(res))
-
 			}
 
 			if test.checkNewRequestEvent {
@@ -590,7 +588,7 @@ func TestServerWithDisabledBatchRequests(t *testing.T) {
 	require.NoError(t, err)
 	assert.JSONEq(t, batchedResponse, string(resp))
 
-	// batch requests stop working when explicitely disabled
+	// batch requests stop working when explicitly disabled
 	server.DisableBatchRequests(true)
 	resp, _, err = server.HandleReader(t.Context(), strings.NewReader(batchedRequest))
 	require.NoError(t, err)
@@ -600,12 +598,11 @@ func TestServerWithDisabledBatchRequests(t *testing.T) {
 		"error": {
 			"code": -32600,
 			"message": "Invalid Request",
-			"data": "batch requests are not allowed"
+			"data": "batch requests are disabled"
 		},
 		"id": null
 	}`
 	assert.JSONEq(t, invalidResponse, string(resp))
-
 }
 
 var benchHandleR http.Header

@@ -336,7 +336,7 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 			return s.handleBatchRequest(ctx, batchReq)
 		}
 	} else {
-		resp.Error = Err(InvalidRequest, "batch requests are not allowed")
+		resp.Error = Err(InvalidRequest, "batch requests are disabled")
 	}
 
 	if resp == nil {
