@@ -23,11 +23,10 @@ import (
 )
 
 type (
-	broadcaster[M starknet.Message] = p2p.Broadcaster[M, starknet.Value, starknet.Hash, starknet.Address]
-	listeners                       = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
-	broadcasters                    = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
-	tendermintDB                    = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
-	commitListener                  = driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	listeners      = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
+	broadcasters   = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
+	tendermintDB   = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
+	commitListener = driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
 )
 
 const (
@@ -36,9 +35,9 @@ const (
 )
 
 type expectedBroadcast struct {
-	proposals  []starknet.Proposal
-	prevotes   []starknet.Prevote
-	precommits []starknet.Precommit
+	proposals  []*starknet.Proposal
+	prevotes   []*starknet.Prevote
+	precommits []*starknet.Precommit
 }
 
 func mockTimeoutFn(step types.Step, round types.Round) time.Duration {
@@ -95,15 +94,15 @@ func generateAndRegisterRandomActions(
 		switch random.Int() % 3 {
 		case 0:
 			proposal := getRandProposal(random)
-			expectedBroadcast.proposals = append(expectedBroadcast.proposals, proposal)
+			expectedBroadcast.proposals = append(expectedBroadcast.proposals, &proposal)
 			actions[i] = utils.HeapPtr(starknet.BroadcastProposal(proposal))
 		case 1:
 			prevote := getRandPrevote(random)
-			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, prevote)
+			expectedBroadcast.prevotes = append(expectedBroadcast.prevotes, &prevote)
 			actions[i] = utils.HeapPtr(starknet.BroadcastPrevote(prevote))
 		case 2:
 			precommit := getRandPrecommit(random)
-			expectedBroadcast.precommits = append(expectedBroadcast.precommits, precommit)
+			expectedBroadcast.precommits = append(expectedBroadcast.precommits, &precommit)
 			actions[i] = utils.HeapPtr(starknet.BroadcastPrecommit(precommit))
 		}
 	}
@@ -114,17 +113,17 @@ func toAction(timeout types.Timeout) starknet.Action {
 	return utils.HeapPtr(types.ScheduleTimeout(timeout))
 }
 
-func increaseBroadcasterWaitGroup[M starknet.Message](
+func increaseBroadcasterWaitGroup[M any](
 	expectedBroadcast []M,
-	broadcaster broadcaster[M],
+	broadcaster p2p.Broadcaster[M],
 ) {
 	broadcaster.(*mockBroadcaster[M]).wg.Add(len(expectedBroadcast))
 }
 
-func waitAndAssertBroadcaster[M starknet.Message](
+func waitAndAssertBroadcaster[M any](
 	t *testing.T,
 	expectedBroadcast []M,
-	broadcaster broadcaster[M],
+	broadcaster p2p.Broadcaster[M],
 ) {
 	mockBroadcaster := broadcaster.(*mockBroadcaster[M])
 	mockBroadcaster.wg.Wait()
@@ -151,9 +150,9 @@ func TestDriver(t *testing.T) {
 
 	expectedBroadcast := &expectedBroadcast{}
 
-	proposalCh := make(chan starknet.Proposal)
-	prevoteCh := make(chan starknet.Prevote)
-	precommitCh := make(chan starknet.Precommit)
+	proposalCh := make(chan *starknet.Proposal)
+	prevoteCh := make(chan *starknet.Prevote)
+	precommitCh := make(chan *starknet.Precommit)
 
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
@@ -211,13 +210,13 @@ func TestDriver(t *testing.T) {
 		require.NoError(t, driver.Run(ctx))
 	})
 	wg.Go(func() {
-		proposalCh <- inputProposalMsg
+		proposalCh <- &inputProposalMsg
 	})
 	wg.Go(func() {
-		prevoteCh <- inputPrevoteMsg
+		prevoteCh <- &inputPrevoteMsg
 	})
 	wg.Go(func() {
-		precommitCh <- inputPrecommitMsg
+		precommitCh <- &inputPrecommitMsg
 	})
 	t.Cleanup(wg.Wait)
 

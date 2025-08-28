@@ -55,12 +55,12 @@ func (b *voteBroadcaster[H, A]) AsPrecommitBroadcaster() *precommitBroadcaster[H
 
 type prevoteBroadcaster[H types.Hash, A types.Addr] voteBroadcaster[H, A]
 
-func (b *prevoteBroadcaster[H, A]) Broadcast(ctx context.Context, message types.Prevote[H, A]) {
-	(*voteBroadcaster[H, A])(b).broadcast(ctx, (*types.Vote[H, A])(&message), consensus.Vote_Prevote)
+func (b *prevoteBroadcaster[H, A]) Broadcast(ctx context.Context, message *types.Prevote[H, A]) {
+	(*voteBroadcaster[H, A])(b).broadcast(ctx, (*types.Vote[H, A])(message), consensus.Vote_Prevote)
 }
 
 type precommitBroadcaster[H types.Hash, A types.Addr] voteBroadcaster[H, A]
 
-func (b *precommitBroadcaster[H, A]) Broadcast(ctx context.Context, message types.Precommit[H, A]) {
-	(*voteBroadcaster[H, A])(b).broadcast(ctx, (*types.Vote[H, A])(&message), consensus.Vote_Precommit)
+func (b *precommitBroadcaster[H, A]) Broadcast(ctx context.Context, message *types.Precommit[H, A]) {
+	(*voteBroadcaster[H, A])(b).broadcast(ctx, (*types.Vote[H, A])(message), consensus.Vote_Precommit)
 }

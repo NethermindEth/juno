@@ -65,9 +65,9 @@ func TestWALLifecycle(t *testing.T) {
 	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
 
 	expectedEntries := []WalEntry[starknet.Value, hash.Hash, starknet.Address]{
-		{Type: types.MessageTypeProposal, Entry: proposal},
-		{Type: types.MessageTypePrevote, Entry: prevote},
-		{Type: types.MessageTypePrecommit, Entry: precommit},
+		{Type: types.MessageTypeProposal, Entry: &proposal},
+		{Type: types.MessageTypePrevote, Entry: &prevote},
+		{Type: types.MessageTypePrecommit, Entry: &precommit},
 		{Type: types.MessageTypeTimeout, Entry: timeoutMsg},
 	}
 

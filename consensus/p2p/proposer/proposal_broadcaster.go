@@ -18,7 +18,7 @@ type proposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr] struct
 	proposalAdapter ProposerAdapter[V, H, A]
 	proposalStore   *proposal.ProposalStore[H]
 	broadcaster     buffered.ProtoBroadcaster[*consensus.StreamMessage]
-	proposals       chan types.Proposal[V, H, A]
+	proposals       chan *types.Proposal[V, H, A]
 }
 
 func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -33,7 +33,7 @@ func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
 		proposalAdapter: proposalAdapter,
 		proposalStore:   proposalStore,
 		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](log, bufferSize, retryInterval, nil),
-		proposals:       make(chan types.Proposal[V, H, A], bufferSize),
+		proposals:       make(chan *types.Proposal[V, H, A], bufferSize),
 	}
 }
 
@@ -63,7 +63,7 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 				continue
 			}
 
-			dispatcher, err := newProposerDispatcher(b.proposalAdapter, &proposal, buildResult)
+			dispatcher, err := newProposerDispatcher(b.proposalAdapter, proposal, buildResult)
 			if err != nil {
 				b.log.Errorw("unable to build dispatcher", "error", err)
 				continue
@@ -80,7 +80,7 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 	}
 }
 
-func (b *proposalBroadcaster[V, H, A]) Broadcast(ctx context.Context, proposal types.Proposal[V, H, A]) {
+func (b *proposalBroadcaster[V, H, A]) Broadcast(ctx context.Context, proposal *types.Proposal[V, H, A]) {
 	select {
 	case <-ctx.Done():
 		return
