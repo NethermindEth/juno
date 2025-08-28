@@ -31,9 +31,17 @@ func subWords(state []felt.Felt, full bool) {
 func mixLayer(state []felt.Felt) {
 	stateSum := new(felt.Felt).Add(&state[0], &state[1])
 	stateSum.Add(stateSum, &state[2])
-	state[0].Double(&state[0]).Add(&state[0], stateSum)                               // stateSum + state[0] * 2
-	state[1].Sub(stateSum, state[1].Double(&state[1]))                                // stateSum - state[1] * 2
-	state[2].Sub(stateSum, state[2].Add(&state[2], new(felt.Felt).Double(&state[2]))) // stateSum - state[2] * 3
+	state[0].Double(&state[0]).
+		Add(&state[0], stateSum)
+		// stateSum + state[0] * 2
+	state[1].Sub(
+		stateSum,
+		state[1].Double(&state[1]),
+	) // stateSum - state[1] * 2
+	state[2].Sub(
+		stateSum,
+		state[2].Add(&state[2], new(felt.Felt).Double(&state[2])),
+	) // stateSum - state[2] * 3
 }
 
 func round(state []felt.Felt, full bool, index int) {

@@ -16,7 +16,17 @@ func TestMigrateIfNeeded(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	t.Run("Migration should not happen on cancelled ctx", func(t *testing.T) {
-		require.ErrorIs(t, migration.MigrateIfNeeded(ctx, testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}), ctx.Err())
+		require.ErrorIs(
+			t,
+			migration.MigrateIfNeeded(
+				ctx,
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				&migration.HTTPConfig{},
+			),
+			ctx.Err(),
+		)
 	})
 
 	meta, err := migration.SchemaMetadata(testDB)
@@ -25,7 +35,16 @@ func TestMigrateIfNeeded(t *testing.T) {
 	require.Nil(t, meta.IntermediateState)
 
 	t.Run("Migration should happen on empty DB", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}))
+		require.NoError(
+			t,
+			migration.MigrateIfNeeded(
+				t.Context(),
+				testDB,
+				&utils.Mainnet,
+				utils.NewNopZapLogger(),
+				&migration.HTTPConfig{},
+			),
+		)
 	})
 
 	meta, err = migration.SchemaMetadata(testDB)
@@ -33,10 +52,22 @@ func TestMigrateIfNeeded(t *testing.T) {
 	require.NotEqual(t, uint64(0), meta.Version)
 	require.Nil(t, meta.IntermediateState)
 
-	t.Run("subsequent calls to MigrateIfNeeded should not change the DB version", func(t *testing.T) {
-		require.NoError(t, migration.MigrateIfNeeded(t.Context(), testDB, &utils.Mainnet, utils.NewNopZapLogger(), &migration.HTTPConfig{}))
-		postVersion, postErr := migration.SchemaMetadata(testDB)
-		require.NoError(t, postErr)
-		require.Equal(t, meta, postVersion)
-	})
+	t.Run(
+		"subsequent calls to MigrateIfNeeded should not change the DB version",
+		func(t *testing.T) {
+			require.NoError(
+				t,
+				migration.MigrateIfNeeded(
+					t.Context(),
+					testDB,
+					&utils.Mainnet,
+					utils.NewNopZapLogger(),
+					&migration.HTTPConfig{},
+				),
+			)
+			postVersion, postErr := migration.SchemaMetadata(testDB)
+			require.NoError(t, postErr)
+			require.Equal(t, meta, postVersion)
+		},
+	)
 }

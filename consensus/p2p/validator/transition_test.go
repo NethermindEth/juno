@@ -42,7 +42,12 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		"../../../genesis/classes/strk.json", "../../../genesis/classes/account.json",
 		"../../../genesis/classes/universaldeployer.json", "../../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(false, log),
+		bc.Network(),
+		40000000,
+	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
@@ -69,7 +74,11 @@ func TestEmptyProposal(t *testing.T) {
 		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
-	awaitingBlockInfoOrCommitmentState, err := transition.OnProposalInit(t.Context(), &initialState, &proposalInit)
+	awaitingBlockInfoOrCommitmentState, err := transition.OnProposalInit(
+		t.Context(),
+		&initialState,
+		&proposalInit,
+	)
 	require.NoError(t, err)
 
 	emptyCommitment := types.ProposalCommitment{
@@ -88,13 +97,19 @@ func TestEmptyProposal(t *testing.T) {
 	}
 
 	// Step 2: ProposalCommitment
-	awaitingProposalFinState, err := transition.OnEmptyBlockCommitment(t.Context(), awaitingBlockInfoOrCommitmentState, &emptyCommitment)
+	awaitingProposalFinState, err := transition.OnEmptyBlockCommitment(
+		t.Context(),
+		awaitingBlockInfoOrCommitmentState,
+		&emptyCommitment,
+	)
 	require.NoError(t, err)
 
 	// Step 3: ProposalFin
 	// Note: this commitment depends on the SupportedStarknetVersion, so block1Hash test should be updated whenever
 	// we update SupportedStarknetVersion
-	block1Hash, err := new(felt.Felt).SetString("0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5")
+	block1Hash, err := new(
+		felt.Felt,
+	).SetString("0x3521bcbcf5ab2b01702e73a2b2726b8303aa035dc2cb5b1e5aefca34e7585a5")
 	require.NoError(t, err)
 	proposalFin := types.ProposalFin(*block1Hash)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
@@ -122,7 +137,11 @@ func TestProposal(t *testing.T) {
 		BlockNum: types.Height(head.Number + 1),
 		Proposer: *proposerAddr,
 	}
-	awaitingBlockInfoOrCommitmentState, err := transition.OnProposalInit(t.Context(), &initialState, &proposalInit)
+	awaitingBlockInfoOrCommitmentState, err := transition.OnProposalInit(
+		t.Context(),
+		&initialState,
+		&proposalInit,
+	)
 	require.NoError(t, err)
 
 	// Step 2: BlockInfo
@@ -136,16 +155,23 @@ func TestProposal(t *testing.T) {
 		EthToStrkRate:     felt.FromUint64(ethToStrkRate),
 		L1DAMode:          core.Blob,
 	}
-	receivingTransactionsState, err := transition.OnBlockInfo(t.Context(), awaitingBlockInfoOrCommitmentState, &blockInfo)
+	receivingTransactionsState, err := transition.OnBlockInfo(
+		t.Context(),
+		awaitingBlockInfoOrCommitmentState,
+		&blockInfo,
+	)
 	require.NoError(t, err)
 
 	// Step 3: TransactionBatch
 	// Invoke txn: transfer tokens to account "0x102"
 	invokeTxn := core.InvokeTransaction{
-		TransactionHash: utils.HexToFelt(t, "0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992"),
-		SenderAddress:   utils.HexToFelt(t, "0x101"),
-		Version:         new(core.TransactionVersion).SetUint64(3),
-		Nonce:           new(felt.Felt).SetUint64(0),
+		TransactionHash: utils.HexToFelt(
+			t,
+			"0x631a5ed85f6758233b9286092f5eacbad90bdfb94a8fdfaab8c31e631232992",
+		),
+		SenderAddress: utils.HexToFelt(t, "0x101"),
+		Version:       new(core.TransactionVersion).SetUint64(3),
+		Nonce:         new(felt.Felt).SetUint64(0),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0"),
 			utils.HexToFelt(t, "0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823"),
@@ -206,11 +232,17 @@ func TestProposal(t *testing.T) {
 		L2GasUsed:             *utils.HexToFelt(t, "0x9dbc0"),
 		L1DAMode:              blockInfo.L1DAMode,
 	}
-	awaitingProposalFinState, err := transition.OnProposalCommitment(t.Context(), receivingTransactionsState, &nonEmptyCommitment)
+	awaitingProposalFinState, err := transition.OnProposalCommitment(
+		t.Context(),
+		receivingTransactionsState,
+		&nonEmptyCommitment,
+	)
 	require.NoError(t, err)
 
 	// Step 5: ProposalFin
-	proposalFin := types.ProposalFin(*utils.HexToFelt(t, "0x33104073e2e1af67a09ce406ba489fd00592aa406fba60d6a8a8959f7613080"))
+	proposalFin := types.ProposalFin(
+		*utils.HexToFelt(t, "0x33104073e2e1af67a09ce406ba489fd00592aa406fba60d6a8a8959f7613080"),
+	)
 	_, err = transition.OnProposalFin(t.Context(), awaitingProposalFinState, &proposalFin)
 	require.NoError(t, err)
 }

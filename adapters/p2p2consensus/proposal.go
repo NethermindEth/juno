@@ -55,7 +55,10 @@ func AdaptBlockInfo(msg *p2pconsensus.BlockInfo) (consensus.BlockInfo, error) {
 	}, nil
 }
 
-func AdaptProposalTransaction(msg *p2pconsensus.TransactionBatch, network *utils.Network) ([]consensus.Transaction, error) {
+func AdaptProposalTransaction(
+	msg *p2pconsensus.TransactionBatch,
+	network *utils.Network,
+) ([]consensus.Transaction, error) {
 	var err error
 	txns := make([]consensus.Transaction, len(msg.Transactions))
 	for i := range msg.Transactions {
@@ -66,7 +69,9 @@ func AdaptProposalTransaction(msg *p2pconsensus.TransactionBatch, network *utils
 	return txns, nil
 }
 
-func AdaptProposalCommitment(msg *p2pconsensus.ProposalCommitment) (consensus.ProposalCommitment, error) {
+func AdaptProposalCommitment(
+	msg *p2pconsensus.ProposalCommitment,
+) (consensus.ProposalCommitment, error) {
 	if err := validateProposalCommitment(msg); err != nil {
 		return consensus.ProposalCommitment{}, err
 	}

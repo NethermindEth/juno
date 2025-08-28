@@ -48,7 +48,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipFeeChargeFlag},
+		)
 		require.Nil(t, err)
 	})
 
@@ -64,7 +68,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Nil(t, err)
 	})
 
@@ -77,11 +85,19 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
-		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-			TransactionIndex: 44,
-			ExecutionError:   json.RawMessage("oops"),
-		}), err)
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
+		require.Equal(
+			t,
+			rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+				TransactionIndex: 44,
+				ExecutionError:   json.RawMessage("oops"),
+			}),
+			err,
+		)
 
 		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
@@ -91,11 +107,19 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, err = handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
-		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-			TransactionIndex: 44,
-			ExecutionError:   json.RawMessage("oops"),
-		}), err)
+		_, err = handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
+		require.Equal(
+			t,
+			rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
+				TransactionIndex: 44,
+				ExecutionError:   json.RawMessage("oops"),
+			}),
+			err,
+		)
 	})
 
 	t.Run("incosistant length error", func(t *testing.T) {
@@ -110,7 +134,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         uint64(0),
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			[]rpc.BroadcastedTransaction{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
 			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 		)), err)
@@ -152,7 +180,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "declare transaction without resource bounds",
@@ -165,7 +196,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without sender address",
@@ -177,7 +211,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without resource bounds",
@@ -190,7 +227,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "deploy account transaction without resource bounds",
@@ -202,7 +242,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 	}
 

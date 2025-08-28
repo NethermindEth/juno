@@ -17,8 +17,12 @@ func JunoFree(ptr unsafe.Pointer) {
 	C.free(ptr)
 }
 
+//
 //export JunoStateGetStorageAt
-func JunoStateGetStorageAt(readerHandle C.uintptr_t, contractAddress, storageLocation, buffer unsafe.Pointer) C.int {
+func JunoStateGetStorageAt(
+	readerHandle C.uintptr_t,
+	contractAddress, storageLocation, buffer unsafe.Pointer,
+) C.int {
 	context := unwrapContext(readerHandle)
 
 	contractAddressFelt := makeFeltFromPtr(contractAddress)
@@ -52,8 +56,12 @@ func JunoStateGetNonceAt(readerHandle C.uintptr_t, contractAddress, buffer unsaf
 	return fillBufferWithFelt(val, buffer)
 }
 
+//
 //export JunoStateGetClassHashAt
-func JunoStateGetClassHashAt(readerHandle C.uintptr_t, contractAddress, buffer unsafe.Pointer) C.int {
+func JunoStateGetClassHashAt(
+	readerHandle C.uintptr_t,
+	contractAddress, buffer unsafe.Pointer,
+) C.int {
 	context := unwrapContext(readerHandle)
 
 	contractAddressFelt := makeFeltFromPtr(contractAddress)

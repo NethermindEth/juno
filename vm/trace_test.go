@@ -142,10 +142,14 @@ func TestAllMessages(t *testing.T) {
 
 	for description, trace := range tests {
 		t.Run(description, func(t *testing.T) {
-			require.ElementsMatch(t, utils.Map(messages, func(e vm.OrderedL2toL1Message) vm.OrderedL2toL1Message {
-				e.From = contractAddr
-				return e
-			}), trace.AllMessages())
+			require.ElementsMatch(
+				t,
+				utils.Map(messages, func(e vm.OrderedL2toL1Message) vm.OrderedL2toL1Message {
+					e.From = contractAddr
+					return e
+				}),
+				trace.AllMessages(),
+			)
 		})
 	}
 }

@@ -6,13 +6,18 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptContractDiff(addr, nonce, classHash *felt.Felt, storageDiff map[felt.Felt]*felt.Felt) *state.ContractDiff {
+func AdaptContractDiff(
+	addr, nonce, classHash *felt.Felt,
+	storageDiff map[felt.Felt]*felt.Felt,
+) *state.ContractDiff {
 	return &state.ContractDiff{
-		Address:   AdaptAddress(addr),
-		Nonce:     AdaptFelt(nonce),
-		ClassHash: AdaptHash(classHash), // This will need to be set if deployed_contracts and replaced_classes are removed from StateDiff
-		Values:    AdaptStorageDiff(storageDiff),
-		Domain:    0,
+		Address: AdaptAddress(addr),
+		Nonce:   AdaptFelt(nonce),
+		ClassHash: AdaptHash(
+			classHash,
+		), // This will need to be set if deployed_contracts and replaced_classes are removed from StateDiff
+		Values: AdaptStorageDiff(storageDiff),
+		Domain: 0,
 	}
 }
 

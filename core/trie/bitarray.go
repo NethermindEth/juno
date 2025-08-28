@@ -531,13 +531,21 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(data[0])
 	case 2:
 		_ = data[1]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint16(data[0:2]))
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(
+			binary.BigEndian.Uint16(data[0:2]),
+		)
 	case 3:
 		_ = data[2]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(
+			binary.BigEndian.Uint16(data[1:3]),
+		)|uint64(
+			data[0],
+		)<<16
 	case 4:
 		_ = data[3]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(binary.BigEndian.Uint32(data[0:4]))
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, uint64(
+			binary.BigEndian.Uint32(data[0:4]),
+		)
 	case 5:
 		_ = data[4]
 		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, bigEndianUint40(data[0:5])
@@ -552,90 +560,192 @@ func (b *BitArray) SetBytes(length uint8, data []byte) *BitArray {
 		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, 0, binary.BigEndian.Uint64(data[0:8])
 	case 9:
 		_ = data[8]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(data[0]), binary.BigEndian.Uint64(data[1:9])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(
+			data[0],
+		), binary.BigEndian.Uint64(
+			data[1:9],
+		)
 	case 10:
 		_ = data[9]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint16(data[0:2])), binary.BigEndian.Uint64(data[2:10])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(
+			binary.BigEndian.Uint16(data[0:2]),
+		), binary.BigEndian.Uint64(
+			data[2:10],
+		)
 	case 11:
 		_ = data[10]
 		b.words[3], b.words[2] = 0, 0
-		b.words[1], b.words[0] = uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16, binary.BigEndian.Uint64(data[3:11])
+		b.words[1], b.words[0] = uint64(
+			binary.BigEndian.Uint16(data[1:3]),
+		)|uint64(
+			data[0],
+		)<<16, binary.BigEndian.Uint64(
+			data[3:11],
+		)
 	case 12:
 		_ = data[11]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(binary.BigEndian.Uint32(data[0:4])), binary.BigEndian.Uint64(data[4:12])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, uint64(
+			binary.BigEndian.Uint32(data[0:4]),
+		), binary.BigEndian.Uint64(
+			data[4:12],
+		)
 	case 13:
 		_ = data[12]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint40(data[0:5]), binary.BigEndian.Uint64(data[5:13])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint40(
+			data[0:5],
+		), binary.BigEndian.Uint64(
+			data[5:13],
+		)
 	case 14:
 		_ = data[13]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint48(data[0:6]), binary.BigEndian.Uint64(data[6:14])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint48(
+			data[0:6],
+		), binary.BigEndian.Uint64(
+			data[6:14],
+		)
 	case 15:
 		_ = data[14]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint56(data[0:7]), binary.BigEndian.Uint64(data[7:15])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, bigEndianUint56(
+			data[0:7],
+		), binary.BigEndian.Uint64(
+			data[7:15],
+		)
 	case 16:
 		_ = data[15]
-		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, binary.BigEndian.Uint64(data[0:8]), binary.BigEndian.Uint64(data[8:16])
+		b.words[3], b.words[2], b.words[1], b.words[0] = 0, 0, binary.BigEndian.Uint64(
+			data[0:8],
+		), binary.BigEndian.Uint64(
+			data[8:16],
+		)
 	case 17:
 		_ = data[16]
 		b.words[3], b.words[2] = 0, uint64(data[0])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[1:9]), binary.BigEndian.Uint64(data[9:17])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[1:9],
+		), binary.BigEndian.Uint64(
+			data[9:17],
+		)
 	case 18:
 		_ = data[17]
 		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint16(data[0:2]))
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[2:10]), binary.BigEndian.Uint64(data[10:18])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[2:10],
+		), binary.BigEndian.Uint64(
+			data[10:18],
+		)
 	case 19:
 		_ = data[18]
 		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint16(data[1:3]))|uint64(data[0])<<16
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[3:11]), binary.BigEndian.Uint64(data[11:19])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[3:11],
+		), binary.BigEndian.Uint64(
+			data[11:19],
+		)
 	case 20:
 		_ = data[19]
 		b.words[3], b.words[2] = 0, uint64(binary.BigEndian.Uint32(data[0:4]))
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[4:12]), binary.BigEndian.Uint64(data[12:20])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[4:12],
+		), binary.BigEndian.Uint64(
+			data[12:20],
+		)
 	case 21:
 		_ = data[20]
 		b.words[3], b.words[2] = 0, bigEndianUint40(data[0:5])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[5:13]), binary.BigEndian.Uint64(data[13:21])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[5:13],
+		), binary.BigEndian.Uint64(
+			data[13:21],
+		)
 	case 22:
 		_ = data[21]
 		b.words[3], b.words[2] = 0, bigEndianUint48(data[0:6])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[6:14]), binary.BigEndian.Uint64(data[14:22])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[6:14],
+		), binary.BigEndian.Uint64(
+			data[14:22],
+		)
 	case 23:
 		_ = data[22]
 		b.words[3], b.words[2] = 0, bigEndianUint56(data[0:7])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[7:15]), binary.BigEndian.Uint64(data[15:23])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[7:15],
+		), binary.BigEndian.Uint64(
+			data[15:23],
+		)
 	case 24:
 		_ = data[23]
 		b.words[3], b.words[2] = 0, binary.BigEndian.Uint64(data[0:8])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[8:16]), binary.BigEndian.Uint64(data[16:24])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[8:16],
+		), binary.BigEndian.Uint64(
+			data[16:24],
+		)
 	case 25:
 		_ = data[24]
 		b.words[3], b.words[2] = uint64(data[0]), binary.BigEndian.Uint64(data[1:9])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[9:17]), binary.BigEndian.Uint64(data[17:25])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[9:17],
+		), binary.BigEndian.Uint64(
+			data[17:25],
+		)
 	case 26:
 		_ = data[25]
-		b.words[3], b.words[2] = uint64(binary.BigEndian.Uint16(data[0:2])), binary.BigEndian.Uint64(data[2:10])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[10:18]), binary.BigEndian.Uint64(data[18:26])
+		b.words[3], b.words[2] = uint64(
+			binary.BigEndian.Uint16(data[0:2]),
+		), binary.BigEndian.Uint64(
+			data[2:10],
+		)
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[10:18],
+		), binary.BigEndian.Uint64(
+			data[18:26],
+		)
 	case 27:
 		_ = data[26]
 		b.words[3] = uint64(binary.BigEndian.Uint16(data[1:3])) | uint64(data[0])<<16
 		b.words[2] = binary.BigEndian.Uint64(data[3:11])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[11:19]), binary.BigEndian.Uint64(data[19:27])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[11:19],
+		), binary.BigEndian.Uint64(
+			data[19:27],
+		)
 	case 28:
 		_ = data[27]
-		b.words[3], b.words[2] = uint64(binary.BigEndian.Uint32(data[0:4])), binary.BigEndian.Uint64(data[4:12])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[12:20]), binary.BigEndian.Uint64(data[20:28])
+		b.words[3], b.words[2] = uint64(
+			binary.BigEndian.Uint32(data[0:4]),
+		), binary.BigEndian.Uint64(
+			data[4:12],
+		)
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[12:20],
+		), binary.BigEndian.Uint64(
+			data[20:28],
+		)
 	case 29:
 		_ = data[28]
 		b.words[3], b.words[2] = bigEndianUint40(data[0:5]), binary.BigEndian.Uint64(data[5:13])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[13:21]), binary.BigEndian.Uint64(data[21:29])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[13:21],
+		), binary.BigEndian.Uint64(
+			data[21:29],
+		)
 	case 30:
 		_ = data[29]
 		b.words[3], b.words[2] = bigEndianUint48(data[0:6]), binary.BigEndian.Uint64(data[6:14])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[14:22]), binary.BigEndian.Uint64(data[22:30])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[14:22],
+		), binary.BigEndian.Uint64(
+			data[22:30],
+		)
 	case 31:
 		_ = data[30]
 		b.words[3], b.words[2] = bigEndianUint56(data[0:7]), binary.BigEndian.Uint64(data[7:15])
-		b.words[1], b.words[0] = binary.BigEndian.Uint64(data[15:23]), binary.BigEndian.Uint64(data[23:31])
+		b.words[1], b.words[0] = binary.BigEndian.Uint64(
+			data[15:23],
+		), binary.BigEndian.Uint64(
+			data[23:31],
+		)
 	default:
 		b.setBytes32(data)
 	}

@@ -49,7 +49,12 @@ func SetChainHeight(t *testing.T, database db.KeyValueStore, chainHeight types.H
 	}))
 }
 
-func LoadBlockDependencies(t *testing.T, database db.KeyValueStore, height types.Height, network *utils.Network) (headBlock, revealedBlock *core.Block) {
+func LoadBlockDependencies(
+	t *testing.T,
+	database db.KeyValueStore,
+	height types.Height,
+	network *utils.Network,
+) (headBlock, revealedBlock *core.Block) {
 	var err error
 	t.Helper()
 
@@ -82,13 +87,21 @@ func BuildTestFixture(
 	client := feeder.NewTestClient(t, testCase.Network)
 	gw := adaptfeeder.New(client)
 
-	rawStateUpdate, err := client.StateUpdateWithBlock(t.Context(), fmt.Sprintf("%d", testCase.Height))
+	rawStateUpdate, err := client.StateUpdateWithBlock(
+		t.Context(),
+		fmt.Sprintf("%d", testCase.Height),
+	)
 	require.NoError(t, err)
 
 	stateUpdate, block, err := gw.StateUpdateWithBlock(t.Context(), uint64(testCase.Height))
 	require.NoError(t, err)
 
-	headBlock, revealedBlock := LoadBlockDependencies(t, database, testCase.Height, testCase.Network)
+	headBlock, revealedBlock := LoadBlockDependencies(
+		t,
+		database,
+		testCase.Height,
+		testCase.Network,
+	)
 
 	proposer := &common.Address{Elements: ToBytes(*block.Header.SequencerAddress)}
 	concatCounts := calculateConcatCounts(block, stateUpdate)
@@ -97,10 +110,25 @@ func BuildTestFixture(
 	proposalInit := buildProposalInit(testCase, proposer)
 	blockInfo := buildBlockInfo(testCase.Height, proposer, block)
 	transactions := buildTransactions(t, gw, block, testCase.TxBatchCount)
-	proposalCommitment := buildProposalCommitment(rawStateUpdate, block, headBlock, proposer, concatCounts, totalGasConsumed)
+	proposalCommitment := buildProposalCommitment(
+		rawStateUpdate,
+		block,
+		headBlock,
+		proposer,
+		concatCounts,
+		totalGasConsumed,
+	)
 	proposalFin := buildProposalFin(block)
 
-	buildResult := buildBuildResult(t, gw, block, stateUpdate, rawStateUpdate, concatCounts, totalGasConsumed)
+	buildResult := buildBuildResult(
+		t,
+		gw,
+		block,
+		stateUpdate,
+		rawStateUpdate,
+		concatCounts,
+		totalGasConsumed,
+	)
 
 	proposal := buildProposal(testCase.Round, testCase.ValidRound, block)
 
@@ -144,8 +172,14 @@ func buildProposalInit(
 	}
 }
 
-func buildBlockInfo(height types.Height, proposer *common.Address, block *core.Block) consensus.ProposalPart {
-	ethToStrkRate := new(felt.Felt).Div(block.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInWei)
+func buildBlockInfo(
+	height types.Height,
+	proposer *common.Address,
+	block *core.Block,
+) consensus.ProposalPart {
+	ethToStrkRate := new(
+		felt.Felt,
+	).Div(block.L1DataGasPrice.PriceInFri, block.L1DataGasPrice.PriceInWei)
 	return consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_BlockInfo{
 			BlockInfo: &consensus.BlockInfo{
@@ -162,7 +196,12 @@ func buildBlockInfo(height types.Height, proposer *common.Address, block *core.B
 	}
 }
 
-func buildTransactions(t *testing.T, gw *adaptfeeder.Feeder, block *core.Block, txBatchCount int) []*consensus.ProposalPart {
+func buildTransactions(
+	t *testing.T,
+	gw *adaptfeeder.Feeder,
+	block *core.Block,
+	txBatchCount int,
+) []*consensus.ProposalPart {
 	txBatchSize := (len(block.Transactions)-1)/txBatchCount + 1
 	txBatches := []*consensus.ProposalPart{}
 
@@ -213,24 +252,40 @@ func buildProposalCommitment(
 	return consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Commitment{
 			Commitment: &consensus.ProposalCommitment{
-				BlockNumber:               block.Number,
-				ParentCommitment:          &common.Hash{Elements: ToBytes(*block.Header.ParentHash)},
-				Builder:                   proposer,
-				Timestamp:                 block.Header.Timestamp,
-				ProtocolVersion:           rawStateUpdate.Block.Version,
-				OldStateRoot:              &common.Hash{Elements: ToBytes(*previousBlock.GlobalStateRoot)},
-				VersionConstantCommitment: &common.Hash{Elements: ToBytes(felt.Zero)}, // TODO: Add version constant commitment
-				StateDiffCommitment:       &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.StateDiffCommitment)},
-				TransactionCommitment:     &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.TransactionCommitment)},
-				EventCommitment:           &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.EventCommitment)},
-				ReceiptCommitment:         &common.Hash{Elements: ToBytes(*rawStateUpdate.Block.ReceiptCommitment)},
-				ConcatenatedCounts:        &common.Felt252{Elements: ToBytes(concatCounts)},
-				L1GasPriceFri:             core2p2p.AdaptUint128(block.L1GasPriceSTRK),
-				L1DataGasPriceFri:         core2p2p.AdaptUint128(rawStateUpdate.Block.L1DataGasPrice.PriceInFri),
-				L2GasPriceFri:             core2p2p.AdaptUint128(block.L2GasPrice.PriceInFri),
-				L2GasUsed:                 &common.Uint128{Low: uint64(totalGasConsumed), High: 0},
-				NextL2GasPriceFri:         core2p2p.AdaptUint128(nextL2GasPriceFri),
-				L1DaMode:                  common.L1DataAvailabilityMode(block.L1DAMode),
+				BlockNumber: block.Number,
+				ParentCommitment: &common.Hash{
+					Elements: ToBytes(*block.Header.ParentHash),
+				},
+				Builder:         proposer,
+				Timestamp:       block.Header.Timestamp,
+				ProtocolVersion: rawStateUpdate.Block.Version,
+				OldStateRoot: &common.Hash{
+					Elements: ToBytes(*previousBlock.GlobalStateRoot),
+				},
+				VersionConstantCommitment: &common.Hash{
+					Elements: ToBytes(felt.Zero),
+				}, // TODO: Add version constant commitment
+				StateDiffCommitment: &common.Hash{
+					Elements: ToBytes(*rawStateUpdate.Block.StateDiffCommitment),
+				},
+				TransactionCommitment: &common.Hash{
+					Elements: ToBytes(*rawStateUpdate.Block.TransactionCommitment),
+				},
+				EventCommitment: &common.Hash{
+					Elements: ToBytes(*rawStateUpdate.Block.EventCommitment),
+				},
+				ReceiptCommitment: &common.Hash{
+					Elements: ToBytes(*rawStateUpdate.Block.ReceiptCommitment),
+				},
+				ConcatenatedCounts: &common.Felt252{Elements: ToBytes(concatCounts)},
+				L1GasPriceFri:      core2p2p.AdaptUint128(block.L1GasPriceSTRK),
+				L1DataGasPriceFri: core2p2p.AdaptUint128(
+					rawStateUpdate.Block.L1DataGasPrice.PriceInFri,
+				),
+				L2GasPriceFri:     core2p2p.AdaptUint128(block.L2GasPrice.PriceInFri),
+				L2GasUsed:         &common.Uint128{Low: uint64(totalGasConsumed), High: 0},
+				NextL2GasPriceFri: core2p2p.AdaptUint128(nextL2GasPriceFri),
+				L1DaMode:          common.L1DataAvailabilityMode(block.L1DAMode),
 			},
 		},
 	}
@@ -286,7 +341,10 @@ func buildProposal(round, validRound types.Round, block *core.Block) starknetcon
 	}
 }
 
-func buildPreState(buildResult *builder.BuildResult, headBlockHeader, revealedBlockHeader *core.Header) builder.BuildState {
+func buildPreState(
+	buildResult *builder.BuildResult,
+	headBlockHeader, revealedBlockHeader *core.Header,
+) builder.BuildState {
 	strippedBlockHeader := *buildResult.Preconfirmed.Block.Header
 	strippedBlockHeader.Hash = nil
 	strippedBlockHeader.GlobalStateRoot = nil
@@ -324,10 +382,19 @@ func calculateTotalGasConsumed(rawStateUpdate *starknet.StateUpdateWithBlock) in
 }
 
 func calculateConcatCounts(block *core.Block, stateUpdate *core.StateUpdate) felt.Felt {
-	return core.ConcatCounts(block.TransactionCount, block.EventCount, stateUpdate.StateDiff.Length(), block.L1DAMode)
+	return core.ConcatCounts(
+		block.TransactionCount,
+		block.EventCount,
+		stateUpdate.StateDiff.Length(),
+		block.L1DAMode,
+	)
 }
 
-func calculateNewClasses(t *testing.T, gw *adaptfeeder.Feeder, stateUpdate *core.StateUpdate) map[felt.Felt]core.Class {
+func calculateNewClasses(
+	t *testing.T,
+	gw *adaptfeeder.Feeder,
+	stateUpdate *core.StateUpdate,
+) map[felt.Felt]core.Class {
 	newClasses := make(map[felt.Felt]core.Class)
 	for classHash := range stateUpdate.StateDiff.DeclaredV1Classes {
 		class, err := gw.Class(t.Context(), &classHash)

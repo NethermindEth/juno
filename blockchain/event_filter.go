@@ -17,7 +17,10 @@ var errChunkSizeReached = errors.New("chunk size reached")
 type EventFilterer interface {
 	io.Closer
 
-	Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error)
+	Events(
+		cToken *ContinuationToken,
+		chunkSize uint64,
+	) ([]*FilteredEvent, *ContinuationToken, error)
 	SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error
 	SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error
 	SetRangeEndBlockToL1Head(filterRange EventFilterRange) error
@@ -70,7 +73,10 @@ func (e *EventFilter) WithLimit(limit uint) *EventFilter {
 }
 
 // SetRangeEndBlockByNumber sets an end of the block range by block number
-func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blockNumber uint64) error {
+func (e *EventFilter) SetRangeEndBlockByNumber(
+	filterRange EventFilterRange,
+	blockNumber uint64,
+) error {
 	if filterRange == EventFilterFrom {
 		e.fromBlock = blockNumber
 	} else if filterRange == EventFilterTo {
@@ -82,7 +88,10 @@ func (e *EventFilter) SetRangeEndBlockByNumber(filterRange EventFilterRange, blo
 }
 
 // SetRangeEndBlockByHash sets an end of the block range by block hash
-func (e *EventFilter) SetRangeEndBlockByHash(filterRange EventFilterRange, blockHash *felt.Felt) error {
+func (e *EventFilter) SetRangeEndBlockByHash(
+	filterRange EventFilterRange,
+	blockHash *felt.Felt,
+) error {
 	header, err := core.GetBlockHeaderByHash(e.txn, blockHash)
 	if err != nil {
 		return err
@@ -126,7 +135,10 @@ type FilteredEvent struct {
 	EventIndex      int
 }
 
-func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*FilteredEvent, *ContinuationToken, error) {
+func (e *EventFilter) Events(
+	cToken *ContinuationToken,
+	chunkSize uint64,
+) ([]*FilteredEvent, *ContinuationToken, error) {
 	var matchedEvents []*FilteredEvent
 
 	latest, err := core.GetChainHeight(e.txn)
@@ -152,7 +164,13 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	var rToken *ContinuationToken
 	// [canonicalBlock, pending]
 	if curBlock <= latest {
-		matchedEvents, rToken, err = e.canonicalEvents(matchedEvents, curBlock, latest, skippedEvents, chunkSize)
+		matchedEvents, rToken, err = e.canonicalEvents(
+			matchedEvents,
+			curBlock,
+			latest,
+			skippedEvents,
+			chunkSize,
+		)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -176,7 +194,13 @@ func (e *EventFilter) Events(cToken *ContinuationToken, chunkSize uint64) ([]*Fi
 	}
 
 	var processedEvents uint64
-	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, pending.Receipts, skippedEvents, chunkSize)
+	matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+		matchedEvents,
+		header,
+		pending.Receipts,
+		skippedEvents,
+		chunkSize,
+	)
 	if err != nil {
 		// Max events to scan exhausted middle of pending block, continue from next unprocessed event
 		if errors.Is(err, errChunkSizeReached) {
@@ -238,7 +262,13 @@ func (e *EventFilter) canonicalEvents(
 		}
 
 		var processedEvents uint64
-		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(matchedEvents, header, receipts, skippedEvents, chunkSize)
+		matchedEvents, processedEvents, err = e.matcher.AppendBlockEvents(
+			matchedEvents,
+			header,
+			receipts,
+			skippedEvents,
+			chunkSize,
+		)
 		if err != nil {
 			// Max events to scan exhausted mid block, continue from next unprocessed event
 			if errors.Is(err, errChunkSizeReached) {
@@ -253,7 +283,8 @@ func (e *EventFilter) canonicalEvents(
 	}
 
 	// If max scans exhausted end of block
-	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned && lastProccessedBlock <= e.toBlock {
+	if matchedBlockIter.scannedCount > matchedBlockIter.maxScanned &&
+		lastProccessedBlock <= e.toBlock {
 		rToken = &ContinuationToken{fromBlock: lastProccessedBlock, processedEvents: 0}
 		return matchedEvents, rToken, nil
 	}

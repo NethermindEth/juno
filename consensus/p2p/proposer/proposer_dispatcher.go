@@ -113,7 +113,9 @@ func (d *dispatcher[V, H, A]) fromBlockInfo() (*consensus.StreamMessage, error) 
 	})
 }
 
-func (d *dispatcher[V, H, A]) fromTransactions(txs []types.Transaction) (*consensus.StreamMessage, error) {
+func (d *dispatcher[V, H, A]) fromTransactions(
+	txs []types.Transaction,
+) (*consensus.StreamMessage, error) {
 	p2pTxBatch, err := consensus2p2p.AdaptProposalTransaction(txs)
 	if err != nil {
 		return nil, err // TODO: log error
@@ -156,7 +158,9 @@ func (d *dispatcher[V, H, A]) fromProposalFin() (*consensus.StreamMessage, error
 	})
 }
 
-func (d *dispatcher[V, H, A]) sendProposalPart(proposal *consensus.ProposalPart) (*consensus.StreamMessage, error) {
+func (d *dispatcher[V, H, A]) sendProposalPart(
+	proposal *consensus.ProposalPart,
+) (*consensus.StreamMessage, error) {
 	proposalBytes, err := proto.Marshal(proposal)
 	if err != nil {
 		return nil, err // TODO: log error

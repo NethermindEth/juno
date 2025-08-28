@@ -115,7 +115,9 @@ func (n *NoopSynchronizer) PendingState() (core.StateReader, func() error, error
 	return nil, nil, errors.New("PendingState() not implemented")
 }
 
-func (n *NoopSynchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
+func (n *NoopSynchronizer) PendingStateBeforeIndex(
+	index int,
+) (core.StateReader, func() error, error) {
 	return nil, nil, errors.New("PendingStateBeforeIndex() not implemented")
 }
 
@@ -218,17 +220,33 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 func (s *Synchronizer) handlePluginRevertBlock() {
 	fromBlock, err := s.blockchain.Head()
 	if err != nil {
-		s.log.Warnw("Failed to retrieve the reverted blockchain head block for the plugin", "err", err)
+		s.log.Warnw(
+			"Failed to retrieve the reverted blockchain head block for the plugin",
+			"err",
+			err,
+		)
 		return
 	}
 	fromSU, err := s.blockchain.StateUpdateByNumber(fromBlock.Number)
 	if err != nil {
-		s.log.Warnw("Failed to retrieve the reverted blockchain head state-update for the plugin", "err", err)
+		s.log.Warnw(
+			"Failed to retrieve the reverted blockchain head state-update for the plugin",
+			"err",
+			err,
+		)
 		return
 	}
 	reverseStateDiff, err := s.blockchain.GetReverseStateDiff()
 	if err != nil {
-		s.log.Warnw("Failed to retrieve reverse state diff", "head", fromBlock.Number, "hash", fromBlock.Hash.ShortString(), "err", err)
+		s.log.Warnw(
+			"Failed to retrieve reverse state diff",
+			"head",
+			fromBlock.Number,
+			"hash",
+			fromBlock.Hash.ShortString(),
+			"err",
+			err,
+		)
 		return
 	}
 
@@ -258,9 +276,15 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	}
 }
 
+//
 //nolint:gocyclo
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc, persisted chan struct{},
+func (s *Synchronizer) verifierTask(
+	ctx context.Context,
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+	resetStreams context.CancelFunc,
+	persisted chan struct{},
 ) stream.Callback {
 	verifyTimer := time.Now()
 	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
@@ -275,7 +299,15 @@ func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stat
 			defer close(persisted)
 
 			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
+				s.log.Warnw(
+					"Sanity checks failed",
+					"number",
+					block.Number,
+					"hash",
+					block.Hash.ShortString(),
+					"err",
+					err,
+				)
 				resetStreams()
 				return
 			}
@@ -389,7 +421,13 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
-				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
+				s.log.Warnw(
+					"Restarting sync process",
+					"height",
+					nextHeight,
+					"catchUpMode",
+					s.catchUpMode,
+				)
 			}
 		default:
 			curHeight, curStreamCtx, curCancel := nextHeight, streamCtx, streamCancel
@@ -413,7 +451,10 @@ func (s *Synchronizer) setupWorkers() (*stream.Stream, *stream.Stream) {
 	if s.catchUpMode {
 		numWorkers = maxWorkers()
 	}
-	return stream.New().WithMaxGoroutines(numWorkers), stream.New().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	return stream.New().
+			WithMaxGoroutines(numWorkers),
+		stream.New().
+			WithMaxGoroutines(runtime.GOMAXPROCS(0))
 }
 
 func (s *Synchronizer) revertHead(forkBlock *core.Block) {
@@ -618,7 +659,10 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context) error {
 		return nil
 	}
 
-	preConfirmedBlock, err := s.dataSource.PreConfirmedBlockByNumber(ctx, highestBlockHeader.Number+1)
+	preConfirmedBlock, err := s.dataSource.PreConfirmedBlockByNumber(
+		ctx,
+		highestBlockHeader.Number+1,
+	)
 	if err != nil {
 		return err
 	}
@@ -762,7 +806,11 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
+	return NewPendingState(
+		pending.GetStateUpdate().StateDiff,
+		pending.GetNewClasses(),
+		core.NewState(txn),
+	), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
@@ -794,7 +842,11 @@ func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 	if err == nil {
 		if blockVer.GreaterThanEqual(core.Ver0_14_0) {
 			if err := s.storeEmptyPreConfirmed(lastHeader); err != nil {
-				s.log.Errorw("Failed to store empty pre_confirmed block", "number", lastHeader.Number)
+				s.log.Errorw(
+					"Failed to store empty pre_confirmed block",
+					"number",
+					lastHeader.Number,
+				)
 			}
 		} else {
 			if err := s.storeEmptyPending(lastHeader); err != nil {

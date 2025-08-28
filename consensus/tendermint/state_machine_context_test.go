@@ -33,7 +33,12 @@ type stateMachineContext struct {
 	builderRound  types.Round
 }
 
-func newTestRound(t *testing.T, stateMachine *testStateMachine, h types.Height, r types.Round) stateMachineContext {
+func newTestRound(
+	t *testing.T,
+	stateMachine *testStateMachine,
+	h types.Height,
+	r types.Round,
+) stateMachineContext {
 	return stateMachineContext{
 		testing:       t,
 		stateMachine:  stateMachine,
@@ -57,7 +62,9 @@ func (t stateMachineContext) processTimeout(s types.Step) actionAsserter[any] {
 	return actionAsserter[any]{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		actions:      t.stateMachine.ProcessTimeout(types.Timeout{Step: s, Height: t.builderHeight, Round: t.builderRound}),
+		actions: t.stateMachine.ProcessTimeout(
+			types.Timeout{Step: s, Height: t.builderHeight, Round: t.builderRound},
+		),
 	}
 }
 
@@ -66,7 +73,11 @@ func (t stateMachineContext) validator(idx int) incomingMessageBuilder {
 	return incomingMessageBuilder{
 		testing:      t.testing,
 		stateMachine: t.stateMachine,
-		header:       starknet.MessageHeader{Height: t.builderHeight, Round: t.builderRound, Sender: *getVal(idx)},
+		header: starknet.MessageHeader{
+			Height: t.builderHeight,
+			Round:  t.builderRound,
+			Sender: *getVal(idx),
+		},
 	}
 }
 

@@ -42,13 +42,15 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}}, nil)
+		mockState.EXPECT().
+			Class(new(felt.Felt)).
+			Return(&core.DeclaredClass{Class: &core.Cairo1Class{
+				Program: []*felt.Felt{
+					new(felt.Felt).SetUint64(3),
+					new(felt.Felt),
+					new(felt.Felt),
+				},
+			}}, nil)
 
 		blockID := blockIDLatest(t)
 		_, rpcErr := handler.Call(&rpcv8.FunctionCall{}, &blockID)
@@ -60,7 +62,11 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		blockID := blockIDLatest(t)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(
+			&blockID,
+			[]rpcv8.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})

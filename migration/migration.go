@@ -48,7 +48,12 @@ type Migration interface {
 type MigrationFunc func(db.IndexedBatch, *utils.Network) error
 
 // Migrate returns f(txn).
-func (f MigrationFunc) Migrate(_ context.Context, database db.KeyValueStore, network *utils.Network, _ utils.SimpleLogger) ([]byte, error) {
+func (f MigrationFunc) Migrate(
+	_ context.Context,
+	database db.KeyValueStore,
+	network *utils.Network,
+	_ utils.SimpleLogger,
+) ([]byte, error) {
 	txn := database.NewIndexedBatch()
 	if err := f(txn, network); err != nil {
 		return nil, err
@@ -67,18 +72,39 @@ var defaultMigrations = []Migration{
 	MigrationFunc(recalculateBloomFilters),
 	new(changeTrieNodeEncoding),
 	MigrationFunc(calculateBlockCommitments),
-	NewBucketMigrator(db.ClassesTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ClassesTrie)),
-	NewBucketMigrator(db.StateTrie, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.StateTrie)),
-	NewBucketMigrator(db.ContractStorage, migrateTrieRootKeysFromBitsetToTrieKeys).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
-	NewBucketMigrator(db.ClassesTrie, migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie)).WithKeyFilter(nodesFilter(db.ClassesTrie)),
+	NewBucketMigrator(
+		db.ClassesTrie,
+		migrateTrieRootKeysFromBitsetToTrieKeys,
+	).WithKeyFilter(rootKeysFilter(db.ClassesTrie)),
+	NewBucketMigrator(
+		db.StateTrie,
+		migrateTrieRootKeysFromBitsetToTrieKeys,
+	).WithKeyFilter(rootKeysFilter(db.StateTrie)),
+	NewBucketMigrator(
+		db.ContractStorage,
+		migrateTrieRootKeysFromBitsetToTrieKeys,
+	).WithKeyFilter(rootKeysFilter(db.ContractStorage)),
+	NewBucketMigrator(
+		db.ClassesTrie,
+		migrateTrieNodesFromBitsetToTrieKey(db.ClassesTrie),
+	).WithKeyFilter(nodesFilter(db.ClassesTrie)),
 	NewBucketMover(db.Temporary, db.ClassesTrie),
-	NewBucketMigrator(db.StateTrie, migrateTrieNodesFromBitsetToTrieKey(db.StateTrie)).WithKeyFilter(nodesFilter(db.StateTrie)),
+	NewBucketMigrator(
+		db.StateTrie,
+		migrateTrieNodesFromBitsetToTrieKey(db.StateTrie),
+	).WithKeyFilter(nodesFilter(db.StateTrie)),
 	NewBucketMover(db.Temporary, db.StateTrie),
 	NewBucketMigrator(db.ContractStorage, migrateTrieNodesFromBitsetToTrieKey(db.ContractStorage)).
 		WithKeyFilter(nodesFilter(db.ContractStorage)),
 	NewBucketMover(db.Temporary, db.ContractStorage),
-	NewBucketMigrator(db.StateUpdatesByBlockNumber, changeStateDiffStruct2).WithBatchSize(100), //nolint:mnd
-	NewBucketMigrator(db.Class, migrateCairo1CompiledClass2).WithBatchSize(1_000),              //nolint:mnd
+	NewBucketMigrator(
+		db.StateUpdatesByBlockNumber,
+		changeStateDiffStruct2,
+	).WithBatchSize(100), //nolint:mnd
+	NewBucketMigrator(
+		db.Class,
+		migrateCairo1CompiledClass2,
+	).WithBatchSize(1_000), //nolint:mnd
 	MigrationFunc(calculateL1MsgHashes2),
 	MigrationFunc(removePendingBlock),
 	MigrationFunc(reconstructAggregatedBloomFilters),
@@ -123,7 +149,9 @@ func migrateIfNeeded(
 
 	currentVersion := uint64(len(migrations))
 	if metadata.Version > currentVersion {
-		return errors.New("db is from a newer, incompatible version of Juno; upgrade to use this database")
+		return errors.New(
+			"db is from a newer, incompatible version of Juno; upgrade to use this database",
+		)
 	}
 
 	if httpConfig.Enabled {
@@ -135,7 +163,11 @@ func migrateIfNeeded(
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		log.Infow("Applying database migration", "stage", fmt.Sprintf("%d/%d", i+1, len(migrations)))
+		log.Infow(
+			"Applying database migration",
+			"stage",
+			fmt.Sprintf("%d/%d", i+1, len(migrations)),
+		)
 		migration := migrations[i]
 		if err = migration.Before(metadata.IntermediateState); err != nil {
 			return err
@@ -587,7 +619,11 @@ func bitset2BitArray(bs *bitset.BitSet) *trie.BitArray {
 	return new(trie.BitArray).SetFelt(uint8(bs.Len()), f)
 }
 
-func migrateTrieRootKeysFromBitsetToTrieKeys(txn db.KeyValueWriter, key, value []byte, _ *utils.Network) error {
+func migrateTrieRootKeysFromBitsetToTrieKeys(
+	txn db.KeyValueWriter,
+	key, value []byte,
+	_ *utils.Network,
+) error {
 	var bs bitset.BitSet
 	var tempBuf bytes.Buffer
 	if err := bs.UnmarshalBinary(value); err != nil {
@@ -861,7 +897,12 @@ func reconstructAggregatedBloomFilters(txn db.IndexedBatch, network *utils.Netwo
 			err := core.WriteAggregatedBloomFilter(txn, &filter)
 			writeMu.Unlock()
 			if err != nil {
-				return fmt.Errorf("failed to write aggregated bloom filter for blocks %d-%d: %w", rangeStart, rangeEnd, err)
+				return fmt.Errorf(
+					"failed to write aggregated bloom filter for blocks %d-%d: %w",
+					rangeStart,
+					rangeEnd,
+					err,
+				)
 			}
 
 			return nil

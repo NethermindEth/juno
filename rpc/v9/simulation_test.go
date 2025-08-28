@@ -100,10 +100,12 @@ func TestSimulateTransactions(t *testing.T) {
 					})
 			},
 			simulationFlags: []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
-			err: rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
-				TransactionIndex: 44,
-				ExecutionError:   json.RawMessage("oops"),
-			}),
+			err: rpccore.ErrTransactionExecutionError.CloneWithData(
+				rpc.TransactionExecutionErrorData{
+					TransactionIndex: 44,
+					ExecutionError:   json.RawMessage("oops"),
+				},
+			),
 		},
 		{
 			name: "inconsistent lengths error",
@@ -197,7 +199,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "declare transaction without resource bounds",
@@ -210,7 +215,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without sender address",
@@ -222,7 +230,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			),
 		},
 		{
 			name: "invoke transaction without resource bounds",
@@ -235,7 +246,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 		{
 			name: "deploy account transaction without resource bounds",
@@ -247,7 +261,10 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 					},
 				},
 			},
-			err: jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type"),
+			err: jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			),
 		},
 	}
 

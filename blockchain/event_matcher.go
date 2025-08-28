@@ -94,7 +94,10 @@ func (e *EventMatcher) TestBloom(bloomFilter *bloom.BloomFilter) bool {
 }
 
 // Returns candidate possibly matching block in the given filter.
-func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBloomFilter, out *bitset.BitSet) error {
+func (e *EventMatcher) getCandidateBlocksForFilterInto(
+	filter *core.AggregatedBloomFilter,
+	out *bitset.BitSet,
+) error {
 	if out == nil {
 		return core.ErrMatchesBufferNil
 	}
@@ -140,8 +143,12 @@ func (e *EventMatcher) getCandidateBlocksForFilterInto(filter *core.AggregatedBl
 	return nil
 }
 
-func (e *EventMatcher) AppendBlockEvents(matchedEventsSofar []*FilteredEvent, header *core.Header, receipts []*core.TransactionReceipt,
-	skippedEvents uint64, chunkSize uint64,
+func (e *EventMatcher) AppendBlockEvents(
+	matchedEventsSofar []*FilteredEvent,
+	header *core.Header,
+	receipts []*core.TransactionReceipt,
+	skippedEvents uint64,
+	chunkSize uint64,
 ) ([]*FilteredEvent, uint64, error) {
 	processedEvents := uint64(0)
 	for _, receipt := range receipts {

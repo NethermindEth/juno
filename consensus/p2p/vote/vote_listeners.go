@@ -14,7 +14,9 @@ import (
 
 type voteListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] chan M
 
-func newListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr](bufferSize int) voteListener[M, V, H, A] {
+func newListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr](
+	bufferSize int,
+) voteListener[M, V, H, A] {
 	return voteListener[M, V, H, A](make(chan M, bufferSize))
 }
 
@@ -43,7 +45,9 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	bufferSizeConfig *config.BufferSizes,
 ) voteListeners[V, H, A] {
 	prevoteListener := newListener[types.Prevote[H, A], V, H, A](bufferSizeConfig.PrevoteOutput)
-	precommitListener := newListener[types.Precommit[H, A], V, H, A](bufferSizeConfig.PrecommitOutput)
+	precommitListener := newListener[types.Precommit[H, A], V, H, A](
+		bufferSizeConfig.PrecommitOutput,
+	)
 
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
@@ -67,7 +71,11 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	}
 
 	return voteListeners[V, H, A]{
-		TopicSubscription: buffered.NewTopicSubscription(log, bufferSizeConfig.VoteSubscription, onMessage),
+		TopicSubscription: buffered.NewTopicSubscription(
+			log,
+			bufferSizeConfig.VoteSubscription,
+			onMessage,
+		),
 		log:               log,
 		PrevoteListener:   prevoteListener,
 		PrecommitListener: precommitListener,

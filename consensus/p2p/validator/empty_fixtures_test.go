@@ -90,7 +90,11 @@ func NewEmptyTestFixture(
 	}
 }
 
-func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, timestamp uint64) builder.BuildResult {
+func EmptyBuildResult(
+	headBlock *core.Block,
+	proposer, expectedHash *felt.Felt,
+	timestamp uint64,
+) builder.BuildResult {
 	return builder.BuildResult{
 		Preconfirmed: &core.PreConfirmed{
 			Block: &core.Block{
@@ -141,7 +145,11 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 	}
 }
 
-func EmptyProposalCommitment(headBlock *core.Block, proposer *felt.Felt, timestamp uint64) *consensus.ProposalPart {
+func EmptyProposalCommitment(
+	headBlock *core.Block,
+	proposer *felt.Felt,
+	timestamp uint64,
+) *consensus.ProposalPart {
 	return &consensus.ProposalPart{
 		Messages: &consensus.ProposalPart_Commitment{
 			Commitment: &consensus.ProposalCommitment{

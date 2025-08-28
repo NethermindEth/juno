@@ -42,13 +42,15 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}}, nil)
+		mockState.EXPECT().
+			Class(new(felt.Felt)).
+			Return(&core.DeclaredClass{Class: &core.Cairo1Class{
+				Program: []*felt.Felt{
+					new(felt.Felt),
+					new(felt.Felt),
+					new(felt.Felt),
+				},
+			}}, nil)
 		_, rpcErr := handler.Call(rpcv7.FunctionCall{}, rpcv7.BlockID{Latest: true})
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
@@ -56,7 +58,11 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			[]rpcv7.BroadcastedTransaction{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv7.ExecutionStepsHeader))
 	})
@@ -94,7 +100,10 @@ func TestThrottledVMError(t *testing.T) {
 		pending := sync.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
-		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), rpcv7.BlockID{Hash: blockHash})
+		_, httpHeader, rpcErr := handler.TraceBlockTransactions(
+			t.Context(),
+			rpcv7.BlockID{Hash: blockHash},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv7.ExecutionStepsHeader))
 	})

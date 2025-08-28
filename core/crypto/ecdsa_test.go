@@ -65,7 +65,9 @@ func BenchmarkVerify(b *testing.B) {
 		S: *utils.HexToFelt(b, "0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b"),
 	}
 	msg := utils.HexToFelt(b, "0x0000000000000000000000000000000000000000000000000000000000000002")
-	publicKey := crypto.NewPublicKey(utils.HexToFelt(b, "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca"))
+	publicKey := crypto.NewPublicKey(
+		utils.HexToFelt(b, "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca"),
+	)
 
 	var verified bool
 	var err error

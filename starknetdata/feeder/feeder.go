@@ -72,7 +72,10 @@ func (f *Feeder) block(ctx context.Context, blockID string) (*core.Block, error)
 
 // Transaction gets the transaction for a given transaction hash from the feeder,
 // then adapts it to the appropriate core.Transaction types.
-func (f *Feeder) Transaction(ctx context.Context, transactionHash *felt.Felt) (core.Transaction, error) {
+func (f *Feeder) Transaction(
+	ctx context.Context,
+	transactionHash *felt.Felt,
+) (core.Transaction, error) {
 	response, err := f.client.Transaction(ctx, transactionHash)
 	if err != nil {
 		return nil, err
@@ -129,7 +132,10 @@ func (f *Feeder) StateUpdatePending(ctx context.Context) (*core.StateUpdate, err
 	return f.stateUpdate(ctx, pendingID)
 }
 
-func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*core.StateUpdate, *core.Block, error) {
+func (f *Feeder) stateUpdateWithBlock(
+	ctx context.Context,
+	blockID string,
+) (*core.StateUpdate, *core.Block, error) {
 	response, err := f.client.StateUpdateWithBlock(ctx, blockID)
 	if err != nil {
 		return nil, nil, err
@@ -163,19 +169,27 @@ func (f *Feeder) stateUpdateWithBlock(ctx context.Context, blockID string) (*cor
 
 // StateUpdatePendingWithBlock gets both pending state update and pending block from the feeder,
 // then adapts them to the core.StateUpdate and core.Block types respectively
-func (f *Feeder) StateUpdatePendingWithBlock(ctx context.Context) (*core.StateUpdate, *core.Block, error) {
+func (f *Feeder) StateUpdatePendingWithBlock(
+	ctx context.Context,
+) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, pendingID)
 }
 
 // StateUpdateWithBlock gets both state update and block for a given block number from the feeder,
 // then adapts them to the core.StateUpdate and core.Block types respectively
-func (f *Feeder) StateUpdateWithBlock(ctx context.Context, blockNumber uint64) (*core.StateUpdate, *core.Block, error) {
+func (f *Feeder) StateUpdateWithBlock(
+	ctx context.Context,
+	blockNumber uint64,
+) (*core.StateUpdate, *core.Block, error) {
 	return f.stateUpdateWithBlock(ctx, strconv.FormatUint(blockNumber, 10))
 }
 
 // PreConfirmedWithBlockByNumber gets both pending state update and pending block from the feeder,
 // then adapts them to the core.PreConfirmed and list of transaction hashes types respectively
-func (f *Feeder) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+func (f *Feeder) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (core.PreConfirmed, error) {
 	response, err := f.client.PreConfirmedBlock(ctx, strconv.FormatUint(blockNumber, 10))
 	if err != nil {
 		return core.PreConfirmed{}, err

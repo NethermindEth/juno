@@ -262,7 +262,11 @@ func VerifyClassHashes(classes map[felt.Felt]Class) error {
 		}
 
 		if !cHash.Equal(&hash) {
-			return fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cHash.String(), hash.String())
+			return fmt.Errorf(
+				"cannot verify class hash: calculated hash %v, received hash %v",
+				cHash.String(),
+				hash.String(),
+			)
 		}
 	}
 

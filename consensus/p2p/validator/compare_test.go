@@ -87,7 +87,11 @@ func TestCompareProposalCommitment(t *testing.T) {
 		expected := newDefaultProposalCommitment()
 		p.BlockNumber = blockNumber + 1
 		err := compareProposalCommitment(expected, p)
-		expectedErr := fmt.Sprintf("block number mismatch: received=%d computed=%d", p.BlockNumber, h.Number)
+		expectedErr := fmt.Sprintf(
+			"block number mismatch: received=%d computed=%d",
+			p.BlockNumber,
+			h.Number,
+		)
 		require.EqualError(t, err, expectedErr)
 		p.BlockNumber = blockNumber
 	})

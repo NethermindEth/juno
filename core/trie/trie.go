@@ -60,7 +60,9 @@ func newTrie(storage *Storage, height uint8, hash crypto.HashFn) (*Trie, error) 
 	}
 
 	// maxKey is 2^height - 1
-	maxKey := new(felt.Felt).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
+	maxKey := new(
+		felt.Felt,
+	).Exp(new(felt.Felt).SetUint64(2), new(big.Int).SetUint64(uint64(height)))
 	maxKey.Sub(maxKey, new(felt.Felt).SetUint64(1))
 
 	rootKey, err := storage.RootKey()
@@ -137,7 +139,8 @@ func (sn *StorageNode) String() string {
 
 func (sn *StorageNode) Update(other *StorageNode) error {
 	// First validate all fields for conflicts
-	if sn.key != nil && other.key != nil && !sn.key.Equal(emptyBitArray) && !other.key.Equal(emptyBitArray) {
+	if sn.key != nil && other.key != nil && !sn.key.Equal(emptyBitArray) &&
+		!other.key.Equal(emptyBitArray) {
 		if !sn.key.Equal(other.key) {
 			return fmt.Errorf("keys do not match: %s != %s", sn.key, other.key)
 		}
@@ -292,7 +295,12 @@ func (t *Trie) updateLeaf(nodeKey BitArray, node *Node, value *felt.Felt) (*felt
 	return nil, nil
 }
 
-func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey BitArray, node *Node, value *felt.Felt) (*felt.Felt, error) {
+func (t *Trie) handleEmptyTrie(
+	old felt.Felt,
+	nodeKey BitArray,
+	node *Node,
+	value *felt.Felt,
+) (*felt.Felt, error) {
 	if value.IsZero() {
 		return nil, nil // no-op
 	}
@@ -304,7 +312,11 @@ func (t *Trie) handleEmptyTrie(old felt.Felt, nodeKey BitArray, node *Node, valu
 	return &old, nil
 }
 
-func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey BitArray, nodes []StorageNode) (*felt.Felt, error) {
+func (t *Trie) deleteExistingKey(
+	sibling StorageNode,
+	nodeKey BitArray,
+	nodes []StorageNode,
+) (*felt.Felt, error) {
 	if nodeKey.Equal(sibling.key) {
 		// we have to deference the Value, since the Node can released back
 		// to the NodePool and be reused anytime
@@ -317,7 +329,11 @@ func (t *Trie) deleteExistingKey(sibling StorageNode, nodeKey BitArray, nodes []
 	return nil, nil
 }
 
-func (t *Trie) replaceLinkWithNewParent(key *BitArray, commonKey BitArray, siblingParent StorageNode) {
+func (t *Trie) replaceLinkWithNewParent(
+	key *BitArray,
+	commonKey BitArray,
+	siblingParent StorageNode,
+) {
 	if siblingParent.node.Left.Equal(key) {
 		*siblingParent.node.Left = commonKey
 	} else {
@@ -591,7 +607,10 @@ func (t *Trie) updateValueIfDirty(key *BitArray) (*Node, error) { //nolint:gocyc
 	return node, nil
 }
 
-func (t *Trie) updateChildTriesSerially(root *Node, leftIsProof, rightIsProof bool) (*Node, *Node, error) {
+func (t *Trie) updateChildTriesSerially(
+	root *Node,
+	leftIsProof, rightIsProof bool,
+) (*Node, *Node, error) {
 	var leftChild, rightChild *Node
 	var err error
 	if !leftIsProof {
@@ -609,7 +628,10 @@ func (t *Trie) updateChildTriesSerially(root *Node, leftIsProof, rightIsProof bo
 	return leftChild, rightChild, nil
 }
 
-func (t *Trie) updateChildTriesConcurrently(root *Node, leftIsProof, rightIsProof bool) (*Node, *Node, error) {
+func (t *Trie) updateChildTriesConcurrently(
+	root *Node,
+	leftIsProof, rightIsProof bool,
+) (*Node, *Node, error) {
 	var leftChild, rightChild *Node
 	var lErr, rErr error
 
@@ -777,7 +799,8 @@ func (t *Trie) dump(level int, parentP *BitArray) {
 		rightHash = root.RightHash.String()
 	}
 
-	fmt.Printf("%skey : \"%s\" path: \"%s\" left: \"%s\" right: \"%s\" LH: \"%s\" RH: \"%s\" value: \"%s\" \n",
+	fmt.Printf(
+		"%skey : \"%s\" path: \"%s\" left: \"%s\" right: \"%s\" LH: \"%s\" RH: \"%s\" value: \"%s\" \n",
 		strings.Repeat("\t", level),
 		t.rootKey.String(),
 		path.String(),

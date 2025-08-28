@@ -123,14 +123,23 @@ func prepareTransactions(transactions []BroadcastedTransaction, network *utils.N
 		// it might be a good idea to implement a custom validator and unmarshal handler
 		// to solve this problem in a more elegant way
 		if checkTxHasSenderAddress(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "sender_address is required for this transaction type")
+			return nil, nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"sender_address is required for this transaction type",
+			)
 		}
 
 		if checkTxHasResourceBounds(&transactions[idx]) {
-			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, "resource_bounds is required for this transaction type")
+			return nil, nil, nil, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"resource_bounds is required for this transaction type",
+			)
 		}
 
-		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(&transactions[idx], network)
+		txn, declaredClass, paidFeeOnL1, aErr := AdaptBroadcastedTransaction(
+			&transactions[idx],
+			network,
+		)
 		if aErr != nil {
 			return nil, nil, nil, jsonrpc.Err(jsonrpc.InvalidParams, aErr.Error())
 		}
@@ -168,8 +177,14 @@ func createSimulatedTransactions(
 	daGas := executionResults.DataAvailability
 	if len(overallFees) != len(vmTraces) || len(overallFees) != len(gasConsumed) ||
 		len(overallFees) != len(daGas) || len(overallFees) != len(txns) {
-		return nil, fmt.Errorf("inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
-			len(overallFees), len(vmTraces), len(gasConsumed), len(daGas), len(txns))
+		return nil, fmt.Errorf(
+			"inconsistent lengths: %d overall fees, %d traces, %d gas consumed, %d data availability, %d txns",
+			len(overallFees),
+			len(vmTraces),
+			len(gasConsumed),
+			len(daGas),
+			len(txns),
+		)
 	}
 
 	l1GasPriceWei := header.L1GasPriceETH

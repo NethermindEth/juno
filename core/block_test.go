@@ -227,19 +227,22 @@ func TestBlockHash(t *testing.T) {
 		assert.Nil(t, commitments)
 	})
 
-	t.Run("error if hash of transaction doesn't match corresponding receipt hash", func(t *testing.T) {
-		mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
-		require.NoError(t, err)
+	t.Run(
+		"error if hash of transaction doesn't match corresponding receipt hash",
+		func(t *testing.T) {
+			mainnetBlock1, err := mainnetGW.BlockByNumber(t.Context(), 1)
+			require.NoError(t, err)
 
-		mainnetBlock1.Receipts[1].TransactionHash = h1
-		expectedErr := fmt.Sprintf(
-			"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
-			mainnetBlock1.Transactions[1].Hash().String(), 1,
-			mainnetBlock1.Receipts[1].TransactionHash)
-		commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet, nil)
-		assert.EqualError(t, err, expectedErr)
-		assert.Nil(t, commitments)
-	})
+			mainnetBlock1.Receipts[1].TransactionHash = h1
+			expectedErr := fmt.Sprintf(
+				"transaction hash (%v) at index: %v does not match receipt's hash (%v)",
+				mainnetBlock1.Transactions[1].Hash().String(), 1,
+				mainnetBlock1.Receipts[1].TransactionHash)
+			commitments, err := core.VerifyBlockHash(mainnetBlock1, &utils.Mainnet, nil)
+			assert.EqualError(t, err, expectedErr)
+			assert.Nil(t, commitments)
+		},
+	)
 }
 
 //nolint:dupl

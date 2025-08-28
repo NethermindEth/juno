@@ -53,8 +53,17 @@ func (b *Builder) Network() *utils.Network {
 	return b.blockchain.Network()
 }
 
-func (b *Builder) Finalise(preconfirmed *core.PreConfirmed, signer utils.BlockSignFunc, privateKey *ecdsa.PrivateKey) error {
-	return b.blockchain.Finalise(preconfirmed.Block, preconfirmed.StateUpdate, preconfirmed.NewClasses, signer)
+func (b *Builder) Finalise(
+	preconfirmed *core.PreConfirmed,
+	signer utils.BlockSignFunc,
+	privateKey *ecdsa.PrivateKey,
+) error {
+	return b.blockchain.Finalise(
+		preconfirmed.Block,
+		preconfirmed.StateUpdate,
+		preconfirmed.NewClasses,
+		signer,
+	)
 }
 
 func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error) {
@@ -140,7 +149,11 @@ func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func()
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), headCloser, nil
+	return sync.NewPendingState(
+		buildState.Preconfirmed.StateUpdate.StateDiff,
+		buildState.Preconfirmed.NewClasses,
+		headState,
+	), headCloser, nil
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {

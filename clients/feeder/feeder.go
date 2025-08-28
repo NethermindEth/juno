@@ -167,9 +167,13 @@ func (c *Client) get(ctx context.Context, queryURL string) (io.ReadCloser, error
 					"err", err,
 					"newHTTPTimeout", currentTimeout.String(),
 				)
-				c.log.Warnw("Timeouts can be updated via HTTP PUT request",
-					"timeout", currentTimeout.String(),
-					"hint", `Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`)
+				c.log.Warnw(
+					"Timeouts can be updated via HTTP PUT request",
+					"timeout",
+					currentTimeout.String(),
+					"hint",
+					`Set --http-update-port and --http-update-host flags and make a PUT request to "/feeder/timeouts" with the specified timeouts`,
+				)
 			} else {
 				c.log.Debugw("Failed query to feeder, retrying...",
 					"req", req.URL.String(),
@@ -201,7 +205,10 @@ func (c *Client) StateUpdate(ctx context.Context, blockID string) (*starknet.Sta
 	return update, nil
 }
 
-func (c *Client) Transaction(ctx context.Context, transactionHash *felt.Felt) (*starknet.TransactionStatus, error) {
+func (c *Client) Transaction(
+	ctx context.Context,
+	transactionHash *felt.Felt,
+) (*starknet.TransactionStatus, error) {
 	queryURL := c.buildQueryString("get_transaction", map[string]string{
 		"transactionHash": transactionHash.String(),
 	})
@@ -237,7 +244,10 @@ func (c *Client) Block(ctx context.Context, blockID string) (*starknet.Block, er
 	return block, nil
 }
 
-func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.ClassDefinition, error) {
+func (c *Client) ClassDefinition(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (*starknet.ClassDefinition, error) {
 	queryURL := c.buildQueryString("get_class_by_hash", map[string]string{
 		"classHash":   classHash.String(),
 		"blockNumber": "pending",
@@ -256,7 +266,10 @@ func (c *Client) ClassDefinition(ctx context.Context, classHash *felt.Felt) (*st
 	return class, nil
 }
 
-func (c *Client) CompiledClassDefinition(ctx context.Context, classHash *felt.Felt) (*starknet.CompiledClass, error) {
+func (c *Client) CompiledClassDefinition(
+	ctx context.Context,
+	classHash *felt.Felt,
+) (*starknet.CompiledClass, error) {
 	queryURL := c.buildQueryString("get_compiled_class_by_class_hash", map[string]string{
 		"classHash":   classHash.String(),
 		"blockNumber": "pending",
@@ -320,7 +333,10 @@ func (c *Client) Signature(ctx context.Context, blockID string) (*starknet.Signa
 	return signature, nil
 }
 
-func (c *Client) StateUpdateWithBlock(ctx context.Context, blockID string) (*starknet.StateUpdateWithBlock, error) {
+func (c *Client) StateUpdateWithBlock(
+	ctx context.Context,
+	blockID string,
+) (*starknet.StateUpdateWithBlock, error) {
 	queryURL := c.buildQueryString("get_state_update", map[string]string{
 		"blockNumber":  blockID,
 		"includeBlock": "true",
@@ -358,7 +374,10 @@ func (c *Client) BlockTrace(ctx context.Context, blockHash string) (*starknet.Bl
 	return traces, nil
 }
 
-func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*starknet.PreConfirmedBlock, error) {
+func (c *Client) PreConfirmedBlock(
+	ctx context.Context,
+	blockNumber string,
+) (*starknet.PreConfirmedBlock, error) {
 	queryURL := c.buildQueryString("get_preconfirmed_block", map[string]string{
 		"blockNumber": blockNumber,
 	})

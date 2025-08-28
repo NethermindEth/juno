@@ -124,7 +124,12 @@ type SequencerMempool struct {
 
 // New initialises the Pool and starts the database writer goroutine.
 // It is the responsibility of the caller to execute the closer function.
-func New(mainDB db.KeyValueStore, bc blockchain.Reader, maxNumTxns int, log utils.SimpleLogger) *SequencerMempool {
+func New(
+	mainDB db.KeyValueStore,
+	bc blockchain.Reader,
+	maxNumTxns int,
+	log utils.SimpleLogger,
+) *SequencerMempool {
 	pool := SequencerMempool{
 		log:         log,
 		bc:          bc,
@@ -247,7 +252,9 @@ func (p *SequencerMempool) Push(ctx context.Context, userTxn *BroadcastedTransac
 		select {
 		case _, ok := <-p.dbWriteChan:
 			if !ok {
-				p.log.Errorw("cannot store user transasction in persistent pool, database write channel is closed")
+				p.log.Errorw(
+					"cannot store user transasction in persistent pool, database write channel is closed",
+				)
 			}
 			p.log.Errorw("cannot store user transasction in persistent pool, database is full")
 		default:

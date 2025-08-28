@@ -75,25 +75,28 @@ func TestHeight(t *testing.T) {
 
 func TestBlockByNumberAndHash(t *testing.T) {
 	chain := blockchain.New(memory.New(), &utils.Sepolia)
-	t.Run("same block is returned for both core.GetBlockByNumber and GetBlockByHash", func(t *testing.T) {
-		client := feeder.NewTestClient(t, &utils.Mainnet)
-		gw := adaptfeeder.New(client)
+	t.Run(
+		"same block is returned for both core.GetBlockByNumber and GetBlockByHash",
+		func(t *testing.T) {
+			client := feeder.NewTestClient(t, &utils.Mainnet)
+			gw := adaptfeeder.New(client)
 
-		block, err := gw.BlockByNumber(t.Context(), 0)
-		require.NoError(t, err)
-		update, err := gw.StateUpdate(t.Context(), 0)
-		require.NoError(t, err)
+			block, err := gw.BlockByNumber(t.Context(), 0)
+			require.NoError(t, err)
+			update, err := gw.StateUpdate(t.Context(), 0)
+			require.NoError(t, err)
 
-		require.NoError(t, chain.Store(block, &emptyCommitments, update, nil))
+			require.NoError(t, chain.Store(block, &emptyCommitments, update, nil))
 
-		storedByNumber, err := chain.BlockByNumber(block.Number)
-		require.NoError(t, err)
-		assert.Equal(t, block, storedByNumber)
+			storedByNumber, err := chain.BlockByNumber(block.Number)
+			require.NoError(t, err)
+			assert.Equal(t, block, storedByNumber)
 
-		storedByHash, err := chain.BlockByHash(block.Hash)
-		require.NoError(t, err)
-		assert.Equal(t, block, storedByHash)
-	})
+			storedByHash, err := chain.BlockByHash(block.Hash)
+			require.NoError(t, err)
+			assert.Equal(t, block, storedByHash)
+		},
+	)
 	t.Run("core.GetBlockByNumber returns error if block doesn't exist", func(t *testing.T) {
 		_, err := chain.BlockByNumber(42)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
@@ -119,7 +122,11 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("error if chain is empty and incoming block parent's hash is not 0", func(t *testing.T) {
 		block := &core.Block{Header: &core.Header{ParentHash: h1}}
-		assert.EqualError(t, chain.VerifyBlock(block), "block's parent hash does not match head block hash")
+		assert.EqualError(
+			t,
+			chain.VerifyBlock(block),
+			"block's parent hash does not match head block hash",
+		)
 	})
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
@@ -138,17 +145,29 @@ func TestVerifyBlock(t *testing.T) {
 
 	t.Run("needs padding", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = "99.0" // should be padded to "99.0.0"
-		require.EqualError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil), "unsupported block version")
+		require.EqualError(
+			t,
+			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
+			"unsupported block version",
+		)
 	})
 
 	t.Run("needs truncating", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = "99.0.0.0" // last 0 digit should be ignored
-		require.EqualError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil), "unsupported block version")
+		require.EqualError(
+			t,
+			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
+			"unsupported block version",
+		)
 	})
 
 	t.Run("greater than supportedStarknetVersion", func(t *testing.T) {
 		mainnetBlock0.ProtocolVersion = "99.0.0"
-		require.EqualError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil), "unsupported block version")
+		require.EqualError(
+			t,
+			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
+			"unsupported block version",
+		)
 	})
 
 	t.Run("mismatch at patch version is ignored", func(t *testing.T) {
@@ -174,12 +193,20 @@ func TestVerifyBlock(t *testing.T) {
 	t.Run("error if difference between incoming block number and head is not 1",
 		func(t *testing.T) {
 			incomingBlock := &core.Block{Header: &core.Header{Number: 10}}
-			assert.EqualError(t, chain.VerifyBlock(incomingBlock), "expected block #1, got block #10")
+			assert.EqualError(
+				t,
+				chain.VerifyBlock(incomingBlock),
+				"expected block #1, got block #10",
+			)
 		})
 
 	t.Run("error when head hash does not match incoming block's parent hash", func(t *testing.T) {
 		incomingBlock := &core.Block{Header: &core.Header{ParentHash: h1, Number: 1}}
-		assert.EqualError(t, chain.VerifyBlock(incomingBlock), "block's parent hash does not match head block hash")
+		assert.EqualError(
+			t,
+			chain.VerifyBlock(incomingBlock),
+			"block's parent hash does not match head block hash",
+		)
 	})
 }
 
@@ -217,7 +244,11 @@ func TestSanityCheckNewHeight(t *testing.T) {
 			stateUpdate := &core.StateUpdate{BlockHash: mainnetBlock1.Hash, NewRoot: h1}
 
 			_, err = chain.SanityCheckNewHeight(mainnetBlock1, stateUpdate, nil)
-			assert.EqualError(t, err, "block's GlobalStateRoot does not match state update's NewRoot")
+			assert.EqualError(
+				t,
+				err,
+				"block's GlobalStateRoot does not match state update's NewRoot",
+			)
 		})
 }
 
@@ -293,10 +324,16 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, chain.Store(block, &emptyCommitments, stateUpdate, nil))
 	}
-	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
+	l1HandlerMsgHash := common.HexToHash(
+		"0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34",
+	)
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
+	require.Equal(
+		t,
+		utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"),
+		l1HandlerTxnHash,
+	)
 }
 
 func TestBlockCommitments(t *testing.T) {
@@ -343,11 +380,14 @@ func TestTransactionAndReceipt(t *testing.T) {
 		}, su, nil))
 	}
 
-	t.Run("GetTransactionByBlockNumberAndIndex returns error if transaction does not exist", func(t *testing.T) {
-		tx, err := chain.TransactionByBlockNumberAndIndex(32, 20)
-		assert.Nil(t, tx)
-		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
-	})
+	t.Run(
+		"GetTransactionByBlockNumberAndIndex returns error if transaction does not exist",
+		func(t *testing.T) {
+			tx, err := chain.TransactionByBlockNumberAndIndex(32, 20)
+			assert.Nil(t, tx)
+			assert.EqualError(t, err, db.ErrKeyNotFound.Error())
+		},
+	)
 
 	t.Run("GetTransactionByHash returns error if transaction does not exist", func(t *testing.T) {
 		tx, err := chain.TransactionByHash(new(felt.Felt).SetUint64(345))
@@ -361,24 +401,27 @@ func TestTransactionAndReceipt(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 
-	t.Run("GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction", func(t *testing.T) {
-		for i := range uint64(3) {
-			t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
-				block, err := gw.BlockByNumber(t.Context(), i)
-				require.NoError(t, err)
-
-				for j, expectedTx := range block.Transactions {
-					gotTx, err := chain.TransactionByHash(expectedTx.Hash())
+	t.Run(
+		"GetTransactionByHash and GetGetTransactionByBlockNumberAndIndex return same transaction",
+		func(t *testing.T) {
+			for i := range uint64(3) {
+				t.Run(fmt.Sprintf("mainnet block %v", i), func(t *testing.T) {
+					block, err := gw.BlockByNumber(t.Context(), i)
 					require.NoError(t, err)
-					assert.Equal(t, expectedTx, gotTx)
 
-					gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j))
-					require.NoError(t, err)
-					assert.Equal(t, expectedTx, gotTx)
-				}
-			})
-		}
-	})
+					for j, expectedTx := range block.Transactions {
+						gotTx, err := chain.TransactionByHash(expectedTx.Hash())
+						require.NoError(t, err)
+						assert.Equal(t, expectedTx, gotTx)
+
+						gotTx, err = chain.TransactionByBlockNumberAndIndex(block.Number, uint64(j))
+						require.NoError(t, err)
+						assert.Equal(t, expectedTx, gotTx)
+					}
+				})
+			}
+		},
+	)
 
 	t.Run("GetReceipt returns expected receipt", func(t *testing.T) {
 		for i := range uint64(3) {
@@ -561,14 +604,27 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with keys", func(t *testing.T) {
-		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		key := utils.HexToFelt(
+			t,
+			"0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533",
+		)
 		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingBlockFn)
 		require.NoError(t, err)
 
-		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
-			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
-		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterTo,
-			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+		require.NoError(t, filter.SetRangeEndBlockByHash(
+			blockchain.EventFilterFrom,
+			utils.HexToFelt(
+				t,
+				"0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14",
+			),
+		))
+		require.NoError(t, filter.SetRangeEndBlockByHash(
+			blockchain.EventFilterTo,
+			utils.HexToFelt(
+				t,
+				"0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14",
+			),
+		))
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			events, cToken, err := filter.Events(nil, 10)
@@ -581,7 +637,9 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with not matching keys", func(t *testing.T) {
 		filter, err := chain.EventFilter(from, [][]felt.Felt{
-			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
+			{
+				*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533"),
+			},
 			{*utils.HexToFelt(t, "0xDEADBEEF")},
 		}, pendingBlockFn)
 		require.NoError(t, err)

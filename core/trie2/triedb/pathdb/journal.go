@@ -182,7 +182,13 @@ func (d *Database) loadJournal() (layer, error) {
 		}
 
 		diskRoot := d.getStateRoot()
-		disk := newDiskLayer(&diskRoot, latestID, d, nil, newBuffer(d.config.WriteBufferSize, nil, 0))
+		disk := newDiskLayer(
+			&diskRoot,
+			latestID,
+			d,
+			nil,
+			newBuffer(d.config.WriteBufferSize, nil, 0),
+		)
 		return disk, nil
 	}
 
@@ -294,13 +300,23 @@ func (d *Database) getStateRoot() felt.Felt {
 		return felt.Zero
 	}
 
-	contractRootNode, err := trienode.DecodeNode(encContractRoot, &felt.Zero, 0, contractClassTrieHeight)
+	contractRootNode, err := trienode.DecodeNode(
+		encContractRoot,
+		&felt.Zero,
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return felt.Zero
 	}
 	contractRootHash := contractRootNode.Hash(crypto.Pedersen)
 
-	classRootNode, err := trienode.DecodeNode(encStorageRoot, &felt.Zero, 0, contractClassTrieHeight)
+	classRootNode, err := trienode.DecodeNode(
+		encStorageRoot,
+		&felt.Zero,
+		0,
+		contractClassTrieHeight,
+	)
 	if err != nil {
 		return felt.Zero
 	}

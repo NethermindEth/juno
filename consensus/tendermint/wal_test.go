@@ -77,7 +77,9 @@ func TestReplayWAL(t *testing.T) {
 		// Crash the node, replay wal, and assert we get to the expected state
 		sMachineRecoverd := New(mockDB, utils.NewNopZapLogger(), *proposerAddr, app, vals, types.Height(0)).(*testStateMachine)
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
-		walEntries := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{{Entry: proposalMessage, Type: types.MessageTypeProposal}}
+		walEntries := []db.WalEntry[starknet.Value, hash.Hash, address.Address]{
+			{Entry: proposalMessage, Type: types.MessageTypeProposal},
+		}
 		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries, nil)
 		sMachineRecoverd.ReplayWAL() // Should not panic
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)

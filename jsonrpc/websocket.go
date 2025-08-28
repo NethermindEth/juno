@@ -132,7 +132,8 @@ func (ws *Websocket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// in benign scenarios like timeouts or if the underlying TCP connection was ended before the client
 		// could initiate the close handshake.
 		errString = err.Error()
-		if !strings.Contains(errString, "already wrote close") && !strings.Contains(errString, "WebSocket closed") {
+		if !strings.Contains(errString, "already wrote close") &&
+			!strings.Contains(errString, "WebSocket closed") {
 			ws.log.Errorw("Failed to close websocket connection", "err", errString)
 		}
 	}
@@ -159,7 +160,11 @@ type websocketConn struct {
 	params *WebsocketConnParams
 }
 
-func newWebsocketConn(ctx context.Context, conn *websocket.Conn, params *WebsocketConnParams) *websocketConn {
+func newWebsocketConn(
+	ctx context.Context,
+	conn *websocket.Conn,
+	params *WebsocketConnParams,
+) *websocketConn {
 	conn.SetReadLimit(params.ReadLimit)
 	return &websocketConn{
 		conn:   conn,

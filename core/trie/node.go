@@ -143,7 +143,14 @@ func (n *Node) UnmarshalBinary(data []byte) error {
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}", n.Value, n.Left, n.Right, n.LeftHash, n.RightHash)
+	return fmt.Sprintf(
+		"Node{Value: %s, Left: %s, Right: %s, LeftHash: %s, RightHash: %s}",
+		n.Value,
+		n.Left,
+		n.Right,
+		n.LeftHash,
+		n.RightHash,
+	)
 }
 
 // Update the receiver with non-nil fields from the `other` Node.
@@ -158,7 +165,9 @@ func (n *Node) Update(other *Node) error {
 		return fmt.Errorf("conflicting Values: %v != %v", n.Value, other.Value)
 	}
 
-	if n.Left != nil && other.Left != nil && !n.Left.Equal(emptyBitArray) && !other.Left.Equal(emptyBitArray) && !n.Left.Equal(other.Left) {
+	if n.Left != nil && other.Left != nil && !n.Left.Equal(emptyBitArray) &&
+		!other.Left.Equal(emptyBitArray) &&
+		!n.Left.Equal(other.Left) {
 		return fmt.Errorf("conflicting Left keys: %v != %v", n.Left, other.Left)
 	}
 

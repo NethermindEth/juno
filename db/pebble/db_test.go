@@ -73,7 +73,10 @@ func TestCalculatePrefixSize(t *testing.T) {
 	t.Run("non empty db but empty prefix", func(t *testing.T) {
 		testDB, err := newPebbleMem()
 		require.NoError(t, err)
-		require.NoError(t, testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")))
+		require.NoError(
+			t,
+			testDB.Put(append([]byte("0"), []byte("randomKey")...), []byte("someValue")),
+		)
 		s, err := CalculatePrefixSize(t.Context(), testDB, []byte("1"), true)
 		require.NoError(t, err)
 		assert.Zero(t, s.Count)

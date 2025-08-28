@@ -88,12 +88,18 @@ func TestParseTimeouts(t *testing.T) {
 		{
 			name:  "multiple values",
 			input: "5s,7s,10s",
-			want:  want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			want: want{
+				timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
+				fixed:    false,
+			},
 		},
 		{
-			name:    "multiple values with trailing comma",
-			input:   "5s,7s,10s,",
-			want:    want{timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second}, fixed: false},
+			name:  "multiple values with trailing comma",
+			input: "5s,7s,10s,",
+			want: want{
+				timeouts: []time.Duration{5 * time.Second, 7 * time.Second, 10 * time.Second},
+				fixed:    false,
+			},
 			wantErr: false,
 		},
 		{
@@ -158,7 +164,12 @@ func TestGetDynamicTimeouts(t *testing.T) {
 	assert.Equal(t, want.timeouts, got.timeouts)
 }
 
-func setupTimeoutTest(t *testing.T, ctx context.Context, method, path string, client *Client) *httptest.ResponseRecorder {
+func setupTimeoutTest(
+	t *testing.T,
+	ctx context.Context,
+	method, path string,
+	client *Client,
+) *httptest.ResponseRecorder {
 	req, err := http.NewRequestWithContext(ctx, method, path, http.NoBody)
 	require.NoError(t, err)
 
@@ -196,7 +207,11 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 		ctx := t.Context()
 		rr := setupTimeoutTest(t, ctx, http.MethodGet, "/feeder/timeouts", client)
 		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "5s,10s,20s,40s,1m20s,2m0s,2m24s,2m53s,3m28s,4m10s,5m0s,6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s,53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s,2h40m26s\n", rr.Body.String())
+		assert.Equal(
+			t,
+			"5s,10s,20s,40s,1m20s,2m0s,2m24s,2m53s,3m28s,4m10s,5m0s,6m0s,7m12s,8m39s,10m23s,12m28s,14m58s,17m58s,21m34s,25m53s,31m4s,37m17s,44m45s,53m42s,1h4m27s,1h17m21s,1h32m50s,1h51m24s,2h13m41s,2h40m26s\n",
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("PUT update timeouts with missing parameter", func(t *testing.T) {
@@ -233,7 +248,13 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update timeouts list", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=5s,7s,10s", client)
+		rr := setupTimeoutTest(
+			t,
+			ctx,
+			http.MethodPut,
+			"/feeder/timeouts?timeouts=5s,7s,10s",
+			client,
+		)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		assert.Equal(t, "Replaced timeouts with '5s,7s,10s' successfully\n", rr.Body.String())
@@ -248,14 +269,28 @@ func TestHTTPTimeoutsSettings(t *testing.T) {
 		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=invalid", client)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "parsing timeout parameter number 1: time: invalid duration \"invalid\"\n", rr.Body.String())
+		assert.Equal(
+			t,
+			"parsing timeout parameter number 1: time: invalid duration \"invalid\"\n",
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("PUT update timeouts with invalid order", func(t *testing.T) {
-		rr := setupTimeoutTest(t, ctx, http.MethodPut, "/feeder/timeouts?timeouts=10s,5s,7s", client)
+		rr := setupTimeoutTest(
+			t,
+			ctx,
+			http.MethodPut,
+			"/feeder/timeouts?timeouts=10s,5s,7s",
+			client,
+		)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "timeout values must be in ascending order, got 5s <= 10s\n", rr.Body.String())
+		assert.Equal(
+			t,
+			"timeout values must be in ascending order, got 5s <= 10s\n",
+			rr.Body.String(),
+		)
 	})
 
 	t.Run("Method not allowed", func(t *testing.T) {

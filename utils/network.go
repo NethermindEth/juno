@@ -16,11 +16,11 @@ var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
 )
 
 type Network struct {
-	Name                string             `json:"name" validate:"required"`
-	FeederURL           string             `json:"feeder_url" validate:"required"`
-	GatewayURL          string             `json:"gateway_url" validate:"required"`
-	L1ChainID           *big.Int           `json:"l1_chain_id" validate:"required"`
-	L2ChainID           string             `json:"l2_chain_id" validate:"required"`
+	Name                string             `json:"name"                  validate:"required"`
+	FeederURL           string             `json:"feeder_url"            validate:"required"`
+	GatewayURL          string             `json:"gateway_url"           validate:"required"`
+	L1ChainID           *big.Int           `json:"l1_chain_id"           validate:"required"`
+	L2ChainID           string             `json:"l2_chain_id"           validate:"required"`
 	CoreContractAddress common.Address     `json:"core_contract_address" validate:"required"`
 	BlockHashMetaInfo   *BlockHashMetaInfo `json:"block_hash_meta_info"`
 }
@@ -29,14 +29,18 @@ type BlockHashMetaInfo struct {
 	// The sequencer address to use for blocks that do not have one
 	FallBackSequencerAddress *felt.Felt `json:"fallback_sequencer_address" validate:"required"`
 	// First block that uses the post-0.7.0 block hash algorithm
-	First07Block uint64 `json:"first_07_block" validate:"required"`
+	First07Block uint64 `json:"first_07_block"             validate:"required"`
 	// Range of blocks that are not verifiable
-	UnverifiableRange []uint64 `json:"unverifiable_range" validate:"required"`
+	UnverifiableRange []uint64 `json:"unverifiable_range"         validate:"required"`
 }
 
 var (
-	fallBackSequencerAddressMainnet, _ = new(felt.Felt).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
-	fallBackSequencerAddress, _        = new(felt.Felt).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
+	fallBackSequencerAddressMainnet, _ = new(
+		felt.Felt,
+	).SetString("0x021f4b90b0377c82bf330b7b5295820769e72d79d8acd0effa0ebde6e9988bc5")
+	fallBackSequencerAddress, _ = new(
+		felt.Felt,
+	).SetString("0x046a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b")
 	// The following are necessary for Cobra and Viper, respectively, to unmarshal log level CLI/config parameters properly.
 	_ pflag.Value              = (*Network)(nil)
 	_ encoding.TextUnmarshaler = (*Network)(nil)

@@ -33,7 +33,9 @@ func TestSyncing(t *testing.T) {
 
 	synchronizer.EXPECT().StartingBlockNumber().Return(startingBlock, nil).AnyTimes()
 	t.Run("empty blockchain", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(nil, errors.New("empty blockchain"))
+		mockReader.EXPECT().
+			BlockHeaderByNumber(startingBlock).
+			Return(nil, errors.New("empty blockchain"))
 
 		syncing, err := handler.Syncing()
 		assert.Nil(t, err)
@@ -58,7 +60,10 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 
-	synchronizer.EXPECT().HighestBlockHeader().Return(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}).Times(2)
+	synchronizer.EXPECT().
+		HighestBlockHeader().
+		Return(&core.Header{Number: 2, Hash: new(felt.Felt).SetUint64(2)}).
+		Times(2)
 	t.Run("block height is equal to highest block", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{}, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 2}, nil)
@@ -68,8 +73,12 @@ func TestSyncing(t *testing.T) {
 		assert.Equal(t, &rpc.Sync{Syncing: &defaultSyncState}, syncing)
 	})
 	t.Run("syncing", func(t *testing.T) {
-		mockReader.EXPECT().BlockHeaderByNumber(startingBlock).Return(&core.Header{Hash: &felt.Zero}, nil)
-		mockReader.EXPECT().HeadsHeader().Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
+		mockReader.EXPECT().
+			BlockHeaderByNumber(startingBlock).
+			Return(&core.Header{Hash: &felt.Zero}, nil)
+		mockReader.EXPECT().
+			HeadsHeader().
+			Return(&core.Header{Number: 1, Hash: new(felt.Felt).SetUint64(1)}, nil)
 
 		currentBlockNumber := uint64(1)
 		highestBlockNumber := uint64(2)

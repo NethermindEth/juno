@@ -57,25 +57,43 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 				order:   nil,
 			},
 			{
-				name:    "Multi-item database",
-				content: map[string]string{"k1": "v1", "k5": "v5", "k2": "v2", "k4": "v4", "k3": "v3"},
-				prefix:  "",
-				start:   "",
-				order:   []string{"k1", "k2", "k3", "k4", "k5"},
+				name: "Multi-item database",
+				content: map[string]string{
+					"k1": "v1",
+					"k5": "v5",
+					"k2": "v2",
+					"k4": "v4",
+					"k3": "v3",
+				},
+				prefix: "",
+				start:  "",
+				order:  []string{"k1", "k2", "k3", "k4", "k5"},
 			},
 			{
-				name:    "Multi-item database with matching prefix",
-				content: map[string]string{"k1": "v1", "k5": "v5", "k2": "v2", "k4": "v4", "k3": "v3"},
-				prefix:  "k",
-				start:   "",
-				order:   []string{"k1", "k2", "k3", "k4", "k5"},
+				name: "Multi-item database with matching prefix",
+				content: map[string]string{
+					"k1": "v1",
+					"k5": "v5",
+					"k2": "v2",
+					"k4": "v4",
+					"k3": "v3",
+				},
+				prefix: "k",
+				start:  "",
+				order:  []string{"k1", "k2", "k3", "k4", "k5"},
 			},
 			{
-				name:    "Multi-item database with non-matching prefix",
-				content: map[string]string{"k1": "v1", "k5": "v5", "k2": "v2", "k4": "v4", "k3": "v3"},
-				prefix:  "l",
-				start:   "",
-				order:   nil,
+				name: "Multi-item database with non-matching prefix",
+				content: map[string]string{
+					"k1": "v1",
+					"k5": "v5",
+					"k2": "v2",
+					"k4": "v4",
+					"k3": "v3",
+				},
+				prefix: "l",
+				start:  "",
+				order:  nil,
 			},
 			{
 				name: "Multi-item database with specific prefix",
@@ -202,7 +220,15 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			return nil
 		})
 		require.NoError(t, err, "Get operation failed for key %s", key)
-		require.Equal(t, value, got, "Get returned wrong value for key %s, expected %s, got %s", key, value, got)
+		require.Equal(
+			t,
+			value,
+			got,
+			"Get returned wrong value for key %s, expected %s, got %s",
+			key,
+			value,
+			got,
+		)
 
 		// Test Delete
 		err = database.Delete(key)
@@ -246,7 +272,12 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 		for k := range testData {
 			has, err := database.Has([]byte(k))
 			require.NoError(t, err, "Has operation failed for key %s", k)
-			require.False(t, has, "key should not exist in database before batch write for key %s", k)
+			require.False(
+				t,
+				has,
+				"key should not exist in database before batch write for key %s",
+				k,
+			)
 		}
 
 		// Write batch to database
@@ -261,7 +292,15 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 				return nil
 			})
 			require.NoError(t, err, "Get operation failed for key %s", k)
-			require.Equal(t, []byte(v), val, "Value mismatch after batch write for key %s, expected %s, got %s", k, v, val)
+			require.Equal(
+				t,
+				[]byte(v),
+				val,
+				"Value mismatch after batch write for key %s, expected %s, got %s",
+				k,
+				v,
+				val,
+			)
 		}
 
 		// Test batch reset
@@ -289,7 +328,15 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			return nil
 		})
 		require.NoError(t, err, "Get operation failed for key %s", key)
-		require.Equal(t, []byte(value), got, "Value mismatch after batch with size write for key %s, expected %s, got %s", key, value, got)
+		require.Equal(
+			t,
+			[]byte(value),
+			got,
+			"Value mismatch after batch with size write for key %s, expected %s, got %s",
+			key,
+			value,
+			got,
+		)
 
 		// Test batch delete operation
 		deleteBatch := database.NewBatch()
@@ -374,7 +421,13 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 				return nil
 			})
 			require.NoError(t, err, "Get operation failed for key %s", k)
-			require.Equal(t, []byte(v), val, "Value mismatch after indexed batch write for key %s", k)
+			require.Equal(
+				t,
+				[]byte(v),
+				val,
+				"Value mismatch after indexed batch write for key %s",
+				k,
+			)
 		}
 
 		// Test batch with pre-allocated size
@@ -394,7 +447,13 @@ func TestKeyValueStoreSuite(t *testing.T, newDB func() KeyValueStore) {
 			return nil
 		})
 		require.NoError(t, err, "Get operation on indexed batch with size failed for key %s", key)
-		require.Equal(t, []byte(value), val, "Value mismatch in indexed batch with size for key %s", key)
+		require.Equal(
+			t,
+			[]byte(value),
+			val,
+			"Value mismatch in indexed batch with size for key %s",
+			key,
+		)
 
 		// Write batch with size to database
 		err = batchWithSize.Write()

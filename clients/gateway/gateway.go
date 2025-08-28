@@ -76,7 +76,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 	// As this is a test sever we are mimic response for one good and one bad request.
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, []string{"API_KEY"}, r.Header["X-Throttling-Bypass"])
-		assert.Equal(t, []string{"Juno/v0.0.1-test Starknet Implementation"}, r.Header["User-Agent"])
+		assert.Equal(
+			t,
+			[]string{"Juno/v0.0.1-test Starknet Implementation"},
+			r.Header["User-Agent"],
+		)
 
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -97,7 +101,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 		}
 
 		hash := new(felt.Felt).SetBytes([]byte("random"))
-		resp := fmt.Sprintf("{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}", hash.String(), hash.String())
+		resp := fmt.Sprintf(
+			"{\"code\": \"TRANSACTION_RECEIVED\", \"transaction_hash\": %q, \"address\": %q}",
+			hash.String(),
+			hash.String(),
+		)
 		w.Write([]byte(resp)) //nolint:errcheck
 	}))
 }

@@ -100,7 +100,11 @@ func GetStateUpdateByBlockNum(r db.KeyValueReader, blockNum uint64) (*StateUpdat
 	return stateUpdate, nil
 }
 
-func WriteStateUpdateByBlockNum(w db.KeyValueWriter, blockNum uint64, stateUpdate *StateUpdate) error {
+func WriteStateUpdateByBlockNum(
+	w db.KeyValueWriter,
+	blockNum uint64,
+	stateUpdate *StateUpdate,
+) error {
 	data, err := encoder.Marshal(stateUpdate)
 	if err != nil {
 		return err
@@ -182,7 +186,10 @@ func DeleteBlockHeaderByNumber(w db.KeyValueWriter, number uint64) error {
 	return w.Delete(db.BlockHeaderByNumberKey(number))
 }
 
-func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*TransactionReceipt, error) {
+func GetReceiptByBlockNumIndexBytes(
+	r db.KeyValueReader,
+	bnIndex []byte,
+) (*TransactionReceipt, error) {
 	var (
 		receipt *TransactionReceipt
 		val     []byte
@@ -200,7 +207,11 @@ func GetReceiptByBlockNumIndexBytes(r db.KeyValueReader, bnIndex []byte) (*Trans
 	return receipt, nil
 }
 
-func WriteReceiptByBlockNumIndex(w db.KeyValueWriter, num, index uint64, receipt *TransactionReceipt) error {
+func WriteReceiptByBlockNumIndex(
+	w db.KeyValueWriter,
+	num, index uint64,
+	receipt *TransactionReceipt,
+) error {
 	data, err := encoder.Marshal(receipt)
 	if err != nil {
 		return err
@@ -260,7 +271,11 @@ func GetBlockCommitmentByBlockNum(r db.KeyValueReader, blockNum uint64) (*BlockC
 	return commitment, err
 }
 
-func WriteBlockCommitment(w db.KeyValueWriter, blockNum uint64, commitment *BlockCommitments) error {
+func WriteBlockCommitment(
+	w db.KeyValueWriter,
+	blockNum uint64,
+	commitment *BlockCommitments,
+) error {
 	data, err := encoder.Marshal(commitment)
 	if err != nil {
 		return err
@@ -281,7 +296,11 @@ func GetL1HandlerTxnHashByMsgHash(r db.KeyValueReader, msgHash []byte) (felt.Fel
 	return l1HandlerTxnHash, err
 }
 
-func WriteL1HandlerTxnHashByMsgHash(w db.KeyValueWriter, msgHash []byte, l1HandlerTxnHash *felt.Felt) error {
+func WriteL1HandlerTxnHashByMsgHash(
+	w db.KeyValueWriter,
+	msgHash []byte,
+	l1HandlerTxnHash *felt.Felt,
+) error {
 	return w.Put(db.L1HandlerTxnHashByMsgHashKey(msgHash), l1HandlerTxnHash.Marshal())
 }
 
@@ -481,7 +500,12 @@ func DeleteTxByBlockNumIndex(w db.KeyValueWriter, num, index uint64) error {
 	return w.Delete(db.TxByBlockNumIndexKey(num, index))
 }
 
-func WriteTxAndReceipt(w db.KeyValueWriter, num, index uint64, tx Transaction, receipt *TransactionReceipt) error {
+func WriteTxAndReceipt(
+	w db.KeyValueWriter,
+	num, index uint64,
+	tx Transaction,
+	receipt *TransactionReceipt,
+) error {
 	if err := WriteTxBlockNumIndexByHash(w, num, index, receipt.TransactionHash); err != nil {
 		return err
 	}
@@ -510,7 +534,10 @@ func GetTxByHash(r db.KeyValueReader, hash *felt.Felt) (Transaction, error) {
 	return GetTxByBlockNumIndexBytes(r, val)
 }
 
-func GetAggregatedBloomFilter(r db.KeyValueReader, fromBlock, toBLock uint64) (AggregatedBloomFilter, error) {
+func GetAggregatedBloomFilter(
+	r db.KeyValueReader,
+	fromBlock, toBLock uint64,
+) (AggregatedBloomFilter, error) {
 	var filter AggregatedBloomFilter
 	err := r.Get(db.AggregatedBloomFilterKey(fromBlock, toBLock), func(data []byte) error {
 		err := encoder.Unmarshal(data, &filter)

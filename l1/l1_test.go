@@ -72,7 +72,9 @@ func TestFailToCreateSubscription(t *testing.T) {
 
 	subscriber.EXPECT().Close().Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog).
+		WithResubscribeDelay(0).
+		WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	require.ErrorContains(t, client.Run(ctx), "context canceled before resubscribe was successful")
@@ -96,7 +98,9 @@ func TestMismatchedChainID(t *testing.T) {
 		Return(new(big.Int), nil).
 		Times(1)
 
-	client := l1.NewClient(subscriber, chain, nopLog).WithResubscribeDelay(0).WithPollFinalisedInterval(time.Nanosecond)
+	client := l1.NewClient(subscriber, chain, nopLog).
+		WithResubscribeDelay(0).
+		WithPollFinalisedInterval(time.Nanosecond)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
@@ -199,7 +203,11 @@ func (testService) BlockNumber(ctx context.Context) (string, error) {
 
 type testEmptyService struct{}
 
-func (testEmptyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
+func (testEmptyService) GetBlockByNumber(
+	ctx context.Context,
+	number string,
+	fullTx bool,
+) (any, error) {
 	return nil, nil
 }
 
@@ -209,7 +217,11 @@ func (testEmptyService) BlockNumber(ctx context.Context) (string, error) {
 
 type testFaultyService struct{}
 
-func (testFaultyService) GetBlockByNumber(ctx context.Context, number string, fullTx bool) (any, error) {
+func (testFaultyService) GetBlockByNumber(
+	ctx context.Context,
+	number string,
+	fullTx bool,
+) (any, error) {
 	return uint(0), nil
 }
 
@@ -219,16 +231,24 @@ func (testFaultyService) BlockNumber(ctx context.Context) (string, error) {
 
 func TestEthSubscriber_FinalisedHeight(t *testing.T) {
 	tests := createEthSubscriberTests(100)
-	testEthSubscriberHeight(t, tests, func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
-		return subscriber.FinalisedHeight(ctx)
-	})
+	testEthSubscriberHeight(
+		t,
+		tests,
+		func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
+			return subscriber.FinalisedHeight(ctx)
+		},
+	)
 }
 
 func TestEthSubscriber_LatestHeight(t *testing.T) {
 	tests := createEthSubscriberTests(200)
-	testEthSubscriberHeight(t, tests, func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
-		return subscriber.LatestHeight(ctx)
-	})
+	testEthSubscriberHeight(
+		t,
+		tests,
+		func(subscriber *l1.EthSubscriber, ctx context.Context) (uint64, error) {
+			return subscriber.LatestHeight(ctx)
+		},
+	)
 }
 
 func createEthSubscriberTests(testServiceExpectedHeight uint64) map[string]struct {
@@ -286,7 +306,10 @@ func testEthSubscriberHeight(t *testing.T, tests map[string]struct {
 			server, listener := startServer("127.0.0.1:0", test.service)
 			defer server.Stop()
 
-			subscriber, err := l1.NewEthSubscriber("ws://"+listener.Addr().String(), common.Address{})
+			subscriber, err := l1.NewEthSubscriber(
+				"ws://"+listener.Addr().String(),
+				common.Address{},
+			)
 			require.NoError(t, err)
 			defer subscriber.Close()
 

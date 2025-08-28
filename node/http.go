@@ -88,8 +88,14 @@ func exactPathServer(path string, handler http.Handler) http.HandlerFunc {
 	}
 }
 
-func makeRPCOverHTTP(host string, port uint16, servers map[string]*jsonrpc.Server,
-	httpHandlers map[string]http.HandlerFunc, log utils.SimpleLogger, metricsEnabled bool, corsEnabled bool,
+func makeRPCOverHTTP(
+	host string,
+	port uint16,
+	servers map[string]*jsonrpc.Server,
+	httpHandlers map[string]http.HandlerFunc,
+	log utils.SimpleLogger,
+	metricsEnabled bool,
+	corsEnabled bool,
 ) *httpService {
 	var listener jsonrpc.NewRequestListener
 	if metricsEnabled {
@@ -150,12 +156,23 @@ func makeRPCOverWebsocket(host string, port uint16, servers map[string]*jsonrpc.
 }
 
 func makeMetrics(host string, port uint16) *httpService {
-	return makeHTTPService(host, port,
-		promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer}))
+	return makeHTTPService(
+		host,
+		port,
+		promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{Registry: prometheus.DefaultRegisterer},
+		),
+	)
 }
 
 // Create a new service that updates the log level and timeouts settings.
-func makeHTTPUpdateService(host string, port uint16, logLevel *utils.LogLevel, feederClient *feeder.Client) *httpService {
+func makeHTTPUpdateService(
+	host string,
+	port uint16,
+	logLevel *utils.LogLevel,
+	feederClient *feeder.Client,
+) *httpService {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/log/level", func(w http.ResponseWriter, r *http.Request) {
 		utils.HTTPLogSettings(w, r, logLevel)
@@ -229,7 +246,11 @@ type readinessHandlers struct {
 	readinessBlockTolerance uint
 }
 
-func NewReadinessHandlers(bcReader blockchain.Reader, syncReader sync.Reader, readinessBlockTolerance uint) *readinessHandlers {
+func NewReadinessHandlers(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	readinessBlockTolerance uint,
+) *readinessHandlers {
 	return &readinessHandlers{
 		bcReader:                bcReader,
 		syncReader:              syncReader,

@@ -49,7 +49,10 @@ func AdaptStateDiff(fromStateDiff *vm.StateDiff) core.StateDiff {
 
 	// Preallocate all maps with known sizes from fromStateDiff
 	toStateDiff = core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(fromStateDiff.StorageDiffs)),
+		StorageDiffs: make(
+			map[felt.Felt]map[felt.Felt]*felt.Felt,
+			len(fromStateDiff.StorageDiffs),
+		),
 		Nonces:            make(map[felt.Felt]*felt.Felt, len(fromStateDiff.Nonces)),
 		DeployedContracts: make(map[felt.Felt]*felt.Felt, len(fromStateDiff.DeployedContracts)),
 		DeclaredV0Classes: make([]*felt.Felt, len(fromStateDiff.DeprecatedDeclaredClasses)),
@@ -98,7 +101,8 @@ func Receipt(fee *felt.Felt, txn core.Transaction,
 	}
 
 	adaptedER := AdaptExecutionResources(trace.TotalExecutionResources(), &txnReceipt.Gas)
-	isReverted := trace.ExecuteInvocation != nil && trace.ExecuteInvocation.FunctionInvocation == nil
+	isReverted := trace.ExecuteInvocation != nil &&
+		trace.ExecuteInvocation.FunctionInvocation == nil
 	return core.TransactionReceipt{
 		Fee:                fee,
 		FeeUnit:            feeUnit,
@@ -112,7 +116,10 @@ func Receipt(fee *felt.Felt, txn core.Transaction,
 	}
 }
 
-func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasConsumed) core.ExecutionResources {
+func AdaptExecutionResources(
+	resources *vm.ExecutionResources,
+	totalGas *vm.GasConsumed,
+) core.ExecutionResources {
 	adaptedDA := adaptDA(resources.DataAvailability)
 	return core.ExecutionResources{
 		BuiltinInstanceCounter: core.BuiltinInstanceCounter{
@@ -132,7 +139,11 @@ func AdaptExecutionResources(resources *vm.ExecutionResources, totalGas *vm.GasC
 		MemoryHoles:      resources.MemoryHoles,
 		Steps:            resources.Steps,
 		DataAvailability: &adaptedDA,
-		TotalGasConsumed: &core.GasConsumed{L1Gas: totalGas.L1Gas, L1DataGas: totalGas.L1DataGas, L2Gas: 0}, // Todo
+		TotalGasConsumed: &core.GasConsumed{
+			L1Gas:     totalGas.L1Gas,
+			L1DataGas: totalGas.L1DataGas,
+			L2Gas:     0,
+		}, // Todo
 	}
 }
 

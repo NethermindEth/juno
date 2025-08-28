@@ -11,7 +11,10 @@ import (
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
 
-func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Network) (consensus.Transaction, error) {
+func AdaptTransaction(
+	t *p2pconsensus.ConsensusTransaction,
+	network *utils.Network,
+) (consensus.Transaction, error) {
 	if err := validateConsensusTransaction(t); err != nil {
 		return consensus.Transaction{}, err
 	}
@@ -45,7 +48,11 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 	}
 
 	if *computedTransactionHash != *tx.Hash() {
-		return consensus.Transaction{}, fmt.Errorf("transaction hash mismatch: computed %s, got %s", computedTransactionHash, tx.Hash())
+		return consensus.Transaction{}, fmt.Errorf(
+			"transaction hash mismatch: computed %s, got %s",
+			computedTransactionHash,
+			tx.Hash(),
+		)
 	}
 
 	return consensus.Transaction{

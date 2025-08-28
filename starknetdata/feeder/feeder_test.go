@@ -112,7 +112,10 @@ func TestTransaction(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("invoke transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9")
+		hash := utils.HexToFelt(
+			t,
+			"0x7e3a229febf47c6edfd96582d9476dd91a58a5ba3df4553ae448a14a2f132d9",
+		)
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -125,7 +128,10 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb")
+		hash := utils.HexToFelt(
+			t,
+			"0x15b51c2f4880b1e7492d30ada7254fc59c09adde636f37eb08cdadbd9dabebb",
+		)
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -138,7 +144,10 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("deploy account transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2")
+		hash := utils.HexToFelt(
+			t,
+			"0xd61fc89f4d1dc4dc90a014957d655d38abffd47ecea8e3fa762e3160f155f2",
+		)
 		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -151,7 +160,10 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("declare transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f")
+		hash := utils.HexToFelt(
+			t,
+			"0x6eab8252abfc9bbfd72c8d592dde4018d07ce467c5ce922519d7142fcab203f",
+		)
 		response, err := clientGoerli.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -164,7 +176,10 @@ func TestTransaction(t *testing.T) {
 	})
 
 	t.Run("l1handler transaction", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8")
+		hash := utils.HexToFelt(
+			t,
+			"0x537eacfd3c49166eec905daff61ff7feef9c133a049ea2135cb94eec840a4a8",
+		)
 		response, err := clientMainnet.Transaction(ctx, hash)
 		require.NoError(t, err)
 		responseTx := response.Transaction
@@ -186,11 +201,17 @@ func TestClassV1(t *testing.T) {
 		hasCompiledClass bool
 	}{
 		{
-			classHash:        utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5"),
+			classHash: utils.HexToFelt(
+				t,
+				"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+			),
 			hasCompiledClass: true,
 		},
 		{
-			classHash:        utils.HexToFelt(t, "0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c"),
+			classHash: utils.HexToFelt(
+				t,
+				"0x4e70b19333ae94bd958625f7b61ce9eec631653597e68645e13780061b2136c",
+			),
 			hasCompiledClass: false,
 		},
 	}

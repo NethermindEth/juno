@@ -109,6 +109,7 @@ format: ## Format Go and Rust code
 	$(MAKE) -C core/rust format
 	$(MAKE) -C starknet/compiler/rust format
 	gofumpt -l -w .
+	golines -l -w .
 
 clean: ## Clean project builds
 	$(MAKE) -C vm/rust clean

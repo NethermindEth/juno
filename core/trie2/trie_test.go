@@ -289,7 +289,12 @@ func runRandTest(rt randTest) error {
 		db := memory.New()
 		curRoot := felt.Zero
 		trieDB := NewTestNodeDatabase(db, scheme)
-		tr, err := New(trieutils.NewContractTrieID(curRoot), contractClassTrieHeight, crypto.Pedersen, &trieDB)
+		tr, err := New(
+			trieutils.NewContractTrieID(curRoot),
+			contractClassTrieHeight,
+			crypto.Pedersen,
+			&trieDB,
+		)
 		if err != nil {
 			return err
 		}
@@ -317,7 +322,12 @@ func runRandTest(rt randTest) error {
 				}
 				want := values[*step.key]
 				if !got.Equal(&want) {
-					rt[i].err = fmt.Errorf("mismatch in get: key %s, expected %v, got %v", step.key.String(), want.String(), got.String())
+					rt[i].err = fmt.Errorf(
+						"mismatch in get: key %s, expected %v, got %v",
+						step.key.String(),
+						want.String(),
+						got.String(),
+					)
 				}
 			case opProve:
 				hash := tr.Hash()
@@ -331,7 +341,11 @@ func runRandTest(rt randTest) error {
 				}
 				_, err = VerifyProof(&hash, step.key, proof, crypto.Pedersen)
 				if err != nil {
-					rt[i].err = fmt.Errorf("verify proof failed for key %s: %w", step.key.String(), err)
+					rt[i].err = fmt.Errorf(
+						"verify proof failed for key %s: %w",
+						step.key.String(),
+						err,
+					)
 				}
 			case opHash:
 				tr.Hash()
@@ -343,7 +357,12 @@ func runRandTest(rt randTest) error {
 					}
 				}
 
-				newtr, err := New(trieutils.NewContractTrieID(root), contractClassTrieHeight, crypto.Pedersen, &trieDB)
+				newtr, err := New(
+					trieutils.NewContractTrieID(root),
+					contractClassTrieHeight,
+					crypto.Pedersen,
+					&trieDB,
+				)
 				if err != nil {
 					rt[i].err = fmt.Errorf("new trie failed: %w", err)
 				}

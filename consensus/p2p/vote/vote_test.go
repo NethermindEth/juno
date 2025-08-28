@@ -52,9 +52,24 @@ func extractVote(t *testing.T, message starknet.Message) (*starknet.Vote, consen
 }
 
 func assertStarknetVote(t *testing.T, expected, actual *starknet.Vote) {
-	assert.Equal(t, expected.MessageHeader.Height, actual.MessageHeader.Height, "Height should match original")
-	assert.Equal(t, expected.MessageHeader.Round, actual.MessageHeader.Round, "Round should match original")
-	assert.Equal(t, expected.MessageHeader.Sender, actual.MessageHeader.Sender, "Sender should match original")
+	assert.Equal(
+		t,
+		expected.MessageHeader.Height,
+		actual.MessageHeader.Height,
+		"Height should match original",
+	)
+	assert.Equal(
+		t,
+		expected.MessageHeader.Round,
+		actual.MessageHeader.Round,
+		"Round should match original",
+	)
+	assert.Equal(
+		t,
+		expected.MessageHeader.Sender,
+		actual.MessageHeader.Sender,
+		"Sender should match original",
+	)
 
 	if expected.ID == nil {
 		assert.Nil(t, actual.ID, "ID should be nil")
@@ -306,7 +321,12 @@ func TestStarknetVoteAdapter_ErrorCases(t *testing.T) {
 				result, err := StarknetVoteAdapter.ToVote(tt.consensusVote)
 
 				assert.Error(t, err, "ToVote should return error")
-				assert.Contains(t, err.Error(), tt.errorSubstring, "Error message should contain expected substring")
+				assert.Contains(
+					t,
+					err.Error(),
+					tt.errorSubstring,
+					"Error message should contain expected substring",
+				)
 				assert.Equal(t, starknet.Vote{}, result, "Result should be zero when error occurs")
 			})
 		}

@@ -20,7 +20,11 @@ const (
 
 type testCase interface {
 	fmt.Stringer
-	run(*testing.T, *roundData[starknet.Value, starknet.Hash, starknet.Address], map[starknet.Address]types.VotingPower)
+	run(
+		*testing.T,
+		*roundData[starknet.Value, starknet.Hash, starknet.Address],
+		map[starknet.Address]types.VotingPower,
+	)
 	filter(filter ...FilterFn) bool
 	getSender() starknet.Address
 }
@@ -46,7 +50,11 @@ func (c *proposalTestCase) run(
 	roundData *roundData[starknet.Value, starknet.Hash, starknet.Address],
 	votingPower map[starknet.Address]types.VotingPower,
 ) {
-	assert.Equal(t, c.resultReturn, roundData.setProposal(&c.proposal, votingPower[c.proposal.Sender]))
+	assert.Equal(
+		t,
+		c.resultReturn,
+		roundData.setProposal(&c.proposal, votingPower[c.proposal.Sender]),
+	)
 }
 
 func (c *proposalTestCase) filter(filter ...FilterFn) bool {
@@ -115,7 +123,11 @@ func (c *voteTestCase) run(
 	roundData *roundData[starknet.Value, starknet.Hash, starknet.Address],
 	votingPower map[starknet.Address]types.VotingPower,
 ) {
-	assert.Equal(t, c.resultReturn, roundData.addVote(&c.vote, votingPower[c.vote.Sender], c.voteType))
+	assert.Equal(
+		t,
+		c.resultReturn,
+		roundData.addVote(&c.vote, votingPower[c.vote.Sender], c.voteType),
+	)
 }
 
 func (c *voteTestCase) filter(filter ...FilterFn) bool {
@@ -244,11 +256,23 @@ func TestRoundData(t *testing.T) {
 			countVotes := countVotes(tests[:i+1], votingPower)
 
 			assert.Equal(t, countVotes(isVotingNil, isPrevote), roundData.countVote(Prevote, nil))
-			assert.Equal(t, countVotes(isVotingNil, isPrecommit), roundData.countVote(Precommit, nil))
+			assert.Equal(
+				t,
+				countVotes(isVotingNil, isPrecommit),
+				roundData.countVote(Precommit, nil),
+			)
 
 			for _, id := range allIDs {
-				assert.Equal(t, countVotes(isVotingID(id), isPrevote), roundData.countVote(Prevote, &id))
-				assert.Equal(t, countVotes(isVotingID(id), isPrecommit), roundData.countVote(Precommit, &id))
+				assert.Equal(
+					t,
+					countVotes(isVotingID(id), isPrevote),
+					roundData.countVote(Prevote, &id),
+				)
+				assert.Equal(
+					t,
+					countVotes(isVotingID(id), isPrecommit),
+					roundData.countVote(Precommit, &id),
+				)
 			}
 
 			assert.Equal(t, countVotes(isPrevote), roundData.countAny(Prevote))

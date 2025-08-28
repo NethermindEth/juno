@@ -57,7 +57,8 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 			}
 
 			for {
-				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
+				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil &&
+					!errors.Is(err, context.Canceled) {
 					b.log.Errorw("unable to send message", "error", err)
 					time.Sleep(b.retryInterval)
 					continue
@@ -70,7 +71,8 @@ func (b ProtoBroadcaster[M]) Loop(ctx context.Context, topic *pubsub.Topic) {
 			}
 		case <-rebroadcasted.trigger:
 			for msgBytes := range rebroadcasted.messages {
-				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil && !errors.Is(err, context.Canceled) {
+				if err := topic.Publish(ctx, msgBytes, readinessOpt); err != nil &&
+					!errors.Is(err, context.Canceled) {
 					b.log.Errorw("unable to rebroadcast message", "error", err)
 				}
 			}

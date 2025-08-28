@@ -64,18 +64,27 @@ func (h *history) valueAt(key []byte, height uint64) ([]byte, error) {
 }
 
 // LogContractStorage logs the old value of a storage location for the given contract which changed on height `height`
-func (h *history) LogContractStorage(contractAddress, storageLocation, oldValue *felt.Felt, height uint64) error {
+func (h *history) LogContractStorage(
+	contractAddress, storageLocation, oldValue *felt.Felt,
+	height uint64,
+) error {
 	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	return h.logOldValue(key, oldValue.Marshal(), height)
 }
 
 // DeleteContractStorageLog deletes the log at the given height
-func (h *history) DeleteContractStorageLog(contractAddress, storageLocation *felt.Felt, height uint64) error {
+func (h *history) DeleteContractStorageLog(
+	contractAddress, storageLocation *felt.Felt,
+	height uint64,
+) error {
 	return h.deleteLog(db.ContractStorageHistoryKey(contractAddress, storageLocation), height)
 }
 
 // ContractStorageAt returns the value of a storage location of the given contract at the height `height`
-func (h *history) ContractStorageAt(contractAddress, storageLocation *felt.Felt, height uint64) (*felt.Felt, error) {
+func (h *history) ContractStorageAt(
+	contractAddress, storageLocation *felt.Felt,
+	height uint64,
+) (*felt.Felt, error) {
 	key := db.ContractStorageHistoryKey(contractAddress, storageLocation)
 	value, err := h.valueAt(key, height)
 	if err != nil {
@@ -104,14 +113,21 @@ func (h *history) ContractNonceAt(contractAddress *felt.Felt, height uint64) (*f
 }
 
 func (h *history) LogContractClassHash(contractAddress, oldValue *felt.Felt, height uint64) error {
-	return h.logOldValue(db.ContractClassHashHistoryKey(contractAddress), oldValue.Marshal(), height)
+	return h.logOldValue(
+		db.ContractClassHashHistoryKey(contractAddress),
+		oldValue.Marshal(),
+		height,
+	)
 }
 
 func (h *history) DeleteContractClassHashLog(contractAddress *felt.Felt, height uint64) error {
 	return h.deleteLog(db.ContractClassHashHistoryKey(contractAddress), height)
 }
 
-func (h *history) ContractClassHashAt(contractAddress *felt.Felt, height uint64) (*felt.Felt, error) {
+func (h *history) ContractClassHashAt(
+	contractAddress *felt.Felt,
+	height uint64,
+) (*felt.Felt, error) {
 	key := db.ContractClassHashHistoryKey(contractAddress)
 	value, err := h.valueAt(key, height)
 	if err != nil {

@@ -32,7 +32,10 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	stateUpdates := []*core.StateUpdate{
 		{
 			OldRoot: &felt.Zero,
-			NewRoot: utils.HexToFelt(t, "0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
+			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
 					*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x1"),
@@ -49,8 +52,14 @@ func TestStateHistoryContractOperations(t *testing.T) {
 			},
 		},
 		{
-			OldRoot: utils.HexToFelt(t, "0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
-			NewRoot: utils.HexToFelt(t, "0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee"),
+			OldRoot: utils.HexToFelt(
+				t,
+				"0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8",
+			),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee",
+			),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
 					*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x2"),
@@ -98,10 +107,16 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	})
 
 	t.Run("ContractStorage", func(t *testing.T) {
-		value, err := historyBlock0.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x1"))
+		value, err := historyBlock0.ContractStorage(
+			utils.HexToFelt(t, "0x1"),
+			utils.HexToFelt(t, "0x1"),
+		)
 		require.NoError(t, err)
 		assert.Equal(t, value, *utils.HexToFelt(t, "0x1"))
-		value, err = historyBlock1.ContractStorage(utils.HexToFelt(t, "0x2"), utils.HexToFelt(t, "0x1"))
+		value, err = historyBlock1.ContractStorage(
+			utils.HexToFelt(t, "0x2"),
+			utils.HexToFelt(t, "0x1"),
+		)
 		require.NoError(t, err)
 		assert.Equal(t, value, *utils.HexToFelt(t, "0x3"))
 	})

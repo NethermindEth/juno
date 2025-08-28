@@ -52,7 +52,10 @@ func (c *consensusDataSource[V, H, A]) Run(ctx context.Context) error {
 	}
 }
 
-func (c *consensusDataSource[V, H, A]) BlockByNumber(ctx context.Context, blockNumber uint64) (sync.CommittedBlock, error) {
+func (c *consensusDataSource[V, H, A]) BlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (sync.CommittedBlock, error) {
 	committedBlock, ok := c.cache.Load(blockNumber)
 	if !ok {
 		return sync.CommittedBlock{}, errors.New("block not found in cache")
@@ -74,7 +77,10 @@ func (c *consensusDataSource[V, H, A]) BlockPending(ctx context.Context) (sync.P
 	return sync.Pending{}, errors.New("not implemented") // TODO: Revise this
 }
 
-func (c *consensusDataSource[V, H, A]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {
+func (c *consensusDataSource[V, H, A]) PreConfirmedBlockByNumber(
+	ctx context.Context,
+	blockNumber uint64,
+) (core.PreConfirmed, error) {
 	preconfirmed := c.proposer.Preconfirmed()
 	if preconfirmed.Block.Number != blockNumber {
 		return core.PreConfirmed{}, fmt.Errorf("block %d is not preconfirmed", blockNumber)

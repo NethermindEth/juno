@@ -25,7 +25,11 @@ func (h *Handler) unsubscribe(sub *subscription, id string) {
 	h.subscriptions.Delete(id)
 }
 
-func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, latestHeight uint64) error {
+func setEventFilterRange(
+	filter blockchain.EventFilterer,
+	from, to *BlockID,
+	latestHeight uint64,
+) error {
 	set := func(filterRange blockchain.EventFilterRange, blockID *BlockID) error {
 		if blockID == nil {
 			return nil
@@ -40,7 +44,10 @@ func setEventFilterRange(filter blockchain.EventFilterer, from, to *BlockID, lat
 			return filter.SetRangeEndBlockByHash(filterRange, blockID.Hash())
 		case number:
 			if filterRange == blockchain.EventFilterTo {
-				return filter.SetRangeEndBlockByNumber(filterRange, min(blockID.Number(), latestHeight))
+				return filter.SetRangeEndBlockByNumber(
+					filterRange,
+					min(blockID.Number(), latestHeight),
+				)
 			}
 			return filter.SetRangeEndBlockByNumber(filterRange, blockID.Number())
 		default:

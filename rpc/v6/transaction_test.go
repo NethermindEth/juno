@@ -33,14 +33,20 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
-		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, errors.New("some internal error"))
+		mockReader.EXPECT().
+			TransactionByHash(randomTxHash).
+			Return(nil, errors.New("some internal error"))
 
 		n := &utils.Mainnet
 		handler := rpc.New(mockReader, mockSyncReader, nil, n, nil)
 		tx, rpcErr := handler.TransactionByHash(*randomTxHash)
 
 		assert.Nil(t, tx)
-		assert.Equal(t, rpcErr, rpccore.ErrInternal.CloneWithData(errors.New("some internal error")))
+		assert.Equal(
+			t,
+			rpcErr,
+			rpccore.ErrInternal.CloneWithData(errors.New("some internal error")),
+		)
 	})
 
 	t.Run("tx not found and no pending block", func(t *testing.T) {
@@ -75,7 +81,10 @@ func TestTransactionByHashNotFound(t *testing.T) {
 		block, err := mainnetGw.BlockByNumber(t.Context(), 19199)
 		require.NoError(t, err)
 
-		txAtIdx1InBlock := utils.HexToFelt(t, "0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
+		txAtIdx1InBlock := utils.HexToFelt(
+			t,
+			"0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8",
+		)
 		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
 		pending := sync.NewPending(block, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
@@ -92,23 +101,44 @@ func TestTransactionByHashNotFound(t *testing.T) {
 			MaxFee:  utils.HexToFelt(t, "0x65d5eabc5218"),
 			Version: utils.HexToFelt(t, "0x0"),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x2ccb8d2b482d67d8358482832705549d1e5278dc4d04878d9f8256a47423d6a"),
-				utils.HexToFelt(t, "0x6958e023ab0ffa07a84bd4e79032a5f2312ca4a2937585e49534877d13ea918"),
+				utils.HexToFelt(
+					t,
+					"0x2ccb8d2b482d67d8358482832705549d1e5278dc4d04878d9f8256a47423d6a",
+				),
+				utils.HexToFelt(
+					t,
+					"0x6958e023ab0ffa07a84bd4e79032a5f2312ca4a2937585e49534877d13ea918",
+				),
 			},
 			Nonce: nil,
 			CallData: &[]*felt.Felt{
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796"),
-				utils.HexToFelt(t, "0x1474f761b9a93b1c727b60fb4cc7aa6c6c1c866ad7f1cd88ec9545ff065ddad"),
+				utils.HexToFelt(
+					t,
+					"0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796",
+				),
+				utils.HexToFelt(
+					t,
+					"0x1474f761b9a93b1c727b60fb4cc7aa6c6c1c866ad7f1cd88ec9545ff065ddad",
+				),
 				utils.HexToFelt(t, "0x0"),
 				utils.HexToFelt(t, "0x1"),
 				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328"),
+				utils.HexToFelt(
+					t,
+					"0x6b648b36b074a91eee55730f5f5e075ec19c0a8f9ffb0903cefeee93b6ff328",
+				),
 				utils.HexToFelt(t, "0x7d1"),
 			},
-			ContractAddress:    utils.HexToFelt(t, "0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796"),
-			SenderAddress:      nil,
-			EntryPointSelector: utils.HexToFelt(t, "0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad"),
+			ContractAddress: utils.HexToFelt(
+				t,
+				"0x4a4479e16bf55ebbe7ccb36f438060d994fac69c75e2edfaf00ae56d45d5796",
+			),
+			SenderAddress: nil,
+			EntryPointSelector: utils.HexToFelt(
+				t,
+				"0x15d40a3d6ca2ac30f4031e42be28da9b056fef9bb7357ac5e85627ee876e5ad",
+			),
 		}
 
 		assert.Nil(t, rpcErr)
@@ -426,9 +456,12 @@ func TestTransactionByHash(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			t.Cleanup(mockCtrl.Finish)
 			mockReader := mocks.NewMockReader(mockCtrl)
-			mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-				return gw.Transaction(t.Context(), hash)
-			}).Times(1)
+			mockReader.EXPECT().
+				TransactionByHash(gomock.Any()).
+				DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
+					return gw.Transaction(t.Context(), hash)
+				}).
+				Times(1)
 			handler := rpc.New(mockReader, nil, nil, test.network, nil)
 
 			hash, err := new(felt.Felt).SetString(test.hash)
@@ -488,7 +521,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block number", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByNumber(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: rand.Uint64()}, rand.Int())
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
+			rpc.BlockID{Number: rand.Uint64()},
+			rand.Int(),
+		)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
 	})
@@ -504,7 +540,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
 			latestBlock.TransactionCount).Return(nil, errors.New("invalid index"))
 
-		txn, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Latest: true}, len(latestBlock.Transactions))
+		txn, rpcErr := handler.TransactionByBlockIDAndIndex(
+			rpc.BlockID{Latest: true},
+			len(latestBlock.Transactions),
+		)
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrInvalidTxIndex, rpcErr)
 	})
@@ -544,7 +583,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Hash: latestBlockHash}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(
+			rpc.BlockID{Hash: latestBlockHash},
+			index,
+		)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -556,7 +598,9 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("blockID - number", func(t *testing.T) {
 		index := rand.Intn(int(latestBlock.TransactionCount))
 
-		mockReader.EXPECT().BlockHeaderByNumber(uint64(latestBlockNumber)).Return(latestBlock.Header, nil)
+		mockReader.EXPECT().
+			BlockHeaderByNumber(uint64(latestBlockNumber)).
+			Return(latestBlock.Header, nil)
 		mockReader.EXPECT().TransactionByBlockNumberAndIndex(uint64(latestBlockNumber),
 			uint64(index)).DoAndReturn(func(number, index uint64) (core.Transaction, error) {
 			return latestBlock.Transactions[index], nil
@@ -566,7 +610,10 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 				return latestBlock.Transactions[index], nil
 			})
 
-		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(rpc.BlockID{Number: uint64(latestBlockNumber)}, index)
+		txn1, rpcErr := handler.TransactionByBlockIDAndIndex(
+			rpc.BlockID{Number: uint64(latestBlockNumber)},
+			index,
+		)
 		require.Nil(t, rpcErr)
 
 		txn2, rpcErr := handler.TransactionByHash(*latestBlock.Transactions[index].Hash())
@@ -608,13 +655,19 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockReader := mocks.NewMockReader(mockCtrl)
 		handler := rpc.New(mockReader, nil, nil, &utils.Sepolia, nil)
 
-		mockReader.EXPECT().TransactionByHash(gomock.Any()).Return(nil, errors.New("some internal error"))
+		mockReader.EXPECT().
+			TransactionByHash(gomock.Any()).
+			Return(nil, errors.New("some internal error"))
 
 		txHash := new(felt.Felt).SetBytes([]byte("some tx hash"))
 		tx, rpcErr := handler.TransactionReceiptByHash(*txHash)
 
 		assert.Nil(t, tx)
-		assert.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New("some internal error")), rpcErr)
+		assert.Equal(
+			t,
+			rpccore.ErrInternal.CloneWithData(errors.New("some internal error")),
+			rpcErr,
+		)
 	})
 
 	t.Run("not found if pending block nil", func(t *testing.T) {
@@ -677,10 +730,15 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
-		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+		tx0HashInBlock4850 := utils.HexToFelt(
+			t,
+			"0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c",
+		)
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
-		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(nil, nil, uint64(0), errors.New("some error"))
+		mockReader.EXPECT().
+			Receipt(tx0HashInBlock4850).
+			Return(nil, nil, uint64(0), errors.New("some error"))
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
@@ -702,10 +760,15 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
-		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+		tx0HashInBlock4850 := utils.HexToFelt(
+			t,
+			"0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c",
+		)
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
-		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockReader.EXPECT().
+			Receipt(tx0HashInBlock4850).
+			Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockReader.EXPECT().L1Head().Return(nil, errors.New("some internal error"))
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
@@ -735,7 +798,10 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			return &pending, nil
 		})
 
-		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+		tx0HashInBlock4850 := utils.HexToFelt(
+			t,
+			"0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c",
+		)
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
 		expectedReceipt := rpc.TransactionReceipt{
@@ -752,13 +818,25 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			BlockNumber:  nil,
 			MessagesSent: []*rpc.MsgToL1{},
 			Events: []*rpc.Event{{
-				From: utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				From: utils.HexToFelt(
+					t,
+					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				),
 				Keys: []*felt.Felt{
-					utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+					utils.HexToFelt(
+						t,
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+					),
 				},
 				Data: []*felt.Felt{
-					utils.HexToFelt(t, "0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655"),
-					utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					utils.HexToFelt(
+						t,
+						"0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655",
+					),
+					utils.HexToFelt(
+						t,
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+					),
 					utils.HexToFelt(t, "0x4e7f9f784c0"),
 					utils.HexToFelt(t, "0x0"),
 				},
@@ -791,11 +869,19 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		block, err := gateway.BlockByNumber(t.Context(), 4850)
 		require.NoError(t, err)
 
-		tx0HashInBlock4850 := utils.HexToFelt(t, "0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c")
+		tx0HashInBlock4850 := utils.HexToFelt(
+			t,
+			"0x236102aee88702cfa0546d84e54967e3de1ec6b784bc27364bbbdd25931140c",
+		)
 
 		mockReader.EXPECT().TransactionByHash(tx0HashInBlock4850).Return(block.Transactions[0], nil)
-		mockReader.EXPECT().Receipt(tx0HashInBlock4850).Return(block.Receipts[0], block.Hash, block.Number, nil)
-		mockReader.EXPECT().L1Head().Return(&core.L1Head{BlockNumber: 4851}, nil) // block number not very important here
+		mockReader.EXPECT().
+			Receipt(tx0HashInBlock4850).
+			Return(block.Receipts[0], block.Hash, block.Number, nil)
+		mockReader.EXPECT().
+			L1Head().
+			Return(&core.L1Head{BlockNumber: 4851}, nil)
+			// block number not very important here
 
 		txReceipt, rpcErr := handler.TransactionReceiptByHash(*tx0HashInBlock4850)
 
@@ -809,17 +895,32 @@ func TestTransactionReceiptByHash(t *testing.T) {
 				Amount: utils.HexToFelt(t, "0x4e7f9f784c0"),
 				Unit:   rpc.WEI,
 			},
-			BlockHash:    utils.HexToFelt(t, "0x410dfca0f99545e62aef946e228329ce3a906f6785f5e6f97389f30ad1c1088"),
+			BlockHash: utils.HexToFelt(
+				t,
+				"0x410dfca0f99545e62aef946e228329ce3a906f6785f5e6f97389f30ad1c1088",
+			),
 			BlockNumber:  &expectedBlockNumber,
 			MessagesSent: []*rpc.MsgToL1{},
 			Events: []*rpc.Event{{
-				From: utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				From: utils.HexToFelt(
+					t,
+					"0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+				),
 				Keys: []*felt.Felt{
-					utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"),
+					utils.HexToFelt(
+						t,
+						"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+					),
 				},
 				Data: []*felt.Felt{
-					utils.HexToFelt(t, "0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655"),
-					utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					utils.HexToFelt(
+						t,
+						"0x60664b576dae484dc3430ed3b1036e7879712e2c2c2728f568b8dbcbbc0f655",
+					),
+					utils.HexToFelt(
+						t,
+						"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+					),
 					utils.HexToFelt(t, "0x4e7f9f784c0"),
 					utils.HexToFelt(t, "0x0"),
 				},
@@ -930,8 +1031,12 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			txHash := block0.Transactions[test.index].Hash()
-			mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[test.index], nil)
-			mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
+			mockReader.EXPECT().
+				TransactionByHash(txHash).
+				Return(block0.Transactions[test.index], nil)
+			mockReader.EXPECT().
+				Receipt(txHash).
+				Return(block0.Receipts[test.index], block0.Hash, block0.Number, nil)
 			mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
 			checkTxReceipt(t, txHash, test.expected)
@@ -993,7 +1098,9 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 
 		txHash := block0.Transactions[i].Hash()
 		mockReader.EXPECT().TransactionByHash(txHash).Return(block0.Transactions[i], nil)
-		mockReader.EXPECT().Receipt(txHash).Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
+		mockReader.EXPECT().
+			Receipt(txHash).
+			Return(block0.Receipts[i], block0.Hash, block0.Number, nil)
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
 			BlockNumber: block0.Number,
 			BlockHash:   block0.Hash,
@@ -1026,9 +1133,13 @@ func TestLegacyTransactionReceiptByHash(t *testing.T) {
 		revertedTxnIdx := 1
 		revertedTxnHash := blockWithRevertedTxn.Transactions[revertedTxnIdx].Hash()
 
-		mockReader.EXPECT().TransactionByHash(revertedTxnHash).Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
-		mockReader.EXPECT().Receipt(revertedTxnHash).Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
-			blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
+		mockReader.EXPECT().
+			TransactionByHash(revertedTxnHash).
+			Return(blockWithRevertedTxn.Transactions[revertedTxnIdx], nil)
+		mockReader.EXPECT().
+			Receipt(revertedTxnHash).
+			Return(blockWithRevertedTxn.Receipts[revertedTxnIdx],
+				blockWithRevertedTxn.Hash, blockWithRevertedTxn.Number, nil)
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound)
 
 		checkTxReceipt(t, revertedTxnHash, expected)
@@ -1137,37 +1248,55 @@ func TestAddTransactionUnmarshal(t *testing.T) {
 }
 
 func TestAdaptTransaction(t *testing.T) {
-	t.Run("core.Resource `ResourceL1DataGas` should be ignored when converted to v6.Resource", func(t *testing.T) {
-		coreTx := core.InvokeTransaction{
-			Version: new(core.TransactionVersion).SetUint64(3),
-			ResourceBounds: map[core.Resource]core.ResourceBounds{
-				core.ResourceL1Gas:     {MaxAmount: 1, MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
-				core.ResourceL2Gas:     {MaxAmount: 3, MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
-				core.ResourceL1DataGas: {MaxAmount: 5, MaxPricePerUnit: new(felt.Felt).SetUint64(6)},
-			},
-		}
+	t.Run(
+		"core.Resource `ResourceL1DataGas` should be ignored when converted to v6.Resource",
+		func(t *testing.T) {
+			coreTx := core.InvokeTransaction{
+				Version: new(core.TransactionVersion).SetUint64(3),
+				ResourceBounds: map[core.Resource]core.ResourceBounds{
+					core.ResourceL1Gas: {
+						MaxAmount:       1,
+						MaxPricePerUnit: new(felt.Felt).SetUint64(2),
+					},
+					core.ResourceL2Gas: {
+						MaxAmount:       3,
+						MaxPricePerUnit: new(felt.Felt).SetUint64(4),
+					},
+					core.ResourceL1DataGas: {
+						MaxAmount:       5,
+						MaxPricePerUnit: new(felt.Felt).SetUint64(6),
+					},
+				},
+			}
 
-		tx := rpc.AdaptTransaction(&coreTx)
+			tx := rpc.AdaptTransaction(&coreTx)
 
-		expectedTx := &rpc.Transaction{
-			Type:    rpc.TxnInvoke,
-			Version: new(felt.Felt).SetUint64(3),
-			ResourceBounds: &rpc.ResourceBoundsMap{
-				L1Gas: &rpc.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(1), MaxPricePerUnit: new(felt.Felt).SetUint64(2)},
-				L2Gas: &rpc.ResourceBounds{MaxAmount: new(felt.Felt).SetUint64(3), MaxPricePerUnit: new(felt.Felt).SetUint64(4)},
-			},
-			Tip: new(felt.Felt).SetUint64(0),
-			// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)
-			Signature:             new([]*felt.Felt),
-			CallData:              new([]*felt.Felt),
-			PaymasterData:         new([]*felt.Felt),
-			AccountDeploymentData: new([]*felt.Felt),
-			NonceDAMode:           utils.HeapPtr(rpc.DAModeL1),
-			FeeDAMode:             utils.HeapPtr(rpc.DAModeL1),
-		}
+			expectedTx := &rpc.Transaction{
+				Type:    rpc.TxnInvoke,
+				Version: new(felt.Felt).SetUint64(3),
+				ResourceBounds: &rpc.ResourceBoundsMap{
+					L1Gas: &rpc.ResourceBounds{
+						MaxAmount:       new(felt.Felt).SetUint64(1),
+						MaxPricePerUnit: new(felt.Felt).SetUint64(2),
+					},
+					L2Gas: &rpc.ResourceBounds{
+						MaxAmount:       new(felt.Felt).SetUint64(3),
+						MaxPricePerUnit: new(felt.Felt).SetUint64(4),
+					},
+				},
+				Tip: new(felt.Felt).SetUint64(0),
+				// Those 4 fields are pointers to slice (the SliceHeader is allocated, it just refers to a nil array)
+				Signature:             new([]*felt.Felt),
+				CallData:              new([]*felt.Felt),
+				PaymasterData:         new([]*felt.Felt),
+				AccountDeploymentData: new([]*felt.Felt),
+				NonceDAMode:           utils.HeapPtr(rpc.DAModeL1),
+				FeeDAMode:             utils.HeapPtr(rpc.DAModeL1),
+			}
 
-		require.Equal(t, expectedTx, tx)
-	})
+			require.Equal(t, expectedTx, tx)
+		},
+	)
 }
 
 func TestAddTransaction(t *testing.T) {
@@ -1185,7 +1314,9 @@ func TestAddTransaction(t *testing.T) {
 		expectedJSON string
 	}{
 		"invoke v0": {
-			txn: txWithoutClass("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			txn: txWithoutClass(
+				"0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3",
 				"version": "0x0",
@@ -1227,7 +1358,9 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"invoke v3": {
-			txn: txWithoutClass("0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd"),
+			txn: txWithoutClass(
+				"0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x49728601e0bb2f48ce506b0cbd9c0e2a9e50d95858aa41463f46386dca489fd",
 				"version": "0x3",
@@ -1273,7 +1406,9 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"deploy v0": {
-			txn: txWithoutClass("0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa"),
+			txn: txWithoutClass(
+				"0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x2e3106421d38175020cd23a6f1bff87989a64cae6a679c54c7710a033d88faa",
 				"version": "0x0",
@@ -1284,7 +1419,9 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v1": {
-			txn: txWithoutClass("0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4"),
+			txn: txWithoutClass(
+				"0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x2d667ed0aa3a8faef96b466972079826e592ec0aebefafd77a39f2ed06486b4",
 				"version": "0x1",
@@ -1301,7 +1438,9 @@ func TestAddTransaction(t *testing.T) {
 		},
 		"declare v2": {
 			txn: func() *rpc.BroadcastedTransaction {
-				tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
+				tx := txWithoutClass(
+					"0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4",
+				)
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
 			}(),
@@ -1325,7 +1464,9 @@ func TestAddTransaction(t *testing.T) {
 		},
 		"declare v3": {
 			txn: func() *rpc.BroadcastedTransaction {
-				tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
+				tx := txWithoutClass(
+					"0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3",
+				)
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
 			}(),
@@ -1362,7 +1503,9 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"deploy account v1": {
-			txn: txWithoutClass("0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a"),
+			txn: txWithoutClass(
+				"0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x658f1c44ebf6a1540eac0680956c3a9d315f65d2cb3b53593345905fed3982a",
 				"version": "0x1",
@@ -1381,7 +1524,9 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"deploy account v3": {
-			txn: txWithoutClass("0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0"),
+			txn: txWithoutClass(
+				"0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
+			),
 			expectedJSON: `{
 				"transaction_hash": "0x29fd7881f14380842414cdfdd8d6c0b1f2174f8916edcfeb1ede1eb26ac3ef0",
 				"version": "0x3",
@@ -1468,16 +1613,34 @@ func TestTransactionStatus(t *testing.T) {
 		notFoundTxHash    *felt.Felt
 	}{
 		{
-			network:           &utils.Mainnet,
-			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
-			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
+			network: &utils.Mainnet,
+			verifiedTxHash: utils.HexToFelt(
+				t,
+				"0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e",
+			),
+			nonVerifiedTxHash: utils.HexToFelt(
+				t,
+				"0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1",
+			),
+			notFoundTxHash: utils.HexToFelt(
+				t,
+				"0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9",
+			),
 		},
 		{
-			network:           &utils.Integration,
-			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
+			network: &utils.Integration,
+			verifiedTxHash: utils.HexToFelt(
+				t,
+				"0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3",
+			),
+			nonVerifiedTxHash: utils.HexToFelt(
+				t,
+				"0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838",
+			),
+			notFoundTxHash: utils.HexToFelt(
+				t,
+				"0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15",
+			),
 		},
 	}
 
@@ -1501,7 +1664,9 @@ func TestTransactionStatus(t *testing.T) {
 				t.Run("not verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+					mockReader.EXPECT().
+						Receipt(tx.Hash()).
+						Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(nil, nil)
 
 					handler := rpc.New(mockReader, nil, nil, test.network, nil)
@@ -1517,7 +1682,9 @@ func TestTransactionStatus(t *testing.T) {
 				t.Run("verified", func(t *testing.T) {
 					mockReader := mocks.NewMockReader(mockCtrl)
 					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
+					mockReader.EXPECT().
+						Receipt(tx.Hash()).
+						Return(block.Receipts[0], block.Hash, block.Number, nil)
 					mockReader.EXPECT().L1Head().Return(&core.L1Head{
 						BlockNumber: block.Number + 1,
 					}, nil)
@@ -1552,8 +1719,14 @@ func TestTransactionStatus(t *testing.T) {
 					t.Run(description, func(t *testing.T) {
 						mockReader := mocks.NewMockReader(mockCtrl)
 						syncReader := mocks.NewMockSyncReader(mockCtrl)
-						mockReader.EXPECT().TransactionByHash(notFoundTest.hash).Return(nil, db.ErrKeyNotFound).Times(2)
-						syncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).Times(2)
+						mockReader.EXPECT().
+							TransactionByHash(notFoundTest.hash).
+							Return(nil, db.ErrKeyNotFound).
+							Times(2)
+						syncReader.EXPECT().
+							PendingData().
+							Return(nil, sync.ErrPendingBlockNotFound).
+							Times(2)
 						handler := rpc.New(mockReader, syncReader, nil, test.network, nil)
 						mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(2)
 						_, err := handler.TransactionStatus(ctx, *notFoundTest.hash)
@@ -1571,10 +1744,13 @@ func TestTransactionStatus(t *testing.T) {
 			t.Run("transaction not found in db and feeder", func(t *testing.T) {
 				mockReader := mocks.NewMockReader(mockCtrl)
 				syncReader := mocks.NewMockSyncReader(mockCtrl)
-				mockReader.EXPECT().TransactionByHash(test.notFoundTxHash).Return(nil, db.ErrKeyNotFound)
+				mockReader.EXPECT().
+					TransactionByHash(test.notFoundTxHash).
+					Return(nil, db.ErrKeyNotFound)
 				syncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 				mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
-				handler := rpc.New(mockReader, syncReader, nil, test.network, nil).WithFeeder(client)
+				handler := rpc.New(mockReader, syncReader, nil, test.network, nil).
+					WithFeeder(client)
 
 				_, err := handler.TransactionStatus(ctx, *test.notFoundTxHash)
 				require.NotNil(t, err)
@@ -1619,15 +1795,36 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		}`
 	expectedTxn := core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     utils.HexToFelt(t, "0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353"),
-			ContractAddressSalt: utils.HexToFelt(t, "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-			ClassHash:           utils.HexToFelt(t, "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
-			ContractAddress:     utils.HexToFelt(t, "0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			TransactionHash: utils.HexToFelt(
+				t,
+				"0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353",
+			),
+			ContractAddressSalt: utils.HexToFelt(
+				t,
+				"0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+			),
+			ClassHash: utils.HexToFelt(
+				t,
+				"0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918",
+			),
+			ContractAddress: utils.HexToFelt(
+				t,
+				"0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91",
+			),
 			ConstructorCallData: []*felt.Felt{
-				utils.HexToFelt(t, "0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
-				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				utils.HexToFelt(
+					t,
+					"0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2",
+				),
+				utils.HexToFelt(
+					t,
+					"0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463",
+				),
 				utils.HexToFelt(t, "0x2"),
-				utils.HexToFelt(t, "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+				utils.HexToFelt(
+					t,
+					"0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb",
+				),
 				utils.HexToFelt(t, "0x0"),
 			},
 			Version: new(core.TransactionVersion).SetUint64(3),
@@ -1643,7 +1840,9 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       utils.HexToFelt(t, "0x0").Uint64(), // The original txn should have this field set to zero
+				MaxAmount: utils.HexToFelt(t, "0x0").
+					Uint64(),
+				// The original txn should have this field set to zero
 				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
 			},
 		},

@@ -24,7 +24,7 @@ type EventFilter struct {
 
 type ResultPageRequest struct {
 	ContinuationToken string `json:"continuation_token"`
-	ChunkSize         uint64 `json:"chunk_size" validate:"min=1"`
+	ChunkSize         uint64 `json:"chunk_size"         validate:"min=1"`
 }
 
 type Event struct {
@@ -71,7 +71,11 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 		return nil, rpccore.ErrInternal
 	}
 
-	filter, err := h.bcReader.EventFilter(args.EventFilter.Address, args.EventFilter.Keys, h.PendingBlock)
+	filter, err := h.bcReader.EventFilter(
+		args.EventFilter.Address,
+		args.EventFilter.Keys,
+		h.PendingBlock,
+	)
 	if err != nil {
 		return nil, rpccore.ErrInternal
 	}
@@ -120,7 +124,11 @@ func (h *Handler) Events(args EventsArg) (*EventsChunk, *jsonrpc.Error) {
 	return &EventsChunk{Events: emittedEvents, ContinuationToken: cTokenStr}, nil
 }
 
-func setEventFilterRange(filter blockchain.EventFilterer, fromID, toID *BlockID, latestHeight uint64) error {
+func setEventFilterRange(
+	filter blockchain.EventFilterer,
+	fromID, toID *BlockID,
+	latestHeight uint64,
+) error {
 	set := func(filterRange blockchain.EventFilterRange, id *BlockID) error {
 		if id == nil {
 			return nil

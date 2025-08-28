@@ -19,7 +19,12 @@ type Upgrader struct {
 	delay          time.Duration
 }
 
-func NewUpgrader(version *semver.Version, apiURL, releasesURL string, delay time.Duration, log utils.SimpleLogger) *Upgrader {
+func NewUpgrader(
+	version *semver.Version,
+	apiURL, releasesURL string,
+	delay time.Duration,
+	log utils.SimpleLogger,
+) *Upgrader {
 	return &Upgrader{
 		currentVersion: version,
 		client:         &http.Client{},

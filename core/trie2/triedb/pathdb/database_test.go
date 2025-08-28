@@ -34,7 +34,10 @@ func TestCommit(t *testing.T) {
 				root := new(felt.Felt).SetUint64(uint64(i))
 				classNodes := createTestNodeSet(numNodes, i, tc.numDiffs, true)
 				contractNodes := createTestNodeSet(numNodes, i, tc.numDiffs, false)
-				require.NoError(t, pathDB.Update(root, parent, uint64(i), classNodes, contractNodes))
+				require.NoError(
+					t,
+					pathDB.Update(root, parent, uint64(i), classNodes, contractNodes),
+				)
 
 				flatClass, _ := classNodes.Flatten()
 				flatContract, flatStorage := contractNodes.Flatten()

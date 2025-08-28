@@ -99,7 +99,10 @@ type tendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 }
 
 // NewTendermintDB creates a new TMDB instance implementing the TMDBInterface.
-func NewTendermintDB[V types.Hashable[H], H types.Hash, A types.Addr](db db.KeyValueStore, h types.Height) TendermintDB[V, H, A] {
+func NewTendermintDB[V types.Hashable[H], H types.Hash, A types.Addr](
+	db db.KeyValueStore,
+	h types.Height,
+) TendermintDB[V, H, A] {
 	tmdb := tendermintDB[V, H, A]{db: db, batch: db.NewBatch()}
 
 	walCount := make(map[types.Height]walMsgCount)
@@ -152,7 +155,12 @@ func (s *tendermintDB[V, H, A]) DeleteWALEntries(height types.Height) error {
 	startKey := WALEntryBucket.Key(heightBytes, startIterBytes)
 	endKey := WALEntryBucket.Key(encodeHeight(height + 1))
 	if err := s.batch.DeleteRange(startKey, endKey); err != nil {
-		return fmt.Errorf("DeleteWALEntries: failed to add delete range [%x, %x) to batch: %w", startKey, endKey, err)
+		return fmt.Errorf(
+			"DeleteWALEntries: failed to add delete range [%x, %x) to batch: %w",
+			startKey,
+			endKey,
+			err,
+		)
 	}
 
 	delete(s.walCount, height)

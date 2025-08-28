@@ -22,7 +22,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 
 	var feeTransferInvocation *FunctionInvocation
 	if trace.FeeTransferInvocation != nil && trace.Type != vm.TxnL1Handler {
-		feeTransferInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.FeeTransferInvocation))
+		feeTransferInvocation = utils.HeapPtr(
+			adaptVMFunctionInvocation(trace.FeeTransferInvocation),
+		)
 	}
 
 	var constructorInvocation *FunctionInvocation
@@ -32,7 +34,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 	switch trace.Type {
 	case vm.TxnDeployAccount, vm.TxnDeploy:
 		if trace.ConstructorInvocation != nil {
-			constructorInvocation = utils.HeapPtr(adaptVMFunctionInvocation(trace.ConstructorInvocation))
+			constructorInvocation = utils.HeapPtr(
+				adaptVMFunctionInvocation(trace.ConstructorInvocation),
+			)
 		}
 	case vm.TxnInvoke:
 		if trace.ExecuteInvocation != nil {
@@ -69,7 +73,9 @@ func AdaptVMTransactionTrace(trace *vm.TransactionTrace) TransactionTrace {
 func adaptVMExecuteInvocation(vmFnInvocation *vm.ExecuteInvocation) ExecuteInvocation {
 	var functionInvocation *FunctionInvocation
 	if vmFnInvocation.FunctionInvocation != nil {
-		functionInvocation = utils.HeapPtr(adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation))
+		functionInvocation = utils.HeapPtr(
+			adaptVMFunctionInvocation(vmFnInvocation.FunctionInvocation),
+		)
 	}
 
 	return ExecuteInvocation{
@@ -152,7 +158,10 @@ func adaptVMExecutionResources(r *vm.ExecutionResources) ExecutionResources {
 		Feeder Adapters
 *****************************************************/
 
-func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace) ([]TracedBlockTransaction, error) {
+func AdaptFeederBlockTrace(
+	block *BlockWithTxs,
+	blockTrace *starknet.BlockTrace,
+) ([]TracedBlockTransaction, error) {
 	if blockTrace == nil {
 		return nil, nil
 	}
@@ -171,11 +180,15 @@ func AdaptFeederBlockTrace(block *BlockWithTxs, blockTrace *starknet.BlockTrace)
 		}
 
 		if feederTrace.FeeTransferInvocation != nil && trace.Type != TxnL1Handler {
-			trace.FeeTransferInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation))
+			trace.FeeTransferInvocation = utils.HeapPtr(
+				adaptFeederFunctionInvocation(feederTrace.FeeTransferInvocation),
+			)
 		}
 
 		if feederTrace.ValidateInvocation != nil && trace.Type != TxnL1Handler {
-			trace.ValidateInvocation = utils.HeapPtr(adaptFeederFunctionInvocation(feederTrace.ValidateInvocation))
+			trace.ValidateInvocation = utils.HeapPtr(
+				adaptFeederFunctionInvocation(feederTrace.ValidateInvocation),
+			)
 		}
 
 		var fnInvocation *FunctionInvocation
@@ -257,8 +270,10 @@ func adaptFeederFunctionInvocation(snFnInvocation *starknet.FunctionInvocation) 
 		Calls:              adaptedCalls,
 		Events:             adaptedEvents,
 		Messages:           adaptedMessages,
-		ExecutionResources: utils.HeapPtr(adaptFeederExecutionResources(&snFnInvocation.ExecutionResources)),
-		IsReverted:         snFnInvocation.Failed,
+		ExecutionResources: utils.HeapPtr(
+			adaptFeederExecutionResources(&snFnInvocation.ExecutionResources),
+		),
+		IsReverted: snFnInvocation.Failed,
 	}
 }
 

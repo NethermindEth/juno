@@ -82,15 +82,22 @@ func TestProposer(t *testing.T) {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
 				submit(t, p, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(firstBatches[:i+1]...), p.Preconfirmed().Block.Transactions)
+					assert.Equal(
+						c,
+						slices.Concat(firstBatches[:i+1]...),
+						p.Preconfirmed().Block.Transactions,
+					)
 				})
 			})
 		}
 	})
 	t.Run("Value", func(t *testing.T) {
-		t.Run(fmt.Sprintf("Getting value should get %d transactions", count(firstBatches)), func(t *testing.T) {
-			assertValue(t, p, &proposalStore, firstBatches)
-		})
+		t.Run(
+			fmt.Sprintf("Getting value should get %d transactions", count(firstBatches)),
+			func(t *testing.T) {
+				assertValue(t, p, &proposalStore, firstBatches)
+			},
+		)
 
 		for _, batch := range secondBatches {
 			t.Run(fmt.Sprintf("Submitting %d more transactions", len(batch)), func(t *testing.T) {
@@ -98,11 +105,17 @@ func TestProposer(t *testing.T) {
 			})
 		}
 
-		t.Run(fmt.Sprintf("Getting value again should still get %d transactions", count(firstBatches)), func(t *testing.T) {
-			// Wait to make sure that the transactions are processed if the code is incorrect
-			time.Sleep(waitPerTransaction)
-			assertValue(t, p, &proposalStore, firstBatches)
-		})
+		t.Run(
+			fmt.Sprintf(
+				"Getting value again should still get %d transactions",
+				count(firstBatches),
+			),
+			func(t *testing.T) {
+				// Wait to make sure that the transactions are processed if the code is incorrect
+				time.Sleep(waitPerTransaction)
+				assertValue(t, p, &proposalStore, firstBatches)
+			},
+		)
 	})
 
 	t.Run("Another node build the first 2 batches", func(t *testing.T) {
@@ -115,7 +128,11 @@ func TestProposer(t *testing.T) {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
 				submit(t, otherProposer, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Preconfirmed().Block.Transactions)
+					assert.Equal(
+						c,
+						slices.Concat(committedFirstBatches[:i+1]...),
+						otherProposer.Preconfirmed().Block.Transactions,
+					)
 				})
 			})
 		}
@@ -123,25 +140,44 @@ func TestProposer(t *testing.T) {
 	})
 
 	t.Run("Commit", func(t *testing.T) {
-		t.Run(fmt.Sprintf("Commit the %d transactions by the other proposer", count(committedFirstBatches)), func(t *testing.T) {
-			commit(t, p, &proposalStore, bc, 1, committedValue)
-		})
+		t.Run(
+			fmt.Sprintf(
+				"Commit the %d transactions by the other proposer",
+				count(committedFirstBatches),
+			),
+			func(t *testing.T) {
+				commit(t, p, &proposalStore, bc, 1, committedValue)
+			},
+		)
 
-		t.Run(fmt.Sprintf("Should process the pending %d transactions", count(committedSecondBatches)), func(t *testing.T) {
-			requireEventually(t, count(committedSecondBatches), func(c *assert.CollectT) {
-				assert.NotNil(c, p.Preconfirmed())
-				assert.Equal(c, slices.Concat(committedSecondBatches...), p.Preconfirmed().Block.Transactions)
-			})
-		})
+		t.Run(
+			fmt.Sprintf(
+				"Should process the pending %d transactions",
+				count(committedSecondBatches),
+			),
+			func(t *testing.T) {
+				requireEventually(t, count(committedSecondBatches), func(c *assert.CollectT) {
+					assert.NotNil(c, p.Preconfirmed())
+					assert.Equal(
+						c,
+						slices.Concat(committedSecondBatches...),
+						p.Preconfirmed().Block.Transactions,
+					)
+				})
+			},
+		)
 
-		t.Run(fmt.Sprintf("Commit the pending %d transactions", count(committedSecondBatches)), func(t *testing.T) {
-			commit(t, p, &proposalStore, bc, 2, p.Value())
+		t.Run(
+			fmt.Sprintf("Commit the pending %d transactions", count(committedSecondBatches)),
+			func(t *testing.T) {
+				commit(t, p, &proposalStore, bc, 2, p.Value())
 
-			requireEventually(t, 1, func(c *assert.CollectT) {
-				assert.NotNil(c, p.Preconfirmed())
-				assert.Empty(c, p.Preconfirmed().Block.Transactions)
-			})
-		})
+				requireEventually(t, 1, func(c *assert.CollectT) {
+					assert.NotNil(c, p.Preconfirmed())
+					assert.Empty(c, p.Preconfirmed().Block.Transactions)
+				})
+			},
+		)
 	})
 }
 
@@ -186,7 +222,12 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		"../../genesis/classes/strk.json", "../../genesis/classes/account.json",
 		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(false, log),
+		bc.Network(),
+		40000000,
+	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
@@ -263,7 +304,11 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	}
 }
 
-func submit(t *testing.T, proposer proposer.Proposer[starknet.Value, starknet.Hash], batch []core.Transaction) {
+func submit(
+	t *testing.T,
+	proposer proposer.Proposer[starknet.Value, starknet.Hash],
+	batch []core.Transaction,
+) {
 	t.Helper()
 	transactions := make([]mempool.BroadcastedTransaction, len(batch))
 	for i, transaction := range batch {

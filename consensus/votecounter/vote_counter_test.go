@@ -23,12 +23,28 @@ func assertVoteCounter(
 	f := f(voteCounter.validators.TotalVotingPower(testHeight))
 	q := q(voteCounter.validators.TotalVotingPower(testHeight))
 
-	assert.Equal(t, countVotes(isVotingNil, isPrevote) >= q, voteCounter.HasQuorumForVote(testRound, Prevote, nil))
-	assert.Equal(t, countVotes(isVotingNil, isPrecommit) >= q, voteCounter.HasQuorumForVote(testRound, Precommit, nil))
+	assert.Equal(
+		t,
+		countVotes(isVotingNil, isPrevote) >= q,
+		voteCounter.HasQuorumForVote(testRound, Prevote, nil),
+	)
+	assert.Equal(
+		t,
+		countVotes(isVotingNil, isPrecommit) >= q,
+		voteCounter.HasQuorumForVote(testRound, Precommit, nil),
+	)
 
 	for _, id := range allIDs {
-		assert.Equal(t, countVotes(isVotingID(id), isPrevote) >= q, voteCounter.HasQuorumForVote(testRound, Prevote, &id))
-		assert.Equal(t, countVotes(isVotingID(id), isPrecommit) >= q, voteCounter.HasQuorumForVote(testRound, Precommit, &id))
+		assert.Equal(
+			t,
+			countVotes(isVotingID(id), isPrevote) >= q,
+			voteCounter.HasQuorumForVote(testRound, Prevote, &id),
+		)
+		assert.Equal(
+			t,
+			countVotes(isVotingID(id), isPrecommit) >= q,
+			voteCounter.HasQuorumForVote(testRound, Precommit, &id),
+		)
 	}
 
 	assert.Equal(t, countVotes(isPrevote) >= q, voteCounter.HasQuorumForAny(testRound, Prevote))

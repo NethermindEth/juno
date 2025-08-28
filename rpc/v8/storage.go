@@ -166,7 +166,10 @@ func processStorageKeys(storageKeys []StorageKeys) ([]StorageKeys, *jsonrpc.Erro
 
 	uniqueStorageKeys := make([]StorageKeys, 0, len(merged))
 	for contract, keys := range merged {
-		uniqueStorageKeys = append(uniqueStorageKeys, StorageKeys{Contract: &contract, Keys: utils.Set(keys)})
+		uniqueStorageKeys = append(
+			uniqueStorageKeys,
+			StorageKeys{Contract: &contract, Keys: utils.Set(keys)},
+		)
 	}
 
 	return uniqueStorageKeys, nil
@@ -217,7 +220,11 @@ func getClassProof(tr *trie.Trie, classes []felt.Felt) ([]*HashToNode, error) {
 	return adaptProofNodes(classProof), nil
 }
 
-func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Felt) (*ContractProof, error) {
+func getContractProof(
+	tr *trie.Trie,
+	state core.StateReader,
+	contracts []felt.Felt,
+) (*ContractProof, error) {
 	contractProof := trie.NewProofNodeSet()
 	contractLeavesData := make([]*LeafData, len(contracts))
 	for i, contract := range contracts {
@@ -232,7 +239,10 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 
 		nonce, err := state.ContractNonce(&contract)
 		if err != nil {
-			if errors.Is(err, db.ErrKeyNotFound) { // contract does not exist, skip getting leaf data
+			if errors.Is(
+				err,
+				db.ErrKeyNotFound,
+			) { // contract does not exist, skip getting leaf data
 				continue
 			}
 			return nil, err
@@ -256,7 +266,10 @@ func getContractProof(tr *trie.Trie, state core.StateReader, contracts []felt.Fe
 	}, nil
 }
 
-func getContractStorageProof(state core.StateReader, storageKeys []StorageKeys) ([][]*HashToNode, error) {
+func getContractStorageProof(
+	state core.StateReader,
+	storageKeys []StorageKeys,
+) ([][]*HashToNode, error) {
 	contractStorageRes := make([][]*HashToNode, len(storageKeys))
 	for i, storageKey := range storageKeys {
 		contractStorageTrie, err := state.ContractStorageTrie(storageKey.Contract)

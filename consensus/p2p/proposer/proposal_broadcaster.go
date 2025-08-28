@@ -32,8 +32,13 @@ func NewProposalBroadcaster[V types.Hashable[H], H types.Hash, A types.Addr](
 		log:             log,
 		proposalAdapter: proposalAdapter,
 		proposalStore:   proposalStore,
-		broadcaster:     buffered.NewProtoBroadcaster[*consensus.StreamMessage](log, bufferSize, retryInterval, nil),
-		proposals:       make(chan types.Proposal[V, H, A], bufferSize),
+		broadcaster: buffered.NewProtoBroadcaster[*consensus.StreamMessage](
+			log,
+			bufferSize,
+			retryInterval,
+			nil,
+		),
+		proposals: make(chan types.Proposal[V, H, A], bufferSize),
 	}
 }
 
@@ -80,7 +85,10 @@ func (b *proposalBroadcaster[V, H, A]) processLoop(ctx context.Context) {
 	}
 }
 
-func (b *proposalBroadcaster[V, H, A]) Broadcast(ctx context.Context, proposal types.Proposal[V, H, A]) {
+func (b *proposalBroadcaster[V, H, A]) Broadcast(
+	ctx context.Context,
+	proposal types.Proposal[V, H, A],
+) {
 	select {
 	case <-ctx.Done():
 		return

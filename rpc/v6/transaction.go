@@ -215,25 +215,25 @@ type ResourceBoundsMap struct {
 //nolint:lll
 type Transaction struct {
 	Hash                  *felt.Felt            `json:"transaction_hash,omitempty"`
-	Type                  TransactionType       `json:"type" validate:"required"`
-	Version               *felt.Felt            `json:"version,omitempty" validate:"required"`
-	Nonce                 *felt.Felt            `json:"nonce,omitempty" validate:"required_unless=Version 0x0"`
-	MaxFee                *felt.Felt            `json:"max_fee,omitempty" validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
+	Type                  TransactionType       `json:"type"                                   validate:"required"`
+	Version               *felt.Felt            `json:"version,omitempty"                      validate:"required"`
+	Nonce                 *felt.Felt            `json:"nonce,omitempty"                        validate:"required_unless=Version 0x0"`
+	MaxFee                *felt.Felt            `json:"max_fee,omitempty"                      validate:"required_if=Version 0x0,required_if=Version 0x1,required_if=Version 0x2"`
 	ContractAddress       *felt.Felt            `json:"contract_address,omitempty"`
-	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ClassHash             *felt.Felt            `json:"class_hash,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty" validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
-	SenderAddress         *felt.Felt            `json:"sender_address,omitempty" validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
-	Signature             *[]*felt.Felt         `json:"signature,omitempty" validate:"required"`
-	CallData              *[]*felt.Felt         `json:"calldata,omitempty" validate:"required_if=Type INVOKE"`
-	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty" validate:"required_if=Type INVOKE Version 0x0"`
-	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty" validate:"required_if=Type DECLARE Version 0x2"`
-	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty" validate:"required_if=Version 0x3"`
-	Tip                   *felt.Felt            `json:"tip,omitempty" validate:"required_if=Version 0x3"`
-	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty" validate:"required_if=Version 0x3"`
-	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty" validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
+	ContractAddressSalt   *felt.Felt            `json:"contract_address_salt,omitempty"        validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ClassHash             *felt.Felt            `json:"class_hash,omitempty"                   validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	ConstructorCallData   *[]*felt.Felt         `json:"constructor_calldata,omitempty"         validate:"required_if=Type DEPLOY,required_if=Type DEPLOY_ACCOUNT"`
+	SenderAddress         *felt.Felt            `json:"sender_address,omitempty"               validate:"required_if=Type DECLARE,required_if=Type INVOKE Version 0x1,required_if=Type INVOKE Version 0x3"`
+	Signature             *[]*felt.Felt         `json:"signature,omitempty"                    validate:"required"`
+	CallData              *[]*felt.Felt         `json:"calldata,omitempty"                     validate:"required_if=Type INVOKE"`
+	EntryPointSelector    *felt.Felt            `json:"entry_point_selector,omitempty"         validate:"required_if=Type INVOKE Version 0x0"`
+	CompiledClassHash     *felt.Felt            `json:"compiled_class_hash,omitempty"          validate:"required_if=Type DECLARE Version 0x2"`
+	ResourceBounds        *ResourceBoundsMap    `json:"resource_bounds,omitempty"              validate:"required_if=Version 0x3"`
+	Tip                   *felt.Felt            `json:"tip,omitempty"                          validate:"required_if=Version 0x3"`
+	PaymasterData         *[]*felt.Felt         `json:"paymaster_data,omitempty"               validate:"required_if=Version 0x3"`
+	AccountDeploymentData *[]*felt.Felt         `json:"account_deployment_data,omitempty"      validate:"required_if=Type INVOKE Version 0x3,required_if=Type DECLARE Version 0x3"`
 	NonceDAMode           *DataAvailabilityMode `json:"nonce_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
-	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty" validate:"required_if=Version 0x3"`
+	FeeDAMode             *DataAvailabilityMode `json:"fee_data_availability_mode,omitempty"   validate:"required_if=Version 0x3"`
 }
 
 type TransactionStatus struct {
@@ -243,11 +243,11 @@ type TransactionStatus struct {
 
 type MsgFromL1 struct {
 	// The address of the L1 contract sending the message.
-	From common.Address `json:"from_address" validate:"required"`
+	From common.Address `json:"from_address"         validate:"required"`
 	// The address of the L2 contract receiving the message.
-	To felt.Felt `json:"to_address" validate:"required"`
+	To felt.Felt `json:"to_address"           validate:"required"`
 	// The payload of the message.
-	Payload  []felt.Felt `json:"payload" validate:"required"`
+	Payload  []felt.Felt `json:"payload"              validate:"required"`
 	Selector felt.Felt   `json:"entry_point_selector" validate:"required"`
 }
 
@@ -394,7 +394,9 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	return rpcResourceBounds
 }
 
-func adaptToFeederResourceBounds(rb *ResourceBoundsMap) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
+func adaptToFeederResourceBounds(
+	rb *ResourceBoundsMap,
+) *map[starknet.Resource]starknet.ResourceBounds { //nolint:gocritic
 	if rb == nil {
 		return nil
 	}
@@ -483,7 +485,10 @@ func (h *Handler) TransactionByHash(hash felt.Felt) (*Transaction, *jsonrpc.Erro
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L184
-func (h *Handler) TransactionByBlockIDAndIndex(id BlockID, txIndex int) (*Transaction, *jsonrpc.Error) {
+func (h *Handler) TransactionByBlockIDAndIndex(
+	id BlockID,
+	txIndex int,
+) (*Transaction, *jsonrpc.Error) {
 	if txIndex < 0 {
 		return nil, rpccore.ErrInvalidTxIndex
 	}
@@ -604,7 +609,10 @@ func (h *Handler) AddTransaction(
 	return res, nil
 }
 
-func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) (AddTxResponse, *jsonrpc.Error) {
+func (h *Handler) addToMempool(
+	ctx context.Context,
+	tx *BroadcastedTransaction,
+) (AddTxResponse, *jsonrpc.Error) {
 	userTxn, userClass, paidFeeOnL1, err := AdaptBroadcastedTransaction(tx, h.bcReader.Network())
 	if err != nil {
 		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(err.Error())
@@ -619,7 +627,12 @@ func (h *Handler) addToMempool(ctx context.Context, tx *BroadcastedTransaction) 
 
 	res := AddTxResponse{TransactionHash: userTxn.Hash()}
 	if tx.Type == TxnDeployAccount {
-		res.ContractAddress = core.ContractAddress(&felt.Zero, tx.ClassHash, tx.ContractAddressSalt, *tx.ConstructorCallData)
+		res.ContractAddress = core.ContractAddress(
+			&felt.Zero,
+			tx.ClassHash,
+			tx.ContractAddressSalt,
+			*tx.ConstructorCallData,
+		)
 	} else if tx.Type == TxnDeclare {
 		res.ClassHash, err = userClass.Hash()
 		if err != nil {
@@ -636,11 +649,16 @@ func (h *Handler) pushToFeederGateway(
 	if tx.Type == TxnDeclare && tx.Version.Cmp(new(felt.Felt).SetUint64(2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+				fmt.Sprintf("unmarshal contract class: %v", err),
+			)
 		}
 		sierraProg, ok := contractClass["sierra_program"]
 		if !ok {
-			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InvalidParams, "{'sierra_program': ['Missing data for required field.']}")
+			return AddTxResponse{}, jsonrpc.Err(
+				jsonrpc.InvalidParams,
+				"{'sierra_program': ['Missing data for required field.']}",
+			)
 		}
 
 		sierraProgBytes, errIn := json.Marshal(sierraProg)
@@ -656,7 +674,9 @@ func (h *Handler) pushToFeederGateway(
 		contractClass["sierra_program"] = gwSierraProg
 		newContractClass, err := json.Marshal(contractClass)
 		if err != nil {
-			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
+			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+				fmt.Sprintf("marshal revised contract class: %v", err),
+			)
 		}
 		tx.ContractClass = newContractClass
 	}
@@ -669,7 +689,9 @@ func (h *Handler) pushToFeederGateway(
 		ContractClass: tx.ContractClass,
 	})
 	if err != nil {
-		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal transaction: %v", err))
+		return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(
+			fmt.Sprintf("marshal transaction: %v", err),
+		)
 	}
 
 	if h.gatewayClient == nil {
@@ -687,7 +709,10 @@ func (h *Handler) pushToFeederGateway(
 		ClassHash       *felt.Felt `json:"class_hash"`
 	}
 	if err = json.Unmarshal(respJSON, &gatewayResponse); err != nil {
-		return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, fmt.Sprintf("unmarshal gateway response: %v", err))
+		return AddTxResponse{}, jsonrpc.Err(
+			jsonrpc.InternalError,
+			fmt.Sprintf("unmarshal gateway response: %v", err),
+		)
 	}
 
 	return AddTxResponse{
@@ -697,7 +722,10 @@ func (h *Handler) pushToFeederGateway(
 	}, nil
 }
 
-func (h *Handler) TransactionStatus(ctx context.Context, hash felt.Felt) (*TransactionStatus, *jsonrpc.Error) {
+func (h *Handler) TransactionStatus(
+	ctx context.Context,
+	hash felt.Felt,
+) (*TransactionStatus, *jsonrpc.Error) {
 	receipt, txErr := h.TransactionReceiptByHash(hash)
 	switch txErr {
 	case nil:

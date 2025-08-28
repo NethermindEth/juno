@@ -43,7 +43,12 @@ type Service struct {
 	blockCh chan BlockBody
 }
 
-func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
+func New(
+	bc *blockchain.Blockchain,
+	h host.Host,
+	n *utils.Network,
+	log utils.SimpleLogger,
+) *Service {
 	return &Service{
 		host:       h,
 		network:    n,
@@ -84,7 +89,10 @@ func (s *Service) Run(ctx context.Context) {
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
 		if err = s.processBlock(iterCtx, blockNumber); err != nil {
-			s.logError("Failed to process block", fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err))
+			s.logError(
+				"Failed to process block",
+				fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err),
+			)
 			cancelIteration()
 			continue
 		}
@@ -147,7 +155,9 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 	return nil
 }
 
-func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEvents | specClasses | specContractDiffs](i T) specBlockParts {
+func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEvents | specClasses | specContractDiffs](
+	i T,
+) specBlockParts {
 	return specBlockParts(i)
 }
 
@@ -232,7 +242,12 @@ func (s *Service) processSpecBlockParts(
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
 				if okHeader && okTxs && okEvents && okClasses && okDiffs {
-					s.log.Debugw(fmt.Sprintf("----- Received all block parts from peers for block number %d-----", curBlockNum))
+					s.log.Debugw(
+						fmt.Sprintf(
+							"----- Received all block parts from peers for block number %d-----",
+							curBlockNum,
+						),
+					)
 
 					select {
 					case <-ctx.Done():
@@ -381,7 +396,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 				}
 
 				if !expectedHash.Equal(post0132Hash) {
-					err = fmt.Errorf("block hash mismatch: expected %s, got %s", expectedHash, post0132Hash)
+					err = fmt.Errorf(
+						"block hash mismatch: expected %s, got %s",
+						expectedHash,
+						post0132Hash,
+					)
 					bodyCh <- BlockBody{Err: err}
 					return
 				}
@@ -394,7 +413,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 				StateDiff: stateDiff,
 			}
 
-			commitments, err := s.blockchain.SanityCheckNewHeight(coreBlock, stateUpdate, newClasses)
+			commitments, err := s.blockchain.SanityCheckNewHeight(
+				coreBlock,
+				stateUpdate,
+				newClasses,
+			)
 			if err != nil {
 				bodyCh <- BlockBody{Err: fmt.Errorf("sanity check error: %v for block number: %v", err, coreBlock.Number)}
 				return
@@ -422,7 +445,10 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 	return s.header.Number
 }
 
-func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
+func (s *Service) genHeadersAndSigs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specBlockHeaderAndSigs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &header.BlockHeadersRequest{Iteration: it})
 	if err != nil {
@@ -497,7 +523,13 @@ func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan sp
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debugw("Received classes for block", "blockNumber", blockNumber, "lenClasses", len(classes))
+			s.log.Debugw(
+				"Received classes for block",
+				"blockNumber",
+				blockNumber,
+				"lenClasses",
+				len(classes),
+			)
 		}
 	}()
 	return classesCh, nil
@@ -512,7 +544,10 @@ func (s specContractDiffs) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
+func (s *Service) genStateDiffs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specContractDiffs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &state.StateDiffsRequest{Iteration: it})
 	if err != nil {
@@ -607,9 +642,15 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
+func (s *Service) genTransactions(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
-	txsIt, err := s.client.RequestTransactions(ctx, &synctransaction.TransactionsRequest{Iteration: it})
+	txsIt, err := s.client.RequestTransactions(
+		ctx,
+		&synctransaction.TransactionsRequest{Iteration: it},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +714,10 @@ func (s *Service) randomPeer() peer.ID {
 
 var errNoPeers = errors.New("no peers available")
 
-func (s *Service) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+func (s *Service) randomPeerStream(
+	ctx context.Context,
+	pids ...protocol.ID,
+) (network.Stream, error) {
 	randPeer := s.randomPeer()
 	if randPeer == "" {
 		return nil, errNoPeers

@@ -55,7 +55,14 @@ func TestProposalStreamDemux(t *testing.T) {
 	builder := builder.New(bc, executor)
 	transition := NewTransition(&builder)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
-	demux := NewProposalStreamDemux(logger, &proposalStore, transition, &config.DefaultBufferSizes, commitNotifier, block1)
+	demux := NewProposalStreamDemux(
+		logger,
+		&proposalStore,
+		transition,
+		&config.DefaultBufferSizes,
+		commitNotifier,
+		block1,
+	)
 
 	wg := conc.NewWaitGroup()
 	wg.Go(func() {
@@ -148,7 +155,11 @@ func TestProposalStreamDemux(t *testing.T) {
 	})
 }
 
-func assertExpectedProposal(t *testing.T, outputs <-chan starknet.Proposal, expectedProposal starknet.Proposal) {
+func assertExpectedProposal(
+	t *testing.T,
+	outputs <-chan starknet.Proposal,
+	expectedProposal starknet.Proposal,
+) {
 	select {
 	case proposal := <-outputs:
 		require.Equal(t, expectedProposal, proposal)
@@ -172,7 +183,12 @@ func sendParts(t *testing.T, topic *pubsub.Topic, parts [][]byte, count int) [][
 	return parts[count:]
 }
 
-func createProposal(t *testing.T, executor *mockExecutor, database db.KeyValueStore, height types.Height) ([][]byte, starknet.Proposal) {
+func createProposal(
+	t *testing.T,
+	executor *mockExecutor,
+	database db.KeyValueStore,
+	height types.Height,
+) ([][]byte, starknet.Proposal) {
 	testCase := TestCase{
 		Height:     height,
 		Round:      types.Round(rand.Uint32()),

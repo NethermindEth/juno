@@ -39,7 +39,12 @@ func TestRemote(t *testing.T) {
 		require.NoError(t, grpcSrv.Serve(l))
 	}()
 
-	remoteDB, err := New(l.Addr().String(), t.Context(), utils.NewNopZapLogger(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	remoteDB, err := New(
+		l.Addr().String(),
+		t.Context(),
+		utils.NewNopZapLogger(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	require.NoError(t, err)
 
 	t.Run("Get", func(t *testing.T) {
@@ -57,7 +62,11 @@ func TestRemote(t *testing.T) {
 					return errors.New("wrong value")
 				}
 
-				assert.Equal(t, db.ErrKeyNotFound, txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }))
+				assert.Equal(
+					t,
+					db.ErrKeyNotFound,
+					txn.Get([]byte{0xDE, 0xAD}, func(b []byte) error { return nil }),
+				)
 			}
 			return nil
 		}))

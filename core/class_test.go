@@ -151,7 +151,10 @@ func TestClassEncoding(t *testing.T) {
 					},
 					L1Handler: []core.SierraEntryPoint{},
 				},
-				Program:         []*felt.Felt{utils.HexToFelt(t, "0xDEAD"), utils.HexToFelt(t, "0xBEEF")},
+				Program: []*felt.Felt{
+					utils.HexToFelt(t, "0xDEAD"),
+					utils.HexToFelt(t, "0xBEEF"),
+				},
 				ProgramHash:     utils.HexToFelt(t, "0xBEEFDEAD"),
 				SemanticVersion: "0.1.0",
 			},
@@ -195,7 +198,10 @@ func TestVerifyClassHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ClassHash := utils.HexToFelt(
+		t,
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
 	cairo1Class, err := gw.Class(t.Context(), cairo1ClassHash)
 	require.NoError(t, err)
 
@@ -205,8 +211,11 @@ func TestVerifyClassHash(t *testing.T) {
 				name:      "error if expected hash is not equal to gotten hash",
 				classHash: utils.HexToFelt(t, "0xab"),
 				class:     cairo1Class,
-				wantErr: fmt.Errorf("cannot verify class hash: calculated hash %v, received hash %v", cairo1ClassHash.String(),
-					utils.HexToFelt(t, "0xab").String()),
+				wantErr: fmt.Errorf(
+					"cannot verify class hash: calculated hash %v, received hash %v",
+					cairo1ClassHash.String(),
+					utils.HexToFelt(t, "0xab").String(),
+				),
 			},
 			{
 				name:      "no error if expected hash is equal to gotten hash",
@@ -226,7 +235,10 @@ func TestVerifyClassHash(t *testing.T) {
 		}
 	})
 
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ClassHash := utils.HexToFelt(
+		t,
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
 	cairo0Class, err := gw.Class(t.Context(), cairo0ClassHash)
 	require.NoError(t, err)
 
@@ -272,7 +284,16 @@ func TestSierraVersion(t *testing.T) {
 	})
 
 	t.Run("cairo one should return 0.1.0 when only one felt", func(t *testing.T) {
-		sierraVersion010 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+		sierraVersion010 := felt.New(
+			fp.Element(
+				[4]uint64{
+					18446737451840584193,
+					18446744073709551615,
+					18446744073709551615,
+					576348180530977296,
+				},
+			),
+		)
 		class := core.Cairo1Class{
 			Program: []*felt.Felt{
 				&sierraVersion010,

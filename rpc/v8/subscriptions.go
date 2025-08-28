@@ -256,7 +256,10 @@ func (h *Handler) SubscribeEvents(
 // SubscribeTransactionStatus subscribes to status changes of a transaction. It checks for updates each time a new block is added.
 // Later updates are sent only when the transaction status changes.
 // The optional block_id parameter is ignored, as status changes are not stored and historical data cannot be sent.
-func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.Felt) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeTransactionStatus(
+	ctx context.Context,
+	txHash *felt.Felt,
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -309,10 +312,18 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 // therefore, we need to wait for a specified time and at regular interval check if the transaction has been found.
 // If the transaction is found during the timout expiry, then we continue to keep track of its status otherwise the
 // websocket connection is closed after the expiry.
-func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id string, txHash *felt.Felt) (TxnStatus, error) {
+func (h *Handler) getInitialTxStatus(
+	ctx context.Context,
+	sub *subscription,
+	id string,
+	txHash *felt.Felt,
+) (TxnStatus, error) {
 	var lastStatus TxnStatus
 	var err error
-	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+	if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, 0); !errors.Is(
+		err,
+		errorTxnHashNotFound{*txHash},
+	) {
 		return lastStatus, err
 	}
 
@@ -325,7 +336,10 @@ func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id 
 		case <-ctx.Done():
 			return lastStatus, err
 		case <-ticker:
-			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); !errors.Is(err, errorTxnHashNotFound{*txHash}) {
+			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); !errors.Is(
+				err,
+				errorTxnHashNotFound{*txHash},
+			) {
 				return lastStatus, err
 			}
 		}
@@ -342,7 +356,11 @@ func (h *Handler) checkTxStatus(
 	status, rpcErr := h.TransactionStatus(ctx, *txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
-			return lastStatus, fmt.Errorf("error while checking status for transaction %v with rpc error message: %v", txHash, rpcErr.Message)
+			return lastStatus, fmt.Errorf(
+				"error while checking status for transaction %v with rpc error message: %v",
+				txHash,
+				rpcErr.Message,
+			)
 		}
 		return lastStatus, errorTxnHashNotFound{*txHash}
 	}
@@ -455,7 +473,10 @@ func sendEvents(ctx context.Context, w jsonrpc.Conn, events []*blockchain.Filter
 }
 
 // SubscribeNewHeads creates a WebSocket stream which will fire events when a new block header is added.
-func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBlockID) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribeNewHeads(
+	ctx context.Context,
+	blockID *SubscriptionBlockID,
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -483,7 +504,11 @@ func (h *Handler) SubscribeNewHeads(ctx context.Context, blockID *SubscriptionBl
 // SubscribePendingTxs creates a WebSocket stream which will fire events when a new pending transaction is added.
 // The getDetails flag controls if the response will contain the transaction details or just the transaction hashes.
 // The senderAddr flag is used to filter the transactions by sender address.
-func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, senderAddr []felt.Felt) (SubscriptionID, *jsonrpc.Error) {
+func (h *Handler) SubscribePendingTxs(
+	ctx context.Context,
+	getDetails *bool,
+	senderAddr []felt.Felt,
+) (SubscriptionID, *jsonrpc.Error) {
 	w, ok := jsonrpc.ConnFromContext(ctx)
 	if !ok {
 		return "", jsonrpc.Err(jsonrpc.MethodNotFound, nil)
@@ -499,7 +524,15 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 	subscriber := subscriber{
 		onStart: func(ctx context.Context, id string, _ *subscription, _ any) error {
 			if pending := h.PendingBlock(); pending != nil {
-				return h.onPendingBlock(id, w, getDetails, senderAddr, pending, &lastParentHash, sentTxHashes)
+				return h.onPendingBlock(
+					id,
+					w,
+					getDetails,
+					senderAddr,
+					pending,
+					&lastParentHash,
+					sentTxHashes,
+				)
 			}
 			return nil
 		},
@@ -508,7 +541,15 @@ func (h *Handler) SubscribePendingTxs(ctx context.Context, getDetails *bool, sen
 				return nil
 			}
 
-			return h.onPendingBlock(id, w, getDetails, senderAddr, pending.GetBlock(), &lastParentHash, sentTxHashes)
+			return h.onPendingBlock(
+				id,
+				w,
+				getDetails,
+				senderAddr,
+				pending.GetBlock(),
+				&lastParentHash,
+				sentTxHashes,
+			)
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)

@@ -112,7 +112,13 @@ func TestBallotSetAdd(t *testing.T) {
 			voteType = "precommit"
 		}
 
-		testName := fmt.Sprintf("%s to add %s with power %d for address %d", isAble, voteType, tt.addrPower, tt.addrIndex)
+		testName := fmt.Sprintf(
+			"%s to add %s with power %d for address %d",
+			isAble,
+			voteType,
+			tt.addrPower,
+			tt.addrIndex,
+		)
 		addr := starknet.Address(felt.FromUint64(tt.addrIndex))
 		t.Run(testName, func(t *testing.T) {
 			assert.Len(t, bs.perVoteType, 2)

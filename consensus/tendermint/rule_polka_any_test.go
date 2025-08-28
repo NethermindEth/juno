@@ -9,24 +9,29 @@ import (
 )
 
 func TestPolkaAny(t *testing.T) {
-	t.Run("Line 34: upon 2f + 1 {PREVOTE, h_p, round_p, *} while step_p = prevote schedule timeout", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
-		currentRound := newTestRound(t, stateMachine, 0, 0)
+	t.Run(
+		"Line 34: upon 2f + 1 {PREVOTE, h_p, round_p, *} while step_p = prevote schedule timeout",
+		func(t *testing.T) {
+			stateMachine := setupStateMachine(t, 4, 3)
+			currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		// Initialise state
-		currentRound.start()
+			// Initialise state
+			currentRound.start()
 
-		// Receive a proposal and move to prevote step
-		currentRound.validator(0).proposal(value(42), -1)
+			// Receive a proposal and move to prevote step
+			currentRound.validator(0).proposal(value(42), -1)
 
-		// Receive 2 more prevotes combined with our own prevote, all in mixed value
-		currentRound.validator(1).prevote(nil)
-		currentRound.validator(2).prevote(utils.HeapPtr(value(44))).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
-		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
+			// Receive 2 more prevotes combined with our own prevote, all in mixed value
+			currentRound.validator(1).prevote(nil)
+			currentRound.validator(2).
+				prevote(utils.HeapPtr(value(44))).
+				expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
+			assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 
-		// Assertions - We should still be in prevote step, but timeout should be scheduled
-		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
-	})
+			// Assertions - We should still be in prevote step, but timeout should be scheduled
+			assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
+		},
+	)
 
 	t.Run("Line 34: not enough prevotes (less than 2f + 1)", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
@@ -73,7 +78,9 @@ func TestPolkaAny(t *testing.T) {
 
 		// Receive 2 prevotes, combined with our own prevote and schedule timeout for prevote
 		currentRound.validator(0).prevote(nil).expectActions()
-		currentRound.validator(1).prevote(utils.HeapPtr(value(43))).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
+		currentRound.validator(1).
+			prevote(utils.HeapPtr(value(43))).
+			expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 
 		// Receive 1 more prevote, no timeout should be scheduled

@@ -8,7 +8,9 @@ func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V
 	return s.processLoop(s.startRound(round), nil)
 }
 
-func (s *stateMachine[V, H, A]) ProcessProposal(p *types.Proposal[V, H, A]) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessProposal(
+	p *types.Proposal[V, H, A],
+) []types.Action[V, H, A] {
 	return s.processMessage(p.MessageHeader, func() {
 		if s.voteCounter.AddProposal(p) && !s.replayMode && p.Height == s.state.height {
 			// Store proposal if its the first time we see it
@@ -41,7 +43,10 @@ func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []typ
 	})
 }
 
-func (s *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) processMessage(
+	header types.MessageHeader[A],
+	addMessage func(),
+) []types.Action[V, H, A] {
 	if !s.preprocessMessage(header, addMessage) {
 		return nil
 	}
@@ -67,7 +72,10 @@ func (s *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[
 	return nil
 }
 
-func (s *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recentlyReceivedRound *types.Round) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) processLoop(
+	action types.Action[V, H, A],
+	recentlyReceivedRound *types.Round,
+) []types.Action[V, H, A] {
 	actions, shouldContinue := []types.Action[V, H, A]{}, true
 	if action != nil {
 		actions = append(actions, action)
@@ -83,7 +91,9 @@ func (s *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 	return actions
 }
 
-func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action types.Action[V, H, A], shouldContinue bool) {
+func (s *stateMachine[V, H, A]) process(
+	recentlyReceivedRound *types.Round,
+) (action types.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := s.findProposal(s.state.round)
 
 	roundCachedProposal := cachedProposal
@@ -118,7 +128,9 @@ func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (act
 
 	// Line 49
 	case roundCachedProposal != nil && s.uponCommitValue(roundCachedProposal):
-		return s.doCommitValue(roundCachedProposal), false // We should stop immediately after committing
+		return s.doCommitValue(
+			roundCachedProposal,
+		), false // We should stop immediately after committing
 
 	// Line 55
 	case recentlyReceivedRound != nil && s.uponSkipRound(*recentlyReceivedRound):

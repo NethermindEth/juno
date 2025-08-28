@@ -134,7 +134,12 @@ func TestHTTPLogSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update log level", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/log/level?level=debug", http.NoBody)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPut,
+			"/log/level?level=debug",
+			http.NoBody,
+		)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
@@ -165,7 +170,12 @@ func TestHTTPLogSettings(t *testing.T) {
 	})
 
 	t.Run("PUT update log level with invalid level", func(t *testing.T) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPut, "/log/level?level=invalid", http.NoBody)
+		req, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodPut,
+			"/log/level?level=invalid",
+			http.NoBody,
+		)
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()

@@ -22,11 +22,21 @@ type testNodeReader struct {
 	scheme dbScheme
 }
 
-func newTestNodeReader(id trieutils.TrieID, nodes []*trienode.MergeNodeSet, db db.KeyValueStore, scheme dbScheme) *testNodeReader {
+func newTestNodeReader(
+	id trieutils.TrieID,
+	nodes []*trienode.MergeNodeSet,
+	db db.KeyValueStore,
+	scheme dbScheme,
+) *testNodeReader {
 	return &testNodeReader{id: id, nodes: nodes, db: db, scheme: scheme}
 }
 
-func (n *testNodeReader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func (n *testNodeReader) Node(
+	owner *felt.Felt,
+	path *trieutils.Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	for _, nodes := range n.nodes {
 		var (
 			node trienode.TrieNode
@@ -104,7 +114,10 @@ func (d *TestNodeDatabase) NodeReader(id trieutils.TrieID) (database.NodeReader,
 	return newTestNodeReader(id, nodes, d.disk, d.scheme), nil
 }
 
-func (d *TestNodeDatabase) dirties(root *felt.Felt, newerFirst bool) ([]*trienode.MergeNodeSet, []felt.Felt) {
+func (d *TestNodeDatabase) dirties(
+	root *felt.Felt,
+	newerFirst bool,
+) ([]*trienode.MergeNodeSet, []felt.Felt) {
 	var (
 		pending []*trienode.MergeNodeSet
 		roots   []felt.Felt

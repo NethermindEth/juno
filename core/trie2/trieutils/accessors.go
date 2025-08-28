@@ -8,7 +8,13 @@ import (
 	"github.com/NethermindEth/juno/db/dbutils"
 )
 
-func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) ([]byte, error) {
+func GetNodeByPath(
+	r db.KeyValueReader,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	isLeaf bool,
+) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByPath(bucket, owner, path, isLeaf),
 		func(value []byte) error {
@@ -21,11 +27,24 @@ func GetNodeByPath(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool, blob []byte) error {
+func WriteNodeByPath(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	isLeaf bool,
+	blob []byte,
+) error {
 	return w.Put(nodeKeyByPath(bucket, owner, path, isLeaf), blob)
 }
 
-func DeleteNodeByPath(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) error {
+func DeleteNodeByPath(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	isLeaf bool,
+) error {
 	return w.Delete(nodeKeyByPath(bucket, owner, path, isLeaf))
 }
 
@@ -125,7 +144,14 @@ func nodeKeyByPath(prefix db.Bucket, owner *felt.Felt, path *Path, isLeaf bool) 
 	return key
 }
 
-func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+func GetNodeByHash(
+	r db.KeyValueReader,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) ([]byte, error) {
 	var res []byte
 	if err := r.Get(nodeKeyByHash(bucket, owner, path, hash, isLeaf),
 		func(value []byte) error {
@@ -138,7 +164,15 @@ func GetNodeByHash(r db.KeyValueReader, bucket db.Bucket, owner *felt.Felt, path
 	return res, nil
 }
 
-func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool, blob []byte) error {
+func WriteNodeByHash(
+	w db.KeyValueWriter,
+	bucket db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	hash *felt.Felt,
+	isLeaf bool,
+	blob []byte,
+) error {
 	return w.Put(nodeKeyByHash(bucket, owner, path, hash, isLeaf), blob)
 }
 
@@ -156,7 +190,13 @@ func WriteNodeByHash(w db.KeyValueWriter, bucket db.Bucket, owner *felt.Felt, pa
 //
 // Hash: [Pedersen(path, value) + length] if length > 0 else [value].
 
-func nodeKeyByHash(prefix db.Bucket, owner *felt.Felt, path *Path, hash *felt.Felt, isLeaf bool) []byte {
+func nodeKeyByHash(
+	prefix db.Bucket,
+	owner *felt.Felt,
+	path *Path,
+	hash *felt.Felt,
+	isLeaf bool,
+) []byte {
 	const pathSignificantBytes = 8
 	var (
 		prefixBytes = prefix.Key()

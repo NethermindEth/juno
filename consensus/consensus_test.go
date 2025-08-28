@@ -52,7 +52,11 @@ type testConfig struct {
 	networkSetup testutils.NetworkConfigFn
 }
 
-func getBlockchain(t *testing.T, genesisDiff core.StateDiff, genesisClasses map[felt.Felt]core.Class) *blockchain.Blockchain {
+func getBlockchain(
+	t *testing.T,
+	genesisDiff core.StateDiff,
+	genesisClasses map[felt.Felt]core.Class,
+) *blockchain.Blockchain {
 	t.Helper()
 	testDB := memory.New()
 	network := &utils.Mainnet
@@ -70,7 +74,12 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 		"../genesis/classes/strk.json", "../genesis/classes/account.json",
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(false, log),
+		&network,
+		40000000,
+	)
 	require.NoError(t, err)
 
 	return diff, classes
@@ -137,9 +146,21 @@ func writeBlock(
 		case <-t.Context().Done():
 			return
 		case committedBlock := <-commitListener.Listen():
-			commitments, err := bc.SanityCheckNewHeight(committedBlock.Block, committedBlock.StateUpdate, committedBlock.NewClasses)
+			commitments, err := bc.SanityCheckNewHeight(
+				committedBlock.Block,
+				committedBlock.StateUpdate,
+				committedBlock.NewClasses,
+			)
 			require.NoError(t, err)
-			require.NoError(t, bc.Store(committedBlock.Block, commitments, committedBlock.StateUpdate, committedBlock.NewClasses))
+			require.NoError(
+				t,
+				bc.Store(
+					committedBlock.Block,
+					commitments,
+					committedBlock.StateUpdate,
+					committedBlock.NewClasses,
+				),
+			)
 
 			close(committedBlock.Persisted)
 
@@ -162,7 +183,16 @@ func commitStream(t *testing.T, nodeCount int, commits chan commit) goitre.Seq[c
 	timeoutFn := consensus.MockTimeoutFn(nodeCount)
 	var maxCommitWait time.Duration
 	for round := range maxRoundWait {
-		maxCommitWait += timeoutFn(types.StepPropose, round) + timeoutFn(types.StepPrevote, round) + timeoutFn(types.StepPrecommit, round)
+		maxCommitWait += timeoutFn(
+			types.StepPropose,
+			round,
+		) + timeoutFn(
+			types.StepPrevote,
+			round,
+		) + timeoutFn(
+			types.StepPrecommit,
+			round,
+		)
 	}
 	return func(yield func(commit) bool) {
 		t.Helper()

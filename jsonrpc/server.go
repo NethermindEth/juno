@@ -234,7 +234,10 @@ var _ Conn = (*connection)(nil)
 func (c *connection) Write(p []byte) (int, error) {
 	<-c.activated
 	if c.initialErr != nil {
-		return 0, fmt.Errorf("there was an error while writing the initial response: %w", c.initialErr)
+		return 0, fmt.Errorf(
+			"there was an error while writing the initial response: %w",
+			c.initialErr,
+		)
 	}
 	return c.w.Write(p)
 }
@@ -339,7 +342,10 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	return result, header, err
 }
 
-func (s *Server) handleBatchRequest(ctx context.Context, batchReq []json.RawMessage) ([]byte, http.Header, error) {
+func (s *Server) handleBatchRequest(
+	ctx context.Context,
+	batchReq []json.RawMessage,
+) ([]byte, http.Header, error) {
 	var (
 		mutex     sync.Mutex
 		responses []json.RawMessage
@@ -498,7 +504,13 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 			s.listener.OnRequestFailed(req.Method, res.Error)
 			reqJSON, _ := json.Marshal(req)
 			errJSON, _ := json.Marshal(res.Error)
-			s.log.Debugw("Failed handing RPC request", "req", string(reqJSON), "res", string(errJSON))
+			s.log.Debugw(
+				"Failed handing RPC request",
+				"req",
+				string(reqJSON),
+				"res",
+				string(errJSON),
+			)
 		}
 		return res, header, nil
 	}
@@ -507,8 +519,13 @@ func (s *Server) handleRequest(ctx context.Context, req *Request) (*response, ht
 	return res, header, nil
 }
 
+//
 //nolint:gocyclo
-func (s *Server) buildArguments(ctx context.Context, params any, method Method) ([]reflect.Value, error) {
+func (s *Server) buildArguments(
+	ctx context.Context,
+	params any,
+	method Method,
+) ([]reflect.Value, error) {
 	handlerType := reflect.TypeOf(method.Handler)
 
 	numArgs := handlerType.NumIn()

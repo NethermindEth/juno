@@ -18,8 +18,11 @@ Check upon condition on line 36:
 	42: validValue_p ← v
 	43: validRound_p ← round_p
 */
-func (s *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) bool {
-	hasQuorum := cachedProposal.ID != nil && s.voteCounter.HasQuorumForVote(s.state.round, votecounter.Prevote, cachedProposal.ID)
+func (s *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(
+	cachedProposal *CachedProposal[V, H, A],
+) bool {
+	hasQuorum := cachedProposal.ID != nil &&
+		s.voteCounter.HasQuorumForVote(s.state.round, votecounter.Prevote, cachedProposal.ID)
 	firstTime := !s.state.lockedValueAndOrValidValueSet
 	return hasQuorum &&
 		cachedProposal.Valid &&
@@ -27,7 +30,9 @@ func (s *stateMachine[V, H, A]) uponProposalAndPolkaCurrent(cachedProposal *Cach
 		firstTime
 }
 
-func (s *stateMachine[V, H, A]) doProposalAndPolkaCurrent(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doProposalAndPolkaCurrent(
+	cachedProposal *CachedProposal[V, H, A],
+) types.Action[V, H, A] {
 	var action types.Action[V, H, A]
 	if s.state.step == types.StepPrevote {
 		s.state.lockedValue = cachedProposal.Value

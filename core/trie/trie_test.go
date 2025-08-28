@@ -139,7 +139,12 @@ func TestTrieDeleteBasic(t *testing.T) {
 					val, err := tempTrie.Get(key)
 
 					assert.NoError(t, err, "shouldnt return an error when access a deleted key")
-					assert.Equal(t, &felt.Zero, val, "should return zero value when access a deleted key")
+					assert.Equal(
+						t,
+						&felt.Zero,
+						val,
+						"should return zero value when access a deleted key",
+					)
 				}
 
 				// Check the final rootKey
@@ -189,19 +194,22 @@ func TestPutZero(t *testing.T) {
 			roots = append(roots, root)
 		}
 
-		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
-			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+		t.Run(
+			"adding a zero value to a non-existent key should not change Trie",
+			func(t *testing.T) {
+				var key, root *felt.Felt
+				key, err = new(felt.Felt).SetRandom()
+				require.NoError(t, err)
 
-			_, err = tempTrie.Put(key, new(felt.Felt))
-			require.NoError(t, err)
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
 
-			root, err = tempTrie.Root()
-			require.NoError(t, err)
+				root, err = tempTrie.Root()
+				require.NoError(t, err)
 
-			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
-		})
+				assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			},
+		)
 
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
 			var gotRoot *felt.Felt
@@ -259,19 +267,22 @@ func TestTrie(t *testing.T) {
 			roots = append(roots, root)
 		}
 
-		t.Run("adding a zero value to a non-existent key should not change Trie", func(t *testing.T) {
-			var key, root *felt.Felt
-			key, err = new(felt.Felt).SetRandom()
-			require.NoError(t, err)
+		t.Run(
+			"adding a zero value to a non-existent key should not change Trie",
+			func(t *testing.T) {
+				var key, root *felt.Felt
+				key, err = new(felt.Felt).SetRandom()
+				require.NoError(t, err)
 
-			_, err = tempTrie.Put(key, new(felt.Felt))
-			require.NoError(t, err)
+				_, err = tempTrie.Put(key, new(felt.Felt))
+				require.NoError(t, err)
 
-			root, err = tempTrie.Root()
-			require.NoError(t, err)
+				root, err = tempTrie.Root()
+				require.NoError(t, err)
 
-			assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
-		})
+				assert.Equal(t, true, root.Equal(roots[len(roots)-1]))
+			},
+		)
 
 		t.Run("remove keys one by one, check roots", func(t *testing.T) {
 			var gotRoot *felt.Felt

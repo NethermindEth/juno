@@ -9,15 +9,20 @@ import (
 )
 
 func TestTimeout(t *testing.T) {
-	t.Run("OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil", func(t *testing.T) {
-		stateMachine := setupStateMachine(t, 4, 3)
-		currentRound := newTestRound(t, stateMachine, 0, 0)
+	t.Run(
+		"OnTimeoutPropose: round zero the node is not the proposer thus send a prevote nil",
+		func(t *testing.T) {
+			stateMachine := setupStateMachine(t, 4, 3)
+			currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		currentRound.start().expectActions(currentRound.action().scheduleTimeout(types.StepPropose))
-		currentRound.processTimeout(types.StepPropose).expectActions(currentRound.action().broadcastPrevote(nil))
+			currentRound.start().
+				expectActions(currentRound.action().scheduleTimeout(types.StepPropose))
+			currentRound.processTimeout(types.StepPropose).
+				expectActions(currentRound.action().broadcastPrevote(nil))
 
-		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
-	})
+			assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
+		},
+	)
 
 	t.Run("OnTimeoutPrevote: move to next round", func(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
@@ -27,11 +32,14 @@ func TestTimeout(t *testing.T) {
 		currentRound.start()
 		currentRound.validator(0).proposal(value(42), -1)
 		currentRound.validator(1).prevote(utils.HeapPtr(value(42)))
-		currentRound.validator(2).prevote(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
+		currentRound.validator(2).
+			prevote(nil).
+			expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
 		assert.True(t, stateMachine.state.timeoutPrevoteScheduled)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
 
-		currentRound.processTimeout(types.StepPrevote).expectActions(currentRound.action().broadcastPrecommit(nil))
+		currentRound.processTimeout(types.StepPrevote).
+			expectActions(currentRound.action().broadcastPrecommit(nil))
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})
 
@@ -44,10 +52,13 @@ func TestTimeout(t *testing.T) {
 		currentRound.start()
 		currentRound.validator(0).precommit(utils.HeapPtr(value(10)))
 		currentRound.validator(1).precommit(nil)
-		currentRound.validator(2).precommit(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrecommit))
+		currentRound.validator(2).
+			precommit(nil).
+			expectActions(currentRound.action().scheduleTimeout(types.StepPrecommit))
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
 
-		currentRound.processTimeout(types.StepPrecommit).expectActions(nextRound.action().scheduleTimeout(types.StepPropose))
+		currentRound.processTimeout(types.StepPrecommit).
+			expectActions(nextRound.action().scheduleTimeout(types.StepPropose))
 		assert.False(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		assertState(t, stateMachine, types.Height(0), types.Round(1), types.StepPropose)

@@ -57,7 +57,15 @@ func TestSyncBlocks(t *testing.T) {
 		testDB := memory.New()
 		bc := blockchain.New(testDB, &utils.Mainnet)
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			log,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -76,7 +84,15 @@ func TestSyncBlocks(t *testing.T) {
 		require.NoError(t, bc.Store(b0, &core.BlockCommitments{}, s0, nil))
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, gw)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			log,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -93,43 +109,60 @@ func TestSyncBlocks(t *testing.T) {
 
 		syncingHeight := uint64(0)
 		reqCount := 0
-		mockSNData.EXPECT().StateUpdateWithBlock(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
-			curHeight := atomic.LoadUint64(&syncingHeight)
-			// reject any other requests
-			if height != curHeight {
-				return nil, nil, errors.New("try again")
-			}
+		mockSNData.EXPECT().
+			StateUpdateWithBlock(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, height uint64) (*core.StateUpdate, *core.Block, error) {
+				curHeight := atomic.LoadUint64(&syncingHeight)
+				// reject any other requests
+				if height != curHeight {
+					return nil, nil, errors.New("try again")
+				}
 
-			reqCount++
-			state, block, err := gw.StateUpdateWithBlock(t.Context(), curHeight)
-			if err != nil {
-				return nil, nil, err
-			}
+				reqCount++
+				state, block, err := gw.StateUpdateWithBlock(t.Context(), curHeight)
+				if err != nil {
+					return nil, nil, err
+				}
 
-			switch reqCount {
-			case 1:
-				return nil, nil, errors.New("try again")
-			case 2:
-				state.BlockHash = new(felt.Felt) // fail sanity checks
-			case 3:
-				state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
-			default:
-				reqCount = 0
-				atomic.AddUint64(&syncingHeight, 1)
-			}
+				switch reqCount {
+				case 1:
+					return nil, nil, errors.New("try again")
+				case 2:
+					state.BlockHash = new(felt.Felt) // fail sanity checks
+				case 3:
+					state.OldRoot = new(felt.Felt).SetUint64(1) // fail store
+				default:
+					reqCount = 0
+					atomic.AddUint64(&syncingHeight, 1)
+				}
 
-			return state, block, nil
-		}).AnyTimes()
-		mockSNData.EXPECT().Class(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.Class, error) {
-			return gw.Class(ctx, hash)
-		}).AnyTimes()
+				return state, block, nil
+			}).
+			AnyTimes()
+		mockSNData.EXPECT().
+			Class(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, hash *felt.Felt) (core.Class, error) {
+				return gw.Class(ctx, hash)
+			}).
+			AnyTimes()
 
-		mockSNData.EXPECT().BlockLatest(gomock.Any()).DoAndReturn(func(ctx context.Context) (*core.Block, error) {
-			return gw.BlockLatest(t.Context())
-		}).AnyTimes()
+		mockSNData.EXPECT().
+			BlockLatest(gomock.Any()).
+			DoAndReturn(func(ctx context.Context) (*core.Block, error) {
+				return gw.BlockLatest(t.Context())
+			}).
+			AnyTimes()
 
 		dataSource := sync.NewFeederGatewayDataSource(bc, mockSNData)
-		synchronizer := sync.New(bc, dataSource, log, time.Duration(0), time.Duration(0), false, testDB)
+		synchronizer := sync.New(
+			bc,
+			dataSource,
+			log,
+			time.Duration(0),
+			time.Duration(0),
+			false,
+			testDB,
+		)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*timeout)
 
 		require.NoError(t, synchronizer.Run(ctx))
@@ -163,7 +196,11 @@ func TestReorg(t *testing.T) {
 		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
+		require.Equal(
+			t,
+			utils.HexToFelt(t, "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"),
+			head.Hash,
+		)
 		sepoliaEnd := head
 		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
@@ -178,7 +215,11 @@ func TestReorg(t *testing.T) {
 		// After syncing (and reorging) the current head should be at mainnet
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+		require.Equal(
+			t,
+			utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"),
+			head.Hash,
+		)
 
 		// Validate reorg event
 		got, ok := <-sub.Recv()
@@ -211,7 +252,9 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pending block version", func(t *testing.T) {
-			pending := &sync.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			pending := &sync.Pending{
+				Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}},
+			}
 			require.Error(t, synchronizer.StorePending(pending))
 		})
 
@@ -225,7 +268,11 @@ func TestPendingData(t *testing.T) {
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			expectedPending := sync.NewPending(pendingGenesis.Block, pendingGenesis.StateUpdate, nil)
+			expectedPending := sync.NewPending(
+				pendingGenesis.Block,
+				pendingGenesis.StateUpdate,
+				nil,
+			)
 			assert.Equal(t, &expectedPending, gotPending)
 		})
 
@@ -239,7 +286,11 @@ func TestPendingData(t *testing.T) {
 
 			notExpectedPending := sync.NewPending(b, su, nil)
 
-			require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+			require.ErrorIs(
+				t,
+				synchronizer.StorePending(&notExpectedPending),
+				blockchain.ErrParentDoesNotMatchHead,
+			)
 		})
 
 		t.Run("store expected pending block", func(t *testing.T) {
@@ -286,7 +337,9 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
-			preConfirmed := &core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			preConfirmed := &core.PreConfirmed{
+				Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}},
+			}
 			require.Error(t, synchronizer.StorePreConfirmed(preConfirmed))
 		})
 
@@ -358,14 +411,20 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
 			txCount := len(preConfirmed.GetTransactions())
 
-			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
+			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(
+				txCount - 1,
+			)
 			require.NoError(t, pErr)
 
 			// Check storage value in two different index
 			// See clients/feeder/testdata/sepolia-integration/pre_confirmed/1204672.json
-			contractAddress, err := new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			contractAddress, err := new(
+				felt.Felt,
+			).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
 			require.NoError(t, err)
-			key, err := new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			key, err := new(
+				felt.Felt,
+			).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
 			require.NoError(t, err)
 			val, err := pendingState.ContractStorage(contractAddress, key)
 			require.NoError(t, err)
@@ -378,9 +437,13 @@ func TestPendingData(t *testing.T) {
 
 			pendingState, pendingStateCloser, pErr = synchronizer.PendingStateBeforeIndex(txCount)
 			require.NoError(t, pErr)
-			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+			contractAddress, err = new(
+				felt.Felt,
+			).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
 			require.NoError(t, err)
-			key, err = new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
+			key, err = new(
+				felt.Felt,
+			).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
 			require.NoError(t, err)
 			val, err = pendingState.ContractStorage(contractAddress, key)
 			require.NoError(t, err)

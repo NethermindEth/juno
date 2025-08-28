@@ -58,7 +58,12 @@ func TestMakeL1Metrics(t *testing.T) {
 		assertGaugeValue(t, reg, "l1_latest_height", 101)
 
 		listener.OnL1Call("test_method", time.Second)
-		assert.Equal(t, 1, testutil.CollectAndCount(reg, "l1_client_request_latency"), "l1_client_request_latency")
+		assert.Equal(
+			t,
+			1,
+			testutil.CollectAndCount(reg, "l1_client_request_latency"),
+			"l1_client_request_latency",
+		)
 	})
 
 	t.Run("error in metric reporting", func(t *testing.T) {
@@ -70,8 +75,14 @@ func TestMakeL1Metrics(t *testing.T) {
 		prometheus.DefaultRegisterer = reg
 
 		mockBCReader.EXPECT().L1Head().Return(nil, errors.New("err")).AnyTimes()
-		mockSubscriber.EXPECT().FinalisedHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
-		mockSubscriber.EXPECT().LatestHeight(gomock.Any()).Return(uint64(0), errors.New("err")).AnyTimes()
+		mockSubscriber.EXPECT().
+			FinalisedHeight(gomock.Any()).
+			Return(uint64(0), errors.New("err")).
+			AnyTimes()
+		mockSubscriber.EXPECT().
+			LatestHeight(gomock.Any()).
+			Return(uint64(0), errors.New("err")).
+			AnyTimes()
 
 		listener := makeL1Metrics(mockBCReader, mockSubscriber)
 		require.NotNil(t, listener)

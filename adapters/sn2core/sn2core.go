@@ -75,9 +75,12 @@ func AdaptTransactionReceipt(response *starknet.TransactionReceipt) *core.Transa
 		Events:             utils.Map(utils.NonNilSlice(response.Events), AdaptEvent),
 		ExecutionResources: AdaptExecutionResources(response.ExecutionResources),
 		L1ToL2Message:      AdaptL1ToL2Message(response.L1ToL2Message),
-		L2ToL1Message:      utils.Map(utils.NonNilSlice(response.L2ToL1Message), AdaptL2ToL1Message),
-		Reverted:           response.ExecutionStatus == starknet.Reverted,
-		RevertReason:       response.RevertError,
+		L2ToL1Message: utils.Map(
+			utils.NonNilSlice(response.L2ToL1Message),
+			AdaptL2ToL1Message,
+		),
+		Reverted:     response.ExecutionStatus == starknet.Reverted,
+		RevertReason: response.RevertError,
 	}
 }
 
@@ -173,7 +176,7 @@ func AdaptDeclareTransaction(t *starknet.Transaction) *core.DeclareTransaction {
 		Version:               (*core.TransactionVersion)(t.Version),
 		ClassHash:             t.ClassHash,
 		CompiledClassHash:     t.CompiledClassHash,
-		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:        adaptResourceBounds(*t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
 		PaymasterData:         utils.DerefSlice(t.PaymasterData),
 		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
@@ -189,12 +192,14 @@ func adaptDataAvailabilityMode(mode *starknet.DataAvailabilityMode) core.DataAva
 	return core.DataAvailabilityMode(*mode)
 }
 
-func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[core.Resource]core.ResourceBounds { //nolint:gocritic
+func adaptResourceBounds(
+	rb map[starknet.Resource]starknet.ResourceBounds,
+) map[core.Resource]core.ResourceBounds {
 	if rb == nil {
 		return nil
 	}
-	coreBounds := make(map[core.Resource]core.ResourceBounds, len(*rb))
-	for resource, bounds := range *rb {
+	coreBounds := make(map[core.Resource]core.ResourceBounds, len(rb))
+	for resource, bounds := range rb {
 		coreBounds[core.Resource(resource)] = core.ResourceBounds{
 			MaxAmount:       bounds.MaxAmount.Uint64(),
 			MaxPricePerUnit: bounds.MaxPricePerUnit,
@@ -205,7 +210,12 @@ func adaptResourceBounds(rb *map[starknet.Resource]starknet.ResourceBounds) map[
 
 func AdaptDeployTransaction(t *starknet.Transaction) *core.DeployTransaction {
 	if t.ContractAddress == nil {
-		t.ContractAddress = core.ContractAddress(&felt.Zero, t.ClassHash, t.ContractAddressSalt, *t.ConstructorCallData)
+		t.ContractAddress = core.ContractAddress(
+			&felt.Zero,
+			t.ClassHash,
+			t.ContractAddressSalt,
+			*t.ConstructorCallData,
+		)
 	}
 	return &core.DeployTransaction{
 		TransactionHash:     t.Hash,
@@ -228,7 +238,7 @@ func AdaptInvokeTransaction(t *starknet.Transaction) *core.InvokeTransaction {
 		MaxFee:                t.MaxFee,
 		Version:               (*core.TransactionVersion)(t.Version),
 		SenderAddress:         t.SenderAddress,
-		ResourceBounds:        adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:        adaptResourceBounds(*t.ResourceBounds),
 		Tip:                   safeFeltToUint64(t.Tip),
 		PaymasterData:         utils.DerefSlice(t.PaymasterData),
 		AccountDeploymentData: utils.DerefSlice(t.AccountDeploymentData),
@@ -254,7 +264,7 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 		MaxFee:               t.MaxFee,
 		TransactionSignature: *t.Signature,
 		Nonce:                t.Nonce,
-		ResourceBounds:       adaptResourceBounds(t.ResourceBounds),
+		ResourceBounds:       adaptResourceBounds(*t.ResourceBounds),
 		Tip:                  safeFeltToUint64(t.Tip),
 		PaymasterData:        utils.DerefSlice(t.PaymasterData),
 		NonceDAMode:          adaptDataAvailabilityMode(t.NonceDAMode),
@@ -262,12 +272,16 @@ func AdaptDeployAccountTransaction(t *starknet.Transaction) *core.DeployAccountT
 	}
 }
 
-func AdaptCairo1Class(response *starknet.SierraDefinition, compiledClass *starknet.CompiledClass) (*core.Cairo1Class, error) {
+func AdaptCairo1Class(
+	response *starknet.SierraDefinition,
+	compiledClass *starknet.CompiledClass,
+) (*core.Cairo1Class, error) {
 	var err error
 
 	// TODO: what's the absolute minimum size of a Sierra Definition?
 	// A Sierra program size should be at least 3 to contain the version or 1 if it's version is 0.1.0
-	if len(response.Program) < 3 && (len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
+	if len(response.Program) < 3 &&
+		(len(response.Program) == 0 || !response.Program[0].Equal(&core.SierraVersion010)) {
 		return nil, errors.New("sierra program size is too small")
 	}
 
@@ -398,7 +412,10 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 		stateDiff.Nonces[*addr] = nonce
 	}
 
-	stateDiff.StorageDiffs = make(map[felt.Felt]map[felt.Felt]*felt.Felt, len(response.StorageDiffs))
+	stateDiff.StorageDiffs = make(
+		map[felt.Felt]map[felt.Felt]*felt.Felt,
+		len(response.StorageDiffs),
+	)
 	for addrStr, diffs := range response.StorageDiffs {
 		addr, err := new(felt.Felt).SetString(addrStr)
 		if err != nil {
@@ -414,7 +431,10 @@ func AdaptStateDiff(response *starknet.StateDiff) (*core.StateDiff, error) {
 	return stateDiff, nil
 }
 
-func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64) (core.PreConfirmed, error) {
+func AdaptPreConfirmedBlock(
+	response *starknet.PreConfirmedBlock,
+	number uint64,
+) (core.PreConfirmed, error) {
 	if response == nil {
 		return core.PreConfirmed{}, errors.New("nil preconfirmed block")
 	}

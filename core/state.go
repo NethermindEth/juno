@@ -67,7 +67,11 @@ func (s *State) ChainHeight() (uint64, error) {
 
 // putNewContract creates a contract storage instance in the state and stores the relation between contract address and class hash to be
 // queried later with [GetContractClass].
-func (s *State) putNewContract(stateTrie *trie.Trie, addr, classHash *felt.Felt, blockNumber uint64) error {
+func (s *State) putNewContract(
+	stateTrie *trie.Trie,
+	addr, classHash *felt.Felt,
+	blockNumber uint64,
+) error {
 	contract, err := DeployContract(addr, classHash, s.txn)
 	if err != nil {
 		return err
@@ -157,7 +161,10 @@ func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 	return s.globalTrie(db.ClassesTrie, trie.NewTriePoseidon)
 }
 
-func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
+func (s *State) globalTrie(
+	bucket db.Bucket,
+	newTrie trie.NewTrieFunc,
+) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
 	tTxn := trie.NewStorage(s.txn, dbPrefix)
 
@@ -219,7 +226,11 @@ func (s *State) verifyStateUpdateRoot(root *felt.Felt) error {
 		return err
 	}
 	if !root.Equal(currentRoot) {
-		return fmt.Errorf("state's current root: %s does not match the expected root: %s", currentRoot, root)
+		return fmt.Errorf(
+			"state's current root: %s does not match the expected root: %s",
+			currentRoot,
+			root,
+		)
 	}
 	return nil
 }
@@ -287,7 +298,12 @@ var (
 	}
 )
 
-func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
+func (s *State) updateContracts(
+	stateTrie *trie.Trie,
+	blockNumber uint64,
+	diff *StateDiff,
+	logChanges bool,
+) error {
 	// replace contract instances
 	for addr, classHash := range diff.ReplacedClasses {
 		oldClassHash, err := s.replaceContract(stateTrie, &addr, classHash)
@@ -321,7 +337,10 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 }
 
 // replaceContract replaces the class that a contract at a given address instantiates
-func (s *State) replaceContract(stateTrie *trie.Trie, addr, classHash *felt.Felt) (*felt.Felt, error) {
+func (s *State) replaceContract(
+	stateTrie *trie.Trie,
+	addr, classHash *felt.Felt,
+) (*felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
 	if err != nil {
 		return nil, err
@@ -370,7 +389,12 @@ func (s *State) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	return class, err
 }
 
-func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[felt.Felt]*felt.Felt, blockNumber uint64, logChanges bool) (
+func (s *State) updateStorageBuffered(
+	contractAddr *felt.Felt,
+	updateDiff map[felt.Felt]*felt.Felt,
+	blockNumber uint64,
+	logChanges bool,
+) (
 	*db.BufferBatch, error,
 ) {
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
@@ -397,8 +421,11 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 
 // updateContractStorages applies the diff set to the Trie of the
 // contract at the given address in the given Txn context.
-func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
-	blockNumber uint64, logChanges bool,
+func (s *State) updateContractStorages(
+	stateTrie *trie.Trie,
+	diffs map[felt.Felt]map[felt.Felt]*felt.Felt,
+	blockNumber uint64,
+	logChanges bool,
 ) error {
 	type bufferedTransactionWithAddress struct {
 		txn  *db.BufferBatch
@@ -426,14 +453,23 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
+	keys := slices.SortedStableFunc(
+		maps.Keys(diffs),
+		func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) },
+	)
 
 	// update per-contract storage Tries concurrently
-	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
+	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().
+		WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
 		contractAddr := key
 		contractUpdaters.Go(func() (*bufferedTransactionWithAddress, error) {
-			bufferedTxn, err := s.updateStorageBuffered(&contractAddr, diffs[contractAddr], blockNumber, logChanges)
+			bufferedTxn, err := s.updateStorageBuffered(
+				&contractAddr,
+				diffs[contractAddr],
+				blockNumber,
+				logChanges,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -474,7 +510,10 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 // updateContractNonce updates nonce of the contract at the
 // given address in the given Txn context.
-func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt) (*felt.Felt, error) {
+func (s *State) updateContractNonce(
+	stateTrie *trie.Trie,
+	addr, nonce *felt.Felt,
+) (*felt.Felt, error) {
 	contract, err := NewContractUpdater(addr, s.txn)
 	if err != nil {
 		return nil, err
@@ -520,10 +559,16 @@ func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *Contrac
 }
 
 func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt.Felt {
-	return crypto.Pedersen(crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce), &felt.Zero)
+	return crypto.Pedersen(
+		crypto.Pedersen(crypto.Pedersen(classHash, storageRoot), nonce),
+		&felt.Zero,
+	)
 }
 
-func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]Class) error {
+func (s *State) updateDeclaredClassesTrie(
+	declaredClasses map[felt.Felt]*felt.Felt,
+	classDefinitions map[felt.Felt]Class,
+) error {
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
@@ -635,7 +680,11 @@ func (s *State) purgesystemContracts() error {
 	return nil
 }
 
-func (s *State) removeDeclaredClasses(blockNumber uint64, v0Classes []*felt.Felt, v1Classes map[felt.Felt]*felt.Felt) error {
+func (s *State) removeDeclaredClasses(
+	blockNumber uint64,
+	v0Classes []*felt.Felt,
+	v1Classes map[felt.Felt]*felt.Felt,
+) error {
 	totalCapacity := len(v0Classes) + len(v1Classes)
 	classHashes := make([]*felt.Felt, 0, totalCapacity)
 	classHashes = append(classHashes, v0Classes...)

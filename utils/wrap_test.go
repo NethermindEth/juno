@@ -39,7 +39,15 @@ func TestRunAndWrapOnError(t *testing.T) {
 		t.Run("original error is non-nil", func(t *testing.T) {
 			want := errors.New("some error")
 			wrapped := utils.RunAndWrapOnError(runAndError, want)
-			assert.EqualError(t, wrapped, fmt.Sprintf(`failed to run because "%v" with existing err %q`, errRun.Error(), want.Error()))
+			assert.EqualError(
+				t,
+				wrapped,
+				fmt.Sprintf(
+					`failed to run because "%v" with existing err %q`,
+					errRun.Error(),
+					want.Error(),
+				),
+			)
 			assert.EqualError(t, errors.Unwrap(wrapped), want.Error())
 		})
 	})

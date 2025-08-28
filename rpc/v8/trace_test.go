@@ -71,7 +71,11 @@ func TestTraceFallback(t *testing.T) {
 	})
 }
 
-func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[string]expectedBlockTrace) {
+func AssertTracedBlockTransactions(
+	t *testing.T,
+	n *utils.Network,
+	tests map[string]expectedBlockTrace,
+) {
 	t.Helper()
 
 	mockCtrl := gomock.NewController(t)
@@ -82,27 +86,32 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 	mockReader := mocks.NewMockReader(mockCtrl)
 
-	mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-		block, err = gateway.BlockByNumber(t.Context(), number)
+	mockReader.EXPECT().
+		BlockByNumber(gomock.Any()).
+		DoAndReturn(func(number uint64) (block *core.Block, err error) {
+			block, err = gateway.BlockByNumber(t.Context(), number)
 
-		// Simulate gas consumption in block receipts
-		for _, receipt := range block.Receipts {
-			receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
-				L1Gas:     5,
-				L2Gas:     10,
-				L1DataGas: 15,
+			// Simulate gas consumption in block receipts
+			for _, receipt := range block.Receipts {
+				receipt.ExecutionResources.TotalGasConsumed = &core.GasConsumed{
+					L1Gas:     5,
+					L2Gas:     10,
+					L1DataGas: 15,
+				}
 			}
-		}
-		return
-	}).AnyTimes()
+			return
+		}).
+		AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, test.blockHash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-				return mockReader.BlockByNumber(test.blockNumber)
-			})
+			mockReader.EXPECT().
+				BlockByHash(utils.HexToFelt(t, test.blockHash)).
+				DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+					return mockReader.BlockByNumber(test.blockNumber)
+				})
 
 			handler := rpc.New(mockReader, nil, nil, nil)
 			handler = handler.WithFeeder(client)
@@ -132,12 +141,17 @@ func TestTraceBlockTransactionsReturnsError(t *testing.T) {
 
 		blockNumber := uint64(40000)
 
-		mockReader.EXPECT().BlockByNumber(gomock.Any()).DoAndReturn(func(number uint64) (block *core.Block, err error) {
-			return gateway.BlockByNumber(t.Context(), number)
-		}).Times(2)
-		mockReader.EXPECT().BlockByHash(gomock.Any()).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return mockReader.BlockByNumber(blockNumber)
-		})
+		mockReader.EXPECT().
+			BlockByNumber(gomock.Any()).
+			DoAndReturn(func(number uint64) (block *core.Block, err error) {
+				return gateway.BlockByNumber(t.Context(), number)
+			}).
+			Times(2)
+		mockReader.EXPECT().
+			BlockByHash(gomock.Any()).
+			DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+				return mockReader.BlockByNumber(blockNumber)
+			})
 		mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
 
 		// No feeder client is set
@@ -274,7 +288,9 @@ func TestTraceTransaction(t *testing.T) {
 		t.Run("other error", func(t *testing.T) {
 			hash := utils.HexToFelt(t, "0xBBBB")
 			// Receipt() returns some other error
-			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
+			mockReader.EXPECT().
+				Receipt(hash).
+				Return(nil, nil, uint64(0), errors.New("database error"))
 
 			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 			assert.Nil(t, trace)
@@ -283,7 +299,10 @@ func TestTraceTransaction(t *testing.T) {
 		})
 	})
 	t.Run("ok", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		hash := utils.HexToFelt(
+			t,
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
@@ -343,14 +362,16 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
-			false, true, false).Return(vm.ExecutionResults{
-			OverallFees: overallFee,
-			GasConsumed: gc,
-			Traces:      []vm.TransactionTrace{*vmTrace},
-			NumSteps:    stepsUsed,
-		}, nil)
+		mockVM.EXPECT().
+			Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+				&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
+				false, true, false).
+			Return(vm.ExecutionResults{
+				OverallFees: overallFee,
+				GasConsumed: gc,
+				Traces:      []vm.TransactionTrace{*vmTrace},
+				NumSteps:    stepsUsed,
+			}, nil)
 
 		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
 		require.Nil(t, err)
@@ -429,8 +450,11 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, true, false).
+		mockVM.EXPECT().
+			Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
+				&vm.BlockInfo{
+					Header: header,
+				}, gomock.Any(), &utils.Mainnet, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
 				GasConsumed: gc,
@@ -461,15 +485,24 @@ func TestTraceTransaction(t *testing.T) {
 		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
-		revertedTxHash := utils.HexToFelt(t, "0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
+		revertedTxHash := utils.HexToFelt(
+			t,
+			"0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1",
+		)
 
 		blockNumber := uint64(18)
-		blockHash := utils.HexToFelt(t, "0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
+		blockHash := utils.HexToFelt(
+			t,
+			"0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af",
+		)
 
 		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
-		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
-			return gateway.BlockByNumber(t.Context(), blockNumber)
-		}).Times(2)
+		mockReader.EXPECT().
+			BlockByHash(blockHash).
+			DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+				return gateway.BlockByNumber(t.Context(), blockNumber)
+			}).
+			Times(2)
 
 		mockReader.EXPECT().L1Head().Return(&core.L1Head{
 			BlockNumber: 19, // Doesn't really matter for this test
@@ -478,8 +511,11 @@ func TestTraceTransaction(t *testing.T) {
 		expectedRevertedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				EntryPointSelector: utils.HexToFelt(t, "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
+				ContractAddress: *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				EntryPointSelector: utils.HexToFelt(
+					t,
+					"0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775",
+				),
 				Calldata: []felt.Felt{
 					*utils.HexToFelt(t, "0x1"),
 					*utils.HexToFelt(t, "0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
@@ -487,8 +523,11 @@ func TestTraceTransaction(t *testing.T) {
 					*utils.HexToFelt(t, "0x1"),
 					*utils.HexToFelt(t, "0xa"),
 				},
-				CallerAddress:  *utils.HexToFelt(t, "0x0"),
-				ClassHash:      utils.HexToFelt(t, "0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
+				CallerAddress: *utils.HexToFelt(t, "0x0"),
+				ClassHash: utils.HexToFelt(
+					t,
+					"0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844",
+				),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x56414c4944")},
@@ -501,29 +540,41 @@ func TestTraceTransaction(t *testing.T) {
 				},
 			},
 			FeeTransferInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				ContractAddress: *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				EntryPointSelector: utils.HexToFelt(
+					t,
+					"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+				),
 				Calldata: []felt.Felt{
 					*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
 					*utils.HexToFelt(t, "0x2847291f968"),
 					*utils.HexToFelt(t, "0x0"),
 				},
-				CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				ClassHash:      utils.HexToFelt(t, "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
+				CallerAddress: *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				ClassHash: utils.HexToFelt(
+					t,
+					"0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3",
+				),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
 				Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
 				Calls: []rpc.FunctionInvocation{
 					{
-						ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-						EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+						ContractAddress: *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+						EntryPointSelector: utils.HexToFelt(
+							t,
+							"0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e",
+						),
 						Calldata: []felt.Felt{
 							*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
 							*utils.HexToFelt(t, "0x2847291f968"),
 							*utils.HexToFelt(t, "0x0"),
 						},
-						CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-						ClassHash:      utils.HexToFelt(t, "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
+						CallerAddress: *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+						ClassHash: utils.HexToFelt(
+							t,
+							"0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1",
+						),
 						EntryPointType: "EXTERNAL",
 						CallType:       "DELEGATE",
 						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
@@ -531,10 +582,21 @@ func TestTraceTransaction(t *testing.T) {
 						Events: []rpcv6.OrderedEvent{
 							{
 								Order: 0,
-								Keys:  []*felt.Felt{utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
+								Keys: []*felt.Felt{
+									utils.HexToFelt(
+										t,
+										"0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+									),
+								},
 								Data: []*felt.Felt{
-									utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-									utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+									utils.HexToFelt(
+										t,
+										"0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84",
+									),
+									utils.HexToFelt(
+										t,
+										"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8",
+									),
 									utils.HexToFelt(t, "0x2847291f968"),
 									utils.HexToFelt(t, "0x0"),
 								},
@@ -675,8 +737,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true, false).
+		mockVM.EXPECT().
+			Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
+				gomock.Any(), n, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -741,7 +804,10 @@ func TestTraceBlockTransactions(t *testing.T) {
 	})
 
 	t.Run("regular block", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		blockHash := utils.HexToFelt(
+			t,
+			"0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0",
+		)
 		tx := &core.DeclareTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000001"),
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
@@ -791,8 +857,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true, false).
+		mockVM.EXPECT().
+			Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
+				gomock.Any(), n, false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -819,7 +886,9 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
+		fromAddr, _ := new(
+			felt.Felt,
+		).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
 		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
 
 		payload0, _ := new(felt.Felt).SetString("0x0")
@@ -1414,7 +1483,9 @@ func TestCall(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().
+			Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(expectedRes, nil)
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(

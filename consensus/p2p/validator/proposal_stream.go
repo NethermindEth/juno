@@ -47,7 +47,10 @@ func newSingleProposalStream(
 	}
 }
 
-func (s *proposalStream) start(ctx context.Context, firstMessage *consensus.StreamMessage) (types.Height, error) {
+func (s *proposalStream) start(
+	ctx context.Context,
+	firstMessage *consensus.StreamMessage,
+) (types.Height, error) {
 	content := firstMessage.GetContent()
 	if content == nil {
 		return 0, fmt.Errorf("first message has empty content")
@@ -82,7 +85,10 @@ func (s *proposalStream) loop(ctx context.Context) {
 	}
 }
 
-func (s *proposalStream) enqueueMessage(ctx context.Context, streamMessage *consensus.StreamMessage) {
+func (s *proposalStream) enqueueMessage(
+	ctx context.Context,
+	streamMessage *consensus.StreamMessage,
+) {
 	select {
 	case <-ctx.Done():
 		return
@@ -94,7 +100,10 @@ func (s *proposalStream) close() {
 	close(s.input)
 }
 
-func (s *proposalStream) processMessages(ctx context.Context, nextMessage *consensus.StreamMessage) error {
+func (s *proposalStream) processMessages(
+	ctx context.Context,
+	nextMessage *consensus.StreamMessage,
+) error {
 	if s.nextSequenceNumber != nextMessage.SequenceNumber {
 		s.messages[nextMessage.SequenceNumber] = nextMessage
 		return nil

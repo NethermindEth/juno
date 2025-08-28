@@ -40,7 +40,10 @@ func (v *validators) TotalVotingPower(h types.Height) types.VotingPower {
 	return v.totalVotingPower
 }
 
-func (v *validators) ValidatorVotingPower(h types.Height, validatorAddr *starknet.Address) types.VotingPower {
+func (v *validators) ValidatorVotingPower(
+	h types.Height,
+	validatorAddr *starknet.Address,
+) types.VotingPower {
 	return 1
 }
 

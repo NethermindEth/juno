@@ -18,7 +18,11 @@ type Pending struct {
 	NewClasses  map[felt.Felt]core.Class
 }
 
-func NewPending(block *core.Block, stateUpdate *core.StateUpdate, newClasses map[felt.Felt]core.Class) Pending {
+func NewPending(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	newClasses map[felt.Felt]core.Class,
+) Pending {
 	return Pending{
 		Block:       block,
 		StateUpdate: stateUpdate,
@@ -64,7 +68,11 @@ type PendingState struct {
 	head       core.StateReader
 }
 
-func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingState {
+func NewPendingState(
+	stateDiff *core.StateDiff,
+	newClasses map[felt.Felt]core.Class,
+	head core.StateReader,
+) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
 		newClasses: newClasses,
@@ -137,7 +145,11 @@ type PendingStateWriter struct {
 	*PendingState
 }
 
-func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) PendingStateWriter {
+func NewPendingStateWriter(
+	stateDiff *core.StateDiff,
+	newClasses map[felt.Felt]core.Class,
+	head core.StateReader,
+) PendingStateWriter {
 	return PendingStateWriter{
 		PendingState: &PendingState{
 			stateDiff:  stateDiff,

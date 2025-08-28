@@ -89,7 +89,11 @@ func TestEstimateMessageFee(t *testing.T) {
 	feeUnit := rpc.WEI
 	require.Equal(t, expectedGasConsumed, estimateFee.GasConsumed)
 	require.Equal(t, latestHeader.L1GasPriceETH, estimateFee.GasPrice)
-	require.Equal(t, new(felt.Felt).Mul(expectedGasConsumed, latestHeader.L1GasPriceETH), estimateFee.OverallFee)
+	require.Equal(
+		t,
+		new(felt.Felt).Mul(expectedGasConsumed, latestHeader.L1GasPriceETH),
+		estimateFee.OverallFee,
+	)
 	require.Equal(t, feeUnit, *estimateFee.Unit)
 }
 
@@ -101,21 +105,37 @@ func assertEqualCairo0Class(t *testing.T, cairo0Class *core.Cairo0Class, class *
 	for idx := range cairo0Class.L1Handlers {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Index)
 		assert.Equal(t, cairo0Class.L1Handlers[idx].Offset, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, cairo0Class.L1Handlers[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			cairo0Class.L1Handlers[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(cairo0Class.Constructors), len(class.EntryPoints.Constructor))
 	for idx := range cairo0Class.Constructors {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, cairo0Class.Constructors[idx].Offset, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, cairo0Class.Constructors[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			cairo0Class.Constructors[idx].Offset,
+			class.EntryPoints.Constructor[idx].Offset,
+		)
+		assert.Equal(
+			t,
+			cairo0Class.Constructors[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(cairo0Class.Externals), len(class.EntryPoints.External))
 	for idx := range cairo0Class.Externals {
 		assert.Nil(t, class.EntryPoints.External[idx].Index)
 		assert.Equal(t, cairo0Class.Externals[idx].Offset, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, cairo0Class.Externals[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			cairo0Class.Externals[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }
 
@@ -127,21 +147,45 @@ func assertEqualCairo1Class(t *testing.T, cairo1Class *core.Cairo1Class, class *
 	require.Equal(t, len(cairo1Class.EntryPoints.L1Handler), len(class.EntryPoints.L1Handler))
 	for idx := range cairo1Class.EntryPoints.L1Handler {
 		assert.Nil(t, class.EntryPoints.L1Handler[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Index, *class.EntryPoints.L1Handler[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.L1Handler[idx].Selector, class.EntryPoints.L1Handler[idx].Selector)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.L1Handler[idx].Index,
+			*class.EntryPoints.L1Handler[idx].Index,
+		)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.L1Handler[idx].Selector,
+			class.EntryPoints.L1Handler[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(cairo1Class.EntryPoints.Constructor), len(class.EntryPoints.Constructor))
 	for idx := range cairo1Class.EntryPoints.Constructor {
 		assert.Nil(t, class.EntryPoints.Constructor[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Index, *class.EntryPoints.Constructor[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.Constructor[idx].Selector, class.EntryPoints.Constructor[idx].Selector)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.Constructor[idx].Index,
+			*class.EntryPoints.Constructor[idx].Index,
+		)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.Constructor[idx].Selector,
+			class.EntryPoints.Constructor[idx].Selector,
+		)
 	}
 
 	require.Equal(t, len(cairo1Class.EntryPoints.External), len(class.EntryPoints.External))
 	for idx := range cairo1Class.EntryPoints.External {
 		assert.Nil(t, class.EntryPoints.External[idx].Offset)
-		assert.Equal(t, cairo1Class.EntryPoints.External[idx].Index, *class.EntryPoints.External[idx].Index)
-		assert.Equal(t, cairo1Class.EntryPoints.External[idx].Selector, class.EntryPoints.External[idx].Selector)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.External[idx].Index,
+			*class.EntryPoints.External[idx].Index,
+		)
+		assert.Equal(
+			t,
+			cairo1Class.EntryPoints.External[idx].Selector,
+			class.EntryPoints.External[idx].Selector,
+		)
 	}
 }

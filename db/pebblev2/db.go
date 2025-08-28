@@ -38,7 +38,12 @@ func New(path string) (db.KeyValueStore, error) {
 	return newPebble(path, nil)
 }
 
-func NewWithOptions(path string, cacheSizeMB uint, maxOpenFiles int, colouredLogger bool) (db.KeyValueStore, error) {
+func NewWithOptions(
+	path string,
+	cacheSizeMB uint,
+	maxOpenFiles int,
+	colouredLogger bool,
+) (db.KeyValueStore, error) {
 	// Ensure that the specified cache size meets a minimum threshold.
 	cacheSizeMB = max(cacheSizeMB, minCacheSizeMB)
 	log := utils.NewLogLevel(utils.ERROR)
@@ -63,7 +68,9 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 		db:        pDB,
 		closeLock: new(sync.RWMutex),
 		listener:  &db.SelectiveListener{},
-		writeOpt:  &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
+		writeOpt: &pebble.WriteOptions{
+			Sync: true,
+		}, // TODO: can we use non-sync writes for performance?
 	}, nil
 }
 
@@ -232,7 +239,12 @@ func (i *Item) add(size utils.DataSize) {
 	i.Size += size
 }
 
-func CalculatePrefixSize(ctx context.Context, pDB *DB, prefix []byte, withUpperBound bool) (*Item, error) {
+func CalculatePrefixSize(
+	ctx context.Context,
+	pDB *DB,
+	prefix []byte,
+	withUpperBound bool,
+) (*Item, error) {
 	var (
 		err error
 		v   []byte

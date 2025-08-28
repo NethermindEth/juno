@@ -19,8 +19,10 @@ import (
 
 // Address of first deployed contract in mainnet block 1's state update.
 var (
-	_su1FirstDeployedAddress, _ = new(felt.Felt).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
-	su1FirstDeployedAddress     = *_su1FirstDeployedAddress
+	_su1FirstDeployedAddress, _ = new(
+		felt.Felt,
+	).SetString("0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
+	su1FirstDeployedAddress = *_su1FirstDeployedAddress
 )
 
 func TestUpdate(t *testing.T) {
@@ -47,14 +49,21 @@ func TestUpdate(t *testing.T) {
 		assert.Equal(t, su0.NewRoot, gotNewRoot)
 	})
 
-	t.Run("error when state current root doesn't match state update's old root", func(t *testing.T) {
-		oldRoot := new(felt.Felt).SetBytes([]byte("some old root"))
-		su := &core.StateUpdate{
-			OldRoot: oldRoot,
-		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, oldRoot)
-		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
-	})
+	t.Run(
+		"error when state current root doesn't match state update's old root",
+		func(t *testing.T) {
+			oldRoot := new(felt.Felt).SetBytes([]byte("some old root"))
+			su := &core.StateUpdate{
+				OldRoot: oldRoot,
+			}
+			expectedErr := fmt.Sprintf(
+				"state's current root: %s does not match the expected root: %s",
+				su0.NewRoot,
+				oldRoot,
+			)
+			require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
+		},
+	)
 
 	t.Run("error when state new root doesn't match state update's new root", func(t *testing.T) {
 		newRoot := new(felt.Felt).SetBytes([]byte("some new root"))
@@ -63,7 +72,11 @@ func TestUpdate(t *testing.T) {
 			OldRoot:   su0.NewRoot,
 			StateDiff: new(core.StateDiff),
 		}
-		expectedErr := fmt.Sprintf("state's current root: %s does not match the expected root: %s", su0.NewRoot, newRoot)
+		expectedErr := fmt.Sprintf(
+			"state's current root: %s does not match the expected root: %s",
+			su0.NewRoot,
+			newRoot,
+		)
 		require.EqualError(t, state.Update(1, su, nil, false), expectedErr)
 	})
 
@@ -81,7 +94,10 @@ func TestUpdate(t *testing.T) {
 
 	su3 := &core.StateUpdate{
 		OldRoot: su2.NewRoot,
-		NewRoot: utils.HexToFelt(t, "0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a"),
+		NewRoot: utils.HexToFelt(
+			t,
+			"0x46f1033cfb8e0b2e16e1ad6f95c41fd3a123f168fe72665452b6cddbc1d8e7a",
+		),
 		StateDiff: &core.StateDiff{
 			DeclaredV1Classes: map[felt.Felt]*felt.Felt{
 				*utils.HexToFelt(t, "0xDEADBEEF"): utils.HexToFelt(t, "0xBEEFDEAD"),
@@ -102,12 +118,18 @@ func TestUpdate(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := utils.HexToFelt(t, "0x492e8")
-	scValue := utils.HexToFelt(t, "0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scValue := utils.HexToFelt(
+		t,
+		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+	)
 	scAddr := new(felt.Felt).SetUint64(1)
 
 	su4 := &core.StateUpdate{
 		OldRoot: su3.NewRoot,
-		NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+		NewRoot: utils.HexToFelt(
+			t,
+			"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+		),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr: {*scKey: scValue}},
 		},
@@ -136,7 +158,10 @@ func TestUpdate(t *testing.T) {
 		scAddr2 := utils.HexToFelt(t, "0x10")
 		su5 := &core.StateUpdate{
 			OldRoot: su4.NewRoot,
-			NewRoot: utils.HexToFelt(t, "0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x68ac0196d9b6276b8d86f9e92bca0ed9f854d06ded5b7f0b8bc0eeaa4377d9e",
+			),
 			StateDiff: &core.StateDiff{
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{*scAddr2: {*scKey: scValue}},
 			},
@@ -179,7 +204,10 @@ func TestContractClassHash(t *testing.T) {
 		replaceUpdate := &core.StateUpdate{
 			OldRoot:   su1.NewRoot,
 			BlockHash: utils.HexToFelt(t, "0xDEADBEEF"),
-			NewRoot:   utils.HexToFelt(t, "0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x484ff378143158f9af55a1210b380853ae155dfdd8cd4c228f9ece918bb982b",
+			),
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
 					su1FirstDeployedAddress: utils.HexToFelt(t, "0x1337"),
@@ -209,7 +237,10 @@ func TestNonce(t *testing.T) {
 		NewRoot: root,
 		StateDiff: &core.StateDiff{
 			DeployedContracts: map[felt.Felt]*felt.Felt{
-				*addr: utils.HexToFelt(t, "0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8"),
+				*addr: utils.HexToFelt(
+					t,
+					"0x10455c752b86932ce552f2b0fe81a880746649b9aee7e0d842bf3f52378f9f8",
+				),
 			},
 		},
 	}
@@ -225,7 +256,10 @@ func TestNonce(t *testing.T) {
 	t.Run("update contract nonce", func(t *testing.T) {
 		expectedNonce := new(felt.Felt).SetUint64(1)
 		su = &core.StateUpdate{
-			NewRoot: utils.HexToFelt(t, "0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x6210642ffd49f64617fc9e5c0bbe53a6a92769e2996eb312a42d2bdb7f2afc1",
+			),
 			OldRoot: root,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{*addr: expectedNonce},
@@ -251,12 +285,18 @@ func TestStateHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, state.Update(0, su0, nil, false))
 
-	contractAddr := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+	contractAddr := utils.HexToFelt(
+		t,
+		"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+	)
 	changedLoc := utils.HexToFelt(t, "0x5")
-	t.Run("should return an error for a location that changed on the given height", func(t *testing.T) {
-		_, err = state.ContractStorageAt(contractAddr, changedLoc, 0)
-		assert.ErrorIs(t, err, core.ErrCheckHeadState)
-	})
+	t.Run(
+		"should return an error for a location that changed on the given height",
+		func(t *testing.T) {
+			_, err = state.ContractStorageAt(contractAddr, changedLoc, 0)
+			assert.ErrorIs(t, err, core.ErrCheckHeadState)
+		},
+	)
 
 	t.Run("should return an error for not changed location", func(t *testing.T) {
 		_, err := state.ContractStorageAt(contractAddr, utils.HexToFelt(t, "0xDEADBEEF"), 0)
@@ -265,7 +305,10 @@ func TestStateHistory(t *testing.T) {
 
 	// update the same location again
 	su := &core.StateUpdate{
-		NewRoot: utils.HexToFelt(t, "0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c"),
+		NewRoot: utils.HexToFelt(
+			t,
+			"0xac747e0ea7497dad7407ecf2baf24b1598b0b40943207fc9af8ded09a64f1c",
+		),
 		OldRoot: su0.NewRoot,
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
@@ -277,11 +320,14 @@ func TestStateHistory(t *testing.T) {
 	}
 	require.NoError(t, state.Update(1, su, nil, false))
 
-	t.Run("should give old value for a location that changed after the given height", func(t *testing.T) {
-		oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
-		require.NoError(t, err)
-		require.Equal(t, oldValue, utils.HexToFelt(t, "0x22b"))
-	})
+	t.Run(
+		"should give old value for a location that changed after the given height",
+		func(t *testing.T) {
+			oldValue, err := state.ContractStorageAt(contractAddr, changedLoc, 0)
+			require.NoError(t, err)
+			require.Equal(t, oldValue, utils.HexToFelt(t, "0x22b"))
+		},
+	)
 }
 
 func TestContractIsDeployedAt(t *testing.T) {
@@ -303,7 +349,10 @@ func TestContractIsDeployedAt(t *testing.T) {
 	require.NoError(t, state.Update(1, su1, nil, false))
 
 	t.Run("deployed on genesis", func(t *testing.T) {
-		deployedOn0 := utils.HexToFelt(t, "0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6")
+		deployedOn0 := utils.HexToFelt(
+			t,
+			"0x20cfa74ee3564b4cd5435cdace0f9c4d43b939620e4a0bb5076105df0a626c6",
+		)
 		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn0, 0)
 		require.NoError(t, err)
 		assert.True(t, deployed)
@@ -314,7 +363,10 @@ func TestContractIsDeployedAt(t *testing.T) {
 	})
 
 	t.Run("deployed after genesis", func(t *testing.T) {
-		deployedOn1 := utils.HexToFelt(t, "0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80")
+		deployedOn1 := utils.HexToFelt(
+			t,
+			"0x6538fdd3aa353af8a87f5fe77d1f533ea82815076e30a86d65b72d3eb4f0b80",
+		)
 		deployed, err := state.ContractIsAlreadyDeployedAt(deployedOn1, 0)
 		require.NoError(t, err)
 		assert.False(t, deployed)
@@ -338,10 +390,16 @@ func TestClass(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Integration)
 	gw := adaptfeeder.New(client)
 
-	cairo0Hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0Hash := utils.HexToFelt(
+		t,
+		"0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04",
+	)
 	cairo0Class, err := gw.Class(t.Context(), cairo0Hash)
 	require.NoError(t, err)
-	cairo1Hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1Hash := utils.HexToFelt(
+		t,
+		"0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5",
+	)
 	cairo1Class, err := gw.Class(t.Context(), cairo0Hash)
 	require.NoError(t, err)
 
@@ -380,7 +438,10 @@ func TestRevert(t *testing.T) {
 
 	t.Run("revert a replaced class", func(t *testing.T) {
 		replaceStateUpdate := &core.StateUpdate{
-			NewRoot: utils.HexToFelt(t, "0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x30b1741b28893b892ac30350e6372eac3a6f32edee12f9cdca7fbe7540a5ee",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				ReplacedClasses: map[felt.Felt]*felt.Felt{
@@ -393,12 +454,19 @@ func TestRevert(t *testing.T) {
 		require.NoError(t, state.Revert(2, replaceStateUpdate))
 		classHash, sErr := state.ContractClassHash(new(felt.Felt).Set(&su1FirstDeployedAddress))
 		require.NoError(t, sErr)
-		assert.Equal(t, su1.StateDiff.DeployedContracts[*new(felt.Felt).Set(&su1FirstDeployedAddress)], classHash)
+		assert.Equal(
+			t,
+			su1.StateDiff.DeployedContracts[*new(felt.Felt).Set(&su1FirstDeployedAddress)],
+			classHash,
+		)
 	})
 
 	t.Run("revert a nonce update", func(t *testing.T) {
 		nonceStateUpdate := &core.StateUpdate{
-			NewRoot: utils.HexToFelt(t, "0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x6683657d2b6797d95f318e7c6091dc2255de86b72023c15b620af12543eb62c",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				Nonces: map[felt.Felt]*felt.Felt{
@@ -417,11 +485,17 @@ func TestRevert(t *testing.T) {
 	t.Run("revert declared classes", func(t *testing.T) {
 		classesM := make(map[felt.Felt]core.Class)
 		cairo0 := &core.Cairo0Class{
-			Abi:          json.RawMessage("some cairo 0 class abi"),
-			Externals:    []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))}},
-			L1Handlers:   []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))}},
-			Constructors: []core.EntryPoint{{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))}},
-			Program:      "some cairo 0 program",
+			Abi: json.RawMessage("some cairo 0 class abi"),
+			Externals: []core.EntryPoint{
+				{new(felt.Felt).SetBytes([]byte("e1")), new(felt.Felt).SetBytes([]byte("e2"))},
+			},
+			L1Handlers: []core.EntryPoint{
+				{new(felt.Felt).SetBytes([]byte("l1")), new(felt.Felt).SetBytes([]byte("l2"))},
+			},
+			Constructors: []core.EntryPoint{
+				{new(felt.Felt).SetBytes([]byte("c1")), new(felt.Felt).SetBytes([]byte("c2"))},
+			},
+			Program: "some cairo 0 program",
 		}
 
 		cairo0Addr := utils.HexToFelt(t, "0xab1234")
@@ -449,7 +523,10 @@ func TestRevert(t *testing.T) {
 		classesM[*cairo1Addr] = cairo1
 
 		declaredClassesStateUpdate := &core.StateUpdate{
-			NewRoot: utils.HexToFelt(t, "0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9"),
+			NewRoot: utils.HexToFelt(
+				t,
+				"0x40427f2f4b5e1d15792e656b4d0c1d1dcf66ece1d8d60276d543aafedcc79d9",
+			),
 			OldRoot: su1.NewRoot,
 			StateDiff: &core.StateDiff{
 				DeclaredV0Classes: []*felt.Felt{cairo0Addr},
@@ -512,8 +589,11 @@ func TestRevertGenesisStateDiff(t *testing.T) {
 	value := new(felt.Felt).SetUint64(3)
 	su := &core.StateUpdate{
 		BlockHash: new(felt.Felt),
-		NewRoot:   utils.HexToFelt(t, "0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8"),
-		OldRoot:   new(felt.Felt),
+		NewRoot: utils.HexToFelt(
+			t,
+			"0xa89ee2d272016fd3708435efda2ce766692231f8c162e27065ce1607d5a9e8",
+		),
+		OldRoot: new(felt.Felt),
 		StateDiff: &core.StateDiff{
 			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
 				*addr: {
@@ -546,11 +626,17 @@ func TestRevertSystemContracts(t *testing.T) {
 	// These value were taken from part of integration state update number 299762
 	// https://external.integration.starknet.io/feeder_gateway/get_state_update?blockNumber=299762
 	scKey := utils.HexToFelt(t, "0x492e8")
-	scValue := utils.HexToFelt(t, "0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5")
+	scValue := utils.HexToFelt(
+		t,
+		"0x10979c6b0b36b03be36739a21cc43a51076545ce6d3397f1b45c7e286474ad5",
+	)
 	scAddr := new(felt.Felt).SetUint64(1)
 
 	// update state root
-	su1.NewRoot = utils.HexToFelt(t, "0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341")
+	su1.NewRoot = utils.HexToFelt(
+		t,
+		"0x2829ac1aea81c890339e14422fe757d6831744031479cf33a9260d14282c341",
+	)
 
 	su1.StateDiff.StorageDiffs[*scAddr] = map[felt.Felt]*felt.Felt{*scKey: scValue}
 
@@ -572,8 +658,11 @@ func TestRevertDeclaredClasses(t *testing.T) {
 	classHash := utils.HexToFelt(t, "0xDEADBEEF")
 	sierraHash := utils.HexToFelt(t, "0xDEADBEEF2")
 	declareDiff := &core.StateUpdate{
-		OldRoot:   &felt.Zero,
-		NewRoot:   utils.HexToFelt(t, "0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a"),
+		OldRoot: &felt.Zero,
+		NewRoot: utils.HexToFelt(
+			t,
+			"0x166a006ccf102903347ebe7b82ca0abc8c2fb82f0394d7797e5a8416afd4f8a",
+		),
 		BlockHash: &felt.Zero,
 		StateDiff: &core.StateDiff{
 			DeclaredV0Classes: []*felt.Felt{classHash},
@@ -609,14 +698,17 @@ func TestRevertDeclaredClasses(t *testing.T) {
 
 	require.NoError(t, state.Revert(1, declareDiff))
 
-	t.Run("reverting a re-declaration shouldnt change state commitment or remove class definitions", func(t *testing.T) {
-		declaredClass, err = state.Class(classHash)
-		require.NoError(t, err)
-		assert.Equal(t, uint64(0), declaredClass.At)
-		sierraClass, sErr = state.Class(sierraHash)
-		require.NoError(t, sErr)
-		assert.Equal(t, uint64(0), sierraClass.At)
-	})
+	t.Run(
+		"reverting a re-declaration shouldnt change state commitment or remove class definitions",
+		func(t *testing.T) {
+			declaredClass, err = state.Class(classHash)
+			require.NoError(t, err)
+			assert.Equal(t, uint64(0), declaredClass.At)
+			sierraClass, sErr = state.Class(sierraHash)
+			require.NoError(t, sErr)
+			assert.Equal(t, uint64(0), sierraClass.At)
+		},
+	)
 
 	declareDiff.OldRoot = &felt.Zero
 	require.NoError(t, state.Revert(0, declareDiff))

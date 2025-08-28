@@ -28,7 +28,10 @@ type EthSubscriber struct {
 
 var _ Subscriber = (*EthSubscriber)(nil)
 
-func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Address) (*EthSubscriber, error) {
+func NewEthSubscriber(
+	ethClientAddress string,
+	coreContractAddress common.Address,
+) (*EthSubscriber, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -49,7 +52,10 @@ func NewEthSubscriber(ethClientAddress string, coreContractAddress common.Addres
 	}, nil
 }
 
-func (s *EthSubscriber) WatchLogStateUpdate(ctx context.Context, sink chan<- *contract.StarknetLogStateUpdate) (event.Subscription, error) {
+func (s *EthSubscriber) WatchLogStateUpdate(
+	ctx context.Context,
+	sink chan<- *contract.StarknetLogStateUpdate,
+) (event.Subscription, error) {
 	return s.filterer.WatchLogStateUpdate(&bind.WatchOpts{Context: ctx}, sink)
 }
 
@@ -94,7 +100,10 @@ func (s *EthSubscriber) Close() {
 	s.ethClient.Close()
 }
 
-func (s *EthSubscriber) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+func (s *EthSubscriber) TransactionReceipt(
+	ctx context.Context,
+	txHash common.Hash,
+) (*types.Receipt, error) {
 	reqTimer := time.Now()
 	receipt, err := s.ethClient.TransactionReceipt(ctx, txHash)
 	if err != nil {

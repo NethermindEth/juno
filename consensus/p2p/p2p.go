@@ -90,7 +90,11 @@ func New(
 		commitNotifier,
 		currentHeight,
 	)
-	voteStream := vote.NewVoteListeners[starknet.Value](log, vote.StarknetVoteAdapter, bufferSizeConfig)
+	voteStream := vote.NewVoteListeners[starknet.Value](
+		log,
+		vote.StarknetVoteAdapter,
+		bufferSizeConfig,
+	)
 	listeners := Listeners[starknet.Value, starknet.Hash, address.Address]{
 		ProposalListener:  proposalStream,
 		PrevoteListener:   voteStream.PrevoteListener,

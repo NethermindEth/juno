@@ -37,7 +37,11 @@ func testBloomWithKeys(t *testing.T, keys [][]byte) *bloom.BloomFilter {
 	return filter
 }
 
-func populateRunningFilter(t *testing.T, db db.KeyValueStore, toBlock uint64) *core.RunningEventFilter {
+func populateRunningFilter(
+	t *testing.T,
+	db db.KeyValueStore,
+	toBlock uint64,
+) *core.RunningEventFilter {
 	t.Helper()
 	filter := core.NewAggregatedFilter(0)
 	rf := core.NewRunningEventFilterHot(db, &filter, 0)
@@ -115,7 +119,11 @@ func TestRunningEventFilter_InsertAndPersist(t *testing.T) {
 	}
 	require.Equal(t, filter.ToBlock()+1, rf.FromBlock())
 
-	fetchedFilter, err := core.GetAggregatedBloomFilter(testDB, filter.FromBlock(), filter.ToBlock())
+	fetchedFilter, err := core.GetAggregatedBloomFilter(
+		testDB,
+		filter.FromBlock(),
+		filter.ToBlock(),
+	)
 	require.NoError(t, err)
 	require.Equal(t, filter, fetchedFilter)
 }

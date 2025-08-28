@@ -184,7 +184,11 @@ func (g *gossipTracer) DropRPC(rpc *pubsub.RPC, p peer.ID) {
 	g.setRPCMetrics(g.psRPCSubDrop, g.psRPCPubDrop, g.psRPCDrop, rpc)
 }
 
-func (g *gossipTracer) setRPCMetrics(subCtr prometheus.Counter, pubCtr, ctrlCtr *prometheus.CounterVec, rpc *pubsub.RPC) {
+func (g *gossipTracer) setRPCMetrics(
+	subCtr prometheus.Counter,
+	pubCtr, ctrlCtr *prometheus.CounterVec,
+	rpc *pubsub.RPC,
+) {
 	subCtr.Add(float64(len(rpc.Subscriptions)))
 	if rpc.Control != nil {
 		ctrlCtr.WithLabelValues("ihave").Add(float64(len(rpc.Control.Ihave)))

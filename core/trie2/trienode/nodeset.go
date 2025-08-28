@@ -32,7 +32,10 @@ func (ns *NodeSet) Add(key *trieutils.Path, node TrieNode) {
 }
 
 // Iterates over the nodes in a sorted order and calls the callback for each node.
-func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.Path, node TrieNode) error) error {
+func (ns *NodeSet) ForEach(
+	desc bool,
+	callback func(key trieutils.Path, node TrieNode) error,
+) error {
 	paths := make([]trieutils.Path, 0, len(ns.Nodes))
 	for key := range ns.Nodes {
 		paths = append(paths, key)
@@ -61,7 +64,11 @@ func (ns *NodeSet) ForEach(desc bool, callback func(key trieutils.Path, node Tri
 // The owner of both node sets must be the same.
 func (ns *NodeSet) MergeSet(other *NodeSet) error {
 	if ns.Owner != other.Owner {
-		return fmt.Errorf("cannot merge node sets with different owners %x-%x", ns.Owner, other.Owner)
+		return fmt.Errorf(
+			"cannot merge node sets with different owners %x-%x",
+			ns.Owner,
+			other.Owner,
+		)
 	}
 	maps.Copy(ns.Nodes, other.Nodes)
 	ns.updates += other.updates

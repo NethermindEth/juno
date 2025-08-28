@@ -180,7 +180,10 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().BlockHeaderByNumber(b1.Number).Return(b1.Header, nil)
 		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
+		mockEventFilterer.EXPECT().
+			SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+			Return(nil).
+			MaxTimes(2)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -203,8 +206,13 @@ func TestSubscribeEvents(t *testing.T) {
 		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil)
 
 		cToken := new(blockchain.ContinuationToken)
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).MaxTimes(2)
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b1Filtered, cToken, nil)
+		mockEventFilterer.EXPECT().
+			SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+			Return(nil).
+			MaxTimes(2)
+		mockEventFilterer.EXPECT().
+			Events(gomock.Any(), gomock.Any()).
+			Return(b1Filtered, cToken, nil)
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(b2Filtered, nil, nil)
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
@@ -223,8 +231,14 @@ func TestSubscribeEvents(t *testing.T) {
 
 		handler := New(mockChain, mockSyncer, nil, log)
 
-		mockChain.EXPECT().EventFilter(fromAddr, keys, gomock.Any()).Return(mockEventFilterer, nil).AnyTimes()
-		mockEventFilterer.EXPECT().SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockChain.EXPECT().
+			EventFilter(fromAddr, keys, gomock.Any()).
+			Return(mockEventFilterer, nil).
+			AnyTimes()
+		mockEventFilterer.EXPECT().
+			SetRangeEndBlockByNumber(gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
 		mockEventFilterer.EXPECT().Close().AnyTimes()
 
 		mockChain.EXPECT().HeadsHeader().Return(b1.Header, nil)
@@ -234,12 +248,16 @@ func TestSubscribeEvents(t *testing.T) {
 
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
+		mockEventFilterer.EXPECT().
+			Events(gomock.Any(), gomock.Any()).
+			Return(pending1Filtered, nil, nil)
 		pendingData1 := sync.NewPending(pending1, nil, nil)
 		handler.pendingData.Send(&pendingData1)
 		assertNextEvents(t, clientConn, id, pending1Emitted)
 
-		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
+		mockEventFilterer.EXPECT().
+			Events(gomock.Any(), gomock.Any()).
+			Return(pending2Filtered, nil, nil)
 		pendingData2 := sync.NewPending(pending2, nil, nil)
 		handler.pendingData.Send(&pendingData2)
 		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
@@ -297,7 +315,15 @@ func TestSubscribeTxnStatus(t *testing.T) {
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 			id, conn := createTestTxStatusWebsocket(t, handler, txHash)
-			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
+			assertNextTxnStatus(
+				t,
+				conn,
+				id,
+				txHash,
+				TxnStatusAcceptedOnL2,
+				TxnFailure,
+				"some error",
+			)
 		})
 
 		t.Run("rejected", func(t *testing.T) {
@@ -348,7 +374,9 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		for i := range 3 {
 			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
 			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
-			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
+			handler.newHeads.Send(
+				&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}},
+			)
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
 
@@ -398,7 +426,8 @@ func (fs *fakeSyncer) HighestBlockHeader() *core.Header {
 func (fs *fakeSyncer) PendingData() (core.PendingData, error) {
 	return nil, sync.ErrPendingBlockNotFound
 }
-func (fs *fakeSyncer) PendingBlock() *core.Block                             { return nil }
+func (fs *fakeSyncer) PendingBlock() *core.Block { return nil }
+
 func (fs *fakeSyncer) PendingState() (core.StateReader, func() error, error) { return nil, nil, nil }
 func (fs *fakeSyncer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
 	return nil, nil, nil
@@ -457,7 +486,9 @@ func TestSubscribeNewHeads(t *testing.T) {
 
 		l1Feed := feed.New[*core.L1Head]()
 		mockChain.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+		mockChain.EXPECT().
+			SubscribeL1Head().
+			Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
 		handler, server := setupRPC(t, ctx, mockChain, syncer)
 		conn := createWsConn(t, ctx, server)
@@ -540,7 +571,9 @@ func TestMultipleSubscribeNewHeadsAndUnsubscribe(t *testing.T) {
 	syncer := newFakeSyncer()
 
 	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+	mockChain.EXPECT().
+		SubscribeL1Head().
+		Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
 
@@ -611,7 +644,9 @@ func TestSubscriptionReorg(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+	mockChain.EXPECT().
+		SubscribeL1Head().
+		Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
@@ -691,7 +726,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 
 	mockChain := mocks.NewMockReader(mockCtrl)
 	l1Feed := feed.New[*core.L1Head]()
-	mockChain.EXPECT().SubscribeL1Head().Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
+	mockChain.EXPECT().
+		SubscribeL1Head().
+		Return(blockchain.L1HeadSubscription{Subscription: l1Feed.Subscribe()})
 	mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).Times(3)
 	syncer := newFakeSyncer()
 	handler, server := setupRPC(t, ctx, mockChain, syncer)
@@ -726,7 +763,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
 					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
 					&core.DeployTransaction{TransactionHash: hash3},
-					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+					&core.DeployAccountTransaction{
+						DeployTransaction: core.DeployTransaction{TransactionHash: hash4},
+					},
 					&core.L1HandlerTransaction{TransactionHash: hash5},
 				},
 			},
@@ -777,7 +816,9 @@ func TestSubscribePendingTxs(t *testing.T) {
 					&core.InvokeTransaction{TransactionHash: hash1, SenderAddress: addr1},
 					&core.DeclareTransaction{TransactionHash: hash2, SenderAddress: addr2},
 					&core.DeployTransaction{TransactionHash: hash3},
-					&core.DeployAccountTransaction{DeployTransaction: core.DeployTransaction{TransactionHash: hash4}},
+					&core.DeployAccountTransaction{
+						DeployTransaction: core.DeployTransaction{TransactionHash: hash4},
+					},
 					&core.L1HandlerTransaction{TransactionHash: hash5},
 					&core.InvokeTransaction{TransactionHash: hash6, SenderAddress: addr6},
 					&core.DeclareTransaction{TransactionHash: hash7, SenderAddress: addr7},
@@ -1002,11 +1043,19 @@ func testHeadBlock(t *testing.T) *core.Block {
 }
 
 func newHeadsResponse(id string) string {
-	return fmt.Sprintf(`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`, id)
+	return fmt.Sprintf(
+		`{"jsonrpc":"2.0","method":"starknet_subscriptionNewHeads","params":{"result":{"block_hash":"0x609e8ffabfdca05b5a2e7c1bd99fc95a757e7b4ef9186aeb1f301f3741458ce","parent_hash":"0x5d5e7c03c7ef4419c0847d7ae1d1079b6f91fa952ebdb20b74ca2e621017f02","block_number":56377,"new_root":"0x2a899e1200baa9b843cbfb65d63f4f746cec27f8edb42f8446ae349b532f8b3","timestamp":1712213818,"sequencer_address":"0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8","l1_gas_price":{"price_in_fri":"0x1d1a94a20000","price_in_wei":"0x4a817c800"},"l1_data_gas_price":{"price_in_fri":"0x2dfb78bf913d","price_in_wei":"0x6b85dda55"},"l1_da_mode":"BLOB","starknet_version":"0.13.1","l2_gas_price":{"price_in_fri":"0x0","price_in_wei":"0x0"}},"subscription_id":%q}}`,
+		id,
+	)
 }
 
 // setupRPC creates a RPC handler that runs in a goroutine and a JSONRPC server that can be used to test subscriptions
-func setupRPC(t *testing.T, ctx context.Context, chain blockchain.Reader, syncer sync.Reader) (*Handler, *jsonrpc.Server) {
+func setupRPC(
+	t *testing.T,
+	ctx context.Context,
+	chain blockchain.Reader,
+	syncer sync.Reader,
+) (*Handler, *jsonrpc.Server) {
 	t.Helper()
 
 	log := utils.NewNopZapLogger()
@@ -1059,20 +1108,39 @@ func assertNextMessage(t *testing.T, conn net.Conn, id SubscriptionID, method st
 	assert.Equal(t, string(resp), string(got))
 }
 
-func assertNextTxnStatus(t *testing.T, conn net.Conn, id SubscriptionID, txHash *felt.Felt, finality TxnStatus, execution TxnExecutionStatus, failureReason string) {
+func assertNextTxnStatus(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	txHash *felt.Felt,
+	finality TxnStatus,
+	execution TxnExecutionStatus,
+	failureReason string,
+) {
 	t.Helper()
 
-	assertNextMessage(t, conn, id, "starknet_subscriptionTransactionStatus", SubscriptionTransactionStatus{
-		TransactionHash: txHash,
-		Status: TransactionStatus{
-			Finality:      finality,
-			Execution:     execution,
-			FailureReason: failureReason,
+	assertNextMessage(
+		t,
+		conn,
+		id,
+		"starknet_subscriptionTransactionStatus",
+		SubscriptionTransactionStatus{
+			TransactionHash: txHash,
+			Status: TransactionStatus{
+				Finality:      finality,
+				Execution:     execution,
+				FailureReason: failureReason,
+			},
 		},
-	})
+	)
 }
 
-func assertNextEvents(t *testing.T, conn net.Conn, id SubscriptionID, emittedEvents []*EmittedEvent) {
+func assertNextEvents(
+	t *testing.T,
+	conn net.Conn,
+	id SubscriptionID,
+	emittedEvents []*EmittedEvent,
+) {
 	t.Helper()
 
 	for _, emitted := range emittedEvents {
@@ -1145,7 +1213,10 @@ func createTestTxStatusWebsocket(
 	})
 }
 
-func createTestWebsocket(t *testing.T, subscribe func(context.Context) (SubscriptionID, *jsonrpc.Error)) (SubscriptionID, net.Conn) {
+func createTestWebsocket(
+	t *testing.T,
+	subscribe func(context.Context) (SubscriptionID, *jsonrpc.Error),
+) (SubscriptionID, net.Conn) {
 	t.Helper()
 
 	serverConn, clientConn := net.Pipe()

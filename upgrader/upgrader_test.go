@@ -104,27 +104,35 @@ func TestUpgrader(t *testing.T) {
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
 			t.Parallel()
-			srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-				require.Equal(t, "GET", req.Method)
+			srv := httptest.NewServer(
+				http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+					require.Equal(t, "GET", req.Method)
 
-				_, err := url.ParseQuery(req.URL.RawQuery)
-				if err != nil {
-					rw.WriteHeader(http.StatusBadRequest)
-					return
-				}
+					_, err := url.ParseQuery(req.URL.RawQuery)
+					if err != nil {
+						rw.WriteHeader(http.StatusBadRequest)
+						return
+					}
 
-				release := &upgrader.Release{
-					Version: &test.latest,
-				}
+					release := &upgrader.Release{
+						Version: &test.latest,
+					}
 
-				releaseBytes, err := json.Marshal(release)
-				require.NoError(t, err)
-				_, err = rw.Write(releaseBytes)
-				require.NoError(t, err)
-			}))
+					releaseBytes, err := json.Marshal(release)
+					require.NoError(t, err)
+					_, err = rw.Write(releaseBytes)
+					require.NoError(t, err)
+				}),
+			)
 			t.Cleanup(srv.Close)
 			log := &upgradeLogger{}
-			ug := upgrader.NewUpgrader(&test.current, srv.URL, "example.com/releases", time.Millisecond, log)
+			ug := upgrader.NewUpgrader(
+				&test.current,
+				srv.URL,
+				"example.com/releases",
+				time.Millisecond,
+				log,
+			)
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			t.Cleanup(cancel)

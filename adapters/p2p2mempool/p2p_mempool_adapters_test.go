@@ -23,7 +23,10 @@ func TestAdaptProposalTransaction(t *testing.T) {
 
 	for i := range mempoolTransactions {
 		t.Run(fmt.Sprintf("%T", mempoolTransactions[i].Transaction), func(t *testing.T) {
-			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(p2pTransactions[i], &utils.Sepolia)
+			convertedmempoolTransaction, err := p2p2mempool.AdaptTransaction(
+				p2pTransactions[i],
+				&utils.Sepolia,
+			)
 			require.NoError(t, err)
 
 			transactiontestutils.StripCompilerFields(t, mempoolTransactions[i].DeclaredClass)

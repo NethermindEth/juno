@@ -27,16 +27,16 @@ const ExecutionStepsHeader string = "X-Cairo-Steps"
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
-	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty" validate:"required_if=Type INVOKE"`
+	ExecuteInvocation     *ExecuteInvocation  `json:"execute_invocation,omitempty"      validate:"required_if=Type INVOKE"`
 	FeeTransferInvocation *FunctionInvocation `json:"fee_transfer_invocation,omitempty"`
-	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty" validate:"required_if=Type DEPLOY_ACCOUNT"`
-	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty" validate:"required_if=Type L1_HANDLER"`
+	ConstructorInvocation *FunctionInvocation `json:"constructor_invocation,omitempty"  validate:"required_if=Type DEPLOY_ACCOUNT"`
+	FunctionInvocation    *FunctionInvocation `json:"function_invocation,omitempty"     validate:"required_if=Type L1_HANDLER"`
 	StateDiff             *StateDiff          `json:"state_diff,omitempty"`
 }
 
 type ExecuteInvocation struct {
 	RevertReason        string `json:"revert_reason"`
-	*FunctionInvocation `json:",omitempty"`
+	*FunctionInvocation `       json:",omitempty"`
 }
 
 func (e ExecuteInvocation) MarshalJSON() ([]byte, error) {
@@ -83,7 +83,10 @@ type OrderedL2toL1Message struct {
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/1ae810e0137cc5d175ace4554892a4f43052be56/api/starknet_trace_api_openrpc.json#L11
-func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*TransactionTrace, *jsonrpc.Error) {
+func (h *Handler) TraceTransaction(
+	ctx context.Context,
+	hash felt.Felt,
+) (*TransactionTrace, *jsonrpc.Error) {
 	_, blockHash, _, err := h.bcReader.Receipt(&hash)
 	if err != nil {
 		return nil, rpccore.ErrTxnHashNotFound
@@ -124,7 +127,10 @@ func (h *Handler) TraceTransaction(ctx context.Context, hash felt.Felt) (*Transa
 	return traceResults[txIndex].TraceRoot, nil
 }
 
-func (h *Handler) TraceBlockTransactions(ctx context.Context, id BlockID) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) TraceBlockTransactions(
+	ctx context.Context,
+	id BlockID,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(&id)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -199,8 +205,19 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1, &blockInfo, state, network, false,
-		false, false, false, false)
+	executionResults, err := h.vm.Execute(
+		block.Transactions,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		network,
+		false,
+		false,
+		false,
+		false,
+		false,
+	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)
@@ -227,7 +244,10 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block,
 	return result, nil
 }
 
-func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
+func (h *Handler) fetchTraces(
+	ctx context.Context,
+	blockHash *felt.Felt,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
 	rpcBlock, err := h.BlockWithTxs(BlockID{
 		Hash: blockHash, // known non-nil
 	})

@@ -59,7 +59,11 @@ type subscription struct {
 	conn   jsonrpc.Conn
 }
 
-func New(bcReader blockchain.Reader, syncReader sync.Reader, virtualMachine vm.VM, network *utils.Network,
+func New(
+	bcReader blockchain.Reader,
+	syncReader sync.Reader,
+	virtualMachine vm.VM,
+	network *utils.Network,
 	logger utils.Logger,
 ) *Handler {
 	return &Handler{

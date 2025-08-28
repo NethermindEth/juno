@@ -114,7 +114,10 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 	for {
 		node, ok := proof.Get(expected)
 		if !ok {
-			return felt.Zero, fmt.Errorf("proof node not found, expected hash: %s", expected.String())
+			return felt.Zero, fmt.Errorf(
+				"proof node not found, expected hash: %s",
+				expected.String(),
+			)
 		}
 
 		nHash, _ := h.hash(node)
@@ -122,7 +125,11 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 		// Verify the hash matches
 		hashVal := felt.Felt(*nHash.(*trienode.HashNode))
 		if !hashVal.Equal(&expected) {
-			return felt.Zero, fmt.Errorf("proof node hash mismatch, expected hash: %s, got hash: %s", expected.String(), nHash.String())
+			return felt.Zero, fmt.Errorf(
+				"proof node hash mismatch, expected hash: %s, got hash: %s",
+				expected.String(),
+				nHash.String(),
+			)
 		}
 
 		child := get(node, keyBits, false)
@@ -150,7 +157,11 @@ func VerifyProof(root, key *felt.Felt, proof *ProofNodeSet, hash crypto.HashFn) 
 // verifyProofData validates the consistency of keys and values
 func verifyProofData(keys, values []*felt.Felt) error {
 	if len(keys) != len(values) {
-		return fmt.Errorf("inconsistent length of proof data, keys: %d, values: %d", len(keys), len(values))
+		return fmt.Errorf(
+			"inconsistent length of proof data, keys: %d, values: %d",
+			len(keys),
+			len(values),
+		)
 	}
 
 	for i := range keys {
@@ -205,7 +216,11 @@ func verifySingleElementProof(rootHash, key, value *felt.Felt, proof *ProofNodeS
 }
 
 // verifyRangeWithProof handles the general case with multiple elements
-func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
+func verifyRangeWithProof(
+	rootHash, first, last *felt.Felt,
+	keys, values []*felt.Felt,
+	proof *ProofNodeSet,
+) (bool, error) {
 	var firstKey, lastKey Path
 	firstKey.SetFelt(contractClassTrieHeight, first)
 	lastKey.SetFelt(contractClassTrieHeight, last)
@@ -240,13 +255,21 @@ func verifyRangeWithProof(rootHash, first, last *felt.Felt, keys, values []*felt
 
 	newRoot := tr.Hash()
 	if !newRoot.Equal(rootHash) {
-		return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), newRoot.String())
+		return false, fmt.Errorf(
+			"root hash mismatch, expected: %s, got: %s",
+			rootHash.String(),
+			newRoot.String(),
+		)
 	}
 
 	return hasRightElement(root, &lastKey), nil
 }
 
-func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, proof *ProofNodeSet) (bool, error) {
+func VerifyRangeProof(
+	rootHash, first *felt.Felt,
+	keys, values []*felt.Felt,
+	proof *ProofNodeSet,
+) (bool, error) {
 	if err := verifyProofData(keys, values); err != nil {
 		return false, err
 	}
@@ -262,7 +285,11 @@ func VerifyRangeProof(rootHash, first *felt.Felt, keys, values []*felt.Felt, pro
 
 		recomputedRoot := tr.Hash()
 		if !recomputedRoot.Equal(rootHash) {
-			return false, fmt.Errorf("root hash mismatch, expected: %s, got: %s", rootHash.String(), recomputedRoot.String())
+			return false, fmt.Errorf(
+				"root hash mismatch, expected: %s, got: %s",
+				rootHash.String(),
+				recomputedRoot.String(),
+			)
 		}
 
 		return false, nil
