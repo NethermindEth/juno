@@ -177,23 +177,23 @@ func (s *stateMachine[V, H, A]) ReplayWAL() {
 
 		switch walEntry.Type {
 		case types.MessageTypeProposal:
-			proposal, ok := (walEntry.Entry).(types.Proposal[V, H, A])
+			proposal, ok := (walEntry.Entry).(*types.Proposal[V, H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
 			}
-			s.ProcessProposal(&proposal)
+			s.ProcessProposal(proposal)
 		case types.MessageTypePrevote:
-			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
+			prevote, ok := (walEntry.Entry).(*types.Prevote[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
 			}
-			s.ProcessPrevote(&prevote)
+			s.ProcessPrevote(prevote)
 		case types.MessageTypePrecommit:
-			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
+			precommit, ok := (walEntry.Entry).(*types.Precommit[H, A])
 			if !ok {
 				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
 			}
-			s.ProcessPrecommit(&precommit)
+			s.ProcessPrecommit(precommit)
 		case types.MessageTypeTimeout:
 			timeout, ok := (walEntry.Entry).(types.Timeout)
 			if !ok {

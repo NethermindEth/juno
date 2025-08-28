@@ -21,7 +21,7 @@ type streamID string
 
 type ProposalStreamDemux[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	Loop(context.Context, *pubsub.Topic)
-	Listen() <-chan types.Proposal[V, H, A]
+	Listen() <-chan *types.Proposal[V, H, A]
 }
 
 // proposalStreamDemux is a demux for the proposal streams.
@@ -54,7 +54,7 @@ type proposalStreamDemux struct {
 	commitNotifier       <-chan types.Height
 	streams              map[streamID]*proposalStream
 	streamHeights        map[types.Height][]streamID
-	outputs              chan starknet.Proposal
+	outputs              chan *starknet.Proposal
 	currentHeight        types.Height
 	currentHeightCancel  context.CancelFunc
 	currentHeightCtxPool *pool.ContextPool
@@ -76,7 +76,7 @@ func NewProposalStreamDemux(
 		commitNotifier:   commitNotifier,
 		streams:          make(map[streamID]*proposalStream),
 		streamHeights:    make(map[types.Height][]streamID),
-		outputs:          make(chan starknet.Proposal, bufferSizeConfig.ProposalOutputs),
+		outputs:          make(chan *starknet.Proposal, bufferSizeConfig.ProposalOutputs),
 		currentHeight:    currentHeight,
 	}
 }
@@ -103,7 +103,11 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 				if err := t.processStreamMessage(ctx, message); err != nil {
 					t.log.Errorw("error processing stream message", "error", err)
 				}
-			case height := <-t.commitNotifier:
+			case height, ok := <-t.commitNotifier:
+				if !ok {
+					return
+				}
+
 				// Stop the current height pool and create a new one
 				t.stop()
 				t.createCtxPool(ctx)
@@ -132,7 +136,7 @@ func (t *proposalStreamDemux) Loop(ctx context.Context, topic *pubsub.Topic) {
 	wg.Wait()
 }
 
-func (t *proposalStreamDemux) Listen() <-chan starknet.Proposal {
+func (t *proposalStreamDemux) Listen() <-chan *starknet.Proposal {
 	return t.outputs
 }
 
