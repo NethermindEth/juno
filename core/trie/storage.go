@@ -35,12 +35,16 @@ type Storage struct {
 	snapshot db.Snapshot
 }
 
-func NewStorage(txn db.IndexedBatch, snapshot db.Snapshot, prefix []byte) *Storage {
+func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
 	return &Storage{
-		txn:      txn,
-		prefix:   prefix,
-		snapshot: snapshot,
+		txn:    txn,
+		prefix: prefix,
 	}
+}
+
+func (t *Storage) WithSnapshot(snapshot db.Snapshot) *Storage {
+	t.snapshot = snapshot
+	return t
 }
 
 // dbKey creates a byte array to be used as a key to our KV store
@@ -148,5 +152,5 @@ func (t *Storage) SyncedStorage() *Storage {
 
 func newMemStorage() *Storage {
 	memoryDB := memory.New()
-	return NewStorage(memoryDB.NewIndexedBatch(), nil, nil)
+	return NewStorage(memoryDB.NewIndexedBatch(), nil)
 }

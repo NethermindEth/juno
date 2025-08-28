@@ -169,7 +169,7 @@ func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
-	tTxn := trie.NewStorage(s.txn, s.snapshot, dbPrefix)
+	tTxn := trie.NewStorage(s.txn, dbPrefix).WithSnapshot(s.snapshot)
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
