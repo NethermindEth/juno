@@ -12,17 +12,17 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type voteListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr] chan M
+type voteListener[M any] chan M
 
-func newListener[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A types.Addr](bufferSize int) voteListener[M, V, H, A] {
-	return voteListener[M, V, H, A](make(chan M, bufferSize))
+func newListener[M any](bufferSize int) voteListener[M] {
+	return voteListener[M](make(chan M, bufferSize))
 }
 
-func (l voteListener[M, V, H, A]) Listen() <-chan M {
+func (l voteListener[M]) Listen() <-chan M {
 	return l
 }
 
-func (l voteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
+func (l voteListener[M]) Receive(ctx context.Context, message M) {
 	select {
 	case <-ctx.Done():
 		return
@@ -33,8 +33,8 @@ func (l voteListener[M, V, H, A]) Receive(ctx context.Context, message M) {
 type voteListeners[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	buffered.TopicSubscription
 	log               utils.Logger
-	PrevoteListener   voteListener[types.Prevote[H, A], V, H, A]
-	PrecommitListener voteListener[types.Precommit[H, A], V, H, A]
+	PrevoteListener   voteListener[*types.Prevote[H, A]]
+	PrecommitListener voteListener[*types.Precommit[H, A]]
 }
 
 func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -42,8 +42,8 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 	voteAdapter VoteAdapter[H, A],
 	bufferSizeConfig *config.BufferSizes,
 ) voteListeners[V, H, A] {
-	prevoteListener := newListener[types.Prevote[H, A], V, H, A](bufferSizeConfig.PrevoteOutput)
-	precommitListener := newListener[types.Precommit[H, A], V, H, A](bufferSizeConfig.PrecommitOutput)
+	prevoteListener := newListener[*types.Prevote[H, A]](bufferSizeConfig.PrevoteOutput)
+	precommitListener := newListener[*types.Precommit[H, A]](bufferSizeConfig.PrecommitOutput)
 
 	onMessage := func(ctx context.Context, msg *pubsub.Message) {
 		p2pVote := consensus.Vote{}
@@ -60,9 +60,9 @@ func NewVoteListeners[V types.Hashable[H], H types.Hash, A types.Addr](
 
 		switch p2pVote.VoteType {
 		case consensus.Vote_Prevote:
-			prevoteListener.Receive(ctx, types.Prevote[H, A](vote))
+			prevoteListener.Receive(ctx, (*types.Prevote[H, A])(&vote))
 		case consensus.Vote_Precommit:
-			precommitListener.Receive(ctx, types.Precommit[H, A](vote))
+			precommitListener.Receive(ctx, (*types.Precommit[H, A])(&vote))
 		}
 	}
 

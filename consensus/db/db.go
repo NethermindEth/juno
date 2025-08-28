@@ -41,19 +41,19 @@ func (w *WalEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
 		if err := cbor.Unmarshal(wrapperType.RawData, &proposal); err != nil {
 			return err
 		}
-		w.Entry = proposal
+		w.Entry = &proposal
 	case types.MessageTypePrevote:
 		var vote types.Prevote[H, A]
 		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
 			return err
 		}
-		w.Entry = vote
+		w.Entry = &vote
 	case types.MessageTypePrecommit:
 		var vote types.Precommit[H, A]
 		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
 			return err
 		}
-		w.Entry = vote
+		w.Entry = &vote
 	default:
 		return fmt.Errorf("failed to unmarshal walEntry, unknown type")
 	}

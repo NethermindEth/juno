@@ -67,9 +67,9 @@ func TestSync(t *testing.T) {
 
 	stateMachine := tendermint.New(tmDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
 
-	proposalCh := make(chan starknet.Proposal)
-	prevoteCh := make(chan starknet.Prevote)
-	precommitCh := make(chan starknet.Precommit)
+	proposalCh := make(chan *starknet.Proposal)
+	prevoteCh := make(chan *starknet.Prevote)
+	precommitCh := make(chan *starknet.Precommit)
 	p2p := newMockP2P(proposalCh, prevoteCh, precommitCh)
 
 	driver := driver.New(
@@ -126,9 +126,9 @@ func toValue(in *felt.Felt) starknet.Value {
 	return starknet.Value(*in)
 }
 
-func getPrecommits(*sync.BlockBody) []types.Precommit[starknet.Hash, starknet.Address] {
+func getPrecommits(*sync.BlockBody) []starknet.Precommit {
 	blockID := starknet.Hash(*new(felt.Felt).SetUint64(blockID))
-	return []types.Precommit[starknet.Hash, starknet.Address]{
+	return []starknet.Precommit{
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),

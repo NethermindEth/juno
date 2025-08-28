@@ -42,7 +42,10 @@ func (c *consensusDataSource[V, H, A]) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case committedBlock := <-c.commitListener.Listen():
+		case committedBlock, ok := <-c.commitListener.Listen():
+			if !ok {
+				return nil
+			}
 			blockNumber := committedBlock.Block.Number
 
 			c.cache.Store(blockNumber, &committedBlock)

@@ -137,7 +137,7 @@ type voter uint64
 func (v voter) propose(idIndex uint64) *proposalTestCase {
 	return &proposalTestCase{
 		addrIndex: uint64(v),
-		proposal: types.Proposal[starknet.Value, starknet.Hash, starknet.Address]{
+		proposal: starknet.Proposal{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: testHeight,
 				Round:  testRound,
