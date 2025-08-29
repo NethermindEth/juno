@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
@@ -30,6 +31,11 @@ func init() {
 			reflect.TypeOf(pathdb.DiffJournal{}),
 			reflect.TypeOf(pathdb.DiskJournal{}),
 			reflect.TypeOf(pathdb.DBJournal{}),
+			// Consensus WAL types
+			reflect.TypeOf(starknet.WALProposal{}),
+			reflect.TypeOf(starknet.WALPrevote{}),
+			reflect.TypeOf(starknet.WALPrecommit{}),
+			reflect.TypeOf(starknet.WALTimeout{}),
 		}
 
 		for _, t := range types {

@@ -6,59 +6,15 @@ import (
 	"iter"
 
 	"github.com/NethermindEth/juno/consensus/types"
-	db "github.com/NethermindEth/juno/db"
-	"github.com/fxamacker/cbor/v2"
+	"github.com/NethermindEth/juno/consensus/types/wal"
+	"github.com/NethermindEth/juno/db"
+	"github.com/NethermindEth/juno/encoder"
 )
 
 const NumBytesForHeight = 4
 
 // walMsgCount tracks the number of wal entries at the current height
 type walMsgCount uint32
-
-type WalEntry[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	Type  types.MessageType      `cbor:"type"`
-	Entry types.Message[V, H, A] `cbor:"data"` // cbor serialised Msg or Timeout
-}
-
-func (w *WalEntry[V, H, A]) UnmarshalCBOR(data []byte) error {
-	var wrapperType struct {
-		Type    types.MessageType `cbor:"type"`
-		RawData cbor.RawMessage   `cbor:"data"` // Golang can't unmarshal to an interface
-	}
-	if err := cbor.Unmarshal(data, &wrapperType); err != nil {
-		return err
-	}
-	w.Type = wrapperType.Type
-	switch wrapperType.Type {
-	case types.MessageTypeTimeout:
-		var to types.Timeout
-		if err := cbor.Unmarshal(wrapperType.RawData, &to); err != nil {
-			return err
-		}
-		w.Entry = to
-	case types.MessageTypeProposal:
-		var proposal types.Proposal[V, H, A]
-		if err := cbor.Unmarshal(wrapperType.RawData, &proposal); err != nil {
-			return err
-		}
-		w.Entry = &proposal
-	case types.MessageTypePrevote:
-		var vote types.Prevote[H, A]
-		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
-			return err
-		}
-		w.Entry = &vote
-	case types.MessageTypePrecommit:
-		var vote types.Precommit[H, A]
-		if err := cbor.Unmarshal(wrapperType.RawData, &vote); err != nil {
-			return err
-		}
-		w.Entry = &vote
-	default:
-		return fmt.Errorf("failed to unmarshal walEntry, unknown type")
-	}
-	return nil
-}
 
 // TendermintDB defines the methods for interacting with the Tendermint WAL database.
 //
@@ -81,9 +37,9 @@ type TendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Flush writes the accumulated batch operations to the underlying database.
 	Flush() error
 	// GetWALEntries retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
-	GetWALEntries(height types.Height) iter.Seq2[WalEntry[V, H, A], error]
+	GetWALEntries(height types.Height) iter.Seq2[wal.Entry[V, H, A], error]
 	// SetWALEntry schedules the storage of a WAL message in the batch.
-	SetWALEntry(entry types.Message[V, H, A]) error
+	SetWALEntry(entry wal.Entry[V, H, A]) error
 	// DeleteWALEntries schedules the deletion of all WAL messages for a specific height in the batch.
 	DeleteWALEntries(height types.Height) error
 }
@@ -161,14 +117,10 @@ func (s *tendermintDB[V, H, A]) DeleteWALEntries(height types.Height) error {
 }
 
 // SetWALEntry implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error {
-	wrapper := WalEntry[V, H, A]{
-		Type:  entry.MsgType(),
-		Entry: entry,
-	}
-	wrappedEntry, err := cbor.Marshal(wrapper)
+func (s *tendermintDB[V, H, A]) SetWALEntry(entry wal.Entry[V, H, A]) error {
+	marshaledEntry, err := encoder.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("SetWALEntry: marshal wrapper failed: %w", err)
+		return fmt.Errorf("SetWALEntry: marshal entry failed: %w", err)
 	}
 	height := entry.GetHeight()
 	numMsgsAtHeight, ok := s.walCount[height]
@@ -178,7 +130,7 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error 
 	nextNumMsgsAtHeight := numMsgsAtHeight + 1
 
 	msgKey := WALEntryBucket.Key(encodeHeight(height), encodeNumMsgsAtHeight(nextNumMsgsAtHeight))
-	if err := s.batch.Put(msgKey, wrappedEntry); err != nil {
+	if err := s.batch.Put(msgKey, marshaledEntry); err != nil {
 		return fmt.Errorf("writeWALEntryToBatch: failed to set MsgsAtHeight: %w", err)
 	}
 
@@ -187,8 +139,8 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error 
 }
 
 // GetWALEntries implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[WalEntry[V, H, A], error] {
-	return func(yield func(WalEntry[V, H, A], error) bool) {
+func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[wal.Entry[V, H, A], error] {
+	return func(yield func(wal.Entry[V, H, A], error) bool) {
 		if s.walCount[height] == 0 {
 			return
 		}
@@ -203,14 +155,14 @@ func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[Wal
 			}
 			defer iter.Close()
 
-			var walEntry WalEntry[V, H, A]
 			for iter.First(); iter.Valid(); iter.Next() {
+				var walEntry wal.Entry[V, H, A]
 				v, err := iter.Value()
 				if err != nil {
 					return fmt.Errorf("failed to get iter value: %w", err)
 				}
 
-				if err := cbor.Unmarshal(v, &walEntry); err != nil {
+				if err := encoder.Unmarshal(v, &walEntry); err != nil {
 					return fmt.Errorf("failed to unmarshal walEntry: %w", err)
 				}
 
@@ -221,7 +173,7 @@ func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[Wal
 			return nil
 		})
 		if err != nil {
-			yield(WalEntry[V, H, A]{}, err)
+			yield(nil, err)
 		}
 	}
 }

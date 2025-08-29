@@ -6,11 +6,3 @@ type Timeout struct {
 	Round  Round
 	_      struct{} `cbor:",toarray"`
 }
-
-func (t Timeout) MsgType() MessageType {
-	return MessageTypeTimeout
-}
-
-func (t Timeout) GetHeight() Height {
-	return t.Height
-}

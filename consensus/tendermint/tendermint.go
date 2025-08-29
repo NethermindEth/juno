@@ -5,6 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -175,32 +176,17 @@ func (s *stateMachine[V, H, A]) ReplayWAL() {
 			panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
 		}
 
-		switch walEntry.Type {
-		case types.MessageTypeProposal:
-			proposal, ok := (walEntry.Entry).(*types.Proposal[V, H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
-			}
-			s.ProcessProposal(proposal)
-		case types.MessageTypePrevote:
-			prevote, ok := (walEntry.Entry).(*types.Prevote[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
-			}
-			s.ProcessPrevote(prevote)
-		case types.MessageTypePrecommit:
-			precommit, ok := (walEntry.Entry).(*types.Precommit[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
-			}
-			s.ProcessPrecommit(precommit)
-		case types.MessageTypeTimeout:
-			timeout, ok := (walEntry.Entry).(types.Timeout)
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
-			}
-			s.ProcessTimeout(timeout)
+		switch walEntry := walEntry.(type) {
+		case *wal.WALProposal[V, H, A]:
+			s.ProcessProposal((*types.Proposal[V, H, A])(walEntry))
+		case *wal.WALPrevote[H, A]:
+			s.ProcessPrevote((*types.Prevote[H, A])(walEntry))
+		case *wal.WALPrecommit[H, A]:
+			s.ProcessPrecommit((*types.Precommit[H, A])(walEntry))
+		case *wal.WALTimeout:
+			s.ProcessTimeout(types.Timeout(*walEntry))
 		default:
+			// TODO: panic here is wrong, but this will be rewritten in the next PR.
 			panic("Failed to replay WAL messages, unknown WAL Entry type")
 		}
 	}

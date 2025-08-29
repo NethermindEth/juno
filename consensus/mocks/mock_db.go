@@ -13,8 +13,8 @@ import (
 	iter "iter"
 	reflect "reflect"
 
-	db "github.com/NethermindEth/juno/consensus/db"
 	types "github.com/NethermindEth/juno/consensus/types"
+	wal "github.com/NethermindEth/juno/consensus/types/wal"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -71,10 +71,10 @@ func (mr *MockTendermintDBMockRecorder[V, H, A]) Flush() *gomock.Call {
 }
 
 // GetWALEntries mocks base method.
-func (m *MockTendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[db.WalEntry[V, H, A], error] {
+func (m *MockTendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[wal.Entry[V, H, A], error] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetWALEntries", height)
-	ret0, _ := ret[0].(iter.Seq2[db.WalEntry[V, H, A], error])
+	ret0, _ := ret[0].(iter.Seq2[wal.Entry[V, H, A], error])
 	return ret0
 }
 
@@ -85,7 +85,7 @@ func (mr *MockTendermintDBMockRecorder[V, H, A]) GetWALEntries(height any) *gomo
 }
 
 // SetWALEntry mocks base method.
-func (m *MockTendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error {
+func (m *MockTendermintDB[V, H, A]) SetWALEntry(entry wal.Entry[V, H, A]) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetWALEntry", entry)
 	ret0, _ := ret[0].(error)
