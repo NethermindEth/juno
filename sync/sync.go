@@ -815,7 +815,11 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	return s.StorePending(&pending)
 }
 
-func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context, sem <-chan struct{}, preLatest *Pending) {
+func (s *Synchronizer) fetchAndStorePreConfirmed(
+	ctx context.Context,
+	sem <-chan struct{},
+	preLatest *Pending,
+) {
 	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
 	defer preConfirmedPollTicker.Stop()
 	defer func() {
