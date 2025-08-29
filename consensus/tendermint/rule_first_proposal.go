@@ -1,6 +1,9 @@
 package tendermint
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
+)
 
 /*
 Check the upon condition on line 22:
@@ -18,7 +21,7 @@ func (s *stateMachine[V, H, A]) uponFirstProposal(cachedProposal *CachedProposal
 	return cachedProposal.ValidRound == -1 && s.state.step == types.StepPropose
 }
 
-func (s *stateMachine[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doFirstProposal(cachedProposal *CachedProposal[V, H, A]) actions.Action[V, H, A] {
 	shouldVoteForValue := cachedProposal.Valid &&
 		(s.state.lockedRound == -1 ||
 			s.state.lockedValue != nil && (*s.state.lockedValue).Hash() == *cachedProposal.ID)

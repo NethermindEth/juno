@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
@@ -19,7 +20,7 @@ func (s *stateMachine[V, H, A]) uponPrecommitAny() bool {
 	return hasQuorum && isFirstTime
 }
 
-func (s *stateMachine[V, H, A]) doPrecommitAny() types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doPrecommitAny() actions.Action[V, H, A] {
 	s.state.timeoutPrecommitScheduled = true
 	return s.scheduleTimeout(types.StepPrecommit)
 }
