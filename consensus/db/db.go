@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/binary"
 	"fmt"
+	"iter"
 
 	"github.com/NethermindEth/juno/consensus/types"
 	db "github.com/NethermindEth/juno/db"
@@ -80,7 +81,7 @@ type TendermintDB[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	// Flush writes the accumulated batch operations to the underlying database.
 	Flush() error
 	// GetWALEntries retrieves all WAL messages (consensus messages and timeouts) stored for a given height from the database.
-	GetWALEntries(height types.Height) ([]WalEntry[V, H, A], error)
+	GetWALEntries(height types.Height) iter.Seq2[WalEntry[V, H, A], error]
 	// SetWALEntry schedules the storage of a WAL message in the batch.
 	SetWALEntry(entry types.Message[V, H, A]) error
 	// DeleteWALEntries schedules the deletion of all WAL messages for a specific height in the batch.
@@ -186,38 +187,43 @@ func (s *tendermintDB[V, H, A]) SetWALEntry(entry types.Message[V, H, A]) error 
 }
 
 // GetWALEntries implements TMDBInterface.
-func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) ([]WalEntry[V, H, A], error) {
-	numEntries := s.walCount[height]
-	walMsgs := make([]WalEntry[V, H, A], numEntries)
-	if numEntries == 0 {
-		return walMsgs, nil
-	}
-	startKey := WALEntryBucket.Key(encodeHeight(height))
-	err := s.db.View(func(snap db.Snapshot) error {
-		defer snap.Close()
-		iter, err := snap.NewIterator(startKey, true)
-		if err != nil {
-			return err
+func (s *tendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[WalEntry[V, H, A], error] {
+	return func(yield func(WalEntry[V, H, A], error) bool) {
+		if s.walCount[height] == 0 {
+			return
 		}
-		defer iter.Close()
 
-		msgID := 0
-		for iter.First(); iter.Valid(); iter.Next() {
-			v, err := iter.Value()
+		err := s.db.View(func(snap db.Snapshot) error {
+			defer snap.Close()
+
+			startKey := WALEntryBucket.Key(encodeHeight(height))
+			iter, err := snap.NewIterator(startKey, true)
 			if err != nil {
-				return fmt.Errorf("scanWALRaw: failed to get value: %w", err)
+				return fmt.Errorf("failed to create iter: %w", err)
 			}
-			if err := cbor.Unmarshal(v, &walMsgs[msgID]); err != nil {
-				return err
+			defer iter.Close()
+
+			var walEntry WalEntry[V, H, A]
+			for iter.First(); iter.Valid(); iter.Next() {
+				v, err := iter.Value()
+				if err != nil {
+					return fmt.Errorf("failed to get iter value: %w", err)
+				}
+
+				if err := cbor.Unmarshal(v, &walEntry); err != nil {
+					return fmt.Errorf("failed to unmarshal walEntry: %w", err)
+				}
+
+				if !yield(walEntry, nil) {
+					return nil
+				}
 			}
-			msgID++
+			return nil
+		})
+		if err != nil {
+			yield(WalEntry[V, H, A]{}, err)
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("scanWALRaw: db view error: %w", err)
 	}
-	return walMsgs, nil
 }
 
 func encodeHeight(height types.Height) []byte {

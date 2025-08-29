@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	iter "iter"
 	reflect "reflect"
 
 	db "github.com/NethermindEth/juno/consensus/db"
@@ -70,12 +71,11 @@ func (mr *MockTendermintDBMockRecorder[V, H, A]) Flush() *gomock.Call {
 }
 
 // GetWALEntries mocks base method.
-func (m *MockTendermintDB[V, H, A]) GetWALEntries(height types.Height) ([]db.WalEntry[V, H, A], error) {
+func (m *MockTendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[db.WalEntry[V, H, A], error] {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetWALEntries", height)
-	ret0, _ := ret[0].([]db.WalEntry[V, H, A])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(iter.Seq2[db.WalEntry[V, H, A], error])
+	return ret0
 }
 
 // GetWALEntries indicates an expected call of GetWALEntries.
