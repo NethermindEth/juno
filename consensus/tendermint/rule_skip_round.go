@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 )
 
 /*
@@ -20,6 +21,6 @@ func (s *stateMachine[V, H, A]) uponSkipRound(futureR types.Round) bool {
 	return isNewerRound && hasQuorum
 }
 
-func (s *stateMachine[V, H, A]) doSkipRound(futureR types.Round) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doSkipRound(futureR types.Round) actions.Action[V, H, A] {
 	return s.startRound(futureR)
 }

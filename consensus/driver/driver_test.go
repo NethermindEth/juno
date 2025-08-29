@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/hash"
 	"github.com/NethermindEth/juno/db/pebble"
@@ -110,7 +111,7 @@ func generateAndRegisterRandomActions(
 }
 
 func toAction(timeout types.Timeout) starknet.Action {
-	return utils.HeapPtr(types.ScheduleTimeout(timeout))
+	return utils.HeapPtr(actions.ScheduleTimeout(timeout))
 }
 
 func increaseBroadcasterWaitGroup[M any](

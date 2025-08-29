@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
@@ -25,7 +26,7 @@ func (s *stateMachine[V, H, A]) uponProposalAndPolkaPrevious(cachedProposal *Cac
 		vr < s.state.round
 }
 
-func (s *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doProposalAndPolkaPrevious(cachedProposal *CachedProposal[V, H, A]) actions.Action[V, H, A] {
 	var votedID *H
 	shouldVoteForValue := cachedProposal.Valid &&
 		(s.state.lockedRound <= cachedProposal.ValidRound ||

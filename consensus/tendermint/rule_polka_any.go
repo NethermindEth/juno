@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
@@ -21,7 +22,7 @@ func (s *stateMachine[V, H, A]) uponPolkaAny() bool {
 		isFirstTime
 }
 
-func (s *stateMachine[V, H, A]) doPolkaAny() types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doPolkaAny() actions.Action[V, H, A] {
 	s.state.timeoutPrevoteScheduled = true
 	return s.scheduleTimeout(types.StepPrevote)
 }

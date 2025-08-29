@@ -3,6 +3,7 @@ package tendermint
 import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 )
 
 // actionBuilder is a helper struct to build expected actions as the result of processing messages and timeouts for the state machine.
@@ -43,7 +44,7 @@ func (t actionBuilder) broadcastPrecommit(val *starknet.Value) starknet.Action {
 
 // scheduleTimeout builds and returns a ScheduleTimeout action.
 func (t actionBuilder) scheduleTimeout(s types.Step) starknet.Action {
-	return &types.ScheduleTimeout{
+	return &actions.ScheduleTimeout{
 		Step:   s,
 		Height: t.actionHeight,
 		Round:  t.actionRound,
