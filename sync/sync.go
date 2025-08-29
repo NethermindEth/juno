@@ -135,7 +135,7 @@ type Synchronizer struct {
 	log      utils.SimpleLogger
 	listener EventListener
 
-	pendingData              atomic.Pointer[PendingDataWPreLatest]
+	pendingData              atomic.Pointer[PendingDataWithPreLatest]
 	pendingPollInterval      time.Duration
 	preConfirmedPollInterval time.Duration
 
@@ -916,7 +916,7 @@ func (s *Synchronizer) StorePending(p *core.Pending) error {
 		return err
 	}
 
-	s.pendingData.Store(utils.HeapPtr[PendingDataWPreLatest](p))
+	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](p))
 
 	s.pendingDataFeed.Send(p)
 
@@ -941,17 +941,17 @@ func (s *Synchronizer) StorePreConfirmedWithPreLatest(p *PreConfirmedWithPreLate
 		return err
 	}
 
-	s.pendingData.Store(utils.HeapPtr[PendingDataWPreLatest](p))
+	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](p))
 	s.pendingDataFeed.Send(p)
 
 	return nil
 }
 
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
-	return s.pendingDataWPreLatest()
+	return s.pendingDataWithPreLatest()
 }
 
-func (s *Synchronizer) pendingDataWPreLatest() (PendingDataWPreLatest, error) {
+func (s *Synchronizer) pendingDataWithPreLatest() (PendingDataWithPreLatest, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
 		return nil, ErrPendingBlockNotFound
@@ -1008,7 +1008,7 @@ var noop = func() error { return nil }
 func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.pendingDataWPreLatest()
+	pending, err := s.pendingDataWithPreLatest()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1043,7 +1043,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.pendingDataWPreLatest()
+	pending, err := s.pendingDataWithPreLatest()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1129,7 +1129,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 		NewClasses: make(map[felt.Felt]core.Class, 0),
 	}
 
-	s.pendingData.Store(utils.HeapPtr[PendingDataWPreLatest](&pending))
+	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](&pending))
 	return nil
 }
 
@@ -1180,7 +1180,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
 	}
 
 	emptyStateDiff := core.EmptyStateDiff()
-	s.pendingData.Store(utils.HeapPtr[PendingDataWPreLatest](&PreConfirmedWithPreLatest{
+	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](&PreConfirmedWithPreLatest{
 		PreConfirmed: &preConfirmed,
 		PreLatest: &Pending{
 			Block: &core.Block{Header: latestHeader},
