@@ -367,8 +367,9 @@ func (b *Blockchain) HeadState() (core.StateReader, StateCloser, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return core.NewState(txn), noopStateCloser, nil
+	snapshot := b.database.NewSnapshot()
+	state := core.NewState(txn).WithSnapshot(snapshot)
+	return state, snapshot.Close, nil
 }
 
 // StateAtBlockNumber returns a StateReader that provides a stable view to the state at the given block number
