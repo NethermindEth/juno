@@ -287,7 +287,9 @@ func TestPendingData(t *testing.T) {
 
 		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
 			preConfirmed := &core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-			require.Error(t, synchronizer.StorePreConfirmed(preConfirmed))
+			require.Error(t, synchronizer.StorePreConfirmedWithPreLatest(
+				&sync.PreConfirmedWithPreLatest{PreConfirmed: preConfirmed, PreLatest: &sync.Pending{}},
+			))
 		})
 
 		t.Run("store genesis as pre_confirmed", func(t *testing.T) {
@@ -298,13 +300,18 @@ func TestPendingData(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, synchronizer.StorePreConfirmed(preConfirmedGenesis))
+			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+				&sync.PreConfirmedWithPreLatest{PreConfirmed: preConfirmedGenesis, PreLatest: nil},
+			))
 
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			expectedPreConfirmed := &core.PreConfirmed{
-				Block:       preConfirmedGenesis.Block,
-				StateUpdate: preConfirmedGenesis.StateUpdate,
+			expectedPreConfirmed := &sync.PreConfirmedWithPreLatest{
+				PreConfirmed: &core.PreConfirmed{
+					Block:       preConfirmedGenesis.Block,
+					StateUpdate: preConfirmedGenesis.StateUpdate,
+				},
+				PreLatest: nil,
 			}
 			assert.Equal(t, expectedPreConfirmed, gotPendingData)
 		})
@@ -312,25 +319,35 @@ func TestPendingData(t *testing.T) {
 		require.NoError(t, chain.Store(b, &core.BlockCommitments{}, su, nil))
 
 		t.Run("store expected pre_confirmed block", func(t *testing.T) {
-			b, err = gw.BlockByNumber(t.Context(), 1)
+			preConfirmedB, err := gw.BlockByNumber(t.Context(), 1)
 			require.NoError(t, err)
 			su, err = gw.StateUpdate(t.Context(), 1)
 			require.NoError(t, err)
 			head, err := chain.HeadsHeader()
 			require.NoError(t, err)
 
-			expectedPreConfirmed := &core.PreConfirmed{
-				Block: b,
-				StateUpdate: &core.StateUpdate{
-					OldRoot: head.GlobalStateRoot,
+			emptyStateDiff := core.EmptyStateDiff()
+			expectedPreConfirmed := sync.PreConfirmedWithPreLatest{
+				PreConfirmed: &core.PreConfirmed{
+					Block: preConfirmedB,
+					StateUpdate: &core.StateUpdate{
+						OldRoot:   head.GlobalStateRoot,
+						StateDiff: &emptyStateDiff,
+					},
+				},
+				PreLatest: &sync.Pending{
+					Block:       b,
+					StateUpdate: &core.StateUpdate{StateDiff: &emptyStateDiff},
 				},
 			}
 
-			require.NoError(t, synchronizer.StorePreConfirmed(expectedPreConfirmed))
-
+			emptyStateDiff = core.EmptyStateDiff()
+			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+				&expectedPreConfirmed,
+			))
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
-			assert.Equal(t, expectedPreConfirmed, gotPendingData)
+			assert.Equal(t, &expectedPreConfirmed, gotPendingData)
 		})
 
 		t.Run("get pending state", func(t *testing.T) {
@@ -348,14 +365,15 @@ func TestPendingData(t *testing.T) {
 			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
 			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
-			require.NoError(t, err)
 			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
 			gw := adaptfeeder.New(client)
 			preConfirmed, err := gw.PreConfirmedBlockByNumber(t.Context(), 1204672)
 			preConfirmed.StateUpdate.OldRoot = &felt.Zero
 			preConfirmed.Block.Number = 0
 			require.NoError(t, err)
-			require.NoError(t, synchronizer.StorePreConfirmed(&preConfirmed))
+			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+				&sync.PreConfirmedWithPreLatest{PreConfirmed: &preConfirmed, PreLatest: nil},
+			))
 			txCount := len(preConfirmed.GetTransactions())
 
 			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
