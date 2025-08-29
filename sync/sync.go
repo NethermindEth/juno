@@ -548,7 +548,12 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 		return
 	}
 	s.pollPending(ctx, sem)
-	s.pollPreConfirmed(ctx, sem)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		s.pollPreConfirmed(ctx, sem)
+	}
 }
 
 func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
