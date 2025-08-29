@@ -548,6 +548,9 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 		return
 	}
 	s.pollPending(ctx, sem)
+
+	// If pollPending is cancelled by parent context
+	// do not initiate pre_confirmed polling.
 	select {
 	case <-ctx.Done():
 		return
