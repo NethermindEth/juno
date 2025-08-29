@@ -12,6 +12,15 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
+type PreLatestData interface {
+	GetPreLatest() *Pending
+}
+
+type PendingDataWithPreLatest interface {
+	core.PendingData
+	PreLatestData
+}
+
 type Pending struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
@@ -56,6 +65,33 @@ func (p *Pending) GetTransactionStateDiffs() []*core.StateDiff {
 
 func (p *Pending) Variant() core.PendingDataVariant {
 	return core.PendingBlockVariant
+}
+
+func (p *Pending) GetPreLatest() *Pending {
+	return nil
+}
+
+type PreConfirmedWithPreLatest struct {
+	*core.PreConfirmed
+	PreLatest *Pending
+}
+
+func NewPreConfirmedWithPreLatest(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	transactionStateDiffs []*core.StateDiff,
+	candidateTxs []core.Transaction,
+	preLatest *Pending,
+) PreConfirmedWithPreLatest {
+	preConfirmed := core.NewPreConfirmed(block, stateUpdate, transactionStateDiffs, candidateTxs)
+	return PreConfirmedWithPreLatest{
+		PreConfirmed: &preConfirmed,
+		PreLatest:    preLatest,
+	}
+}
+
+func (p *PreConfirmedWithPreLatest) GetPreLatest() *Pending {
+	return p.PreLatest
 }
 
 type PendingState struct {
