@@ -2,7 +2,6 @@ package jsonrpc_test
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -196,7 +195,9 @@ func TestHandle(t *testing.T) {
 	}
 
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+		WithValidator(validator.New()).
+		WithListener(&listener)
 	require.NoError(t, server.RegisterMethods(methods...))
 
 	tests := map[string]struct {
@@ -522,11 +523,13 @@ func TestHandle(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, httpHeader)
 
-			if test.isBatch {
-				assertBatchResponse(t, test.res, string(res))
+			// tests that have an empty response cannot be parsed into a json
+			if test.res != "" {
+				assert.JSONEq(t, test.res, string(res))
 			} else {
 				assert.Equal(t, test.res, string(res))
 			}
+
 			if test.checkNewRequestEvent {
 				assert.Greater(t, len(listener.OnNewRequestLogs), oldNewRequestEventCount)
 				if !test.checkFailedEvent {
@@ -540,23 +543,75 @@ func TestHandle(t *testing.T) {
 	}
 }
 
-func assertBatchResponse(t *testing.T, expectedStr, actualStr string) {
-	var expected []json.RawMessage
-	var actual []json.RawMessage
+func TestServerWithDisabledBatchRequests(t *testing.T) {
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger())
 
-	err := json.Unmarshal([]byte(expectedStr), &expected)
-	require.NoError(t, err)
-	err = json.Unmarshal([]byte(actualStr), &actual)
+	err := server.RegisterMethods(
+		jsonrpc.Method{
+			Name:   "identity",
+			Params: []jsonrpc.Parameter{{Name: "num"}},
+			Handler: func(num *int) (int, *jsonrpc.Error) {
+				return *num, nil
+			},
+		},
+	)
 	require.NoError(t, err)
 
-	assert.ElementsMatch(t, expected, actual)
+	// batch requests work by default
+	const batchedRequest = `[
+		{
+			"jsonrpc": "2.0",
+			"method": "identity",
+			"params": { "num": 3 },
+			"id": 1
+		},
+		{
+			"jsonrpc": "2.0",
+			"method": "identity",
+			"params": { "num": 7 },
+			"id": 2
+		}
+	]`
+	const batchedResponse = `[
+		{
+			"jsonrpc": "2.0",
+			"result": 3,
+			"id": 1
+		},
+		{
+			"jsonrpc": "2.0",
+			"result": 7,
+			"id": 2
+		}
+	]`
+	resp, _, err := server.HandleReader(t.Context(), strings.NewReader(batchedRequest))
+	require.NoError(t, err)
+	assert.JSONEq(t, batchedResponse, string(resp))
+
+	// batch requests stop working when explicitly disabled
+	server.DisableBatchRequests(true)
+	resp, _, err = server.HandleReader(t.Context(), strings.NewReader(batchedRequest))
+	require.NoError(t, err)
+
+	const invalidResponse = `{
+		"jsonrpc": "2.0",
+		"error": {
+			"code": -32600,
+			"message": "Invalid Request",
+			"data": "batch requests are disabled"
+		},
+		"id": null
+	}`
+	assert.JSONEq(t, invalidResponse, string(resp))
 }
 
 var benchHandleR http.Header
 
 func BenchmarkHandle(b *testing.B) {
 	listener := CountingEventListener{}
-	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).WithValidator(validator.New()).WithListener(&listener)
+	server := jsonrpc.NewServer(1, utils.NewNopZapLogger()).
+		WithValidator(validator.New()).
+		WithListener(&listener)
 	require.NoError(b, server.RegisterMethods(jsonrpc.Method{
 		Name:    "bench",
 		Handler: func() (int, *jsonrpc.Error) { return 0, nil },
@@ -565,8 +620,8 @@ func BenchmarkHandle(b *testing.B) {
 	const request = `{"jsonrpc":"2.0","id":1,"method":"test"}`
 	var header http.Header
 	var err error
-	b.ResetTimer()
-	for range b.N {
+
+	for b.Loop() {
 		_, header, err = server.HandleReader(b.Context(), strings.NewReader(request))
 		require.NoError(b, err)
 		require.NotNil(b, header)
