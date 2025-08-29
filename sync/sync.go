@@ -844,6 +844,13 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(ctx context.Context, sem <-chan
 		})
 		if err != nil {
 			s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			preConfirmedPollTicker.Stop()
+			return
+		case <-preConfirmedPollTicker.C:
 			continue
 		}
 	}
@@ -1001,12 +1008,21 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	var newClasses map[felt.Felt]core.Class
 	if pending.Variant() == core.PreConfirmedBlockVariant {
 		preLatest := pending.GetPreLatest()
+		// Built pre_confirmed state top on pre_latest if
+		// pre_confirmed is 2 blocks ahead of latest
 		if preLatest != nil {
-			diff := core.EmptyStateDiff()
-			stateDiff = &diff
-			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-			stateDiff.Merge(pending.GetStateUpdate().StateDiff)
-			newClasses = preLatest.NewClasses
+			head, err := s.blockchain.HeadsHeader()
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if preLatest.Block.Number > head.Number {
+				diff := core.EmptyStateDiff()
+				stateDiff = &diff
+				stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+				stateDiff.Merge(pending.GetStateUpdate().StateDiff)
+				newClasses = preLatest.NewClasses
+			}
 		} else {
 			stateDiff = pending.GetStateUpdate().StateDiff
 			newClasses = pending.GetNewClasses()
@@ -1035,9 +1051,18 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 	stateDiff := core.EmptyStateDiff()
 	preLatest := pending.GetPreLatest()
 	newClasses := make(map[felt.Felt]core.Class)
+	// Built pre_confirmed state top on pre_latest if
+	// pre_confirmed is 2 blocks ahead of latest
 	if preLatest != nil {
-		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-		newClasses = preLatest.NewClasses
+		head, err := s.blockchain.HeadsHeader()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if preLatest.Block.Number > head.Number {
+			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+			newClasses = preLatest.NewClasses
+		}
 	}
 
 	// Transaction state diffs size must always match Transactions
