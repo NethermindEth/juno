@@ -2,6 +2,7 @@ package pathdb
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
@@ -17,6 +18,11 @@ type reader struct {
 }
 
 func (r *reader) Node(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
+	start := time.Now()
+	defer func() {
+		addDuration(time.Since(start))
+		incCounter(&allReads)
+	}()
 	return r.l.node(r.id, owner, path, isLeaf)
 }
 

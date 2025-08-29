@@ -40,6 +40,7 @@ func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.nodes.node(owner, path, isClass)
 	if ok {
+		incCounter(&diffLayerHits)
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
 			return nil, db.ErrKeyNotFound
 		}

@@ -69,6 +69,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.dirties.node(owner, path, isClass)
 	if ok {
+		incCounter(&dirtyCacheHits)
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
 			return nil, db.ErrKeyNotFound
 		}
@@ -78,6 +79,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	// If not found in dirty buffer, read from clean cache
 	blob := dl.cleans.getNode(owner, path, isClass)
 	if blob != nil {
+		incCounter(&cleanCacheHits)
 		return blob, nil
 	}
 
@@ -86,6 +88,7 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	if err != nil {
 		return nil, err
 	}
+	incCounter(&diskReads)
 
 	dl.cleans.putNode(owner, path, isClass, blob)
 	return blob, nil

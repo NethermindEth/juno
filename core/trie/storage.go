@@ -3,6 +3,7 @@ package trie
 import (
 	"bytes"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -79,10 +80,13 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
+	start := time.Now()
 	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
 		node = nodePool.Get().(*Node)
 		return node.UnmarshalBinary(val)
 	})
+	addDuration(time.Since(start))
+	incCounter(&allReads)
 
 	return node, err
 }
