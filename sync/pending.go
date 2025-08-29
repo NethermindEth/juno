@@ -58,6 +58,70 @@ func (p *Pending) Variant() core.PendingDataVariant {
 	return core.PendingBlockVariant
 }
 
+func (p *Pending) GetPreLatest() *Pending {
+	return nil
+}
+
+type PendingDataWPreLatest interface {
+	core.PendingData
+	GetPreLatest() *Pending
+}
+
+type PreConfirmedWithPreLatest struct {
+	PreConfirmed *core.PreConfirmed
+	PreLatest    *Pending
+}
+
+func NewPreConfirmedWithPreLatest(
+	block *core.Block,
+	stateUpdate *core.StateUpdate,
+	transactionStateDiffs []*core.StateDiff,
+	candidateTxs []core.Transaction,
+	preLatest *Pending,
+) PreConfirmedWithPreLatest {
+	preConfirmed := core.NewPreConfirmed(block, stateUpdate, transactionStateDiffs, candidateTxs)
+	return PreConfirmedWithPreLatest{
+		PreConfirmed: &preConfirmed,
+		PreLatest:    preLatest,
+	}
+}
+
+func (p *PreConfirmedWithPreLatest) GetBlock() *core.Block {
+	return p.PreConfirmed.GetBlock()
+}
+
+func (p *PreConfirmedWithPreLatest) GetHeader() *core.Header {
+	return p.PreConfirmed.GetHeader()
+}
+
+func (p *PreConfirmedWithPreLatest) GetTransactions() []core.Transaction {
+	return p.PreConfirmed.GetTransactions()
+}
+
+func (p *PreConfirmedWithPreLatest) GetStateUpdate() *core.StateUpdate {
+	return p.PreConfirmed.GetStateUpdate()
+}
+
+func (p *PreConfirmedWithPreLatest) GetNewClasses() map[felt.Felt]core.Class {
+	return p.PreConfirmed.GetNewClasses()
+}
+
+func (p *PreConfirmedWithPreLatest) GetCandidateTransaction() []core.Transaction {
+	return p.PreConfirmed.GetCandidateTransaction()
+}
+
+func (p *PreConfirmedWithPreLatest) GetTransactionStateDiffs() []*core.StateDiff {
+	return p.PreConfirmed.GetTransactionStateDiffs()
+}
+
+func (p *PreConfirmedWithPreLatest) Variant() core.PendingDataVariant {
+	return core.PreConfirmedBlockVariant
+}
+
+func (p *PreConfirmedWithPreLatest) GetPreLatest() *Pending {
+	return p.PreLatest
+}
+
 type PendingState struct {
 	stateDiff  *core.StateDiff
 	newClasses map[felt.Felt]core.Class
