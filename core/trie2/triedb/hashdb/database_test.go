@@ -1,6 +1,7 @@
 package hashdb
 
 import (
+	"maps"
 	"math"
 	"sync"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 )
 
 var (
