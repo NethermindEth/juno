@@ -1004,8 +1004,8 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	var stateDiff *core.StateDiff
-	var newClasses map[felt.Felt]core.Class
+	stateDiff := core.EmptyStateDiff()
+	newClasses := make(map[felt.Felt]core.Class)
 	if pending.Variant() == core.PreConfirmedBlockVariant {
 		preLatest := pending.GetPreLatest()
 		// Built pre_confirmed state top on pre_latest if
@@ -1017,21 +1017,16 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 			}
 
 			if preLatest.Block.Number > head.Number {
-				diff := core.EmptyStateDiff()
-				stateDiff = &diff
 				stateDiff.Merge(preLatest.StateUpdate.StateDiff)
-				stateDiff.Merge(pending.GetStateUpdate().StateDiff)
 				newClasses = preLatest.NewClasses
 			}
-		} else {
-			stateDiff = pending.GetStateUpdate().StateDiff
-			newClasses = pending.GetNewClasses()
 		}
 	} else {
-		stateDiff = pending.GetStateUpdate().StateDiff
 		newClasses = pending.GetNewClasses()
 	}
-	return NewPendingState(stateDiff, newClasses, core.NewState(txn)), noop, nil
+	stateDiff.Merge(pending.GetStateUpdate().StateDiff)
+
+	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
