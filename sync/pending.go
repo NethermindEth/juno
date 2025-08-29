@@ -12,6 +12,15 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
+type PreLatestData interface {
+	GetPreLatest() *Pending
+}
+
+type PendingDataWithPreLatest interface {
+	core.PendingData
+	PreLatestData
+}
+
 type Pending struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
@@ -62,14 +71,6 @@ func (p *Pending) GetPreLatest() *Pending {
 	return nil
 }
 
-type PreLatestData interface {
-	GetPreLatest() *Pending
-}
-
-type PendingDataWithPreLatest interface {
-	core.PendingData
-	PreLatestData
-}
 type PreConfirmedWithPreLatest struct {
 	*core.PreConfirmed
 	PreLatest *Pending
