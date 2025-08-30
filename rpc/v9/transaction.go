@@ -675,7 +675,6 @@ func (h *Handler) pushToFeederGateway(
 		}
 
 		sierraProgBytes, errIn := json.Marshal(sierraProg)
-		println("sierraProgBytes", string(sierraProgBytes))
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
@@ -684,14 +683,12 @@ func (h *Handler) pushToFeederGateway(
 		if errIn != nil {
 			return AddTxResponse{}, jsonrpc.Err(jsonrpc.InternalError, errIn.Error())
 		}
-		println("gwsierraProgBytes", gwSierraProg)
 
 		contractClass["sierra_program"] = gwSierraProg
 		newContractClass, err := json.Marshal(contractClass)
 		if err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("marshal revised contract class: %v", err))
 		}
-		println("newcontractclass", string(newContractClass))
 		tx.ContractClass = newContractClass
 	}
 
