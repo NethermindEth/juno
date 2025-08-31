@@ -158,6 +158,7 @@ func (s *Server) WithListener(listener EventListener) *Server {
 	return s
 }
 
+// DisableBatchRequests disables batch JSON-RPC requests to the server
 func (s *Server) DisableBatchRequests(forbid bool) *Server {
 	s.disableBatchRequests = forbid
 	return s
