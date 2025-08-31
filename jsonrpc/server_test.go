@@ -201,7 +201,6 @@ func TestHandle(t *testing.T) {
 	require.NoError(t, server.RegisterMethods(methods...))
 
 	tests := map[string]struct {
-		isBatch              bool
 		req                  string
 		res                  string
 		checkNewRequestEvent bool
@@ -273,7 +272,6 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5}]`,
 		},
 		"multiple requests in batch": {
-			isBatch: true,
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
 					{"jsonrpc" : "2.0", "method" : "method",
@@ -281,7 +279,6 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","result":{"doubled":10},"id":5},{"jsonrpc":"2.0","result":{"doubled":88},"id":6}]`,
 		},
 		"failing and successful requests mixed in a batch": {
-			isBatch: true,
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
 					{"jsonrpc" : "2.0", "method" : "fail",
@@ -295,7 +292,6 @@ func TestHandle(t *testing.T) {
 			res: ``,
 		},
 		"batch with notif and string id": {
-			isBatch: true,
 			req: `[{"jsonrpc" : "2.0", "method" : "method",
 					"params" : { "num" : 5 }},
 					{"jsonrpc" : "2.0", "method" : "fail",
@@ -377,7 +373,6 @@ func TestHandle(t *testing.T) {
 			res: `{"jsonrpc":"2.0","error":{"code":-32602,"message":"Invalid Params","data":"json: cannot unmarshal string into Go value of type int"},"id":3}`,
 		},
 		"multiple versions in batch": {
-			isBatch: true,
 			req: `[{"jsonrpc" : "1.0", "method" : "method",
 					"params" : { "num" : 5 } , "id" : 5},
 					{"jsonrpc" : "2.0", "method" : "method",
@@ -482,9 +477,8 @@ func TestHandle(t *testing.T) {
 			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"rpc call with invalid Batch": {
-			isBatch: true,
-			req:     `[1,2,3]`,
-			res:     `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
+			req: `[1,2,3]`,
+			res: `[{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null},{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request","data":"json: cannot unmarshal number into Go value of type jsonrpc.Request"},"id":null}]`,
 		},
 		"fails internally": {
 			req:              `{"jsonrpc": "2.0", "method": "errorsInternally", "params": {}, "id": 1}`,
