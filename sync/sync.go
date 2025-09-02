@@ -831,6 +831,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 
 			// Head is more recent than pre-latest,
 			// use head as base and poll for latest + 1
+			mostRecentPredecessor = head.Number
 			emptyStateDiff := core.EmptyStateDiff()
 			stateUpdate := core.StateUpdate{
 				StateDiff: &emptyStateDiff,
