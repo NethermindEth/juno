@@ -12,15 +12,6 @@ import (
 
 var feltOne = new(felt.Felt).SetUint64(1)
 
-type PreLatestData interface {
-	GetPreLatest() *Pending
-}
-
-type PendingDataWithPreLatest interface {
-	core.PendingData
-	PreLatestData
-}
-
 type Pending struct {
 	Block       *core.Block
 	StateUpdate *core.StateUpdate
@@ -67,13 +58,24 @@ func (p *Pending) Variant() core.PendingDataVariant {
 	return core.PendingBlockVariant
 }
 
-func (p *Pending) GetPreLatest() *Pending {
+type PreLatest Pending
+
+type PreLatestData interface {
+	GetPreLatest() *PreLatest
+}
+
+type PendingDataWithPreLatest interface {
+	core.PendingData
+	PreLatestData
+}
+
+func (p *Pending) GetPreLatest() *PreLatest {
 	return nil
 }
 
 type PreConfirmedWithPreLatest struct {
 	*core.PreConfirmed
-	PreLatest *Pending
+	PreLatest *PreLatest
 }
 
 func NewPreConfirmedWithPreLatest(
@@ -81,7 +83,7 @@ func NewPreConfirmedWithPreLatest(
 	stateUpdate *core.StateUpdate,
 	transactionStateDiffs []*core.StateDiff,
 	candidateTxs []core.Transaction,
-	preLatest *Pending,
+	preLatest *PreLatest,
 ) PreConfirmedWithPreLatest {
 	preConfirmed := core.NewPreConfirmed(block, stateUpdate, transactionStateDiffs, candidateTxs)
 	return PreConfirmedWithPreLatest{
@@ -90,7 +92,7 @@ func NewPreConfirmedWithPreLatest(
 	}
 }
 
-func (p *PreConfirmedWithPreLatest) GetPreLatest() *Pending {
+func (p *PreConfirmedWithPreLatest) GetPreLatest() *PreLatest {
 	return p.PreLatest
 }
 

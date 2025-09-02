@@ -461,19 +461,20 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
-
-	latestSem := make(chan struct{}, 1)
+	pollLatestWg := &stdsync.WaitGroup{}
 	if s.readOnlyBlockchain {
-		s.pollLatest(syncCtx, latestSem)
+		pollLatestWg.Go(func() { s.pollLatest(syncCtx) })
+		pollLatestWg.Wait()
 		return
 	}
 
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
-	go s.pollLatest(syncCtx, latestSem)
-	pendingSem := make(chan struct{}, 1)
-	go s.pollPendingData(syncCtx, pendingSem)
+	pollLatestWg.Go(func() { s.pollLatest(syncCtx) })
+
+	pollPendingWg := &stdsync.WaitGroup{}
+	pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
 
 	for {
 		select {
@@ -481,16 +482,17 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 			streamCancel()
 			fetchers.Wait()
 			verifiers.Wait()
+			pollPendingWg.Wait()
 
 			select {
 			case <-syncCtx.Done():
-				pendingSem <- struct{}{}
-				latestSem <- struct{}{}
+				pollLatestWg.Wait()
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
 				nextHeight = s.nextHeight()
 				fetchers, verifiers = s.setupWorkers()
+				pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
 				s.log.Warnw("Restarting sync process", "height", nextHeight, "catchUpMode", s.catchUpMode)
 			}
 		default:
@@ -541,13 +543,59 @@ func (s *Synchronizer) revertHead(localHeader *core.Header) {
 	s.listener.OnReorg(localHeader.Number)
 }
 
-func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
+func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
+	if s.startingBlockNumber == nil {
+		return 0, errors.New("not running")
+	}
+	return *s.startingBlockNumber, nil
+}
+
+func (s *Synchronizer) HighestBlockHeader() *core.Header {
+	return s.highestBlockHeader.Load()
+}
+
+func (s *Synchronizer) SubscribeNewHeads() NewHeadSubscription {
+	return NewHeadSubscription{s.newHeads.Subscribe()}
+}
+
+func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
+	return ReorgSubscription{s.reorgFeed.Subscribe()}
+}
+
+func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
+	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
+}
+
+func (s *Synchronizer) pollLatest(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	fetchWq := &stdsync.WaitGroup{}
+	for {
+		select {
+		case <-ctx.Done():
+			ticker.Stop()
+			fetchWq.Wait()
+			return
+		case <-ticker.C:
+			fetchWq.Wait()
+			fetchWq.Go(func() {
+				highestBlock, err := s.dataSource.BlockLatest(ctx)
+				if err != nil {
+					s.log.Warnw("Failed fetching latest block", "err", err)
+				} else {
+					s.highestBlockHeader.Store(highestBlock.Header)
+				}
+			})
+		}
+	}
+}
+
+func (s *Synchronizer) pollPendingData(ctx context.Context) {
 	if s.pendingPollInterval == time.Duration(0) ||
 		s.preConfirmedPollInterval == time.Duration(0) {
 		s.log.Infow("Pending data polling is disabled")
 		return
 	}
-	s.pollPending(ctx, sem)
+	s.pollPending(ctx)
 
 	// If pollPending is cancelled by parent context
 	// do not initiate pre_confirmed polling.
@@ -555,222 +603,42 @@ func (s *Synchronizer) pollPendingData(ctx context.Context, sem chan struct{}) {
 	case <-ctx.Done():
 		return
 	default:
-		s.pollPreConfirmed(ctx, sem)
+		s.pollPreConfirmed(ctx)
 	}
 }
 
-func (s *Synchronizer) pollPending(ctx context.Context, sem chan struct{}) {
+func (s *Synchronizer) pollPending(ctx context.Context) {
 	if s.pendingPollInterval == time.Duration(0) {
 		s.log.Infow("Pending block polling is disabled")
 		return
 	}
-
 	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
+	wg := &stdsync.WaitGroup{}
 	for {
 		select {
 		case <-ctx.Done():
 			pendingPollTicker.Stop()
-			return
-		case <-pendingPollTicker.C:
-			select {
-			case sem <- struct{}{}:
-				go func() {
-					defer func() {
-						<-sem
-					}()
-					err := s.fetchAndStorePending(ctx)
-					if err != nil {
-						if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
-							s.log.Infow(
-								"Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks",
-							)
-							cancel()
-							return
-						}
-						s.log.Debugw("Error while trying to poll pending block", "err", err)
-					}
-				}()
-			default:
-			}
-		}
-	}
-}
-
-func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *Pending) {
-	if s.preConfirmedPollInterval == time.Duration(0) {
-		s.log.Infow("Pre-latest block polling is disabled")
-		return
-	}
-
-	newHeadSub := s.newHeads.SubscribeKeepLast()
-	defer newHeadSub.Unsubscribe()
-
-	seenBlockHashes := make(map[felt.Felt]*Pending)
-
-	var subCtx context.Context
-	var cancel context.CancelFunc = func() {}
-	sem := make(chan struct{}, 1)
-
-	for {
-		select {
-		case <-ctx.Done():
-			cancel()
-			sem <- struct{}{}
-			return
-		case head := <-newHeadSub.Recv():
-			cancel()
-			sem <- struct{}{}
-			subCtx, cancel = context.WithCancel(ctx)
-			go s.fetchPreLatest(subCtx, head, seenBlockHashes, sem, preLatestChan)
-		}
-	}
-}
-
-func (s *Synchronizer) fetchPreLatest(
-	ctx context.Context,
-	head *core.Block,
-	seenBlockHashes map[felt.Felt]*Pending,
-	sem chan struct{},
-	preLatestChan chan *Pending,
-) {
-	defer func() {
-		<-sem
-	}()
-
-	highestBlockHeader := s.highestBlockHeader.Load()
-	if highestBlockHeader == nil {
-		return
-	}
-
-	// not at the tip of the chain yet, no need to poll pre_latest
-	if highestBlockHeader.Number > head.Number {
-		return
-	}
-
-	if val, hit := seenBlockHashes[*head.Hash]; hit {
-		// Already seen this pre_latest for this head.
-		val.Block.Number = head.Number + 1
-		delete(seenBlockHashes, *head.Hash)
-		select {
-		case <-ctx.Done():
-			return
-		case preLatestChan <- val:
-			return
-		}
-	}
-
-	// Send the new head first to pollPreconfirmed, incase previous fetch cancelled.
-	emptyStateDiff := core.EmptyStateDiff()
-	stateUpdate := core.StateUpdate{
-		OldRoot:   head.GlobalStateRoot,
-		StateDiff: &emptyStateDiff,
-	}
-	pendingFromLatest := NewPending(head, &stateUpdate, make(map[felt.Felt]core.Class))
-	select {
-	case <-ctx.Done():
-		return
-	case preLatestChan <- &pendingFromLatest:
-	}
-
-	preLatestPollTicker := time.NewTicker(s.preConfirmedPollInterval)
-	defer preLatestPollTicker.Stop()
-
-	var preLatest Pending
-	var err error
-	for {
-		preLatest, err = s.dataSource.BlockPending(ctx)
-		if err == nil {
-			break
-		}
-
-		s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
-		select {
-		case <-ctx.Done():
-			return
-		case <-preLatestPollTicker.C:
-			continue
-		}
-	}
-	// Seen future hash, new latest is on flight
-	if *preLatest.Block.ParentHash != *head.Hash {
-		seenBlockHashes[*preLatest.Block.ParentHash] = &preLatest
-		return
-	}
-
-	preLatest.Block.Number = head.Number + 1
-	select {
-	case <-ctx.Done():
-		return
-	case preLatestChan <- &preLatest:
-		return
-	}
-}
-
-func (s *Synchronizer) pollPreConfirmed(ctx context.Context, sem chan struct{}) {
-	if s.preConfirmedPollInterval == time.Duration(0) {
-		s.log.Infow("Pre-confirmed block polling is disabled")
-		return
-	}
-
-	preLatestChan := make(chan *Pending)
-	defer close(preLatestChan)
-	var wg stdsync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		s.pollPreLatest(ctx, preLatestChan)
-	}()
-
-	var subCtx context.Context
-	var cancel context.CancelFunc = func() {}
-	for {
-		select {
-		case <-ctx.Done():
 			cancel()
 			wg.Wait()
 			return
-		case preLatest := <-preLatestChan:
-			cancel()
-			sem <- struct{}{}
-			subCtx, cancel = context.WithCancel(ctx)
-			go s.fetchAndStorePreConfirmed(subCtx, sem, preLatest)
-		}
-	}
-}
-
-func (s *Synchronizer) pollLatest(ctx context.Context, sem chan struct{}) {
-	poll := func() {
-		select {
-		case sem <- struct{}{}:
-			go func() {
-				defer func() {
-					<-sem
-				}()
-				highestBlock, err := s.dataSource.BlockLatest(ctx)
+		case <-pendingPollTicker.C:
+			wg.Wait()
+			wg.Go(func() {
+				err := s.fetchAndStorePending(ctx)
 				if err != nil {
-					s.log.Warnw("Failed fetching latest block", "err", err)
-				} else {
-					s.highestBlockHeader.Store(highestBlock.Header)
+					if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
+						s.log.Infow(
+							"Detected block version 0.14.0; switching to polling mode for pre_confirmed blocks",
+						)
+						cancel()
+						return
+					}
+					s.log.Debugw("Error while trying to poll pending block", "err", err)
 				}
-			}()
-		default:
-		}
-	}
-
-	ticker := time.NewTicker(time.Minute)
-	poll()
-
-	for {
-		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			return
-		case <-ticker.C:
-			poll()
+			})
 		}
 	}
 }
@@ -818,44 +686,207 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 	return s.StorePending(&pending)
 }
 
-func (s *Synchronizer) fetchAndStorePreConfirmed(
-	ctx context.Context,
-	sem <-chan struct{},
-	preLatest *Pending,
-) {
-	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
-	defer preConfirmedPollTicker.Stop()
-	defer func() {
-		<-sem
-	}()
+// pollPreLatest fetches preLatest block for each new head and forwards the prelatest to given chanel.
+//
+// Consumer of preLatestChan never receives the same preLatest twice.
+func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *PreLatest) {
+	if s.preConfirmedPollInterval == time.Duration(0) {
+		s.log.Infow("Pre-latest block polling is disabled")
+		return
+	}
+
+	newHeadSub := s.newHeads.SubscribeKeepLast()
+	defer newHeadSub.Unsubscribe()
+	// When fetching pre-latest it is possible that pre-latest we fetched
+	// belongs to l2 finalized block node not fetched yet.
+	// In such scenario we cache the pre-latest for the future block.
+	// Upon receiving the corresponding head for the cached pre-latest,
+	// it will be removed from cache. However in case of reorg this key might get not evicted,
+	// and incase of reorg, this goroutine must be restarted.
+	seenBlockHashes := make(map[felt.Felt]*PreLatest)
+
+	var subCtx context.Context
+	var cancel context.CancelFunc = func() {}
+	var fetchWg stdsync.WaitGroup
+
 	for {
-		highestBlockHeader := s.highestBlockHeader.Load()
-		if highestBlockHeader == nil {
+		select {
+		case <-ctx.Done():
+			cancel()
+			fetchWg.Wait()
+			return
+		case head := <-newHeadSub.Recv():
+			cancel()
+			fetchWg.Wait()
+			subCtx, cancel = context.WithCancel(ctx)
+			fetchWg.Go(func() { s.fetchPreLatest(subCtx, head, seenBlockHashes, preLatestChan) })
+		}
+	}
+}
+
+// fetchPreLatest fetches pre-latest block for given head and forwards the value to preLatestChan.
+//
+// Consumer of preLatestChan will receive each preLatest once. It is possible preLatest block will skipped,
+// incase latest for the pre-latest is already published.
+// Incase fetched pre-latest belongs to future block, it will be cached and served later.
+func (s *Synchronizer) fetchPreLatest(
+	ctx context.Context,
+	head *core.Block,
+	seenBlockHashes map[felt.Felt]*PreLatest,
+	preLatestChan chan *PreLatest,
+) {
+	highestBlockHeader := s.highestBlockHeader.Load()
+	if highestBlockHeader == nil || highestBlockHeader.Number > head.Number {
+		// not at the tip of the chain yet, no need to poll pre_latest
+		return
+	}
+
+	if val, hit := seenBlockHashes[*head.Hash]; hit {
+		// Already seen this pre_latest for this head.
+		val.Block.Number = head.Number + 1
+		delete(seenBlockHashes, *head.Hash)
+		select {
+		case <-ctx.Done():
+			return
+		case preLatestChan <- val:
 			return
 		}
+	}
 
-		// not at the tip of the chain yet, no need to poll preconfirmed
-		if highestBlockHeader.Number > preLatest.Block.Number {
+	preLatestPollTicker := time.NewTicker(s.preConfirmedPollInterval)
+	defer preLatestPollTicker.Stop()
+
+	for {
+		pending, err := s.dataSource.BlockPending(ctx)
+		if err == nil {
+			preLatest := PreLatest(pending)
+			// Seen future hash, new latest is on flight
+			// Cache the pre-latest to use when its predecessor is available
+			if *preLatest.Block.ParentHash != *head.Hash {
+				seenBlockHashes[*preLatest.Block.ParentHash] = &preLatest
+				return
+			}
+
+			preLatest.Block.Number = head.Number + 1
+			select {
+			case <-ctx.Done():
+				return
+			case preLatestChan <- &preLatest:
+				return
+			}
+		}
+
+		s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-preLatestPollTicker.C:
+			continue
+		}
+	}
+}
+
+// pollPreConfirmed fetches and stores pre_confirmed blocks.
+func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
+	if s.preConfirmedPollInterval == time.Duration(0) {
+		s.log.Infow("Pre-confirmed block polling is disabled")
+		return
+	}
+
+	newHeadSub := s.newHeads.SubscribeKeepLast()
+	defer newHeadSub.Unsubscribe()
+
+	preLatestChan := make(chan *PreLatest)
+	defer close(preLatestChan)
+	var preLatestWg stdsync.WaitGroup
+
+	preLatestWg.Go(func() { s.pollPreLatest(ctx, preLatestChan) })
+
+	mostRecentPredecessor := uint64(0)
+	var subCtx context.Context
+	var cancel context.CancelFunc = func() {}
+	var fetchWg stdsync.WaitGroup
+	for {
+		select {
+		case <-ctx.Done():
+			cancel()
+			fetchWg.Wait()
+			preLatestWg.Wait()
+			return
+		case preLatest := <-preLatestChan:
+			// PreLatest
+			if preLatest.Block.Number <= mostRecentPredecessor {
+				// already got more recent data
+				continue
+			}
+			mostRecentPredecessor = preLatest.Block.Number
+			cancel()
+			fetchWg.Wait()
+			subCtx, cancel = context.WithCancel(ctx)
+			fetchWg.Go(func() { s.fetchAndStorePreConfirmed(subCtx, preLatest) })
+		case head := <-newHeadSub.Recv():
+			if head.Number <= mostRecentPredecessor {
+				// already got more recent data for this head
+				continue
+			}
+
+			// Head is more recent than pre-latest,
+			// use head as base and poll for latest + 1
+			emptyStateDiff := core.EmptyStateDiff()
+			stateUpdate := core.StateUpdate{
+				OldRoot:   head.GlobalStateRoot,
+				StateDiff: &emptyStateDiff,
+			}
+			prelatestFromLatest := PreLatest(NewPending(head, &stateUpdate, make(map[felt.Felt]core.Class)))
+			cancel()
+			fetchWg.Wait()
+			subCtx, cancel = context.WithCancel(ctx)
+			fetchWg.Go(func() { s.fetchAndStorePreConfirmed(subCtx, &prelatestFromLatest) })
+		}
+	}
+}
+
+func (s *Synchronizer) fetchAndStorePreConfirmed(
+	ctx context.Context,
+	preLatest *PreLatest,
+) {
+	// Store new preLatest as base and serve most recent state till pre_confirmed is fetched.
+	// No-op if actual preConfirmed is more recent.
+	if err := s.storeEmptyPreConfirmed(preLatest.Block.Header); err != nil {
+		s.log.Debugw("error while storing empty ", "error", err)
+		return
+	}
+
+	preConfirmedPollTicker := time.NewTicker(s.preConfirmedPollInterval)
+	defer preConfirmedPollTicker.Stop()
+
+	for {
+		highestBlockHeader := s.highestBlockHeader.Load()
+		if highestBlockHeader == nil || highestBlockHeader.Number > preLatest.Block.Number {
+			// not at the tip of the chain yet, no need to poll preconfirmed
 			return
 		}
 
 		preConfirmedBlock, err := s.dataSource.PreConfirmedBlockByNumber(ctx, preLatest.Block.Number+1)
-		if err != nil {
-			s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
-			select {
-			case <-ctx.Done():
-				preConfirmedPollTicker.Stop()
-				return
-			case <-preConfirmedPollTicker.C:
+		if err == nil {
+			preConfirmedWithLatest := &PreConfirmedWithPreLatest{
+				PreConfirmed: &preConfirmedBlock,
+				PreLatest:    preLatest,
+			}
+
+			isChanged, err := s.StorePreConfirmedWithPreLatest(preConfirmedWithLatest)
+			if err != nil {
+				s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
 				continue
 			}
+
+			if isChanged {
+				s.pendingDataFeed.Send(preConfirmedWithLatest)
+			}
 		}
-		err = s.StorePreConfirmedWithPreLatest(&PreConfirmedWithPreLatest{
-			PreConfirmed: &preConfirmedBlock,
-			PreLatest:    preLatest,
-		})
+
 		if err != nil {
-			s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
+			s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
 		}
 
 		select {
@@ -866,29 +897,6 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(
 			continue
 		}
 	}
-}
-
-func (s *Synchronizer) StartingBlockNumber() (uint64, error) {
-	if s.startingBlockNumber == nil {
-		return 0, errors.New("not running")
-	}
-	return *s.startingBlockNumber, nil
-}
-
-func (s *Synchronizer) HighestBlockHeader() *core.Header {
-	return s.highestBlockHeader.Load()
-}
-
-func (s *Synchronizer) SubscribeNewHeads() NewHeadSubscription {
-	return NewHeadSubscription{s.newHeads.Subscribe()}
-}
-
-func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
-	return ReorgSubscription{s.reorgFeed.Subscribe()}
-}
-
-func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
-	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -927,34 +935,50 @@ func (s *Synchronizer) StorePending(p *core.Pending) error {
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height
-func (s *Synchronizer) StorePreConfirmedWithPreLatest(p *PreConfirmedWithPreLatest) error {
+func (s *Synchronizer) StorePreConfirmedWithPreLatest(p *PreConfirmedWithPreLatest) (bool, error) {
 	err := blockchain.CheckBlockVersion(p.GetBlock().ProtocolVersion)
 	if err != nil {
-		return err
+		return false, err
 	}
-
-	if existingPending, err := s.PendingData(); err == nil {
-		existingPendingB := existingPending.GetBlock()
-		if existingPendingB.Number == p.GetBlock().Number &&
-			existingPendingB.TransactionCount >= p.GetBlock().TransactionCount {
-			// ignore the incoming pre_confirmed if it has fewer transactions than the one we already have
-			return nil
+	existingPendingPtr, err := s.pendingDataWithPreLatest()
+	if err != nil {
+		if errors.Is(err, ErrPendingBlockNotFound) {
+			s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](p))
+			return true, nil
 		}
-	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
+		return false, err
 	}
 
-	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](p))
-	s.pendingDataFeed.Send(p)
+	existingPending := *existingPendingPtr
+	existingPendingB := existingPending.GetBlock()
+	if existingPendingB.Number == p.GetBlock().Number &&
+		existingPendingB.TransactionCount >= p.GetBlock().TransactionCount {
+		// ignore the incoming pre_confirmed if it has fewer transactions than the one we already have
+		return false, nil
+	}
 
-	return nil
+	if s.pendingData.CompareAndSwap(existingPendingPtr, utils.HeapPtr[PendingDataWithPreLatest](p)) {
+		s.log.Tracew(
+			"pre_confirmed block stored",
+			"number", p.GetBlock().Number,
+			"txCount", p.GetBlock().TransactionCount,
+		)
+		return true, nil
+	}
+
+	// pending data updated between read-write, skipping
+	return false, nil
 }
 
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
-	return s.pendingDataWithPreLatest()
+	p, err := s.pendingDataWithPreLatest()
+	if err != nil {
+		return nil, err
+	}
+	return *p, nil
 }
 
-func (s *Synchronizer) pendingDataWithPreLatest() (PendingDataWithPreLatest, error) {
+func (s *Synchronizer) pendingDataWithPreLatest() (*PendingDataWithPreLatest, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
 		return nil, ErrPendingBlockNotFound
@@ -970,18 +994,19 @@ func (s *Synchronizer) pendingDataWithPreLatest() (PendingDataWithPreLatest, err
 
 		if p.GetBlock().Number == expectedBlockNumber {
 			// preconfirmed is latest + 1
-			return p, nil
+			return ptr, nil
 		}
 
+		preLatest := p.GetPreLatest()
 		// When storing pre_confirmed as genesis, pre_latest is stored as nil
-		if p.GetPreLatest() == nil {
+		if preLatest == nil {
 			return nil, ErrPendingBlockNotFound
 		}
 
-		if p.GetBlock().Number == p.GetPreLatest().Block.Number+1 &&
-			p.GetPreLatest().Block.Number == expectedBlockNumber {
+		if p.GetBlock().Number == preLatest.Block.Number+1 &&
+			preLatest.Block.Number == expectedBlockNumber {
 			// preconfirmed is latest + 2
-			return p, nil
+			return ptr, nil
 		}
 
 	case core.PendingBlockVariant:
@@ -991,7 +1016,7 @@ func (s *Synchronizer) pendingDataWithPreLatest() (PendingDataWithPreLatest, err
 		}
 
 		if p.GetBlock().ParentHash.Equal(expectedParentHash) {
-			return p, nil
+			return ptr, nil
 		}
 	}
 	return nil, ErrPendingBlockNotFound
@@ -1011,11 +1036,11 @@ var noop = func() error { return nil }
 func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.pendingDataWithPreLatest()
+	pendingPtr, err := s.pendingDataWithPreLatest()
 	if err != nil {
 		return nil, nil, err
 	}
-
+	pending := *pendingPtr
 	stateDiff := core.EmptyStateDiff()
 	newClasses := make(map[felt.Felt]core.Class)
 	if pending.Variant() == core.PreConfirmedBlockVariant {
@@ -1046,11 +1071,12 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
 
-	pending, err := s.pendingDataWithPreLatest()
+	pendingPtr, err := s.pendingDataWithPreLatest()
 	if err != nil {
 		return nil, nil, err
 	}
 
+	pending := *pendingPtr
 	if pending.Variant() != core.PreConfirmedBlockVariant {
 		return nil, nil, errors.New("only supported for pre_confirmed block")
 	}
@@ -1137,64 +1163,25 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 }
 
 func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header) error {
-	receipts := make([]*core.TransactionReceipt, 0)
-	preConfirmedBlock := &core.Block{
-		// pre_confirmed block does not have parent hash
-		Header: &core.Header{
-			SequencerAddress: latestHeader.SequencerAddress,
-			Number:           latestHeader.Number + 1,
-			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  latestHeader.ProtocolVersion,
-			EventsBloom:      core.EventsBloom(receipts),
-			L1GasPriceETH:    latestHeader.L1GasPriceETH,
-			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
-			L2GasPrice:       latestHeader.L2GasPrice,
-			L1DataGasPrice:   latestHeader.L1DataGasPrice,
-			L1DAMode:         latestHeader.L1DAMode,
-		},
-		Transactions: make([]core.Transaction, 0),
-		Receipts:     receipts,
-	}
-
-	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	preConfirmed, err := s.makeEmptyPreConfirmedForParent(latestHeader)
 	if err != nil {
 		return err
 	}
 
-	preConfirmed := core.PreConfirmed{
-		Block: preConfirmedBlock,
-		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
-			StateDiff: stateDiff,
-		},
-		NewClasses:            make(map[felt.Felt]core.Class, 0),
-		TransactionStateDiffs: make([]*core.StateDiff, 0),
-		CandidateTxs:          make([]core.Transaction, 0),
-	}
-
-	if existingPending, err := s.PendingData(); err == nil {
-		existingPendingB := existingPending.GetBlock()
-		if existingPendingB.Number == preConfirmed.GetBlock().Number {
-			// do not overwrite if pre_confirmed is present for this head
-			return nil
-		}
-	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
-	}
-
 	emptyStateDiff := core.EmptyStateDiff()
-	s.pendingData.Store(utils.HeapPtr[PendingDataWithPreLatest](&PreConfirmedWithPreLatest{
+	latestAsPreLatest := &PreConfirmedWithPreLatest{
 		PreConfirmed: &preConfirmed,
-		PreLatest: &Pending{
+		PreLatest: &PreLatest{
 			Block: &core.Block{Header: latestHeader},
 			StateUpdate: &core.StateUpdate{
 				StateDiff: &emptyStateDiff,
 			},
 			NewClasses: make(map[felt.Felt]core.Class, 0),
 		},
-	}))
+	}
 
-	return nil
+	_, err = s.StorePreConfirmedWithPreLatest(latestAsPreLatest)
+	return err
 }
 
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
@@ -1222,4 +1209,43 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		*new(felt.Felt).SetUint64(header.Number): header.Hash,
 	}
 	return stateDiff, nil
+}
+
+func (s *Synchronizer) makeEmptyPreConfirmedForParent(latestHeader *core.Header) (core.PreConfirmed, error) {
+	receipts := make([]*core.TransactionReceipt, 0)
+	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
+		Header: &core.Header{
+			SequencerAddress: latestHeader.SequencerAddress,
+			Number:           latestHeader.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  latestHeader.ProtocolVersion,
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    latestHeader.L1GasPriceETH,
+			L1GasPriceSTRK:   latestHeader.L1GasPriceSTRK,
+			L2GasPrice:       latestHeader.L2GasPrice,
+			L1DataGasPrice:   latestHeader.L1DataGasPrice,
+			L1DAMode:         latestHeader.L1DAMode,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff, err := makeStateDiffForEmptyBlock(s.blockchain, latestHeader.Number+1)
+	if err != nil {
+		return core.PreConfirmed{}, err
+	}
+
+	preConfirmed := core.PreConfirmed{
+		Block: preConfirmedBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   latestHeader.GlobalStateRoot,
+			StateDiff: stateDiff,
+		},
+		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		TransactionStateDiffs: make([]*core.StateDiff, 0),
+		CandidateTxs:          make([]core.Transaction, 0),
+	}
+
+	return preConfirmed, nil
 }
