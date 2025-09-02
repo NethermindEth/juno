@@ -852,7 +852,7 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(
 	// Store new preLatest as base and serve most recent state till pre_confirmed is fetched.
 	// No-op if actual preConfirmed is more recent.
 	if err := s.storeEmptyPreConfirmed(preLatest.Block.Header); err != nil {
-		s.log.Debugw("error while storing empty ", "error", err)
+		s.log.Debugw("Error while storing empty pre_confirmed", "error", err)
 		return
 	}
 
