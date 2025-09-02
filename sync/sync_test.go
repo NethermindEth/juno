@@ -287,9 +287,11 @@ func TestPendingData(t *testing.T) {
 
 		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
 			preConfirmed := &core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-			require.Error(t, synchronizer.StorePreConfirmedWithPreLatest(
-				&sync.PreConfirmedWithPreLatest{PreConfirmed: preConfirmed, PreLatest: &sync.Pending{}},
-			))
+			isWritten, err := synchronizer.StorePreConfirmedWithPreLatest(
+				&sync.PreConfirmedWithPreLatest{PreConfirmed: preConfirmed, PreLatest: &sync.PreLatest{}},
+			)
+			require.Error(t, err)
+			require.False(t, isWritten)
 		})
 
 		t.Run("store genesis as pre_confirmed", func(t *testing.T) {
@@ -300,9 +302,11 @@ func TestPendingData(t *testing.T) {
 				},
 			}
 
-			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+			isWritten, err := synchronizer.StorePreConfirmedWithPreLatest(
 				&sync.PreConfirmedWithPreLatest{PreConfirmed: preConfirmedGenesis, PreLatest: nil},
-			))
+			)
+			require.NoError(t, err)
+			require.True(t, isWritten)
 
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
@@ -335,16 +339,18 @@ func TestPendingData(t *testing.T) {
 						StateDiff: &emptyStateDiff,
 					},
 				},
-				PreLatest: &sync.Pending{
+				PreLatest: &sync.PreLatest{
 					Block:       b,
 					StateUpdate: &core.StateUpdate{StateDiff: &emptyStateDiff},
 				},
 			}
 
 			emptyStateDiff = core.EmptyStateDiff()
-			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+			isWritten, err := synchronizer.StorePreConfirmedWithPreLatest(
 				&expectedPreConfirmed,
-			))
+			)
+			require.NoError(t, err)
+			require.True(t, isWritten)
 			gotPendingData, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
 			assert.Equal(t, &expectedPreConfirmed, gotPendingData)
@@ -371,9 +377,11 @@ func TestPendingData(t *testing.T) {
 			preConfirmed.StateUpdate.OldRoot = &felt.Zero
 			preConfirmed.Block.Number = 0
 			require.NoError(t, err)
-			require.NoError(t, synchronizer.StorePreConfirmedWithPreLatest(
+			isWritten, err := synchronizer.StorePreConfirmedWithPreLatest(
 				&sync.PreConfirmedWithPreLatest{PreConfirmed: &preConfirmed, PreLatest: nil},
-			))
+			)
+			require.NoError(t, err)
+			require.True(t, isWritten)
 			txCount := len(preConfirmed.GetTransactions())
 
 			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
