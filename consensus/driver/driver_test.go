@@ -141,7 +141,7 @@ func newTendermintDB(t *testing.T) tendermintDB {
 	pebbleDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB, types.Height(0))
+	return db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](pebbleDB)
 }
 
 func TestDriver(t *testing.T) {

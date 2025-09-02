@@ -72,7 +72,7 @@ func TestReplayWAL(t *testing.T) {
 	t.Run("ReplayWAL: replay on empty db", func(t *testing.T) {
 		mockDB := mocks.NewMockTendermintDB[starknet.Value, hash.Hash, address.Address](ctrl)
 		stateMachine := New(mockDB, utils.NewNopZapLogger(), *getVal(0), app, vals, types.Height(0)).(*testStateMachine)
-		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(toSeq2(nil))
+		mockDB.EXPECT().LoadAllEntries().Return(toSeq2(nil))
 		stateMachine.ReplayWAL() // ReplayWAL will panic if anything goes wrong
 	})
 
@@ -94,7 +94,7 @@ func TestReplayWAL(t *testing.T) {
 				(*starknet.WALProposal)(&proposalMessage),
 			},
 		)
-		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries)
+		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
 		sMachineRecoverd.ReplayWAL() // Should not panic
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
 	})
@@ -144,7 +144,7 @@ func TestReplayWAL(t *testing.T) {
 				(*starknet.WALPrecommit)(&precommit0),
 			},
 		)
-		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries)
+		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
 		sMachineRecoverd.ReplayWAL()
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrecommit)
 
@@ -199,7 +199,7 @@ func TestReplayWAL(t *testing.T) {
 				(*starknet.WALTimeout)(&timeout),
 			},
 		)
-		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries)
+		mockDB.EXPECT().LoadAllEntries().Return(walEntries)
 		sMachineRecoverd.ReplayWAL()
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPrevote)
 	})
