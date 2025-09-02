@@ -9,11 +9,11 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 )
 
-type mockListener[M starknet.Message] struct {
+type mockListener[M any] struct {
 	ch chan M
 }
 
-func newMockListener[M starknet.Message](ch chan M) *mockListener[M] {
+func newMockListener[M any](ch chan M) *mockListener[M] {
 	return &mockListener[M]{
 		ch: ch,
 	}
@@ -23,7 +23,7 @@ func (m *mockListener[M]) Listen() <-chan M {
 	return m.ch
 }
 
-type mockBroadcaster[M starknet.Message] struct {
+type mockBroadcaster[M any] struct {
 	mu                  sync.Mutex
 	broadcastedMessages []M
 }
@@ -40,9 +40,9 @@ type mockP2P struct {
 }
 
 func newMockP2P(
-	proposalCh chan starknet.Proposal,
-	prevoteCh chan starknet.Prevote,
-	precommitCh chan starknet.Precommit,
+	proposalCh chan *starknet.Proposal,
+	prevoteCh chan *starknet.Prevote,
+	precommitCh chan *starknet.Precommit,
 ) p2p.P2P[starknet.Value, starknet.Hash, starknet.Address] {
 	return &mockP2P{
 		listeners: listeners{
@@ -51,9 +51,9 @@ func newMockP2P(
 			PrecommitListener: newMockListener(precommitCh),
 		},
 		broadcasters: broadcasters{
-			ProposalBroadcaster:  &mockBroadcaster[starknet.Proposal]{},
-			PrevoteBroadcaster:   &mockBroadcaster[starknet.Prevote]{},
-			PrecommitBroadcaster: &mockBroadcaster[starknet.Precommit]{},
+			ProposalBroadcaster:  &mockBroadcaster[*starknet.Proposal]{},
+			PrevoteBroadcaster:   &mockBroadcaster[*starknet.Prevote]{},
+			PrecommitBroadcaster: &mockBroadcaster[*starknet.Precommit]{},
 		},
 	}
 }

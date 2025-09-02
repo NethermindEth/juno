@@ -20,11 +20,11 @@ type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	Value      *V    `cbor:"value"`
 }
 
-func (p Proposal[V, H, A]) MsgType() MessageType {
+func (p *Proposal[V, H, A]) MsgType() MessageType {
 	return MessageTypeProposal
 }
 
-func (p Proposal[V, H, A]) GetHeight() Height {
+func (p *Proposal[V, H, A]) GetHeight() Height {
 	return p.Height
 }
 
@@ -33,19 +33,19 @@ type (
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
 
-func (p Prevote[H, A]) MsgType() MessageType {
+func (p *Prevote[H, A]) MsgType() MessageType {
 	return MessageTypePrevote
 }
 
-func (p Prevote[H, A]) GetHeight() Height {
+func (p *Prevote[H, A]) GetHeight() Height {
 	return p.Height
 }
 
-func (p Precommit[H, A]) MsgType() MessageType {
+func (p *Precommit[H, A]) MsgType() MessageType {
 	return MessageTypePrecommit
 }
 
-func (p Precommit[H, A]) GetHeight() Height {
+func (p *Precommit[H, A]) GetHeight() Height {
 	return p.Height
 }
 

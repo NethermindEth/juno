@@ -82,7 +82,7 @@ func TestReplayWAL(t *testing.T) {
 
 		// Start, Propose a block, Progress to Prevote step, assert state
 		mockDB.EXPECT().Flush().Return(nil).Times(2)
-		mockDB.EXPECT().SetWALEntry(proposalMessage).Return(nil)
+		mockDB.EXPECT().SetWALEntry(&proposalMessage).Return(nil)
 		sMachine.ProcessStart(0)
 		assertState(t, sMachine, types.Height(0), types.Round(0), types.StepPrevote)
 
@@ -91,7 +91,7 @@ func TestReplayWAL(t *testing.T) {
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := toSeq2(
 			[]db.WalEntry[starknet.Value, hash.Hash, address.Address]{
-				{Entry: proposalMessage, Type: types.MessageTypeProposal},
+				{Entry: &proposalMessage, Type: types.MessageTypeProposal},
 			},
 		)
 		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries)
@@ -137,11 +137,11 @@ func TestReplayWAL(t *testing.T) {
 		assertState(t, sMachineRecoverd, types.Height(0), types.Round(0), types.StepPropose)
 		walEntries := toSeq2(
 			[]db.WalEntry[starknet.Value, hash.Hash, address.Address]{
-				{Entry: proposalMessage, Type: types.MessageTypeProposal},
-				{Entry: prevote0, Type: types.MessageTypePrevote},
-				{Entry: prevote1, Type: types.MessageTypePrevote},
-				{Entry: prevote2, Type: types.MessageTypePrevote},
-				{Entry: precommit0, Type: types.MessageTypePrecommit},
+				{Entry: &proposalMessage, Type: types.MessageTypeProposal},
+				{Entry: &prevote0, Type: types.MessageTypePrevote},
+				{Entry: &prevote1, Type: types.MessageTypePrevote},
+				{Entry: &prevote2, Type: types.MessageTypePrevote},
+				{Entry: &precommit0, Type: types.MessageTypePrecommit},
 			},
 		)
 		mockDB.EXPECT().GetWALEntries(types.Height(0)).Return(walEntries)
