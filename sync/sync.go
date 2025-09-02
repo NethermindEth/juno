@@ -833,7 +833,6 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			// use head as base and poll for latest + 1
 			emptyStateDiff := core.EmptyStateDiff()
 			stateUpdate := core.StateUpdate{
-				OldRoot:   head.GlobalStateRoot,
 				StateDiff: &emptyStateDiff,
 			}
 			prelatestFromLatest := PreLatest(NewPending(head, &stateUpdate, make(map[felt.Felt]core.Class)))
@@ -1238,7 +1237,6 @@ func (s *Synchronizer) makeEmptyPreConfirmedForParent(latestHeader *core.Header)
 	preConfirmed := core.PreConfirmed{
 		Block: preConfirmedBlock,
 		StateUpdate: &core.StateUpdate{
-			OldRoot:   latestHeader.GlobalStateRoot,
 			StateDiff: stateDiff,
 		},
 		NewClasses:            make(map[felt.Felt]core.Class, 0),
