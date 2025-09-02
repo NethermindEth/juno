@@ -49,33 +49,33 @@ func TestWALLifecycle(t *testing.T) {
 	val1 := starknet.Value(felt.FromUint64(10))
 	valHash1 := val1.Hash()
 
-	proposal := starknet.Proposal{
+	proposal := starknet.WALProposal{
 		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender1},
 		ValidRound:    testRound,
 		Value:         utils.HeapPtr(val1),
 	}
-	prevote := starknet.Prevote{
+	prevote := starknet.WALPrevote{
 		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender2},
 		ID:            &valHash1,
 	}
-	precommit := starknet.Precommit{
+	precommit := starknet.WALPrecommit{
 		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender3},
 		ID:            &valHash1,
 	}
-	timeoutMsg := types.Timeout{Height: testHeight, Round: testRound, Step: testStep}
+	timeoutMsg := starknet.WALTimeout{Height: testHeight, Round: testRound, Step: testStep}
 
-	expectedEntries := []WalEntry[starknet.Value, hash.Hash, starknet.Address]{
-		{Type: types.MessageTypeProposal, Entry: &proposal},
-		{Type: types.MessageTypePrevote, Entry: &prevote},
-		{Type: types.MessageTypePrecommit, Entry: &precommit},
-		{Type: types.MessageTypeTimeout, Entry: timeoutMsg},
+	expectedEntries := []starknet.WALEntry{
+		&proposal,
+		&prevote,
+		&precommit,
+		&timeoutMsg,
 	}
 
 	tmState, db, dbPath := newTestTMDB(t)
 
 	t.Run("Write entries", func(t *testing.T) {
 		for _, entry := range expectedEntries {
-			require.NoError(t, tmState.SetWALEntry(entry.Entry))
+			require.NoError(t, tmState.SetWALEntry(entry))
 		}
 	})
 

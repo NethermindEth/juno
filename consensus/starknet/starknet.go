@@ -2,6 +2,7 @@ package starknet
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/core/address"
 	"github.com/NethermindEth/juno/core/hash"
 )
@@ -28,4 +29,10 @@ type (
 	BroadcastPrevote   = types.BroadcastPrevote[Hash, Address]
 	BroadcastPrecommit = types.BroadcastPrecommit[Hash, Address]
 	Commit             = types.Commit[Value, Hash, Address]
+
+	WALEntry     = wal.Entry[Value, Hash, Address]
+	WALProposal  = wal.WALProposal[Value, Hash, Address]
+	WALPrevote   = wal.WALPrevote[Hash, Address]
+	WALPrecommit = wal.WALPrecommit[Hash, Address]
+	WALTimeout   = wal.WALTimeout
 )
