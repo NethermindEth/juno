@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/db"
@@ -431,4 +432,12 @@ func makeTrieMetrics() {
 
 func makeDeprecatedTrieMetrics() {
 	prometheus.MustRegister(&trie.DeprecatedTrieMetricsCollector{})
+}
+
+func makeBlockchainStoreMetrics() {
+	prometheus.MustRegister(&blockchain.BlockchainMetricsCollector{})
+}
+
+func makeStateMetrics() {
+	prometheus.MustRegister(&state.StateMetricsCollector{})
 }

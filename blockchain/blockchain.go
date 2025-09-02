@@ -3,6 +3,7 @@ package blockchain
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
@@ -271,10 +272,18 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 ) error {
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
+	start := time.Now()
 	if !b.StateFactory.UseNewState {
+		defer func() {
+			addDuration(&allStoreTime, time.Since(start))
+			incCounter(&allStore)
+		}()
 		return b.deprecatedStore(block, blockCommitments, stateUpdate, newClasses)
 	}
-
+	defer func() {
+		addDuration(&allStoreTime, time.Since(start))
+		incCounter(&allStore)
+	}()
 	return b.store(block, blockCommitments, stateUpdate, newClasses)
 }
 
@@ -285,14 +294,20 @@ func (b *Blockchain) deprecatedStore(
 	newClasses map[felt.Felt]core.Class,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
+		updateStart := time.Now()
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
 
 		state := core.NewState(txn)
+
+		start := time.Now()
 		if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
 			return err
 		}
+		addDuration(&allUpdateTime, time.Since(start))
+		incCounter(&allUpdate)
+
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
 		}
@@ -316,6 +331,9 @@ func (b *Blockchain) deprecatedStore(
 			return err
 		}
 
+		defer func() {
+			addDuration(&deprecatedInnerStoreTime, time.Since(updateStart))
+		}()
 		return core.WriteChainHeight(txn, block.Number)
 	})
 	if err != nil {
@@ -342,10 +360,13 @@ func (b *Blockchain) store(
 	if err != nil {
 		return err
 	}
+	start := time.Now()
+	batch := b.database.NewBatch()
 	if err := state.Update(block.Number, stateUpdate, newClasses, false, true); err != nil {
 		return err
 	}
-	batch := b.database.NewBatch()
+	addDuration(&allUpdateTime, time.Since(start))
+	incCounter(&allUpdate)
 	if err := core.WriteBlockHeader(batch, block.Header); err != nil {
 		return err
 	}
@@ -375,6 +396,10 @@ func (b *Blockchain) store(
 		return err
 	}
 
+	start = time.Now()
+	defer func() {
+		addDuration(&allBatchStoreTime, time.Since(start))
+	}()
 	return batch.Write()
 }
 

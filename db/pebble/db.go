@@ -63,7 +63,7 @@ func newPebble(path string, options *pebble.Options) (*DB, error) {
 		db:        pDB,
 		closeLock: new(sync.RWMutex),
 		listener:  &db.SelectiveListener{},
-		writeOpt:  &pebble.WriteOptions{Sync: true}, // TODO: can we use non-sync writes for performance?
+		writeOpt:  &pebble.WriteOptions{Sync: false}, // TODO: can we use non-sync writes for performance?
 	}, nil
 }
 

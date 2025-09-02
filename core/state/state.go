@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
@@ -170,10 +171,15 @@ func (s *State) Update(
 	skipVerifyNewRoot bool,
 	flushChanges bool,
 ) error {
+	start := time.Now()
 	if err := s.verifyComm(update.OldRoot); err != nil {
 		return err
 	}
 
+	addDuration(&allVerifyCommTime, time.Since(start))
+	incCounter(&allVerifyComm)
+
+	start = time.Now()
 	dirtyClasses := make(map[felt.Felt]core.Class)
 
 	// Register the declared classes
@@ -188,11 +194,17 @@ func (s *State) Update(
 		}
 	}
 
+	addDuration(&allRegisterClassesTime, time.Since(start))
+
+	start = time.Now()
 	// Update the class trie
 	if err := s.updateClassTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
 	}
 
+	addDuration(&allUpdateClassTrieTime, time.Since(start))
+
+	start = time.Now()
 	// Register deployed contracts
 	for addr, classHash := range update.StateDiff.DeployedContracts {
 		exists, err := HasContract(s.db.disk, &addr)
@@ -208,13 +220,19 @@ func (s *State) Update(
 		newObj := newStateObject(s, &addr, &contract)
 		s.stateObjects[addr] = &newObj
 	}
+	addDuration(&allRegisterDeployedContractsTime, time.Since(start))
+	start = time.Now()
 
 	// Update the contract fields
 	if err := s.updateContracts(blockNum, update.StateDiff); err != nil {
 		return err
 	}
 
+	addDuration(&allUpdateContractsTime, time.Since(start))
+
+	start = time.Now()
 	newComm, stateUpdate, err := s.commit()
+	addDuration(&allStateCommitTime, time.Since(start))
 	if err != nil {
 		return err
 	}
@@ -227,17 +245,23 @@ func (s *State) Update(
 		}
 	}
 
+	start = time.Now()
 	s.db.stateCache.PushLayer(&newComm, &stateUpdate.prevComm, &diffCache{
 		storageDiffs:      update.StateDiff.StorageDiffs,
 		nonces:            update.StateDiff.Nonces,
 		deployedContracts: update.StateDiff.ReplacedClasses,
 	})
 
+	addDuration(&allStateCachePushLayerTime, time.Since(start))
+
+	start = time.Now()
 	if flushChanges {
 		if err := s.flush(blockNum, &stateUpdate, dirtyClasses, true); err != nil {
 			return err
 		}
 	}
+
+	addDuration(&allStateFlushTime, time.Since(start))
 
 	return nil
 }
@@ -372,8 +396,9 @@ func (s *State) GetReverseStateDiff(blockNum uint64, diff *core.StateDiff) (core
 func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	// Sort in descending order of the number of storage changes
 	// so that we start with the heaviest update first
+	start := time.Now()
 	keys := slices.SortedStableFunc(maps.Keys(s.stateObjects), s.compareContracts)
-
+	addDuration(&allStateCommitKeysSortTime, time.Since(start))
 	var (
 		mergeLock           sync.Mutex
 		mergedContractNodes = trienode.NewMergeNodeSet(nil)
@@ -392,6 +417,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 		return mergedContractNodes.Merge(set)
 	}
 
+	start = time.Now()
 	for i, addr := range keys {
 		obj := s.stateObjects[addr]
 
@@ -405,11 +431,11 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 			if err != nil {
 				return err
 			}
-
+			startMerge := time.Now()
 			if err := merge(nodes); err != nil {
 				return err
 			}
-
+			addDuration(&allStateCommitMergeTime, time.Since(startMerge))
 			comms[i] = obj.commitment()
 			return nil
 		})
@@ -418,7 +444,9 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	if err := p.Wait(); err != nil {
 		return felt.Zero, emptyStateUpdate, err
 	}
+	addDuration(&allStateCommitStateObjectCommitTime, time.Since(start))
 
+	start = time.Now()
 	for i, addr := range keys {
 		if err := s.contractTrie.Update(&addr, &comms[i]); err != nil {
 			return felt.Zero, emptyStateUpdate, err
@@ -442,6 +470,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 			}
 		}
 	}
+	addDuration(&allStateCommitContractTrieUpdateTime, time.Since(start))
 
 	var (
 		classRoot, contractRoot   felt.Felt
@@ -449,6 +478,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	)
 
 	p = pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
+	start = time.Now()
 	p.Go(func() error {
 		classRoot, classNodes = s.classTrie.Commit()
 		return nil
@@ -461,12 +491,17 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	if err := p.Wait(); err != nil {
 		return felt.Zero, emptyStateUpdate, err
 	}
+	addDuration(&allStateCommitTriesCommitTime, time.Since(start))
 
+	start = time.Now()
 	if err := merge(contractNodes); err != nil {
 		return felt.Zero, emptyStateUpdate, err
 	}
+	addDuration(&allStateContractNodesMergeTime, time.Since(start))
 
+	start = time.Now()
 	newComm := stateCommitment(&contractRoot, &classRoot)
+	addDuration(&allStateStateCommitmentTime, time.Since(start))
 
 	su := stateUpdate{
 		prevComm:      s.initRoot,
@@ -475,7 +510,9 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	}
 
 	if classNodes != nil {
+		start = time.Now()
 		su.classNodes = trienode.NewMergeNodeSet(classNodes)
+		addDuration(&allStateClassNodesCopyTime, time.Since(start))
 	}
 
 	return newComm, su, nil
@@ -491,55 +528,83 @@ func (s *State) flush(
 	p := pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 
 	p.Go(func() error {
+		startTrieDBUpdateTime := time.Now()
+		defer func() {
+			addDuration(&allTrieDBUpdateTime, time.Since(startTrieDBUpdateTime))
+		}()
 		return s.db.triedb.Update(&update.curComm, &update.prevComm, blockNum, update.classNodes, update.contractNodes)
 	})
 
 	batch := s.db.disk.NewBatch()
 	p.Go(func() error {
+		start := time.Now()
+		defer func() {
+			addDuration(&allStateObjectsTime, time.Since(start))
+		}()
 		for addr, obj := range s.stateObjects {
 			if obj == nil { // marked as deleted
+				start := time.Now()
 				if err := DeleteContract(batch, &addr); err != nil {
 					return err
 				}
+				addDuration(&allDeleteContractTime, time.Since(start))
 
+				start = time.Now()
 				// TODO(weiihann): handle hash-based, and there should be better ways of doing this
 				if err := trieutils.DeleteStorageNodesByPath(batch, addr); err != nil {
 					return err
 				}
+				addDuration(&allDeleteStorageNodesByPathTime, time.Since(start))
 			} else { // updated
+				start := time.Now()
 				if err := WriteContract(batch, &addr, obj.contract); err != nil {
 					return err
 				}
+				addDuration(&allWriteContractTime, time.Since(start))
 
+				start = time.Now()
 				if storeHistory {
+					start := time.Now()
 					for key, val := range obj.dirtyStorage {
 						if err := WriteStorageHistory(batch, &addr, &key, blockNum, val); err != nil {
 							return err
 						}
 					}
+					addDuration(&allWriteStorageHistoryTime, time.Since(start))
 
+					start = time.Now()
 					if err := WriteNonceHistory(batch, &addr, blockNum, &obj.contract.Nonce); err != nil {
 						return err
 					}
+					addDuration(&allWriteContractNonceTime, time.Since(start))
 
+					start = time.Now()
 					if err := WriteClassHashHistory(batch, &addr, blockNum, &obj.contract.ClassHash); err != nil {
 						return err
 					}
+					addDuration(&allWriteContractClassHashTime, time.Since(start))
 				}
+				addDuration(&allWriteContractHistoryTime, time.Since(start))
 			}
 		}
 
+		start = time.Now()
 		for classHash, class := range classes {
 			if class == nil { // mark as deleted
+				start := time.Now()
 				if err := DeleteClass(batch, &classHash); err != nil {
 					return err
 				}
+				addDuration(&allDeleteClassTime, time.Since(start))
 			} else {
+				start := time.Now()
 				if err := WriteClass(batch, &classHash, class, blockNum); err != nil {
 					return err
 				}
+				addDuration(&allWriteClassTime, time.Since(start))
 			}
 		}
+		addDuration(&allWriteClassesLoopTime, time.Since(start))
 
 		return nil
 	})
@@ -547,6 +612,11 @@ func (s *State) flush(
 	if err := p.Wait(); err != nil {
 		return err
 	}
+
+	startWriteBatchTime := time.Now()
+	defer func() {
+		addDuration(&allWriteBatchTime, time.Since(startWriteBatchTime))
+	}()
 
 	return batch.Write()
 }
