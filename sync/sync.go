@@ -799,7 +799,6 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 	preLatestChan := make(chan *PreLatest)
 	defer close(preLatestChan)
 	var preLatestWg stdsync.WaitGroup
-
 	preLatestWg.Go(func() { s.pollPreLatest(ctx, preLatestChan) })
 
 	mostRecentPredecessor := uint64(0)
@@ -1053,7 +1052,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 				return nil, nil, err
 			}
 
-			if preLatest.Block.Number > head.Number {
+			if preLatest.Block.Number == head.Number+1 {
 				stateDiff.Merge(preLatest.StateUpdate.StateDiff)
 				newClasses = preLatest.NewClasses
 			}
@@ -1092,7 +1091,7 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 			return nil, nil, err
 		}
 
-		if preLatest.Block.Number > head.Number {
+		if preLatest.Block.Number == head.Number+1 {
 			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
 			newClasses = preLatest.NewClasses
 		}
