@@ -698,10 +698,10 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *Pr
 	newHeadSub := s.newHeads.SubscribeKeepLast()
 	defer newHeadSub.Unsubscribe()
 	// When fetching pre-latest it is possible that pre-latest we fetched
-	// belongs to l2 finalized block node not fetched yet.
+	// belongs to l2 finalised block node not fetched yet.
 	// In such scenario we cache the pre-latest for the future block.
 	// Upon receiving the corresponding head for the cached pre-latest,
-	// it will be removed from cache. However in case of reorg this key might get not evicted,
+	// it will be removed from cache. However in case of reorg this key might not get evicted,
 	// and incase of reorg, this goroutine must be restarted.
 	seenBlockHashes := make(map[felt.Felt]*PreLatest)
 
@@ -875,17 +875,14 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(
 			}
 
 			isChanged, err := s.StorePreConfirmedWithPreLatest(preConfirmedWithLatest)
-			if err != nil {
-				s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
-				continue
-			}
-
-			if isChanged {
+			if err == nil && isChanged {
 				s.pendingDataFeed.Send(preConfirmedWithLatest)
 			}
-		}
 
-		if err != nil {
+			if err != nil {
+				s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
+			}
+		} else {
 			s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
 		}
 
@@ -978,6 +975,9 @@ func (s *Synchronizer) PendingData() (core.PendingData, error) {
 	return *p, nil
 }
 
+// We are returning the exact pointer stored in atomic and it is pointerToRef.
+//
+//nolint:gocritic
 func (s *Synchronizer) pendingDataWithPreLatest() (*PendingDataWithPreLatest, error) {
 	ptr := s.pendingData.Load()
 	if ptr == nil || *ptr == nil {
