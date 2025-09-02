@@ -690,7 +690,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 //
 // Consumer of preLatestChan never receives the same preLatest twice.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *PreLatest) {
-	if s.preConfirmedPollInterval == time.Duration(0) {
+	if s.pendingPollInterval == time.Duration(0) {
 		s.log.Infow("Pre-latest block polling is disabled")
 		return
 	}
@@ -753,7 +753,7 @@ func (s *Synchronizer) fetchPreLatest(
 		}
 	}
 
-	preLatestPollTicker := time.NewTicker(s.preConfirmedPollInterval)
+	preLatestPollTicker := time.NewTicker(s.pendingPollInterval)
 	defer preLatestPollTicker.Stop()
 
 	for {
