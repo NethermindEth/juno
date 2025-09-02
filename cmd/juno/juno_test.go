@@ -56,8 +56,8 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
-	defaultPendingPollInterval := 5 * time.Second
-	defaultPreConfirmedPollInterval := time.Second
+	defaultPendingPollInterval := time.Second
+	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)

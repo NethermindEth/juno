@@ -108,8 +108,8 @@ const (
 	defaultPprof                              = false
 	defaultPprofPort                          = 6062
 	defaultColour                             = true
-	defaultPendingPollInterval                = 5 * time.Second
-	defaultPreConfirmedPollInterval           = time.Second
+	defaultPendingPollInterval                = time.Second
+	defaultPreConfirmedPollInterval           = 500 * time.Millisecond
 	defaultP2p                                = false
 	defaultP2pAddr                            = ""
 	defaultP2pPublicAddr                      = ""
