@@ -8,6 +8,12 @@ type Entry[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	GetHeight() types.Height
 }
 
+type WALStart types.Height
+
+func (h *WALStart) GetHeight() types.Height {
+	return types.Height(*h)
+}
+
 type WALProposal[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
 
 func (p *WALProposal[V, H, A]) GetHeight() types.Height {

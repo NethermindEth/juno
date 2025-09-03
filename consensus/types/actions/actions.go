@@ -1,9 +1,16 @@
 package actions
 
-import "github.com/NethermindEth/juno/consensus/types"
+import (
+	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/wal"
+)
 
 type Action[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	isTendermintAction()
+}
+
+type WriteWAL[V types.Hashable[H], H types.Hash, A types.Addr] struct {
+	Entry wal.Entry[V, H, A]
 }
 
 type BroadcastProposal[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
@@ -15,6 +22,8 @@ type BroadcastPrecommit[H types.Hash, A types.Addr] types.Precommit[H, A]
 type ScheduleTimeout types.Timeout
 
 type Commit[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
+
+func (a *WriteWAL[V, H, A]) isTendermintAction() {}
 
 func (a *BroadcastProposal[V, H, A]) isTendermintAction() {}
 

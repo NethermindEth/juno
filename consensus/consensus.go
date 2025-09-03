@@ -54,7 +54,7 @@ func Init(
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	proposer := proposer.New(logger, &builder, &proposalStore, *nodeAddress, toValue)
-	stateMachine := tendermint.New(tendermintDB, logger, *nodeAddress, proposer, validators, currentHeight)
+	stateMachine := tendermint.New(logger, *nodeAddress, proposer, validators, currentHeight)
 
 	p2p := p2p.New(host, logger, &builder, &proposalStore, currentHeight, &config.DefaultBufferSizes, bootstrapPeersFn)
 
