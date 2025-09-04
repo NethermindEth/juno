@@ -885,6 +885,11 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(
 			preConfirmed.WithPreLatest(preLatest)
 			isChanged, err := s.StorePreConfirmed(&preConfirmed)
 			if err == nil && isChanged {
+				s.log.Tracew(
+					"pre_confirmed block stored",
+					"number", preConfirmed.Block.Number,
+					"txCount", preConfirmed.Block.TransactionCount,
+				)
 				s.pendingDataFeed.Send(&preConfirmed)
 			}
 
@@ -979,17 +984,11 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		return false, nil
 	}
 
-	if s.pendingData.CompareAndSwap(existingPtr, utils.HeapPtr[core.PendingData](p)) {
-		s.log.Tracew(
-			"pre_confirmed block stored",
-			"number", p.GetBlock().Number,
-			"txCount", p.GetBlock().TransactionCount,
-		)
-		return true, nil
-	}
+	return s.pendingData.CompareAndSwap(
+		existingPtr,
+		utils.HeapPtr[core.PendingData](p),
+	), nil
 
-	// pending data updated between read-write, skipping
-	return false, nil
 }
 
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
