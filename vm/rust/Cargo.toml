@@ -14,7 +14,7 @@ cairo-lang-starknet-classes = "=2.12.0-dev.1"
 cairo-lang-runner = { version =  "=2.12.0-dev.1" }
 starknet_api = "0.15.0-rc.4"
 cairo-vm = "=2.3.1"
-starknet-types-core = { version = "0.1.8", features = ["hash", "prime-bigint"] }
+starknet-types-core = { version = "0.2.0", features = ["hash", "prime-bigint"] }
 indexmap = "2.1.0"
 cached = "0.55.1"
 once_cell = "1.19.0"
