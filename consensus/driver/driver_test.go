@@ -27,7 +27,7 @@ type (
 	listeners      = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters   = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
 	tendermintDB   = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
-	commitListener = driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	commitListener = driver.CommitListener[starknet.Value, starknet.Hash]
 )
 
 const (
@@ -159,14 +159,25 @@ func TestDriver(t *testing.T) {
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))
-	p2p := newMockP2P(proposalCh, prevoteCh, precommitCh)
+
+	listeners := listeners{
+		ProposalListener:  newMockListener(proposalCh),
+		PrevoteListener:   newMockListener(prevoteCh),
+		PrecommitListener: newMockListener(precommitCh),
+	}
+	broadcasters := broadcasters{
+		ProposalBroadcaster:  &mockBroadcaster[*starknet.Proposal]{},
+		PrevoteBroadcaster:   &mockBroadcaster[*starknet.Prevote]{},
+		PrecommitBroadcaster: &mockBroadcaster[*starknet.Precommit]{},
+	}
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
 		newTendermintDB(t),
 		stateMachine,
 		newMockCommitListener(t, &commitAction),
-		p2p,
+		broadcasters,
+		listeners,
 		mockTimeoutFn,
 	)
 
@@ -200,9 +211,9 @@ func TestDriver(t *testing.T) {
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrevote).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 	stateMachine.EXPECT().ProcessTimeout(inputTimeoutPrecommit).Return(generateAndRegisterRandomActions(random, expectedBroadcast))
 
-	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
-	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
-	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
+	increaseBroadcasterWaitGroup(expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
 
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -221,9 +232,9 @@ func TestDriver(t *testing.T) {
 	})
 	t.Cleanup(wg.Wait)
 
-	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, p2p.Broadcasters().ProposalBroadcaster)
-	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, p2p.Broadcasters().PrevoteBroadcaster)
-	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, p2p.Broadcasters().PrecommitBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.proposals, broadcasters.ProposalBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.prevotes, broadcasters.PrevoteBroadcaster)
+	waitAndAssertBroadcaster(t, expectedBroadcast.precommits, broadcasters.PrecommitBroadcaster)
 
 	cancel()
 }
