@@ -27,7 +27,7 @@ type ConsensusServices struct {
 	Proposer       proposer.Proposer[starknet.Value, starknet.Hash]
 	P2P            p2p.P2P[starknet.Value, starknet.Hash, starknet.Address]
 	Driver         *driver.Driver[starknet.Value, starknet.Hash, starknet.Address]
-	CommitListener driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	CommitListener driver.CommitListener[starknet.Value, starknet.Hash]
 }
 
 func Init(

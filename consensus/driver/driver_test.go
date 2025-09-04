@@ -27,7 +27,7 @@ type (
 	listeners      = p2p.Listeners[starknet.Value, starknet.Hash, starknet.Address]
 	broadcasters   = p2p.Broadcasters[starknet.Value, starknet.Hash, starknet.Address]
 	tendermintDB   = db.TendermintDB[starknet.Value, starknet.Hash, starknet.Address]
-	commitListener = driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address]
+	commitListener = driver.CommitListener[starknet.Value, starknet.Hash]
 )
 
 const (

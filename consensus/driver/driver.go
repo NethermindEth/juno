@@ -18,7 +18,7 @@ type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	log            utils.Logger
 	db             db.TendermintDB[V, H, A]
 	stateMachine   tendermint.StateMachine[V, H, A]
-	commitListener CommitListener[V, H, A]
+	commitListener CommitListener[V, H]
 	p2p            p2p.P2P[V, H, A]
 
 	getTimeout TimeoutFn
@@ -31,7 +31,7 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	log utils.Logger,
 	db db.TendermintDB[V, H, A],
 	stateMachine tendermint.StateMachine[V, H, A],
-	commitListener CommitListener[V, H, A],
+	commitListener CommitListener[V, H],
 	p2p p2p.P2P[V, H, A],
 	getTimeout TimeoutFn,
 ) Driver[V, H, A] {
@@ -133,7 +133,7 @@ func (d *Driver[V, H, A]) execute(
 			}
 
 			d.log.Debugw("Committing", "height", action.Height, "round", action.Round)
-			d.commitListener.Commit(ctx, action.Height, *action.Value)
+			d.commitListener.OnCommit(ctx, action.Height, *action.Value)
 
 			if err := d.db.DeleteWALEntries(action.Height); err != nil {
 				d.log.Errorw("failed to delete WAL messages during commit", "height", action.Height, "round", action.Round, "err", err)
