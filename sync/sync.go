@@ -201,14 +201,7 @@ func (s *Synchronizer) fetcherTask(ctx context.Context, height uint64, verifiers
 
 			return func() {
 				verifiers.Go(func() stream.Callback {
-					return s.verifierTask(
-						ctx,
-						committedBlock.Block,
-						committedBlock.StateUpdate,
-						committedBlock.NewClasses,
-						resetStreams,
-						committedBlock.Persisted,
-					)
+					return s.verifierTask(ctx, &committedBlock, resetStreams)
 				})
 			}
 		}
@@ -258,88 +251,120 @@ func (s *Synchronizer) handlePluginRevertBlock() {
 	}
 }
 
-//nolint:gocyclo
-func (s *Synchronizer) verifierTask(ctx context.Context, block *core.Block, stateUpdate *core.StateUpdate,
-	newClasses map[felt.Felt]core.Class, resetStreams context.CancelFunc, persisted chan struct{},
+func (s *Synchronizer) verifierTask(
+	ctx context.Context,
+	committedBlock *CommittedBlock,
+	resetStreams context.CancelFunc,
 ) stream.Callback {
 	verifyTimer := time.Now()
-	commitments, err := s.blockchain.SanityCheckNewHeight(block, stateUpdate, newClasses)
-	if err == nil {
-		s.listener.OnSyncStepDone(OpVerify, block.Number, time.Since(verifyTimer))
-	}
-	return func() {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			defer close(persisted)
-
-			if err != nil {
-				s.log.Warnw("Sanity checks failed", "number", block.Number, "hash", block.Hash.ShortString(), "err", err)
-				resetStreams()
-				return
-			}
-			storeTimer := time.Now()
-			err = s.blockchain.Store(block, commitments, stateUpdate, newClasses)
-			if err != nil {
-				if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
-					// revert the head and restart the sync process, hoping that the reorg is not deep
-					// if the reorg is deeper, we will end up here again and again until we fully revert reorged
-					// blocks
-					if s.plugin != nil {
-						s.handlePluginRevertBlock()
-					}
-					s.revertHead(block)
-
-					// The previous head has been reverted, hence, get the current head and store empty pending block
-					head, err := s.blockchain.HeadsHeader()
-					if err != nil {
-						s.log.Errorw("Failed to retrieve the head header", "err", err)
-					}
-
-					if head != nil {
-						s.storeEmptyPendingData(head)
-					}
-				} else {
-					s.log.Warnw("Failed storing Block", "number", block.Number,
-						"hash", block.Hash.ShortString(), "err", err)
-				}
-				resetStreams()
-				return
-			}
-
-			s.storeEmptyPendingData(block.Header)
-			s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
-
-			highestBlockHeader := s.highestBlockHeader.Load()
-			if highestBlockHeader != nil {
-				isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
-				if s.catchUpMode != isBehind {
-					resetStreams()
-				}
-				s.catchUpMode = isBehind
-			}
-
-			if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
-				s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
-			}
-
-			if s.currReorg != nil {
-				s.reorgFeed.Send(s.currReorg)
-				s.currReorg = nil // reset the reorg data
-			}
-
-			s.newHeads.Send(block)
-			s.log.Infow("Stored Block", "number", block.Number, "hash",
-				block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
-			if s.plugin != nil {
-				err := s.plugin.NewBlock(block, stateUpdate, newClasses)
-				if err != nil {
-					s.log.Errorw("Plugin NewBlock failure:", err)
-				}
-			}
+	commitments, err := s.blockchain.SanityCheckNewHeight(
+		committedBlock.Block,
+		committedBlock.StateUpdate,
+		committedBlock.NewClasses,
+	)
+	if err != nil {
+		return func() {
+			defer close(committedBlock.Persisted)
+			s.log.Warnw(
+				"Sanity checks failed",
+				"number",
+				committedBlock.Block.Number,
+				"hash",
+				committedBlock.Block.Hash.ShortString(),
+				"err",
+				err,
+			)
+			resetStreams()
 		}
 	}
+
+	s.listener.OnSyncStepDone(OpVerify, committedBlock.Block.Number, time.Since(verifyTimer))
+	return func() {
+		s.storeTask(ctx, committedBlock, resetStreams, commitments)
+	}
+}
+
+func (s *Synchronizer) storeTask(
+	ctx context.Context,
+	committedBlock *CommittedBlock,
+	resetStreams context.CancelFunc,
+	commitments *core.BlockCommitments,
+) {
+	defer close(committedBlock.Persisted)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	storeTimer := time.Now()
+	block := committedBlock.Block
+	stateUpdate := committedBlock.StateUpdate
+	newClasses := committedBlock.NewClasses
+	if err := s.blockchain.Store(block, commitments, stateUpdate, newClasses); err != nil {
+		if errors.Is(err, blockchain.ErrParentDoesNotMatchHead) {
+			s.revertTask(block, resetStreams)
+			return
+		}
+
+		s.log.Warnw("Failed storing Block", "number", block.Number,
+			"hash", block.Hash.ShortString(), "err", err)
+		resetStreams()
+		return
+	}
+
+	s.storeEmptyPendingData(block.Header)
+	s.listener.OnSyncStepDone(OpStore, block.Number, time.Since(storeTimer))
+
+	highestBlockHeader := s.highestBlockHeader.Load()
+	if highestBlockHeader != nil {
+		isBehind := highestBlockHeader.Number > block.Number+uint64(maxWorkers())
+		if s.catchUpMode != isBehind {
+			resetStreams()
+			s.catchUpMode = isBehind
+		}
+	}
+
+	if highestBlockHeader == nil || highestBlockHeader.Number < block.Number {
+		s.highestBlockHeader.CompareAndSwap(highestBlockHeader, block.Header)
+	}
+
+	if s.currReorg != nil {
+		s.reorgFeed.Send(s.currReorg)
+		s.currReorg = nil // reset the reorg data
+	}
+
+	s.newHeads.Send(block)
+	s.log.Infow("Stored Block", "number", block.Number, "hash",
+		block.Hash.ShortString(), "root", block.GlobalStateRoot.ShortString())
+	if s.plugin != nil {
+		err := s.plugin.NewBlock(block, stateUpdate, newClasses)
+		if err != nil {
+			s.log.Errorw("Plugin NewBlock failure:", err)
+		}
+	}
+}
+
+func (s *Synchronizer) revertTask(forkedBlock *core.Block, resetStreams context.CancelFunc) {
+	// revert the head and restart the sync process, hoping that the reorg is not deep
+	// if the reorg is deeper, we will end up here again and again until we fully revert reorged
+	// blocks
+	if s.plugin != nil {
+		s.handlePluginRevertBlock()
+	}
+	s.revertHead(forkedBlock)
+
+	// The previous head has been reverted, hence, get the current head and store empty pending block
+	head, err := s.blockchain.HeadsHeader()
+	if err != nil {
+		s.log.Errorw("Failed to retrieve the head header", "err", err)
+	}
+
+	if head != nil {
+		s.storeEmptyPendingData(head)
+	}
+
+	resetStreams()
 }
 
 func (s *Synchronizer) nextHeight() uint64 {
