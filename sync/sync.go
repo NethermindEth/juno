@@ -988,7 +988,6 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		existingPtr,
 		utils.HeapPtr[core.PendingData](p),
 	), nil
-
 }
 
 func (s *Synchronizer) PendingData() (core.PendingData, error) {
