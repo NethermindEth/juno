@@ -30,8 +30,9 @@ func getBuffer() *bytes.Buffer {
 
 // Storage is a database transaction on a trie.
 type Storage struct {
-	txn    db.IndexedBatch
-	prefix []byte
+	txn      db.IndexedBatch
+	prefix   []byte
+	snapshot db.Snapshot
 }
 
 func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
@@ -39,6 +40,11 @@ func NewStorage(txn db.IndexedBatch, prefix []byte) *Storage {
 		txn:    txn,
 		prefix: prefix,
 	}
+}
+
+func (t *Storage) WithSnapshot(snapshot db.Snapshot) *Storage {
+	t.snapshot = snapshot
+	return t
 }
 
 // dbKey creates a byte array to be used as a key to our KV store
@@ -79,10 +85,18 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 	}
 
 	var node *Node
-	err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
-		node = nodePool.Get().(*Node)
-		return node.UnmarshalBinary(val)
-	})
+
+	if t.snapshot != nil {
+		err = t.snapshot.Get(buffer.Bytes(), func(val []byte) error {
+			node = nodePool.Get().(*Node)
+			return node.UnmarshalBinary(val)
+		})
+	} else {
+		err = t.txn.Get(buffer.Bytes(), func(val []byte) error {
+			node = nodePool.Get().(*Node)
+			return node.UnmarshalBinary(val)
+		})
+	}
 
 	return node, err
 }
@@ -99,6 +113,14 @@ func (t *Storage) Delete(key *BitArray) error {
 
 func (t *Storage) RootKey() (*BitArray, error) {
 	var rootKey *BitArray
+	if t.snapshot != nil {
+		err := t.snapshot.Get(t.prefix, func(val []byte) error {
+			rootKey = new(BitArray)
+			return rootKey.UnmarshalBinary(val)
+		})
+		return rootKey, err
+	}
+
 	err := t.txn.Get(t.prefix, func(val []byte) error {
 		rootKey = new(BitArray)
 		return rootKey.UnmarshalBinary(val)
@@ -122,8 +144,9 @@ func (t *Storage) DeleteRootKey() error {
 
 func (t *Storage) SyncedStorage() *Storage {
 	return &Storage{
-		txn:    db.NewSyncBatch(t.txn),
-		prefix: t.prefix,
+		txn:      db.NewSyncBatch(t.txn),
+		prefix:   t.prefix,
+		snapshot: t.snapshot,
 	}
 }
 
