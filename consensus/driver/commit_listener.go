@@ -2,51 +2,50 @@ package driver
 
 import (
 	"context"
+	gosync "sync"
 
-	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/proposal"
-	"github.com/NethermindEth/juno/consensus/proposer"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
+type CommitHook[V types.Hashable[H], H types.Hash] interface {
+	OnCommit(context.Context, types.Height, V)
+}
+
 // CommitListener is a component that is used to notify different components that a new committed block is available.
 //
 //go:generate mockgen -destination=../mocks/mock_commit_listener.go -package=mocks github.com/NethermindEth/juno/consensus/driver CommitListener
-type CommitListener[V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	// Commit is called by Tendermint when a block has been decided on and can be committed to the DB.
-	Commit(context.Context, types.Height, V)
+type CommitListener[V types.Hashable[H], H types.Hash] interface {
+	CommitHook[V, H]
 	// Listen returns a channel that will receive committed blocks.
 	// This is supposed to be used by the component that writes the committed blocks to the database.
 	Listen() <-chan sync.CommittedBlock
 }
 
-type commitListener[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log           utils.Logger
-	proposalStore *proposal.ProposalStore[H]
-	proposer      proposer.Proposer[V, H]
-	p2p           p2p.P2P[V, H, A]
-	commits       chan sync.CommittedBlock
+type commitListener[V types.Hashable[H], H types.Hash] struct {
+	log             utils.Logger
+	proposalStore   *proposal.ProposalStore[H]
+	postCommitHooks []CommitHook[V, H]
+	commits         chan sync.CommittedBlock
 }
 
-func NewCommitListener[V types.Hashable[H], H types.Hash, A types.Addr](
+func NewCommitListener[V types.Hashable[H], H types.Hash](
 	log utils.Logger,
 	proposalStore *proposal.ProposalStore[H],
-	proposer proposer.Proposer[V, H],
-	p2p p2p.P2P[V, H, A],
-) CommitListener[V, H, A] {
+	postCommitHooks ...CommitHook[V, H],
+) CommitListener[V, H] {
 	commits := make(chan sync.CommittedBlock)
-	return &commitListener[V, H, A]{
-		log:           log,
-		proposalStore: proposalStore,
-		proposer:      proposer,
-		p2p:           p2p,
-		commits:       commits,
+	return &commitListener[V, H]{
+		log:             log,
+		proposalStore:   proposalStore,
+		postCommitHooks: postCommitHooks,
+		commits:         commits,
 	}
 }
 
-func (b *commitListener[V, H, A]) Commit(ctx context.Context, height types.Height, value V) {
+func (b *commitListener[V, H]) OnCommit(ctx context.Context, height types.Height, value V) {
 	buildResult := b.proposalStore.Get(value.Hash())
 	if buildResult == nil {
 		b.log.Errorw("failed to get build result", "hash", value.Hash())
@@ -72,10 +71,15 @@ func (b *commitListener[V, H, A]) Commit(ctx context.Context, height types.Heigh
 	case <-committedBlock.Persisted:
 	}
 
-	b.proposer.OnCommit(ctx, height, value)
-	b.p2p.OnCommit(ctx, height, value)
+	wg := gosync.WaitGroup{}
+	for _, hook := range b.postCommitHooks {
+		wg.Go(func() {
+			hook.OnCommit(ctx, height, value)
+		})
+	}
+	wg.Wait()
 }
 
-func (b *commitListener[V, H, A]) Listen() <-chan sync.CommittedBlock {
+func (b *commitListener[V, H]) Listen() <-chan sync.CommittedBlock {
 	return b.commits
 }

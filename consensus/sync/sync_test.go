@@ -56,10 +56,10 @@ func TestSync(t *testing.T) {
 	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
-	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](ctrl)
+	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash](ctrl)
 
 	mockCommitListener.EXPECT().
-		Commit(gomock.Any(), types.Height(0), gomock.Any()).
+		OnCommit(gomock.Any(), types.Height(0), gomock.Any()).
 		Do(func(_ any, newHeight types.Height, _ any) {
 			comittedHeight = int(newHeight)
 			cancel()
