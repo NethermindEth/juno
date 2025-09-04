@@ -128,7 +128,7 @@ func writeBlock(
 	t *testing.T,
 	index int,
 	bc *blockchain.Blockchain,
-	commitListener driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address],
+	commitListener driver.CommitListener[starknet.Value, starknet.Hash],
 	commits chan commit,
 ) {
 	t.Helper()
