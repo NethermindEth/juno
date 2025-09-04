@@ -630,7 +630,7 @@ func (s *Synchronizer) pollPending(ctx context.Context) {
 				if err != nil {
 					if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
 						s.log.Infow(
-							"Detected block version > 0.14.0; polling for pre_confirmed blocks",
+							"Detected block version >= 0.14.0; polling for pre_confirmed blocks",
 						)
 						cancel()
 						return
