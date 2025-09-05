@@ -800,10 +800,11 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 	var preLatestWg stdsync.WaitGroup
 	preLatestWg.Go(func() { s.pollPreLatest(ctx, preLatestChan) })
 
-	mostRecentPredecessor := uint64(0)
+	mostRecentPredecessor := int64(-1)
 	var subCtx context.Context
 	var cancel context.CancelFunc = func() {}
 	var fetchWg stdsync.WaitGroup
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -812,12 +813,11 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			preLatestWg.Wait()
 			return
 		case preLatest := <-preLatestChan:
-			// PreLatest
-			if preLatest.Block.Number <= mostRecentPredecessor {
+			if int64(preLatest.Block.Number) <= mostRecentPredecessor {
 				// already got more recent data
 				continue
 			}
-			mostRecentPredecessor = preLatest.Block.Number
+			mostRecentPredecessor = int64(preLatest.Block.Number)
 
 			cancel()
 			fetchWg.Wait()
@@ -832,20 +832,19 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			fetchWg.Go(func() {
 				s.fetchAndStorePreConfirmed(
 					subCtx,
-					mostRecentPredecessor+1,
+					uint64(mostRecentPredecessor+1),
 					preLatest,
 				)
 			})
 		case head := <-newHeadSub.Recv():
-			if head.Number <= mostRecentPredecessor {
+			if int64(head.Number) <= mostRecentPredecessor {
 				// already got more recent data for this head
 				continue
 			}
 
 			// Head is more recent than pre-latest,
 			// use head as base and poll for latest + 1
-			mostRecentPredecessor = head.Number
-
+			mostRecentPredecessor = int64(head.Number)
 			cancel()
 			fetchWg.Wait()
 			subCtx, cancel = context.WithCancel(ctx)
@@ -854,10 +853,11 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
 				s.log.Debugw("Error while storing empty pre_confirmed", "error", err)
 			}
+
 			fetchWg.Go(func() {
 				s.fetchAndStorePreConfirmed(
 					subCtx,
-					mostRecentPredecessor+1,
+					uint64(mostRecentPredecessor+1),
 					nil,
 				)
 			})
