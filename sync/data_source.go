@@ -22,7 +22,7 @@ type CommittedBlock struct {
 type DataSource interface {
 	BlockByNumber(ctx context.Context, blockNumber uint64) (CommittedBlock, error)
 	BlockLatest(ctx context.Context) (*core.Block, error)
-	BlockPending(ctx context.Context) (Pending, error)
+	BlockPending(ctx context.Context) (core.Pending, error)
 	PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error)
 }
 
@@ -61,18 +61,18 @@ func (f *feederGatewayDataSource) BlockLatest(ctx context.Context) (*core.Block,
 	return f.starknetData.BlockLatest(ctx)
 }
 
-func (f *feederGatewayDataSource) BlockPending(ctx context.Context) (Pending, error) {
+func (f *feederGatewayDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
 	pendingStateUpdate, pendingBlock, err := f.starknetData.StateUpdatePendingWithBlock(ctx)
 	if err != nil {
-		return Pending{}, err
+		return core.Pending{}, err
 	}
 
 	newClasses, err := f.fetchUnknownClasses(ctx, pendingStateUpdate)
 	if err != nil {
-		return Pending{}, err
+		return core.Pending{}, err
 	}
 
-	return Pending{
+	return core.Pending{
 		Block:       pendingBlock,
 		StateUpdate: pendingStateUpdate,
 		NewClasses:  newClasses,
@@ -138,13 +138,6 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context,
 	preConfirmed, err := f.starknetData.PreConfirmedBlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return core.PreConfirmed{}, err
-	}
-
-	h, err := f.blockchain.HeadsHeader()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return core.PreConfirmed{}, err
-	} else if err == nil {
-		preConfirmed.StateUpdate.OldRoot = h.GlobalStateRoot
 	}
 
 	return preConfirmed, nil

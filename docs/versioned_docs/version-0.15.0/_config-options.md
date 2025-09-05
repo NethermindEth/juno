@@ -39,12 +39,12 @@
 | `p2p-peers` |  | EXPERIMENTAL: Specify list of p2p peers split by a comma. These peers can be either Feeder or regular nodes |
 | `p2p-private-key` |  | EXPERIMENTAL: Hexadecimal representation of a private key on the Ed25519 elliptic curve |
 | `p2p-public-addr` |  | EXPERIMENTAL: Specify p2p public address as multiaddr.  Example: /ip4/35.243.XXX.XXX/tcp/7777 |
-| `pending-poll-interval` | `5` | Sets how frequently pending block will be updated (0s will disable fetching of pending block) |
+| `pending-poll-interval`| `1s` | Sets polling interval for pending block updates before starknet v0.14.0; for pre_latest block updates from starknet v0.14.0 onward.(0s will disable polling). |
 | `plugin-path` |  | Path to the plugin .so file |
 | `pprof` | `false` | Enables the pprof endpoint on the default port |
 | `pprof-host` | `localhost` | The interface on which the pprof HTTP server will listen for requests |
 | `pprof-port` | `6062` | The port on which the pprof HTTP server will listen for requests |
-| `preconfirmed-poll-interval` | `time.Second` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
+| `preconfirmed-poll-interval` | `0.5s` | Sets how frequently pre_confirmed block will be updated(0s will disable fetching of pre_confirmed block) |
 | `readiness-block-tolerance` | `6` | Maximum blocks behind latest for /ready endpoints to return 200 OK |
 | `remote-db` |  | gRPC URL of a remote Juno node |
 | `rpc-call-max-steps` | `4000000` | Maximum number of steps to be executed in starknet_call requests |
