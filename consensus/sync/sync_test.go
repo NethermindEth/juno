@@ -49,7 +49,7 @@ func TestSync(t *testing.T) {
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB, types.Height(0))
+	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB)
 	require.NotNil(t, tmDB)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}

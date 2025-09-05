@@ -47,7 +47,7 @@ func Init(
 	}
 	currentHeight := types.Height(chainHeight + 1)
 
-	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database, currentHeight)
+	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database)
 
 	executor := builder.NewExecutor(blockchain, vm, logger, false, true) // TODO: We're currently skipping signature validation
 	builder := builder.New(blockchain, executor)
