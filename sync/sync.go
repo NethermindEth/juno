@@ -1051,7 +1051,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 
 	stateDiff := core.EmptyStateDiff()
 	newClasses := make(map[felt.Felt]core.Class)
-	switch v := pending.Variant(); v {
+	switch pending.Variant() {
 	case core.PreConfirmedBlockVariant:
 		preLatest := pending.GetPreLatest()
 		// Built pre_confirmed state top on pre_latest if
