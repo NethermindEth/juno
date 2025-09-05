@@ -119,70 +119,69 @@ func (h *Handler) TraceBlockTransactions(
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	block, rpcErr := h.blockByID(id)
 	if rpcErr != nil {
-		httpHeader := http.Header{}
-		httpHeader.Set(ExecutionStepsHeader, "0")
-		return nil, httpHeader, rpcErr
+		return nil, defaultExecutionHeader(), rpcErr
 	}
 
 	return h.traceBlockTransactions(ctx, block)
 }
 
-//nolint:funlen,gocyclo
-func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
-	httpHeader := http.Header{}
-	httpHeader.Set(ExecutionStepsHeader, "0")
-
+// traceBlockTransactions gets the trace for a block. The block will always be traced locally except
+// on specific case such as with Starknet version 0.13.1 or lower or when it is certain range
+func (h *Handler) traceBlockTransactions(
+	ctx context.Context, block *core.Block,
+) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
 	isPending := block.Hash == nil
 	if !isPending {
-		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
-			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
-			result, err := h.fetchTraces(ctx, block.Hash)
-			if err != nil {
-				return nil, httpHeader, err
-			}
-
-			// fgw doesn't provide this data in traces endpoint. So, we get it from our block receipts
-			txTotalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(block.Receipts))
-			for _, receipt := range block.Receipts {
-				if receipt.ExecutionResources == nil {
-					continue
-				}
-
-				if receiptTGS := receipt.ExecutionResources.TotalGasConsumed; receiptTGS != nil {
-					tgs := core.GasConsumed{
-						L1Gas:     receiptTGS.L1Gas,
-						L1DataGas: receiptTGS.L1DataGas,
-						L2Gas:     receiptTGS.L2Gas,
-					}
-					txTotalGasConsumed[*receipt.TransactionHash] = tgs
-				}
-			}
-
-			// For every trace in block, add execution resources on root level
-			for index, trace := range result {
-				tgs := txTotalGasConsumed[*trace.TransactionHash]
-
-				result[index].TraceRoot.ExecutionResources = &ExecutionResources{
-					InnerExecutionResources: InnerExecutionResources{
-						L1Gas: tgs.L1Gas,
-						L2Gas: tgs.L2Gas,
-					},
-					L1DataGas: tgs.L1DataGas,
-				}
-			}
-
-			return result, httpHeader, err
+		// Check if it was already traced
+		traces, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{BlockHash: *block.Hash})
+		if hit {
+			return traces, defaultExecutionHeader(), nil
 		}
 
-		if trace, hit := h.blockTraceCache.Get(rpccore.TraceCacheKey{
-			BlockHash: *block.Hash,
-		}); hit {
-			return trace, httpHeader, nil
+		// Check if the trace should be provided by the feeder gateway
+		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
+		if err != nil {
+			return nil,
+				defaultExecutionHeader(),
+				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
+		}
+
+		// todo(rdr): I believe this here is completely unnecessary
+		// If `bloc.ProtocolVersion` were to have this value it coudn't be
+		// parsed by semver which means the comparison below of
+		// `block.ProtocolVersion != excludeVersion` makes no sense. So it
+		// should be removed, but it also creates the issue of block with that
+		// specific version might be failed to trace in Juno
+		const excludeVersion = "0.13.1.1"
+
+		// For older cairo versions we rely on the sequencer for retrocompatibility
+		fetchFromFeederGW := (blockVer.LessThanEqual(traceFallbackVersion) &&
+			block.ProtocolVersion != excludeVersion)
+		// This specific block range caused a re-org, also related with Cairo 0 and we have to
+		// depend on the Sequencer to provide the correct traces
+		fetchFromFeederGW = fetchFromFeederGW ||
+			(block.Number >= 1943705 &&
+				block.Number <= 1952704 &&
+				*h.bcReader.Network() == utils.Mainnet)
+
+		if fetchFromFeederGW {
+			traces, err := h.fetchTracesFromFeederGateway(ctx, block)
+			if err != nil {
+				return nil, defaultExecutionHeader(), err
+			}
+			h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
+			return traces, defaultExecutionHeader(), nil
 		}
 	}
 
+	return h.traceBlockTransactionWithVM(block)
+}
+
+// `traceBlockTransactionWithVM` traces a block and stores it in the block cache
+func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
+	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
+) {
+	httpHeader := defaultExecutionHeader()
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrBlockNotFound
@@ -193,6 +192,8 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
 	)
+
+	isPending := block.Hash == nil
 	if isPending {
 		headState, headStateCloser, err = h.PendingState()
 	} else {
@@ -265,36 +266,83 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	}
 
 	if !isPending {
-		h.blockTraceCache.Add(rpccore.TraceCacheKey{
-			BlockHash: *block.Hash,
-		}, result)
+		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, result)
 	}
 
 	return result, httpHeader, nil
 }
 
-func (h *Handler) fetchTraces(ctx context.Context, blockHash *felt.Felt) ([]TracedBlockTransaction, *jsonrpc.Error) {
-	blockID := BlockIDFromHash(blockHash)
-	rpcBlock, err := h.BlockWithTxs(&blockID)
-	if err != nil {
-		return nil, err
+func (h *Handler) fetchTracesFromFeederGateway(
+	ctx context.Context, block *core.Block,
+) ([]TracedBlockTransaction, *jsonrpc.Error) {
+	// todo(rdr): this feels unnatural, why if I have the `core.Block` should I still
+	// try to go for the rpcBlock? Ideally we extract all the info directly from `core.Block`
+	blockID := BlockIDFromHash(block.Hash)
+	rpcBlock, rpcErr := h.BlockWithTxs(&blockID)
+	if rpcErr != nil {
+		return nil, rpcErr
 	}
 
 	if h.feederClient == nil {
 		return nil, rpccore.ErrInternal.CloneWithData("no feeder client configured")
 	}
 
-	blockTrace, fErr := h.feederClient.BlockTrace(ctx, blockHash.String())
-	if fErr != nil {
-		return nil, rpccore.ErrUnexpectedError.CloneWithData(fErr.Error())
+	blockTrace, err := h.feederClient.BlockTrace(ctx, block.Hash.String())
+	if err != nil {
+		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
 
-	traces, aErr := AdaptFeederBlockTrace(rpcBlock, blockTrace)
-	if aErr != nil {
-		return nil, rpccore.ErrUnexpectedError.CloneWithData(aErr.Error())
+	traces, err := AdaptFeederBlockTrace(rpcBlock, blockTrace)
+	if err != nil {
+		return nil, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 	}
+
+	traces = fillFeederGatewayData(traces, block.Receipts)
 
 	return traces, nil
+}
+
+// `fillFeederGatewayData` mutates the `traces` argument and fill it with the data from `receipts` which
+// the Feeder Gateway doesn't provide by default
+func fillFeederGatewayData(
+	traces []TracedBlockTransaction, receipts []*core.TransactionReceipt,
+) []TracedBlockTransaction {
+	totalGasConsumed := make(map[felt.Felt]core.GasConsumed, len(receipts))
+	for _, re := range receipts {
+		if re.ExecutionResources == nil {
+			continue
+		}
+
+		if reGasConsumed := re.ExecutionResources.TotalGasConsumed; reGasConsumed != nil {
+			tgs := core.GasConsumed{
+				L1Gas:     reGasConsumed.L1Gas,
+				L1DataGas: reGasConsumed.L1DataGas,
+				L2Gas:     reGasConsumed.L2Gas,
+			}
+			totalGasConsumed[*re.TransactionHash] = tgs
+		}
+	}
+
+	// For every trace in block, add execution resources on root level
+	for index, trace := range traces {
+		tgs := totalGasConsumed[*trace.TransactionHash]
+
+		traces[index].TraceRoot.ExecutionResources = &ExecutionResources{
+			InnerExecutionResources: InnerExecutionResources{
+				L1Gas: tgs.L1Gas,
+				L2Gas: tgs.L2Gas,
+			},
+			L1DataGas: tgs.L1DataGas,
+		}
+	}
+
+	return traces
+}
+
+func defaultExecutionHeader() http.Header {
+	header := http.Header{}
+	header.Set(ExecutionStepsHeader, "0")
+	return header
 }
 
 // https://github.com/starkware-libs/starknet-specs/blob/e0b76ed0d8d8eba405e182371f9edac8b2bcbc5a/api/starknet_api_openrpc.json#L401-L445
