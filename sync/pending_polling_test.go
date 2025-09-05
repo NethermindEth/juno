@@ -188,12 +188,12 @@ func TestFetchAndStorePreConfirmed(t *testing.T) {
 	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 	require.NoError(t, err)
 
-	bc.Store(
+	require.NoError(t, bc.Store(
 		head,
 		&core.BlockCommitments{},
 		stateUpdate0,
 		map[felt.Felt]core.Class{},
-	)
+	))
 
 	s := New(bc, dataSource, log, 0, 50*time.Millisecond, false, testDB)
 
@@ -314,12 +314,12 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
-		bc.Store(
+		require.NoError(t, bc.Store(
 			head,
 			&core.BlockCommitments{},
 			stateUpdate0,
 			map[felt.Felt]core.Class{},
-		)
+		))
 
 		t.Run("not valid for head", func(t *testing.T) {
 			s.pendingData.Store(nil)
@@ -481,12 +481,12 @@ func TestPollPreConfirmed(t *testing.T) {
 
 		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
 		require.NoError(t, err)
-		bc.Store(
+		require.NoError(t, bc.Store(
 			head,
 			&core.BlockCommitments{},
 			stateUpdate0,
 			map[felt.Felt]core.Class{},
-		)
+		))
 		s.highestBlockHeader.Store(head.Header)
 
 		sub := s.SubscribePendingData()
