@@ -856,16 +856,6 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		return false, err
 	}
 
-	existingPtr := s.pendingData.Load()
-	if existingPtr == nil || *existingPtr == nil {
-		return s.pendingData.CompareAndSwap(
-			existingPtr,
-			utils.HeapPtr[core.PendingData](p),
-		), nil
-	}
-
-	existingPending := *existingPtr
-
 	head, err := s.blockchain.HeadsHeader()
 	if err != nil {
 		if !errors.Is(err, db.ErrKeyNotFound) {
@@ -873,6 +863,20 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		}
 		head = nil
 	}
+
+	existingPtr := s.pendingData.Load()
+	if existingPtr == nil || *existingPtr == nil {
+		if !p.Validate(head) {
+			return false, errors.New("store pre_confirmed not valid for parent")
+		}
+
+		return s.pendingData.CompareAndSwap(
+			existingPtr,
+			utils.HeapPtr[core.PendingData](p),
+		), nil
+	}
+
+	existingPending := *existingPtr
 
 	if !existingPending.Validate(head) {
 		return s.pendingData.CompareAndSwap(
@@ -996,6 +1000,10 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 
 	if !pending.Validate(head) {
 		return nil, nil, ErrPendingBlockNotFound
+	}
+
+	if index > len(pending.GetTransactions()) {
+		return nil, nil, errors.New("transaction index out of bounds")
 	}
 
 	stateDiff := core.EmptyStateDiff()
