@@ -164,7 +164,7 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 		// preconfirmed is latest + 1
 		return true
 	}
-	// When storing pre_confirmed as genesis, pre_latest is stored as nil
+
 	if p.PreLatest == nil {
 		return false
 	}
