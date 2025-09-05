@@ -568,16 +568,16 @@ func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
 
 func (s *Synchronizer) pollLatest(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
-	fetchWq := &stdsync.WaitGroup{}
+	fetchWg := &stdsync.WaitGroup{}
 	for {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
-			fetchWq.Wait()
+			fetchWg.Wait()
 			return
 		case <-ticker.C:
-			fetchWq.Wait()
-			fetchWq.Go(func() {
+			fetchWg.Wait()
+			fetchWg.Go(func() {
 				highestBlock, err := s.dataSource.BlockLatest(ctx)
 				if err != nil {
 					s.log.Warnw("Failed fetching latest block", "err", err)
