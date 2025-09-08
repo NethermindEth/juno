@@ -4,6 +4,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	_ PendingData = (*Pending)(nil)
+	_ PendingData = (*PreConfirmed)(nil)
+)
+
 type PendingDataVariant uint8
 
 const (
