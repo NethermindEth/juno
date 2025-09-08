@@ -23,15 +23,15 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	const sep = "."
 	parts := strings.Split(protocolVersion, sep)
 
-	var patchValues [3]uint64
+	var versionVals [3]uint64 // [major, minor, patch]
 	var err error
-	for i := range min(len(patchValues), len(parts)) {
-		patchValues[i], err = strconv.ParseUint(parts[i], 10, 64)
+	for i := range min(len(versionVals), len(parts)) {
+		versionVals[i], err = strconv.ParseUint(parts[i], 10, 64)
 		if err != nil {
 			return nil,
 				fmt.Errorf("cannot parse starknet protocol version \"%s\": %s", protocolVersion, err)
 		}
 	}
 
-	return semver.New(patchValues[0], patchValues[1], patchValues[2], "", ""), nil
+	return semver.New(versionVals[0], versionVals[1], versionVals[2], "", ""), nil
 }
