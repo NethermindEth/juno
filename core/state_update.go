@@ -45,7 +45,8 @@ func (d *StateDiff) Merge(incoming *StateDiff) {
 			if oldAddrStorage, exists := oldMap[addr]; exists {
 				maps.Copy(oldAddrStorage, newAddrStorage)
 			} else {
-				oldMap[addr] = newAddrStorage
+				oldMap[addr] = make(map[felt.Felt]*felt.Felt, len(newAddrStorage))
+				maps.Copy(oldMap[addr], newAddrStorage)
 			}
 		}
 	}
