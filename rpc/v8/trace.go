@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,9 +19,6 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-var traceFallbackVersion = semver.MustParse("0.13.1")
-
-const excludedVersion = "0.13.1.1"
 
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
@@ -126,7 +122,7 @@ func (h *Handler) TraceBlockTransactions(
 }
 
 // traceBlockTransactions gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.1 or lower or when it is certain range
+// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
 func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
@@ -145,18 +141,8 @@ func (h *Handler) traceBlockTransactions(
 				defaultExecutionHeader(),
 				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
-
-		// todo(rdr): I believe this here is completely unnecessary
-		// If `bloc.ProtocolVersion` were to have this value it coudn't be
-		// parsed by semver which means the comparison below of
-		// `block.ProtocolVersion != excludeVersion` makes no sense. So it
-		// should be removed, but it also creates the issue of block with that
-		// specific version might be failed to trace in Juno
-		const excludeVersion = "0.13.1.1"
-
 		// For older cairo versions we rely on the sequencer for retrocompatibility
-		fetchFromFeederGW := (blockVer.LessThanEqual(traceFallbackVersion) &&
-			block.ProtocolVersion != excludeVersion)
+		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2)
 		// This specific block range caused a re-org, also related with Cairo 0 and we have to
 		// depend on the Sequencer to provide the correct traces
 		fetchFromFeederGW = fetchFromFeederGW ||
