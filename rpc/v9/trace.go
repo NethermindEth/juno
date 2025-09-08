@@ -237,8 +237,9 @@ func (h *Handler) traceBlockTransactions(
 				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
 
-		// We rely on the feeder gateway for Starknet version strictly older than "0.13.2"
-		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2)
+		// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
+		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
+			block.ProtocolVersion != "0.13.1.1"
 		// This specific block range caused a re-org, also related with Cairo 0 and we have to
 		// depend on the Sequencer to provide the correct traces
 		fetchFromFeederGW = fetchFromFeederGW ||
