@@ -545,6 +545,69 @@ func TestPollPreConfirmed(t *testing.T) {
 	}
 }
 
+func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(testDB, &utils.Sepolia)
+	client := feeder.NewTestClient(t, &utils.Sepolia)
+	gw := adaptfeeder.New(client)
+	dataSource := NewFeederGatewayDataSource(bc, gw)
+
+	// Returns pending block with protocol version 0.14.0
+	pendingFunc := func(context.Context) (core.Pending, error) {
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+		return makeTestPendingForParent(head), nil
+	}
+
+	log := utils.NewNopZapLogger()
+	mockDataSource := &MockDataSource{
+		DataSource:  dataSource,
+		PendingFunc: pendingFunc,
+	}
+	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
+
+	fetchStoreBlock := func(t *testing.T, blockNumber uint64) *core.Block {
+		t.Helper()
+		block, err := gw.BlockByNumber(t.Context(), blockNumber)
+		require.NoError(t, err)
+
+		stateUpdate0, err := gw.StateUpdate(t.Context(), blockNumber)
+		require.NoError(t, err)
+		require.NoError(t, bc.Store(
+			block,
+			&core.BlockCommitments{},
+			stateUpdate0,
+			map[felt.Felt]core.Class{},
+		))
+		s.highestBlockHeader.Store(block.Header)
+		return block
+	}
+
+	head := fetchStoreBlock(t, 0)
+	sub := s.pendingDataFeed.SubscribeKeepLast()
+	defer sub.Unsubscribe()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	var wg stdsync.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
+		s.pollPendingData(ctx)
+	})
+	time.Sleep(100 * time.Millisecond)
+	s.newHeads.Send(head)
+	// wait for pre_latest
+	time.Sleep(100 * time.Millisecond)
+	// receive pre_confirmed for head
+	select {
+	case preConfirmed := <-sub.Recv():
+		require.NotNil(t, preConfirmed)
+		require.Equal(t, core.PreConfirmedBlockVariant, preConfirmed.Variant())
+		require.Equal(t, uint64(2), preConfirmed.GetBlock().Number)
+	case <-ctx.Done():
+		t.Fatal("did not broadcast preConfirmed")
+	}
+}
+
 func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 	receipts := make([]*core.TransactionReceipt, 0)
 	preConfirmedBlock := &core.Block{
