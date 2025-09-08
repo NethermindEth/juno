@@ -28,17 +28,10 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	for i := range min(len(patchValues), len(parts)) {
 		patchValues[i], err = strconv.ParseUint(parts[i], 10, 64)
 		if err != nil {
-			return nil, 
+			return nil,
 				fmt.Errorf("cannot parse starknet protocol version \"%s\": %s", protocolVersion, err)
 		}
 	}
 
 	return semver.New(patchValues[0], patchValues[1], patchValues[2], "", ""), nil
-}
-
-func min(a int, b int) int {
-	if a > b {
-		return b
-	}
-	return a
 }

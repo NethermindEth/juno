@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestParseBlockVersion(t *testing.T){
-	versions := []struct{
-		version string 
+func TestParseBlockVersion(t *testing.T) {
+	versions := []struct {
+		version  string
 		expected *semver.Version
-	} {
+	}{
 		{"0.13.1", semver.MustParse("0.13.1")},
 		{"0.13.1.1", semver.MustParse("0.13.1")},
 		{"0.14", semver.MustParse("0.14.0")},
@@ -21,21 +21,21 @@ func TestParseBlockVersion(t *testing.T){
 	}
 
 	for _, test := range versions {
-		t.Run("block version: " + test.version, func(t *testing.T) {
+		t.Run("block version: "+test.version, func(t *testing.T) {
 			version, err := core.ParseBlockVersion(test.version)
-			require.Nil(t ,err)
+			require.Nil(t, err)
 			assert.Equal(t, test.expected, version)
 		})
 	}
 }
 
-func TestCannotParseBlockVersion(t *testing.T){
+func TestCannotParseBlockVersion(t *testing.T) {
 	versions := []string{
 		"1.4.2-alpha.3+20250908.1",
 	}
 
 	for _, version := range versions {
-		t.Run("block version: " + version, func(t *testing.T) {
+		t.Run("block version: "+version, func(t *testing.T) {
 			version, err := core.ParseBlockVersion(version)
 			require.Nil(t, version)
 			assert.ErrorContains(t, err, "cannot parse starknet protocol version")
