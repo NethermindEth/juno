@@ -723,11 +723,11 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *co
 	}
 }
 
-// fetchPreLatest fetches pre-latest block for given head and forwards the value to preLatestChan.
-//
-// Consumer of preLatestChan will receive each preLatest once. It is possible preLatest block will skipped,
-// incase latest for the pre-latest is already published.
-// Incase fetched pre-latest belongs to future block, it will be cached and served later.
+// fetchPreLatest fetches the prelatest block for a given head and forwards the value to preLatestChan.
+// Consumers of preLatestChan will receive each pre-latest once. It is possible for a pre-latest block to 
+// be skipped if:
+//  - the pre-latest has already become the latest block of the chain.
+//  - the pre-latest is part of the future of the chain. In this case, it will be cached and served later.
 func (s *Synchronizer) fetchPreLatest(
 	ctx context.Context,
 	head *core.Block,
