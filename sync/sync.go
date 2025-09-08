@@ -960,12 +960,12 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 		head = nil
 	}
 
+	if !p.Validate(head) {
+		return false, errors.New("store pre_confirmed not valid for parent")
+	}
+
 	existingPtr := s.pendingData.Load()
 	if existingPtr == nil || *existingPtr == nil {
-		if !p.Validate(head) {
-			return false, errors.New("store pre_confirmed not valid for parent")
-		}
-
 		return s.pendingData.CompareAndSwap(
 			existingPtr,
 			utils.HeapPtr[core.PendingData](p),
