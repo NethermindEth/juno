@@ -351,30 +351,76 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("get pending state before index", func(t *testing.T) {
-			var synchronizer *sync.Synchronizer
-			testDB := memory.New()
-			chain := blockchain.New(testDB, &utils.Mainnet)
-			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
-			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
-
 			contractAddress, err := new(felt.Felt).SetString("0xFFFFF")
 			require.NoError(t, err)
 			storageKey := &felt.One
-			numTxs := 10
-			preConfirmed := makePreConfirmedWithIncrementingCounter(0, numTxs, contractAddress, storageKey, 0)
-			isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
-			require.NoError(t, err)
-			require.True(t, isWritten)
 
-			for i := range numTxs {
-				pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
-				require.NoError(t, pErr)
-				val, err := pendingState.ContractStorage(contractAddress, storageKey)
+			t.Run("Without Prelatest", func(t *testing.T) {
+				numTxs := 10
+				preConfirmed := makePreConfirmedWithIncrementingCounter(
+					1,
+					numTxs,
+					contractAddress,
+					storageKey,
+					0,
+				)
+				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
 				require.NoError(t, err)
-				expected := new(felt.Felt).SetUint64(uint64(i) + 1)
-				require.Equal(t, expected, val)
-				require.NoError(t, pendingStateCloser())
-			}
+				require.True(t, isWritten)
+
+				for i := range numTxs {
+					pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
+					require.NoError(t, pErr)
+					val, err := pendingState.ContractStorage(contractAddress, storageKey)
+					require.NoError(t, err)
+					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
+					require.Equal(t, expected, val)
+					require.NoError(t, pendingStateCloser())
+				}
+			})
+
+			t.Run("With Prelatest", func(t *testing.T) {
+				storageKey2 := new(felt.Felt).SetUint64(11)
+				val2 := new(felt.Felt).SetUint64(15)
+				preLatestStateDiff := core.EmptyStateDiff()
+
+				preLatestStateDiff.StorageDiffs[*contractAddress] = map[felt.Felt]*felt.Felt{
+					*storageKey2: val2,
+				}
+
+				preLatest := core.PreLatest{
+					Block: &core.Block{Header: &core.Header{Number: 1}},
+					StateUpdate: &core.StateUpdate{
+						StateDiff: &preLatestStateDiff,
+					},
+				}
+
+				numTxs := 11
+				preConfirmed := makePreConfirmedWithIncrementingCounter(
+					2,
+					numTxs,
+					contractAddress,
+					storageKey,
+					0,
+				)
+				preConfirmed.WithPreLatest(&preLatest)
+				isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
+				require.NoError(t, err)
+				require.True(t, isWritten)
+				for i := range numTxs {
+					pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
+					require.NoError(t, pErr)
+					val, err := pendingState.ContractStorage(contractAddress, storageKey)
+					require.NoError(t, err)
+					expected := new(felt.Felt).SetUint64(uint64(i) + 1)
+					require.Equal(t, expected, val)
+
+					val, err = pendingState.ContractStorage(contractAddress, storageKey2)
+					require.NoError(t, err)
+					require.Equal(t, val2, val)
+					require.NoError(t, pendingStateCloser())
+				}
+			})
 		})
 	})
 }
