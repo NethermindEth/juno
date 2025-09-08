@@ -357,49 +357,24 @@ func TestPendingData(t *testing.T) {
 			dataSource := sync.NewFeederGatewayDataSource(chain, gw)
 			synchronizer = sync.New(chain, dataSource, utils.NewNopZapLogger(), 0, 0, false, testDB)
 
-			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-			gw := adaptfeeder.New(client)
-			preConfirmed, err := gw.PreConfirmedBlockByNumber(t.Context(), 1204672)
-			preConfirmed.StateUpdate.OldRoot = &felt.Zero
-			preConfirmed.Block.Number = 0
+			contractAddress, err := new(felt.Felt).SetString("0xFFFFF")
 			require.NoError(t, err)
-			isWritten, err := synchronizer.StorePreConfirmed(&preConfirmed)
+			storageKey := &felt.One
+			numTxs := 10
+			preConfirmed := makePreConfirmedWithIncrementingCounter(0, numTxs, contractAddress, storageKey, 0)
+			isWritten, err := synchronizer.StorePreConfirmed(preConfirmed)
 			require.NoError(t, err)
 			require.True(t, isWritten)
-			txCount := len(preConfirmed.GetTransactions())
 
-			pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(txCount - 1)
-			require.NoError(t, pErr)
-
-			// Check storage value in two different index
-			// See clients/feeder/testdata/sepolia-integration/pre_confirmed/1204672.json
-			contractAddress, err := new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-			require.NoError(t, err)
-			key, err := new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
-			require.NoError(t, err)
-			val, err := pendingState.ContractStorage(contractAddress, key)
-			require.NoError(t, err)
-			expectedVal, err := new(felt.Felt).SetString("0x1d057bfbd3cadebffd74")
-			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
-			t.Cleanup(func() {
+			for i := range numTxs {
+				pendingState, pendingStateCloser, pErr := synchronizer.PendingStateBeforeIndex(i + 1)
+				require.NoError(t, pErr)
+				val, err := pendingState.ContractStorage(contractAddress, storageKey)
+				require.NoError(t, err)
+				expected := new(felt.Felt).SetUint64(uint64(i) + 1)
+				require.Equal(t, expected, val)
 				require.NoError(t, pendingStateCloser())
-			})
-
-			pendingState, pendingStateCloser, pErr = synchronizer.PendingStateBeforeIndex(txCount)
-			require.NoError(t, pErr)
-			contractAddress, err = new(felt.Felt).SetString("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-			require.NoError(t, err)
-			key, err = new(felt.Felt).SetString("0x5496768776e3db30053404f18067d81a6e06f5a2b0de326e21298fd9d569a9a")
-			require.NoError(t, err)
-			val, err = pendingState.ContractStorage(contractAddress, key)
-			require.NoError(t, err)
-			expectedVal, err = new(felt.Felt).SetString("0x1d057bfbd3df63f5dd54")
-			require.NoError(t, err)
-			require.Equal(t, expectedVal, val)
-			t.Cleanup(func() {
-				require.NoError(t, pendingStateCloser())
-			})
+			}
 		})
 	})
 }
@@ -462,4 +437,69 @@ func TestSubscribePending(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, pendingData, pendingBlock)
 	sub.Unsubscribe()
+}
+
+func makePreConfirmedWithIncrementingCounter(
+	blockNumber uint64,
+	numTxs int,
+	contractAddr *felt.Felt,
+	storageKey *felt.Felt,
+	startingNonce uint64,
+) *core.PreConfirmed {
+	transactions := make([]core.Transaction, numTxs)
+	receipts := make([]*core.TransactionReceipt, numTxs)
+	stateDiffs := make([]*core.StateDiff, numTxs)
+
+	for i := range numTxs {
+		transactions[i] = &core.InvokeTransaction{}
+		receipts[i] = &core.TransactionReceipt{}
+
+		// Increment counter value: i+1 (1 for first tx, 2 for second, etc)
+		counterVal := new(felt.Felt).SetUint64(uint64(i + 1))
+
+		// Increment nonce: startingNonce + i + 1
+		nonceVal := new(felt.Felt).SetUint64(startingNonce + uint64(i) + 1)
+
+		// Compose storage diffs map for this tx
+		storageDiffForContract := map[felt.Felt]*felt.Felt{
+			*storageKey: counterVal,
+		}
+
+		stateDiff := &core.StateDiff{
+			StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
+				*contractAddr: storageDiffForContract,
+			},
+			Nonces: map[felt.Felt]*felt.Felt{
+				*contractAddr: nonceVal,
+			},
+			DeployedContracts: make(map[felt.Felt]*felt.Felt),
+			DeclaredV0Classes: make([]*felt.Felt, 0),
+			DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
+			ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+		}
+
+		stateDiffs[i] = stateDiff
+	}
+
+	block := &core.Block{
+		Header: &core.Header{
+			Number:           blockNumber,
+			TransactionCount: uint64(numTxs),
+		},
+		Transactions: transactions,
+		Receipts:     receipts,
+	}
+
+	aggregatedStateDiff := core.EmptyStateDiff()
+	for _, stateDiff := range stateDiffs {
+		aggregatedStateDiff.Merge(stateDiff)
+	}
+
+	return &core.PreConfirmed{
+		Block:                 block,
+		TransactionStateDiffs: stateDiffs,
+		StateUpdate: &core.StateUpdate{
+			StateDiff: &aggregatedStateDiff,
+		},
+	}
 }
