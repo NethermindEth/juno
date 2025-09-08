@@ -19,7 +19,6 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`

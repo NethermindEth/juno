@@ -20,7 +20,6 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-
 type TransactionTrace struct {
 	Type                  TransactionType     `json:"type"`
 	ValidateInvocation    *FunctionInvocation `json:"validate_invocation,omitempty"`
@@ -218,7 +217,7 @@ func (h *Handler) TraceBlockTransactions(
 }
 
 // traceBlockTransactions gets the trace for a block. The block will always be traced locally except
-// on specific case such as with Starknet version 0.13.1 or lower or when it is certain range
+// on specific case such as with Starknet version 0.13.2 or lower or when it is certain range
 func (h *Handler) traceBlockTransactions(
 	ctx context.Context, block *core.Block,
 ) ([]TracedBlockTransaction, http.Header, *jsonrpc.Error) {
@@ -237,7 +236,6 @@ func (h *Handler) traceBlockTransactions(
 				defaultExecutionHeader(),
 				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
 		}
-
 
 		// We rely on the feeder gateway for Starknet version strictly older than "0.13.2"
 		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2)
