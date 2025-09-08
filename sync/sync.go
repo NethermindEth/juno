@@ -724,10 +724,10 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *co
 }
 
 // fetchPreLatest fetches the prelatest block for a given head and forwards the value to preLatestChan.
-// Consumers of preLatestChan will receive each pre-latest once. It is possible for a pre-latest block to 
+// Consumers of preLatestChan will receive each pre-latest once. It is possible for a pre-latest block to
 // be skipped if:
-//  - the pre-latest has already become the latest block of the chain.
-//  - the pre-latest is part of the future of the chain. In this case, it will be cached and served later.
+//   - the pre-latest has already become the latest block of the chain.
+//   - the pre-latest is part of the future of the chain. In this case, it will be cached and served later.
 func (s *Synchronizer) fetchPreLatest(
 	ctx context.Context,
 	head *core.Block,
@@ -800,7 +800,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 	var preLatestWg stdsync.WaitGroup
 	preLatestWg.Go(func() { s.pollPreLatest(ctx, preLatestChan) })
 
-	mostRecentPredecessor := int64(-1)
+	nextPreConfirmedNum := uint64(0)
 	var subCtx context.Context
 	var cancel context.CancelFunc = func() {}
 	var fetchWg stdsync.WaitGroup
@@ -813,11 +813,11 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			preLatestWg.Wait()
 			return
 		case preLatest := <-preLatestChan:
-			if int64(preLatest.Block.Number) <= mostRecentPredecessor {
+			if preLatest.Block.Number+1 <= nextPreConfirmedNum {
 				// already got more recent data
 				continue
 			}
-			mostRecentPredecessor = int64(preLatest.Block.Number)
+			nextPreConfirmedNum = preLatest.Block.Number + 1
 
 			cancel()
 			fetchWg.Wait()
@@ -832,19 +832,19 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			fetchWg.Go(func() {
 				s.fetchAndStorePreConfirmed(
 					subCtx,
-					uint64(mostRecentPredecessor+1),
+					nextPreConfirmedNum,
 					preLatest,
 				)
 			})
 		case head := <-newHeadSub.Recv():
-			if int64(head.Number) <= mostRecentPredecessor {
+			if head.Number+1 <= nextPreConfirmedNum {
 				// already got more recent data for this head
 				continue
 			}
 
 			// Head is more recent than pre-latest,
 			// use head as base and poll for latest + 1
-			mostRecentPredecessor = int64(head.Number)
+			nextPreConfirmedNum = head.Number + 1
 			cancel()
 			fetchWg.Wait()
 			subCtx, cancel = context.WithCancel(ctx)
@@ -857,7 +857,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			fetchWg.Go(func() {
 				s.fetchAndStorePreConfirmed(
 					subCtx,
-					uint64(mostRecentPredecessor+1),
+					nextPreConfirmedNum,
 					nil,
 				)
 			})
