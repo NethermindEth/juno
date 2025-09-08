@@ -3,7 +3,6 @@ package sync
 import (
 	"context"
 	"errors"
-	"fmt"
 	stdsync "sync"
 	"testing"
 	"time"
@@ -15,34 +14,43 @@ import (
 	"github.com/NethermindEth/juno/db/memory"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type MockDataSource struct {
 	DataSource
 
-	errorThreshold uint
-	numCalls       uint
+	pendingErrorThreshold      uint
+	preConfirmedErrorThreshold uint
+	numCallsPreConfirmed       uint
+	numCallsPending            uint
+	PendingFunc                func(ctx context.Context) (core.Pending, error)
 }
 
 // Override BlockPending
 func (m *MockDataSource) BlockPending(ctx context.Context) (core.Pending, error) {
-	m.numCalls += 1
-	if m.numCalls <= m.errorThreshold {
+	m.numCallsPending += 1
+	if m.numCallsPending <= m.pendingErrorThreshold {
 		return core.Pending{}, errors.New("some error")
 	}
 	// fallback to embedded real method if no override set
+	if m.PendingFunc != nil {
+		return m.PendingFunc(ctx)
+	}
 	return m.DataSource.BlockPending(ctx)
 }
 
 // Override PreConfirmedBlockByNumber
 func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number uint64) (core.PreConfirmed, error) {
-	m.numCalls += 1
-	if m.numCalls <= m.errorThreshold {
+	m.numCallsPreConfirmed += 1
+	if m.numCallsPreConfirmed <= m.preConfirmedErrorThreshold {
 		return core.PreConfirmed{}, errors.New("some error")
 	}
-	return m.DataSource.PreConfirmedBlockByNumber(ctx, number)
+
+	preConfirmed := makeTestPreConfirmed(number)
+	preConfirmed.Block.TransactionCount = number%10 + uint64(m.numCallsPreConfirmed)/2
+
+	return preConfirmed, nil
 }
 
 func TestFetchPreLatest(t *testing.T) {
@@ -71,13 +79,13 @@ func TestFetchPreLatest(t *testing.T) {
 		select {
 		case got := <-ch:
 			require.NotNil(t, got)
-			assert.Equal(t, head.Number+1, got.Block.Number, "pre-latest number should be head.Number+1")
-			assert.NotNil(t, got.Block.ParentHash)
-			assert.Equal(t, *head.Hash, *got.Block.ParentHash, "parent hash should match head hash")
+			require.Equal(t, head.Number+1, got.Block.Number, "pre-latest number should be head.Number+1")
+			require.NotNil(t, got.Block.ParentHash)
+			require.Equal(t, *head.Hash, *got.Block.ParentHash, "parent hash should match head hash")
 		default:
 			t.Fatal("expected pre-latest")
 		}
-		assert.Empty(t, seen, "cache should remove entry when parent matches")
+		require.Empty(t, seen, "cache should remove entry when parent matches")
 	})
 
 	t.Run("Cache future PreLatest emit on parent head", func(t *testing.T) {
@@ -113,18 +121,18 @@ func TestFetchPreLatest(t *testing.T) {
 		select {
 		case got := <-ch:
 			require.NotNil(t, got)
-			assert.Equal(t, latest.Number+1, got.Block.Number, "cached pre-latest number should be adjusted to parent head+1")
+			require.Equal(t, latest.Number+1, got.Block.Number, "cached pre-latest number should be adjusted to parent head+1")
 		default:
 			t.Fatal("expected cached pre-latest to be forwarded when its parent head arrives")
 		}
-		assert.Empty(t, seen, "cache should be empty after emitting cached pre-latest")
+		require.Empty(t, seen, "cache should be empty after emitting cached pre-latest")
 	})
 
 	t.Run("Retry on error then success", func(t *testing.T) {
 		head, err := gw.BlockLatest(t.Context())
 		require.NoError(t, err)
 
-		mockDataSource := MockDataSource{DataSource: dataSource, errorThreshold: 2}
+		mockDataSource := MockDataSource{DataSource: dataSource, pendingErrorThreshold: 2}
 		s := New(bc, &mockDataSource, log, 50*time.Millisecond, 0, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
@@ -138,8 +146,8 @@ func TestFetchPreLatest(t *testing.T) {
 		select {
 		case got := <-ch:
 			require.NotNil(t, got)
-			assert.GreaterOrEqual(t, mockDataSource.numCalls, uint(3), "expected at least 3 attempts (2 errors + 1 success)")
-			assert.Equal(t, head.Number+1, got.Block.Number)
+			require.GreaterOrEqual(t, mockDataSource.numCallsPending, uint(3), "expected at least 3 attempts (2 errors + 1 success)")
+			require.Equal(t, head.Number+1, got.Block.Number)
 		default:
 			t.Fatal("expected pre-latest")
 		}
@@ -149,7 +157,7 @@ func TestFetchPreLatest(t *testing.T) {
 		head, err := gw.BlockLatest(t.Context())
 		require.NoError(t, err)
 
-		mockDataSource := MockDataSource{DataSource: dataSource, errorThreshold: ^uint(0)}
+		mockDataSource := MockDataSource{DataSource: dataSource, pendingErrorThreshold: ^uint(0)}
 		s := New(bc, &mockDataSource, log, 50*time.Millisecond, 0, false, testDB)
 		s.highestBlockHeader.Store(head.Header)
 
@@ -233,8 +241,8 @@ func TestFetchAndStorePreConfirmed(t *testing.T) {
 
 	t.Run("Error waiting case: retry until success", func(t *testing.T) {
 		mockDataSource := &MockDataSource{
-			DataSource:     dataSource,
-			errorThreshold: 2,
+			DataSource:                 dataSource,
+			preConfirmedErrorThreshold: 2,
 		}
 		s := New(bc, mockDataSource, log, 0, 50*time.Millisecond, false, testDB)
 
@@ -255,7 +263,7 @@ func TestFetchAndStorePreConfirmed(t *testing.T) {
 			require.NotNil(t, pending, "Should receive a pendingData broadcast")
 			require.Equal(t, preConfirmedBlockNumber, pending.GetBlock().Number)
 			// Should call PreConfirmedBlockByNumber at least errorThreshold+1 times (retries then success)
-			require.GreaterOrEqual(t, mockDataSource.numCalls, uint(3))
+			require.GreaterOrEqual(t, mockDataSource.numCallsPreConfirmed, uint(3))
 			require.Equal(t, pending, *s.pendingData.Load())
 		case <-ctx.Done():
 			t.Fatal("Did not receive pendingData in time (error case with retries)")
@@ -266,8 +274,8 @@ func TestFetchAndStorePreConfirmed(t *testing.T) {
 
 	t.Run("respect context cancel", func(t *testing.T) {
 		mockDataSource := &MockDataSource{
-			DataSource:     dataSource,
-			errorThreshold: ^uint(0), // never stop erroring
+			DataSource:                 dataSource,
+			preConfirmedErrorThreshold: ^uint(0), // never stop erroring
 		}
 		s := New(bc, mockDataSource, log, 0, 50*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(&core.Header{Number: preConfirmedBlockNumber - 1})
@@ -281,7 +289,7 @@ func TestFetchAndStorePreConfirmed(t *testing.T) {
 
 		wg.Wait()
 		// Expect lots of calls, but no panics and returns after cancel
-		require.GreaterOrEqual(t, mockDataSource.numCalls, uint(1), "Should have retried at least once")
+		require.GreaterOrEqual(t, mockDataSource.numCallsPreConfirmed, uint(1), "Should have retried at least once")
 	})
 }
 
@@ -303,10 +311,10 @@ func TestStorePreConfirmed(t *testing.T) {
 		t.Run("head is nil", func(t *testing.T) {
 			written, err := s.StorePreConfirmed(preConfirmed)
 			require.NoError(t, err)
-			assert.True(t, written)
+			require.True(t, written)
 			ptr := s.pendingData.Load()
 			require.NotNil(t, ptr)
-			assert.Equal(t, preConfirmed, *ptr)
+			require.Equal(t, preConfirmed, *ptr)
 		})
 
 		head, err := gw.BlockByNumber(t.Context(), 0)
@@ -326,7 +334,7 @@ func TestStorePreConfirmed(t *testing.T) {
 
 			written, err := s.StorePreConfirmed(preConfirmed)
 			require.Error(t, err)
-			assert.False(t, written)
+			require.False(t, written)
 		})
 	})
 
@@ -339,7 +347,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		}
 		written, err := s.StorePreConfirmed(pc)
 		require.Error(t, err)
-		assert.False(t, written)
+		require.False(t, written)
 	})
 
 	t.Run("overwrites if existing pending is invalid", func(t *testing.T) {
@@ -359,7 +367,7 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		written, err := s.StorePreConfirmed(pc)
 		require.NoError(t, err)
-		assert.True(t, written)
+		require.True(t, written)
 	})
 
 	t.Run("ignores pre_confirmed with fewer or equal txs for the same block number", func(t *testing.T) {
@@ -378,7 +386,7 @@ func TestStorePreConfirmed(t *testing.T) {
 
 		written, err := s.StorePreConfirmed(better)
 		require.NoError(t, err)
-		assert.True(t, written)
+		require.True(t, written)
 		// Attempt to store worse
 		worse := &core.PreConfirmed{
 			Block: &core.Block{
@@ -391,9 +399,9 @@ func TestStorePreConfirmed(t *testing.T) {
 		}
 		written, err = s.StorePreConfirmed(worse)
 		require.NoError(t, err)
-		assert.False(t, written)
+		require.False(t, written)
 		ptr := s.pendingData.Load()
-		assert.Equal(t, better, *ptr)
+		require.Equal(t, better, *ptr)
 	})
 
 	t.Run("accepts pre_confirmed with more txs for same block number", func(t *testing.T) {
@@ -412,9 +420,9 @@ func TestStorePreConfirmed(t *testing.T) {
 		}
 		written, err := s.StorePreConfirmed(worse)
 		require.NoError(t, err)
-		assert.True(t, written)
+		require.True(t, written)
 		ptr := s.pendingData.Load()
-		assert.Equal(t, worse, *ptr)
+		require.Equal(t, worse, *ptr)
 
 		better := &core.PreConfirmed{
 			Block: &core.Block{
@@ -427,9 +435,9 @@ func TestStorePreConfirmed(t *testing.T) {
 		}
 		written, err = s.StorePreConfirmed(better)
 		require.NoError(t, err)
-		assert.True(t, written)
+		require.True(t, written)
 		ptr = s.pendingData.Load()
-		assert.Equal(t, better, *ptr)
+		require.Equal(t, better, *ptr)
 	})
 }
 
@@ -444,7 +452,7 @@ func TestPollPreLatest(t *testing.T) {
 	s := New(bc, dataSource, log, 50*time.Millisecond, time.Second, false, testDB)
 	s.highestBlockHeader.Store(&core.Header{Number: 0})
 	preLatestCh := make(chan *core.PreLatest, 2)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
 	var wg stdsync.WaitGroup
@@ -453,14 +461,14 @@ func TestPollPreLatest(t *testing.T) {
 	})
 	defer wg.Wait()
 
-	head, err := gw.BlockLatest(context.Background())
+	head, err := gw.BlockLatest(t.Context())
 	require.NoError(t, err)
 	s.newHeads.Send(head)
 
 	select {
 	case pre := <-preLatestCh:
-		assert.NotNil(t, pre)
-		assert.Equal(t, head.Number+1, pre.Block.Number)
+		require.NotNil(t, pre)
+		require.Equal(t, head.Number+1, pre.Block.Number)
 	case <-ctx.Done():
 		t.Fatal("did not emit preLatest on head")
 	}
@@ -472,42 +480,141 @@ func TestPollPreConfirmed(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Sepolia)
 	gw := adaptfeeder.New(client)
 	dataSource := NewFeederGatewayDataSource(bc, gw)
-	log := utils.NewNopZapLogger()
-	s := New(bc, dataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 
-	t.Run("on new head stores/broadcasts pre_confirmed", func(t *testing.T) {
-		head, err := gw.BlockByNumber(t.Context(), 0)
+	pendingFunc := func(context.Context) (core.Pending, error) {
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+		return makeTestPendingForParent(head), nil
+	}
+
+	log := utils.NewNopZapLogger()
+	mockDataSource := &MockDataSource{
+		DataSource:            dataSource,
+		PendingFunc:           pendingFunc,
+		pendingErrorThreshold: 5, // introduce delay to receive pre_confirmed for head
+	}
+	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
+
+	fetchStoreBlock := func(t *testing.T, blockNumber uint64) *core.Block {
+		t.Helper()
+		block, err := gw.BlockByNumber(t.Context(), blockNumber)
 		require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
+		stateUpdate0, err := gw.StateUpdate(t.Context(), blockNumber)
 		require.NoError(t, err)
 		require.NoError(t, bc.Store(
-			head,
+			block,
 			&core.BlockCommitments{},
 			stateUpdate0,
 			map[felt.Felt]core.Class{},
 		))
-		s.highestBlockHeader.Store(head.Header)
+		s.highestBlockHeader.Store(block.Header)
+		return block
+	}
 
-		sub := s.SubscribePendingData()
-		defer sub.Unsubscribe()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		var wg stdsync.WaitGroup
-		wg.Go(func() {
-			s.pollPreConfirmed(ctx)
-		})
-		defer wg.Wait()
-		time.Sleep(50 * time.Millisecond)
-		s.newHeads.Send(head)
-
-		select {
-		case preConfirmed := <-sub.Recv():
-			fmt.Printf("TEST preConfirmed.GetBlock().Number: %v\n", preConfirmed.GetBlock().Number)
-			require.NotNil(t, preConfirmed)
-			require.Equal(t, uint64(1), preConfirmed.GetBlock().Number)
-		case <-ctx.Done():
-			t.Fatal("did not broadcast preConfirmed state")
-		}
+	sub := s.pendingDataFeed.SubscribeKeepLast()
+	defer sub.Unsubscribe()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	var wg stdsync.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
+		s.pollPreConfirmed(ctx)
 	})
+	time.Sleep(50 * time.Millisecond)
+	head := fetchStoreBlock(t, 0)
+	s.newHeads.Send(head)
+
+	// receive pre_confirmed for head
+	select {
+	case preConfirmed := <-sub.Recv():
+		require.NotNil(t, preConfirmed)
+		require.Equal(t, uint64(1), preConfirmed.GetBlock().Number)
+	case <-ctx.Done():
+		t.Fatal("did not broadcast preConfirmed")
+	}
+
+	time.Sleep(300 * time.Millisecond)
+	// receive pre_confirmed for pre_latest
+	select {
+	case preConfirmed := <-sub.Recv():
+		require.NotNil(t, preConfirmed)
+		require.Equal(t, uint64(2), preConfirmed.GetBlock().Number)
+	case <-ctx.Done():
+		t.Fatal("did not broadcast preConfirmed")
+	}
+}
+
+func makeTestPreConfirmed(num uint64) core.PreConfirmed {
+	receipts := make([]*core.TransactionReceipt, 0)
+	preConfirmedBlock := &core.Block{
+		// pre_confirmed block does not have parent hash
+		Header: &core.Header{
+			SequencerAddress: &felt.One,
+			Number:           num,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  core.Ver0_14_0.String(),
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    feltOne,
+			L1GasPriceSTRK:   feltOne,
+			L2GasPrice: &core.GasPrice{
+				PriceInWei: feltOne,
+				PriceInFri: feltOne,
+			},
+			L1DataGasPrice: &core.GasPrice{
+				PriceInWei: feltOne,
+				PriceInFri: feltOne,
+			},
+			L1DAMode: core.Blob,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff := core.EmptyStateDiff()
+	preConfirmed := core.PreConfirmed{
+		Block: preConfirmedBlock,
+		StateUpdate: &core.StateUpdate{
+			StateDiff: &stateDiff,
+		},
+		NewClasses:            make(map[felt.Felt]core.Class, 0),
+		TransactionStateDiffs: make([]*core.StateDiff, 0),
+		CandidateTxs:          make([]core.Transaction, 0),
+	}
+
+	return preConfirmed
+}
+
+func makeTestPendingForParent(parent *core.Header) core.Pending {
+	receipts := make([]*core.TransactionReceipt, 0)
+	pendingBlock := &core.Block{
+		Header: &core.Header{
+			ParentHash:       parent.Hash,
+			SequencerAddress: parent.SequencerAddress,
+			Number:           parent.Number + 1,
+			Timestamp:        uint64(time.Now().Unix()),
+			ProtocolVersion:  core.Ver0_14_0.String(),
+			EventsBloom:      core.EventsBloom(receipts),
+			L1GasPriceETH:    parent.L1GasPriceETH,
+			L1GasPriceSTRK:   parent.L1GasPriceSTRK,
+			L2GasPrice:       parent.L2GasPrice,
+			L1DataGasPrice:   parent.L1DataGasPrice,
+			L1DAMode:         parent.L1DAMode,
+		},
+		Transactions: make([]core.Transaction, 0),
+		Receipts:     receipts,
+	}
+
+	stateDiff := core.EmptyStateDiff()
+
+	pending := core.Pending{
+		Block: pendingBlock,
+		StateUpdate: &core.StateUpdate{
+			OldRoot:   parent.GlobalStateRoot,
+			StateDiff: &stateDiff,
+		},
+		NewClasses: make(map[felt.Felt]core.Class, 0),
+	}
+
+	return pending
 }
