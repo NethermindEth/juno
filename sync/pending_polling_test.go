@@ -495,22 +495,18 @@ func TestPollPreConfirmed(t *testing.T) {
 	}
 	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 
-	fetchStoreBlock := func(t *testing.T, blockNumber uint64) *core.Block {
-		t.Helper()
-		block, err := gw.BlockByNumber(t.Context(), blockNumber)
-		require.NoError(t, err)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NoError(t, bc.Store(
-			block,
-			&core.BlockCommitments{},
-			stateUpdate0,
-			map[felt.Felt]core.Class{},
-		))
-		s.highestBlockHeader.Store(block.Header)
-		return block
-	}
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+	require.NoError(t, bc.Store(
+		block0,
+		&core.BlockCommitments{},
+		stateUpdate0,
+		map[felt.Felt]core.Class{},
+	))
+	s.highestBlockHeader.Store(block0.Header)
 
 	sub := s.pendingDataFeed.SubscribeKeepLast()
 	defer sub.Unsubscribe()
@@ -522,8 +518,8 @@ func TestPollPreConfirmed(t *testing.T) {
 		s.pollPreConfirmed(ctx)
 	})
 	time.Sleep(50 * time.Millisecond)
-	head := fetchStoreBlock(t, 0)
-	s.newHeads.Send(head)
+
+	s.newHeads.Send(block0)
 
 	// receive pre_confirmed for head
 	select {
@@ -566,24 +562,19 @@ func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 	}
 	s := New(bc, mockDataSource, log, 50*time.Millisecond, 50*time.Millisecond, false, testDB)
 
-	fetchStoreBlock := func(t *testing.T, blockNumber uint64) *core.Block {
-		t.Helper()
-		block, err := gw.BlockByNumber(t.Context(), blockNumber)
-		require.NoError(t, err)
+	block0, err := gw.BlockByNumber(t.Context(), 0)
+	require.NoError(t, err)
 
-		stateUpdate0, err := gw.StateUpdate(t.Context(), blockNumber)
-		require.NoError(t, err)
-		require.NoError(t, bc.Store(
-			block,
-			&core.BlockCommitments{},
-			stateUpdate0,
-			map[felt.Felt]core.Class{},
-		))
-		s.highestBlockHeader.Store(block.Header)
-		return block
-	}
+	stateUpdate0, err := gw.StateUpdate(t.Context(), 0)
+	require.NoError(t, err)
+	require.NoError(t, bc.Store(
+		block0,
+		&core.BlockCommitments{},
+		stateUpdate0,
+		map[felt.Felt]core.Class{},
+	))
+	s.highestBlockHeader.Store(block0.Header)
 
-	head := fetchStoreBlock(t, 0)
 	sub := s.pendingDataFeed.SubscribeKeepLast()
 	defer sub.Unsubscribe()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -594,7 +585,7 @@ func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
 		s.pollPendingData(ctx)
 	})
 	time.Sleep(100 * time.Millisecond)
-	s.newHeads.Send(head)
+	s.newHeads.Send(block0)
 	// wait for pre_latest
 	time.Sleep(100 * time.Millisecond)
 	// receive pre_confirmed for head
