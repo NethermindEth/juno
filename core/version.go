@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -15,14 +17,28 @@ var (
 // ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
 func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	if protocolVersion == "" {
-		return semver.NewVersion("0.0.0")
+		return semver.New(0, 0, 0, "", ""), nil
 	}
 
-	sep := "."
-	digits := strings.Split(protocolVersion, sep)
-	// pad with 3 zeros in case version has less than 3 digits
-	digits = append(digits, []string{"0", "0", "0"}...)
+	const sep = "."
+	parts := strings.Split(protocolVersion, sep)
 
-	// get first 3 digits only
-	return semver.NewVersion(strings.Join(digits[:3], sep))
+	var patchValues [3]uint64
+	var err error
+	for i := range min(len(patchValues), len(parts)) {
+		patchValues[i], err = strconv.ParseUint(parts[i], 10, 64)
+		if err != nil {
+			return nil, 
+				fmt.Errorf("cannot parse starknet protocol version \"%s\": %s", protocolVersion, err)
+		}
+	}
+
+	return semver.New(patchValues[0], patchValues[1], patchValues[2], "", ""), nil
+}
+
+func min(a int, b int) int {
+	if a > b {
+		return b
+	}
+	return a
 }

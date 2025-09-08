@@ -23,6 +23,7 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+
 func TestBlockIDMarshalling(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
@@ -111,6 +112,8 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	latestBlockNumber := uint64(56377)
 	latestBlock, err := gw.BlockByNumber(t.Context(), latestBlockNumber)
+
+
 	require.NoError(t, err)
 	latestBlockHash := latestBlock.Hash
 	expectedCount := latestBlock.TransactionCount
