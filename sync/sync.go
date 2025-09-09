@@ -614,30 +614,22 @@ func (s *Synchronizer) pollPending(ctx context.Context) {
 	}
 	pendingPollTicker := time.NewTicker(s.pendingPollInterval)
 
-	ctx, cancel := context.WithCancel(ctx)
-	wg := &stdsync.WaitGroup{}
 	for {
 		select {
 		case <-ctx.Done():
 			pendingPollTicker.Stop()
-			cancel()
-			wg.Wait()
 			return
 		case <-pendingPollTicker.C:
-			wg.Wait()
-			wg.Go(func() {
-				err := s.fetchAndStorePending(ctx)
-				if err != nil {
-					if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
-						s.log.Infow(
-							"Detected block version >= 0.14.0; polling for pre_confirmed blocks",
-						)
-						cancel()
-						return
-					}
-					s.log.Debugw("Error while trying to poll pending block", "err", err)
+			err := s.fetchAndStorePending(ctx)
+			if err != nil {
+				if errors.Is(err, ErrMustSwitchPollingPreConfirmed) {
+					s.log.Infow(
+						"Detected block version >= 0.14.0; polling for pre_confirmed blocks",
+					)
+					return
 				}
-			})
+				s.log.Debugw("Error while trying to poll pending block", "err", err)
+			}
 		}
 	}
 }
@@ -689,6 +681,7 @@ func (s *Synchronizer) fetchAndStorePending(ctx context.Context) error {
 //
 // Consumer of preLatestChan never receives the same preLatest twice.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *core.PreLatest) {
+	defer close(preLatestChan)
 	if s.pendingPollInterval == time.Duration(0) {
 		s.log.Infow("Pre-latest block polling is disabled")
 		return
@@ -706,19 +699,15 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, preLatestChan chan *co
 
 	var subCtx context.Context
 	var cancel context.CancelFunc = func() {}
-	var fetchWg stdsync.WaitGroup
-
 	for {
 		select {
 		case <-ctx.Done():
 			cancel()
-			fetchWg.Wait()
 			return
 		case head := <-newHeadSub.Recv():
 			cancel()
-			fetchWg.Wait()
 			subCtx, cancel = context.WithCancel(ctx)
-			fetchWg.Go(func() { s.fetchPreLatest(subCtx, head, seenBlockHashes, preLatestChan) })
+			go s.fetchPreLatest(subCtx, head, seenBlockHashes, preLatestChan)
 		}
 	}
 }
@@ -757,30 +746,34 @@ func (s *Synchronizer) fetchPreLatest(
 
 	for {
 		pending, err := s.dataSource.BlockPending(ctx)
-		if err == nil {
-			preLatest := core.PreLatest(pending)
-			// Seen future hash, new latest is on flight
-			// Cache the pre-latest to use when its predecessor is available
-			if *preLatest.Block.ParentHash != *head.Hash {
-				seenBlockHashes[*preLatest.Block.ParentHash] = &preLatest
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
 				return
 			}
 
-			preLatest.Block.Number = head.Number + 1
+			s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
 			select {
 			case <-ctx.Done():
 				return
-			case preLatestChan <- &preLatest:
-				return
+			case <-preLatestPollTicker.C:
+				continue
 			}
 		}
 
-		s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
+		preLatest := core.PreLatest(pending)
+		// Seen future hash, new latest is on flight
+		// Cache the pre-latest to use when its predecessor is available
+		if *preLatest.Block.ParentHash != *head.Hash {
+			seenBlockHashes[*preLatest.Block.ParentHash] = &preLatest
+			return
+		}
+
+		preLatest.Block.Number = head.Number + 1
 		select {
 		case <-ctx.Done():
 			return
-		case <-preLatestPollTicker.C:
-			continue
+		case preLatestChan <- &preLatest:
+			return
 		}
 	}
 }
@@ -796,9 +789,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 	defer newHeadSub.Unsubscribe()
 
 	preLatestChan := make(chan *core.PreLatest)
-	defer close(preLatestChan)
-	var preLatestWg stdsync.WaitGroup
-	preLatestWg.Go(func() { s.pollPreLatest(ctx, preLatestChan) })
+	go s.pollPreLatest(ctx, preLatestChan)
 
 	nextPreConfirmedNum := uint64(0)
 	var subCtx context.Context
@@ -810,7 +801,6 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 		case <-ctx.Done():
 			cancel()
 			fetchWg.Wait()
-			preLatestWg.Wait()
 			return
 		case preLatest := <-preLatestChan:
 			if preLatest.Block.Number+1 <= nextPreConfirmedNum {
@@ -826,7 +816,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			// Store new preLatest as base and serve most recent state till pre_confirmed is fetched.
 			// No-op if actual preConfirmed is more recent.
 			if err := s.storeEmptyPreConfirmed(preLatest.Block.Header, preLatest); err != nil {
-				s.log.Debugw("Error while storing empty pre_confirmed", "error", err)
+				s.log.Debugw("Error while storing empty pre_confirmed", "err", err)
 			}
 
 			fetchWg.Go(func() {
@@ -851,7 +841,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context) {
 			// Store new head as base and serve most recent state till pre_confirmed is fetched.
 			// No-op if actual preConfirmed is more recent.
 			if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-				s.log.Debugw("Error while storing empty pre_confirmed", "error", err)
+				s.log.Debugw("Error while storing empty pre_confirmed", "err", err)
 			}
 
 			fetchWg.Go(func() {
@@ -902,7 +892,6 @@ func (s *Synchronizer) fetchAndStorePreConfirmed(
 
 		select {
 		case <-ctx.Done():
-			preConfirmedPollTicker.Stop()
 			return
 		case <-preConfirmedPollTicker.C:
 			continue
