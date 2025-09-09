@@ -790,7 +790,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	return NewPendingState(pending.GetStateUpdate().StateDiff, pending.GetNewClasses(), core.NewState(txn)), noop, nil
 }
 
-// PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
+// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
 // up to given index in the pre-confirmed block.
 func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, func() error, error) {
 	txn := s.db.NewIndexedBatch()
