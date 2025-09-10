@@ -25,6 +25,7 @@ type (
 	MessageHeader = types.MessageHeader[Address]
 
 	Action             = actions.Action[Value, Hash, Address]
+	WriteWAL           = actions.WriteWAL[Value, Hash, Address]
 	BroadcastProposal  = actions.BroadcastProposal[Value, Hash, Address]
 	BroadcastPrevote   = actions.BroadcastPrevote[Hash, Address]
 	BroadcastPrecommit = actions.BroadcastPrecommit[Hash, Address]

@@ -1,9 +1,6 @@
 package tendermint
 
 import (
-	"fmt"
-
-	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
@@ -28,26 +25,21 @@ type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A type
 
 //go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
-	ReplayWAL()
 	ProcessStart(types.Round) []actions.Action[V, H, A]
 	ProcessTimeout(types.Timeout) []actions.Action[V, H, A]
 	ProcessProposal(*types.Proposal[V, H, A]) []actions.Action[V, H, A]
 	ProcessPrevote(*types.Prevote[H, A]) []actions.Action[V, H, A]
 	ProcessPrecommit(*types.Precommit[H, A]) []actions.Action[V, H, A]
+	ProcessWAL(wal.Entry[V, H, A]) []actions.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	db         db.TendermintDB[V, H, A]
-	log        utils.Logger
-	replayMode bool
-
-	nodeAddr A
-
-	state state[V, H] // Todo: Does state need to be protected?
-
-	voteCounter votecounter.VoteCounter[V, H, A]
-
-	application Application[V, H]
+	log             utils.Logger
+	nodeAddr        A
+	state           state[V, H] // Todo: Does state need to be protected?
+	voteCounter     votecounter.VoteCounter[V, H, A]
+	application     Application[V, H]
+	isHeightStarted bool
 }
 
 type state[V types.Hashable[H], H types.Hash] struct {
@@ -67,7 +59,6 @@ type state[V types.Hashable[H], H types.Hash] struct {
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
-	db db.TendermintDB[V, H, A],
 	log utils.Logger,
 	nodeAddr A,
 	app Application[V, H],
@@ -75,7 +66,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	height types.Height,
 ) StateMachine[V, H, A] {
 	return &stateMachine[V, H, A]{
-		db:       db,
 		log:      log,
 		nodeAddr: nodeAddr,
 		state: state[V, H]{
@@ -104,10 +94,6 @@ func (s *stateMachine[V, H, A]) resetState(round types.Round) {
 }
 
 func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A] {
-	if err := s.db.Flush(); err != nil {
-		s.log.Fatalf("failed to flush WAL at start of round", "height", s.state.height, "round", r, "err", err)
-	}
-
 	s.resetState(r)
 
 	if p := s.voteCounter.Proposer(r); p == s.nodeAddr {
@@ -118,9 +104,6 @@ func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A
 			proposalValue = utils.HeapPtr(s.application.Value())
 		}
 		actions := s.sendProposal(proposalValue)
-		if err := s.db.Flush(); err != nil {
-			s.log.Fatalf("failed to flush WAL when proposing a new block", "height", s.state.height, "round", r, "err", err)
-		}
 		return actions
 	} else {
 		return s.scheduleTimeout(types.StepPropose)
@@ -137,17 +120,6 @@ func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) actions.Action[V, 
 	)
 }
 
-// - Messages from past heights are ignored.
-// - All messages from current and future heights are stored, but only processed when the height is the current height.
-func (s *stateMachine[V, H, A]) preprocessMessage(header types.MessageHeader[A], addMessage func()) bool {
-	if header.Height < s.state.height || header.Round < 0 {
-		return false
-	}
-
-	addMessage()
-	return header.Height == s.state.height
-}
-
 func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H, A] {
 	proposal := s.voteCounter.GetProposal(r)
 	if proposal == nil {
@@ -159,37 +131,4 @@ func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 		Valid:    s.application.Valid(*proposal.Value),
 		ID:       utils.HeapPtr((*proposal.Value).Hash()),
 	}
-}
-
-// ReplayWAL replays all WAL (Write-Ahead Log) messages for the current block height
-// from persistent storage and applies them to the internal state. This is used for
-// recovering consensus state after a crash or restart.
-//
-// ReplayWAL must not trigger any external effects such as broadcasting messages or
-// scheduling timeouts. It is strictly a state recovery mechanism.
-//
-// Panics if the replaying the messages fails for whatever reason.
-func (s *stateMachine[V, H, A]) ReplayWAL() {
-	s.replayMode = true
-	for walEntry, err := range s.db.LoadAllEntries() {
-		// TODO: panic here is wrong, but this will be rewritten in the next PR.
-		if err != nil {
-			panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
-		}
-
-		switch walEntry := walEntry.(type) {
-		case *wal.WALProposal[V, H, A]:
-			s.ProcessProposal((*types.Proposal[V, H, A])(walEntry))
-		case *wal.WALPrevote[H, A]:
-			s.ProcessPrevote((*types.Prevote[H, A])(walEntry))
-		case *wal.WALPrecommit[H, A]:
-			s.ProcessPrecommit((*types.Precommit[H, A])(walEntry))
-		case *wal.WALTimeout:
-			s.ProcessTimeout(types.Timeout(*walEntry))
-		default:
-			// TODO: panic here is wrong, but this will be rewritten in the next PR.
-			panic("Failed to replay WAL messages, unknown WAL Entry type")
-		}
-	}
-	s.replayMode = false
 }
