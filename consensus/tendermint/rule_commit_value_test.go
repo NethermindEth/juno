@@ -16,16 +16,19 @@ func TestCommitValue(t *testing.T) {
 		committedValue := value(10)
 
 		currentRound.start().expectActions(
+			currentRound.action().writeWALStart(),
 			currentRound.action().scheduleTimeout(types.StepPropose),
 		)
 		currentRound.validator(0).precommit(&committedValue)
 		currentRound.validator(1).precommit(&committedValue)
 		currentRound.validator(2).precommit(&committedValue).expectActions(
+			currentRound.action().writeWALPrecommit(2, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
 		)
 		assert.True(t, stateMachine.state.timeoutPrecommitScheduled)
 
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
+			currentRound.action().writeWALProposal(0, committedValue, -1),
 			currentRound.action().broadcastPrevote(&committedValue),
 			currentRound.action().commit(committedValue, types.Round(-1), 0),
 		)
@@ -35,6 +38,7 @@ func TestCommitValue(t *testing.T) {
 		stateMachine.voteCounter.AssertEmpty(t)
 
 		nextRound.start().expectActions(
+			nextRound.action().writeWALStart(),
 			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
@@ -48,6 +52,7 @@ func TestCommitValue(t *testing.T) {
 		committedValue := value(10)
 
 		currentRound.start().expectActions(
+			currentRound.action().writeWALStart(),
 			currentRound.action().scheduleTimeout(types.StepPropose),
 		)
 
@@ -55,6 +60,7 @@ func TestCommitValue(t *testing.T) {
 		currentRound.validator(0).proposal(committedValue, -1)
 		currentRound.validator(1).precommit(&committedValue)
 		currentRound.validator(2).precommit(&committedValue).expectActions(
+			currentRound.action().writeWALPrecommit(2, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
 			currentRound.action().commit(committedValue, types.Round(-1), 0),
 		)
@@ -64,6 +70,7 @@ func TestCommitValue(t *testing.T) {
 		stateMachine.voteCounter.AssertEmpty(t)
 
 		nextRound.start().expectActions(
+			nextRound.action().writeWALStart(),
 			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
