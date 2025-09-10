@@ -23,6 +23,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Receives proposal, go straight to precommit
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
+			currentRound.action().writeWALProposal(0, committedValue, -1),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrevote(&committedValue),
 			currentRound.action().broadcastPrecommit(&committedValue),
@@ -44,30 +45,39 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Proposal timeout
 		currentRound.processTimeout(types.StepPropose).expectActions(
+			currentRound.action().writeWALTimeout(types.StepPropose),
 			currentRound.action().broadcastPrevote(nil),
 		)
 
 		// Prevotes are collected
-		currentRound.validator(1).prevote(&committedValue).expectActions()
+		currentRound.validator(1).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(1, &committedValue),
+		)
 		currentRound.validator(2).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(2, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
 		)
 		currentRound.processTimeout(types.StepPrevote).expectActions(
+			currentRound.action().writeWALTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(nil),
 		)
-		currentRound.validator(0).prevote(&committedValue).expectActions()
+		currentRound.validator(0).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(0, &committedValue),
+		)
 
 		// Receives precommits, this rule shouldn't block the commit value rule
 		currentRound.validator(1).precommit(&committedValue)
 		currentRound.validator(2).precommit(&committedValue)
 		currentRound.validator(0).precommit(&committedValue)
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
+			currentRound.action().writeWALProposal(0, committedValue, -1),
 			currentRound.action().commit(committedValue, -1, 0),
 		)
 
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
 
 		nextRound.start().expectActions(
+			nextRound.action().writeWALStart(),
 			nextRound.action().scheduleTimeout(types.StepPropose),
 		)
 		assertState(t, stateMachine, types.Height(1), types.Round(0), types.StepPropose)
@@ -84,14 +94,17 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Prevotes are collected but not proposal
 		currentRound.processTimeout(types.StepPropose).expectActions(
+			currentRound.action().writeWALTimeout(types.StepPropose),
 			currentRound.action().broadcastPrevote(nil),
 		)
 		currentRound.validator(2).prevote(&committedValue)
 		currentRound.validator(3).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(3, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
 		)
 
 		currentRound.processTimeout(types.StepPrevote).expectActions(
+			currentRound.action().writeWALTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(nil),
 		)
 
@@ -99,7 +112,9 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		currentRound.validator(0).proposal(committedValue, -1)
 
 		// Line 36 is triggered, record valid value and round but don't broadcast precommit
-		currentRound.validator(0).prevote(&committedValue).expectActions()
+		currentRound.validator(0).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(0, &committedValue),
+		)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 		assert.Equal(t, &committedValue, stateMachine.state.validValue)
 		assert.Equal(t, types.Round(0), stateMachine.state.validRound)
@@ -107,9 +122,11 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		// Use valid value on next round
 		currentRound.validator(2).precommit(&committedValue)
 		currentRound.validator(3).precommit(&committedValue).expectActions(
+			currentRound.action().writeWALPrecommit(3, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrecommit),
 		)
 		currentRound.processTimeout(types.StepPrecommit).expectActions(
+			currentRound.action().writeWALTimeout(types.StepPrecommit),
 			nextRound.action().broadcastProposal(committedValue, 0),
 			nextRound.action().broadcastPrevote(&committedValue),
 		)
@@ -127,6 +144,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 
 		// Receive proposal and broadcast prevote
 		currentRound.validator(0).proposal(committedValue, -1).expectActions(
+			currentRound.action().writeWALProposal(0, committedValue, -1),
 			currentRound.action().broadcastPrevote(&committedValue),
 		)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrevote)
@@ -134,6 +152,7 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		// 2 prevotes are collected
 		currentRound.validator(0).prevote(&committedValue)
 		currentRound.validator(1).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(1, &committedValue),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(&committedValue),
 		)
@@ -141,7 +160,9 @@ func TestProposalAndPolkaCurrent(t *testing.T) {
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 
 		// Last prevote collected doesn't trigger the rule
-		currentRound.validator(2).prevote(&committedValue).expectActions()
+		currentRound.validator(2).prevote(&committedValue).expectActions(
+			currentRound.action().writeWALPrevote(2, &committedValue),
+		)
 		assert.True(t, stateMachine.state.lockedValueAndOrValidValueSet)
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
 	})

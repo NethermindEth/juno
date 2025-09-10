@@ -15,6 +15,7 @@ func TestStartRound(t *testing.T) {
 
 		val := value(1)
 		currentRound.start().expectActions(
+			currentRound.action().writeWALStart(),
 			currentRound.action().broadcastProposal(val, -1),
 			currentRound.action().broadcastPrevote(utils.HeapPtr(val)),
 		)
@@ -26,7 +27,10 @@ func TestStartRound(t *testing.T) {
 		stateMachine := setupStateMachine(t, 4, 3)
 		currentRound := newTestRound(t, stateMachine, 0, 0)
 
-		currentRound.start().expectActions(currentRound.action().scheduleTimeout(types.StepPropose))
+		currentRound.start().expectActions(
+			currentRound.action().writeWALStart(),
+			currentRound.action().scheduleTimeout(types.StepPropose),
+		)
 
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPropose)
 	})
