@@ -157,7 +157,6 @@ func TestDriver(t *testing.T) {
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](
 		ctrl,
 	)
-	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))
 
