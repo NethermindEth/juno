@@ -3,7 +3,6 @@ package tendermint
 import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
-	"github.com/NethermindEth/juno/consensus/types/wal"
 )
 
 func (s *stateMachine[V, H, A]) sendProposal(value *V) actions.Action[V, H, A] {
@@ -15,10 +14,6 @@ func (s *stateMachine[V, H, A]) sendProposal(value *V) actions.Action[V, H, A] {
 		},
 		ValidRound: s.state.validRound,
 		Value:      value,
-	}
-
-	if err := s.db.SetWALEntry((*wal.WALProposal[V, H, A])(&proposalMessage)); err != nil && !s.replayMode {
-		s.log.Fatalf("Failed to store propsal in WAL")
 	}
 
 	s.voteCounter.AddProposal(&proposalMessage)

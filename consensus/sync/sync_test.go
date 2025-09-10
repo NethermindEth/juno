@@ -65,7 +65,7 @@ func TestSync(t *testing.T) {
 			cancel()
 		})
 
-	stateMachine := tendermint.New(tmDB, logger, nodeAddr, mockApp, allNodes, types.Height(0))
+	stateMachine := tendermint.New(logger, nodeAddr, mockApp, allNodes, types.Height(0))
 
 	proposalCh := make(chan *starknet.Proposal)
 	prevoteCh := make(chan *starknet.Prevote)

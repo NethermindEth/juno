@@ -20,7 +20,10 @@ func TestPolkaNil(t *testing.T) {
 		// Receive 3 prevotes
 		currentRound.validator(0).prevote(nil)
 		currentRound.validator(1).prevote(nil)
-		currentRound.validator(2).prevote(nil).expectActions(currentRound.action().broadcastPrecommit(nil))
+		currentRound.validator(2).prevote(nil).expectActions(
+			currentRound.action().writeWALPrevote(2, nil),
+			currentRound.action().broadcastPrecommit(nil),
+		)
 
 		// Assertions - We should be in precommit step
 		assertState(t, stateMachine, types.Height(0), types.Round(0), types.StepPrecommit)
@@ -39,6 +42,7 @@ func TestPolkaNil(t *testing.T) {
 		// Receive 2 prevotes, combined with our own prevote due to proposal timeout
 		currentRound.validator(0).prevote(nil)
 		currentRound.validator(1).prevote(nil).expectActions(
+			currentRound.action().writeWALPrevote(1, nil),
 			currentRound.action().scheduleTimeout(types.StepPrevote),
 			currentRound.action().broadcastPrecommit(nil),
 		)
@@ -59,7 +63,10 @@ func TestPolkaNil(t *testing.T) {
 
 		// Receive 2 prevotes
 		currentRound.validator(0).prevote(nil)
-		currentRound.validator(1).prevote(nil).expectActions(currentRound.action().scheduleTimeout(types.StepPrevote))
+		currentRound.validator(1).prevote(nil).expectActions(
+			currentRound.action().writeWALPrevote(1, nil),
+			currentRound.action().scheduleTimeout(types.StepPrevote),
+		)
 
 		// Assertions - Only 2 validators prevote nil (not enough for 2f+1 where f=1)
 		// No expected precommit action should occur

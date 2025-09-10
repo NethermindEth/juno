@@ -3,12 +3,10 @@ package tendermint
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
-	"go.uber.org/mock/gomock"
 )
 
 // Implements Hashable interface
@@ -71,13 +69,7 @@ func setupStateMachine(
 	}
 
 	thisNodeAddr := getVal(thisValidator)
-	ctrl := gomock.NewController(t)
-	// Ignore WAL for tests that use this
-	db := mocks.NewMockTendermintDB[starknet.Value, starknet.Hash, starknet.Address](ctrl)
-	db.EXPECT().SetWALEntry(gomock.Any()).AnyTimes()
-	db.EXPECT().Flush().AnyTimes()
-	db.EXPECT().DeleteWALEntries(gomock.Any()).AnyTimes()
-	return New(db, utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
+	return New(utils.NewNopZapLogger(), *thisNodeAddr, app, vals, types.Height(0)).(*testStateMachine)
 }
 
 // Todo: Add tests for round change where existing messages are processed
