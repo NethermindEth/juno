@@ -51,7 +51,8 @@ type StateReader interface {
 
 type State struct {
 	*history
-	txn db.IndexedBatch
+	txn      db.IndexedBatch
+	snapshot db.Snapshot
 }
 
 func NewState(txn db.IndexedBatch) *State {
@@ -61,7 +62,16 @@ func NewState(txn db.IndexedBatch) *State {
 	}
 }
 
+func (s *State) WithSnapshot(snapshot db.Snapshot) *State {
+	s.snapshot = snapshot
+	return s
+}
+
 func (s *State) ChainHeight() (uint64, error) {
+	if s.snapshot != nil {
+		return GetChainHeight(s.snapshot)
+	}
+
 	return GetChainHeight(s.txn)
 }
 
@@ -93,7 +103,7 @@ func (s *State) ContractNonce(addr *felt.Felt) (*felt.Felt, error) {
 
 // ContractStorage returns value of a key in the storage of the contract at the given address.
 func (s *State) ContractStorage(addr, key *felt.Felt) (*felt.Felt, error) {
-	return ContractStorage(addr, key, s.txn)
+	return ContractStorage(addr, key, s.txn, s.snapshot)
 }
 
 // Root returns the state commitment.
@@ -145,7 +155,7 @@ func (s *State) ContractTrie() (*trie.Trie, error) {
 }
 
 func (s *State) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
-	return storage(addr, s.txn)
+	return storage(addr, s.txn, s.snapshot)
 }
 
 // storage returns a [core.Trie] that represents the Starknet global state in the given Txn context.
@@ -159,7 +169,7 @@ func (s *State) classesTrie() (*trie.Trie, func() error, error) {
 
 func (s *State) globalTrie(bucket db.Bucket, newTrie trie.NewTrieFunc) (*trie.Trie, func() error, error) {
 	dbPrefix := bucket.Key()
-	tTxn := trie.NewStorage(s.txn, dbPrefix)
+	tTxn := trie.NewStorage(s.txn, dbPrefix).WithSnapshot(s.snapshot)
 
 	// fetch root key
 	rootKeyDBKey := dbPrefix
@@ -376,6 +386,7 @@ func (s *State) updateStorageBuffered(contractAddr *felt.Felt, updateDiff map[fe
 	// to avoid multiple transactions writing to s.txn, create a buffered transaction and use that in the worker goroutine
 	bufferedTxn := db.NewBufferBatch(s.txn)
 	bufferedState := NewState(bufferedTxn)
+	bufferedState.WithSnapshot(s.snapshot)
 	bufferedContract, err := NewContractUpdater(contractAddr, bufferedTxn)
 	if err != nil {
 		return nil, err
@@ -498,7 +509,7 @@ func (s *State) updateContractNonce(stateTrie *trie.Trie, addr, nonce *felt.Felt
 
 // updateContractCommitment recalculates the contract commitment and updates its value in the global state Trie
 func (s *State) updateContractCommitment(stateTrie *trie.Trie, contract *ContractUpdater) error {
-	root, err := ContractRoot(contract.Address, s.txn)
+	root, err := ContractRoot(contract.Address, s.txn, s.snapshot)
 	if err != nil {
 		return err
 	}
@@ -621,7 +632,7 @@ func (s *State) purgesystemContracts() error {
 			continue
 		}
 
-		r, err := ContractRoot(noClassC.Address, s.txn)
+		r, err := ContractRoot(noClassC.Address, s.txn, s.snapshot)
 		if err != nil {
 			return fmt.Errorf("contract root: %v", err)
 		}
