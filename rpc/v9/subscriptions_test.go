@@ -201,7 +201,7 @@ func TestSubscribeEvents(t *testing.T) {
 	)
 
 	pendingB := createTestPendingBlock(t, b2, 6)
-	pending := sync.NewPending(pendingB, nil, nil)
+	pending := core.NewPending(pendingB, nil, nil)
 	_, pendingEmitted := createTestEvents(
 		t,
 		pendingB,
@@ -211,7 +211,7 @@ func TestSubscribeEvents(t *testing.T) {
 	)
 	pendingB2 := createTestPendingBlock(t, b2, 10)
 
-	pending2 := sync.NewPending(pendingB2, nil, nil)
+	pending2 := core.NewPending(pendingB2, nil, nil)
 	_, pending2Emitted := createTestEvents(
 		t,
 		pendingB2,
@@ -1113,7 +1113,7 @@ func TestSubscribeNewTransactions(t *testing.T) {
 
 	pendingBlockTxCount := 6
 	pendingBlock := createTestPendingBlock(t, newHead2, pendingBlockTxCount)
-	pending := sync.NewPending(pendingBlock, nil, nil)
+	pending := core.NewPending(pendingBlock, nil, nil)
 
 	initialPreconfirmedCount := 3
 	secondPreConfirmedCount := 6
@@ -1533,14 +1533,14 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 			{
 				description: "on pending",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock1, nil, nil)))
+					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock1, nil, nil)))
 				},
 				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock1, nil, TxnAcceptedOnL2)},
 			},
 			{
 				description: "on pending block update, without duplicates",
 				notify: func() {
-					syncer.pendingData.Send(utils.HeapPtr(sync.NewPending(pendingBlock2, nil, nil)))
+					syncer.pendingData.Send(utils.HeapPtr(core.NewPending(pendingBlock2, nil, nil)))
 				},
 				expect: [][]*TransactionReceipt{toAdaptedReceiptsWithFilter(pendingBlock2, nil, TxnAcceptedOnL2)[pendingB1TxCount:]},
 			},

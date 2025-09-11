@@ -8,6 +8,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/p2p"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/utils"
 )
 
@@ -82,12 +83,21 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 				// Handling of timeouts is priorities over messages
 				delete(d.scheduledTms, tm)
 				actions = d.stateMachine.ProcessTimeout(tm)
-			case p := <-listeners.ProposalListener.Listen():
-				actions = d.stateMachine.ProcessProposal(&p)
-			case p := <-listeners.PrevoteListener.Listen():
-				actions = d.stateMachine.ProcessPrevote(&p)
-			case p := <-listeners.PrecommitListener.Listen():
-				actions = d.stateMachine.ProcessPrecommit(&p)
+			case p, ok := <-listeners.ProposalListener.Listen():
+				if !ok {
+					return nil
+				}
+				actions = d.stateMachine.ProcessProposal(p)
+			case p, ok := <-listeners.PrevoteListener.Listen():
+				if !ok {
+					return nil
+				}
+				actions = d.stateMachine.ProcessPrevote(p)
+			case p, ok := <-listeners.PrecommitListener.Listen():
+				if !ok {
+					return nil
+				}
+				actions = d.stateMachine.ProcessPrecommit(p)
 			}
 
 			isCommitted = d.execute(ctx, broadcasters, actions)
@@ -100,24 +110,24 @@ func (d *Driver[V, H, A]) Run(ctx context.Context) error {
 func (d *Driver[V, H, A]) execute(
 	ctx context.Context,
 	broadcasters p2p.Broadcasters[V, H, A],
-	actions []types.Action[V, H, A],
+	executingActions []actions.Action[V, H, A],
 ) (isCommitted bool) {
-	for _, action := range actions {
+	for _, action := range executingActions {
 		switch action := action.(type) {
-		case *types.BroadcastProposal[V, H, A]:
-			broadcasters.ProposalBroadcaster.Broadcast(ctx, types.Proposal[V, H, A](*action))
-		case *types.BroadcastPrevote[H, A]:
-			broadcasters.PrevoteBroadcaster.Broadcast(ctx, types.Prevote[H, A](*action))
-		case *types.BroadcastPrecommit[H, A]:
-			broadcasters.PrecommitBroadcaster.Broadcast(ctx, types.Precommit[H, A](*action))
-		case *types.ScheduleTimeout:
+		case *actions.BroadcastProposal[V, H, A]:
+			broadcasters.ProposalBroadcaster.Broadcast(ctx, (*types.Proposal[V, H, A])(action))
+		case *actions.BroadcastPrevote[H, A]:
+			broadcasters.PrevoteBroadcaster.Broadcast(ctx, (*types.Prevote[H, A])(action))
+		case *actions.BroadcastPrecommit[H, A]:
+			broadcasters.PrecommitBroadcaster.Broadcast(ctx, (*types.Precommit[H, A])(action))
+		case *actions.ScheduleTimeout:
 			d.scheduledTms[types.Timeout(*action)] = time.AfterFunc(d.getTimeout(action.Step, action.Round), func() {
 				select {
 				case <-ctx.Done():
 				case d.timeoutsCh <- types.Timeout(*action):
 				}
 			})
-		case *types.Commit[V, H, A]:
+		case *actions.Commit[V, H, A]:
 			if err := d.db.Flush(); err != nil {
 				d.log.Fatalf("failed to flush WAL during commit", "height", action.Height, "round", action.Round, "err", err)
 			}

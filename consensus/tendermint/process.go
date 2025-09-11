@@ -2,46 +2,48 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/types/wal"
 )
 
-func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessStart(round types.Round) []actions.Action[V, H, A] {
 	return s.processLoop(s.startRound(round), nil)
 }
 
-func (s *stateMachine[V, H, A]) ProcessProposal(p *types.Proposal[V, H, A]) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessProposal(p *types.Proposal[V, H, A]) []actions.Action[V, H, A] {
 	return s.processMessage(p.MessageHeader, func() {
 		if s.voteCounter.AddProposal(p) && !s.replayMode && p.Height == s.state.height {
 			// Store proposal if its the first time we see it
-			if err := s.db.SetWALEntry(p); err != nil {
+			if err := s.db.SetWALEntry((*wal.WALProposal[V, H, A])(p)); err != nil {
 				s.log.Fatalf("Failed to store prevote in WAL")
 			}
 		}
 	})
 }
 
-func (s *stateMachine[V, H, A]) ProcessPrevote(p *types.Prevote[H, A]) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessPrevote(p *types.Prevote[H, A]) []actions.Action[V, H, A] {
 	return s.processMessage(p.MessageHeader, func() {
 		if s.voteCounter.AddPrevote(p) && !s.replayMode && p.Height == s.state.height {
 			// Store prevote if its the first time we see it
-			if err := s.db.SetWALEntry(p); err != nil {
+			if err := s.db.SetWALEntry((*wal.WALPrevote[H, A])(p)); err != nil {
 				s.log.Fatalf("Failed to store prevote in WAL")
 			}
 		}
 	})
 }
 
-func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []actions.Action[V, H, A] {
 	return s.processMessage(p.MessageHeader, func() {
 		if s.voteCounter.AddPrecommit(p) && !s.replayMode && p.Height == s.state.height {
 			// Store precommit if its the first time we see it
-			if err := s.db.SetWALEntry(p); err != nil {
+			if err := s.db.SetWALEntry((*wal.WALPrecommit[H, A])(p)); err != nil {
 				s.log.Fatalf("Failed to store prevote in WAL")
 			}
 		}
 	})
 }
 
-func (s *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], addMessage func()) []actions.Action[V, H, A] {
 	if !s.preprocessMessage(header, addMessage) {
 		return nil
 	}
@@ -49,9 +51,9 @@ func (s *stateMachine[V, H, A]) processMessage(header types.MessageHeader[A], ad
 	return s.processLoop(nil, &header.Round)
 }
 
-func (s *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []actions.Action[V, H, A] {
 	if !s.replayMode && tm.Height == s.state.height {
-		if err := s.db.SetWALEntry(tm); err != nil {
+		if err := s.db.SetWALEntry((*wal.WALTimeout)(&tm)); err != nil {
 			s.log.Fatalf("Failed to store timeout trigger in WAL")
 		}
 	}
@@ -67,8 +69,8 @@ func (s *stateMachine[V, H, A]) ProcessTimeout(tm types.Timeout) []types.Action[
 	return nil
 }
 
-func (s *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recentlyReceivedRound *types.Round) []types.Action[V, H, A] {
-	actions, shouldContinue := []types.Action[V, H, A]{}, true
+func (s *stateMachine[V, H, A]) processLoop(action actions.Action[V, H, A], recentlyReceivedRound *types.Round) []actions.Action[V, H, A] {
+	actions, shouldContinue := []actions.Action[V, H, A]{}, true
 	if action != nil {
 		actions = append(actions, action)
 	}
@@ -83,7 +85,7 @@ func (s *stateMachine[V, H, A]) processLoop(action types.Action[V, H, A], recent
 	return actions
 }
 
-func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action types.Action[V, H, A], shouldContinue bool) {
+func (s *stateMachine[V, H, A]) process(recentlyReceivedRound *types.Round) (action actions.Action[V, H, A], shouldContinue bool) {
 	cachedProposal := s.findProposal(s.state.round)
 
 	roundCachedProposal := cachedProposal

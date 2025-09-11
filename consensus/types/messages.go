@@ -10,8 +10,7 @@ package types
 //  of the validator set and would need access to the blockchain which may not be a good idea.
 
 type Message[V Hashable[H], H Hash, A Addr] interface {
-	MsgType() MessageType
-	GetHeight() Height
+	Header() *MessageHeader[A]
 }
 
 type Proposal[V Hashable[H], H Hash, A Addr] struct {
@@ -20,12 +19,8 @@ type Proposal[V Hashable[H], H Hash, A Addr] struct {
 	Value      *V    `cbor:"value"`
 }
 
-func (p Proposal[V, H, A]) MsgType() MessageType {
-	return MessageTypeProposal
-}
-
-func (p Proposal[V, H, A]) GetHeight() Height {
-	return p.Height
+func (p *Proposal[V, H, A]) Header() *MessageHeader[A] {
+	return &p.MessageHeader
 }
 
 type (
@@ -33,20 +28,12 @@ type (
 	Precommit[H Hash, A Addr] Vote[H, A]
 )
 
-func (p Prevote[H, A]) MsgType() MessageType {
-	return MessageTypePrevote
+func (p *Prevote[H, A]) Header() *MessageHeader[A] {
+	return &p.MessageHeader
 }
 
-func (p Prevote[H, A]) GetHeight() Height {
-	return p.Height
-}
-
-func (p Precommit[H, A]) MsgType() MessageType {
-	return MessageTypePrecommit
-}
-
-func (p Precommit[H, A]) GetHeight() Height {
-	return p.Height
+func (p *Precommit[H, A]) Header() *MessageHeader[A] {
+	return &p.MessageHeader
 }
 
 type Vote[H Hash, A Addr] struct {
@@ -58,31 +45,4 @@ type MessageHeader[A Addr] struct {
 	Height Height `cbor:"height"`
 	Round  Round  `cbor:"round"`
 	Sender A      `cbor:"sender"`
-}
-
-// MessageType represents the type of message stored in the WAL.
-type MessageType uint8
-
-const (
-	MessageTypeProposal MessageType = iota
-	MessageTypePrevote
-	MessageTypePrecommit
-	MessageTypeTimeout
-	MessageTypeUnknown
-)
-
-// String returns the string representation of the MessageType.
-func (m MessageType) String() string {
-	switch m {
-	case MessageTypeProposal:
-		return "proposal"
-	case MessageTypePrevote:
-		return "prevote"
-	case MessageTypePrecommit:
-		return "precommit"
-	case MessageTypeTimeout:
-		return "timeout"
-	default:
-		return "unknown"
-	}
 }

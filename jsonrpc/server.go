@@ -122,11 +122,12 @@ type Method struct {
 }
 
 type Server struct {
-	methods   map[string]Method
-	validator Validator
-	pool      *pool.Pool
-	log       utils.SimpleLogger
-	listener  EventListener
+	methods              map[string]Method
+	validator            Validator
+	pool                 *pool.Pool
+	log                  utils.SimpleLogger
+	listener             EventListener
+	disableBatchRequests bool
 }
 
 type Validator interface {
@@ -154,6 +155,12 @@ func (s *Server) WithValidator(validator Validator) *Server {
 // WithListener registers an EventListener
 func (s *Server) WithListener(listener EventListener) *Server {
 	s.listener = listener
+	return s
+}
+
+// DisableBatchRequests disables batch JSON-RPC requests to the server
+func (s *Server) DisableBatchRequests(forbid bool) *Server {
+	s.disableBatchRequests = forbid
 	return s
 }
 
@@ -296,7 +303,7 @@ func (s *Server) HandleReadWriter(ctx context.Context, rw io.ReadWriter) error {
 func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, http.Header, error) {
 	bufferedReader := bufio.NewReaderSize(reader, bufferSize)
 	requestIsBatch := isBatch(bufferedReader)
-	res := &response{
+	resp := &response{
 		Version: "2.0",
 	}
 
@@ -308,34 +315,36 @@ func (s *Server) HandleReader(ctx context.Context, reader io.Reader) ([]byte, ht
 	if !requestIsBatch {
 		req := new(Request)
 		if jsonErr := dec.Decode(req); jsonErr != nil {
-			res.Error = Err(InvalidJSON, jsonErr.Error())
+			resp.Error = Err(InvalidJSON, jsonErr.Error())
 		} else if resObject, httpHeader, handleErr := s.handleRequest(ctx, req); handleErr != nil {
 			if !errors.Is(handleErr, ErrInvalidID) {
-				res.ID = req.ID
+				resp.ID = req.ID
 			}
-			res.Error = Err(InvalidRequest, handleErr.Error())
+			resp.Error = Err(InvalidRequest, handleErr.Error())
 			header = httpHeader
 		} else {
-			res = resObject
+			resp = resObject
 			header = httpHeader
 		}
-	} else {
+	} else if !s.disableBatchRequests {
 		var batchReq []json.RawMessage
 
 		if batchJSONErr := dec.Decode(&batchReq); batchJSONErr != nil {
-			res.Error = Err(InvalidJSON, batchJSONErr.Error())
+			resp.Error = Err(InvalidJSON, batchJSONErr.Error())
 		} else if len(batchReq) == 0 {
-			res.Error = Err(InvalidRequest, "empty batch")
+			resp.Error = Err(InvalidRequest, "empty batch")
 		} else {
 			return s.handleBatchRequest(ctx, batchReq)
 		}
+	} else {
+		resp.Error = Err(InvalidRequest, "batch requests are disabled")
 	}
 
-	if res == nil {
+	if resp == nil {
 		return nil, header, nil
 	}
 
-	result, err := json.Marshal(res)
+	result, err := json.Marshal(resp)
 	return result, header, err
 }
 
