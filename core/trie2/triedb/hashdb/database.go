@@ -3,14 +3,12 @@ package hashdb
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 )
 
 type Config struct {
@@ -22,10 +20,8 @@ type Database struct {
 	config Config
 
 	cleanCache *cleanCache
-	dirtyCache *dirtyCache
 
 	lock sync.RWMutex
-	log  utils.SimpleLogger
 }
 
 // Creates a new hash-based database. If the config is not provided, it will use the default config,
@@ -41,26 +37,12 @@ func New(disk db.KeyValueStore, config *Config) *Database {
 		disk:       disk,
 		config:     *config,
 		cleanCache: &cleanCache,
-		dirtyCache: newDirtyCache(),
-		log:        utils.NewNopZapLogger(),
 	}
-}
-
-func (d *Database) insert(owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isClass bool, node trienode.TrieNode) {
-	_, found := d.dirtyCache.getNode(owner, path, hash, isClass)
-	if found {
-		return
-	}
-	d.dirtyCache.putNode(owner, path, hash, isClass, node)
 }
 
 func (d *Database) readNode(bucket db.Bucket, owner *felt.Felt, path *trieutils.Path, hash *felt.Felt, isLeaf bool) ([]byte, error) {
 	if blob := d.cleanCache.getNode(path, hash); blob != nil {
 		return blob, nil
-	}
-	node, found := d.dirtyCache.getNode(owner, path, hash, bucket == db.ClassTrie)
-	if found {
-		return node.Blob(), nil
 	}
 
 	var blob []byte
@@ -88,62 +70,6 @@ func (d *Database) NewIterator(id trieutils.TrieID) (db.Iterator, error) {
 	return d.disk.NewIterator(key, true)
 }
 
-func (d *Database) Commit(_ *felt.Felt) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	batch := d.disk.NewBatch()
-	nodes, startTime := d.dirtyCache.len(), time.Now()
-
-	for key, node := range d.dirtyCache.classNodes {
-		path, hash, err := decodeNodeKey([]byte(key))
-		if err != nil {
-			return err
-		}
-		if err := trieutils.WriteNodeByHash(batch, db.ClassTrie, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
-			return err
-		}
-		d.cleanCache.putNode(&path, &hash, node.Blob())
-	}
-
-	for key, node := range d.dirtyCache.contractNodes {
-		path, hash, err := decodeNodeKey([]byte(key))
-		if err != nil {
-			return err
-		}
-		if err := trieutils.WriteNodeByHash(batch, db.ContractTrieContract, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
-			return err
-		}
-		d.cleanCache.putNode(&path, &hash, node.Blob())
-	}
-
-	for owner, nodes := range d.dirtyCache.contractStorageNodes {
-		for key, node := range nodes {
-			path, hash, err := decodeNodeKey([]byte(key))
-			if err != nil {
-				return err
-			}
-			if err := trieutils.WriteNodeByHash(batch, db.ContractTrieStorage, &owner, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
-				return err
-			}
-			d.cleanCache.putNode(&path, &hash, node.Blob())
-		}
-	}
-
-	if err := batch.Write(); err != nil {
-		return err
-	}
-
-	d.dirtyCache.reset()
-
-	d.log.Debugw("Flushed dirty cache to disk",
-		"nodes", nodes-d.dirtyCache.len(),
-		"duration", time.Since(startTime),
-		"liveNodes", d.dirtyCache.len(),
-		"liveSize", d.dirtyCache.size,
-	)
-	return nil
-}
-
 func (d *Database) Update(
 	root,
 	parent *felt.Felt,
@@ -153,6 +79,8 @@ func (d *Database) Update(
 ) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+
+	batch := d.disk.NewBatch()
 
 	var classNodes map[trieutils.Path]trienode.TrieNode
 	var contractNodes map[trieutils.Path]trienode.TrieNode
@@ -175,8 +103,11 @@ func (d *Database) Update(
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			continue // Since the hashdb is used for archive node only, there is no need to remove nodes
 		} else {
-			nodeHash := node.Hash()
-			d.insert(&felt.Zero, &path, &nodeHash, true, node)
+			hash := node.Hash()
+			if err := trieutils.WriteNodeByHash(batch, db.ClassTrie, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+				return err
+			}
+			d.cleanCache.putNode(&path, &hash, node.Blob())
 		}
 	}
 
@@ -184,8 +115,11 @@ func (d *Database) Update(
 		if _, ok := node.(*trienode.DeletedNode); ok {
 			continue
 		} else {
-			nodeHash := node.Hash()
-			d.insert(&felt.Zero, &path, &nodeHash, false, node)
+			hash := node.Hash()
+			if err := trieutils.WriteNodeByHash(batch, db.ContractTrieContract, &felt.Zero, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+				return err
+			}
+			d.cleanCache.putNode(&path, &hash, node.Blob())
 		}
 	}
 
@@ -194,11 +128,23 @@ func (d *Database) Update(
 			if _, ok := node.(*trienode.DeletedNode); ok {
 				continue
 			} else {
-				nodeHash := node.Hash()
-				d.insert(&owner, &path, &nodeHash, false, node)
+				hash := node.Hash()
+				if err := trieutils.WriteNodeByHash(batch, db.ContractTrieStorage, &owner, &path, &hash, node.IsLeaf(), node.Blob()); err != nil {
+					return err
+				}
+				d.cleanCache.putNode(&path, &hash, node.Blob())
 			}
 		}
 	}
+
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Database) Commit(root *felt.Felt) error {
 	return nil
 }
 
