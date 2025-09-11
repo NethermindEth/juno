@@ -30,6 +30,7 @@ type Header struct {
 	EventCount uint64
 	// The time the sequencer created this block before executing transactions
 	Timestamp uint64
+	// Todo(rdr): It makes more sense for Protocol version to be stored in semver.Version instead
 	// The version of the Starknet protocol used when creating this block
 	ProtocolVersion string
 	// Bloom filter on the events emitted this block

@@ -73,7 +73,7 @@ func (b *batch) Has(key []byte) (bool, error) {
 
 func (b *batch) NewIterator(prefix []byte, withUpperBound bool) (db.Iterator, error) {
 	// create a temporary db
-	tempDB := b.db.copy()
+	tempDB := b.db.Copy()
 
 	// copy the writes on this batch to the temporary db
 	tempBatch := &batch{

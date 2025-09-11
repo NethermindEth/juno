@@ -77,7 +77,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		txAtIdx1InBlock := utils.HexToFelt(t, "0x5f3d9e538af40474c894820d2c0d0e8f92ee8fef92e2254f0b06e306f88dcc8")
 		mockReader.EXPECT().TransactionByHash(txAtIdx1InBlock).Return(nil, db.ErrKeyNotFound)
-		pending := sync.NewPending(block, nil, nil)
+		pending := core.NewPending(block, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -130,7 +130,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 
 		randomTxHash := new(felt.Felt).SetBytes([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(randomTxHash).Return(nil, db.ErrKeyNotFound)
-		pending := sync.NewPending(block, nil, nil)
+		pending := core.NewPending(block, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -580,7 +580,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
-		pending := sync.NewPending(latestBlock, nil, nil)
+		pending := core.NewPending(latestBlock, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,
@@ -652,7 +652,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 		mockSyncReader.EXPECT().PendingData().DoAndReturn(func() (core.PendingData, error) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
-			pending := sync.NewPending(block, nil, nil)
+			pending := core.NewPending(block, nil, nil)
 			return &pending, nil
 		})
 
@@ -731,7 +731,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 			block, err := gateway.BlockByNumber(t.Context(), 4850)
 			require.NoError(t, err)
 
-			pending := sync.NewPending(block, nil, nil)
+			pending := core.NewPending(block, nil, nil)
 			return &pending, nil
 		})
 
@@ -1173,15 +1173,15 @@ func TestAdaptTransaction(t *testing.T) {
 func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
-	txWithoutClass := func(hash string) *rpc.BroadcastedTransaction {
+	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
 		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
 		require.NoError(t, err)
-		return &rpc.BroadcastedTransaction{
+		return rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
 		}
 	}
 	tests := map[string]struct {
-		txn          *rpc.BroadcastedTransaction
+		txn          rpc.BroadcastedTransaction
 		expectedJSON string
 	}{
 		"invoke v0": {
@@ -1300,7 +1300,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v2": {
-			txn: func() *rpc.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x44b971f7eface29b185f86dd7b3b70acb1e48e0ad459e3a41e06fc42937aaa4")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1316,7 +1316,7 @@ func TestAddTransaction(t *testing.T) {
 				"nonce": "0x11",
 				"class_hash": "0x7cb013a4139335cefce52adc2ac342c0110811353e7992baefbe547200223c7",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
+					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
 				},
 				"compiled_class_hash": "0x67f7deab53a3ba70500bdafe66fb3038bbbaadb36a6dd1a7a5fc5b094e9d724",
 				"sender_address": "0x3bb81d22ecd0e0a6f3138bdc5c072ff5726c5add02bcfd5b81cd657a6ae10a8",
@@ -1324,7 +1324,7 @@ func TestAddTransaction(t *testing.T) {
 			  }`,
 		},
 		"declare v3": {
-			txn: func() *rpc.BroadcastedTransaction {
+			txn: func() rpc.BroadcastedTransaction {
 				tx := txWithoutClass("0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")
 				tx.ContractClass = json.RawMessage([]byte(`{"sierra_program": {}}`))
 				return tx
@@ -1357,7 +1357,7 @@ func TestAddTransaction(t *testing.T) {
 				"account_deployment_data": [],
 				"type": "DECLARE",
 				"contract_class": {
-					"sierra_program": "H4sIAAAAAAAA/1LyMCn2dIQCfbPCUqfAQEfHAH39QHPt3PxysJStEiAAAP//Pys9fyYAAAA="
+					"sierra_program": "H4sIAAAAAAAA/6quBQQAAP//Q7+mowIAAAA="
 				}
 			  }`,
 		},
@@ -1438,11 +1438,11 @@ func TestAddTransaction(t *testing.T) {
 				Times(1)
 
 			handler := rpc.New(nil, nil, nil, n, utils.NewNopZapLogger())
-			_, rpcErr := handler.AddTransaction(t.Context(), test.txn)
+			_, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
 			require.Equal(t, rpcErr.Code, rpccore.ErrInternal.Code)
 
 			handler = handler.WithGateway(mockGateway)
-			got, rpcErr := handler.AddTransaction(t.Context(), test.txn)
+			got, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
 			require.Nil(t, rpcErr)
 			require.Equal(
 				t,

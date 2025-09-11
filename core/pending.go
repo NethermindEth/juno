@@ -22,6 +22,52 @@ type PendingData interface {
 	Variant() PendingDataVariant
 }
 
+type Pending struct {
+	Block       *Block
+	StateUpdate *StateUpdate
+	NewClasses  map[felt.Felt]Class
+}
+
+func NewPending(block *Block, stateUpdate *StateUpdate, newClasses map[felt.Felt]Class) Pending {
+	return Pending{
+		Block:       block,
+		StateUpdate: stateUpdate,
+		NewClasses:  newClasses,
+	}
+}
+
+func (p *Pending) GetBlock() *Block {
+	return p.Block
+}
+
+func (p *Pending) GetHeader() *Header {
+	return p.Block.Header
+}
+
+func (p *Pending) GetTransactions() []Transaction {
+	return p.Block.Transactions
+}
+
+func (p *Pending) GetStateUpdate() *StateUpdate {
+	return p.StateUpdate
+}
+
+func (p *Pending) GetNewClasses() map[felt.Felt]Class {
+	return p.NewClasses
+}
+
+func (p *Pending) GetCandidateTransaction() []Transaction {
+	return []Transaction{}
+}
+
+func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
+	return []*StateDiff{}
+}
+
+func (p *Pending) Variant() PendingDataVariant {
+	return PendingBlockVariant
+}
+
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate

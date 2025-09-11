@@ -19,7 +19,7 @@ type proposalStream struct {
 	log                utils.Logger
 	proposalStore      *proposal.ProposalStore[starknet.Hash]
 	input              chan *consensus.StreamMessage
-	outputs            chan<- starknet.Proposal
+	outputs            chan<- *starknet.Proposal
 	messages           map[uint64]*consensus.StreamMessage
 	transition         Transition
 	stateMachine       ProposalStateMachine
@@ -32,7 +32,7 @@ func newSingleProposalStream(
 	proposalStore *proposal.ProposalStore[starknet.Hash],
 	transition Transition,
 	inputBufferSize int,
-	outputs chan<- starknet.Proposal,
+	outputs chan<- *starknet.Proposal,
 ) *proposalStream {
 	return &proposalStream{
 		log:                log,
@@ -119,7 +119,7 @@ func (s *proposalStream) processMessages(ctx context.Context, nextMessage *conse
 
 				select {
 				case <-ctx.Done():
-				case s.outputs <- *state.Proposal:
+				case s.outputs <- state.Proposal:
 				}
 				return nil
 			default:

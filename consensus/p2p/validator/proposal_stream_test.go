@@ -99,7 +99,7 @@ type stepValidationContext struct {
 	message               *consensus.StreamMessage
 	oldStateMachine       ProposalStateMachine
 	oldNextSequenceNumber uint64
-	outputs               <-chan starknet.Proposal
+	outputs               <-chan *starknet.Proposal
 }
 
 // There are three possible flows:
@@ -132,7 +132,7 @@ func (e streamPostStateStepResult) validate(ctx *stepValidationContext) {
 	require.NotContains(ctx.t, ctx.stream.messages, ctx.message.SequenceNumber, "message stored")
 
 	if e.output != nil {
-		assertOutput(ctx.t, ctx.outputs, *e.output)
+		assertOutput(ctx.t, ctx.outputs, e.output)
 	}
 	assertNoOutput(ctx.t, ctx.outputs)
 
@@ -305,7 +305,7 @@ func TestProposalStream_ProcessMessage(t *testing.T) {
 }
 
 func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, proposalInit *consensus.ProposalPart, steps []step) {
-	outputs := make(chan starknet.Proposal, 1)
+	outputs := make(chan *starknet.Proposal, 1)
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	stream := newSingleProposalStream(utils.NewNopZapLogger(), &proposalStore, NewTransition(builder), 0, outputs)
 	_, err := stream.start(t.Context(), buildMessage(t, 1, proposalInit))
@@ -331,7 +331,7 @@ func testProposalStreamProcessMessage(t *testing.T, builder *builder.Builder, pr
 	}
 }
 
-func assertOutput(t *testing.T, outputs <-chan starknet.Proposal, expectedOutput starknet.Proposal) {
+func assertOutput(t *testing.T, outputs <-chan *starknet.Proposal, expectedOutput *starknet.Proposal) {
 	t.Helper()
 	select {
 	case actualOutput := <-outputs:
@@ -341,7 +341,7 @@ func assertOutput(t *testing.T, outputs <-chan starknet.Proposal, expectedOutput
 	}
 }
 
-func assertNoOutput(t *testing.T, outputs <-chan starknet.Proposal) {
+func assertNoOutput(t *testing.T, outputs <-chan *starknet.Proposal) {
 	t.Helper()
 	select {
 	case <-outputs:

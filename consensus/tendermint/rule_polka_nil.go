@@ -2,6 +2,7 @@ package tendermint
 
 import (
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 )
 
@@ -20,6 +21,6 @@ func (s *stateMachine[V, H, A]) uponPolkaNil() bool {
 	return hasQuorum && s.state.step == types.StepPrevote
 }
 
-func (s *stateMachine[V, H, A]) doPolkaNil() types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) doPolkaNil() actions.Action[V, H, A] {
 	return s.setStepAndSendPrecommit(nil)
 }

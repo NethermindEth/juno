@@ -5,6 +5,8 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/types"
+	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/consensus/types/wal"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -27,11 +29,11 @@ type Slasher[M types.Message[V, H, A], V types.Hashable[H], H types.Hash, A type
 //go:generate mockgen -destination=../mocks/mock_state_machine.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint StateMachine
 type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ReplayWAL()
-	ProcessStart(types.Round) []types.Action[V, H, A]
-	ProcessTimeout(types.Timeout) []types.Action[V, H, A]
-	ProcessProposal(*types.Proposal[V, H, A]) []types.Action[V, H, A]
-	ProcessPrevote(*types.Prevote[H, A]) []types.Action[V, H, A]
-	ProcessPrecommit(*types.Precommit[H, A]) []types.Action[V, H, A]
+	ProcessStart(types.Round) []actions.Action[V, H, A]
+	ProcessTimeout(types.Timeout) []actions.Action[V, H, A]
+	ProcessProposal(*types.Proposal[V, H, A]) []actions.Action[V, H, A]
+	ProcessPrevote(*types.Prevote[H, A]) []actions.Action[V, H, A]
+	ProcessPrecommit(*types.Precommit[H, A]) []actions.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
@@ -101,7 +103,7 @@ func (s *stateMachine[V, H, A]) resetState(round types.Round) {
 	s.state.timeoutPrecommitScheduled = false
 }
 
-func (s *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] {
+func (s *stateMachine[V, H, A]) startRound(r types.Round) actions.Action[V, H, A] {
 	if err := s.db.Flush(); err != nil {
 		s.log.Fatalf("failed to flush WAL at start of round", "height", s.state.height, "round", r, "err", err)
 	}
@@ -125,9 +127,9 @@ func (s *stateMachine[V, H, A]) startRound(r types.Round) types.Action[V, H, A] 
 	}
 }
 
-func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) types.Action[V, H, A] {
+func (t *stateMachine[V, H, A]) scheduleTimeout(s types.Step) actions.Action[V, H, A] {
 	return utils.HeapPtr(
-		types.ScheduleTimeout{
+		actions.ScheduleTimeout{
 			Step:   s,
 			Height: t.state.height,
 			Round:  t.state.round,
@@ -168,38 +170,24 @@ func (s *stateMachine[V, H, A]) findProposal(r types.Round) *CachedProposal[V, H
 //
 // Panics if the replaying the messages fails for whatever reason.
 func (s *stateMachine[V, H, A]) ReplayWAL() {
-	walEntries, err := s.db.GetWALEntries(s.state.height)
-	if err != nil {
-		panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
-	}
 	s.replayMode = true
-	for _, walEntry := range walEntries {
-		switch walEntry.Type {
-		case types.MessageTypeProposal:
-			proposal, ok := (walEntry.Entry).(types.Proposal[V, H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to proposal")
-			}
-			s.ProcessProposal(&proposal)
-		case types.MessageTypePrevote:
-			prevote, ok := (walEntry.Entry).(types.Prevote[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to prevote")
-			}
-			s.ProcessPrevote(&prevote)
-		case types.MessageTypePrecommit:
-			precommit, ok := (walEntry.Entry).(types.Precommit[H, A])
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
-			}
-			s.ProcessPrecommit(&precommit)
-		case types.MessageTypeTimeout:
-			timeout, ok := (walEntry.Entry).(types.Timeout)
-			if !ok {
-				panic("failed to replay WAL, failed to cast WAL Entry to precommit")
-			}
-			s.ProcessTimeout(timeout)
+	for walEntry, err := range s.db.GetWALEntries(s.state.height) {
+		// TODO: panic here is wrong, but this will be rewritten in the next PR.
+		if err != nil {
+			panic(fmt.Errorf("ReplayWAL: failed to retrieve WAL messages for height %d: %w", s.state.height, err))
+		}
+
+		switch walEntry := walEntry.(type) {
+		case *wal.WALProposal[V, H, A]:
+			s.ProcessProposal((*types.Proposal[V, H, A])(walEntry))
+		case *wal.WALPrevote[H, A]:
+			s.ProcessPrevote((*types.Prevote[H, A])(walEntry))
+		case *wal.WALPrecommit[H, A]:
+			s.ProcessPrecommit((*types.Precommit[H, A])(walEntry))
+		case *wal.WALTimeout:
+			s.ProcessTimeout(types.Timeout(*walEntry))
 		default:
+			// TODO: panic here is wrong, but this will be rewritten in the next PR.
 			panic("Failed to replay WAL messages, unknown WAL Entry type")
 		}
 	}
