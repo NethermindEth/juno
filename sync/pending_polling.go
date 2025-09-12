@@ -14,13 +14,13 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-// fetchPreLatest polls a pre-latest once and either:
+// handleTickerPreLatest polls a pre-latest once and either:
 //   - emits it to out and returns true when if delivered,
 //   - caches it by its ParentHash for a future head and returns false,
 //   - returns false on errors or context cancellation.
 //
 // Caller should invoke only when at tip and not yet delivered for the current head.
-func (s *Synchronizer) fetchPreLatest(
+func (s *Synchronizer) handleTickerPreLatest(
 	ctx context.Context,
 	currentHead *core.Block,
 	seenByParent map[felt.Felt]*core.PreLatest,
@@ -72,7 +72,6 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 	var (
 		currentHead      *core.Block
-		haveHead         bool
 		deliveredForHead bool // whether we've already emitted a pre-latest for the current head
 	)
 
@@ -81,7 +80,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 		//   - we have a head
 		//   - we are at the tip (or caught up) relative to highest known header
 		//   - we have not yet delivered a pre-latest for this head
-		shouldPoll := haveHead && s.isAtTip(currentHead.Header.Number) && !deliveredForHead
+		shouldPoll := currentHead != nil && s.isAtTip(currentHead.Header.Number) && !deliveredForHead
 
 		select {
 		case <-ctx.Done():
@@ -94,7 +93,6 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 			}
 
 			currentHead = head
-			haveHead = true
 			deliveredForHead = false
 
 			// If we already cached a pre-latest for this new head (by its parent hash),
@@ -116,7 +114,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 				continue
 			}
 
-			deliveredForHead = s.fetchPreLatest(
+			deliveredForHead = s.handleTickerPreLatest(
 				ctx,
 				currentHead,
 				seenByParent,
@@ -170,7 +168,6 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 }
 
 // pollPending periodically polls the pending block while at tip and forwards it to out.
-// Errors are logged; context cancellation stops the loop.
 func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
 	if s.pendingPollInterval <= 0 {
 		s.log.Infow("Pending block polling is disabled")
@@ -266,7 +263,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 	}
 }
 
-// pollPendingData runs synchronization in two phases, switching when protocol >= v0.14.0:
+// pollPendingData runs synchronisation in two phases, switching when protocol >= v0.14.0:
 //  1. Pending phase: store empty pending baselines and real pending blocks.
 //  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
 func (s *Synchronizer) pollPendingData(ctx context.Context) {
@@ -319,7 +316,6 @@ func (s *Synchronizer) handleHeadInPreConfirmed(
 
 // handlePreLatest processes an incoming pre_latest during the pre_confirmed phase.
 // If it raises the target, it stages the attachment and stores a baseline with it.
-// If it equals the current target and no attachment is staged yet, it attaches now.
 // Returns updated (targetNum, stagedPreLatest).
 func (s *Synchronizer) handlePreLatest(
 	pl *core.PreLatest,
@@ -339,7 +335,7 @@ func (s *Synchronizer) handlePreLatest(
 	return targetNum, stagedPreLatest
 }
 
-// handlePreConfirmed finalizes when the polled pre_confirmed equals the target.
+// handlePreConfirmed finalises when the polled pre_confirmed equals the target.
 // It attaches the staged pre_latest (if still valid), stores it, and feeds if changed.
 func (s *Synchronizer) handlePreConfirmed(
 	pc *core.PreConfirmed,
