@@ -150,9 +150,6 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 
 			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetNum)
 			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
 				s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
 				continue
 			}
