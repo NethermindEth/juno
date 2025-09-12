@@ -292,12 +292,9 @@ func (s *Synchronizer) handleHeadInPreConfirmed(
 	stagedPreLatest *core.PreLatest,
 ) (uint64, *core.PreLatest) {
 	next := head.Number + 1
-	preLatest := stagedPreLatest
 	if next == targetNum && stagedPreLatest != nil {
-		preLatest = nil
-		if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-			s.log.Debugw("Error re-storing empty pre_confirmed (clear attachment)", "err", err)
-		}
+		s.UpdatePreLatestAttachment(targetNum, nil)
+		return targetNum, nil
 	}
 
 	if next > targetNum {
@@ -305,7 +302,7 @@ func (s *Synchronizer) handleHeadInPreConfirmed(
 		if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
 			s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
 		}
-		return next, preLatest
+		return next, nil
 	}
 
 	return targetNum, stagedPreLatest
@@ -438,37 +435,33 @@ func (s *Synchronizer) StorePending(p *core.Pending) error {
 // pre_confirmed at the given blockNumber by atomically swapping the stored pointer.
 // Returns true if the store was updated, false if no matching pre_confirmed is stored
 // or the attachment was already equal.
-func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) (bool, error) {
-	for {
-		curPtr := s.pendingData.Load()
-		if curPtr == nil || *curPtr == nil {
-			return false, nil
-		}
-
-		cur := *curPtr
-		pc, ok := cur.(*core.PreConfirmed)
-		if !ok {
-			// A pending is stored or another type; nothing to do.
-			return false, nil
-		}
-		if pc.Block == nil || pc.Block.Number != blockNumber {
-			// Different height stored; do not touch.
-			return false, nil
-		}
-
-		if pc.PreLatest == preLatest {
-			// No change.
-			return false, nil
-		}
-
-		// Clone and update attachment on the clone.
-		next := pc.Clone()
-		next.WithPreLatest(preLatest)
-
-		if s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PendingData](next)) {
-			return true, nil
-		}
+func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *core.PreLatest) bool {
+	curPtr := s.pendingData.Load()
+	if curPtr == nil || *curPtr == nil {
+		return false
 	}
+
+	cur := *curPtr
+	pc, ok := cur.(*core.PreConfirmed)
+	if !ok {
+		// A pending is stored or another type; nothing to do.
+		return false
+	}
+	if pc.Block == nil || pc.Block.Number != blockNumber {
+		// Different height stored; do not touch.
+		return false
+	}
+
+	if pc.PreLatest == preLatest {
+		// No change.
+		return false
+	}
+
+	// Clone and update attachment on the clone.
+	next := pc.Clone()
+	next.WithPreLatest(preLatest)
+
+	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PendingData](next))
 }
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
@@ -514,7 +507,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	if existingB.Number == incomingB.Number &&
 		existingB.TransactionCount >= incomingB.TransactionCount {
 		// Try to update attachment to match p.PreLatest (can be nil to clear)
-		_, _ = s.UpdatePreLatestAttachment(incomingB.Number, p.PreLatest)
+		_ = s.UpdatePreLatestAttachment(incomingB.Number, p.PreLatest)
 		return false, nil
 	}
 
