@@ -124,6 +124,14 @@ func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) {
 	p.PreLatest = preLatest
 }
 
+func (p *PreConfirmed) Clone() *PreConfirmed {
+	if p == nil {
+		return nil
+	}
+	cp := *p // shallow copy of the struct
+	return &cp
+}
+
 func (p *PreConfirmed) GetBlock() *Block {
 	return p.Block
 }
