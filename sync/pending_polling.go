@@ -53,8 +53,6 @@ func (s *Synchronizer) handleTickerPreLatest(
 // It avoids duplicate deliveries. If a fetched pre-latest corresponds to a future head,
 // it is cached keyed by ParentHash and emitted immediately when that head arrives.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLatest) {
-	defer close(out)
-
 	if s.pendingPollInterval == 0 {
 		s.log.Infow("Pre-latest block polling is disabled")
 		return
@@ -128,7 +126,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 // The target is read from s.targetPreConfirmedNum and only polled while at tip.
 // On success, the pre_confirmed is forwarded to out.
 func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.PreConfirmed) {
-	if s.preConfirmedPollInterval <= 0 {
+	if s.preConfirmedPollInterval == 0 {
 		s.log.Infow("Pre-confirmed block polling is disabled")
 		return
 	}
@@ -166,7 +164,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 
 // pollPending periodically polls the pending block while at tip and forwards it to out.
 func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
-	if s.pendingPollInterval <= 0 {
+	if s.pendingPollInterval == 0 {
 		s.log.Infow("Pending block polling is disabled")
 		return
 	}
@@ -199,6 +197,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 			pending, err := s.dataSource.BlockPending(ctx)
 			if err != nil {
 				s.log.Debugw("Error while trying to poll pending block", "err", err)
+				continue
 			}
 
 			select {
@@ -258,28 +257,6 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 		}
 	}
-}
-
-// pollPendingData runs synchronisation in two phases, switching when protocol >= v0.14.0:
-//  1. Pending phase: store empty pending baselines and real pending blocks.
-//  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
-func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
-		s.log.Infow("Pending data polling is disabled")
-		return
-	}
-
-	headsSub := s.newHeads.SubscribeKeepLast()
-	defer headsSub.Unsubscribe()
-
-	// Phase 1: pending path
-	switched := s.runPendingPhase(ctx, headsSub)
-	if !switched || ctx.Err() != nil {
-		return
-	}
-
-	// Phase 2: pre_confirmed path
-	s.runPreConfirmedPhase(ctx, headsSub)
 }
 
 // handleHeadInPreConfirmed processes a new head during the pre_confirmed phase.
@@ -394,6 +371,28 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 			s.handlePreConfirmed(pc, targetNum, stagedPreLatest)
 		}
 	}
+}
+
+// pollPendingData runs synchronisation in two phases, switching when protocol >= v0.14.0:
+//  1. Pending phase: store empty pending baselines and real pending blocks.
+//  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
+func (s *Synchronizer) pollPendingData(ctx context.Context) {
+	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
+		s.log.Infow("Pending data polling is disabled")
+		return
+	}
+
+	headsSub := s.newHeads.SubscribeKeepLast()
+	defer headsSub.Unsubscribe()
+
+	// Phase 1: pending path
+	switched := s.runPendingPhase(ctx, headsSub)
+	if !switched || ctx.Err() != nil {
+		return
+	}
+
+	// Phase 2: pre_confirmed path
+	s.runPreConfirmedPhase(ctx, headsSub)
 }
 
 // StorePending stores a pending block given that it is for the next height
