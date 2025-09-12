@@ -463,7 +463,7 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	s.startingBlockNumber = &startingHeight
 
 	if s.readOnlyBlockchain {
-		go s.pollLatest(syncCtx)
+		s.pollLatest(syncCtx)
 		return
 	}
 
