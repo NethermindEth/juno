@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockDataSource provides controllable behavior for polling functions.
+// MockDataSource provides controllable behaviour for polling functions.
 type MockDataSource struct {
 	DataSource
 	pendingErrorThreshold      uint

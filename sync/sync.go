@@ -461,17 +461,16 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 	nextHeight := s.nextHeight()
 	startingHeight := nextHeight
 	s.startingBlockNumber = &startingHeight
-	pollLatestWg := &stdsync.WaitGroup{}
+
 	if s.readOnlyBlockchain {
-		pollLatestWg.Go(func() { s.pollLatest(syncCtx) })
-		pollLatestWg.Wait()
+		go s.pollLatest(syncCtx)
 		return
 	}
 
 	fetchers, verifiers := s.setupWorkers()
 	streamCtx, streamCancel := context.WithCancel(syncCtx)
 
-	pollLatestWg.Go(func() { s.pollLatest(syncCtx) })
+	go s.pollLatest(syncCtx)
 
 	pollPendingWg := &stdsync.WaitGroup{}
 	pollPendingWg.Go(func() { s.pollPendingData(streamCtx) })
@@ -486,7 +485,6 @@ func (s *Synchronizer) syncBlocks(syncCtx context.Context) {
 
 			select {
 			case <-syncCtx.Done():
-				pollLatestWg.Wait()
 				return
 			default:
 				streamCtx, streamCancel = context.WithCancel(syncCtx)
