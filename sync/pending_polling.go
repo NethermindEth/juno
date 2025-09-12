@@ -14,8 +14,44 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-// pollPreLatest fetches the pre-latest block for each new head and forwards it to the given channel.
-// The consumer of preLatestChan never receives the same preLatest twice.
+// fetchPreLatest polls a pre-latest once and either:
+//   - emits it to out and returns true when if delivered,
+//   - caches it by its ParentHash for a future head and returns false,
+//   - returns false on errors or context cancellation.
+//
+// Caller should invoke only when at tip and not yet delivered for the current head.
+func (s *Synchronizer) fetchPreLatest(
+	ctx context.Context,
+	currentHead *core.Block,
+	seenByParent map[felt.Felt]*core.PreLatest,
+	out chan<- *core.PreLatest,
+) bool {
+	pending, err := s.dataSource.BlockPending(ctx)
+	if err != nil {
+		s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
+		return false
+	}
+
+	preLatest := core.PreLatest(pending)
+
+	if *preLatest.Block.ParentHash != *currentHead.Hash {
+		seenByParent[*preLatest.Block.ParentHash] = &preLatest
+		return false
+	}
+
+	preLatest.Block.Number = currentHead.Number + 1
+
+	select {
+	case <-ctx.Done():
+		return false
+	case out <- &preLatest:
+		return true
+	}
+}
+
+// pollPreLatest fetches at most one pre-latest per head while at tip and forwards it to out.
+// It avoids duplicate deliveries. If a fetched pre-latest corresponds to a future head,
+// it is cached keyed by ParentHash and emitted immediately when that head arrives.
 func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLatest) {
 	defer close(out)
 
@@ -36,7 +72,6 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 	var (
 		currentHead      *core.Block
-		currentHeadHash  felt.Felt
 		haveHead         bool
 		deliveredForHead bool // whether we've already emitted a pre-latest for the current head
 	)
@@ -59,14 +94,13 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 			}
 
 			currentHead = head
-			currentHeadHash = *head.Hash
 			haveHead = true
 			deliveredForHead = false
 
 			// If we already cached a pre-latest for this new head (by its parent hash),
 			// emit it immediately and mark as delivered.
-			if pl, hit := seenByParent[currentHeadHash]; hit {
-				delete(seenByParent, currentHeadHash)
+			if pl, hit := seenByParent[*currentHead.Hash]; hit {
+				delete(seenByParent, *currentHead.Hash)
 				pl.Block.Number = currentHead.Number + 1
 
 				select {
@@ -82,37 +116,19 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 				continue
 			}
 
-			pending, err := s.dataSource.BlockPending(ctx)
-			if err != nil {
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-				s.log.Debugw("Error while trying to poll pre_latest block", "err", err)
-				continue
-			}
-
-			preLatest := core.PreLatest(pending)
-
-			// If the polled pre-latest doesn't belong to the current head, cache it by its parent.
-			// The cached item will be emitted when the corresponding head arrives.
-			if *preLatest.Block.ParentHash != currentHeadHash {
-				seenByParent[*preLatest.Block.ParentHash] = &preLatest
-				continue
-			}
-
-			// The pre-latest is the predecessor of the current head's next block.
-			preLatest.Block.Number = currentHead.Number + 1
-
-			select {
-			case <-ctx.Done():
-				return
-			case out <- &preLatest:
-				deliveredForHead = true
-			}
+			deliveredForHead = s.fetchPreLatest(
+				ctx,
+				currentHead,
+				seenByParent,
+				out,
+			)
 		}
 	}
 }
 
+// pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
+// The target is read from s.targetPreConfirmedNum and only polled while at tip.
+// On success, the pre_confirmed is forwarded to out.
 func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.PreConfirmed) {
 	if s.preConfirmedPollInterval <= 0 {
 		s.log.Infow("Pre-confirmed block polling is disabled")
@@ -153,6 +169,8 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 	}
 }
 
+// pollPending periodically polls the pending block while at tip and forwards it to out.
+// Errors are logged; context cancellation stops the loop.
 func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
 	if s.pendingPollInterval <= 0 {
 		s.log.Infow("Pending block polling is disabled")
@@ -197,45 +215,6 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 			}
 		}
 	}
-}
-
-// needsPreConfirmed reports whether the given protocol version string
-// indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
-func needsPreConfirmed(protocolVersion string) (bool, error) {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return false, err
-	}
-	return ver.GreaterThanEqual(core.Ver0_14_0), nil
-}
-
-// isAtTip reports whether the given number is at or beyond the highest known header.
-func (s *Synchronizer) isAtTip(blockNumber uint64) bool {
-	highest := s.highestBlockHeader.Load()
-	if highest == nil {
-		return false
-	}
-	return highest.Number <= blockNumber
-}
-
-// pollPendingData runs the pending pollers.
-func (s *Synchronizer) pollPendingData(ctx context.Context) {
-	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
-		s.log.Infow("Pending data polling is disabled")
-		return
-	}
-
-	headsSub := s.newHeads.SubscribeKeepLast()
-	defer headsSub.Unsubscribe()
-
-	// Phase 1: pending path
-	switched := s.runPendingPhase(ctx, headsSub)
-	if !switched || ctx.Err() != nil {
-		return
-	}
-
-	// Phase 2: pre_confirmed path
-	s.runPreConfirmedPhase(ctx, headsSub)
 }
 
 // runPendingPhase processes pending blocks and empty pending baselines until protocol >= 0.14.0 is detected.
@@ -287,6 +266,101 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 	}
 }
 
+// pollPendingData runs synchronization in two phases, switching when protocol >= v0.14.0:
+//  1. Pending phase: store empty pending baselines and real pending blocks.
+//  2. Pre_confirmed phase: manage baselines and pre_latest attachments and poll pre_confirmed.
+func (s *Synchronizer) pollPendingData(ctx context.Context) {
+	if s.pendingPollInterval == 0 || s.preConfirmedPollInterval == 0 {
+		s.log.Infow("Pending data polling is disabled")
+		return
+	}
+
+	headsSub := s.newHeads.SubscribeKeepLast()
+	defer headsSub.Unsubscribe()
+
+	// Phase 1: pending path
+	switched := s.runPendingPhase(ctx, headsSub)
+	if !switched || ctx.Err() != nil {
+		return
+	}
+
+	// Phase 2: pre_confirmed path
+	s.runPreConfirmedPhase(ctx, headsSub)
+}
+
+// handleHeadInPreConfirmed processes a new head during the pre_confirmed phase.
+// It computes nextHeight = head.Number + 1, clears any staged pre_latest if the
+// head catches up to the current target, and stores an empty pre_confirmed when
+// advancing. Returns updated (targetNum, stagedPreLatest).
+func (s *Synchronizer) handleHeadInPreConfirmed(
+	head *core.Block,
+	targetNum uint64,
+	stagedPreLatest *core.PreLatest,
+) (uint64, *core.PreLatest) {
+	next := head.Number + 1
+	preLatest := stagedPreLatest
+	if next == targetNum && stagedPreLatest != nil {
+		preLatest = nil
+		if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
+			s.log.Debugw("Error re-storing empty pre_confirmed (clear attachment)", "err", err)
+		}
+	}
+
+	if next > targetNum {
+		s.targetPreConfirmedNum.Store(next)
+		if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
+			s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
+		}
+		return next, preLatest
+	}
+
+	return targetNum, stagedPreLatest
+}
+
+// handlePreLatest processes an incoming pre_latest during the pre_confirmed phase.
+// If it raises the target, it stages the attachment and stores a baseline with it.
+// If it equals the current target and no attachment is staged yet, it attaches now.
+// Returns updated (targetNum, stagedPreLatest).
+func (s *Synchronizer) handlePreLatest(
+	pl *core.PreLatest,
+	targetNum uint64,
+	stagedPreLatest *core.PreLatest,
+) (uint64, *core.PreLatest) {
+	next := pl.Block.Number + 1
+
+	if next > targetNum {
+		s.targetPreConfirmedNum.Store(next)
+		if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
+			s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
+		}
+		return next, pl
+	}
+
+	return targetNum, stagedPreLatest
+}
+
+// handlePreConfirmed finalizes when the polled pre_confirmed equals the target.
+// It attaches the staged pre_latest (if still valid), stores it, and feeds if changed.
+func (s *Synchronizer) handlePreConfirmed(
+	pc *core.PreConfirmed,
+	targetNum uint64,
+	stagedPreLatest *core.PreLatest,
+) {
+	if pc.Block.Number != targetNum {
+		return
+	}
+
+	pc.WithPreLatest(stagedPreLatest)
+	changed, err := s.StorePreConfirmed(pc)
+	if err != nil {
+		s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
+		return
+	}
+	if changed {
+		s.pendingDataFeed.Send(pc)
+	}
+}
+
 // runPreConfirmedPhase coordinates baselines, pre_latest attachments, and final storage.
 // Key rule: if head for target-1 arrives (i.e., head.Number+1 == targetNum) after staging a pre_latest,
 // we clear the staged attachment and also clear the stored baseline’s attachment (if present).
@@ -311,74 +385,23 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 			if !ok {
 				return
 			}
-			n := head.Number + 1
 
-			// If head catches up to a target that was raised by pre_latest, invalidate attachment.
-			if n == targetNum && stagedPreLatest != nil {
-				stagedPreLatest = nil
-
-				// Re-store empty baseline without pre_latest.
-				if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-					s.log.Debugw("Error re-storing empty pre_confirmed (clear attachment)", "err", err)
-				}
-			}
-
-			// If head advances the target, reset staged pre_latest, publish target, store baseline.
-			if n > targetNum {
-				targetNum = n
-				stagedPreLatest = nil
-				s.targetPreConfirmedNum.Store(targetNum)
-
-				if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-					s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
-				}
-			}
-
+			targetNum, stagedPreLatest = s.handleHeadInPreConfirmed(head, targetNum, stagedPreLatest)
 		case pl, ok := <-preLatestCh:
 			if !ok {
 				preLatestCh = nil
 				continue
 			}
-			n := pl.Block.Number + 1
-			if n > targetNum {
-				// Pre-latest raises target; attach and baseline.
-				targetNum = n
-				stagedPreLatest = pl
-				s.targetPreConfirmedNum.Store(targetNum)
 
-				if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-					s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
-				}
-				continue
-			}
-			if n == targetNum && stagedPreLatest == nil {
-				// Target derived from head earlier; now attach pre_latest.
-				stagedPreLatest = pl
-				if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-					s.log.Debugw("Error storing empty pre_confirmed (attach pre_latest)", "err", err)
-				}
-			}
+			targetNum, stagedPreLatest = s.handlePreLatest(pl, targetNum, stagedPreLatest)
 
 		case pc, ok := <-preConfirmedCh:
 			if !ok {
 				preConfirmedCh = nil
 				continue
 			}
-			if pc.Block.Number != targetNum {
-				continue
-			}
 
-			// Attach whatever is currently valid (could be nil if head superseded).
-			pc.WithPreLatest(stagedPreLatest)
-
-			changed, err := s.StorePreConfirmed(pc)
-			if err != nil {
-				s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
-				continue
-			}
-			if changed {
-				s.pendingDataFeed.Send(pc)
-			}
+			s.handlePreConfirmed(pc, targetNum, stagedPreLatest)
 		}
 	}
 }
@@ -566,7 +589,7 @@ func (s *Synchronizer) storeEmptyPending(latestHeader *core.Header) error {
 }
 
 // storeEmptyPreConfirmed creates a baseline pre_confirmed for head+1 and stores it.
-// Pass preLatest if you want the baseline to carry an attachment; pass nil to clear.
+// Pass preLatest to attach it to the baseline; pass nil to clear any attachment.
 func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header, preLatest *core.PreLatest) error {
 	preConfirmed, err := s.makeEmptyPreConfirmedForParent(latestHeader)
 	if err != nil {
@@ -615,6 +638,27 @@ func (s *Synchronizer) makeEmptyPreConfirmedForParent(latestHeader *core.Header)
 	return preConfirmed, nil
 }
 
+// isAtTip reports whether the given number is at or beyond the highest known header.
+func (s *Synchronizer) isAtTip(blockNumber uint64) bool {
+	highest := s.highestBlockHeader.Load()
+	if highest == nil {
+		return false
+	}
+	return highest.Number <= blockNumber
+}
+
+// needsPreConfirmed reports whether the given protocol version string
+// indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
+func needsPreConfirmed(protocolVersion string) (bool, error) {
+	ver, err := core.ParseBlockVersion(protocolVersion)
+	if err != nil {
+		return false, err
+	}
+	return ver.GreaterThanEqual(core.Ver0_14_0), nil
+}
+
+// makeStateDiffForEmptyBlock constructs a minimal state diff for an empty block.
+// It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
 		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
