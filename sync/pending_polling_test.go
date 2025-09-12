@@ -359,6 +359,8 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 	wg.Go(func() {
 		s.runPreConfirmedPhase(ctx, headsSub)
 	})
+	defer wg.Wait()
+
 	time.Sleep(100 * time.Millisecond)
 	// Send initial head 0 to kick off target=1
 	s.newHeads.Send(block0)
@@ -372,18 +374,23 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 		t.Fatal("did not broadcast pre_confirmed for number 1")
 	}
 
-	time.Sleep(200 * time.Millisecond)
-	// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
-	select {
-	case pd := <-sub.Recv():
-		require.NotNil(t, pd)
-		require.Equal(t, uint64(2), pd.GetBlock().Number)
-	case <-ctx.Done():
-		t.Fatal("did not broadcast pre_confirmed for number 2")
-	}
+	for {
+		// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
+		select {
+		case pd := <-sub.Recv():
+			require.NotNil(t, pd)
+			if pd.GetBlock().Number == uint64(2) {
+				return
+			}
 
-	cancel()
-	wg.Wait()
+			if pd.GetBlock().Number > uint64(2) {
+				t.Fatal("did not broadcast pre_confirmed for number 2")
+			}
+
+		case <-ctx.Done():
+			t.Fatal("did not broadcast pre_confirmed for number 2")
+		}
+	}
 }
 
 func TestPollPendingDataSwitchToPreConfirmedPolling(t *testing.T) {
