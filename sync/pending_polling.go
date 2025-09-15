@@ -15,6 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/lru"
 )
 
+const (
+	preLatestCacheSize = 10
+	blockHashLag       = 10
+)
+
 // handleTickerPreLatest polls a pre-latest once and either:
 //   - emits it to out and returns true when if delivered,
 //   - caches it by its ParentHash for a future head and returns false,
@@ -64,7 +69,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 	// Cache of pre-latest blocks keyed by the hash of their parent.
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
-	seenByParent := lru.NewBasicLRU[felt.Felt, *core.PreLatest](10)
+	seenByParent := lru.NewBasicLRU[felt.Felt, *core.PreLatest](preLatestCacheSize)
 
 	ticker := time.NewTicker(s.pendingPollInterval)
 	defer ticker.Stop()
@@ -79,7 +84,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 		//   - we have a head
 		//   - we are at the tip (or caught up) relative to highest known header
 		//   - we have not yet delivered a pre-latest for this head
-		shouldPoll := currentHead != nil && s.isAtTip(currentHead.Header.Number) && !deliveredForHead
+		shouldPoll := currentHead != nil && s.isGreaterThanTip(currentHead.Header.Number+1) && !deliveredForHead
 
 		select {
 		case <-ctx.Done():
@@ -96,7 +101,6 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 			// If we already cached a pre-latest for this new head (by its parent hash),
 			// emit it immediately and mark as delivered.
-
 			if pl, hit := seenByParent.Get(*currentHead.Hash); hit {
 				seenByParent.Remove(*currentHead.Hash)
 				pl.Block.Number = currentHead.Number + 1
@@ -143,7 +147,7 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 
 		case <-ticker.C:
 			targetNum := s.targetPreConfirmedNum.Load()
-			shouldPoll := targetNum > 0 && s.isAtTip(targetNum)
+			shouldPoll := targetNum > 0 && s.isGreaterThanTip(targetNum)
 			if !shouldPoll {
 				continue
 			}
@@ -192,7 +196,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 				continue
 			}
 
-			if !s.isAtTip(head.Number) {
+			if !s.isGreaterThanTip(head.Number + 1) {
 				continue
 			}
 
@@ -234,28 +238,30 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 				s.log.Debugw("Failed to parse protocol version", "err", err)
 				continue
 			}
+
 			if need {
 				return true // switch to pre_confirmed
 			}
+
 			if err := s.storeEmptyPending(head.Header); err != nil {
 				s.log.Debugw("Error storing empty pending", "err", err)
 			}
 
-		case p, ok := <-pendingCh:
-			if !ok {
-				pendingCh = nil
-				continue
-			}
+		case p := <-pendingCh:
 			need, err := needsPreConfirmed(p.Block.ProtocolVersion)
 			if err != nil {
 				s.log.Debugw("Failed to parse pending protocol version", "err", err)
 				continue
 			}
+
 			if need {
 				return true // switch to pre_confirmed
 			}
-			if err := s.StorePending(p); err != nil {
+
+			if changed, err := s.StorePending(p); err != nil {
 				s.log.Debugw("Error storing pending block", "err", err)
+			} else if changed {
+				s.pendingDataFeed.Send(p)
 			}
 		}
 	}
@@ -267,24 +273,24 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 // advancing. Returns updated (targetNum, stagedPreLatest).
 func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 	head *core.Block,
-	targetNum uint64,
+	targetPreConfirmedNum uint64,
 	stagedPreLatest *core.PreLatest,
 ) (uint64, *core.PreLatest) {
 	next := head.Number + 1
-	if next == targetNum && stagedPreLatest != nil {
-		s.UpdatePreLatestAttachment(targetNum, nil)
-		return targetNum, nil
+	if next < targetPreConfirmedNum {
+		return targetPreConfirmedNum, stagedPreLatest
 	}
 
-	if next > targetNum {
-		s.targetPreConfirmedNum.Store(next)
-		if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
-			s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
-		}
-		return next, nil
+	if next == targetPreConfirmedNum && stagedPreLatest != nil {
+		s.UpdatePreLatestAttachment(targetPreConfirmedNum, nil)
+		return targetPreConfirmedNum, nil
 	}
 
-	return targetNum, stagedPreLatest
+	s.targetPreConfirmedNum.Store(next)
+	if err := s.storeEmptyPreConfirmed(head.Header, nil); err != nil {
+		s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
+	}
+	return next, nil
 }
 
 // handlePreLatest processes an incoming pre_latest during the pre_confirmed phase.
@@ -292,20 +298,19 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 // Returns updated (targetNum, stagedPreLatest).
 func (s *Synchronizer) handlePreLatest(
 	pl *core.PreLatest,
-	targetNum uint64,
+	targetPreConfirmedNum uint64,
 	stagedPreLatest *core.PreLatest,
 ) (uint64, *core.PreLatest) {
 	next := pl.Block.Number + 1
-
-	if next > targetNum {
-		s.targetPreConfirmedNum.Store(next)
-		if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
-			s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
-		}
-		return next, pl
+	if next <= targetPreConfirmedNum {
+		return targetPreConfirmedNum, stagedPreLatest
 	}
 
-	return targetNum, stagedPreLatest
+	s.targetPreConfirmedNum.Store(next)
+	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
+		s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
+	}
+	return next, pl
 }
 
 // handlePreConfirmed finalises when the polled pre_confirmed equals the target.
@@ -395,38 +400,36 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 }
 
 // StorePending stores a pending block given that it is for the next height
-func (s *Synchronizer) StorePending(p *core.Pending) error {
+func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	expectedParentHash := new(felt.Felt)
 	h, err := s.blockchain.HeadsHeader()
 	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return err
+		return false, err
 	} else if err == nil {
 		expectedParentHash = h.Hash
 	}
 
 	if !expectedParentHash.Equal(p.Block.ParentHash) {
-		return fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
+		return false, fmt.Errorf("store pending: %w", blockchain.ErrParentDoesNotMatchHead)
 	}
 
 	if existingPending, err := s.PendingData(); err == nil {
 		if existingPending.GetBlock().TransactionCount >= p.Block.TransactionCount {
 			// ignore the incoming pending if it has fewer transactions than the one we already have
-			return nil
+			return false, nil
 		}
 	} else if !errors.Is(err, ErrPendingBlockNotFound) {
-		return err
+		return false, err
 	}
 
 	s.pendingData.Store(utils.HeapPtr[core.PendingData](p))
 
-	s.pendingDataFeed.Send(p)
-
-	return nil
+	return true, nil
 }
 
 // UpdatePreLatestAttachment updates (or clears) the PreLatest attachment of the currently stored
@@ -623,12 +626,12 @@ func (s *Synchronizer) makeEmptyPreConfirmedForParent(latestHeader *core.Header)
 }
 
 // isAtTip reports whether the given number is at or beyond the highest known header.
-func (s *Synchronizer) isAtTip(blockNumber uint64) bool {
+func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 	highest := s.highestBlockHeader.Load()
 	if highest == nil {
 		return false
 	}
-	return highest.Number <= blockNumber
+	return highest.Number < blockNumber
 }
 
 // needsPreConfirmed reports whether the given protocol version string
@@ -653,7 +656,6 @@ func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
 
-	const blockHashLag = 10
 	if blockNumber < blockHashLag {
 		return stateDiff, nil
 	}

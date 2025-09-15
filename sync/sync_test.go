@@ -212,7 +212,9 @@ func TestPendingData(t *testing.T) {
 
 		t.Run("cannot store unsupported pending block version", func(t *testing.T) {
 			pending := &core.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
-			require.Error(t, synchronizer.StorePending(pending))
+			changed, err := synchronizer.StorePending(pending)
+			require.Error(t, err)
+			require.False(t, changed)
 		})
 
 		t.Run("store genesis as pending", func(t *testing.T) {
@@ -221,7 +223,9 @@ func TestPendingData(t *testing.T) {
 				StateUpdate: su,
 			}
 
-			require.NoError(t, synchronizer.StorePending(pendingGenesis))
+			changed, err := synchronizer.StorePending(pendingGenesis)
+			require.NoError(t, err)
+			require.True(t, changed)
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
@@ -238,8 +242,9 @@ func TestPendingData(t *testing.T) {
 			require.NoError(t, err)
 
 			notExpectedPending := core.NewPending(b, su, nil)
-
-			require.ErrorIs(t, synchronizer.StorePending(&notExpectedPending), blockchain.ErrParentDoesNotMatchHead)
+			changed, err := synchronizer.StorePending(&notExpectedPending)
+			require.ErrorIs(t, err, blockchain.ErrParentDoesNotMatchHead)
+			require.False(t, changed)
 		})
 
 		t.Run("store expected pending block", func(t *testing.T) {
@@ -252,8 +257,9 @@ func TestPendingData(t *testing.T) {
 				Block:       b,
 				StateUpdate: su,
 			}
-
-			require.NoError(t, synchronizer.StorePending(expectedPending))
+			changed, err := synchronizer.StorePending(expectedPending)
+			require.NoError(t, err)
+			require.True(t, changed)
 
 			gotPending, pErr := synchronizer.PendingData()
 			require.NoError(t, pErr)
