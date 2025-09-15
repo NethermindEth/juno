@@ -459,7 +459,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	}
 
 	// Clone and update attachment on the clone.
-	next := pc.Clone()
+	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 
 	return s.pendingData.CompareAndSwap(curPtr, utils.HeapPtr[core.PendingData](next))

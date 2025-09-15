@@ -126,7 +126,7 @@ func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
 	return p
 }
 
-func (p *PreConfirmed) Clone() *PreConfirmed {
+func (p *PreConfirmed) Copy() *PreConfirmed {
 	if p == nil {
 		return nil
 	}
