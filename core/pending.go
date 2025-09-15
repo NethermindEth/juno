@@ -116,12 +116,14 @@ func NewPreConfirmed(
 	}
 }
 
-func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) {
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
 	p.NewClasses = newClasses
+	return p
 }
 
-func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) {
+func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
 	p.PreLatest = preLatest
+	return p
 }
 
 func (p *PreConfirmed) Clone() *PreConfirmed {
