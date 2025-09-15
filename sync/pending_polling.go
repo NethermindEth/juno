@@ -12,6 +12,7 @@ import (
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/ethereum/go-ethereum/common/lru"
 )
 
 // handleTickerPreLatest polls a pre-latest once and either:
@@ -23,7 +24,7 @@ import (
 func (s *Synchronizer) handleTickerPreLatest(
 	ctx context.Context,
 	currentHead *core.Block,
-	seenByParent map[felt.Felt]*core.PreLatest,
+	seenByParent *lru.BasicLRU[felt.Felt, *core.PreLatest],
 	out chan<- *core.PreLatest,
 ) bool {
 	pending, err := s.dataSource.BlockPending(ctx)
@@ -35,7 +36,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 	preLatest := core.PreLatest(pending)
 
 	if *preLatest.Block.ParentHash != *currentHead.Hash {
-		seenByParent[*preLatest.Block.ParentHash] = &preLatest
+		seenByParent.Add(*preLatest.Block.ParentHash, &preLatest)
 		return false
 	}
 
@@ -63,7 +64,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 	// Cache of pre-latest blocks keyed by the hash of their parent.
 	// When we receive the head with this parent hash, we emit the cached pre-latest.
-	seenByParent := make(map[felt.Felt]*core.PreLatest)
+	seenByParent := lru.NewBasicLRU[felt.Felt, *core.PreLatest](10)
 
 	ticker := time.NewTicker(s.pendingPollInterval)
 	defer ticker.Stop()
@@ -95,8 +96,9 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 
 			// If we already cached a pre-latest for this new head (by its parent hash),
 			// emit it immediately and mark as delivered.
-			if pl, hit := seenByParent[*currentHead.Hash]; hit {
-				delete(seenByParent, *currentHead.Hash)
+
+			if pl, hit := seenByParent.Get(*currentHead.Hash); hit {
+				seenByParent.Remove(*currentHead.Hash)
 				pl.Block.Number = currentHead.Number + 1
 
 				select {
@@ -115,7 +117,7 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 			deliveredForHead = s.handleTickerPreLatest(
 				ctx,
 				currentHead,
-				seenByParent,
+				&seenByParent,
 				out,
 			)
 		}
