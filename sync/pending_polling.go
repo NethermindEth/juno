@@ -265,7 +265,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 // It computes nextHeight = head.Number + 1, clears any staged pre_latest if the
 // head catches up to the current target, and stores an empty pre_confirmed when
 // advancing. Returns updated (targetNum, stagedPreLatest).
-func (s *Synchronizer) handleHeadInPreConfirmed(
+func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 	head *core.Block,
 	targetNum uint64,
 	stagedPreLatest *core.PreLatest,
@@ -355,21 +355,14 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 				return
 			}
 
-			targetNum, stagedPreLatest = s.handleHeadInPreConfirmed(head, targetNum, stagedPreLatest)
-		case pl, ok := <-preLatestCh:
-			if !ok {
-				preLatestCh = nil
-				continue
-			}
-
+			targetNum, stagedPreLatest = s.handleHeadInPreConfirmedPhase(
+				head,
+				targetNum,
+				stagedPreLatest,
+			)
+		case pl := <-preLatestCh:
 			targetNum, stagedPreLatest = s.handlePreLatest(pl, targetNum, stagedPreLatest)
-
-		case pc, ok := <-preConfirmedCh:
-			if !ok {
-				preConfirmedCh = nil
-				continue
-			}
-
+		case pc := <-preConfirmedCh:
 			s.handlePreConfirmed(pc, targetNum, stagedPreLatest)
 		}
 	}
