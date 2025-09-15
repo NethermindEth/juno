@@ -281,7 +281,7 @@ func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 		return targetPreConfirmedNum, stagedPreLatest
 	}
 
-	if next == targetPreConfirmedNum && stagedPreLatest != nil {
+	if next == targetPreConfirmedNum {
 		s.UpdatePreLatestAttachment(targetPreConfirmedNum, nil)
 		return targetPreConfirmedNum, nil
 	}
