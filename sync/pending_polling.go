@@ -341,8 +341,8 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 	go s.pollPreConfirmed(ctx, preConfirmedCh)
 
 	var (
-		targetNum       uint64
-		stagedPreLatest *core.PreLatest
+		targetPreConfirmedNum uint64
+		stagedPreLatest       *core.PreLatest
 	)
 
 	for {
@@ -355,15 +355,19 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 				return
 			}
 
-			targetNum, stagedPreLatest = s.handleHeadInPreConfirmedPhase(
+			targetPreConfirmedNum, stagedPreLatest = s.handleHeadInPreConfirmedPhase(
 				head,
-				targetNum,
+				targetPreConfirmedNum,
 				stagedPreLatest,
 			)
 		case pl := <-preLatestCh:
-			targetNum, stagedPreLatest = s.handlePreLatest(pl, targetNum, stagedPreLatest)
+			targetPreConfirmedNum, stagedPreLatest = s.handlePreLatest(
+				pl,
+				targetPreConfirmedNum,
+				stagedPreLatest,
+			)
 		case pc := <-preConfirmedCh:
-			s.handlePreConfirmed(pc, targetNum, stagedPreLatest)
+			s.handlePreConfirmed(pc, targetPreConfirmedNum, stagedPreLatest)
 		}
 	}
 }
