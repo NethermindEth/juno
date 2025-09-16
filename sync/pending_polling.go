@@ -485,33 +485,18 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	}
 
 	existingPtr := s.pendingData.Load()
-	if existingPtr == nil || *existingPtr == nil {
-		return s.pendingData.CompareAndSwap(
-			existingPtr,
-			utils.HeapPtr[core.PendingData](p),
-		), nil
-	}
+	// Preserve existing pre_confirmed if it is still valid and
+	// incoming pre_confirmed is not richer than existing.
+	shouldPreserveCurrentPreConfirmed := existingPtr != nil && *existingPtr != nil && // if not nil
+		(*existingPtr).Validate(head) && // if still valid
+		((*existingPtr).GetBlock().Number == p.GetBlock().Number &&
+			(*existingPtr).GetBlock().TransactionCount >= p.GetBlock().TransactionCount) // incoming does not have richer data
 
-	existing := *existingPtr
-	if !existing.Validate(head) {
-		return s.pendingData.CompareAndSwap(
-			existingPtr,
-			utils.HeapPtr[core.PendingData](p),
-		), nil
-	}
-
-	existingB := existing.GetBlock()
-	incomingB := p.GetBlock()
-
-	// If same number and existing has >= txCount, keep existing but update attachment if needed.
-	if existingB.Number == incomingB.Number &&
-		existingB.TransactionCount >= incomingB.TransactionCount {
-		// Try to update attachment to match p.PreLatest (can be nil to clear)
-		_ = s.UpdatePreLatestAttachment(incomingB.Number, p.PreLatest)
+	if shouldPreserveCurrentPreConfirmed {
+		_ = s.UpdatePreLatestAttachment(p.GetBlock().Number, p.PreLatest)
 		return false, nil
 	}
 
-	// Otherwise, swap in the better pre_confirmed.
 	return s.pendingData.CompareAndSwap(
 		existingPtr,
 		utils.HeapPtr[core.PendingData](p),
