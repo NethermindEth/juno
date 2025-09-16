@@ -444,11 +444,11 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 	cur := *curPtr
 	pc, ok := cur.(*core.PreConfirmed)
 	if !ok {
-		// A pending is stored or another type; nothing to do.
 		return false
 	}
-	if pc.Block == nil || pc.Block.Number != blockNumber {
-		// Different height stored; do not touch.
+
+	if pc == nil || pc.Block == nil || pc.Block.Number != blockNumber {
+		// nil or different height stored; do not touch.
 		return false
 	}
 
@@ -457,7 +457,7 @@ func (s *Synchronizer) UpdatePreLatestAttachment(blockNumber uint64, preLatest *
 		return false
 	}
 
-	// Clone and update attachment on the clone.
+	// Copy and update attachment on the copy.
 	next := pc.Copy()
 	next.WithPreLatest(preLatest)
 

@@ -127,9 +127,6 @@ func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
 }
 
 func (p *PreConfirmed) Copy() *PreConfirmed {
-	if p == nil {
-		return nil
-	}
 	cp := *p // shallow copy of the struct
 	return &cp
 }
