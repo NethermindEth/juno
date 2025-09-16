@@ -80,12 +80,6 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 	)
 
 	for {
-		// We only poll when:
-		//   - we have a head
-		//   - we are at the tip (or caught up) relative to highest known header
-		//   - we have not yet delivered a pre-latest for this head
-		shouldPoll := currentHead != nil && s.isGreaterThanTip(currentHead.Header.Number+1) && !deliveredForHead
-
 		select {
 		case <-ctx.Done():
 			return
@@ -114,6 +108,11 @@ func (s *Synchronizer) pollPreLatest(ctx context.Context, out chan<- *core.PreLa
 			}
 
 		case <-ticker.C:
+			// We only poll when:
+			//   - we have a head
+			//   - we are at the tip (or caught up) relative to highest known header
+			//   - we have not yet delivered a pre-latest for this head
+			shouldPoll := currentHead != nil && s.isGreaterThanTip(currentHead.Header.Number+1) && !deliveredForHead
 			if !shouldPoll {
 				continue
 			}
