@@ -34,7 +34,6 @@ type Handler struct {
 	log           utils.Logger
 	memPool       mempool.Pool
 
-	version     string
 	newHeads    *feed.Feed[*core.Block]
 	reorgs      *feed.Feed[*sync.ReorgBlockRange]
 	pendingData *feed.Feed[core.PendingData]
@@ -154,10 +153,6 @@ func (h *Handler) Run(ctx context.Context) error {
 		return true
 	})
 	return nil
-}
-
-func (h *Handler) Version() (string, *jsonrpc.Error) {
-	return h.version, nil
 }
 
 func (h *Handler) SpecVersion() (string, *jsonrpc.Error) {
