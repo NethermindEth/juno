@@ -390,7 +390,7 @@ func (s *Synchronizer) pollPendingData(ctx context.Context) {
 
 	// Phase 1: pending path
 	switched := s.runPendingPhase(ctx, headsSub)
-	if !switched || ctx.Err() != nil {
+	if !switched {
 		return
 	}
 
