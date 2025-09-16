@@ -1,0 +1,48 @@
+# CODEOWNERS File Template
+# 
+# This file defines code ownership for this repository.
+# Code owners are automatically requested for review when someone opens a pull request.
+#
+# 📖 Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# =============================================================================
+# GLOBAL OWNERS
+# =============================================================================
+# These owners will be requested for review on ALL pull requests
+# Uncomment and customize the line below:
+
+# * @NethermindEth/your-team-name
+
+# =============================================================================
+# PATH-BASED OWNERSHIP
+# =============================================================================
+# Define owners for specific files or directories
+# Examples:
+
+# Documentation
+# *.md @NethermindEth/docs-team
+# /docs/ @NethermindEth/docs-team
+
+# Configuration files
+# *.json @NethermindEth/devops-team
+# *.yml @NethermindEth/devops-team
+# *.yaml @NethermindEth/devops-team
+
+# Source code (customize based on your project structure)
+# /src/ @NethermindEth/development-team
+# /lib/ @NethermindEth/development-team
+
+# Tests
+# /tests/ @NethermindEth/qa-team
+# *.test.* @NethermindEth/qa-team
+
+# =============================================================================
+# INSTRUCTIONS FOR CUSTOMIZATION
+# =============================================================================
+# 1. Uncomment the lines you want to use
+# 2. Replace 'your-team-name' with actual team names from your organization
+# 3. Add specific paths that match your repository structure
+# 4. You can use individual usernames like @username instead of teams
+# 5. More specific rules override general ones
+#
+# Need help? Check the GitHub documentation link above! 🚀
