@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
@@ -50,10 +49,7 @@ type Reader interface {
 	Network() *utils.Network
 }
 
-var (
-	ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
-	SupportedStarknetVersion  = semver.MustParse("0.14.0")
-)
+var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
 func CheckBlockVersion(protocolVersion string) error {
 	blockVer, err := core.ParseBlockVersion(protocolVersion)
@@ -61,21 +57,20 @@ func CheckBlockVersion(protocolVersion string) error {
 		return err
 	}
 
-	// We ignore changes in patch part of the version
-	blockVerMM, supportedVerMM := copyWithoutPatch(blockVer), copyWithoutPatch(SupportedStarknetVersion)
-	if blockVerMM.GreaterThan(supportedVerMM) {
-		return errors.New("unsupported block version")
-	}
+	latestSupportedVersion := core.Ver0_14_0
 
-	return nil
-}
-
-func copyWithoutPatch(v *semver.Version) *semver.Version {
-	if v == nil {
+	supported := blockVer.Major() < latestSupportedVersion.Major() ||
+		(blockVer.Major() == latestSupportedVersion.Major() &&
+			blockVer.Minor() <= latestSupportedVersion.Minor())
+	if supported {
 		return nil
 	}
 
-	return semver.New(v.Major(), v.Minor(), 0, v.Prerelease(), v.Metadata())
+	return fmt.Errorf(
+		"received unsupported block version %s. Maximum supported is: %s",
+		protocolVersion,
+		latestSupportedVersion.String(),
+	)
 }
 
 var _ Reader = (*Blockchain)(nil)
