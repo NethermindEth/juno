@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -39,6 +40,69 @@ func TestCannotParseBlockVersion(t *testing.T) {
 			version, err := core.ParseBlockVersion(version)
 			require.Nil(t, version)
 			assert.ErrorContains(t, err, "cannot parse starknet protocol version")
+		})
+	}
+}
+
+func TestSupportedBlockVersion(t *testing.T) {
+	testVersions := []struct {
+		block  semver.Version
+		latest semver.Version
+	}{
+		{
+			block:  *core.LatestVer,
+			latest: *core.LatestVer,
+		},
+		{
+			block:  core.LatestVer.IncPatch(),
+			latest: *core.LatestVer,
+		},
+		{
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncPatch(),
+		},
+		{
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncMinor(),
+		},
+		{
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncMajor(),
+		},
+	}
+
+	latestVarTemp := core.LatestVer
+
+	for i, test := range testVersions {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			core.LatestVer = &test.latest
+			err := core.CheckBlockVersion(test.block.String())
+			assert.NoError(t, err)
+		})
+	}
+
+	core.LatestVer = latestVarTemp
+}
+
+func TestUnsupportedBlockVersion(t *testing.T) {
+	testVersions := []struct {
+		block  semver.Version
+		latest semver.Version
+	}{
+		{
+			block:  core.LatestVer.IncMajor(),
+			latest: *core.LatestVer,
+		},
+		{
+			block:  core.LatestVer.IncMinor(),
+			latest: *core.LatestVer,
+		},
+	}
+
+	for i, test := range testVersions {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			err := core.CheckBlockVersion(test.block.String())
+			assert.ErrorContains(t, err, "unsupported block version")
 		})
 	}
 }
