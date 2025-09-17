@@ -4,6 +4,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	_ PendingData = (*Pending)(nil)
+	_ PendingData = (*PreConfirmed)(nil)
+)
+
 type PendingDataVariant uint8
 
 const (
@@ -19,6 +24,9 @@ type PendingData interface {
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
+	// Validate returns true if pendingData is valid for given predecessor,
+	// otherwise returns false
+	Validate(parent *Header) bool
 	Variant() PendingDataVariant
 }
 
@@ -68,6 +76,14 @@ func (p *Pending) Variant() PendingDataVariant {
 	return PendingBlockVariant
 }
 
+func (p *Pending) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.ParentHash.Equal(&felt.Zero)
+	}
+
+	return p.Block.ParentHash.Equal(parent.Hash)
+}
+
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
@@ -77,14 +93,23 @@ type PreConfirmed struct {
 	CandidateTxs          []Transaction
 }
 
-func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) PreConfirmed {
+func NewPreConfirmed(
+	block *Block,
+	stateUpdate *StateUpdate,
+	transactionStateDiffs []*StateDiff,
+	candidateTxs []Transaction,
+) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
-		NewClasses:            make(map[felt.Felt]Class),
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
 	}
+}
+
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
+	p.NewClasses = newClasses
+	return p
 }
 
 func (p *PreConfirmed) GetBlock() *Block {
@@ -117,4 +142,17 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 
 func (p *PreConfirmed) Variant() PendingDataVariant {
 	return PreConfirmedBlockVariant
+}
+
+func (p *PreConfirmed) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.Number == 0
+	}
+
+	if p.Block.Number == parent.Number+1 {
+		// preconfirmed is latest + 1
+		return true
+	}
+
+	return false
 }
