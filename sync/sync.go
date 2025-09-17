@@ -747,7 +747,7 @@ func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
 
 // StorePending stores a pending block given that it is for the next height
 func (s *Synchronizer) StorePending(p *core.Pending) error {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
+	err := core.CheckBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
 		return err
 	}
@@ -782,7 +782,7 @@ func (s *Synchronizer) StorePending(p *core.Pending) error {
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height
 func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) error {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
+	err := core.CheckBlockVersion(p.Block.ProtocolVersion)
 	if err != nil {
 		return err
 	}

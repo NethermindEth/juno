@@ -51,28 +51,6 @@ type Reader interface {
 
 var ErrParentDoesNotMatchHead = errors.New("block's parent hash does not match head block hash")
 
-func CheckBlockVersion(protocolVersion string) error {
-	blockVer, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-
-	latestSupportedVersion := core.Ver0_14_0
-
-	supported := blockVer.Major() < latestSupportedVersion.Major() ||
-		(blockVer.Major() == latestSupportedVersion.Major() &&
-			blockVer.Minor() <= latestSupportedVersion.Minor())
-	if supported {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"received unsupported block version %s. Maximum supported is: %s",
-		protocolVersion,
-		latestSupportedVersion.String(),
-	)
-}
-
 var _ Reader = (*Blockchain)(nil)
 
 // Blockchain is responsible for keeping track of all things related to the Starknet blockchain
@@ -301,7 +279,7 @@ func (b *Blockchain) VerifyBlock(block *core.Block) error {
 }
 
 func verifyBlock(txn db.KeyValueReader, block *core.Block) error {
-	if err := CheckBlockVersion(block.ProtocolVersion); err != nil {
+	if err := core.CheckBlockVersion(block.ProtocolVersion); err != nil {
 		return err
 	}
 
