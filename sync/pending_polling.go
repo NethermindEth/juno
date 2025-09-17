@@ -110,12 +110,12 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 // It optionally writes a historical block hash mapping when blockNumber >= blockHashLag.
 func makeStateDiffForEmptyBlock(bc blockchain.Reader, blockNumber uint64) (*core.StateDiff, error) {
 	stateDiff := &core.StateDiff{
-		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt),
-		Nonces:            make(map[felt.Felt]*felt.Felt),
-		DeployedContracts: make(map[felt.Felt]*felt.Felt),
+		StorageDiffs:      make(map[felt.Felt]map[felt.Felt]*felt.Felt, 1),
+		Nonces:            make(map[felt.Felt]*felt.Felt, 0),
+		DeployedContracts: make(map[felt.Felt]*felt.Felt, 0),
 		DeclaredV0Classes: make([]*felt.Felt, 0),
-		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt),
-		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
+		DeclaredV1Classes: make(map[felt.Felt]*felt.Felt, 0),
+		ReplacedClasses:   make(map[felt.Felt]*felt.Felt, 0),
 	}
 
 	if blockNumber < blockHashLag {
