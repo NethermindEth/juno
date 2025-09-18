@@ -315,7 +315,10 @@ func TestStorePreConfirmed(t *testing.T) {
 	t.Run("returns error if ProtocolVersion unsupported", func(t *testing.T) {
 		pc := &core.PreConfirmed{
 			Block: &core.Block{
-				Header: &core.Header{Number: 1, ProtocolVersion: "1.9.0"},
+				Header: &core.Header{
+					Number:          1,
+					ProtocolVersion: blockchain.SupportedStarknetVersion.IncMajor().String(),
+				},
 			},
 			StateUpdate: &core.StateUpdate{},
 		}
