@@ -4,8 +4,8 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
-	"github.com/NethermindEth/juno/core/address"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/core/types/address"
+	"github.com/NethermindEth/juno/core/types/hash"
 )
 
 type Value hash.Hash

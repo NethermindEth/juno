@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	core "github.com/NethermindEth/juno/core"
-	felt "github.com/NethermindEth/juno/core/felt"
+	felt "github.com/NethermindEth/juno/core/types/felt"
 	trie "github.com/NethermindEth/juno/core/trie"
 	gomock "go.uber.org/mock/gomock"
 )

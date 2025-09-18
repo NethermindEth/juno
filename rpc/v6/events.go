@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 )

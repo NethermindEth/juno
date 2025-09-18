@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )

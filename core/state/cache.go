@@ -3,7 +3,7 @@ package state
 import (
 	"fmt"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 )
 
 // DefaultMaxLayers is the default maximum number of layers to keep in the cache

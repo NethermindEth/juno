@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/stretchr/testify/require"
