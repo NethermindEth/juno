@@ -417,7 +417,7 @@ func (s *Synchronizer) handleTickerPreLatest(
 
 	preLatest := core.PreLatest(pending)
 
-	if *preLatest.Block.ParentHash != *currentHead.Hash {
+	if !preLatest.Block.ParentHash.Equal(currentHead.Hash) {
 		seenByParent.Add(*preLatest.Block.ParentHash, &preLatest)
 		return false
 	}
