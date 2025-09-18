@@ -8,9 +8,9 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/wal"
-	"github.com/NethermindEth/juno/core/address"
+	"github.com/NethermindEth/juno/core/types/address"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/mock/gomock"
 )

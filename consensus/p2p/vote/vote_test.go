@@ -5,9 +5,9 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/address"
+	"github.com/NethermindEth/juno/core/types/address"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"

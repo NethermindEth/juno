@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 )
 
