@@ -50,22 +50,27 @@ func TestSupportedBlockVersion(t *testing.T) {
 		latest semver.Version
 	}{
 		{
+			// Block and latest are the same version (e.g., 0.14.0 == 0.14.0)
 			block:  *core.LatestVer,
 			latest: *core.LatestVer,
 		},
 		{
+			// Block is newer patch than latest (e.g., 0.14.1 > 0.14.0)
 			block:  core.LatestVer.IncPatch(),
 			latest: *core.LatestVer,
 		},
 		{
+			// Block is older patch than latest (e.g., 0.14.0 < 0.14.1)
 			block:  *core.LatestVer,
 			latest: core.LatestVer.IncPatch(),
 		},
 		{
+			// Block is older minor than latest (e.g., 0.14.0 < 0.15.0)
 			block:  *core.LatestVer,
 			latest: core.LatestVer.IncMinor(),
 		},
 		{
+			// Block is older major than latest (e.g., 0.14.0 < 1.0.0)
 			block:  *core.LatestVer,
 			latest: core.LatestVer.IncMajor(),
 		},
