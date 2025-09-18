@@ -1,6 +1,6 @@
 package address
 
-import "github.com/NethermindEth/juno/core/felt"
+import "github.com/NethermindEth/juno/core/types/felt"
 
 type Address felt.Felt
 
