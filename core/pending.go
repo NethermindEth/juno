@@ -24,6 +24,7 @@ type PendingData interface {
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
+	GetPreLatest() *PreLatest
 	// Validate returns true if pendingData is valid for given predecessor,
 	// otherwise returns false
 	Validate(parent *Header) bool
@@ -72,6 +73,10 @@ func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
 	return []*StateDiff{}
 }
 
+func (p *Pending) GetPreLatest() *PreLatest {
+	return nil
+}
+
 func (p *Pending) Variant() PendingDataVariant {
 	return PendingBlockVariant
 }
@@ -84,6 +89,8 @@ func (p *Pending) Validate(parent *Header) bool {
 	return p.Block.ParentHash.Equal(parent.Hash)
 }
 
+type PreLatest Pending
+
 type PreConfirmed struct {
 	Block       *Block
 	StateUpdate *StateUpdate
@@ -91,6 +98,8 @@ type PreConfirmed struct {
 	NewClasses            map[felt.Felt]Class
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
+	// Optional field, exists if pre_confirmed is N+2 when latest is N
+	PreLatest *PreLatest
 }
 
 func NewPreConfirmed(
@@ -110,6 +119,16 @@ func NewPreConfirmed(
 func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
 	p.NewClasses = newClasses
 	return p
+}
+
+func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
+	p.PreLatest = preLatest
+	return p
+}
+
+func (p *PreConfirmed) Copy() *PreConfirmed {
+	cp := *p // shallow copy of the struct
+	return &cp
 }
 
 func (p *PreConfirmed) GetBlock() *Block {
@@ -140,6 +159,10 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 	return p.TransactionStateDiffs
 }
 
+func (p *PreConfirmed) GetPreLatest() *PreLatest {
+	return p.PreLatest
+}
+
 func (p *PreConfirmed) Variant() PendingDataVariant {
 	return PreConfirmedBlockVariant
 }
@@ -151,6 +174,16 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 
 	if p.Block.Number == parent.Number+1 {
 		// preconfirmed is latest + 1
+		return true
+	}
+
+	if p.PreLatest == nil {
+		return false
+	}
+
+	if p.Block.Number == p.PreLatest.Block.Number+1 &&
+		p.Block.ParentHash.Equal(parent.Hash) {
+		// preconfirmed is latest + 2
 		return true
 	}
 
