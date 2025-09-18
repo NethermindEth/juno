@@ -95,10 +95,12 @@ func TestUnsupportedBlockVersion(t *testing.T) {
 		latest semver.Version
 	}{
 		{
+			// Block is newer major than latest (e.g., 1.0.0 > 0.14.0)
 			block:  core.LatestVer.IncMajor(),
 			latest: *core.LatestVer,
 		},
 		{
+			// Block is newer minor than latest (e.g., 0.15.0 > 0.14.0)
 			block:  core.LatestVer.IncMinor(),
 			latest: *core.LatestVer,
 		},
