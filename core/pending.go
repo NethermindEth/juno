@@ -181,11 +181,7 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 		return false
 	}
 
-	if p.Block.Number == p.PreLatest.Block.Number+1 &&
-		p.PreLatest.Block.ParentHash.Equal(parent.Hash) {
-		// preconfirmed is latest + 2
-		return true
-	}
-
-	return false
+	// is pre_confirmed based on valid pre_latest
+	return p.Block.Number == p.PreLatest.Block.Number+1 &&
+		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
 }
