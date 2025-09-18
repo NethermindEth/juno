@@ -317,7 +317,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:          1,
-					ProtocolVersion: blockchain.SupportedStarknetVersion.IncMajor().String(),
+					ProtocolVersion: core.LatestVer.IncMajor().String(),
 				},
 			},
 			StateUpdate: &core.StateUpdate{},

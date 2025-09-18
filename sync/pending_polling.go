@@ -62,8 +62,7 @@ func shouldPreservePendingData(
 
 // StorePending stores a pending block given that it is for the next height
 func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
-	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
-	if err != nil {
+	if err := core.CheckBlockVersion(p.Block.ProtocolVersion); err != nil {
 		return false, err
 	}
 
@@ -91,7 +90,7 @@ func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
 
 // StorePreConfirmed stores a pre_confirmed block given that it is for the next height.
 func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
-	if err := blockchain.CheckBlockVersion(p.GetBlock().ProtocolVersion); err != nil {
+	if err := core.CheckBlockVersion(p.GetBlock().ProtocolVersion); err != nil {
 		return false, err
 	}
 
