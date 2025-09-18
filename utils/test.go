@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/stretchr/testify/require"
 )
 

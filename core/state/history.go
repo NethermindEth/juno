@@ -2,7 +2,7 @@ package state
 
 import (
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/db"
 )

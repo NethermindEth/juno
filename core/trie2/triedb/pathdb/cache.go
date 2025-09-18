@@ -3,7 +3,7 @@ package pathdb
 import (
 	"math"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/VictoriaMetrics/fastcache"
 )

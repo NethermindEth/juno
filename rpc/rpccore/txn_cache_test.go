@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/stretchr/testify/require"
 )

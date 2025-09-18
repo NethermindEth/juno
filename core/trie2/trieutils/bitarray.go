@@ -9,7 +9,7 @@ import (
 	"math"
 	"math/bits"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 )
 
 const (
