@@ -52,6 +52,176 @@ func (m *MockDataSource) PreConfirmedBlockByNumber(ctx context.Context, number u
 	return preConfirmed, nil
 }
 
+func TestPollPreLatest(t *testing.T) {
+	testDB := memory.New()
+	bc := blockchain.New(testDB, &utils.Mainnet)
+	client := feeder.NewTestClient(t, &utils.Mainnet)
+	gw := adaptfeeder.New(client)
+	dataSource := NewFeederGatewayDataSource(bc, gw)
+	log := utils.NewNopZapLogger()
+
+	t.Run("Parent matches: immediate forward on tick", func(t *testing.T) {
+		head, err := gw.BlockLatest(t.Context())
+		require.NoError(t, err)
+
+		mockDS := &MockDataSource{
+			DataSource: dataSource,
+			PendingFunc: func(context.Context) (core.Pending, error) {
+				return makeTestPendingForParent(head.Header), nil
+			},
+		}
+
+		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s.highestBlockHeader.Store(head.Header)
+
+		preLatestCh := make(chan *core.PreLatest, 1)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		var wg stdsync.WaitGroup
+
+		wg.Go(func() {
+			s.pollPreLatest(ctx, preLatestCh)
+		})
+
+		defer wg.Wait()
+		time.Sleep(100 * time.Millisecond)
+		// Send the head that matches the parent of pending
+		s.newHeads.Send(head)
+
+		select {
+		case got := <-preLatestCh:
+			require.NotNil(t, got)
+			require.Equal(t, head.Number+1, got.Block.Number)
+			require.NotNil(t, got.Block.ParentHash)
+			require.Equal(t, *head.Hash, *got.Block.ParentHash)
+		case <-ctx.Done():
+			t.Fatal("expected pre-latest to be emitted")
+		}
+	})
+
+	t.Run("Cache future pre_latest: emit when matching parent head arrives", func(t *testing.T) {
+		latest, err := gw.BlockLatest(t.Context())
+		require.NoError(t, err)
+		latestMinusOne, err := gw.BlockByNumber(t.Context(), latest.Number-1)
+		require.NoError(t, err)
+
+		mockDS := &MockDataSource{
+			DataSource: dataSource,
+			PendingFunc: func(context.Context) (core.Pending, error) {
+				// Always return pending for 'latest' (future relative to headMinusOne)
+				return makeTestPendingForParent(latest.Header), nil
+			},
+		}
+		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s.highestBlockHeader.Store(latestMinusOne.Header)
+
+		preLatestCh := make(chan *core.PreLatest, 1)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		var wg stdsync.WaitGroup
+		wg.Go(func() {
+			s.pollPreLatest(ctx, preLatestCh)
+		})
+
+		defer wg.Wait()
+		time.Sleep(100 * time.Millisecond)
+		// First head: cache should be filled, but nothing emitted
+		s.newHeads.Send(latestMinusOne)
+
+		select {
+		case <-preLatestCh:
+			t.Fatal("did not expect a pre-latest for future-parent case")
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		// Now send the matching head; cached pre-latest should be emitted immediately
+		s.newHeads.Send(latest)
+
+		select {
+		case got := <-preLatestCh:
+			require.NotNil(t, got)
+			require.Equal(t, latest.Number+1, got.Block.Number, "number should be adjusted to parent head+1")
+			require.Equal(t, *latest.Hash, *got.Block.ParentHash)
+		case <-ctx.Done():
+			t.Fatal("expected cached pre-latest to be forwarded when its parent head arrives")
+		}
+	})
+
+	t.Run("Retry on error then success", func(t *testing.T) {
+		head, err := gw.BlockLatest(t.Context())
+		require.NoError(t, err)
+
+		mockDS := &MockDataSource{
+			DataSource:                 dataSource,
+			pendingErrorThreshold:      2,
+			PendingFunc:                func(context.Context) (core.Pending, error) { return makeTestPendingForParent(head.Header), nil },
+			preConfirmedErrorThreshold: 0,
+		}
+
+		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s.highestBlockHeader.Store(head.Header)
+
+		preLatestCh := make(chan *core.PreLatest, 2)
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
+		var wg stdsync.WaitGroup
+
+		wg.Go(func() {
+			s.pollPreLatest(ctx, preLatestCh)
+		})
+		defer wg.Wait()
+		time.Sleep(100 * time.Millisecond)
+		s.newHeads.Send(head)
+
+		select {
+		case got := <-preLatestCh:
+			require.NotNil(t, got)
+			require.GreaterOrEqual(t, mockDS.numCallsPending, uint(3), "expected at least 3 attempts (2 errors + 1 success)")
+			require.Equal(t, head.Number+1, got.Block.Number)
+		case <-ctx.Done():
+			t.Fatal("expected pre-latest after retries")
+		}
+	})
+
+	t.Run("Always error then respect cancel", func(t *testing.T) {
+		head, err := gw.BlockLatest(t.Context())
+		require.NoError(t, err)
+
+		mockDS := &MockDataSource{
+			DataSource:            dataSource,
+			pendingErrorThreshold: ^uint(0), // always error
+			PendingFunc:           func(context.Context) (core.Pending, error) { return makeTestPendingForParent(head.Header), nil },
+		}
+
+		s := New(bc, mockDS, log, 50*time.Millisecond, 100*time.Millisecond, false, testDB)
+		s.highestBlockHeader.Store(head.Header)
+
+		preLatestCh := make(chan *core.PreLatest, 2)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		var wg stdsync.WaitGroup
+		wg.Go(func() {
+			s.pollPreLatest(ctx, preLatestCh)
+		})
+
+		s.newHeads.Send(head)
+
+		// Ensure nothing arrives for some time
+		select {
+		case <-preLatestCh:
+			t.Fatal("unexpected pre-latest")
+		case <-time.After(300 * time.Millisecond):
+		}
+
+		// Cancel and ensure routine exits cleanly
+		cancel()
+		wg.Wait()
+	})
+}
+
 func TestPollPreConfirmedLoop(t *testing.T) {
 	testDB := memory.New()
 	bc := blockchain.New(testDB, &utils.Sepolia)
@@ -112,7 +282,12 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		case pc := <-out:
 			require.NotNil(t, pc)
 			require.Equal(t, uint64(1), pc.Block.Number)
-			require.GreaterOrEqual(t, mockDS.numCallsPreConfirmed, uint(3), "expected at least 3 attempts (2 errors + 1 success)")
+			require.GreaterOrEqual(
+				t,
+				mockDS.numCallsPreConfirmed,
+				uint(3),
+				"expected at least 3 attempts (2 errors + 1 success)",
+			)
 		case <-ctx.Done():
 			t.Fatal("did not receive pre_confirmed after setting target and being at tip")
 		}
@@ -205,6 +380,24 @@ func TestRunPreConfirmedPhase(t *testing.T) {
 		require.Equal(t, uint64(1), pd.GetBlock().Number)
 	case <-ctx.Done():
 		t.Fatal("did not broadcast pre_confirmed for number 1")
+	}
+
+	for {
+		// After pending eventually succeeds, pre_latest should raise target to 2; expect pre_confirmed for 2
+		select {
+		case pd := <-sub.Recv():
+			require.NotNil(t, pd)
+			if pd.GetBlock().Number == uint64(2) {
+				return
+			}
+
+			if pd.GetBlock().Number > uint64(2) {
+				t.Fatal("skipped pre_confirmed for number 2 and advanced further")
+			}
+
+		case <-ctx.Done():
+			t.Fatal("did not broadcast pre_confirmed for number 2")
+		}
 	}
 }
 
@@ -345,7 +538,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.True(t, written)
 	})
 
-	t.Run("ignores pre_confirmed with fewer or equal txs for the same block number", func(t *testing.T) {
+	t.Run("ignores pre_confirmed with fewer or equal txs for the same block number (but updates attachment)", func(t *testing.T) {
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
 
@@ -363,6 +556,11 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, written)
 
+		// Attempt to store "worse" but with a pre_latest attachment;
+		// should keep existing but update attachment
+		pending := makeTestPendingForParent(head)
+		pl := core.PreLatest(pending)
+
 		worse := &core.PreConfirmed{
 			Block: &core.Block{
 				Header: &core.Header{
@@ -370,6 +568,7 @@ func TestStorePreConfirmed(t *testing.T) {
 					TransactionCount: 1,
 				},
 			},
+			PreLatest:   &pl,
 			StateUpdate: &core.StateUpdate{},
 		}
 		written, err = s.StorePreConfirmed(worse)
@@ -380,7 +579,8 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.NotNil(t, ptr)
 		stored, ok := (*ptr).(*core.PreConfirmed)
 		require.True(t, ok)
-		require.Equal(t, better, stored)
+		require.NotNil(t, stored.PreLatest, "attachment should be updated even if not swapping blocks")
+		require.Equal(t, &pl, stored.PreLatest, "attachment should match incoming")
 	})
 
 	t.Run("accepts pre_confirmed with more txs for same block number", func(t *testing.T) {

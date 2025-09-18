@@ -182,7 +182,7 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 	}
 
 	if p.Block.Number == p.PreLatest.Block.Number+1 &&
-		p.Block.ParentHash.Equal(parent.Hash) {
+		p.PreLatest.Block.ParentHash.Equal(parent.Hash) {
 		// preconfirmed is latest + 2
 		return true
 	}
