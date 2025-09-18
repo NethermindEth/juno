@@ -641,6 +641,13 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 	newClasses := make(map[felt.Felt]core.Class)
 	switch pending.Variant() {
 	case core.PreConfirmedBlockVariant:
+		preLatest := pending.GetPreLatest()
+		// Built pre_confirmed state top on pre_latest if
+		// pre_confirmed is 2 blocks ahead of latest
+		if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
+			stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+			newClasses = preLatest.NewClasses
+		}
 		stateDiff.Merge(pending.GetStateUpdate().StateDiff)
 	case core.PendingBlockVariant:
 		newClasses = pending.GetNewClasses()
@@ -685,6 +692,14 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 
 	stateDiff := core.EmptyStateDiff()
 	newClasses := make(map[felt.Felt]core.Class)
+	preLatest := pending.GetPreLatest()
+	// Built pre_confirmed state top on pre_latest if
+	// pre_confirmed is 2 blocks ahead of latest
+	if preLatest != nil && preLatest.Block.ParentHash.Equal(head.Hash) {
+		stateDiff.Merge(preLatest.StateUpdate.StateDiff)
+		newClasses = preLatest.NewClasses
+	}
+
 	// Transaction state diffs size must always match Transactions
 	txStateDiffs := pending.GetTransactionStateDiffs()
 	for _, txStateDiff := range txStateDiffs[:index] {
