@@ -14,7 +14,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc"

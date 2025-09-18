@@ -41,7 +41,7 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 		err = fmt.Errorf("unknown simulation flag %q", flag)
 	}
 
-	return
+	return err
 }
 
 type SimulatedTransaction struct {

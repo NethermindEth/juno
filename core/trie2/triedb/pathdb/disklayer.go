@@ -3,8 +3,8 @@ package pathdb
 import (
 	"sync"
 
-	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/core/types/felt"
 )
 
 var _ layer = (*diskLayer)(nil)

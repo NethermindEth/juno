@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
+	"github.com/NethermindEth/juno/core/types/felt"
 )
 
 var (
