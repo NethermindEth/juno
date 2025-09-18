@@ -37,6 +37,7 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	return semver.New(versionVals[0], versionVals[1], versionVals[2], "", ""), nil
 }
 
+// CheckBlockVersion checks if the block protocol version is supported by Juno
 func CheckBlockVersion(protocolVersion string) error {
 	blockVer, err := ParseBlockVersion(protocolVersion)
 	if err != nil {
