@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/NethermindEth/juno/core/felt"
+import "github.com/NethermindEth/juno/core/types/felt"
 
 type ClassHash Hash
 
