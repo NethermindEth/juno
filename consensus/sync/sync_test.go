@@ -56,10 +56,10 @@ func TestSync(t *testing.T) {
 	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
-	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](ctrl)
+	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash](ctrl)
 
 	mockCommitListener.EXPECT().
-		Commit(gomock.Any(), types.Height(0), gomock.Any()).
+		OnCommit(gomock.Any(), types.Height(0), gomock.Any()).
 		Do(func(_ any, newHeight types.Height, _ any) {
 			comittedHeight = int(newHeight)
 			cancel()
@@ -70,14 +70,25 @@ func TestSync(t *testing.T) {
 	proposalCh := make(chan *starknet.Proposal)
 	prevoteCh := make(chan *starknet.Prevote)
 	precommitCh := make(chan *starknet.Precommit)
-	p2p := newMockP2P(proposalCh, prevoteCh, precommitCh)
+
+	listeners := listeners{
+		ProposalListener:  newMockListener(proposalCh),
+		PrevoteListener:   newMockListener(prevoteCh),
+		PrecommitListener: newMockListener(precommitCh),
+	}
+	broadcasters := broadcasters{
+		ProposalBroadcaster:  &mockBroadcaster[*starknet.Proposal]{},
+		PrevoteBroadcaster:   &mockBroadcaster[*starknet.Prevote]{},
+		PrecommitBroadcaster: &mockBroadcaster[*starknet.Precommit]{},
+	}
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
 		tmDB,
 		stateMachine,
 		mockCommitListener,
-		p2p,
+		broadcasters,
+		listeners,
 		mockTimeoutFn,
 	)
 
