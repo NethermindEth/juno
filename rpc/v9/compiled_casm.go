@@ -7,6 +7,7 @@ import (
 	hintRunnerZero "github.com/NethermindEth/cairo-vm-go/pkg/hintrunner/zero"
 	"github.com/NethermindEth/cairo-vm-go/pkg/parsers/zero"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -82,7 +83,7 @@ func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, e
 
 	bytecode := make([]*felt.Felt, len(cairo0.Data))
 	for i, str := range cairo0.Data {
-		f, err := new(felt.Felt).SetString(str)
+		f, err := types.NewFromString[felt.Felt](str)
 		if err != nil {
 			return CompiledCasmResponse{}, err
 		}

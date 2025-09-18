@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -35,7 +36,9 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
+	txHash, err := types.NewRandom[felt.Felt]()
+	require.NoError(t, err)
+
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -433,7 +436,7 @@ func TestTransactionByHash(t *testing.T) {
 			}).Times(1)
 			handler := rpc.New(mockReader, nil, nil, nil)
 
-			hash, err := new(felt.Felt).SetString(test.hash)
+			hash, err := types.NewFromString[felt.Felt](test.hash)
 			require.NoError(t, err)
 
 			expectedMap := make(map[string]any)
@@ -515,7 +518,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		blockID := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
+		blockID := blockIDHash(t, types.NewFromBytes[felt.Felt]([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -685,7 +688,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
-		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		txHash := types.NewFromBytes[felt.Felt]([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -1607,7 +1610,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-			txHash, err := new(felt.Felt).SetString("0x1111")
+			txHash, err := types.NewFromString[felt.Felt]("0x1111")
 			require.NoError(t, err)
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
@@ -1930,16 +1933,16 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "with l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(100),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+					MaxAmount:       types.New[felt.Felt](100),
+					MaxPricePerUnit: types.New[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(200),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+					MaxAmount:       types.New[felt.Felt](200),
+					MaxPricePerUnit: types.New[felt.Felt](20),
 				},
 				L1DataGas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(300),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(30),
+					MaxAmount:       types.New[felt.Felt](300),
+					MaxPricePerUnit: types.New[felt.Felt](30),
 				},
 			},
 			expected: `{
@@ -1961,12 +1964,12 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "without l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(100),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+					MaxAmount:       types.New[felt.Felt](100),
+					MaxPricePerUnit: types.New[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(200),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+					MaxAmount:       types.New[felt.Felt](200),
+					MaxPricePerUnit: types.New[felt.Felt](20),
 				},
 				L1DataGas: nil,
 			},
@@ -2014,7 +2017,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		TransactionHash: new(felt.Felt).SetUint64(12345),
+		TransactionHash: types.New[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),
@@ -2034,7 +2037,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       0,
-				MaxPricePerUnit: new(felt.Felt),
+				MaxPricePerUnit: &felt.Zero,
 			},
 		},
 		Tip:           0,
