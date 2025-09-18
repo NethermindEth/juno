@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -231,11 +232,11 @@ func createSimulatedTransactions(
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
-				L1GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L1Gas),
+				L1GasConsumed:     types.New[felt.Felt](gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
-				L2GasConsumed:     new(felt.Felt).SetUint64(gasConsumed[i].L2Gas),
+				L2GasConsumed:     types.New[felt.Felt](gasConsumed[i].L2Gas),
 				L2GasPrice:        l2GasPrice,
-				L1DataGasConsumed: new(felt.Felt).SetUint64(gasConsumed[i].L1DataGas),
+				L1DataGasConsumed: types.New[felt.Felt](gasConsumed[i].L1DataGas),
 				L1DataGasPrice:    l1DataGasPrice,
 				OverallFee:        overallFee,
 				Unit:              &feeUnit,

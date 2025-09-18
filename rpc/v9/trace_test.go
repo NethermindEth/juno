@@ -9,6 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -92,7 +93,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				L1DataGas: 15,
 			}
 		}
-		return
+		return block, err
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -352,7 +353,7 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
-		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		overallFee := []*felt.Felt{types.New[felt.Felt](1)}
 
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
@@ -439,7 +440,7 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
-		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		overallFee := []*felt.Felt{types.New[felt.Felt](1)}
 
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
@@ -526,7 +527,7 @@ func TestTraceTransaction(t *testing.T) {
 		require.NoError(t, json.Unmarshal(json.RawMessage(vmTraceJSON), vmTrace))
 
 		gc := []core.GasConsumed{{L1Gas: 2, L1DataGas: 3, L2Gas: 4}}
-		overallFee := []*felt.Felt{new(felt.Felt).SetUint64(1)}
+		overallFee := []*felt.Felt{types.New[felt.Felt](1)}
 
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
@@ -679,7 +680,7 @@ func TestTraceTransaction(t *testing.T) {
 func TestTraceBlockTransactions(t *testing.T) {
 	errTests := map[string]rpc.BlockID{
 		"latest":        blockIDLatest(t),
-		"hash":          blockIDHash(t, new(felt.Felt).SetUint64(1)),
+		"hash":          blockIDHash(t, types.New[felt.Felt](1)),
 		"number":        blockIDNumber(t, 2),
 		"pre_confirmed": blockIDPreConfirmed(t),
 		"l1_accepted":   blockIDL1Accepted(t),
@@ -800,14 +801,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 
 func TestAdaptVMTransactionTrace(t *testing.T) {
 	t.Run("successfully adapt INVOKE trace from vm", func(t *testing.T) {
-		fromAddr, _ := new(felt.Felt).SetString("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
+		fromAddr, _ := types.NewFromString[felt.Felt]("0x4c5772d1914fe6ce891b64eb35bf3522aeae1315647314aac58b01137607f3f")
 		toAddrStr := "0x540552aae708306346466633036396334303062342d24292eadbdc777db86e5"
 
-		payload0, _ := new(felt.Felt).SetString("0x0")
-		payload1, _ := new(felt.Felt).SetString("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
-		payload2, _ := new(felt.Felt).SetString("0x455448")
-		payload3, _ := new(felt.Felt).SetString("0x31da07977d000")
-		payload4, _ := new(felt.Felt).SetString("0x0")
+		payload0, _ := types.NewFromString[felt.Felt]("0x0")
+		payload1, _ := types.NewFromString[felt.Felt]("0x5ba586f822ce9debae27fa04a3e71721fdc90ff")
+		payload2, _ := types.NewFromString[felt.Felt]("0x455448")
+		payload3, _ := types.NewFromString[felt.Felt]("0x31da07977d000")
+		payload4, _ := types.NewFromString[felt.Felt]("0x0")
 
 		vmTrace := vm.TransactionTrace{
 			Type: vm.TxnInvoke,
@@ -901,7 +902,7 @@ func TestAdaptVMTransactionTrace(t *testing.T) {
 			},
 		}
 
-		toAddr, _ := new(felt.Felt).SetString(toAddrStr)
+		toAddr, _ := types.NewFromString[felt.Felt](toAddrStr)
 
 		expectedAdaptedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
@@ -1092,14 +1093,14 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					TransactionHash:       *types.New[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					FunctionInvocation: &starknet.FunctionInvocation{
 						Events: []starknet.OrderedEvent{{
 							Order: 1,
-							Keys:  []felt.Felt{*new(felt.Felt).SetUint64(2)},
-							Data:  []felt.Felt{*new(felt.Felt).SetUint64(3)},
+							Keys:  []felt.Felt{*types.New[felt.Felt](2)},
+							Data:  []felt.Felt{*types.New[felt.Felt](3)},
 						}},
 						ExecutionResources: starknet.ExecutionResources{
 							TotalGasConsumed: &starknet.GasConsumed{
@@ -1115,7 +1116,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
 			{
-				TransactionHash: new(felt.Felt).SetUint64(1),
+				TransactionHash: types.New[felt.Felt](1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnL1Handler,
 					FunctionInvocation: &rpc.ExecuteInvocation{
@@ -1124,8 +1125,8 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 							Calls: []rpc.FunctionInvocation{},
 							Events: []rpcv6.OrderedEvent{{
 								Order: 1,
-								Keys:  []*felt.Felt{new(felt.Felt).SetUint64(2)},
-								Data:  []*felt.Felt{new(felt.Felt).SetUint64(3)},
+								Keys:  []*felt.Felt{types.New[felt.Felt](2)},
+								Data:  []*felt.Felt{types.New[felt.Felt](3)},
 							}},
 							Messages: []rpcv6.OrderedL2toL1Message{},
 							ExecutionResources: &rpc.InnerExecutionResources{
@@ -1154,7 +1155,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 		blockTrace := &starknet.BlockTrace{
 			Traces: []starknet.TransactionTrace{
 				{
-					TransactionHash:       *new(felt.Felt).SetUint64(1),
+					TransactionHash:       *types.New[felt.Felt](1),
 					FeeTransferInvocation: &starknet.FunctionInvocation{},
 					ValidateInvocation:    &starknet.FunctionInvocation{},
 					// When revert error, feeder trace has no FunctionInvocation only RevertError is set
@@ -1165,7 +1166,7 @@ func TestAdaptFeederBlockTrace(t *testing.T) {
 
 		expectedAdaptedTrace := []rpc.TracedBlockTransaction{
 			{
-				TransactionHash: new(felt.Felt).SetUint64(1),
+				TransactionHash: types.New[felt.Felt](1),
 				TraceRoot: &rpc.TransactionTrace{
 					Type: rpc.TxnInvoke,
 					FeeTransferInvocation: &rpc.FunctionInvocation{
@@ -1245,16 +1246,16 @@ func TestCall(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337)
 
-		contractAddr := new(felt.Felt).SetUint64(1)
-		selector := new(felt.Felt).SetUint64(2)
-		classHash := new(felt.Felt).SetUint64(3)
+		contractAddr := types.New[felt.Felt](1)
+		selector := types.New[felt.Felt](2)
+		classHash := types.New[felt.Felt](3)
 		calldata := []felt.Felt{
-			*new(felt.Felt).SetUint64(4),
-			*new(felt.Felt).SetUint64(5),
+			*types.New[felt.Felt](4),
+			*types.New[felt.Felt](5),
 		}
 		expectedRes := vm.CallResult{Result: []*felt.Felt{
-			new(felt.Felt).SetUint64(6),
-			new(felt.Felt).SetUint64(7),
+			types.New[felt.Felt](6),
+			types.New[felt.Felt](7),
 		}}
 
 		headsHeader := &core.Header{
@@ -1264,9 +1265,9 @@ func TestCall(t *testing.T) {
 
 		cairoClass := core.Cairo1Class{
 			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
+				types.New[felt.Felt](3),
+				&felt.Zero,
+				&felt.Zero,
 			},
 		}
 
@@ -1298,10 +1299,10 @@ func TestCall(t *testing.T) {
 	t.Run("entrypoint not found error", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337)
 
-		contractAddr := new(felt.Felt).SetUint64(1)
-		selector := new(felt.Felt).SetUint64(2)
-		classHash := new(felt.Felt).SetUint64(3)
-		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
+		contractAddr := types.New[felt.Felt](1)
+		selector := types.New[felt.Felt](2)
+		classHash := types.New[felt.Felt](3)
+		calldata := []felt.Felt{*types.New[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
@@ -1315,9 +1316,9 @@ func TestCall(t *testing.T) {
 
 		cairoClass := core.Cairo1Class{
 			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
+				types.New[felt.Felt](3),
+				&felt.Zero,
+				&felt.Zero,
 			},
 		}
 
@@ -1348,10 +1349,10 @@ func TestCall(t *testing.T) {
 	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
 		handler = handler.WithCallMaxSteps(1337)
 
-		contractAddr := new(felt.Felt).SetUint64(1)
-		selector := new(felt.Felt).SetUint64(2)
-		classHash := new(felt.Felt).SetUint64(3)
-		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
+		contractAddr := types.New[felt.Felt](1)
+		selector := types.New[felt.Felt](2)
+		classHash := types.New[felt.Felt](3)
+		calldata := []felt.Felt{*types.New[felt.Felt](4)}
 		expectedRes := vm.CallResult{
 			ExecutionFailed: true,
 		}
@@ -1364,9 +1365,9 @@ func TestCall(t *testing.T) {
 
 		cairoClass := core.Cairo1Class{
 			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
+				types.New[felt.Felt](3),
+				&felt.Zero,
+				&felt.Zero,
 			},
 		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

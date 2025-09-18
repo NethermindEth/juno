@@ -6,6 +6,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -75,7 +76,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			hash := blockIDHash(t, new(felt.Felt).SetUint64(55))
+			hash := blockIDHash(t, types.New[felt.Felt](55))
 			args.ToBlock = &hash
 			_, err := handler.Events(args)
 			require.Equal(t, rpccore.ErrBlockNotFound, err)
