@@ -4,6 +4,11 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+var (
+	_ PendingData = (*Pending)(nil)
+	_ PendingData = (*PreConfirmed)(nil)
+)
+
 type PendingDataVariant uint8
 
 const (
@@ -19,6 +24,10 @@ type PendingData interface {
 	GetNewClasses() map[felt.Felt]Class
 	GetCandidateTransaction() []Transaction
 	GetTransactionStateDiffs() []*StateDiff
+	GetPreLatest() *PreLatest
+	// Validate returns true if pendingData is valid for given predecessor,
+	// otherwise returns false
+	Validate(parent *Header) bool
 	Variant() PendingDataVariant
 }
 
@@ -64,9 +73,23 @@ func (p *Pending) GetTransactionStateDiffs() []*StateDiff {
 	return []*StateDiff{}
 }
 
+func (p *Pending) GetPreLatest() *PreLatest {
+	return nil
+}
+
 func (p *Pending) Variant() PendingDataVariant {
 	return PendingBlockVariant
 }
+
+func (p *Pending) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.ParentHash.Equal(&felt.Zero)
+	}
+
+	return p.Block.ParentHash.Equal(parent.Hash)
+}
+
+type PreLatest Pending
 
 type PreConfirmed struct {
 	Block       *Block
@@ -75,16 +98,37 @@ type PreConfirmed struct {
 	NewClasses            map[felt.Felt]Class
 	TransactionStateDiffs []*StateDiff
 	CandidateTxs          []Transaction
+	// Optional field, exists if pre_confirmed is N+2 when latest is N
+	PreLatest *PreLatest
 }
 
-func NewPreConfirmed(block *Block, stateUpdate *StateUpdate, transactionStateDiffs []*StateDiff, candidateTxs []Transaction) PreConfirmed {
+func NewPreConfirmed(
+	block *Block,
+	stateUpdate *StateUpdate,
+	transactionStateDiffs []*StateDiff,
+	candidateTxs []Transaction,
+) PreConfirmed {
 	return PreConfirmed{
 		Block:                 block,
 		StateUpdate:           stateUpdate,
-		NewClasses:            make(map[felt.Felt]Class),
 		TransactionStateDiffs: transactionStateDiffs,
 		CandidateTxs:          candidateTxs,
 	}
+}
+
+func (p *PreConfirmed) WithNewClasses(newClasses map[felt.Felt]Class) *PreConfirmed {
+	p.NewClasses = newClasses
+	return p
+}
+
+func (p *PreConfirmed) WithPreLatest(preLatest *PreLatest) *PreConfirmed {
+	p.PreLatest = preLatest
+	return p
+}
+
+func (p *PreConfirmed) Copy() *PreConfirmed {
+	cp := *p // shallow copy of the struct
+	return &cp
 }
 
 func (p *PreConfirmed) GetBlock() *Block {
@@ -115,6 +159,29 @@ func (p *PreConfirmed) GetTransactionStateDiffs() []*StateDiff {
 	return p.TransactionStateDiffs
 }
 
+func (p *PreConfirmed) GetPreLatest() *PreLatest {
+	return p.PreLatest
+}
+
 func (p *PreConfirmed) Variant() PendingDataVariant {
 	return PreConfirmedBlockVariant
+}
+
+func (p *PreConfirmed) Validate(parent *Header) bool {
+	if parent == nil {
+		return p.Block.Number == 0
+	}
+
+	if p.Block.Number == parent.Number+1 {
+		// preconfirmed is latest + 1
+		return true
+	}
+
+	if p.PreLatest == nil {
+		return false
+	}
+
+	// is pre_confirmed based on valid pre_latest
+	return p.Block.Number == p.PreLatest.Block.Number+1 &&
+		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
 }
