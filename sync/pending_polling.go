@@ -41,19 +41,19 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 // Returns true if existing pendingData is valid for head and incoming is not richer than existing.
 // Otherwise returns false.
 func shouldPreservePendingData(
-	existingPending *core.PendingData,
+	existingPending core.PendingData,
 	incomingPending core.PendingData,
 	head *core.Header,
 ) bool {
-	if existingPending == nil || *existingPending == nil {
+	if existingPending == nil {
 		return false
 	}
 
-	if !(*existingPending).Validate(head) {
+	if !existingPending.Validate(head) {
 		return false
 	}
 
-	if (*existingPending).GetBlock().TransactionCount < incomingPending.GetBlock().TransactionCount {
+	if existingPending.GetBlock().TransactionCount < incomingPending.GetBlock().TransactionCount {
 		return false
 	}
 
@@ -81,7 +81,7 @@ func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
 
 	existingPtr := s.pendingData.Load()
 
-	if shouldPreservePendingData(existingPtr, p, head) {
+	if existingPtr != nil && shouldPreservePendingData(*existingPtr, p, head) {
 		// ignore the incoming pending if it has fewer transactions than the one we already have
 		return false, nil
 	}
@@ -109,7 +109,7 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 
 	existingPtr := s.pendingData.Load()
 
-	if shouldPreservePendingData(existingPtr, p, head) {
+	if existingPtr != nil && shouldPreservePendingData(*existingPtr, p, head) {
 		return false, nil
 	}
 
