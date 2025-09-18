@@ -12,6 +12,7 @@ var (
 	Ver0_13_2 = semver.MustParse("0.13.2")
 	Ver0_13_4 = semver.MustParse("0.13.4")
 	Ver0_14_0 = semver.MustParse("0.14.0")
+	LatestVer = Ver0_14_0
 )
 
 // ParseBlockVersion computes the block version, defaulting to "0.0.0" for empty strings
@@ -34,4 +35,27 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 	}
 
 	return semver.New(versionVals[0], versionVals[1], versionVals[2], "", ""), nil
+}
+
+// CheckBlockVersion checks if the block protocol version is supported by Juno
+func CheckBlockVersion(protocolVersion string) error {
+	blockVer, err := ParseBlockVersion(protocolVersion)
+	if err != nil {
+		return err
+	}
+
+	latestSupportedVersion := LatestVer
+
+	supported := blockVer.Major() < latestSupportedVersion.Major() ||
+		(blockVer.Major() == latestSupportedVersion.Major() &&
+			blockVer.Minor() <= latestSupportedVersion.Minor())
+	if supported {
+		return nil
+	}
+
+	return fmt.Errorf(
+		"unsupported block version %s. Maximum supported is: %s",
+		protocolVersion,
+		latestSupportedVersion.String(),
+	)
 }
