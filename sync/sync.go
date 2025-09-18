@@ -137,7 +137,6 @@ type Synchronizer struct {
 	pendingData              atomic.Pointer[core.PendingData]
 	pendingPollInterval      time.Duration
 	preConfirmedPollInterval time.Duration
-	targetPreConfirmedNum    atomic.Uint64
 
 	catchUpMode bool
 	plugin      junoplugin.JunoPlugin

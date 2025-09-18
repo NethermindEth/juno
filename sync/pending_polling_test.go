@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	stdsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -78,13 +79,14 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		}
 		s := New(bc, mockDS, log, 0, 30*time.Millisecond, false, testDB)
 
+		var preConfirmedBlockNumberToPoll atomic.Uint64
 		out := make(chan *core.PreConfirmed, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
 		var wg stdsync.WaitGroup
 		wg.Go(func() {
-			s.pollPreConfirmed(ctx, out)
+			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
 		})
 		defer wg.Wait()
 
@@ -96,7 +98,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		}
 
 		// Set target but not at tip (highest nil) -> still skip
-		s.targetPreConfirmedNum.Store(uint64(1))
+		preConfirmedBlockNumberToPoll.Store(uint64(1))
 		select {
 		case <-out:
 			t.Fatal("unexpected pre_confirmed when not at tip")
@@ -123,7 +125,8 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 		}
 		s := New(bc, mockDS, log, 0, 30*time.Millisecond, false, testDB)
 		s.highestBlockHeader.Store(head0.Header)
-		s.targetPreConfirmedNum.Store(1)
+		var preConfirmedBlockNumberToPoll atomic.Uint64
+		preConfirmedBlockNumberToPoll.Store(1)
 
 		out := make(chan *core.PreConfirmed, 1)
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -131,7 +134,7 @@ func TestPollPreConfirmedLoop(t *testing.T) {
 
 		var wg stdsync.WaitGroup
 		wg.Go(func() {
-			s.pollPreConfirmed(ctx, out)
+			s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, out)
 		})
 		wg.Wait()
 

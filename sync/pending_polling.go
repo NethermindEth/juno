@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/NethermindEth/juno/blockchain"
@@ -345,9 +346,13 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 }
 
 // pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
-// The target is read from s.targetPreConfirmedNum and only polled while at tip.
+// The target is read from blockNumberToPoll and only polled while at tip.
 // On success, the pre_confirmed is forwarded to out.
-func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.PreConfirmed) {
+func (s *Synchronizer) pollPreConfirmed(
+	ctx context.Context,
+	blockNumberToPoll *atomic.Uint64,
+	out chan<- *core.PreConfirmed,
+) {
 	if s.preConfirmedPollInterval == 0 {
 		s.log.Infow("Pre-confirmed block polling is disabled")
 		return
@@ -362,13 +367,13 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 			return
 
 		case <-ticker.C:
-			targetNum := s.targetPreConfirmedNum.Load()
-			shouldPoll := targetNum > 0 && s.isGreaterThanTip(targetNum)
+			targetBlockNum := blockNumberToPoll.Load()
+			shouldPoll := targetBlockNum > 0 && s.isGreaterThanTip(targetBlockNum)
 			if !shouldPoll {
 				continue
 			}
 
-			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetNum)
+			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetBlockNum)
 			if err != nil {
 				s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
 				continue
@@ -386,33 +391,25 @@ func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.Pr
 
 // handleHeadInPreConfirmed processes a new head during the pre_confirmed phase.
 // It computes nextHeight = head.Number + 1 and stores an empty pre_confirmed when
-// advancing. Returns updated targetPreConfirmedNum.
+// advancing.
 func (s *Synchronizer) handleHeadInPreConfirmedPhase(
 	head *core.Block,
-	targetPreConfirmedNum uint64,
-) uint64 {
+	targetPreConfirmedNum *atomic.Uint64,
+) {
 	next := head.Number + 1
-	if next <= targetPreConfirmedNum {
-		return targetPreConfirmedNum
+	if next <= targetPreConfirmedNum.Load() {
+		return
 	}
 
-	s.targetPreConfirmedNum.Store(next)
+	targetPreConfirmedNum.Store(next)
 	if err := s.storeEmptyPreConfirmed(head.Header); err != nil {
 		s.log.Debugw("Error storing empty pre_confirmed (from head)", "err", err)
 	}
-	return next
 }
 
 // handlePreConfirmed finalises when the polled pre_confirmed equals the target.
 // It stores new pre_confirmed and broadcasts if changed.
-func (s *Synchronizer) handlePreConfirmed(
-	pc *core.PreConfirmed,
-	targetNum uint64,
-) {
-	if pc.Block.Number != targetNum {
-		return
-	}
-
+func (s *Synchronizer) handlePreConfirmed(pc *core.PreConfirmed) {
 	changed, err := s.StorePreConfirmed(pc)
 	if err != nil {
 		s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
@@ -426,10 +423,9 @@ func (s *Synchronizer) handlePreConfirmed(
 // runPreConfirmedPhase coordinates baselines and final storage.
 func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.Subscription[*core.Block]) {
 	preConfirmedCh := make(chan *core.PreConfirmed, 1)
+	var preConfirmedBlockNumberToPoll atomic.Uint64
 
-	go s.pollPreConfirmed(ctx, preConfirmedCh)
-
-	var targetPreConfirmedNum uint64
+	go s.pollPreConfirmed(ctx, &preConfirmedBlockNumberToPoll, preConfirmedCh)
 
 	for {
 		select {
@@ -441,13 +437,13 @@ func (s *Synchronizer) runPreConfirmedPhase(ctx context.Context, headsSub *feed.
 				return
 			}
 
-			targetPreConfirmedNum = s.handleHeadInPreConfirmedPhase(
+			s.handleHeadInPreConfirmedPhase(
 				head,
-				targetPreConfirmedNum,
+				&preConfirmedBlockNumberToPoll,
 			)
 
 		case pc := <-preConfirmedCh:
-			s.handlePreConfirmed(pc, targetPreConfirmedNum)
+			s.handlePreConfirmed(pc)
 		}
 	}
 }
