@@ -38,6 +38,28 @@ func (s *Synchronizer) isGreaterThanTip(blockNumber uint64) bool {
 	return highest.Number < blockNumber
 }
 
+// Returns true if existing pendingData is valid for head and incoming is not richer than existing.
+// Otherwise returns false.
+func shouldPreservePendingData(
+	existingPending *core.PendingData,
+	incomingPending core.PendingData,
+	head *core.Header,
+) bool {
+	if existingPending == nil || *existingPending == nil {
+		return false
+	}
+
+	if !(*existingPending).Validate(head) {
+		return false
+	}
+
+	if (*existingPending).GetBlock().TransactionCount < incomingPending.GetBlock().TransactionCount {
+		return false
+	}
+
+	return true
+}
+
 // StorePending stores a pending block given that it is for the next height
 func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
 	err := blockchain.CheckBlockVersion(p.Block.ProtocolVersion)
@@ -59,11 +81,7 @@ func (s *Synchronizer) StorePending(p *core.Pending) (bool, error) {
 
 	existingPtr := s.pendingData.Load()
 
-	shouldPreserveCurrentPending := existingPtr != nil && *existingPtr != nil &&
-		(*existingPtr).Validate(head) &&
-		(*existingPtr).GetBlock().TransactionCount >= p.Block.TransactionCount
-
-	if shouldPreserveCurrentPending {
+	if shouldPreservePendingData(existingPtr, p, head) {
 		// ignore the incoming pending if it has fewer transactions than the one we already have
 		return false, nil
 	}
@@ -90,14 +108,8 @@ func (s *Synchronizer) StorePreConfirmed(p *core.PreConfirmed) (bool, error) {
 	}
 
 	existingPtr := s.pendingData.Load()
-	// Preserve existing pre_confirmed if it is still valid and
-	// incoming pre_confirmed is not richer than existing.
-	shouldPreserveCurrentPreConfirmed := existingPtr != nil && *existingPtr != nil && // if not nil
-		(*existingPtr).Validate(head) && // if still valid
-		((*existingPtr).GetBlock().Number == p.GetBlock().Number &&
-			(*existingPtr).GetBlock().TransactionCount >= p.GetBlock().TransactionCount) // incoming does not have richer data
 
-	if shouldPreserveCurrentPreConfirmed {
+	if shouldPreservePendingData(existingPtr, p, head) {
 		return false, nil
 	}
 
