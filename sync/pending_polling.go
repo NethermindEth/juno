@@ -245,46 +245,6 @@ func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
 	}
 }
 
-// pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
-// The target is read from s.targetPreConfirmedNum and only polled while at tip.
-// On success, the pre_confirmed is forwarded to out.
-func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.PreConfirmed) {
-	if s.preConfirmedPollInterval == 0 {
-		s.log.Infow("Pre-confirmed block polling is disabled")
-		return
-	}
-
-	ticker := time.NewTicker(s.preConfirmedPollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-ticker.C:
-			targetNum := s.targetPreConfirmedNum.Load()
-			shouldPoll := targetNum > 0 && s.isGreaterThanTip(targetNum)
-			if !shouldPoll {
-				continue
-			}
-
-			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetNum)
-			if err != nil {
-				s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
-				continue
-			}
-
-			select {
-			case out <- &preConfirmed:
-				continue
-			case <-ctx.Done():
-				return
-			}
-		}
-	}
-}
-
 // pollPending periodically polls the pending block while at tip and forwards it to out.
 func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending) {
 	if s.pendingPollInterval == 0 {
@@ -379,6 +339,46 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 				s.log.Debugw("Error storing pending block", "err", err)
 			} else if changed {
 				s.pendingDataFeed.Send(p)
+			}
+		}
+	}
+}
+
+// pollPreConfirmed polls for the current target pre_confirmed number at a fixed interval.
+// The target is read from s.targetPreConfirmedNum and only polled while at tip.
+// On success, the pre_confirmed is forwarded to out.
+func (s *Synchronizer) pollPreConfirmed(ctx context.Context, out chan<- *core.PreConfirmed) {
+	if s.preConfirmedPollInterval == 0 {
+		s.log.Infow("Pre-confirmed block polling is disabled")
+		return
+	}
+
+	ticker := time.NewTicker(s.preConfirmedPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-ticker.C:
+			targetNum := s.targetPreConfirmedNum.Load()
+			shouldPoll := targetNum > 0 && s.isGreaterThanTip(targetNum)
+			if !shouldPoll {
+				continue
+			}
+
+			preConfirmed, err := s.dataSource.PreConfirmedBlockByNumber(ctx, targetNum)
+			if err != nil {
+				s.log.Debugw("Error while trying to poll pre_confirmed block", "err", err)
+				continue
+			}
+
+			select {
+			case out <- &preConfirmed:
+				continue
+			case <-ctx.Done():
+				return
 			}
 		}
 	}
