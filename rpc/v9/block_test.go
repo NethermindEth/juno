@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
@@ -51,7 +50,7 @@ func TestBlockIDMarshalling(t *testing.T) {
 		"hash": {
 			blockIDJSON: `{ "block_hash" : "0x123" }`,
 			checkFunc: func(blockID *rpcv9.BlockID) bool {
-				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64(0x123)
+				return blockID.IsHash() && *blockID.Hash() == felt.FromUint64[felt.Felt](0x123)
 			},
 		},
 		"l1_accepted": {
@@ -127,7 +126,7 @@ func TestBlockTransactionCount(t *testing.T) {
 
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
-		hash := blockIDHash(t, types.NewFromBytes[felt.Felt]([]byte("random")))
+		hash := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		count, rpcErr := handler.BlockTransactionCount(&hash)
 		assert.Equal(t, uint64(0), count)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -594,11 +593,11 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpcv9.ResourceBoundsMap{
 					L1Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       types.New[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxAmount:       felt.New[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
 					L2Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       types.New[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxAmount:       felt.New[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: &rpcv9.ResourceBounds{
@@ -606,7 +605,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 						MaxPricePerUnit: &felt.Zero,
 					},
 				},
-				Tip:                   types.New[felt.Felt](tx.Tip),
+				Tip:                   felt.New[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
 				NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),

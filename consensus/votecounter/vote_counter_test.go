@@ -112,7 +112,7 @@ func TestVoteCounter(t *testing.T) {
 				case *proposalTestCase:
 					t.Run("Try with invalid proposer", func(t *testing.T) {
 						proposal := testCase.proposal
-						proposal.Sender = starknet.Address(felt.FromUint64(uint64(len(tests))))
+						proposal.Sender = starknet.Address(felt.FromUint64[felt.Felt](uint64(len(tests))))
 						assert.False(t, voteCounter.AddProposal(&proposal))
 					})
 

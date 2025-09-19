@@ -136,7 +136,7 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
 				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 			},
-			ConcatCount: felt.FromUint64(0),
+			ConcatCount: felt.FromUint64[felt.Felt](0),
 		},
 	}
 }

@@ -80,7 +80,7 @@ func toFelt252Slice(felts [][]byte) []*common.Felt252 {
 func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.ResourceLimits) {
 	t.Helper()
 	maxAmount := rand.Uint64()
-	maxAmountFelt := felt.FromUint64(maxAmount)
+	maxAmountFelt := felt.FromUint64[felt.Felt](maxAmount)
 	maxAmountFeltBytes := maxAmountFelt.Bytes()
 	maxPricePerUnit, maxPricePerUnitBytes := getRandomFelt(t)
 

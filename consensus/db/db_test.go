@@ -46,7 +46,7 @@ func buildExpectedEntries(testHeight types.Height) []starknet.WALEntry {
 	sender1 := starknet.Address(*new(felt.Felt).SetUint64(1))
 	sender2 := starknet.Address(*new(felt.Felt).SetUint64(2))
 	sender3 := starknet.Address(*new(felt.Felt).SetUint64(3))
-	val1 := starknet.Value(felt.FromUint64(10))
+	val1 := starknet.Value(felt.FromUint64[felt.Felt](10))
 	valHash1 := val1.Hash()
 
 	proposal := starknet.WALProposal{

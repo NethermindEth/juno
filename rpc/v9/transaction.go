@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/gateway"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -395,7 +394,7 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	var l1DataGasResourceBounds *ResourceBounds
 	if _, ok := rb[core.ResourceL1DataGas]; ok {
 		l1DataGasResourceBounds = &ResourceBounds{
-			MaxAmount:       types.New[felt.Felt](rb[core.ResourceL1DataGas].MaxAmount),
+			MaxAmount:       felt.New[felt.Felt](rb[core.ResourceL1DataGas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1DataGas].MaxPricePerUnit,
 		}
 	} else {
@@ -408,11 +407,11 @@ func adaptResourceBounds(rb map[core.Resource]core.ResourceBounds) ResourceBound
 	// As L1Gas & L2Gas will always be present, we can directly assign them
 	rpcResourceBounds := ResourceBoundsMap{
 		L1Gas: &ResourceBounds{
-			MaxAmount:       types.New[felt.Felt](rb[core.ResourceL1Gas].MaxAmount),
+			MaxAmount:       felt.New[felt.Felt](rb[core.ResourceL1Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL1Gas].MaxPricePerUnit,
 		},
 		L2Gas: &ResourceBounds{
-			MaxAmount:       types.New[felt.Felt](rb[core.ResourceL2Gas].MaxAmount),
+			MaxAmount:       felt.New[felt.Felt](rb[core.ResourceL2Gas].MaxAmount),
 			MaxPricePerUnit: rb[core.ResourceL2Gas].MaxPricePerUnit,
 		},
 		L1DataGas: l1DataGasResourceBounds,
@@ -665,7 +664,7 @@ func (h *Handler) pushToFeederGateway(
 	ctx context.Context,
 	tx *BroadcastedTransaction,
 ) (AddTxResponse, *jsonrpc.Error) {
-	if tx.Type == TxnDeclare && tx.Version.Cmp(types.New[felt.Felt](2)) != -1 {
+	if tx.Type == TxnDeclare && tx.Version.Cmp(felt.New[felt.Felt](2)) != -1 {
 		contractClass := make(map[string]any)
 		if err := json.Unmarshal(tx.ContractClass, &contractClass); err != nil {
 			return AddTxResponse{}, rpccore.ErrInternal.CloneWithData(fmt.Sprintf("unmarshal contract class: %v", err))
@@ -1018,7 +1017,7 @@ func adaptInvokeTransaction(t *core.InvokeTransaction) *Transaction {
 
 	if tx.Version.Uint64() == 3 {
 		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = types.New[felt.Felt](t.Tip)
+		tx.Tip = felt.New[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
 		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
@@ -1043,7 +1042,7 @@ func adaptDeclareTransaction(t *core.DeclareTransaction) *Transaction {
 
 	if tx.Version.Uint64() == 3 {
 		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = types.New[felt.Felt](t.Tip)
+		tx.Tip = felt.New[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.AccountDeploymentData = &t.AccountDeploymentData
 		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
@@ -1068,7 +1067,7 @@ func adaptDeployAccountTrandaction(t *core.DeployAccountTransaction) *Transactio
 
 	if tx.Version.Uint64() == 3 {
 		tx.ResourceBounds = utils.HeapPtr(adaptResourceBounds(t.ResourceBounds))
-		tx.Tip = types.New[felt.Felt](t.Tip)
+		tx.Tip = felt.New[felt.Felt](t.Tip)
 		tx.PaymasterData = &t.PaymasterData
 		tx.NonceDAMode = utils.HeapPtr(DataAvailabilityMode(t.NonceDAMode))
 		tx.FeeDAMode = utils.HeapPtr(DataAvailabilityMode(t.FeeDAMode))
