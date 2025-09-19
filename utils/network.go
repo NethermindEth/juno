@@ -12,7 +12,7 @@ import (
 )
 
 var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
-	strings.Join(knownNetworkNames(), ", "),
+	strings.Join(KnownNetworkNames(), ", "),
 )
 
 type Network struct {
@@ -167,7 +167,7 @@ func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
 }
 
-func knownNetworkNames() []string {
+func KnownNetworkNames() []string {
 	networks := []Network{Mainnet, Sepolia, SepoliaIntegration, Sequencer}
 
 	return Map(networks, func(n Network) string {
