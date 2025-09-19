@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -17,7 +16,7 @@ import (
 
 func TestCreateSimulatedTransactions(t *testing.T) {
 	executionResults := vm.ExecutionResults{
-		OverallFees: []*felt.Felt{types.New[felt.Felt](10), types.New[felt.Felt](20)},
+		OverallFees: []*felt.Felt{felt.New[felt.Felt](10), felt.New[felt.Felt](20)},
 		DataAvailability: []core.DataAvailability{
 			{L1Gas: 5, L1DataGas: 2},
 			{L1Gas: 6, L1DataGas: 3},
@@ -40,15 +39,15 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 	}
 
 	header := &core.Header{
-		L1GasPriceETH:  types.New[felt.Felt](1),
-		L1GasPriceSTRK: types.New[felt.Felt](2),
+		L1GasPriceETH:  felt.New[felt.Felt](1),
+		L1GasPriceSTRK: felt.New[felt.Felt](2),
 		L2GasPrice: &core.GasPrice{
-			PriceInWei: types.New[felt.Felt](3),
-			PriceInFri: types.New[felt.Felt](4),
+			PriceInWei: felt.New[felt.Felt](3),
+			PriceInFri: felt.New[felt.Felt](4),
 		},
 		L1DataGasPrice: &core.GasPrice{
-			PriceInWei: types.New[felt.Felt](5),
-			PriceInFri: types.New[felt.Felt](6),
+			PriceInWei: felt.New[felt.Felt](5),
+			PriceInFri: felt.New[felt.Felt](6),
 		},
 	}
 
@@ -69,13 +68,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				},
 			},
 			FeeEstimation: FeeEstimate{
-				L1GasConsumed:     types.New[felt.Felt](100),
-				L1GasPrice:        types.New[felt.Felt](1),
-				L2GasConsumed:     types.New[felt.Felt](200),
-				L2GasPrice:        types.New[felt.Felt](3),
-				L1DataGasConsumed: types.New[felt.Felt](50),
-				L1DataGasPrice:    types.New[felt.Felt](5),
-				OverallFee:        types.New[felt.Felt](10),
+				L1GasConsumed:     felt.New[felt.Felt](100),
+				L1GasPrice:        felt.New[felt.Felt](1),
+				L2GasConsumed:     felt.New[felt.Felt](200),
+				L2GasPrice:        felt.New[felt.Felt](3),
+				L1DataGasConsumed: felt.New[felt.Felt](50),
+				L1DataGasPrice:    felt.New[felt.Felt](5),
+				OverallFee:        felt.New[felt.Felt](10),
 				Unit:              utils.HeapPtr(WEI),
 			},
 		},
@@ -90,13 +89,13 @@ func TestCreateSimulatedTransactions(t *testing.T) {
 				},
 			},
 			FeeEstimation: FeeEstimate{
-				L1GasConsumed:     types.New[felt.Felt](150),
-				L1GasPrice:        types.New[felt.Felt](2),
-				L2GasConsumed:     types.New[felt.Felt](250),
-				L2GasPrice:        types.New[felt.Felt](4),
-				L1DataGasConsumed: types.New[felt.Felt](70),
-				L1DataGasPrice:    types.New[felt.Felt](6),
-				OverallFee:        types.New[felt.Felt](20),
+				L1GasConsumed:     felt.New[felt.Felt](150),
+				L1GasPrice:        felt.New[felt.Felt](2),
+				L2GasConsumed:     felt.New[felt.Felt](250),
+				L2GasPrice:        felt.New[felt.Felt](4),
+				L1DataGasConsumed: felt.New[felt.Felt](70),
+				L1DataGasPrice:    felt.New[felt.Felt](6),
+				OverallFee:        felt.New[felt.Felt](20),
 				Unit:              utils.HeapPtr(FRI),
 			},
 		},

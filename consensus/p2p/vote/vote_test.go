@@ -22,14 +22,14 @@ type testCase struct {
 
 // createTestHash creates a test hash from a felt value
 func createTestHash(val uint64) *hash.Hash {
-	f := felt.FromUint64(val)
+	f := felt.FromUint64[felt.Felt](val)
 	h := hash.Hash(f)
 	return &h
 }
 
 // createTestHashBytes creates the byte representation of a hash
 func createTestHashBytes(val uint64) []byte {
-	f := felt.FromUint64(val)
+	f := felt.FromUint64[felt.Felt](val)
 	bytes := f.Bytes()
 	return bytes[:]
 }
@@ -109,7 +109,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(50),
 					Round:  types.Round(3),
-					Sender: address.Address(felt.FromUint64(42)),
+					Sender: address.Address(felt.FromUint64[felt.Felt](42)),
 				},
 				ID: createTestHash(0xdeadbeefcafebabe),
 			},
@@ -118,7 +118,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				BlockNumber: 50,
 				Round:       3,
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.FromUint64(42)),
+					Elements: feltToBytes(felt.FromUint64[felt.Felt](42)),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(0xdeadbeefcafebabe),
@@ -131,7 +131,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(200),
 					Round:  types.Round(10),
-					Sender: address.Address(felt.FromUint64(999)),
+					Sender: address.Address(felt.FromUint64[felt.Felt](999)),
 				},
 				ID: nil,
 			},
@@ -139,7 +139,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Prevote,
 				BlockNumber:        200,
 				Round:              10,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(999))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](999))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -149,7 +149,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(300),
 					Round:  types.Round(15),
-					Sender: address.Address(felt.FromUint64(1234)),
+					Sender: address.Address(felt.FromUint64[felt.Felt](1234)),
 				},
 				ID: nil,
 			},
@@ -157,7 +157,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Precommit,
 				BlockNumber:        300,
 				Round:              15,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(1234))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](1234))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -167,7 +167,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(0),
 					Round:  types.Round(0),
-					Sender: address.Address(felt.FromUint64(100)),
+					Sender: address.Address(felt.FromUint64[felt.Felt](100)),
 				},
 				ID: nil,
 			},
@@ -175,7 +175,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				VoteType:           consensus.Vote_Prevote,
 				BlockNumber:        0,
 				Round:              0,
-				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64(100))},
+				Voter:              &common.Address{Elements: feltToBytes(felt.FromUint64[felt.Felt](100))},
 				ProposalCommitment: nil,
 			},
 		},
@@ -185,7 +185,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(^uint64(0)),
 					Round:  types.Round(^uint32(0)),
-					Sender: address.Address(felt.FromUint64(^uint64(0))),
+					Sender: address.Address(felt.FromUint64[felt.Felt](^uint64(0))),
 				},
 				ID: createTestHash(^uint64(0)),
 			},
@@ -194,7 +194,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				BlockNumber: ^uint64(0),
 				Round:       ^uint32(0),
 				Voter: &common.Address{
-					Elements: feltToBytes(felt.FromUint64(^uint64(0))),
+					Elements: feltToBytes(felt.FromUint64[felt.Felt](^uint64(0))),
 				},
 				ProposalCommitment: &common.Hash{
 					Elements: createTestHashBytes(^uint64(0)),

@@ -42,7 +42,7 @@ func TestSync(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 
-	nodeAddr := starknet.Address(felt.FromUint64(123))
+	nodeAddr := starknet.Address(felt.FromUint64[felt.Felt](123))
 	logger := utils.NewNopZapLogger()
 
 	dbPath := t.TempDir()

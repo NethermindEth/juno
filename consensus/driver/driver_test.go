@@ -49,14 +49,14 @@ func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
 	return starknet.MessageHeader{
 		Height: types.Height(random.Uint32()),
 		Round:  types.Round(random.Int()),
-		Sender: starknet.Address(felt.FromUint64(random.Uint64())),
+		Sender: starknet.Address(felt.FromUint64[felt.Felt](random.Uint64())),
 	}
 }
 
 func getRandProposal(random *rand.Rand) starknet.Proposal {
 	return starknet.Proposal{
 		MessageHeader: getRandMessageHeader(random),
-		Value:         utils.HeapPtr(starknet.Value(felt.FromUint64(random.Uint64()))),
+		Value:         utils.HeapPtr(starknet.Value(felt.FromUint64[felt.Felt](random.Uint64()))),
 		ValidRound:    types.Round(random.Int()),
 	}
 }
@@ -64,14 +64,14 @@ func getRandProposal(random *rand.Rand) starknet.Proposal {
 func getRandPrevote(random *rand.Rand) starknet.Prevote {
 	return starknet.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
+		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
 	}
 }
 
 func getRandPrecommit(random *rand.Rand) starknet.Precommit {
 	return starknet.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64(random.Uint64()))),
+		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
 	}
 }
 

@@ -14,7 +14,7 @@ type mockValidator struct {
 
 func newMockValidator(proposerIndex uint64, votingPower map[starknet.Address]types.VotingPower) *mockValidator {
 	return &mockValidator{
-		proposer:    utils.HeapPtr(starknet.Address(felt.FromUint64(proposerIndex))),
+		proposer:    utils.HeapPtr(starknet.Address(felt.FromUint64[felt.Felt](proposerIndex))),
 		votingPower: votingPower,
 	}
 }

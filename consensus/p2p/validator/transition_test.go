@@ -130,10 +130,10 @@ func TestProposal(t *testing.T) {
 		BlockNumber:       head.Number + 1,
 		Builder:           *proposerAddr,
 		Timestamp:         1700474724,
-		L2GasPriceFRI:     felt.FromUint64(l2GasPriceFri),
-		L1GasPriceWEI:     felt.FromUint64(l1GasPriceWei),
-		L1DataGasPriceWEI: felt.FromUint64(l1DataGasPriceWei),
-		EthToStrkRate:     felt.FromUint64(ethToStrkRate),
+		L2GasPriceFRI:     felt.FromUint64[felt.Felt](l2GasPriceFri),
+		L1GasPriceWEI:     felt.FromUint64[felt.Felt](l1GasPriceWei),
+		L1DataGasPriceWEI: felt.FromUint64[felt.Felt](l1DataGasPriceWei),
+		EthToStrkRate:     felt.FromUint64[felt.Felt](ethToStrkRate),
 		L1DAMode:          core.Blob,
 	}
 	receivingTransactionsState, err := transition.OnBlockInfo(t.Context(), awaitingBlockInfoOrCommitmentState, &blockInfo)
@@ -162,15 +162,15 @@ func TestProposal(t *testing.T) {
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
 				MaxAmount:       4,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1GasPriceFri + 1)),
+				MaxPricePerUnit: felt.New[felt.Felt](l1GasPriceFri + 1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       520000,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l2GasPriceFri + 1)),
+				MaxPricePerUnit: felt.New[felt.Felt](l2GasPriceFri + 1),
 			},
 			core.ResourceL1DataGas: {
 				MaxAmount:       296,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1DataGasPriceFri + 1)),
+				MaxPricePerUnit: felt.New[felt.Felt](l1DataGasPriceFri + 1),
 			},
 		},
 		Tip:                   utils.HexToUint64(t, "0x0"),
@@ -200,8 +200,8 @@ func TestProposal(t *testing.T) {
 		EventCommitment:       *utils.HexToFelt(t, "0x44a528b33c19728469ae78c616070c5a609b57250c630391e64a9532d4bbac9"),
 		ReceiptCommitment:     *utils.HexToFelt(t, "0x4e31a7f4aad47f4d3a2e176961c0ccb7ef90f52159da68edd52c9fc0739eb4c"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
-		L1GasPriceFRI:         felt.FromUint64(l1GasPriceFri),
-		L1DataGasPriceFRI:     felt.FromUint64(l1DataGasPriceFri),
+		L1GasPriceFRI:         felt.FromUint64[felt.Felt](l1GasPriceFri),
+		L1DataGasPriceFRI:     felt.FromUint64[felt.Felt](l1DataGasPriceFri),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L2GasUsed:             *utils.HexToFelt(t, "0x9dbc0"),
 		L1DAMode:              blockInfo.L1DAMode,

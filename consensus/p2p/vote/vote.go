@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/types/address"
 	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/core/types/hash"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
@@ -25,7 +24,7 @@ var StarknetVoteAdapter VoteAdapter[hash.Hash, address.Address] = starknetVoteAd
 func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error) {
 	var id *starknet.Hash
 	if proposalCommitment := vote.GetProposalCommitment().GetElements(); proposalCommitment != nil {
-		id = utils.HeapPtr(hash.Hash(felt.FromBytes(proposalCommitment)))
+		id = felt.NewFromBytes[hash.Hash](proposalCommitment)
 	}
 
 	voter := vote.GetVoter().GetElements()
@@ -37,7 +36,7 @@ func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error)
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(vote.GetBlockNumber()),
 			Round:  types.Round(vote.GetRound()),
-			Sender: address.Address(felt.FromBytes(voter)),
+			Sender: felt.FromBytes[address.Address](voter),
 		},
 		ID: id,
 	}, nil

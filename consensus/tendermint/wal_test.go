@@ -22,7 +22,7 @@ func getPrevote(idx int) starknet.Prevote {
 			Round:  types.Round(0),
 			Sender: *getVal(idx),
 		},
-		ID: utils.HeapPtr(hash.Hash(felt.FromUint64(1))),
+		ID: utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](1))),
 	}
 }
 
@@ -33,7 +33,7 @@ func getPrecommit(idx int) starknet.Precommit {
 			Round:  types.Round(0),
 			Sender: *getVal(idx),
 		},
-		ID: utils.HeapPtr(hash.Hash(felt.FromUint64(1))),
+		ID: utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](1))),
 	}
 }
 

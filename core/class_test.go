@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/encoder"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -272,7 +271,13 @@ func TestSierraVersion(t *testing.T) {
 	})
 
 	t.Run("cairo one should return 0.1.0 when only one felt", func(t *testing.T) {
-		sierraVersion010 := felt.New(fp.Element([4]uint64{18446737451840584193, 18446744073709551615, 18446744073709551615, 576348180530977296}))
+		sierraVersion010 := felt.Felt(
+			[4]uint64{
+				18446737451840584193,
+				18446744073709551615,
+				18446744073709551615,
+				576348180530977296,
+			})
 		class := core.Cairo1Class{
 			Program: []*felt.Felt{
 				&sierraVersion010,
