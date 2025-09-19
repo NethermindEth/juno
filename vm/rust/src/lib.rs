@@ -30,7 +30,9 @@ use blockifier::{
 };
 use blockifier::{
     blockifier_versioned_constants::VersionedConstants,
-    context::{BlockContext, ChainInfo, FeeTokenAddresses, TransactionContext},
+    context::{
+        BlockContext, ChainInfo as BlockifierChainInfo, FeeTokenAddresses, TransactionContext,
+    },
     execution::entry_point::{CallEntryPoint, CallType, EntryPointExecutionContext},
     state::{cached_state::CachedState, state_api::State},
     transaction::{
@@ -105,7 +107,7 @@ pub struct CallInfo {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub struct ChainContext {
+pub struct ChainInfo {
     pub chain_id: *const c_char,
     pub eth_fee_token_address: [c_uchar; 32],
     pub strk_fee_token_address: [c_uchar; 32],
@@ -134,7 +136,7 @@ pub struct BlockInfo {
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,
-    chain_context_ptr: *const ChainContext,
+    chain_info_ptr: *const ChainInfo,
     reader_handle: usize,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
@@ -144,7 +146,7 @@ pub extern "C" fn cairoVMCall(
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
-    let chain_context = unsafe { *chain_context_ptr };
+    let chain_info = unsafe { *chain_info_ptr };
     let mut writer_buffer = Vec::with_capacity(10_000);
 
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
@@ -202,7 +204,7 @@ pub extern "C" fn cairoVMCall(
                 build_block_context(
                     &mut state,
                     &block_info,
-                    &chain_context,
+                    &chain_info,
                     Some(max_steps),
                     concurrency_mode,
                 )
@@ -277,7 +279,7 @@ pub extern "C" fn cairoVMExecute(
     classes_json: *const c_char,
     paid_fees_on_l1_json: *const c_char,
     block_info_ptr: *const BlockInfo,
-    chain_context_ptr: *const ChainContext,
+    chain_info_ptr: *const ChainInfo,
     reader_handle: usize,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
@@ -287,7 +289,7 @@ pub extern "C" fn cairoVMExecute(
     allow_binary_search: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
-    let chain_context = unsafe { *chain_context_ptr };
+    let chain_info = unsafe { *chain_info_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
@@ -325,7 +327,7 @@ pub extern "C" fn cairoVMExecute(
     let block_context: BlockContext = build_block_context(
         &mut state,
         &block_info,
-        &chain_context,
+        &chain_info,
         None,
         concurrency_mode,
     )
@@ -737,7 +739,7 @@ fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice,
 fn build_block_context(
     state: &mut dyn State,
     block_info: &BlockInfo,
-    chain_context: &ChainContext,
+    chain_info: &ChainInfo,
     max_steps: Option<c_ulonglong>,
     _concurrency_mode: bool,
 ) -> Result<BlockContext> {
@@ -784,13 +786,13 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
-    let chain_id_str = unsafe { CStr::from_ptr(chain_context.chain_id) }
+    let chain_id_str = unsafe { CStr::from_ptr(chain_info.chain_id) }
         .to_str()
         .unwrap();
-    let eth_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.eth_fee_token_address);
-    let strk_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.strk_fee_token_address);
+    let eth_fee_token_felt = StarkFelt::from_bytes_be(&chain_info.eth_fee_token_address);
+    let strk_fee_token_felt = StarkFelt::from_bytes_be(&chain_info.strk_fee_token_address);
 
-    let chain_info = ChainInfo {
+    let chain_info = BlockifierChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
             eth_fee_token_address: ContractAddress(

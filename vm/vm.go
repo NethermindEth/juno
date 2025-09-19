@@ -9,6 +9,7 @@ package vm
 import "C"
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -63,14 +65,14 @@ type VM interface {
 }
 
 type vm struct {
-	chainContext    *ChainContext
+	chainInfo       *ChainInfo
 	log             utils.SimpleLogger
 	concurrencyMode bool
 }
 
-func New(chainContext *ChainContext, concurrencyMode bool, log utils.SimpleLogger) VM {
+func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM {
 	return &vm{
-		chainContext:    chainContext,
+		chainInfo:       chainInfo,
 		log:             log,
 		concurrencyMode: concurrencyMode,
 	}
@@ -185,25 +187,43 @@ type CallInfo struct {
 	Calldata        []felt.Felt
 }
 
-type ChainContext struct {
-	ChainID             string
-	EthFeeTokenAddress  *felt.Felt
-	StrkFeeTokenAddress *felt.Felt
+type FeeTokenAddresses struct {
+	EthFeeTokenAddress  felt.Felt
+	StrkFeeTokenAddress felt.Felt
 }
 
-func NewChainContext(chainID string, ethFeeTokenAddress, strkFeeTokenAddress *felt.Felt) *ChainContext {
-	if ethFeeTokenAddress == nil {
-		ethFeeTokenAddress, _ = new(felt.Felt).SetString("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+func NewFeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddresses, error) {
+	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(context.Background())
+	if err != nil {
+		return FeeTokenAddresses{}, err
 	}
 
-	if strkFeeTokenAddress == nil {
-		strkFeeTokenAddress, _ = new(felt.Felt).SetString("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
-	}
+	return FeeTokenAddresses{
+		EthFeeTokenAddress:  *feeTokenAddresses.EthL2TokenAddress,
+		StrkFeeTokenAddress: *feeTokenAddresses.StrkL2TokenAddress,
+	}, nil
+}
 
-	return &ChainContext{
-		ChainID:             chainID,
-		EthFeeTokenAddress:  ethFeeTokenAddress,
-		StrkFeeTokenAddress: strkFeeTokenAddress,
+func DeafultFeeTokenAddresses() FeeTokenAddresses {
+	// TODO(Ege): Revise this
+	ethFeeTokenAddress, _ := new(felt.Felt).SetString("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+	strkFeeTokenAddress, _ := new(felt.Felt).SetString("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+
+	return FeeTokenAddresses{
+		EthFeeTokenAddress:  *ethFeeTokenAddress,
+		StrkFeeTokenAddress: *strkFeeTokenAddress,
+	}
+}
+
+type ChainInfo struct {
+	ChainID           string
+	FeeTokenAddresses FeeTokenAddresses
+}
+
+func NewChainInfo(chainID string, feeTokenAddresses *FeeTokenAddresses) *ChainInfo {
+	return &ChainInfo{
+		ChainID:           chainID,
+		FeeTokenAddresses: *feeTokenAddresses,
 	}
 }
 
@@ -248,14 +268,20 @@ func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
 	return cCallInfo, pinner
 }
 
-func makeCChainContext(chainContext *ChainContext) C.ChainContext {
-	var cChainContext C.ChainContext
+func makeCChainInfo(chainInfo *ChainInfo) C.ChainInfo {
+	var cChainInfo C.ChainInfo
 
-	cChainContext.chain_id = C.CString(chainContext.ChainID)
-	copyFeltIntoCArray(chainContext.EthFeeTokenAddress, &cChainContext.eth_fee_token_address[0])
-	copyFeltIntoCArray(chainContext.StrkFeeTokenAddress, &cChainContext.strk_fee_token_address[0])
+	cChainInfo.chain_id = C.CString(chainInfo.ChainID)
+	copyFeltIntoCArray(
+		&chainInfo.FeeTokenAddresses.EthFeeTokenAddress,
+		&cChainInfo.eth_fee_token_address[0],
+	)
+	copyFeltIntoCArray(
+		&chainInfo.FeeTokenAddresses.StrkFeeTokenAddress,
+		&cChainInfo.strk_fee_token_address[0],
+	)
 
-	return cChainContext
+	return cChainInfo
 }
 
 func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
@@ -308,12 +334,12 @@ func (v *vm) Call(
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
-	cChainContext := makeCChainContext(v.chainContext)
+	cChainInfo := makeCChainInfo(v.chainInfo)
 	cSierraVersion := C.CString(sierraVersion)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
-		&cChainContext,
+		&cChainInfo,
 		C.uintptr_t(handle),
 		C.ulonglong(maxSteps),
 		toUchar(v.concurrencyMode),
@@ -323,7 +349,7 @@ func (v *vm) Call(
 
 	)
 	callInfoPinner.Unpin()
-	C.free(unsafe.Pointer(cChainContext.chain_id))
+	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 	C.free(unsafe.Pointer(cSierraVersion))
 
@@ -378,12 +404,12 @@ func (v *vm) Execute(
 	classesJSONCStr := cstring(classesJSON)
 
 	cBlockInfo := makeCBlockInfo(blockInfo)
-	cChainContext := makeCChainContext(v.chainContext)
+	cChainInfo := makeCChainInfo(v.chainInfo)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
 		paidFeesOnL1CStr,
 		&cBlockInfo,
-		&cChainContext,
+		&cChainInfo,
 		C.uintptr_t(handle),
 		toUchar(skipChargeFee),
 		toUchar(skipValidate),
@@ -396,7 +422,7 @@ func (v *vm) Execute(
 	C.free(unsafe.Pointer(classesJSONCStr))
 	C.free(unsafe.Pointer(paidFeesOnL1CStr))
 	C.free(unsafe.Pointer(txnsJSONCstr))
-	C.free(unsafe.Pointer(cChainContext.chain_id))
+	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 
 	if context.err != "" {

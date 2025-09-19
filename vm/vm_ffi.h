@@ -15,11 +15,11 @@ typedef struct CallInfo {
 	size_t len_calldata;
 } CallInfo;
 
-typedef struct ChainContext {
+typedef struct ChainInfo {
 	char* chain_id;
 	unsigned char eth_fee_token_address[FELT_SIZE];
 	unsigned char strk_fee_token_address[FELT_SIZE];
-} ChainContext;
+} ChainInfo;
 
 typedef struct BlockInfo {
 	unsigned long long block_number;
@@ -40,7 +40,7 @@ typedef struct BlockInfo {
 extern void cairoVMCall(
 	CallInfo* call_info_ptr, 
 	BlockInfo* block_info_ptr, 
-	ChainContext* chain_context_ptr, 
+	ChainInfo* chain_info_ptr, 
 	uintptr_t readerHandle,
 	unsigned long long max_steps, 
 	unsigned char concurrency_mode, 
@@ -54,7 +54,7 @@ extern void cairoVMExecute(
 	char* classes_json, 
 	char* paid_fees_on_l1_json,
 	BlockInfo* block_info_ptr, 
-	ChainContext* chain_context_ptr, 
+	ChainInfo* chain_info_ptr, 
 	uintptr_t readerHandle,
 	unsigned char skip_charge_fee, 
 	unsigned char skip_validate, 
