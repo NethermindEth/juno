@@ -5,9 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/types/address"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 )
@@ -19,12 +17,12 @@ type VoteAdapter[H types.Hash, A types.Addr] interface {
 
 type starknetVoteAdapter struct{}
 
-var StarknetVoteAdapter VoteAdapter[hash.Hash, address.Address] = starknetVoteAdapter{}
+var StarknetVoteAdapter VoteAdapter[felt.Hash, felt.Address] = starknetVoteAdapter{}
 
 func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error) {
 	var id *starknet.Hash
 	if proposalCommitment := vote.GetProposalCommitment().GetElements(); proposalCommitment != nil {
-		id = felt.NewFromBytes[hash.Hash](proposalCommitment)
+		id = felt.NewFromBytes[felt.Hash](proposalCommitment)
 	}
 
 	voter := vote.GetVoter().GetElements()
@@ -36,19 +34,22 @@ func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error)
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(vote.GetBlockNumber()),
 			Round:  types.Round(vote.GetRound()),
-			Sender: felt.FromBytes[address.Address](voter),
+			Sender: felt.FromBytes[felt.Address](voter),
 		},
 		ID: id,
 	}, nil
 }
 
-func (a starknetVoteAdapter) FromVote(vote *starknet.Vote, voteType consensus.Vote_VoteType) (consensus.Vote, error) {
-	sender := vote.Sender.AsFelt().Bytes()
+func (a starknetVoteAdapter) FromVote(
+	vote *starknet.Vote,
+	voteType consensus.Vote_VoteType,
+) (consensus.Vote, error) {
+	sender := vote.Sender.Bytes()
 
 	// This is optional since a vote can be NIL.
 	var id *common.Hash
 	if vote.ID != nil {
-		bytes := vote.ID.AsFelt().Bytes()
+		bytes := vote.ID.Bytes()
 		id = &common.Hash{Elements: bytes[:]}
 	}
 

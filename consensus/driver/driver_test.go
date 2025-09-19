@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/NethermindEth/juno/db/pebble"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/sourcegraph/conc"
@@ -64,14 +63,14 @@ func getRandProposal(random *rand.Rand) starknet.Proposal {
 func getRandPrevote(random *rand.Rand) starknet.Prevote {
 	return starknet.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
+		ID:            utils.HeapPtr(felt.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
 	}
 }
 
 func getRandPrecommit(random *rand.Rand) starknet.Precommit {
 	return starknet.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(hash.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
+		ID:            utils.HeapPtr(felt.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
 	}
 }
 
@@ -155,7 +154,7 @@ func TestDriver(t *testing.T) {
 	prevoteCh := make(chan *starknet.Prevote)
 	precommitCh := make(chan *starknet.Precommit)
 
-	stateMachine := mocks.NewMockStateMachine[starknet.Value, hash.Hash, starknet.Address](ctrl)
+	stateMachine := mocks.NewMockStateMachine[starknet.Value, felt.Hash, starknet.Address](ctrl)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))
