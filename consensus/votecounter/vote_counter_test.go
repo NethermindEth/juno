@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -112,7 +112,7 @@ func TestVoteCounter(t *testing.T) {
 				case *proposalTestCase:
 					t.Run("Try with invalid proposer", func(t *testing.T) {
 						proposal := testCase.proposal
-						proposal.Sender = starknet.Address(felt.FromUint64(uint64(len(tests))))
+						proposal.Sender = starknet.Address(felt.FromUint64[felt.Felt](uint64(len(tests))))
 						assert.False(t, voteCounter.AddProposal(&proposal))
 					})
 

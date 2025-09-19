@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	pedersenhash "github.com/consensys/gnark-crypto/ecc/stark-curve/pedersen-hash"
 )
@@ -19,7 +19,7 @@ func PedersenArray(elems ...*felt.Felt) *felt.Felt {
 // [Pedersen hash]: https://docs.starknet.io/architecture-and-concepts/cryptography/hash-functions/#pedersen_hash
 func Pedersen(a, b *felt.Felt) *felt.Felt {
 	hash := pedersenhash.Pedersen(a.Impl(), b.Impl())
-	f := felt.New(hash)
+	f := felt.Felt(hash)
 	return &f
 }
 
@@ -40,6 +40,6 @@ func (d *PedersenDigest) Update(elems ...*felt.Felt) Digest {
 
 func (d *PedersenDigest) Finish() *felt.Felt {
 	d.digest = pedersenhash.Pedersen(&d.digest, new(fp.Element).SetUint64(d.count))
-	f := felt.New(d.digest)
+	f := felt.Felt(d.digest)
 	return &f
 }

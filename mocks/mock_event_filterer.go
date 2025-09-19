@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
-	felt "github.com/NethermindEth/juno/core/felt"
+	felt "github.com/NethermindEth/juno/core/types/felt"
 	gomock "go.uber.org/mock/gomock"
 )
 

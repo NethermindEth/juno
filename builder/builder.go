@@ -6,7 +6,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"

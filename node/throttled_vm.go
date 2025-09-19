@@ -2,7 +2,7 @@ package node
 
 import (
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )

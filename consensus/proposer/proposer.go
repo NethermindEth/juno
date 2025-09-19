@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"

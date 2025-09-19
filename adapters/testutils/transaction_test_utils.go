@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/adapters/core2p2p"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
@@ -80,7 +80,7 @@ func toFelt252Slice(felts [][]byte) []*common.Felt252 {
 func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.ResourceLimits) {
 	t.Helper()
 	maxAmount := rand.Uint64()
-	maxAmountFelt := felt.FromUint64(maxAmount)
+	maxAmountFelt := felt.FromUint64[felt.Felt](maxAmount)
 	maxAmountFeltBytes := maxAmountFelt.Bytes()
 	maxPricePerUnit, maxPricePerUnitBytes := getRandomFelt(t)
 

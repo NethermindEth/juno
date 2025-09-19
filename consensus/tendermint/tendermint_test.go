@@ -6,7 +6,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/mocks"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/utils"
 	"go.uber.org/mock/gomock"
 )
@@ -21,7 +21,7 @@ func newApp() *app { return &app{} }
 
 func (a *app) Value() starknet.Value {
 	a.cur = (a.cur + 1) % 100
-	return starknet.Value(felt.FromUint64(a.cur))
+	return starknet.Value(felt.FromUint64[felt.Felt](a.cur))
 }
 
 func (a *app) Valid(v starknet.Value) bool {

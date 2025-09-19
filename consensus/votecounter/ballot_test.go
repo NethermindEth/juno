@@ -6,7 +6,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -113,7 +113,7 @@ func TestBallotSetAdd(t *testing.T) {
 		}
 
 		testName := fmt.Sprintf("%s to add %s with power %d for address %d", isAble, voteType, tt.addrPower, tt.addrIndex)
-		addr := starknet.Address(felt.FromUint64(tt.addrIndex))
+		addr := starknet.Address(felt.FromUint64[felt.Felt](tt.addrIndex))
 		t.Run(testName, func(t *testing.T) {
 			assert.Len(t, bs.perVoteType, 2)
 

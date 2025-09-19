@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
@@ -43,9 +43,9 @@ func TestThrottledVMError(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
 		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
 			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
+				felt.New[felt.Felt](3),
+				&felt.Zero,
+				&felt.Zero,
 			},
 		}}, nil)
 

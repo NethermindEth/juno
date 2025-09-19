@@ -1,6 +1,6 @@
 package starknet
 
-import "github.com/NethermindEth/juno/core/felt"
+import "github.com/NethermindEth/juno/core/types/felt"
 
 // StateUpdate object returned by the feeder in JSON format for "get_state_update" endpoint
 type StateUpdate struct {

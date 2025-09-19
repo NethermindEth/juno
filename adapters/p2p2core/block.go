@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/bits-and-blooms/bloom/v3"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"

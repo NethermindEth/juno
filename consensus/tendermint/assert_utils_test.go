@@ -6,12 +6,12 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/stretchr/testify/assert"
 )
 
 func value(value uint64) starknet.Value {
-	return starknet.Value(felt.FromUint64(value))
+	return starknet.Value(felt.FromUint64[felt.Felt](value))
 }
 
 // assertState asserts that the state machine is in the expected state.

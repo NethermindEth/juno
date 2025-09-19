@@ -7,7 +7,7 @@ import (
 	"slices"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/utils"
@@ -41,7 +41,7 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 		err = fmt.Errorf("unknown simulation flag %q", flag)
 	}
 
-	return
+	return err
 }
 
 type SimulatedTransaction struct {

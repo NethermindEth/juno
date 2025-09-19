@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -63,7 +63,7 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
-	expectedNonce := new(felt.Felt).SetUint64(1)
+	expectedNonce := felt.New[felt.Felt](1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

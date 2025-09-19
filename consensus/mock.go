@@ -10,7 +10,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
@@ -58,7 +58,7 @@ func (n mockValidators) Proposer(height types.Height, round types.Round) starkne
 }
 
 func mockNodeAddress(i int) starknet.Address {
-	return starknet.Address(felt.FromUint64(uint64(i)))
+	return felt.FromInt[felt.Address](i)
 }
 
 func MockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {

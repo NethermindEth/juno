@@ -3,7 +3,7 @@ package testutils
 import (
 	transactiontestutils "github.com/NethermindEth/juno/adapters/testutils"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/mempool"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	p2pmempool "github.com/starknet-io/starknet-p2pspecs/p2p/proto/mempool/transaction"

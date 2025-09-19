@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
@@ -329,7 +329,7 @@ type EdgeNode struct {
 }
 
 func (e *EdgeNode) AsProofNode() trie.ProofNode {
-	f, _ := new(felt.Felt).SetString(e.Path)
+	f, _ := felt.NewFromString[felt.Felt](e.Path)
 	pbs := f.Bytes()
 
 	return &trie.Edge{

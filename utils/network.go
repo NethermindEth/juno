@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/pflag"
 )

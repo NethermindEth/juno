@@ -9,7 +9,7 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/mocks"
@@ -92,7 +92,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				L1DataGas: 10,
 			}
 		}
-		return
+		return block, err
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()

@@ -3,7 +3,7 @@ package crypto
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	starkcurve "github.com/consensys/gnark-crypto/ecc/stark-curve"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/ecdsa"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"

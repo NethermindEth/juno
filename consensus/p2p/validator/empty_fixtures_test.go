@@ -8,7 +8,7 @@ import (
 	"github.com/NethermindEth/juno/builder"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
@@ -136,7 +136,7 @@ func EmptyBuildResult(headBlock *core.Block, proposer, expectedHash *felt.Felt, 
 				ReceiptCommitment:     new(felt.Felt).SetUint64(0),
 				StateDiffCommitment:   new(felt.Felt).SetUint64(0),
 			},
-			ConcatCount: felt.FromUint64(0),
+			ConcatCount: felt.FromUint64[felt.Felt](0),
 		},
 	}
 }
