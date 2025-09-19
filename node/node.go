@@ -201,9 +201,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	var throttledVM *ThrottledVM
 
 	if cfg.Sequencer {
-		// Sequencer mode only supports known networks and uses default fee tokens
+		// Sequencer mode only supports known networks and
+		// uses default fee tokens (custom networks not supported yet)
 		if !slices.Contains(utils.KnownNetworkNames(), cfg.Network.Name) {
-			return nil, fmt.Errorf("custom networks not supported in sequencer mode")
+			return nil, fmt.Errorf("custom networks are not supported in sequencer mode yet")
 		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
@@ -510,8 +511,9 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	if n.cfg.Sequencer {
+		// Custom networks are not supported in sequencer mode yet
 		if !slices.Contains(utils.KnownNetworkNames(), n.cfg.Network.Name) {
-			n.log.Errorw("Custom networks not supported in sequencer mode")
+			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
 			return
 		}
 		feeTokens := vm.DefaultFeeTokenAddresses()
