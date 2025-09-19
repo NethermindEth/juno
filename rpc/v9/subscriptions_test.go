@@ -114,7 +114,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 
 		subCtx := context.WithValue(t.Context(), jsonrpc.ConnKey{}, &fakeConn{w: serverConn})
 
-		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil, nil)
+		id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, nil, TxnFinalityStatusWithoutL1(0))
 		assert.Zero(t, id)
 		assert.Equal(t, rpccore.ErrTooManyKeysInFilter, rpcErr)
 	})
@@ -147,7 +147,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, TxnFinalityStatusWithoutL1(0))
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -157,7 +157,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 			mockChain.EXPECT().BlockHeaderByNumber(blockID.Number()).
 				Return(&core.Header{Number: 0}, nil)
 
-			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, nil)
+			id, rpcErr := handler.SubscribeEvents(subCtx, fromAddr, keys, &blockID, TxnFinalityStatusWithoutL1(0))
 			assert.Zero(t, id)
 			assert.Equal(t, rpccore.ErrTooManyBlocksBack, rpcErr)
 		})
@@ -595,13 +595,17 @@ func TestSubscribeEvents(t *testing.T) {
 			if tc.setupMocks != nil {
 				tc.setupMocks()
 			}
+			fs := TxnFinalityStatusWithoutL1(0)
+			if tc.finalityStatus != nil {
+				fs = *tc.finalityStatus
+			}
 			subID, conn := createTestEventsWebsocket(
 				t,
 				handler,
 				tc.fromAddr,
 				tc.keys,
 				tc.blockID,
-				tc.finalityStatus,
+				fs,
 			)
 
 			for _, step := range tc.steps {
@@ -2091,7 +2095,7 @@ func createTestEventsWebsocket(
 	fromAddr *felt.Felt,
 	keys [][]felt.Felt,
 	blockID *SubscriptionBlockID,
-	finalityStatus *TxnFinalityStatusWithoutL1,
+	finalityStatus TxnFinalityStatusWithoutL1,
 ) (SubscriptionID, net.Conn) {
 	t.Helper()
 
