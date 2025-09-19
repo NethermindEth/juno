@@ -120,11 +120,11 @@ func GenesisStateDiff(
 		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeFunctionCalls(config, v, network, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
+	if err := executeFunctionCalls(config, v, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeTransactions(config, v, network, &genesisState); err != nil {
+	if err := executeTransactions(config, v, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
@@ -230,7 +230,6 @@ func deployContract(
 func executeFunctionCalls(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	contractAddressToSierraVersion map[felt.Felt]string,
@@ -269,7 +268,6 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	genesisState *sync.PendingStateWriter,
 ) error {
 	if len(config.Txns) == 0 {

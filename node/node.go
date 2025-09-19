@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -181,12 +182,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	// TODO(Ege): Add support for custom chains
-	feeTokens := vm.DefaultFeeTokenAddresses()
-	chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
-	nodeVM := vm.New(chainInfo, false, log)
-	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
-
 	var synchronizer *sync.Synchronizer
 	var rpcHandler *rpc.Handler
 	var client *feeder.Client
@@ -202,11 +197,22 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		services = append(services, plugin.NewService(junoPlugin))
 	}
 
+	var nodeVM vm.VM
+	var throttledVM *ThrottledVM
+
 	if cfg.Sequencer {
+		// Sequencer mode only supports known networks and uses default fee tokens
+		if !slices.Contains(utils.KnownNetworkNames(), cfg.Network.Name) {
+			return nil, fmt.Errorf("custom networks not supported in sequencer mode")
+		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
 			return nil, kErr
 		}
+		feeTokens := vm.DefaultFeeTokenAddresses()
+		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
+		nodeVM = vm.New(chainInfo, false, log)
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, log)
 		executor := builder.NewExecutor(chain, nodeVM, log, cfg.SeqDisableFees, false)
 		builder := builder.New(chain, executor)
@@ -229,6 +235,19 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithLogger(log).
 			WithTimeouts(timeouts, fixed).
 			WithAPIKey(cfg.GatewayAPIKey)
+
+		// Handle fee tokens for custom networks
+		feeTokens := vm.DefaultFeeTokenAddresses()
+		if !slices.Contains(utils.KnownNetworkNames(), cfg.Network.Name) {
+			// For custom networks, fetch fee tokens from the gateway
+			feeTokens, err = vm.FeeTokenAddressesFromGateway(client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
+			}
+		}
+		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
+		nodeVM = vm.New(chainInfo, false, log)
+		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
 			chain,
@@ -491,7 +510,10 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	if n.cfg.Sequencer {
-		// TODO(Ege): Support custom tokens
+		if !slices.Contains(utils.KnownNetworkNames(), n.cfg.Network.Name) {
+			n.log.Errorw("Custom networks not supported in sequencer mode")
+			return
+		}
 		feeTokens := vm.DefaultFeeTokenAddresses()
 		chainInfo := vm.NewChainInfo(n.cfg.Network.L2ChainID, &feeTokens)
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
