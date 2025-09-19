@@ -375,3 +375,18 @@ func (c *Client) PreConfirmedBlock(ctx context.Context, blockNumber string) (*st
 	}
 	return preConfirmedBlock, nil
 }
+
+func (c *Client) FeeTokenAddresses(ctx context.Context) (*starknet.FeeTokenAddresses, error) {
+	queryURL := c.buildQueryString("get_contract_addresses", nil)
+	body, err := c.get(ctx, queryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer body.Close()
+
+	contractAddresses := new(starknet.FeeTokenAddresses)
+	if err = json.NewDecoder(body).Decode(contractAddresses); err != nil {
+		return nil, err
+	}
+	return contractAddresses, nil
+}
