@@ -6,6 +6,6 @@ import "github.com/NethermindEth/juno/core/felt"
 // feeder gateway's "get_contract_addresses" endpoint. These addresses are used to
 // identify the respective fee tokens on the network.
 type FeeTokenAddresses struct {
-	StrkL2TokenAddress *felt.Felt `json:"strk_l2_token_address"`
-	EthL2TokenAddress  *felt.Felt `json:"eth_l2_token_address"`
+	StrkL2TokenAddress felt.Felt `json:"strk_l2_token_address"`
+	EthL2TokenAddress  felt.Felt `json:"eth_l2_token_address"`
 }

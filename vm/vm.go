@@ -199,13 +199,13 @@ func FeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddress
 	}
 
 	return FeeTokenAddresses{
-		EthFeeTokenAddress:  *feeTokenAddresses.EthL2TokenAddress,
-		StrkFeeTokenAddress: *feeTokenAddresses.StrkL2TokenAddress,
+		EthFeeTokenAddress:  feeTokenAddresses.EthL2TokenAddress,
+		StrkFeeTokenAddress: feeTokenAddresses.StrkL2TokenAddress,
 	}, nil
 }
 
 func DefaultFeeTokenAddresses() FeeTokenAddresses {
-	// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+	// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
 	ethFeeTokenAddress := felt.Felt([4]uint64{
 		4380532846569209554,
 		17839402928228694863,
