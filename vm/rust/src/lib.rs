@@ -39,6 +39,7 @@ use blockifier::{
     },
 };
 use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_api::{
     block::{BlockHash, GasPrice, StarknetVersion},
     contract_class::{ClassInfo, EntryPointType, SierraVersion},
@@ -58,7 +59,6 @@ use starknet_api::{
     },
     execution_resources::GasAmount,
 };
-use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
@@ -784,15 +784,21 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
-    let chain_id_str = unsafe { CStr::from_ptr(chain_context.chain_id) }.to_str().unwrap();
+    let chain_id_str = unsafe { CStr::from_ptr(chain_context.chain_id) }
+        .to_str()
+        .unwrap();
     let eth_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.eth_fee_token_address);
     let strk_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.strk_fee_token_address);
-    
+
     let chain_info = ChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
-            eth_fee_token_address: ContractAddress(PatriciaKey::try_from(eth_fee_token_felt).unwrap()),
-            strk_fee_token_address: ContractAddress(PatriciaKey::try_from(strk_fee_token_felt).unwrap()),
+            eth_fee_token_address: ContractAddress(
+                PatriciaKey::try_from(eth_fee_token_felt).unwrap(),
+            ),
+            strk_fee_token_address: ContractAddress(
+                PatriciaKey::try_from(strk_fee_token_felt).unwrap(),
+            ),
         },
     };
 
