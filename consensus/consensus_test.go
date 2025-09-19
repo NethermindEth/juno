@@ -71,8 +71,9 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	chainContext := vm.NewChainContext(network.L2ChainID, nil, nil)
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainContext, false, log), &network, 40000000)
+	feeTokens := vm.DefaultFeeTokenAddresses()
+	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainInfo, false, log), &network, 40000000)
 	require.NoError(t, err)
 
 	return diff, classes
@@ -96,8 +97,9 @@ func initNode(
 	consensusDB := memory.New()
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
 
-	chainContext := vm.NewChainContext(network.L2ChainID, nil, nil)
-	vm := vm.New(chainContext, false, logger)
+	feeTokens := vm.DefaultFeeTokenAddresses()
+	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
+	vm := vm.New(chainInfo, false, logger)
 
 	services, err := consensus.Init(
 		node.Host,

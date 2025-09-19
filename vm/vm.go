@@ -192,7 +192,7 @@ type FeeTokenAddresses struct {
 	StrkFeeTokenAddress felt.Felt
 }
 
-func NewFeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddresses, error) {
+func FeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddresses, error) {
 	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(context.Background())
 	if err != nil {
 		return FeeTokenAddresses{}, err
@@ -204,14 +204,28 @@ func NewFeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddr
 	}, nil
 }
 
-func DeafultFeeTokenAddresses() FeeTokenAddresses {
-	// TODO(Ege): Revise this
-	ethFeeTokenAddress, _ := new(felt.Felt).SetString("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
-	strkFeeTokenAddress, _ := new(felt.Felt).SetString("0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d")
+func DefaultFeeTokenAddresses() FeeTokenAddresses {
+	// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+	ethFeeTokenAddress := felt.Felt([4]uint64{
+		4380532846569209554,
+		17839402928228694863,
+		17240401758547432026,
+		418961398025637529,
+	})
+
+	// 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+	strkFeeTokenAddress := felt.Felt(
+		[4]uint64{
+			16432072983745651214,
+			1325769094487018516,
+			5134018303144032807,
+			468300854463065062,
+		},
+	)
 
 	return FeeTokenAddresses{
-		EthFeeTokenAddress:  *ethFeeTokenAddress,
-		StrkFeeTokenAddress: *strkFeeTokenAddress,
+		EthFeeTokenAddress:  ethFeeTokenAddress,
+		StrkFeeTokenAddress: strkFeeTokenAddress,
 	}
 }
 

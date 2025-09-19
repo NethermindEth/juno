@@ -324,14 +324,8 @@ pub extern "C" fn cairoVMExecute(
     let txns_and_query_bits = txns_and_query_bits.unwrap();
     let mut classes = classes.unwrap();
     let concurrency_mode = concurrency_mode == 1;
-    let block_context: BlockContext = build_block_context(
-        &mut state,
-        &block_info,
-        &chain_info,
-        None,
-        concurrency_mode,
-    )
-    .unwrap();
+    let block_context: BlockContext =
+        build_block_context(&mut state, &block_info, &chain_info, None, concurrency_mode).unwrap();
     let charge_fee = skip_charge_fee == 0;
     let validate = skip_validate == 0;
     let err_stack = err_stack == 1;
