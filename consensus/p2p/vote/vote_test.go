@@ -5,9 +5,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/types/address"
 	"github.com/NethermindEth/juno/core/types/felt"
-	"github.com/NethermindEth/juno/core/types/hash"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/stretchr/testify/assert"
@@ -21,9 +19,9 @@ type testCase struct {
 }
 
 // createTestHash creates a test hash from a felt value
-func createTestHash(val uint64) *hash.Hash {
+func createTestHash(val uint64) *felt.Hash {
 	f := felt.FromUint64[felt.Felt](val)
-	h := hash.Hash(f)
+	h := felt.Hash(f)
 	return &h
 }
 
@@ -87,7 +85,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: 100,
 					Round:  5,
-					Sender: address.Address(felt.Zero),
+					Sender: felt.Address(felt.Zero),
 				},
 				ID: createTestHash(0x123456789abcdef),
 			},
@@ -109,7 +107,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(50),
 					Round:  types.Round(3),
-					Sender: address.Address(felt.FromUint64[felt.Felt](42)),
+					Sender: felt.FromUint64[felt.Address](42),
 				},
 				ID: createTestHash(0xdeadbeefcafebabe),
 			},
@@ -131,7 +129,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(200),
 					Round:  types.Round(10),
-					Sender: address.Address(felt.FromUint64[felt.Felt](999)),
+					Sender: felt.Address(felt.FromUint64[felt.Felt](999)),
 				},
 				ID: nil,
 			},
@@ -149,7 +147,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(300),
 					Round:  types.Round(15),
-					Sender: address.Address(felt.FromUint64[felt.Felt](1234)),
+					Sender: felt.Address(felt.FromUint64[felt.Felt](1234)),
 				},
 				ID: nil,
 			},
@@ -167,7 +165,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(0),
 					Round:  types.Round(0),
-					Sender: address.Address(felt.FromUint64[felt.Felt](100)),
+					Sender: felt.Address(felt.FromUint64[felt.Felt](100)),
 				},
 				ID: nil,
 			},
@@ -185,7 +183,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(^uint64(0)),
 					Round:  types.Round(^uint32(0)),
-					Sender: address.Address(felt.FromUint64[felt.Felt](^uint64(0))),
+					Sender: felt.FromUint64[felt.Address](^uint64(0)),
 				},
 				ID: createTestHash(^uint64(0)),
 			},
@@ -207,7 +205,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(1),
 					Round:  types.Round(1),
-					Sender: address.Address(felt.Zero),
+					Sender: felt.Address(felt.Zero),
 				},
 				ID: createTestHash(0),
 			},

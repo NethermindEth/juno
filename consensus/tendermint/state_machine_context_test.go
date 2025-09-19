@@ -5,10 +5,9 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/types/hash"
 )
 
-type testStateMachine = stateMachine[starknet.Value, hash.Hash, starknet.Address]
+type testStateMachine = stateMachine[starknet.Value, starknet.Hash, starknet.Address]
 
 // stateMachineContext is a build struct to build test scenarios for the state machine.
 // Sample usages:
