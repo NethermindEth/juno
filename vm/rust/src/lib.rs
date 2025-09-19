@@ -58,10 +58,7 @@ use starknet_api::{
     },
     execution_resources::GasAmount,
 };
-use starknet_api::{
-    core::{ChainId, ClassHash, ContractAddress},
-    hash::StarkHash,
-};
+use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_types_core::felt::Felt;
 use std::str::FromStr;
 type StarkFelt = Felt;
@@ -108,6 +105,14 @@ pub struct CallInfo {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+pub struct ChainContext {
+    pub chain_id: *const c_char,
+    pub eth_fee_token_address: [c_uchar; 32],
+    pub strk_fee_token_address: [c_uchar; 32],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
 pub struct BlockInfo {
     pub block_number: c_ulonglong,
     pub block_timestamp: c_ulonglong,
@@ -129,8 +134,8 @@ pub struct BlockInfo {
 pub extern "C" fn cairoVMCall(
     call_info_ptr: *const CallInfo,
     block_info_ptr: *const BlockInfo,
+    chain_context_ptr: *const ChainContext,
     reader_handle: usize,
-    chain_id: *const c_char,
     max_steps: c_ulonglong,
     concurrency_mode: c_uchar,
     sierra_version: *const c_char,
@@ -139,6 +144,7 @@ pub extern "C" fn cairoVMCall(
 ) {
     let block_info = unsafe { *block_info_ptr };
     let call_info = unsafe { *call_info_ptr };
+    let chain_context = unsafe { *chain_context_ptr };
     let mut writer_buffer = Vec::with_capacity(10_000);
 
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
@@ -149,7 +155,6 @@ pub extern "C" fn cairoVMCall(
         Some(ClassHash(StarkFelt::from_bytes_be(&call_info.class_hash)))
     };
     let entry_point_selector_felt = StarkFelt::from_bytes_be(&call_info.entry_point_selector);
-    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
 
     let mut calldata_vec: Vec<StarkFelt> = Vec::with_capacity(call_info.len_calldata);
     if call_info.len_calldata > 0 {
@@ -197,7 +202,7 @@ pub extern "C" fn cairoVMCall(
                 build_block_context(
                     &mut state,
                     &block_info,
-                    chain_id_str,
+                    &chain_context,
                     Some(max_steps),
                     concurrency_mode,
                 )
@@ -272,8 +277,8 @@ pub extern "C" fn cairoVMExecute(
     classes_json: *const c_char,
     paid_fees_on_l1_json: *const c_char,
     block_info_ptr: *const BlockInfo,
+    chain_context_ptr: *const ChainContext,
     reader_handle: usize,
-    chain_id: *const c_char,
     skip_charge_fee: c_uchar,
     skip_validate: c_uchar,
     err_on_revert: c_uchar,
@@ -282,8 +287,8 @@ pub extern "C" fn cairoVMExecute(
     allow_binary_search: c_uchar,
 ) {
     let block_info = unsafe { *block_info_ptr };
+    let chain_context = unsafe { *chain_context_ptr };
     let reader = JunoStateReader::new(reader_handle, BlockHeight::from_block_info(&block_info));
-    let chain_id_str = unsafe { CStr::from_ptr(chain_id) }.to_str().unwrap();
     let txn_json_str = unsafe { CStr::from_ptr(txns_json) }.to_str().unwrap();
     let txns_and_query_bits: Result<Vec<TxnAndQueryBit>, serde_json::Error> =
         serde_json::from_str(txn_json_str);
@@ -320,7 +325,7 @@ pub extern "C" fn cairoVMExecute(
     let block_context: BlockContext = build_block_context(
         &mut state,
         &block_info,
-        chain_id_str,
+        &chain_context,
         None,
         concurrency_mode,
     )
@@ -732,7 +737,7 @@ fn gas_price_from_bytes_bonded(bytes: &[c_uchar; 32]) -> Result<NonzeroGasPrice,
 fn build_block_context(
     state: &mut dyn State,
     block_info: &BlockInfo,
-    chain_id_str: &str,
+    chain_context: &ChainContext,
     max_steps: Option<c_ulonglong>,
     _concurrency_mode: bool,
 ) -> Result<BlockContext> {
@@ -779,24 +784,15 @@ fn build_block_context(
         },
         use_kzg_da: block_info.use_blob_data == 1,
     };
+    let chain_id_str = unsafe { CStr::from_ptr(chain_context.chain_id) }.to_str().unwrap();
+    let eth_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.eth_fee_token_address);
+    let strk_fee_token_felt = StarkFelt::from_bytes_be(&chain_context.strk_fee_token_address);
+    
     let chain_info = ChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
-            // Both addresses are the same for all networks
-            eth_fee_token_address: ContractAddress::try_from(
-                StarkHash::from_hex(
-                    "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-                )
-                .unwrap(),
-            )
-            .unwrap(),
-            strk_fee_token_address: ContractAddress::try_from(
-                StarkHash::from_hex(
-                    "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
-                )
-                .unwrap(),
-            )
-            .unwrap(),
+            eth_fee_token_address: ContractAddress(PatriciaKey::try_from(eth_fee_token_felt).unwrap()),
+            strk_fee_token_address: ContractAddress(PatriciaKey::try_from(strk_fee_token_felt).unwrap()),
         },
     };
 
