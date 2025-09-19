@@ -181,7 +181,9 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 	}
 
-	nodeVM := vm.New(false, log)
+	// TODO(Ege): Add support for custom chains
+	chainContext := vm.NewChainContext(cfg.Network.L2ChainID, nil, nil)
+	nodeVM := vm.New(chainContext, false, log)
 	throttledVM := NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 
 	var synchronizer *sync.Synchronizer
@@ -488,8 +490,9 @@ func (n *Node) Run(ctx context.Context) {
 	}
 
 	if n.cfg.Sequencer {
+		chainContext := vm.NewChainContext(n.cfg.Network.L2ChainID, nil, nil)
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
-			vm.New(false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+			vm.New(chainContext, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
 			return
 		}
