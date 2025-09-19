@@ -115,7 +115,7 @@ func GenesisStateDiff(
 		return core.StateDiff{}, nil, err
 	}
 
-	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, &genesisState, classhashToSierraVersion)
+	contractAddressToSierraVersion, err := deployContracts(config, v, maxSteps, &genesisState, classhashToSierraVersion)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
@@ -165,7 +165,6 @@ func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class
 func deployContracts(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	classhashToSierraVersion map[felt.Felt]string,
@@ -179,7 +178,7 @@ func deployContracts(
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
 	for address, contractData := range config.Contracts {
-		if err := deployContract(v, network, maxSteps, genesisState, address, contractData,
+		if err := deployContract(v, maxSteps, genesisState, address, contractData,
 			constructorSelector, classhashToSierraVersion, contractAddressToSierraVersion, &blockInfo); err != nil {
 			return nil, err
 		}
@@ -190,7 +189,6 @@ func deployContracts(
 
 func deployContract(
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	address felt.Felt,
