@@ -1,7 +1,6 @@
-package types
+package felt
 
 import (
-	"github.com/NethermindEth/juno/core/types/felt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	"golang.org/x/exp/constraints"
 )
@@ -43,7 +42,7 @@ func NewFromBytes[F FeltLike](val []byte) *F {
 
 // NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors
 func NewRandom[F FeltLike]() (*F, error) {
-	f, err := new(felt.Felt).SetRandom()
+	f, err := new(Felt).SetRandom()
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +66,8 @@ func FromInt64[F FeltLike](num int64) F {
 	// To get the negative felt value of `num` we
 	// subtract Abs(num) from zero
 	posNum := uint64(num * -1)
-	value := FromUint64[felt.Felt](posNum)
-	value.Sub(&felt.Zero, &value)
+	value := FromUint64[Felt](posNum)
+	value.Sub(&Zero, &value)
 	return F(value)
 }
 
@@ -84,13 +83,13 @@ func FromInt[F FeltLike, S constraints.Signed](num S) F {
 
 // FromBytes crates a new Felt based type given a byte array
 func FromBytes[F FeltLike](value []byte) F {
-	f := new(felt.Felt).SetBytes(value)
+	f := new(Felt).SetBytes(value)
 	return F(*f)
 }
 
 // FromString crates a new Felt based type given a byte array
 func FromString[F FeltLike](value string) (F, error) {
-	var f felt.Felt
+	var f Felt
 	_, err := f.SetString(value)
 	if err != nil {
 		return F(f), err

@@ -40,19 +40,6 @@ var bigIntPool = sync.Pool{
 
 type Felt fp.Element
 
-// TODO: element should be a ptr
-func New(element fp.Element) Felt {
-	return Felt(element)
-}
-
-func FromUint64(val uint64) Felt {
-	return Felt(fp.NewElement(val))
-}
-
-func FromBytes(bytes []byte) Felt {
-	return Felt(*new(fp.Element).SetBytes(bytes))
-}
-
 // Impl returns the underlying field element type
 func (z *Felt) Impl() *fp.Element {
 	return (*fp.Element)(z)
