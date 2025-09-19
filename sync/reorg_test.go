@@ -100,9 +100,11 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		"../genesis/classes/strk.json", "../genesis/classes/account.json",
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
+
+	chainContext := vm.NewChainContext(network.L2ChainID, nil, nil)
 	diff, classes, err := genesis.GenesisStateDiff(
 		genesisConfig,
-		vm.New(false, utils.NewNopZapLogger()),
+		vm.New(chainContext, false, utils.NewNopZapLogger()),
 		bc.Network(),
 		40000000,
 	)
@@ -183,7 +185,8 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 }
 
 func newTestBuilder(log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	chainContext := vm.NewChainContext(network.L2ChainID, nil, nil)
+	executor := builder.NewExecutor(bc, vm.New(chainContext, false, log), log, false, true)
 	builder := builder.New(bc, executor)
 	return &builder
 }

@@ -115,10 +115,12 @@ func getGenesisSequencer(
 		"../genesis/classes/strk.json", "../genesis/classes/account.json",
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+
+	chainContext := vm.NewChainContext(network.L2ChainID, nil, nil)
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainContext, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(chainContext, false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	rpcHandler := rpc.New(bc, nil, nil, utils.NewNopZapLogger()).WithMempool(txnPool)
 	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}
