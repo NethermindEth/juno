@@ -230,15 +230,20 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
-	network := h.bcReader.Network()
+
 	header := block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, false, false)
+	executionResult, err := h.vm.Execute(
+		block.Transactions,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		false, false, false, false, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -343,7 +348,7 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, false, false)
+	}, state, h.callMaxSteps, sierraVersion, false, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)

@@ -9,6 +9,7 @@ package vm
 import "C"
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
+	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -40,20 +42,37 @@ type CallResult struct {
 
 //go:generate mockgen -destination=../mocks/mock_vm.go -package=mocks github.com/NethermindEth/juno/vm VM
 type VM interface {
-	Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-		maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool) (CallResult, error)
-	Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt, blockInfo *BlockInfo,
-		state core.StateReader, network *utils.Network, skipChargeFee, skipValidate, errOnRevert, errStack, allowBinarySearch bool,
+	Call(
+		callInfo *CallInfo,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		maxSteps uint64,
+		sierraVersion string,
+		structuredErrStack, returnStateDiff bool,
+	) (CallResult, error)
+	Execute(
+		txns []core.Transaction,
+		declaredClasses []core.Class,
+		paidFeesOnL1 []*felt.Felt,
+		blockInfo *BlockInfo,
+		state core.StateReader,
+		skipChargeFee,
+		skipValidate,
+		errOnRevert,
+		errStack,
+		allowBinarySearch bool,
 	) (ExecutionResults, error)
 }
 
 type vm struct {
+	chainInfo       *ChainInfo
 	log             utils.SimpleLogger
 	concurrencyMode bool
 }
 
-func New(concurrencyMode bool, log utils.SimpleLogger) VM {
+func New(chainInfo *ChainInfo, concurrencyMode bool, log utils.SimpleLogger) VM {
 	return &vm{
+		chainInfo:       chainInfo,
 		log:             log,
 		concurrencyMode: concurrencyMode,
 	}
@@ -168,6 +187,60 @@ type CallInfo struct {
 	Calldata        []felt.Felt
 }
 
+type FeeTokenAddresses struct {
+	EthFeeTokenAddress  felt.Felt
+	StrkFeeTokenAddress felt.Felt
+}
+
+func FeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddresses, error) {
+	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(context.Background())
+	if err != nil {
+		return FeeTokenAddresses{}, err
+	}
+
+	return FeeTokenAddresses{
+		EthFeeTokenAddress:  feeTokenAddresses.EthL2TokenAddress,
+		StrkFeeTokenAddress: feeTokenAddresses.StrkL2TokenAddress,
+	}, nil
+}
+
+func DefaultFeeTokenAddresses() FeeTokenAddresses {
+	// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+	ethFeeTokenAddress := felt.Felt([4]uint64{
+		4380532846569209554,
+		17839402928228694863,
+		17240401758547432026,
+		418961398025637529,
+	})
+
+	// 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+	strkFeeTokenAddress := felt.Felt(
+		[4]uint64{
+			16432072983745651214,
+			1325769094487018516,
+			5134018303144032807,
+			468300854463065062,
+		},
+	)
+
+	return FeeTokenAddresses{
+		EthFeeTokenAddress:  ethFeeTokenAddress,
+		StrkFeeTokenAddress: strkFeeTokenAddress,
+	}
+}
+
+type ChainInfo struct {
+	ChainID           string
+	FeeTokenAddresses FeeTokenAddresses
+}
+
+func NewChainInfo(chainID string, feeTokenAddresses *FeeTokenAddresses) *ChainInfo {
+	return &ChainInfo{
+		ChainID:           chainID,
+		FeeTokenAddresses: *feeTokenAddresses,
+	}
+}
+
 type BlockInfo struct {
 	Header                *core.Header
 	BlockHashToBeRevealed *felt.Felt
@@ -209,6 +282,22 @@ func makeCCallInfo(callInfo *CallInfo) (C.CallInfo, runtime.Pinner) {
 	return cCallInfo, pinner
 }
 
+func makeCChainInfo(chainInfo *ChainInfo) C.ChainInfo {
+	var cChainInfo C.ChainInfo
+
+	cChainInfo.chain_id = C.CString(chainInfo.ChainID)
+	copyFeltIntoCArray(
+		&chainInfo.FeeTokenAddresses.EthFeeTokenAddress,
+		&cChainInfo.eth_fee_token_address[0],
+	)
+	copyFeltIntoCArray(
+		&chainInfo.FeeTokenAddresses.StrkFeeTokenAddress,
+		&cChainInfo.strk_fee_token_address[0],
+	)
+
+	return cChainInfo
+}
+
 func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	var cBlockInfo C.BlockInfo
 
@@ -240,8 +329,13 @@ func makeByteFromBool(b bool) byte {
 	return boolByte
 }
 
-func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateReader,
-	network *utils.Network, maxSteps uint64, sierraVersion string, structuredErrStack, returnStateDiff bool,
+func (v *vm) Call(
+	callInfo *CallInfo,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	maxSteps uint64,
+	sierraVersion string,
+	structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -254,13 +348,13 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
-	chainID := C.CString(network.L2ChainID)
+	cChainInfo := makeCChainInfo(v.chainInfo)
 	cSierraVersion := C.CString(sierraVersion)
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
+		&cChainInfo,
 		C.uintptr_t(handle),
-		chainID,
 		C.ulonglong(maxSteps),
 		toUchar(v.concurrencyMode),
 		cSierraVersion,
@@ -269,7 +363,7 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 
 	)
 	callInfoPinner.Unpin()
-	C.free(unsafe.Pointer(chainID))
+	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 	C.free(unsafe.Pointer(cSierraVersion))
 
@@ -290,9 +384,17 @@ func (v *vm) Call(callInfo *CallInfo, blockInfo *BlockInfo, state core.StateRead
 }
 
 // Execute executes a given transaction set and returns the gas spent per transaction
-func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paidFeesOnL1 []*felt.Felt,
-	blockInfo *BlockInfo, state core.StateReader, network *utils.Network,
-	skipChargeFee, skipValidate, errOnRevert, errorStack, allowBinarySearch bool,
+func (v *vm) Execute(
+	txns []core.Transaction,
+	declaredClasses []core.Class,
+	paidFeesOnL1 []*felt.Felt,
+	blockInfo *BlockInfo,
+	state core.StateReader,
+	skipChargeFee,
+	skipValidate,
+	errOnRevert,
+	errorStack,
+	allowBinarySearch bool,
 ) (ExecutionResults, error) {
 	context := &callContext{
 		state: state,
@@ -316,13 +418,13 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	classesJSONCStr := cstring(classesJSON)
 
 	cBlockInfo := makeCBlockInfo(blockInfo)
-	chainID := C.CString(network.L2ChainID)
+	cChainInfo := makeCChainInfo(v.chainInfo)
 	C.cairoVMExecute(txnsJSONCstr,
 		classesJSONCStr,
 		paidFeesOnL1CStr,
 		&cBlockInfo,
+		&cChainInfo,
 		C.uintptr_t(handle),
-		chainID,
 		toUchar(skipChargeFee),
 		toUchar(skipValidate),
 		toUchar(errOnRevert),
@@ -334,7 +436,7 @@ func (v *vm) Execute(txns []core.Transaction, declaredClasses []core.Class, paid
 	C.free(unsafe.Pointer(classesJSONCStr))
 	C.free(unsafe.Pointer(paidFeesOnL1CStr))
 	C.free(unsafe.Pointer(txnsJSONCstr))
-	C.free(unsafe.Pointer(chainID))
+	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
 
 	if context.err != "" {

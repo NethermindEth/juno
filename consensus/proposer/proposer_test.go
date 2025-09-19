@@ -186,10 +186,13 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		"../../genesis/classes/strk.json", "../../genesis/classes/account.json",
 		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+
+	feeTokens := vm.DefaultFeeTokenAddresses()
+	chainInfo := vm.NewChainInfo(bc.Network().L2ChainID, &feeTokens)
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainInfo, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(chainInfo, false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	return &testBuilder
 }
