@@ -55,6 +55,10 @@ func shouldPreservePendingData(
 		return false
 	}
 
+	if existingPending.GetBlock().Number != incomingPending.GetBlock().Number {
+		return false
+	}
+
 	if existingPending.GetBlock().TransactionCount < incomingPending.GetBlock().TransactionCount {
 		return false
 	}
