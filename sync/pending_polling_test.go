@@ -618,6 +618,53 @@ func TestStorePreConfirmed(t *testing.T) {
 		ptr = s.pendingData.Load()
 		require.Equal(t, better, *ptr)
 	})
+
+	t.Run("accepts pre_confirmed with different block number regardless tx count", func(t *testing.T) {
+		s.pendingData.Store(nil)
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+
+		old := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 1,
+					TransactionCount: 5,
+				},
+			},
+			StateUpdate: &core.StateUpdate{},
+		}
+		written, err := s.StorePreConfirmed(old)
+		require.NoError(t, err)
+		require.True(t, written)
+		ptr := s.pendingData.Load()
+		require.Equal(t, old, *ptr)
+
+		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
+		// Similar as storing head + 1
+		preLatest := &core.PreLatest{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: head.Hash,
+					Number:     head.Number + 1,
+				},
+			},
+		}
+		newer := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 2,
+					TransactionCount: 2,
+				},
+			},
+			PreLatest:   preLatest,
+			StateUpdate: &core.StateUpdate{},
+		}
+		written, err = s.StorePreConfirmed(newer)
+		require.NoError(t, err)
+		require.True(t, written)
+		ptr = s.pendingData.Load()
+		require.Equal(t, newer, *ptr)
+	})
 }
 
 func makeTestPreConfirmed(num uint64) core.PreConfirmed {
