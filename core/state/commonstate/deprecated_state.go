@@ -105,7 +105,12 @@ func (s *DeprecatedStateAdapter) Revert(blockNumber uint64, update *core.StateUp
 	return (*core.State)(s).Revert(blockNumber, update)
 }
 
-func (s *DeprecatedStateAdapter) Update(blockNumber uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.Class, skipVerifyNewRoot bool) error {
+func (s *DeprecatedStateAdapter) Update(
+	blockNumber uint64,
+	update *core.StateUpdate,
+	declaredClasses map[felt.Felt]core.Class,
+	skipVerifyNewRoot bool,
+) error {
 	return (*core.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot)
 }
 

@@ -78,7 +78,12 @@ func (s *StateAdapter) Revert(blockNumber uint64, update *core.StateUpdate) erro
 	return (*state.State)(s).Revert(blockNumber, update)
 }
 
-func (s *StateAdapter) Update(blockNumber uint64, update *core.StateUpdate, declaredClasses map[felt.Felt]core.Class, skipVerifyNewRoot bool) error {
+func (s *StateAdapter) Update(
+	blockNumber uint64,
+	update *core.StateUpdate,
+	declaredClasses map[felt.Felt]core.Class,
+	skipVerifyNewRoot bool,
+) error {
 	return (*state.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot)
 }
 
