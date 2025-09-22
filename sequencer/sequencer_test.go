@@ -116,7 +116,7 @@ func getGenesisSequencer(
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := vm.DefaultFeeTokenAddresses()
+	feeTokens := utils.DefaultFeeTokenAddresses
 	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
 	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainInfo, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)

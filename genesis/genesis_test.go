@@ -14,7 +14,7 @@ func TestGenesisStateDiff(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
 	t.Run("empty genesis config", func(t *testing.T) {
-		feeTokens := vm.DefaultFeeTokenAddresses()
+		feeTokens := utils.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
 		genesisConfig := genesis.GenesisConfig{}
 		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(chainInfo, false, log), network, 40000000)
@@ -28,7 +28,7 @@ func TestGenesisStateDiff(t *testing.T) {
 		require.NoError(t, err)
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json", "./classes/universaldeployer.json", "./classes/udacnt.json"}
 
-		feeTokens := vm.DefaultFeeTokenAddresses()
+		feeTokens := utils.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
 		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainInfo, false, log), network, 40000000)
 		require.NoError(t, err)

@@ -210,7 +210,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		if kErr != nil {
 			return nil, kErr
 		}
-		feeTokens := vm.DefaultFeeTokenAddresses
+		feeTokens := utils.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
 		nodeVM = vm.New(chainInfo, false, log)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
@@ -238,7 +238,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 
 		// Handle fee tokens for custom networks
-		feeTokens := vm.DefaultFeeTokenAddresses
+		feeTokens := utils.DefaultFeeTokenAddresses
 		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
 			// For custom networks, fetch fee tokens from the gateway
 			feeTokens, err = client.FeeTokenAddresses(context.Background())
@@ -516,7 +516,7 @@ func (n *Node) Run(ctx context.Context) {
 			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
 			return
 		}
-		feeTokens := vm.DefaultFeeTokenAddresses
+		feeTokens := utils.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(n.cfg.Network.L2ChainID, &feeTokens)
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
 			vm.New(chainInfo, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {

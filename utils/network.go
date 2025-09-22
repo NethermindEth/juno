@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/pflag"
 )
@@ -16,6 +17,27 @@ var KnownNetworkNames = []string{
 	Sepolia.String(),
 	SepoliaIntegration.String(),
 	Sequencer.String(),
+}
+
+// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+var DefaultEthFeeTokenAddress = felt.Felt([4]uint64{
+	4380532846569209554,
+	17839402928228694863,
+	17240401758547432026,
+	418961398025637529,
+})
+
+// 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+var DefaultStrkFeeTokenAddress = felt.Felt([4]uint64{
+	16432072983745651214,
+	1325769094487018516,
+	5134018303144032807,
+	468300854463065062,
+})
+
+var DefaultFeeTokenAddresses = starknet.FeeTokenAddresses{
+	EthL2TokenAddress:  DefaultEthFeeTokenAddress,
+	StrkL2TokenAddress: DefaultStrkFeeTokenAddress,
 }
 
 var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
