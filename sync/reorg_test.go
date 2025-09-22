@@ -101,7 +101,7 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
 
-	feeTokens := vm.DefaultFeeTokenAddresses()
+	feeTokens := vm.DefaultFeeTokenAddresses
 	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
 	diff, classes, err := genesis.GenesisStateDiff(
 		genesisConfig,
@@ -186,7 +186,7 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 }
 
 func newTestBuilder(log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
-	feeTokens := vm.DefaultFeeTokenAddresses()
+	feeTokens := vm.DefaultFeeTokenAddresses
 	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
 	executor := builder.NewExecutor(bc, vm.New(chainInfo, false, log), log, false, true)
 	builder := builder.New(bc, executor)

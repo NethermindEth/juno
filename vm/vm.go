@@ -22,8 +22,29 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/utils"
 )
+
+// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+var DefaultEthFeeTokenAddress = felt.Felt([4]uint64{4380532846569209554,
+	17839402928228694863,
+	17240401758547432026,
+	418961398025637529,
+})
+
+// 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+var DefaultStrkFeeTokenAddress = felt.Felt([4]uint64{
+	16432072983745651214,
+	1325769094487018516,
+	5134018303144032807,
+	468300854463065062,
+})
+
+var DefaultFeeTokenAddresses = starknet.FeeTokenAddresses{
+	EthL2TokenAddress:  DefaultEthFeeTokenAddress,
+	StrkL2TokenAddress: DefaultStrkFeeTokenAddress,
+}
 
 type ExecutionResults struct {
 	OverallFees      []*felt.Felt
@@ -187,54 +208,24 @@ type CallInfo struct {
 	Calldata        []felt.Felt
 }
 
-type FeeTokenAddresses struct {
-	EthFeeTokenAddress  felt.Felt
-	StrkFeeTokenAddress felt.Felt
-}
-
-func FeeTokenAddressesFromGateway(feederGateway *feeder.Client) (FeeTokenAddresses, error) {
-	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(context.Background())
+func FeeTokenAddressesFromGateway(
+	ctx context.Context,
+	feederGateway *feeder.Client,
+) (starknet.FeeTokenAddresses, error) {
+	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(ctx)
 	if err != nil {
-		return FeeTokenAddresses{}, err
+		return starknet.FeeTokenAddresses{}, err
 	}
 
-	return FeeTokenAddresses{
-		EthFeeTokenAddress:  feeTokenAddresses.EthL2TokenAddress,
-		StrkFeeTokenAddress: feeTokenAddresses.StrkL2TokenAddress,
-	}, nil
-}
-
-func DefaultFeeTokenAddresses() FeeTokenAddresses {
-	// 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
-	ethFeeTokenAddress := felt.Felt([4]uint64{
-		4380532846569209554,
-		17839402928228694863,
-		17240401758547432026,
-		418961398025637529,
-	})
-
-	// 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
-	strkFeeTokenAddress := felt.Felt(
-		[4]uint64{
-			16432072983745651214,
-			1325769094487018516,
-			5134018303144032807,
-			468300854463065062,
-		},
-	)
-
-	return FeeTokenAddresses{
-		EthFeeTokenAddress:  ethFeeTokenAddress,
-		StrkFeeTokenAddress: strkFeeTokenAddress,
-	}
+	return feeTokenAddresses, nil
 }
 
 type ChainInfo struct {
 	ChainID           string
-	FeeTokenAddresses FeeTokenAddresses
+	FeeTokenAddresses starknet.FeeTokenAddresses
 }
 
-func NewChainInfo(chainID string, feeTokenAddresses *FeeTokenAddresses) *ChainInfo {
+func NewChainInfo(chainID string, feeTokenAddresses *starknet.FeeTokenAddresses) *ChainInfo {
 	return &ChainInfo{
 		ChainID:           chainID,
 		FeeTokenAddresses: *feeTokenAddresses,
@@ -287,11 +278,11 @@ func makeCChainInfo(chainInfo *ChainInfo) C.ChainInfo {
 
 	cChainInfo.chain_id = C.CString(chainInfo.ChainID)
 	copyFeltIntoCArray(
-		&chainInfo.FeeTokenAddresses.EthFeeTokenAddress,
+		&chainInfo.FeeTokenAddresses.EthL2TokenAddress,
 		&cChainInfo.eth_fee_token_address[0],
 	)
 	copyFeltIntoCArray(
-		&chainInfo.FeeTokenAddresses.StrkFeeTokenAddress,
+		&chainInfo.FeeTokenAddresses.StrkL2TokenAddress,
 		&cChainInfo.strk_fee_token_address[0],
 	)
 

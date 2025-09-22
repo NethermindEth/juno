@@ -42,7 +42,7 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
-	feeTokens := DefaultFeeTokenAddresses()
+	feeTokens := DefaultFeeTokenAddresses
 	chainInfo := NewChainInfo(utils.Mainnet.L2ChainID, &feeTokens)
 	ret, err := New(chainInfo, false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -99,7 +99,7 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	}, false))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-	feeTokens := DefaultFeeTokenAddresses()
+	feeTokens := DefaultFeeTokenAddresses
 	chainInfo := NewChainInfo(utils.Mainnet.L2ChainID, &feeTokens)
 	_, err = New(chainInfo, false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -142,7 +142,7 @@ func TestCallCairo(t *testing.T) {
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
 
-	feeTokens := DefaultFeeTokenAddresses()
+	feeTokens := DefaultFeeTokenAddresses
 	chainInfo := NewChainInfo(utils.Mainnet.L2ChainID, &feeTokens)
 	ret, err := New(chainInfo, false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
@@ -213,7 +213,7 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}
 
 	// Starknet version <0.13.4 should return an error
-	feeTokens := DefaultFeeTokenAddresses()
+	feeTokens := DefaultFeeTokenAddresses
 	chainInfo := NewChainInfo(utils.Sepolia.L2ChainID, &feeTokens)
 	ret, err := New(chainInfo, false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.0",
@@ -238,7 +238,7 @@ func TestExecute(t *testing.T) {
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		feeTokens := DefaultFeeTokenAddresses()
+		feeTokens := DefaultFeeTokenAddresses
 		chainInfo := NewChainInfo(utils.Mainnet.L2ChainID, &feeTokens)
 		_, err := New(chainInfo, false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
@@ -252,7 +252,7 @@ func TestExecute(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		feeTokens := DefaultFeeTokenAddresses()
+		feeTokens := DefaultFeeTokenAddresses
 		chainInfo := NewChainInfo(utils.Mainnet.L2ChainID, &feeTokens)
 		_, err := New(chainInfo, false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{

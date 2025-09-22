@@ -203,14 +203,14 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 	if cfg.Sequencer {
 		// Sequencer mode only supports known networks and
 		// uses default fee tokens (custom networks not supported yet)
-		if !slices.Contains(utils.KnownNetworkNames(), cfg.Network.Name) {
+		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
 			return nil, fmt.Errorf("custom networks are not supported in sequencer mode yet")
 		}
 		pKey, kErr := ecdsa.GenerateKey(rand.Reader) // Todo: currently private key changes with every sequencer run
 		if kErr != nil {
 			return nil, kErr
 		}
-		feeTokens := vm.DefaultFeeTokenAddresses()
+		feeTokens := vm.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
 		nodeVM = vm.New(chainInfo, false, log)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
@@ -238,10 +238,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			WithAPIKey(cfg.GatewayAPIKey)
 
 		// Handle fee tokens for custom networks
-		feeTokens := vm.DefaultFeeTokenAddresses()
-		if !slices.Contains(utils.KnownNetworkNames(), cfg.Network.Name) {
+		feeTokens := vm.DefaultFeeTokenAddresses
+		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
 			// For custom networks, fetch fee tokens from the gateway
-			feeTokens, err = vm.FeeTokenAddressesFromGateway(client)
+			feeTokens, err = vm.FeeTokenAddressesFromGateway(context.Background(), client)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
 			}
@@ -512,11 +512,11 @@ func (n *Node) Run(ctx context.Context) {
 
 	if n.cfg.Sequencer {
 		// Custom networks are not supported in sequencer mode yet
-		if !slices.Contains(utils.KnownNetworkNames(), n.cfg.Network.Name) {
+		if !slices.Contains(utils.KnownNetworkNames, n.cfg.Network.Name) {
 			n.log.Errorw("Custom networks are not supported in sequencer mode yet")
 			return
 		}
-		feeTokens := vm.DefaultFeeTokenAddresses()
+		feeTokens := vm.DefaultFeeTokenAddresses
 		chainInfo := vm.NewChainInfo(n.cfg.Network.L2ChainID, &feeTokens)
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
 			vm.New(chainInfo, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {

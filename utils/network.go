@@ -11,8 +11,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
+var KnownNetworkNames = []string{
+	Mainnet.String(),
+	Sepolia.String(),
+	SepoliaIntegration.String(),
+	Sequencer.String(),
+}
+
 var errUnknownNetwork = fmt.Errorf("unknown network (known: %s)",
-	strings.Join(KnownNetworkNames(), ", "),
+	strings.Join(KnownNetworkNames, ", "),
 )
 
 type Network struct {
@@ -165,12 +172,4 @@ func (n *Network) UnmarshalText(text []byte) error {
 
 func (n *Network) L2ChainIDFelt() *felt.Felt {
 	return new(felt.Felt).SetBytes([]byte(n.L2ChainID))
-}
-
-func KnownNetworkNames() []string {
-	networks := []Network{Mainnet, Sepolia, SepoliaIntegration, Sequencer}
-
-	return Map(networks, func(n Network) string {
-		return n.String()
-	})
 }
