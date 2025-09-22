@@ -619,7 +619,7 @@ func TestStorePreConfirmed(t *testing.T) {
 		require.Equal(t, better, *ptr)
 	})
 
-	t.Run("accepts pre_confirmed with different block number regardless tx count", func(t *testing.T) {
+	t.Run("accepts more recent pre_confirmed regardless tx count", func(t *testing.T) {
 		s.pendingData.Store(nil)
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
@@ -662,6 +662,56 @@ func TestStorePreConfirmed(t *testing.T) {
 		written, err = s.StorePreConfirmed(newer)
 		require.NoError(t, err)
 		require.True(t, written)
+		ptr = s.pendingData.Load()
+		require.Equal(t, newer, *ptr)
+	})
+
+	t.Run("ignores valid older pre_confirmed", func(t *testing.T) {
+		// A valid older pre_confirmed value occurs when the head is at N;
+		// - pre_confirmed at N + 1
+		// - pre_confirmed is at N + 2 (with pre-latest).
+		// However N+1 must not overwrite N+2.
+		s.pendingData.Store(nil)
+		head, err := bc.HeadsHeader()
+		require.NoError(t, err)
+		// Attach prelatest to make validate pass for pre_confirmed number == head + 2.
+		// Similar as storing head + 1
+		preLatest := &core.PreLatest{
+			Block: &core.Block{
+				Header: &core.Header{
+					ParentHash: head.Hash,
+					Number:     head.Number + 1,
+				},
+			},
+		}
+		newer := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 2,
+					TransactionCount: 2,
+				},
+			},
+			PreLatest:   preLatest,
+			StateUpdate: &core.StateUpdate{},
+		}
+		written, err := s.StorePreConfirmed(newer)
+		require.NoError(t, err)
+		require.True(t, written)
+		ptr := s.pendingData.Load()
+		require.Equal(t, newer, *ptr)
+		// Valid older pre_confirmed
+		old := &core.PreConfirmed{
+			Block: &core.Block{
+				Header: &core.Header{
+					Number:           head.Number + 1,
+					TransactionCount: 5,
+				},
+			},
+			StateUpdate: &core.StateUpdate{},
+		}
+		written, err = s.StorePreConfirmed(old)
+		require.NoError(t, err)
+		require.False(t, written)
 		ptr = s.pendingData.Load()
 		require.Equal(t, newer, *ptr)
 	})
