@@ -151,7 +151,7 @@ version = "0.15.0-rc.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eddd44db0a445e928fd4e78641587ef33e4391f186418089511998a90c2f1f2e"
 dependencies = [
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "metrics",
  "num-traits",
  "paste",
@@ -575,7 +575,7 @@ dependencies = [
  "cairo-vm",
  "dashmap",
  "derive_more",
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "itertools 0.12.1",
  "keccak",
  "log",
@@ -1218,7 +1218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f043065d60a8a2510bfacb6c91767298fed50ed9abbd69ff7698322b7cb1e65"
 dependencies = [
  "hashbrown 0.15.2",
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "itertools 0.14.0",
  "num-bigint",
  "num-traits",
@@ -2159,13 +2159,14 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.9.0"
+version = "2.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
+checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.2",
  "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -2272,7 +2273,7 @@ dependencies = [
  "cairo-lang-runner",
  "cairo-lang-starknet-classes",
  "cairo-vm",
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "lazy_static",
  "once_cell",
  "semver",
@@ -2728,7 +2729,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
 dependencies = [
  "fixedbitset",
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
 ]
 
 [[package]]
@@ -3083,7 +3084,7 @@ version = "0.17.0-pre.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "719825638c59fd26a55412a24561c7c5bcf54364c88b9a7a04ba08a6eafaba8d"
 dependencies = [
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "lock_api",
  "oorandom",
  "parking_lot",
@@ -3206,18 +3207,28 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.219"
+version = "1.0.226"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
+checksum = "0dca6411025b24b60bfa7ec1fe1f8e710ac09782dca409ee8237ba74b51295fd"
+dependencies = [
+ "serde_core",
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.226"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba2ba63999edb9dac981fb34b3e5c0d111a69b0924e253ed29d83f7c99e966a4"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.219"
+version = "1.0.226"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+checksum = "8db53ae22f34573731bafa1db20f04027b2d25e02d8205921b569171699cdb33"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3419,7 +3430,7 @@ dependencies = [
  "derive_more",
  "flate2",
  "hex",
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "itertools 0.12.1",
  "num-bigint",
  "num-traits",
@@ -3693,7 +3704,7 @@ version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
- "indexmap 2.9.0",
+ "indexmap 2.11.4",
  "serde",
  "serde_spanned",
  "toml_datetime",
