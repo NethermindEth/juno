@@ -55,11 +55,11 @@ func shouldPreservePendingData(
 		return false
 	}
 
-	if existingPending.GetBlock().TransactionCount < incomingPending.GetBlock().TransactionCount {
-		return false
-	}
+	existingB := existingPending.GetBlock()
+	incomingB := incomingPending.GetBlock()
 
-	return true
+	return (incomingB.Number < existingB.Number) ||
+		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
 }
 
 // StorePending stores a pending block given that it is for the next height
@@ -335,6 +335,7 @@ func (s *Synchronizer) pollPending(ctx context.Context, out chan<- *core.Pending
 				s.log.Debugw("Error while trying to poll pending block", "err", err)
 				continue
 			}
+			pending.Block.Number = head.Number + 1
 
 			select {
 			case out <- &pending:
