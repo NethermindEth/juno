@@ -115,7 +115,14 @@ func TestProposer(t *testing.T) {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
 				submit(t, otherProposer, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Preconfirmed().Block.Transactions)
+					assert.Equal(
+						c,
+						slices.Concat(committedFirstBatches[:i+1]...),
+						otherProposer.
+							Preconfirmed().
+							Block.
+							Transactions,
+					)
 				})
 			})
 		}
@@ -227,7 +234,7 @@ func buildAllBatches(t *testing.T, batchSizes []int) [][]core.Transaction {
 
 func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	t.Helper()
-	hash := felt.FromUint64(nonce)
+	hash := felt.FromUint64[felt.Felt](nonce)
 
 	return &core.InvokeTransaction{
 		TransactionHash: &hash,

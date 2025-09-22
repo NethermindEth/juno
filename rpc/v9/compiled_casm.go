@@ -82,7 +82,7 @@ func adaptDeprecatedCairoClass(class *core.Cairo0Class) (CompiledCasmResponse, e
 
 	bytecode := make([]*felt.Felt, len(cairo0.Data))
 	for i, str := range cairo0.Data {
-		f, err := new(felt.Felt).SetString(str)
+		f, err := felt.NewFromString[felt.Felt](str)
 		if err != nil {
 			return CompiledCasmResponse{}, err
 		}

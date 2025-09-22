@@ -4,19 +4,18 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
 	"github.com/NethermindEth/juno/consensus/types/wal"
-	"github.com/NethermindEth/juno/core/address"
-	"github.com/NethermindEth/juno/core/hash"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
-type Value hash.Hash
+type Value felt.Hash
 
-func (v Value) Hash() hash.Hash {
-	return hash.Hash(v)
+func (v Value) Hash() felt.Hash {
+	return felt.Hash(v)
 }
 
 type (
-	Address = address.Address
-	Hash    = hash.Hash
+	Address = felt.Address
+	Hash    = felt.Hash
 
 	Message       = types.Message[Value, Hash, Address]
 	Proposal      = types.Proposal[Value, Hash, Address]

@@ -11,7 +11,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/encoder"
-	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
 var (
@@ -22,13 +21,13 @@ var (
 const minDeclaredClassSize = 8
 
 // Single felt identifying the number "0.1.0" as a short string
-var SierraVersion010 felt.Felt = felt.New(
-	fp.Element([4]uint64{
+var SierraVersion010 felt.Felt = felt.Felt(
+	[4]uint64{
 		18446737451840584193,
 		18446744073709551615,
 		18446744073709551615,
 		576348180530977296,
-	}))
+	})
 
 // todo(rdr): this Class name is not a really good name, what could be a more descriptive one
 // Class unambiguously defines a [Contract]'s semantics.

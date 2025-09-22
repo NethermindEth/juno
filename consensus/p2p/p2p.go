@@ -12,7 +12,7 @@ import (
 	"github.com/NethermindEth/juno/consensus/proposal"
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
-	"github.com/NethermindEth/juno/core/address"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/p2p/pubsub"
 	"github.com/NethermindEth/juno/service"
 	"github.com/NethermindEth/juno/utils"
@@ -61,7 +61,7 @@ func New(
 	currentHeight types.Height,
 	bufferSizeConfig *config.BufferSizes,
 	bootstrapPeersFn func() []peer.AddrInfo,
-) P2P[starknet.Value, starknet.Hash, address.Address] {
+) P2P[starknet.Value, starknet.Hash, felt.Address] {
 	commitNotifier := make(chan types.Height, bufferSizeConfig.ProposalCommitNotifier)
 
 	proposalBroadcaster := proposer.NewProposalBroadcaster(
@@ -76,7 +76,7 @@ func New(
 		vote.StarknetVoteAdapter,
 		bufferSizeConfig,
 	)
-	broadcasters := Broadcasters[starknet.Value, starknet.Hash, address.Address]{
+	broadcasters := Broadcasters[starknet.Value, starknet.Hash, felt.Address]{
 		ProposalBroadcaster:  &proposalBroadcaster,
 		PrevoteBroadcaster:   voteBroadcaster.AsPrevoteBroadcaster(),
 		PrecommitBroadcaster: voteBroadcaster.AsPrecommitBroadcaster(),
@@ -91,7 +91,7 @@ func New(
 		currentHeight,
 	)
 	voteStream := vote.NewVoteListeners[starknet.Value](log, vote.StarknetVoteAdapter, bufferSizeConfig)
-	listeners := Listeners[starknet.Value, starknet.Hash, address.Address]{
+	listeners := Listeners[starknet.Value, starknet.Hash, felt.Address]{
 		ProposalListener:  proposalStream,
 		PrevoteListener:   voteStream.PrevoteListener,
 		PrecommitListener: voteStream.PrecommitListener,
@@ -108,7 +108,7 @@ func New(
 		},
 	}
 
-	return &p2p[starknet.Value, starknet.Hash, address.Address]{
+	return &p2p[starknet.Value, starknet.Hash, felt.Address]{
 		host:             host,
 		log:              log,
 		commitNotifier:   commitNotifier,
