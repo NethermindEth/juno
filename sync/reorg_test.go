@@ -102,10 +102,13 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 	}
 
 	feeTokens := utils.DefaultFeeTokenAddresses
-	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
 	diff, classes, err := genesis.GenesisStateDiff(
 		genesisConfig,
-		vm.New(chainInfo, false, utils.NewNopZapLogger()),
+		vm.New(&chainInfo, false, utils.NewNopZapLogger()),
 		bc.Network(),
 		40000000,
 	)
@@ -187,8 +190,11 @@ func (b *blockGenerator) mine(t *testing.T, dataSource *testBlockDataSource, cou
 
 func newTestBuilder(log utils.Logger, bc *blockchain.Blockchain) *builder.Builder {
 	feeTokens := utils.DefaultFeeTokenAddresses
-	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
-	executor := builder.NewExecutor(bc, vm.New(chainInfo, false, log), log, false, true)
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
 	builder := builder.New(bc, executor)
 	return &builder
 }

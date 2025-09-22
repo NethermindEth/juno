@@ -185,16 +185,10 @@ type CallInfo struct {
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
 }
+
 type ChainInfo struct {
 	ChainID           string
 	FeeTokenAddresses starknet.FeeTokenAddresses
-}
-
-func NewChainInfo(chainID string, feeTokenAddresses *starknet.FeeTokenAddresses) *ChainInfo {
-	return &ChainInfo{
-		ChainID:           chainID,
-		FeeTokenAddresses: *feeTokenAddresses,
-	}
 }
 
 type BlockInfo struct {

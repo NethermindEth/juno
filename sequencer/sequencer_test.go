@@ -117,11 +117,14 @@ func getGenesisSequencer(
 	}
 
 	feeTokens := utils.DefaultFeeTokenAddresses
-	chainInfo := vm.NewChainInfo(network.L2ChainID, &feeTokens)
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(chainInfo, false, log), bc.Network(), 40000000)
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(chainInfo, false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	rpcHandler := rpc.New(bc, nil, nil, utils.NewNopZapLogger()).WithMempool(txnPool)
 	return sequencer.New(&testBuilder, txnPool, seqAddr, privKey, blockTime, log), bc, rpcHandler, [2]rpc.BroadcastedTransaction{invokeTxn, invokeTxn2}

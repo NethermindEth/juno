@@ -211,8 +211,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			return nil, kErr
 		}
 		feeTokens := utils.DefaultFeeTokenAddresses
-		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
-		nodeVM = vm.New(chainInfo, false, log)
+		chainInfo := vm.ChainInfo{
+			ChainID:           cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		nodeVM = vm.New(&chainInfo, false, log)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		mempool := mempool.New(database, chain, mempoolLimit, log)
 		executor := builder.NewExecutor(chain, nodeVM, log, cfg.SeqDisableFees, false)
@@ -246,8 +249,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
 			}
 		}
-		chainInfo := vm.NewChainInfo(cfg.Network.L2ChainID, &feeTokens)
-		nodeVM = vm.New(chainInfo, false, log)
+		chainInfo := vm.ChainInfo{
+			ChainID:           cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		nodeVM = vm.New(&chainInfo, false, log)
 		throttledVM = NewThrottledVM(nodeVM, cfg.MaxVMs, int32(cfg.MaxVMQueue))
 		feederGatewayDataSource := sync.NewFeederGatewayDataSource(chain, adaptfeeder.New(client))
 		synchronizer = sync.New(
@@ -517,9 +523,12 @@ func (n *Node) Run(ctx context.Context) {
 			return
 		}
 		feeTokens := utils.DefaultFeeTokenAddresses
-		chainInfo := vm.NewChainInfo(n.cfg.Network.L2ChainID, &feeTokens)
+		chainInfo := vm.ChainInfo{
+			ChainID:           n.cfg.Network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
 		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
-			vm.New(chainInfo, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+			vm.New(&chainInfo, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
 			return
 		}
