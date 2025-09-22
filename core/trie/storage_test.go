@@ -3,8 +3,8 @@ package trie_test
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/stretchr/testify/assert"

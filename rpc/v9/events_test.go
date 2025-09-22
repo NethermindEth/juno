@@ -75,7 +75,7 @@ func TestEvents(t *testing.T) {
 		})
 
 		t.Run("block hash", func(t *testing.T) {
-			hash := blockIDHash(t, felt.New[felt.Felt](55))
+			hash := blockIDHash(t, felt.NewFromUint64[felt.Felt](55))
 			args.ToBlock = &hash
 			_, err := handler.Events(args)
 			require.Equal(t, rpccore.ErrBlockNotFound, err)

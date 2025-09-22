@@ -231,11 +231,11 @@ func createSimulatedTransactions(
 		simulatedTransactions[i] = SimulatedTransaction{
 			TransactionTrace: trace,
 			FeeEstimation: FeeEstimate{
-				L1GasConsumed:     felt.New[felt.Felt](gasConsumed[i].L1Gas),
+				L1GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L1Gas),
 				L1GasPrice:        l1GasPrice,
-				L2GasConsumed:     felt.New[felt.Felt](gasConsumed[i].L2Gas),
+				L2GasConsumed:     felt.NewFromUint64[felt.Felt](gasConsumed[i].L2Gas),
 				L2GasPrice:        l2GasPrice,
-				L1DataGasConsumed: felt.New[felt.Felt](gasConsumed[i].L1DataGas),
+				L1DataGasConsumed: felt.NewFromUint64[felt.Felt](gasConsumed[i].L1DataGas),
 				L1DataGasPrice:    l1DataGasPrice,
 				OverallFee:        overallFee,
 				Unit:              &feeUnit,

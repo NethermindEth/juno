@@ -43,7 +43,7 @@ func TestThrottledVMError(t *testing.T) {
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
 		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
 			Program: []*felt.Felt{
-				felt.New[felt.Felt](3),
+				felt.NewFromUint64[felt.Felt](3),
 				&felt.Zero,
 				&felt.Zero,
 			},

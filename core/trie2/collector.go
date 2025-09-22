@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
 
 const (

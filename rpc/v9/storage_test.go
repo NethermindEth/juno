@@ -10,8 +10,8 @@ import (
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/memory"
 	"github.com/NethermindEth/juno/jsonrpc"
@@ -97,7 +97,7 @@ func TestStorageAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrInternal, rpcErr)
 	})
 
-	expectedStorage := felt.New[felt.Felt](1)
+	expectedStorage := felt.NewFromUint64[felt.Felt](1)
 
 	t.Run("blockID - latest", func(t *testing.T) { //nolint:dupl
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
@@ -172,11 +172,11 @@ func TestStorageProof(t *testing.T) {
 		root    = utils.HexToFelt(
 			t, "0x43f7163af64f9199e7c0bba225c2c3310ee2947be5ec0f03c9fb1551135818b",
 		)
-		key         = felt.New[felt.Felt](1)
-		key2        = felt.New[felt.Felt](8)
-		noSuchKey   = felt.New[felt.Felt](0)
-		value       = felt.New[felt.Felt](51)
-		value2      = felt.New[felt.Felt](58)
+		key         = felt.NewFromUint64[felt.Felt](1)
+		key2        = felt.NewFromUint64[felt.Felt](8)
+		noSuchKey   = felt.NewFromUint64[felt.Felt](0)
+		value       = felt.NewFromUint64[felt.Felt](51)
+		value2      = felt.NewFromUint64[felt.Felt](58)
 		blockLatest = blockIDLatest(t)
 		blockNumber = uint64(1313)
 	)
@@ -224,7 +224,7 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error whenever block hash is not the latest", func(t *testing.T) {
-		blockHash := felt.New[felt.Felt](1)
+		blockHash := felt.NewFromUint64[felt.Felt](1)
 		mockReader.EXPECT().BlockHeaderByHash(blockHash).
 			Return(&core.Header{Number: blockNumber - 10}, nil)
 
@@ -234,7 +234,7 @@ func TestStorageProof(t *testing.T) {
 		require.Nil(t, proof)
 	})
 	t.Run("error whenever block hash does not exist", func(t *testing.T) {
-		blockHash := felt.New[felt.Felt](1)
+		blockHash := felt.NewFromUint64[felt.Felt](1)
 		mockReader.EXPECT().BlockHeaderByHash(blockHash).Return(nil, db.ErrKeyNotFound)
 
 		blockID := blockIDHash(t, blockHash)
@@ -328,9 +328,9 @@ func TestStorageProof(t *testing.T) {
 		verifyIf(t, trieRoot, noSuchKey, nil, proof.ContractsProof.Nodes, tempTrie.HashFn())
 	})
 	t.Run("storage trie address exists in a trie", func(t *testing.T) {
-		nonce := felt.New[felt.Felt](121)
+		nonce := felt.NewFromUint64[felt.Felt](121)
 		mockState.EXPECT().ContractNonce(key).Return(nonce, nil).Times(1)
-		classHasah := felt.New[felt.Felt](1234)
+		classHasah := felt.NewFromUint64[felt.Felt](1234)
 		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil).Times(1)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, nil, []felt.Felt{*key}, nil)
@@ -385,9 +385,9 @@ func TestStorageProof(t *testing.T) {
 		verifyIf(t, trieRoot, key, value, proof.ContractsStorageProofs[0], tempTrie.HashFn())
 	})
 	t.Run("class & storage tries proofs requested", func(t *testing.T) {
-		nonce := felt.New[felt.Felt](121)
+		nonce := felt.NewFromUint64[felt.Felt](121)
 		mockState.EXPECT().ContractNonce(key).Return(nonce, nil)
-		classHasah := felt.New[felt.Felt](1234)
+		classHasah := felt.NewFromUint64[felt.Felt](1234)
 		mockState.EXPECT().ContractClassHash(key).Return(classHasah, nil)
 
 		proof, rpcErr := handler.StorageProof(&blockLatest, []felt.Felt{*key}, []felt.Felt{*key}, nil)

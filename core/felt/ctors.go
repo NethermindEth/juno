@@ -2,7 +2,6 @@ package felt
 
 import (
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
-	"golang.org/x/exp/constraints"
 )
 
 // Interface that represents all types that implement Felt as a sublying type
@@ -11,15 +10,10 @@ type FeltLike interface {
 	~[4]uint64
 }
 
-// New crates a new Felt based type given any integer. Use this function with
+// NewFromUint64 crates a new Felt based type given a uint64. Use this function with
 // care since it forces a heap allocation. For efficient code use `FromUint64`
-func New[F FeltLike, N constraints.Integer](num N) *F {
-	var f F
-	if num >= 0 {
-		f = FromUint64[F](uint64(num))
-	} else {
-		f = FromInt64[F](int64(num))
-	}
+func NewFromUint64[F FeltLike](num uint64) *F {
+	f := FromUint64[F](num)
 	return &f
 }
 
@@ -57,42 +51,24 @@ func FromUint64[F FeltLike](num uint64) F {
 	return F(f)
 }
 
-// FromInt64 creates a new Felt based type given an int64
-func FromInt64[F FeltLike](num int64) F {
-	if num >= 0 {
-		return FromUint64[F](uint64(num))
-	}
-
-	// To get the negative felt value of `num` we
-	// subtract Abs(num) from zero
-	posNum := uint64(num * -1)
-	value := FromUint64[Felt](posNum)
-	value.Sub(&Zero, &value)
-	return F(value)
-}
-
-// FromUint creates a new Felt based type given any unisgned integer
-func FromUint[F FeltLike, U constraints.Unsigned](num U) F {
-	return FromUint64[F](uint64(num))
-}
-
-// FromInt creates a new Felt based type given any signed integer
-func FromInt[F FeltLike, S constraints.Signed](num S) F {
-	return FromInt64[F](int64(num))
-}
-
 // FromBytes crates a new Felt based type given a byte array
 func FromBytes[F FeltLike](value []byte) F {
 	f := new(Felt).SetBytes(value)
 	return F(*f)
 }
 
-// FromString crates a new Felt based type given a byte array
+// FromString crates a new Felt based type given a any string
 func FromString[F FeltLike](value string) (F, error) {
-	var f Felt
-	_, err := f.SetString(value)
+	f, err := new(Felt).SetString(value)
+	return F(*f), err
+}
+
+// UnsafeFromString crates a new Felt based type given a any string. It panics
+// if the string is not valid.
+func UnsafeFromString[F FeltLike](value string) F {
+	f, err := new(Felt).SetString(value)
 	if err != nil {
-		return F(f), err
+		panic(err)
 	}
-	return F(f), nil
+	return F(*f)
 }

@@ -625,7 +625,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	txHash := felt.New[felt.Felt](1)
+	txHash := felt.NewFromUint64[felt.Felt](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 

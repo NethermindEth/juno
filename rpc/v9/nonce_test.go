@@ -63,7 +63,7 @@ func TestNonce(t *testing.T) {
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
-	expectedNonce := felt.New[felt.Felt](1)
+	expectedNonce := felt.NewFromUint64[felt.Felt](1)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

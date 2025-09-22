@@ -218,6 +218,11 @@ func (z *Felt) Sub(x, y *Felt) *Felt {
 	return z
 }
 
+func (z *Felt) Neg(x *Felt) *Felt {
+	(*fp.Element)(z).Neg((*fp.Element)(x))
+	return z
+}
+
 // Exp forwards the call to underlying field element implementation
 func (z *Felt) Exp(x *Felt, y *big.Int) *Felt {
 	(*fp.Element)(z).Exp(fp.Element(*x), y)

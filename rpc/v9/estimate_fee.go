@@ -299,7 +299,7 @@ func (h *Handler) EstimateMessageFee(
 		},
 		// Needed to marshal to blockifier type.
 		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: felt.New[felt.Felt](1),
+		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
 	bcTxn := [1]BroadcastedTransaction{tx}

@@ -1932,16 +1932,16 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "with l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       felt.New[felt.Felt](100),
-					MaxPricePerUnit: felt.New[felt.Felt](10),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](100),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       felt.New[felt.Felt](200),
-					MaxPricePerUnit: felt.New[felt.Felt](20),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](200),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](20),
 				},
 				L1DataGas: &rpc.ResourceBounds{
-					MaxAmount:       felt.New[felt.Felt](300),
-					MaxPricePerUnit: felt.New[felt.Felt](30),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](300),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](30),
 				},
 			},
 			expected: `{
@@ -1963,12 +1963,12 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "without l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       felt.New[felt.Felt](100),
-					MaxPricePerUnit: felt.New[felt.Felt](10),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](100),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       felt.New[felt.Felt](200),
-					MaxPricePerUnit: felt.New[felt.Felt](20),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](200),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](20),
 				},
 				L1DataGas: nil,
 			},
@@ -2016,7 +2016,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		TransactionHash: felt.New[felt.Felt](12345),
+		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
 			utils.HexToFelt(t, "0x1"),

@@ -129,7 +129,7 @@ func TestStarknetVoteAdapter_RoundTrip(t *testing.T) {
 				MessageHeader: starknet.MessageHeader{
 					Height: types.Height(200),
 					Round:  types.Round(10),
-					Sender: felt.Address(felt.FromUint64[felt.Felt](999)),
+					Sender: felt.FromUint64[felt.Address](999),
 				},
 				ID: nil,
 			},

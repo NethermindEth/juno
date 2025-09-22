@@ -17,34 +17,10 @@ func TestNumberCtor(t *testing.T) {
 		actual := felt.FromUint64[f](uint64(posValue))
 		assert.Equal(t, *expectedPos, actual)
 	})
-	t.Run("FronUint", func(t *testing.T) {
-		actual := felt.FromUint[f](uint32(posValue))
-		assert.Equal(t, *expectedPos, actual)
-	})
 
-	const negValue = -100
-	expectedNeg := (*f)(new(felt.Felt).Sub(&felt.Zero, (*felt.Felt)(expectedPos)))
-	t.Run("FromInt64", func(t *testing.T) {
-		actual := felt.FromInt64[f](int64(posValue))
-		assert.Equal(t, *expectedPos, actual)
-
-		actual = felt.FromInt64[f](int64(negValue))
-		assert.Equal(t, *expectedNeg, actual)
-	})
-	t.Run("FromInt", func(t *testing.T) {
-		actual := felt.FromInt[f](int32(posValue))
-		assert.Equal(t, *expectedPos, actual)
-
-		actual = felt.FromInt[f](int(negValue))
-		assert.Equal(t, *expectedNeg, actual)
-	})
-
-	t.Run("New", func(t *testing.T) {
-		actual := felt.New[f](posValue)
+	t.Run("NewFromUint64", func(t *testing.T) {
+		actual := felt.NewFromUint64[f](posValue)
 		assert.Equal(t, expectedPos, actual)
-
-		actual = felt.New[f](negValue)
-		assert.Equal(t, expectedNeg, actual)
 	})
 }
 

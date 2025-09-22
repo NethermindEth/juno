@@ -5,8 +5,8 @@ import (
 	"maps"
 	"sort"
 
-	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/core/trie2/trieutils"
 )
 
 // Contains a set of nodes, which are indexed by their path in the trie.

@@ -141,10 +141,10 @@ func (v voter) propose(idIndex uint64) *proposalTestCase {
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: testHeight,
 				Round:  testRound,
-				Sender: starknet.Address(felt.FromUint64[felt.Felt](uint64(v))),
+				Sender: felt.FromUint64[starknet.Address](uint64(v)),
 			},
 			ValidRound: -1,
-			Value:      utils.HeapPtr(starknet.Value(felt.FromUint64[felt.Felt](idIndex))),
+			Value:      felt.NewFromUint64[starknet.Value](idIndex),
 		},
 		resultReturn: true,
 	}

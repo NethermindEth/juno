@@ -58,7 +58,7 @@ func (n mockValidators) Proposer(height types.Height, round types.Round) starkne
 }
 
 func mockNodeAddress(i int) starknet.Address {
-	return felt.FromInt[felt.Address](i)
+	return felt.FromUint64[felt.Address](uint64(i))
 }
 
 func MockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {

@@ -162,15 +162,15 @@ func TestProposal(t *testing.T) {
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
 				MaxAmount:       4,
-				MaxPricePerUnit: felt.New[felt.Felt](l1GasPriceFri + 1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l1GasPriceFri + 1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       520000,
-				MaxPricePerUnit: felt.New[felt.Felt](l2GasPriceFri + 1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l2GasPriceFri + 1),
 			},
 			core.ResourceL1DataGas: {
 				MaxAmount:       296,
-				MaxPricePerUnit: felt.New[felt.Felt](l1DataGasPriceFri + 1),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l1DataGasPriceFri + 1),
 			},
 		},
 		Tip:                   utils.HexToUint64(t, "0x0"),

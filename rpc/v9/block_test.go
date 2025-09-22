@@ -593,11 +593,11 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 				EntryPointSelector: tx.EntryPointSelector,
 				ResourceBounds: &rpcv9.ResourceBoundsMap{
 					L1Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       felt.New[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
+						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL1Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL1Gas].MaxPricePerUnit,
 					},
 					L2Gas: &rpcv9.ResourceBounds{
-						MaxAmount:       felt.New[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
+						MaxAmount:       felt.NewFromUint64[felt.Felt](tx.ResourceBounds[core.ResourceL2Gas].MaxAmount),
 						MaxPricePerUnit: tx.ResourceBounds[core.ResourceL2Gas].MaxPricePerUnit,
 					},
 					L1DataGas: &rpcv9.ResourceBounds{
@@ -605,7 +605,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 						MaxPricePerUnit: &felt.Zero,
 					},
 				},
-				Tip:                   felt.New[felt.Felt](tx.Tip),
+				Tip:                   felt.NewFromUint64[felt.Felt](tx.Tip),
 				PaymasterData:         &tx.PaymasterData,
 				AccountDeploymentData: &tx.AccountDeploymentData,
 				NonceDAMode:           utils.HeapPtr(rpcv9.DataAvailabilityMode(tx.NonceDAMode)),
