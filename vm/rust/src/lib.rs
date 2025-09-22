@@ -45,7 +45,6 @@ use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_api::{
     block::{BlockHash, GasPrice, StarknetVersion},
     contract_class::{ClassInfo, EntryPointType, SierraVersion},
-    core::PatriciaKey,
     executable_transaction::AccountTransaction,
     execution_resources::GasVector,
     transaction::{
@@ -176,8 +175,7 @@ pub extern "C" fn cairoVMCall(
     } else {
         version_constants.os_constants.validate_max_sierra_gas.0
     };
-    let contract_address =
-        starknet_api::core::ContractAddress(PatriciaKey::try_from(contract_addr_felt).unwrap());
+    let contract_address = ContractAddress::try_from(contract_addr_felt).unwrap();
     let entry_point_selector = starknet_api::core::EntryPointSelector(entry_point_selector_felt);
 
     let mut entry_point = CallEntryPoint {
@@ -765,7 +763,7 @@ fn build_block_context(
     let block_info = BlockifierBlockInfo {
         block_number: starknet_api::block::BlockNumber(block_info.block_number),
         block_timestamp: starknet_api::block::BlockTimestamp(block_info.block_timestamp),
-        sequencer_address: ContractAddress(PatriciaKey::try_from(sequencer_addr).unwrap()),
+        sequencer_address: ContractAddress::try_from(sequencer_addr).unwrap(),
         gas_prices: GasPrices {
             eth_gas_prices: GasPriceVector {
                 l1_gas_price: l1_gas_price_eth,
@@ -789,12 +787,8 @@ fn build_block_context(
     let chain_info = BlockifierChainInfo {
         chain_id: ChainId::from(chain_id_str.to_string()),
         fee_token_addresses: FeeTokenAddresses {
-            eth_fee_token_address: ContractAddress(
-                PatriciaKey::try_from(eth_fee_token_felt).unwrap(),
-            ),
-            strk_fee_token_address: ContractAddress(
-                PatriciaKey::try_from(strk_fee_token_felt).unwrap(),
-            ),
+            eth_fee_token_address: ContractAddress::try_from(eth_fee_token_felt).unwrap(),
+            strk_fee_token_address: ContractAddress::try_from(strk_fee_token_felt).unwrap(),
         },
     };
 
