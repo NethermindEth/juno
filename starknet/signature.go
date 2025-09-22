@@ -1,6 +1,6 @@
 package starknet
 
-import "github.com/NethermindEth/juno/core/types/felt"
+import "github.com/NethermindEth/juno/core/felt"
 
 // Signature object returned by the feeder in JSON format for "get_signature" endpoint
 type Signature struct {

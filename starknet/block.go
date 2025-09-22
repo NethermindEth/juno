@@ -3,7 +3,7 @@ package starknet
 import (
 	"errors"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // Block object returned by the feeder in JSON format for "get_block" endpoint

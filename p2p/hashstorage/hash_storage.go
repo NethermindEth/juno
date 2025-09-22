@@ -3,7 +3,7 @@ package hashstorage
 import (
 	_ "embed"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 const first0132SepoliaBlock = 86311

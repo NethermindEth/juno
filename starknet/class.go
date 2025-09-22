@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type EntryPoint struct {

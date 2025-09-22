@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {

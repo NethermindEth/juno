@@ -3,7 +3,7 @@ package rpcv6
 import (
 	"encoding/json"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/jsonrpc"
 )
 

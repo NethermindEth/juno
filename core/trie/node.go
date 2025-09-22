@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // A Node represents a node in the [Trie]

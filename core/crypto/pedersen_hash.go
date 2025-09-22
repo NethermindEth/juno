@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 	pedersenhash "github.com/consensys/gnark-crypto/ecc/stark-curve/pedersen-hash"
 )

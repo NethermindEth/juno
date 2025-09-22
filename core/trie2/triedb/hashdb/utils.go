@@ -2,7 +2,7 @@ package hashdb
 
 import (
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // key = hash (32 bytes) + path (dynamic) + pathLen (1 byte)

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 // StarknetData defines the function which are required to retrieve Starknet's state

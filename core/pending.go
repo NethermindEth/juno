@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 var (

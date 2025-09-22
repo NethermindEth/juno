@@ -7,7 +7,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

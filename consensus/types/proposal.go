@@ -3,7 +3,7 @@ package types
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type Transaction struct {

@@ -3,7 +3,7 @@ package p2p2core
 import (
 	"encoding/binary"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"

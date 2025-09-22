@@ -1,6 +1,6 @@
 package starknet
 
-import "github.com/NethermindEth/juno/core/types/felt"
+import "github.com/NethermindEth/juno/core/felt"
 
 type BlockTrace struct {
 	Traces []TransactionTrace `json:"traces"`

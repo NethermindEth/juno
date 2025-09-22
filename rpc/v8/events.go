@@ -2,7 +2,7 @@ package rpcv8
 
 import (
 	"github.com/NethermindEth/juno/blockchain"
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 type SubscriptionID string

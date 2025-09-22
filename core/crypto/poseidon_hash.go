@@ -3,7 +3,7 @@ package crypto
 import (
 	"sync"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 )
 
 const (

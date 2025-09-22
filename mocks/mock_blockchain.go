@@ -14,7 +14,7 @@ import (
 
 	blockchain "github.com/NethermindEth/juno/blockchain"
 	core "github.com/NethermindEth/juno/core"
-	felt "github.com/NethermindEth/juno/core/types/felt"
+	felt "github.com/NethermindEth/juno/core/felt"
 	utils "github.com/NethermindEth/juno/utils"
 	common "github.com/ethereum/go-ethereum/common"
 	gomock "go.uber.org/mock/gomock"

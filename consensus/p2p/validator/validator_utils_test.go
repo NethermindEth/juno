@@ -3,7 +3,7 @@ package validator
 import (
 	"testing"
 
-	"github.com/NethermindEth/juno/core/types/felt"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"

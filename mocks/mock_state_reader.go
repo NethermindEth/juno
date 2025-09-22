@@ -14,7 +14,7 @@ import (
 
 	core "github.com/NethermindEth/juno/core"
 	trie2 "github.com/NethermindEth/juno/core/trie2"
-	felt "github.com/NethermindEth/juno/core/types/felt"
+	felt "github.com/NethermindEth/juno/core/felt"
 	gomock "go.uber.org/mock/gomock"
 )
 

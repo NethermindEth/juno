@@ -1,6 +1,6 @@
 package core
 
-import "github.com/NethermindEth/juno/core/types/felt"
+import "github.com/NethermindEth/juno/core/felt"
 
 type L1Head struct {
 	BlockNumber uint64
