@@ -62,7 +62,7 @@ linters:
         - unnamedResult
         # note(rdr): when lib is called x and then you do x = x.New(). Widely used in the repo. 
         #            Should we change it?
-        - importShadow 
+        - importShadow
       enabled-tags:
         - diagnostic
         - experimental
@@ -102,18 +102,18 @@ linters:
       ignored-functions:
         - strings.SplitN
     nolintlint:
-      require-explanation: false # todo(rdr): this should be switched to true for non test files
-      require-specific: false
       allow-unused: false
+      require-explanation: false # todo(rdr): this should be switched to true for non test files
+      require-specific: true
     staticcheck:
       checks:
         - "all"
         # note(rdr): change if `type` to `switch type`. I would agree in general but it also applies
         #            it even if there is only one `if` and it is not possible to relax it
-        - "-QF1003" 
+        - "-QF1003"
         # note(rdr): doesn't allow the use of optional embedded fields in structs. . I am not sure
         #            if it is beneficial
-        - "-QF1008" 
+        - "-QF1008"
   exclusions:
     generated: lax
     presets:
@@ -176,7 +176,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
-
-
 run:
   timeout: 10m

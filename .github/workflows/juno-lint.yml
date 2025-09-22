@@ -6,15 +6,12 @@ on:
     branches:
       - main
   pull_request:
-
 permissions:
   contents: read
   pull-requests: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   golangci:
     name: lint
@@ -27,5 +24,14 @@ jobs:
           cache: false
       - name: Install Jemalloc (Ubuntu or self-hosted)
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
+      # General Linter code wide 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
+      # Linter for diffs only. Apply new lint rules gradually that would be a huge refactor
+      # to do in one go
+      - name: golangci-lint-diffs
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          args: --config=./.golangci_diff.yaml
+          only-new-issues: true
