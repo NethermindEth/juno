@@ -115,16 +115,16 @@ func GenesisStateDiff(
 		return core.StateDiff{}, nil, err
 	}
 
-	contractAddressToSierraVersion, err := deployContracts(config, v, network, maxSteps, &genesisState, classhashToSierraVersion)
+	contractAddressToSierraVersion, err := deployContracts(config, v, maxSteps, &genesisState, classhashToSierraVersion)
 	if err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeFunctionCalls(config, v, network, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
+	if err := executeFunctionCalls(config, v, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeTransactions(config, v, network, &genesisState); err != nil {
+	if err := executeTransactions(config, v, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
@@ -165,7 +165,6 @@ func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class
 func deployContracts(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	classhashToSierraVersion map[felt.Felt]string,
@@ -179,7 +178,7 @@ func deployContracts(
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
 	for address, contractData := range config.Contracts {
-		if err := deployContract(v, network, maxSteps, genesisState, address, contractData,
+		if err := deployContract(v, maxSteps, genesisState, address, contractData,
 			constructorSelector, classhashToSierraVersion, contractAddressToSierraVersion, &blockInfo); err != nil {
 			return nil, err
 		}
@@ -190,7 +189,6 @@ func deployContracts(
 
 func deployContract(
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	address felt.Felt,
@@ -218,7 +216,7 @@ func deployContract(
 		Calldata:        contractData.ConstructorArgs,
 	}
 
-	result, err := v.Call(callInfo, blockInfo, genesisState, network, maxSteps,
+	result, err := v.Call(callInfo, blockInfo, genesisState, maxSteps,
 		classhashToSierraVersion[classHash], true, true)
 	if err != nil {
 		return fmt.Errorf("execute constructor call: %v", err)
@@ -232,7 +230,6 @@ func deployContract(
 func executeFunctionCalls(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	maxSteps uint64,
 	genesisState *sync.PendingStateWriter,
 	contractAddressToSierraVersion map[felt.Felt]string,
@@ -255,7 +252,7 @@ func executeFunctionCalls(
 			Calldata:        fnCall.Calldata,
 		}
 
-		result, err := v.Call(callInfo, &blockInfo, genesisState, network, maxSteps,
+		result, err := v.Call(callInfo, &blockInfo, genesisState, maxSteps,
 			contractAddressToSierraVersion[contractAddress], true, true)
 		if err != nil {
 			return fmt.Errorf("execute function call: %v", err)
@@ -271,7 +268,6 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	network *utils.Network,
 	genesisState *sync.PendingStateWriter,
 ) error {
 	if len(config.Txns) == 0 {
@@ -321,7 +317,7 @@ func executeTransactions(
 
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 	executionResults, err := v.Execute(coreTxns, nil, []*felt.Felt{new(felt.Felt).SetUint64(1)},
-		&blockInfo, genesisState, network, true, true, true, true, false)
+		&blockInfo, genesisState, true, true, true, true, false)
 	if err != nil {
 		return fmt.Errorf("execute transactions: %v", err)
 	}

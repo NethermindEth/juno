@@ -487,9 +487,14 @@ func TestSubscribePending(t *testing.T) {
 
 	pendingData, err := synchronizer.PendingData()
 	require.NoError(t, err)
-	pendingBlock, ok := <-sub.Recv()
-	require.True(t, ok)
-	require.Equal(t, pendingData, pendingBlock)
+	select {
+	case pendingBlock, ok := <-sub.Recv():
+		require.True(t, ok)
+		require.Equal(t, pendingData, pendingBlock)
+	case <-time.After(time.Second):
+		t.Fatal("expected pending data")
+	}
+
 	sub.Unsubscribe()
 }
 

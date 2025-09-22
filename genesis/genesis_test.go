@@ -14,8 +14,13 @@ func TestGenesisStateDiff(t *testing.T) {
 	log := utils.NewNopZapLogger()
 
 	t.Run("empty genesis config", func(t *testing.T) {
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := vm.ChainInfo{
+			ChainID:           network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
 		genesisConfig := genesis.GenesisConfig{}
-		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(false, log), network, 40000000)
+		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
 		require.NoError(t, err)
 	})
 
@@ -25,7 +30,13 @@ func TestGenesisStateDiff(t *testing.T) {
 		genesisConfig, err := genesis.Read("./genesis_prefund_accounts.json")
 		require.NoError(t, err)
 		genesisConfig.Classes = []string{"./classes/strk.json", "./classes/account.json", "./classes/universaldeployer.json", "./classes/udacnt.json"}
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), network, 40000000)
+
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := vm.ChainInfo{
+			ChainID:           network.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {
