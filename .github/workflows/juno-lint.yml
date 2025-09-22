@@ -25,8 +25,8 @@ jobs:
       - name: Install Jemalloc (Ubuntu or self-hosted)
         run: sudo apt-get update -qq && sudo apt-get install -y libjemalloc-dev libjemalloc2 -y
       # General Linter code wide 
-      # - name: golangci-lint
-      #  uses: golangci/golangci-lint-action@v8
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
       # Linter for diffs only. Apply new lint rules gradually that would be a huge refactor
       # to do in one go
       - name: golangci-lint-diffs
