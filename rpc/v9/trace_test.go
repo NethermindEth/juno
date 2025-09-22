@@ -92,7 +92,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				L1DataGas: 15,
 			}
 		}
-		return
+		return block, err
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
