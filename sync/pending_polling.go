@@ -57,15 +57,9 @@ func shouldPreservePendingData(
 
 	existingB := existingPending.GetBlock()
 	incomingB := incomingPending.GetBlock()
-	if incomingB.Number > existingB.Number {
-		return false
-	}
 
-	if incomingB.Number < existingB.Number {
-		return true
-	}
-
-	return existingB.TransactionCount >= incomingB.TransactionCount
+	return (incomingB.Number < existingB.Number) ||
+		(incomingB.Number == existingB.Number && incomingB.TransactionCount <= existingB.TransactionCount)
 }
 
 // StorePending stores a pending block given that it is for the next height
