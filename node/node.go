@@ -241,7 +241,7 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		feeTokens := vm.DefaultFeeTokenAddresses
 		if !slices.Contains(utils.KnownNetworkNames, cfg.Network.Name) {
 			// For custom networks, fetch fee tokens from the gateway
-			feeTokens, err = vm.FeeTokenAddressesFromGateway(context.Background(), client)
+			feeTokens, err = client.FeeTokenAddresses(context.Background())
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch fee token addresses for custom network: %w", err)
 			}

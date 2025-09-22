@@ -9,7 +9,6 @@ package vm
 import "C"
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
-	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
@@ -208,19 +206,6 @@ type CallInfo struct {
 	Selector        *felt.Felt
 	Calldata        []felt.Felt
 }
-
-func FeeTokenAddressesFromGateway(
-	ctx context.Context,
-	feederGateway *feeder.Client,
-) (starknet.FeeTokenAddresses, error) {
-	feeTokenAddresses, err := feederGateway.FeeTokenAddresses(ctx)
-	if err != nil {
-		return starknet.FeeTokenAddresses{}, err
-	}
-
-	return feeTokenAddresses, nil
-}
-
 type ChainInfo struct {
 	ChainID           string
 	FeeTokenAddresses starknet.FeeTokenAddresses
