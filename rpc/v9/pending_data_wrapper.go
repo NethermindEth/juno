@@ -24,7 +24,7 @@ func (h *Handler) PendingData() (core.PendingData, error) {
 		return nil, err
 	}
 
-	blockVer, err := core.ParseBlockVersion(latestHeader.ProtocolVersion)
+	blockVer := latestHeader.ProtocolVersion
 	if err != nil {
 		return nil, err
 	}

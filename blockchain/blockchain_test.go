@@ -112,8 +112,10 @@ func TestVerifyBlock(t *testing.T) {
 
 	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
+	protocolVersion, _ := core.ParseBlockVersion("")
+
 	t.Run("error if chain is empty and incoming block number is not 0", func(t *testing.T) {
-		block := &core.Block{Header: &core.Header{Number: 10}}
+		block := &core.Block{Header: &core.Header{Number: 10, ProtocolVersion: protocolVersion}}
 		assert.EqualError(t, chain.VerifyBlock(block), "expected block #0, got block #10")
 	})
 
@@ -134,12 +136,12 @@ func TestVerifyBlock(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("error if version is invalid", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = "notasemver"
+		mainnetBlock0.ProtocolVersion, _ = core.ParseBlockVersion("notasemver")
 		require.Error(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
 	})
 
 	t.Run("needs padding", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = "99.0" // should be padded to "99.0.0"
+		mainnetBlock0.ProtocolVersion, _ = core.ParseBlockVersion("99.0") // should be padded to "99.0.0"
 		require.ErrorContains(
 			t,
 			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
@@ -148,7 +150,7 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	t.Run("needs truncating", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = "99.0.0.0" // last 0 digit should be ignored
+		mainnetBlock0.ProtocolVersion, _ = core.ParseBlockVersion("99.0.0.0") // last 0 digit should be ignored
 		require.ErrorContains(
 			t,
 			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
@@ -157,7 +159,7 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	t.Run("greater than supportedStarknetVersion", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = "99.0.0"
+		mainnetBlock0.ProtocolVersion, _ = core.ParseBlockVersion("99.0.0")
 		require.ErrorContains(
 			t,
 			chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil),
@@ -166,22 +168,22 @@ func TestVerifyBlock(t *testing.T) {
 	})
 
 	t.Run("mismatch at patch version is ignored", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = core.LatestVer.IncPatch().String()
+		mainnetBlock0.ProtocolVersion = utils.HeapPtr(core.LatestVer.IncPatch())
 		assert.NoError(t, chain.VerifyBlock(mainnetBlock0))
 	})
 
 	t.Run("error if mismatch at minor version", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = core.LatestVer.IncMinor().String()
+		mainnetBlock0.ProtocolVersion = utils.HeapPtr(core.LatestVer.IncMinor())
 		assert.ErrorContains(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
 	})
 
 	t.Run("error if mismatch at minor version", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = core.LatestVer.IncMajor().String()
+		mainnetBlock0.ProtocolVersion = utils.HeapPtr(core.LatestVer.IncMajor())
 		assert.ErrorContains(t, chain.VerifyBlock(mainnetBlock0), "unsupported block version")
 	})
 
 	t.Run("no error with no version string", func(t *testing.T) {
-		mainnetBlock0.ProtocolVersion = ""
+		mainnetBlock0.ProtocolVersion, _ = core.ParseBlockVersion("")
 		require.NoError(t, chain.Store(mainnetBlock0, &emptyCommitments, mainnetStateUpdate0, nil))
 	})
 

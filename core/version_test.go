@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core"
+	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +82,7 @@ func TestSupportedBlockVersion(t *testing.T) {
 	for i, test := range testVersions {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			core.LatestVer = &test.latest
-			err := core.CheckBlockVersion(test.block.String())
+			err := core.CheckBlockVersion(utils.HeapPtr(test.block))
 			assert.NoError(t, err)
 		})
 	}
@@ -108,7 +109,7 @@ func TestUnsupportedBlockVersion(t *testing.T) {
 
 	for i, test := range testVersions {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			err := core.CheckBlockVersion(test.block.String())
+			err := core.CheckBlockVersion(utils.HeapPtr(test.block))
 			assert.ErrorContains(t, err, "unsupported block version")
 		})
 	}

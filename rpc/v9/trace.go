@@ -230,16 +230,11 @@ func (h *Handler) traceBlockTransactions(
 		}
 
 		// Check if the trace should be provided by the feeder gateway
-		blockVer, err := core.ParseBlockVersion(block.ProtocolVersion)
-		if err != nil {
-			return nil,
-				defaultExecutionHeader(),
-				rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-		}
+		blockVer := block.ProtocolVersion
 
 		// We rely on the feeder gateway for Starknet version strictly older than "0.13.1.1"
 		fetchFromFeederGW := blockVer.LessThan(core.Ver0_13_2) &&
-			block.ProtocolVersion != "0.13.1.1"
+			block.ProtocolVersion.String() != "0.13.1.1"
 		// This specific block range caused a re-org, also related with Cairo 0 and we have to
 		// depend on the Sequencer to provide the correct traces
 		fetchFromFeederGW = fetchFromFeederGW ||

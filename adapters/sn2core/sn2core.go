@@ -39,6 +39,8 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 		sigs = append(sigs, sig.Signature)
 	}
 
+	protocolVersion, _ := core.ParseBlockVersion(response.Version)
+
 	return &core.Block{
 		Header: &core.Header{
 			Hash:             response.Hash,
@@ -46,7 +48,7 @@ func AdaptBlock(response *starknet.Block, sig *starknet.Signature) (*core.Block,
 			Number:           response.Number,
 			GlobalStateRoot:  response.StateRoot,
 			Timestamp:        response.Timestamp,
-			ProtocolVersion:  response.Version,
+			ProtocolVersion:  protocolVersion,
 			SequencerAddress: response.SequencerAddress,
 			TransactionCount: uint64(len(response.Transactions)),
 			EventCount:       eventCount,
@@ -479,6 +481,8 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 		StateDiff: &stateDiff,
 	}
 
+	protocolVerson, _ := core.ParseBlockVersion(response.Version)
+
 	adaptedBlock := &core.Block{
 		// https://github.com/starkware-libs/starknet-specs/blob/9377851884da5c81f757b6ae0ed47e84f9e7c058/api/starknet_api_openrpc.json#L1636
 		Header: &core.Header{
@@ -489,7 +493,7 @@ func AdaptPreConfirmedBlock(response *starknet.PreConfirmedBlock, number uint64)
 			// Not required in spec but useful
 			EventCount:      eventCount,
 			Timestamp:       response.Timestamp,
-			ProtocolVersion: response.Version,
+			ProtocolVersion: protocolVerson,
 			// Not required in spec but useful
 			EventsBloom:    core.EventsBloom(receipts),
 			L1GasPriceETH:  response.L1GasPrice.PriceInWei,

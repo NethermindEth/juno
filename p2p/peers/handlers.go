@@ -147,10 +147,7 @@ func (h *Handler) onHeadersRequest(req *header.BlockHeadersRequest) (iter.Seq[pr
 			return nil, err
 		}
 
-		blockVer, err := core.ParseBlockVersion(blockHeader.ProtocolVersion)
-		if err != nil {
-			return nil, err
-		}
+		blockVer := blockHeader.ProtocolVersion
 
 		var commitments *core.BlockCommitments
 		if blockVer.LessThan(core.Ver0_13_2) {

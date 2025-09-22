@@ -140,9 +140,7 @@ func (h *Handler) traceBlockTransactions(ctx context.Context, block *core.Block)
 
 	isPending := block.Hash == nil
 	if !isPending {
-		if blockVer, err := core.ParseBlockVersion(block.ProtocolVersion); err != nil {
-			return nil, httpHeader, rpccore.ErrUnexpectedError.CloneWithData(err.Error())
-		} else if blockVer.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion != excludedVersion {
+		if block.ProtocolVersion.LessThanEqual(traceFallbackVersion) && block.ProtocolVersion.String() != excludedVersion {
 			// version <= 0.13.1 and not 0.13.1.1 fetch blocks from feeder gateway
 			result, err := h.fetchTraces(ctx, block.Hash)
 			if err != nil {

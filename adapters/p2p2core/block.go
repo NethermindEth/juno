@@ -25,6 +25,7 @@ func AdaptEvent(e *event.Event) *core.Event {
 }
 
 func AdaptBlockHeader(h *header.SignedBlockHeader, eventsBloom *bloom.BloomFilter) *core.Header {
+	protocolVersion, _ := core.ParseBlockVersion(h.ProtocolVersion)
 	return &core.Header{
 		Hash:             AdaptHash(h.BlockHash),
 		ParentHash:       AdaptHash(h.ParentHash),
@@ -34,7 +35,7 @@ func AdaptBlockHeader(h *header.SignedBlockHeader, eventsBloom *bloom.BloomFilte
 		TransactionCount: h.Transactions.NLeaves,
 		EventCount:       h.Events.NLeaves,
 		Timestamp:        h.Time,
-		ProtocolVersion:  h.ProtocolVersion,
+		ProtocolVersion:  protocolVersion,
 		EventsBloom:      eventsBloom,
 		L1GasPriceETH:    AdaptUint128(h.L1GasPriceWei),
 		Signatures:       utils.Map(h.Signatures, adaptSignature),

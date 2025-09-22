@@ -618,11 +618,7 @@ func deployAccountTransactionHash(d *DeployAccountTransaction, n *utils.Network)
 	}
 }
 
-func VerifyTransactions(txs []Transaction, n *utils.Network, protocolVersion string) error {
-	blockVersion, err := ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
+func VerifyTransactions(txs []Transaction, n *utils.Network, blockVersion *semver.Version) error {
 
 	// blockVersion < 0.11.0
 	// only start verifying transaction hashes after 0.11.0
@@ -646,11 +642,7 @@ const commitmentTrieHeight = 64
 
 // transactionCommitmentPedersen is the root of a height 64 binary Merkle Patricia tree of the
 // transaction hashes and signatures in a block.
-func transactionCommitmentPedersen(transactions []Transaction, protocolVersion string) (*felt.Felt, error) {
-	blockVersion, err := ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return nil, err
-	}
+func transactionCommitmentPedersen(transactions []Transaction, blockVersion *semver.Version) (*felt.Felt, error) {
 
 	v0_11_1 := semver.MustParse("0.11.1")
 	var hashFunc processFunc[Transaction]

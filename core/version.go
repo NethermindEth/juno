@@ -38,12 +38,7 @@ func ParseBlockVersion(protocolVersion string) (*semver.Version, error) {
 }
 
 // CheckBlockVersion checks if the block protocol version is supported by Juno
-func CheckBlockVersion(protocolVersion string) error {
-	blockVer, err := ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return err
-	}
-
+func CheckBlockVersion(blockVer *semver.Version) error {
 	latestSupportedVersion := LatestVer
 
 	supported := blockVer.Major() < latestSupportedVersion.Major() ||
@@ -55,7 +50,7 @@ func CheckBlockVersion(protocolVersion string) error {
 
 	return fmt.Errorf(
 		"unsupported block version %s. Maximum supported is: %s",
-		protocolVersion,
+		blockVer,
 		latestSupportedVersion.String(),
 	)
 }

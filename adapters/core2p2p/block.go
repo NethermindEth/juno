@@ -64,7 +64,7 @@ func AdaptHeader(blockHeader *core.Header, commitments *core.BlockCommitments,
 			Root:    AdaptHash(commitments.EventCommitment),
 		},
 		Receipts:        AdaptHash(commitments.ReceiptCommitment),
-		ProtocolVersion: blockHeader.ProtocolVersion,
+		ProtocolVersion: blockHeader.ProtocolVersion.String(),
 		L1GasPriceFri:   AdaptUint128(blockHeader.L1GasPriceSTRK),
 		Signatures:      utils.Map(blockHeader.Signatures, adaptSignature),
 		StateDiffCommitment: &synccommon.StateDiffCommitment{

@@ -510,7 +510,7 @@ func TestStorePreConfirmed(t *testing.T) {
 			Block: &core.Block{
 				Header: &core.Header{
 					Number:          1,
-					ProtocolVersion: core.LatestVer.IncMajor().String(),
+					ProtocolVersion: utils.HeapPtr(core.LatestVer.IncMajor()),
 				},
 			},
 			StateUpdate: &core.StateUpdate{},
@@ -628,7 +628,7 @@ func makeTestPreConfirmed(num uint64) core.PreConfirmed {
 			SequencerAddress: &felt.One,
 			Number:           num,
 			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  core.Ver0_14_0.String(),
+			ProtocolVersion:  core.Ver0_14_0,
 			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    feltOne,
 			L1GasPriceSTRK:   feltOne,
@@ -666,7 +666,7 @@ func makeTestPendingForParent(parent *core.Header) core.Pending {
 			SequencerAddress: parent.SequencerAddress,
 			Number:           parent.Number + 1,
 			Timestamp:        uint64(time.Now().Unix()),
-			ProtocolVersion:  core.Ver0_14_0.String(),
+			ProtocolVersion:  core.Ver0_14_0,
 			EventsBloom:      core.EventsBloom(receipts),
 			L1GasPriceETH:    parent.L1GasPriceETH,
 			L1GasPriceSTRK:   parent.L1GasPriceSTRK,

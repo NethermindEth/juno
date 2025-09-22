@@ -218,7 +218,7 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	copyFeltIntoCArray(blockInfo.Header.SequencerAddress, &cBlockInfo.sequencer_address[0])
 	copyFeltIntoCArray(blockInfo.Header.L1GasPriceETH, &cBlockInfo.l1_gas_price_wei[0])
 	copyFeltIntoCArray(blockInfo.Header.L1GasPriceSTRK, &cBlockInfo.l1_gas_price_fri[0])
-	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion))
+	cBlockInfo.version = cstring([]byte(blockInfo.Header.ProtocolVersion.String()))
 	copyFeltIntoCArray(blockInfo.BlockHashToBeRevealed, &cBlockInfo.block_hash_to_be_revealed[0])
 	if blockInfo.Header.L1DAMode == core.Blob {
 		copyFeltIntoCArray(blockInfo.Header.L1DataGasPrice.PriceInWei, &cBlockInfo.l1_data_gas_price_wei[0])

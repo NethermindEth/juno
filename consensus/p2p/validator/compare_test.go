@@ -72,7 +72,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 		ParentHash:       utils.HexToFelt(t, "111"),
 		SequencerAddress: proposer,
 		Timestamp:        1000,
-		ProtocolVersion:  builder.CurrentStarknetVersion.String(),
+		ProtocolVersion:  builder.CurrentStarknetVersion,
 		L1DAMode:         core.Blob,
 	}
 	t.Run("ValidCommitment", func(t *testing.T) {

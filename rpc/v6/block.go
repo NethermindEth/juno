@@ -332,7 +332,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			InWei: header.L1GasPriceETH,
 			InFri: nilToZero(header.L1GasPriceSTRK), // Old block headers will be nil.
 		},
-		StarknetVersion: header.ProtocolVersion,
+		StarknetVersion: header.ProtocolVersion.String(),
 	}
 }
 

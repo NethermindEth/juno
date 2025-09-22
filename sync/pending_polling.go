@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
@@ -23,12 +24,8 @@ const (
 
 // needsPreConfirmed reports whether the given protocol version string
 // indicates blocks >= v0.14.0 (i.e., pre_confirmed path is required).
-func needsPreConfirmed(protocolVersion string) (bool, error) {
-	ver, err := core.ParseBlockVersion(protocolVersion)
-	if err != nil {
-		return false, err
-	}
-	return ver.GreaterThanEqual(core.Ver0_14_0), nil
+func needsPreConfirmed(protocolVersion *semver.Version) bool {
+	return protocolVersion.GreaterThanEqual(core.Ver0_14_0)
 }
 
 // isGreaterThanTip reports whether the given number is at or beyond the highest known header.
@@ -281,11 +278,7 @@ func (s *Synchronizer) storeEmptyPreConfirmed(latestHeader *core.Header, preLate
 }
 
 func (s *Synchronizer) storeEmptyPendingData(lastHeader *core.Header) {
-	blockVer, err := core.ParseBlockVersion(lastHeader.ProtocolVersion)
-	if err != nil {
-		s.log.Errorw("Failed to parse block version", "err", err)
-		return
-	}
+	blockVer := lastHeader.ProtocolVersion
 
 	if blockVer.GreaterThanEqual(core.Ver0_14_0) {
 		if err := s.storeEmptyPreConfirmed(lastHeader, nil); err != nil {
@@ -363,11 +356,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			if !ok {
 				return false
 			}
-			need, err := needsPreConfirmed(head.ProtocolVersion)
-			if err != nil {
-				s.log.Debugw("Failed to parse protocol version", "err", err)
-				continue
-			}
+			need := needsPreConfirmed(head.ProtocolVersion)
 
 			if need {
 				return true // switch to pre_confirmed
@@ -378,11 +367,7 @@ func (s *Synchronizer) runPendingPhase(ctx context.Context, headsSub *feed.Subsc
 			}
 
 		case p := <-pendingCh:
-			need, err := needsPreConfirmed(p.Block.ProtocolVersion)
-			if err != nil {
-				s.log.Debugw("Failed to parse pending protocol version", "err", err)
-				continue
-			}
+			need := needsPreConfirmed(p.Block.ProtocolVersion)
 
 			if need {
 				return true // switch to pre_confirmed

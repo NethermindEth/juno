@@ -611,7 +611,7 @@ func TestBlockWithTxHashesV013(t *testing.T) {
 	require.Equal(t, &rpc.BlockWithTxs{
 		BlockHeader: rpc.BlockHeader{
 			Hash:            coreBlock.Hash,
-			StarknetVersion: coreBlock.ProtocolVersion,
+			StarknetVersion: coreBlock.ProtocolVersion.String(),
 			NewRoot:         coreBlock.GlobalStateRoot,
 			Number:          &coreBlock.Number,
 			ParentHash:      coreBlock.ParentHash,

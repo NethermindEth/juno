@@ -329,7 +329,7 @@ func adaptBlockHeader(header *core.Header) BlockHeader {
 			},
 			L1DataGasPrice:  &l1DataGasPrice,
 			L1DAMode:        &l1DAMode,
-			StarknetVersion: header.ProtocolVersion,
+			StarknetVersion: header.ProtocolVersion.String(),
 		},
 		L2GasPrice: &l2GasPrice,
 	}

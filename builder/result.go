@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
@@ -15,10 +14,7 @@ type BuildResult struct {
 }
 
 func (b *BuildResult) ProposalCommitment() (types.ProposalCommitment, error) {
-	version, err := semver.NewVersion(b.Preconfirmed.Block.ProtocolVersion)
-	if err != nil {
-		return types.ProposalCommitment{}, err
-	}
+	version := b.Preconfirmed.Block.ProtocolVersion
 
 	return types.ProposalCommitment{
 		BlockNumber:           b.Preconfirmed.Block.Number,

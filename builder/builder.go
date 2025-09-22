@@ -78,7 +78,7 @@ func (b *Builder) InitPreconfirmedBlock(params *BuildParams) (*BuildState, error
 			TransactionCount: 0, // To be updated during transaction execution
 			EventCount:       0, // To be updated during transaction execution
 			Timestamp:        params.Timestamp,
-			ProtocolVersion:  CurrentStarknetVersion.String(),
+			ProtocolVersion:  CurrentStarknetVersion,
 			EventsBloom:      nil, // To be set after finishing execution
 			L1GasPriceETH:    &params.L1GasPriceWEI,
 			Signatures:       nil, // To be set after finishing execution

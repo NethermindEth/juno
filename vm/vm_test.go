@@ -206,16 +206,18 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		Calldata:        []felt.Felt{},
 	}
 
+	protocolVersion_0_13_0, _ := core.ParseBlockVersion("0.13.0")
+	protocolVersion_0_13_4, _ := core.ParseBlockVersion("0.13.4")
 	// Starknet version <0.13.4 should return an error
 	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
-		ProtocolVersion: "0.13.0",
+		ProtocolVersion: protocolVersion_0_13_0,
 	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
 	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
-		ProtocolVersion: "0.13.4",
+		ProtocolVersion: protocolVersion_0_13_4,
 	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)

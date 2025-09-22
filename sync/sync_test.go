@@ -211,7 +211,8 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pending block version", func(t *testing.T) {
-			pending := &core.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			protocolVersion, _ := core.ParseBlockVersion("1.9.0")
+			pending := &core.Pending{Block: &core.Block{Header: &core.Header{ProtocolVersion: protocolVersion}}}
 			changed, err := synchronizer.StorePending(pending)
 			require.Error(t, err)
 			require.False(t, changed)
@@ -292,7 +293,8 @@ func TestPendingData(t *testing.T) {
 		})
 
 		t.Run("cannot store unsupported pre_confirmed block version", func(t *testing.T) {
-			preConfirmed := core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: "1.9.0"}}}
+			protocolVersion, _ := core.ParseBlockVersion("1.9.0")
+			preConfirmed := core.PreConfirmed{Block: &core.Block{Header: &core.Header{ProtocolVersion: protocolVersion}}}
 			isWritten, err := synchronizer.StorePreConfirmed(&preConfirmed)
 			require.Error(t, err)
 			require.False(t, isWritten)

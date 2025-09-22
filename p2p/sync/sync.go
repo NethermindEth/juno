@@ -366,11 +366,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
 
-			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
-			if err != nil {
-				bodyCh <- BlockBody{Err: fmt.Errorf("failed to parse block version: %w", err)}
-				return
-			}
+			blockVer := coreBlock.ProtocolVersion
 
 			if blockVer.LessThan(core.Ver0_13_2) && s.network.L2ChainID == "SN_SEPOLIA" {
 				expectedHash := hashstorage.SepoliaBlockHashesMap[coreBlock.Number]

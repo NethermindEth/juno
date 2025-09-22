@@ -205,15 +205,17 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		for _, test := range tests {
 			t.Run(test.name, func(t *testing.T) {
-				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, &utils.Mainnet, "99.99.99")
+				blockVersion, _ := core.ParseBlockVersion("99.99.99")
+				tErr := core.VerifyTransactions([]core.Transaction{test.txn}, &utils.Mainnet, blockVersion)
 				require.Equal(t, test.wantErr, tErr)
 			})
 		}
 	})
 
 	t.Run("does not contain bad transaction(s)", func(t *testing.T) {
+		blockVersion, _ := core.ParseBlockVersion("99.99.99")
 		txns := []core.Transaction{txn0, txn1, txn2, txn3, txn4}
-		assert.NoError(t, core.VerifyTransactions(txns, &utils.Mainnet, "99.99.99"))
+		assert.NoError(t, core.VerifyTransactions(txns, &utils.Mainnet, blockVersion))
 	})
 }
 

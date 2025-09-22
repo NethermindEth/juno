@@ -303,13 +303,13 @@ func TestTraceTransaction(t *testing.T) {
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
-
+		protocolVersion, _ := core.ParseBlockVersion("99.12.3")
 		header := &core.Header{
 			Hash:             utils.HexToFelt(t, "0xCAFEBABE"),
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
-			ProtocolVersion:  "99.12.3",
+			ProtocolVersion:  protocolVersion,
 			L1DAMode:         core.Calldata,
 		}
 		block := &core.Block{
@@ -385,11 +385,11 @@ func TestTraceTransaction(t *testing.T) {
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
-
+		protocolVersion, _ := core.ParseBlockVersion("99.12.3")
 		header := &core.Header{
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			ProtocolVersion:  "99.12.3",
+			ProtocolVersion:  protocolVersion,
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
@@ -473,11 +473,11 @@ func TestTraceTransaction(t *testing.T) {
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
-
+		protocolVersion, _ := core.ParseBlockVersion("99.12.3")
 		header := &core.Header{
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			ProtocolVersion:  "99.12.3",
+			ProtocolVersion:  protocolVersion,
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    utils.HexToFelt(t, "0x1"),
 		}
@@ -727,14 +727,14 @@ func TestTraceBlockTransactions(t *testing.T) {
 			TransactionHash: utils.HexToFelt(t, "0x000000001"),
 			ClassHash:       utils.HexToFelt(t, "0x000000000"),
 		}
-
+		protocolVersion, _ := core.ParseBlockVersion("99.12.3")
 		header := &core.Header{
 			Hash:             blockHash,
 			ParentHash:       utils.HexToFelt(t, "0x0"),
 			Number:           0,
 			SequencerAddress: utils.HexToFelt(t, "0X111"),
 			L1GasPriceETH:    utils.HexToFelt(t, "0x777"),
-			ProtocolVersion:  "99.12.3",
+			ProtocolVersion:  protocolVersion,
 		}
 		block := &core.Block{
 			Header:       header,

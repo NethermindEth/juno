@@ -239,7 +239,7 @@ func adaptBlockHeader(header *core.Header) rpcv6.BlockHeader {
 		},
 		L1DataGasPrice:  &l1DataGasPrice,
 		L1DAMode:        &l1DAMode,
-		StarknetVersion: header.ProtocolVersion,
+		StarknetVersion: header.ProtocolVersion.String(),
 	}
 }
 

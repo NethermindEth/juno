@@ -60,12 +60,13 @@ func TestThrottledVMError(t *testing.T) {
 
 	t.Run("trace", func(t *testing.T) {
 		blockHash := utils.HexToFelt(t, "0x0001")
+		protocolVersion, _ := core.ParseBlockVersion("99.12.3")
 		header := &core.Header{
 			// hash is not set because it's pending block
 			ParentHash:      utils.HexToFelt(t, "0x0C3"),
 			Number:          0,
 			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
-			ProtocolVersion: "99.12.3",
+			ProtocolVersion: protocolVersion,
 		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: utils.HexToFelt(t, "0x000000C"),

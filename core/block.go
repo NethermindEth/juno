@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
@@ -32,7 +33,7 @@ type Header struct {
 	Timestamp uint64
 	// Todo(rdr): It makes more sense for Protocol version to be stored in semver.Version instead
 	// The version of the Starknet protocol used when creating this block
-	ProtocolVersion string
+	ProtocolVersion *semver.Version
 	// Bloom filter on the events emitted this block
 	EventsBloom *bloom.BloomFilter
 	// Amount of WEI charged per Gas spent on L1
@@ -148,18 +149,13 @@ func BlockHash(b *Block, stateDiff *StateDiff, network *utils.Network, overrideS
 ) {
 	metaInfo := network.BlockHashMetaInfo
 
-	blockVer, err := ParseBlockVersion(b.ProtocolVersion)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// if block.version >= 0.13.4
-	if blockVer.GreaterThanEqual(Ver0_13_4) {
+	if b.ProtocolVersion.GreaterThanEqual(Ver0_13_4) {
 		return post0134Hash(b, stateDiff)
 	}
 
 	// if 0.13.2 <= block.version < 0.13.4
-	if blockVer.GreaterThanEqual(Ver0_13_2) {
+	if b.ProtocolVersion.GreaterThanEqual(Ver0_13_2) {
 		return Post0132Hash(b, stateDiff)
 	}
 
@@ -248,7 +244,7 @@ func post0134Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			eCommitment,  // event commitment
 			rCommitment,  // receipt commitment
 			pricesHash,   // gas prices hash
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion.String())),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
 		), &BlockCommitments{
@@ -331,7 +327,7 @@ func Post0132Hash(b *Block, stateDiff *StateDiff) (*felt.Felt, *BlockCommitments
 			gasPriceStrk,    // gas price in fri
 			l1DataGasPriceInWei,
 			l1DataGasPriceInFri,
-			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion)),
+			new(felt.Felt).SetBytes([]byte(b.ProtocolVersion.String())),
 			&felt.Zero,   // reserved: extra data
 			b.ParentHash, // parent block hash
 		), &BlockCommitments{
