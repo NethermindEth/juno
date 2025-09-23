@@ -2,7 +2,6 @@ package p2p2core
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
@@ -21,7 +20,7 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 	program := utils.Map(cairo1.Program, AdaptFelt)
 	compiled, err := createCompiledClass(cairo1)
 	if err != nil {
-		return core.Cairo1Class{}, errors.New("Invalid format data from")
+		return core.Cairo1Class{}, fmt.Errorf("Invalid format data from: %w", err)
 	}
 
 	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
@@ -73,7 +72,7 @@ func AdaptClass(cls *class.Class) (core.Class, error) {
 		cairoClass, err := AdaptCairo1Class(cls.Cairo1)
 		return &cairoClass, err
 	default:
-		panic(fmt.Errorf("unsupported class %T", cls))
+		return nil, fmt.Errorf("format string %T", cls)
 	}
 }
 

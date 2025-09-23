@@ -338,13 +338,13 @@ func (s *Service) adaptAndSanityCheckBlock(
 			for _, cls := range classes {
 				coreC, err := p2p2core.AdaptClass(cls)
 				if err != nil {
-					bodyCh <- BlockBody{Err: fmt.Errorf("%v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("%w", err)}
 					return
 				}
 
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %w", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -369,7 +369,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 				}
 			}()
 
-			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("%w", err)}
+				return
+			}
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {

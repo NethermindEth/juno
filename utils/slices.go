@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"iter"
 	"reflect"
 	"slices"
 	"strings"
@@ -21,21 +22,15 @@ func Map[T1, T2 any](slice []T1, f func(T1) T2) []T2 {
 	return result
 }
 
-func MapWithErrors[T1, T2 any](slice []T1, f func(T1) (T2, error)) []T2 {
-	if slice == nil {
-		return nil
-	}
-
-	result := make([]T2, len(slice))
-	for i, e := range slice {
-		res, err := f(e)
-		if err != nil {
-			return nil
+func MapWithErrors[T1, T2 any](slice []T1, f func(T1) (T2, error)) iter.Seq2[T2, error] {
+	return func(yield func(T2, error) bool) {
+		for _, e := range slice {
+			res, err := f(e)
+			if !yield(res, err) {
+				return
+			}
 		}
-		result[i] = res
 	}
-
-	return result
 }
 
 // The same as Map but the function receives a reference type
