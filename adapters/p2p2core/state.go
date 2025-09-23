@@ -19,7 +19,7 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*state.ContractDiff
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
 	)
 
-	for _, class := range utils.Map(classes, AdaptClass) {
+	for _, class := range utils.MapWithErrors(classes, AdaptClass) {
 		h, err := class.Hash()
 		if err != nil {
 			panic(fmt.Errorf("unexpected error: %v when calculating class hash", err))
