@@ -461,7 +461,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 	res, err := h.vm.Call(&vm.CallInfo{
 		ContractAddress: &funcCall.ContractAddress,
 		Selector:        &funcCall.EntryPointSelector,
-		Calldata:        funcCall.Calldata,
+		Calldata:        funcCall.Calldata.Data,
 		ClassHash:       classHash,
 	}, &vm.BlockInfo{
 		Header:                header,

@@ -1558,7 +1558,7 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpcv7.CalldataInputs{Data: calldata},
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		require.Equal(t, expectedRes.Result, res)
@@ -1612,7 +1612,7 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpcv7.CalldataInputs{Data: calldata},
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, rpcErr, expectedErr)
@@ -1652,7 +1652,7 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpcv7.CalldataInputs{Data: calldata},
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)
@@ -1691,7 +1691,7 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpcv7.CalldataInputs{Data: calldata},
 		}, rpcv7.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)

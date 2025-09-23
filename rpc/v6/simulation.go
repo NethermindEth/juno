@@ -54,15 +54,22 @@ type TracedBlockTransaction struct {
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
+type BroadcastedTransactionInputs = rpccore.LimitSlice[
+	BroadcastedTransaction,
+	rpccore.SimulationLimit,
+]
+
 /****************************************************
 		Simulate Handlers
 *****************************************************/
 
 // pre 13.1
-func (h *Handler) SimulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(
+	id BlockID,
+	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, broadcastedTxns, simulationFlags, false)
+	return h.simulateTransactions(id, broadcastedTxns.Data, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,

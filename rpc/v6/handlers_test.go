@@ -54,7 +54,11 @@ func TestThrottledVMError(t *testing.T) {
 	t.Run("simulate", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
-		_, rpcErr := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, rpcErr := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipFeeChargeFlag},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
