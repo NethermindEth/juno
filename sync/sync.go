@@ -567,17 +567,19 @@ func (s *Synchronizer) pollLatest(ctx context.Context) {
 	ticker := time.NewTicker(time.Minute)
 
 	for {
+		highestBlock, err := s.dataSource.BlockLatest(ctx)
+		if err != nil {
+			s.log.Warnw("Failed fetching latest block", "err", err)
+		} else {
+			s.highestBlockHeader.Store(highestBlock.Header)
+		}
+
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			highestBlock, err := s.dataSource.BlockLatest(ctx)
-			if err != nil {
-				s.log.Warnw("Failed fetching latest block", "err", err)
-			} else {
-				s.highestBlockHeader.Store(highestBlock.Header)
-			}
+			continue
 		}
 	}
 }
