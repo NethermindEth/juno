@@ -10,7 +10,7 @@ Snapshots are provided in a compressed `.tar.zst` format for faster downloads an
 
 | Network             | Version       | Download Link                                                                                                 |
 | ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| Mainet              | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Mainnet             | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
 | Sepolia             | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
 | Sepolia-Integration | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
