@@ -21,11 +21,11 @@ func AdaptStateDiff(reader core.StateReader, contractDiffs []*state.ContractDiff
 
 	for class, err := range utils.MapWithErrors(classes, AdaptClass) {
 		if err != nil {
-			return nil, fmt.Errorf("%w", err)
+			return nil, fmt.Errorf("unsupported class: %w", err)
 		}
 		h, err := class.Hash()
 		if err != nil {
-			return nil, fmt.Errorf("%w", err)
+			return nil, fmt.Errorf("unexpected error: %w when calculating class hash", err)
 		}
 		switch c := class.(type) {
 		case *core.Cairo0Class:

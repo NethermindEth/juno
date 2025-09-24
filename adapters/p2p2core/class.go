@@ -20,7 +20,7 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 	program := utils.Map(cairo1.Program, AdaptFelt)
 	compiled, err := createCompiledClass(cairo1)
 	if err != nil {
-		return core.Cairo1Class{}, fmt.Errorf("Invalid format data from: %w", err)
+		return core.Cairo1Class{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
 
 	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
@@ -72,7 +72,7 @@ func AdaptClass(cls *class.Class) (core.Class, error) {
 		cairoClass, err := AdaptCairo1Class(cls.Cairo1)
 		return &cairoClass, err
 	default:
-		return nil, fmt.Errorf("format string %T", cls)
+		return nil, fmt.Errorf("unsupported class %T", cls)
 	}
 }
 
