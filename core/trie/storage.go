@@ -85,7 +85,7 @@ func (t *Storage) Get(key *BitArray) (*Node, error) {
 		node = nodePool.Get().(*Node)
 		return node.UnmarshalBinary(val)
 	})
-	addDuration(time.Since(start))
+	addDuration(&allReadsTime, time.Since(start))
 	incCounter(&allReads)
 
 	return node, err

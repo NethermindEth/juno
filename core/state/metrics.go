@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/NethermindEth/juno/performance"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -36,6 +37,8 @@ var (
 	allStateCommitStateObjectCommitTime  int64
 	allStateCommitMergeTime              int64
 	allStateCommitContractTrieUpdateTime int64
+	allStateCommitClassesTrieCommitTime  int64
+	allStateCommitContractTrieCommitTime int64
 	allStateCommitTriesCommitTime        int64
 	allStateContractNodesMergeTime       int64
 	allStateStateCommitmentTime          int64
@@ -48,6 +51,77 @@ func incCounter(c *uint64) {
 
 func addDuration(c *int64, d time.Duration) {
 	atomic.AddInt64(c, d.Nanoseconds())
+	// Also add to performance reporter
+	performance.AddDuration(getStateMetricName(c), d.Nanoseconds())
+}
+
+func getStateMetricName(c *int64) string {
+	switch c {
+	case &allVerifyCommTime:
+		return "allVerifyCommTime"
+	case &allRegisterClassesTime:
+		return "allRegisterClassesTime"
+	case &allUpdateClassTrieTime:
+		return "allUpdateClassTrieTime"
+	case &allRegisterDeployedContractsTime:
+		return "allRegisterDeployedContractsTime"
+	case &allUpdateContractsTime:
+		return "allUpdateContractsTime"
+	case &allStateCommitTime:
+		return "allStateCommitTime"
+	case &allStateCachePushLayerTime:
+		return "allStateCachePushLayerTime"
+	case &allStateFlushTime:
+		return "allStateFlushTime"
+	case &allTrieDBUpdateTime:
+		return "allTrieDBUpdateTime"
+	case &allStateObjectsTime:
+		return "allStateObjectsTime"
+	case &allDeleteContractTime:
+		return "allDeleteContractTime"
+	case &allDeleteStorageNodesByPathTime:
+		return "allDeleteStorageNodesByPathTime"
+	case &allWriteContractTime:
+		return "allWriteContractTime"
+	case &allWriteStorageHistoryTime:
+		return "allWriteStorageHistoryTime"
+	case &allWriteContractHistoryTime:
+		return "allWriteContractHistoryTime"
+	case &allWriteContractNonceTime:
+		return "allWriteContractNonceTime"
+	case &allWriteContractClassHashTime:
+		return "allWriteContractClassHashTime"
+	case &allWriteClassesLoopTime:
+		return "allWriteClassesLoopTime"
+	case &allDeleteClassTime:
+		return "allDeleteClassTime"
+	case &allWriteClassTime:
+		return "allWriteClassTime"
+	case &allWriteBatchTime:
+		return "allWriteBatchTime"
+	case &allStateCommitKeysSortTime:
+		return "allStateCommitKeysSortTime"
+	case &allStateCommitStateObjectCommitTime:
+		return "allStateCommitStateObjectCommitTime"
+	case &allStateCommitMergeTime:
+		return "allStateCommitMergeTime"
+	case &allStateCommitContractTrieUpdateTime:
+		return "allStateCommitContractTrieUpdateTime"
+	case &allStateCommitClassesTrieCommitTime:
+		return "allStateCommitClassesTrieCommitTime"
+	case &allStateCommitContractTrieCommitTime:
+		return "allStateCommitContractTrieCommitTime"
+	case &allStateCommitTriesCommitTime:
+		return "allStateCommitTriesCommitTime"
+	case &allStateContractNodesMergeTime:
+		return "allStateContractNodesMergeTime"
+	case &allStateStateCommitmentTime:
+		return "allStateStateCommitmentTime"
+	case &allStateClassNodesCopyTime:
+		return "allStateClassNodesCopyTime"
+	default:
+		return "unknown"
+	}
 }
 
 type StateMetricsCollector struct{}
@@ -80,6 +154,8 @@ func (c *StateMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
 		prometheus.NewDesc("x_state_all_state_commit_state_object_commit_time_ns", "Total time spent committing state objects (ns)", nil, nil),
 		prometheus.NewDesc("x_state_all_state_commit_merge_time_ns", "Total time spent merging nodes (ns)", nil, nil),
 		prometheus.NewDesc("x_state_all_state_commit_contract_trie_update_time_ns", "Total time spent updating contract trie (ns)", nil, nil),
+		prometheus.NewDesc("x_state_all_state_commit_classes_trie_commit_time_ns", "Total time spent committing classes trie (ns)", nil, nil),
+		prometheus.NewDesc("x_state_all_state_commit_contract_trie_commit_time_ns", "Total time spent committing contract trie (ns)", nil, nil),
 		prometheus.NewDesc("x_state_all_state_commit_tries_commit_time_ns", "Total time spent committing tries (ns)", nil, nil),
 		prometheus.NewDesc("x_state_all_state_commit_contract_nodes_merge_time_ns", "Total time spent merging contract nodes (ns)", nil, nil),
 		prometheus.NewDesc("x_state_all_state_commit_state_commitment_time_ns", "Total time spent committing state commitment (ns)", nil, nil),
@@ -220,6 +296,16 @@ func (c *StateMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.NewDesc("x_state_all_state_commit_contract_trie_update_time_ns", "Total time spent updating contract trie (ns)", nil, nil),
 		prometheus.CounterValue,
 		float64(atomic.LoadInt64(&allStateCommitContractTrieUpdateTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_state_all_state_commit_classes_trie_commit_time_ns", "Total time spent committing classes trie (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allStateCommitClassesTrieCommitTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_state_all_state_commit_contract_trie_commit_time_ns", "Total time spent committing contract trie (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allStateCommitContractTrieCommitTime)),
 	)
 	ch <- prometheus.MustNewConstMetric(
 		prometheus.NewDesc("x_state_all_state_commit_tries_commit_time_ns", "Total time spent committing tries (ns)", nil, nil),

@@ -9,8 +9,10 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/clients/feeder"
 	"github.com/NethermindEth/juno/clients/gateway"
+	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/state"
 	"github.com/NethermindEth/juno/core/trie"
+	"github.com/NethermindEth/juno/core/trie2"
 	"github.com/NethermindEth/juno/core/trie2/triedb/pathdb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/jemalloc"
@@ -426,8 +428,12 @@ func makeVMThrottlerMetrics(throttledVM *ThrottledVM) {
 	prometheus.MustRegister(vmJobs, vmQueue)
 }
 
-func makeTrieMetrics() {
+func makeTrieDBMetrics() {
 	prometheus.MustRegister(&pathdb.TrieMetricsCollector{})
+}
+
+func makeTrieMetrics() {
+	prometheus.MustRegister(&trie2.TrieMetricsCollector{})
 }
 
 func makeDeprecatedTrieMetrics() {
@@ -440,4 +446,8 @@ func makeBlockchainStoreMetrics() {
 
 func makeStateMetrics() {
 	prometheus.MustRegister(&state.StateMetricsCollector{})
+}
+
+func makeDeprecatedStateMetrics() {
+	prometheus.MustRegister(&core.StateMetricsCollector{})
 }

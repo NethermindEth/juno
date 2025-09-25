@@ -480,10 +480,18 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 	p = pool.New().WithMaxGoroutines(runtime.GOMAXPROCS(0)).WithErrors()
 	start = time.Now()
 	p.Go(func() error {
+		start := time.Now()
+		defer func() {
+			addDuration(&allStateCommitClassesTrieCommitTime, time.Since(start))
+		}()
 		classRoot, classNodes = s.classTrie.Commit()
 		return nil
 	})
 	p.Go(func() error {
+		start := time.Now()
+		defer func() {
+			addDuration(&allStateCommitContractTrieCommitTime, time.Since(start))
+		}()
 		contractRoot, contractNodes = s.contractTrie.Commit()
 		return nil
 	})
@@ -538,9 +546,6 @@ func (s *State) flush(
 	batch := s.db.disk.NewBatch()
 	p.Go(func() error {
 		start := time.Now()
-		defer func() {
-			addDuration(&allStateObjectsTime, time.Since(start))
-		}()
 		for addr, obj := range s.stateObjects {
 			if obj == nil { // marked as deleted
 				start := time.Now()
@@ -587,7 +592,7 @@ func (s *State) flush(
 				addDuration(&allWriteContractHistoryTime, time.Since(start))
 			}
 		}
-
+		addDuration(&allStateObjectsTime, time.Since(start))
 		start = time.Now()
 		for classHash, class := range classes {
 			if class == nil { // mark as deleted

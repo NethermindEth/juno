@@ -356,9 +356,11 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		}
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
 		makeTrieMetrics()
+		makeTrieDBMetrics()
 		makeDeprecatedTrieMetrics()
 		makeBlockchainStoreMetrics()
 		makeStateMetrics()
+		makeDeprecatedStateMetrics()
 	}
 	if cfg.GRPC {
 		services = append(services, makeGRPC(cfg.GRPCHost, cfg.GRPCPort, database, version))

@@ -3,6 +3,7 @@ package trie2
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -220,12 +221,16 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 	}
 
 	// If the root node is not dirty, that means we don't actually need to commit
+	hashStart := time.Now()
 	rootHash := t.Hash()
 	if hashedNode, dirty := t.root.Cache(); !dirty {
 		t.root = hashedNode
+		addDuration(&allCommitHashCalculationTime, time.Since(hashStart))
 		return rootHash, nil
 	}
+	addDuration(&allCommitHashCalculationTime, time.Since(hashStart))
 
+	collectStart := time.Now()
 	nodes := trienode.NewNodeSet(t.owner)
 	for _, path := range t.nodeTracer.deletedNodes() {
 		nodes.Add(&path, trienode.NewDeleted(path.Len() == t.height))
@@ -233,6 +238,7 @@ func (t *Trie) Commit() (felt.Felt, *trienode.NodeSet) {
 
 	t.root = newCollector(&nodes).Collect(t.root, t.pendingUpdates > 100) //nolint:mnd // TODO(weiihann): 100 is arbitrary
 	t.pendingUpdates = 0
+	addDuration(&allCollectTime, time.Since(collectStart))
 	return rootHash, &nodes
 }
 

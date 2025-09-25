@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"slices"
 	"sort"
+	"time"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -235,17 +236,24 @@ func (s *State) Update(
 	skipVerifyNewRoot bool,
 	flushChanges bool, // TODO(maksym): added to satisfy the interface, but not used
 ) error {
+	start := time.Now()
 	err := s.verifyStateUpdateRoot(update.OldRoot)
 	if err != nil {
 		return err
 	}
 
+	addDuration(&allVerifyCommTime, time.Since(start))
+	incCounter(&allVerifyComm)
+
+	start = time.Now()
 	// register declared classes mentioned in stateDiff.deployedContracts and stateDiff.declaredClasses
 	for cHash, class := range declaredClasses {
 		if err = s.putClass(&cHash, class, blockNumber); err != nil {
 			return err
 		}
 	}
+
+	addDuration(&allRegisterClassesTime, time.Since(start))
 
 	if err = s.updateDeclaredClassesTrie(update.StateDiff.DeclaredV1Classes, declaredClasses); err != nil {
 		return err
@@ -256,20 +264,26 @@ func (s *State) Update(
 		return err
 	}
 
+	start = time.Now()
 	// register deployed contracts
 	for addr, classHash := range update.StateDiff.DeployedContracts {
 		if err = s.putNewContract(stateTrie, &addr, classHash, blockNumber); err != nil {
 			return err
 		}
 	}
+	addDuration(&allRegisterDeployedContractsTime, time.Since(start))
 
+	start = time.Now()
 	if err = s.updateContracts(stateTrie, blockNumber, update.StateDiff, true); err != nil {
 		return err
 	}
+	addDuration(&allUpdateContractsTime, time.Since(start))
 
+	start = time.Now()
 	if err = storageCloser(); err != nil {
 		return err
 	}
+	addDuration(&allStateCommitContractTrieCommitTime, time.Since(start))
 
 	// The following check isn't relevant for the centralised Juno sequencer
 	if skipVerifyNewRoot {
@@ -427,8 +441,10 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
+	start := time.Now()
 	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
-
+	addDuration(&allStateCommitKeysSortTime, time.Since(start))
+	start = time.Now()
 	// update per-contract storage Tries concurrently
 	contractUpdaters := pool.NewWithResults[*bufferedTransactionWithAddress]().WithErrors().WithMaxGoroutines(runtime.GOMAXPROCS(0))
 	for _, key := range keys {
@@ -446,6 +462,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 	if err != nil {
 		return err
 	}
+	addDuration(&allStateCommitContractStorageCommitTime, time.Since(start))
 
 	// we sort bufferedTxns in ascending contract address order to achieve an additional speedup
 	sort.Slice(bufferedTxns, func(i, j int) bool {
@@ -459,6 +476,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		}
 	}
 
+	start = time.Now()
 	for addr := range diffs {
 		contract, err := NewContractUpdater(&addr, s.txn)
 		if err != nil {
@@ -469,6 +487,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			return err
 		}
 	}
+	addDuration(&allStateCommitContractTrieUpdateTime, time.Since(start))
 
 	return nil
 }
@@ -525,6 +544,7 @@ func calculateContractCommitment(storageRoot, classHash, nonce *felt.Felt) *felt
 }
 
 func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Felt, classDefinitions map[felt.Felt]Class) error {
+	start := time.Now()
 	classesTrie, classesCloser, err := s.classesTrie()
 	if err != nil {
 		return err
@@ -540,7 +560,12 @@ func (s *State) updateDeclaredClassesTrie(declaredClasses map[felt.Felt]*felt.Fe
 			return err
 		}
 	}
+	addDuration(&allUpdateClassTrieTime, time.Since(start))
 
+	start = time.Now()
+	defer func() {
+		addDuration(&allStateCommitClassesTrieCommitTime, time.Since(start))
+	}()
 	return classesCloser()
 }
 

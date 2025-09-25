@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
@@ -715,7 +716,9 @@ func (t *Trie) Root() (*felt.Felt, error) {
 
 // Commit forces root calculation
 func (t *Trie) Commit() error {
+	start := time.Now()
 	_, err := t.Root()
+	addDuration(&allCommitHashCalculationTime, time.Since(start))
 	return err
 }
 

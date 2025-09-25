@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/triedb"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/feed"
+	"github.com/NethermindEth/juno/performance"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -110,6 +111,12 @@ func New(database db.KeyValueStore, network *utils.Network, stateVersion bool) *
 	if err != nil {
 		panic(err)
 	}
+
+	reporter, err := performance.NewPerformanceReporter(stateVersion, 5000)
+	if err != nil {
+		panic(err)
+	}
+	performance.SetGlobalReporter(reporter)
 
 	cachedFilters := NewAggregatedBloomCache(AggregatedBloomFilterCacheSize)
 	fallback := func(key EventFiltersCacheKey) (core.AggregatedBloomFilter, error) {
@@ -272,14 +279,15 @@ func (b *Blockchain) Store(block *core.Block, blockCommitments *core.BlockCommit
 ) error {
 	// old state
 	// TODO(maksymmalick): remove this once we have a new state implementation
-	start := time.Now()
 	if !b.StateFactory.UseNewState {
+		start := time.Now()
 		defer func() {
 			addDuration(&allStoreTime, time.Since(start))
 			incCounter(&allStore)
 		}()
 		return b.deprecatedStore(block, blockCommitments, stateUpdate, newClasses)
 	}
+	start := time.Now()
 	defer func() {
 		addDuration(&allStoreTime, time.Since(start))
 		incCounter(&allStore)
@@ -294,7 +302,7 @@ func (b *Blockchain) deprecatedStore(
 	newClasses map[felt.Felt]core.Class,
 ) error {
 	err := b.database.Update(func(txn db.IndexedBatch) error {
-		updateStart := time.Now()
+		storeStartTime := time.Now()
 		if err := verifyBlock(txn, block); err != nil {
 			return err
 		}
@@ -306,7 +314,9 @@ func (b *Blockchain) deprecatedStore(
 			return err
 		}
 		addDuration(&allUpdateTime, time.Since(start))
-		incCounter(&allUpdate)
+
+		// Update performance reporter with block number
+		performance.UpdateBlockNumber(block.Number)
 
 		if err := core.WriteBlockHeader(txn, block.Header); err != nil {
 			return err
@@ -332,7 +342,7 @@ func (b *Blockchain) deprecatedStore(
 		}
 
 		defer func() {
-			addDuration(&deprecatedInnerStoreTime, time.Since(updateStart))
+			addDuration(&innerStoreTime, time.Since(storeStartTime))
 		}()
 		return core.WriteChainHeight(txn, block.Number)
 	})
@@ -352,6 +362,7 @@ func (b *Blockchain) store(
 	stateUpdate *core.StateUpdate,
 	newClasses map[felt.Felt]core.Class,
 ) error {
+	storeStartTime := time.Now()
 	// TODO(weiihann): handle unexpected shutdown
 	if err := verifyBlock(b.database, block); err != nil {
 		return err
@@ -366,7 +377,8 @@ func (b *Blockchain) store(
 		return err
 	}
 	addDuration(&allUpdateTime, time.Since(start))
-	incCounter(&allUpdate)
+
+	performance.UpdateBlockNumber(block.Number)
 	if err := core.WriteBlockHeader(batch, block.Header); err != nil {
 		return err
 	}
@@ -391,6 +403,7 @@ func (b *Blockchain) store(
 	if err := core.WriteChainHeight(batch, block.Number); err != nil {
 		return err
 	}
+	addDuration(&innerStoreTime, time.Since(storeStartTime))
 
 	if err := b.runningFilter.Insert(block.EventsBloom, block.Number); err != nil {
 		return err
