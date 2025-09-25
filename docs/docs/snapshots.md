@@ -6,14 +6,13 @@ title: Database Snapshots
 
 You can download a snapshot of the Juno database to reduce the network syncing time. Only the blocks created after the snapshot will be synced when you run the node. Fresh snapshots are automatically uploaded once a week and are available under the links below.
 
-Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first. 
+Snapshots are provided in a compressed `.tar.zst` format for faster downloads and reduced storage requirements. It also allows you to directly stream the decompressed file to your computer without needing to download it first.
 
-
-| Network | Version | Download Link |
-|-------- | ------- | ------------- |
-| Mainet | **>=v0.13.0**  | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest) |
-| Sepolia | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
-| Sepolia-Integration | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest) |
+| Network             | Version       | Download Link                                                                                                 |
+| ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| Mainnet             | **>=v0.13.0** | [**juno_mainnet.tar.zst**](https://juno-snapshots.nethermind.io/files/mainnet/latest)                         |
+| Sepolia             | **>=v0.13.0** | [**juno_sepolia.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia/latest)                         |
+| Sepolia-Integration | **>=v0.13.0** | [**juno_sepolia_integration.tar.zst**](https://juno-snapshots.nethermind.io/files/sepolia-integration/latest) |
 
 ## Getting snapshot sizes
 
@@ -76,6 +75,7 @@ curl -s -L https://juno-snapshots.nethermind.io/files/mainnet/latest \
 ```
 
 For other networks, replace the URL with:
+
 - **Sepolia**: `https://juno-snapshots.nethermind.io/files/sepolia/latest`
 - **Sepolia-Integration**: `https://juno-snapshots.nethermind.io/files/sepolia-integration/latest`
 
