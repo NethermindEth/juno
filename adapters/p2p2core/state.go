@@ -13,13 +13,18 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptStateDiff(reader core.StateReader, contractDiffs []*state.ContractDiff, classes []*class.Class) (*core.StateDiff, error) {
+func AdaptStateDiff(
+	reader core.StateReader,
+	contractDiffs []*state.ContractDiff,
+	classes []*class.Class,
+) (*core.StateDiff, error) {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
 	)
 
-	for class, err := range utils.MapWithErrors(classes, AdaptClass) {
+	for _, cls := range classes {
+		class, err := AdaptClass(cls)
 		if err != nil {
 			return nil, fmt.Errorf("unsupported class: %w", err)
 		}

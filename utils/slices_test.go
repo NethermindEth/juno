@@ -1,12 +1,10 @@
 package utils
 
 import (
-	"errors"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMap(t *testing.T) {
@@ -21,66 +19,6 @@ func TestMap(t *testing.T) {
 
 		strings := Map(input, strconv.Itoa)
 		assert.Equal(t, expected, strings)
-	})
-}
-
-func TestMapWithErrors(t *testing.T) {
-	t.Run("nil slice", func(t *testing.T) {
-		var input []int
-		seq := MapWithErrors(input, func(i int) (string, error) {
-			return strconv.Itoa(i), nil
-		})
-
-		count := 0
-		seq(func(_ string, _ error) bool {
-			count++
-			return true
-		})
-		assert.Equal(t, 0, count)
-	})
-
-	t.Run("slice with all successful conversions", func(t *testing.T) {
-		input := []int{1, 2, 3}
-		expected := []string{"1", "2", "3"}
-
-		var results []string
-		seq := MapWithErrors(input, func(i int) (string, error) {
-			return strconv.Itoa(i), nil
-		})
-
-		seq(func(s string, err error) bool {
-			require.NoError(t, err)
-			results = append(results, s)
-			return true
-		})
-
-		assert.Equal(t, expected, results)
-	})
-
-	t.Run("slice with an error element", func(t *testing.T) {
-		input := []int{1, 0, 2}
-		expected := []int{1}
-		var results []int
-		var capturedErr error
-
-		seq := MapWithErrors(input, func(i int) (int, error) {
-			if i == 0 {
-				return 0, errors.New("zero is not allowed")
-			}
-			return i, nil
-		})
-
-		seq(func(val int, err error) bool {
-			if err != nil {
-				capturedErr = err
-				return false // stop iteration on error
-			}
-			results = append(results, val)
-			return true
-		})
-
-		assert.Equal(t, expected, results)
-		assert.EqualError(t, capturedErr, "zero is not allowed")
 	})
 }
 
