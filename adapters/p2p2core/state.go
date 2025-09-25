@@ -30,7 +30,7 @@ func AdaptStateDiff(
 		}
 		h, err := class.Hash()
 		if err != nil {
-			return nil, fmt.Errorf("unexpected error: %w when calculating class hash", err)
+			return nil, fmt.Errorf("unexpected error when calculating class hash: %w", err)
 		}
 		switch c := class.(type) {
 		case *core.Cairo0Class:

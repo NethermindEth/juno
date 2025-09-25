@@ -338,7 +338,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 			for _, cls := range classes {
 				coreC, err := p2p2core.AdaptClass(cls)
 				if err != nil {
-					bodyCh <- BlockBody{Err: fmt.Errorf("unsupported class: %w", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
 					return
 				}
 
@@ -371,7 +371,7 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
 			if err != nil {
-				bodyCh <- BlockBody{Err: fmt.Errorf("unsupported class: %w", err)}
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt state diff: %w", err)}
 				return
 			}
 
