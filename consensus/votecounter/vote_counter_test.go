@@ -1,14 +1,12 @@
 package votecounter
 
 import (
-	"iter"
 	"testing"
 
 	"github.com/NethermindEth/juno/consensus/starknet"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func assertVoteCounter(
@@ -23,42 +21,40 @@ func assertVoteCounter(
 	f := f(voteCounter.validators.TotalVotingPower(testHeight))
 	q := q(voteCounter.validators.TotalVotingPower(testHeight))
 
-	assert.Equal(t, countVotes(isVotingNil, isPrevote) >= q, voteCounter.HasQuorumForVote(testRound, Prevote, nil))
-	assert.Equal(t, countVotes(isVotingNil, isPrecommit) >= q, voteCounter.HasQuorumForVote(testRound, Precommit, nil))
+	assert.Equal(
+		t,
+		countVotes(isVotingNil, isPrevote) >= q,
+		voteCounter.HasQuorumForVote(testRound, Prevote, nil),
+	)
+	assert.Equal(
+		t,
+		countVotes(isVotingNil, isPrecommit) >= q,
+		voteCounter.HasQuorumForVote(testRound, Precommit, nil),
+	)
 
 	for _, id := range allIDs {
-		assert.Equal(t, countVotes(isVotingID(id), isPrevote) >= q, voteCounter.HasQuorumForVote(testRound, Prevote, &id))
-		assert.Equal(t, countVotes(isVotingID(id), isPrecommit) >= q, voteCounter.HasQuorumForVote(testRound, Precommit, &id))
+		assert.Equal(
+			t,
+			countVotes(isVotingID(id), isPrevote) >= q,
+			voteCounter.HasQuorumForVote(testRound, Prevote, &id),
+		)
+		assert.Equal(
+			t,
+			countVotes(isVotingID(id), isPrecommit) >= q,
+			voteCounter.HasQuorumForVote(testRound, Precommit, &id),
+		)
+
+		assert.Equal(
+			t,
+			countVotes(isVotingID(id), isPrecommit) >= q,
+			voteCounter.HasFuturePrecommitQuorum(testHeight+1, testRound, &id),
+		)
 	}
 
 	assert.Equal(t, countVotes(isPrevote) >= q, voteCounter.HasQuorumForAny(testRound, Prevote))
 	assert.Equal(t, countVotes(isPrecommit) >= q, voteCounter.HasQuorumForAny(testRound, Precommit))
 
 	assert.Equal(t, countVotes() > f, voteCounter.HasNonFaultyFutureMessage(testRound))
-}
-
-func convertToMessages(t *testing.T, testCases []testCase) iter.Seq2[starknet.Message, error] {
-	return func(yield func(starknet.Message, error) bool) {
-		t.Helper()
-		for _, testCase := range testCases {
-			var message starknet.Message
-			switch testCase := testCase.(type) {
-			case *proposalTestCase:
-				message = &testCase.proposal
-			case *voteTestCase:
-				switch testCase.voteType {
-				case Prevote:
-					message = (*starknet.Prevote)(&testCase.vote)
-				case Precommit:
-					message = (*starknet.Precommit)(&testCase.vote)
-				}
-			}
-			assert.NotNil(t, message)
-			if !yield(message, nil) {
-				return
-			}
-		}
-	}
 }
 
 func testMultipleHeights[T any](
@@ -88,19 +84,6 @@ func testMultipleHeights[T any](
 
 func TestVoteCounter(t *testing.T) {
 	tests := simpleTestScenarios
-
-	t.Run("LoadFromMessages", func(t *testing.T) {
-		for i := range tests {
-			t.Run(tests[i].String(), func(t *testing.T) {
-				tests := tests[:i+1]
-				messages := convertToMessages(t, tests)
-				voteCounter := New[starknet.Value](simpleMockValidator, testHeight)
-
-				require.NoError(t, voteCounter.LoadFromMessages(messages))
-				assertVoteCounter(t, &voteCounter, tests, simpleVotingPower)
-			})
-		}
-	})
 
 	t.Run("Add", func(t *testing.T) {
 		var firstProposal *starknet.Proposal

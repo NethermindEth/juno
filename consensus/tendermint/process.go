@@ -38,7 +38,34 @@ func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []act
 	if !s.voteCounter.AddPrecommit(p) || !s.isHeightStarted {
 		return nil
 	}
+
+	if s.hasFuturePrecommitQuorum(p) {
+		return s.triggerSync(p)
+	}
+
 	return s.processMessage(p, (*wal.Precommit[H, A])(p))
+}
+
+func (s *stateMachine[V, H, A]) hasFuturePrecommitQuorum(p *types.Precommit[H, A]) bool {
+	return p.ID != nil &&
+		p.Height > s.state.height &&
+		p.Height > s.lastTriggerSync &&
+		s.voteCounter.HasFuturePrecommitQuorum(p.Height, p.Round, p.ID)
+}
+
+func (s *stateMachine[V, H, A]) triggerSync(p *types.Precommit[H, A]) []actions.Action[V, H, A] {
+	syncStart := max(s.lastTriggerSync+1, s.state.height)
+	s.lastTriggerSync = p.Height
+
+	return []actions.Action[V, H, A]{
+		&actions.WriteWAL[V, H, A]{
+			Entry: (*wal.Precommit[H, A])(p),
+		},
+		&actions.TriggerSync{
+			Start: syncStart,
+			End:   p.Height,
+		},
+	}
 }
 
 func (s *stateMachine[V, H, A]) processMessage(
