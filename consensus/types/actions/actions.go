@@ -24,12 +24,17 @@ type ScheduleTimeout types.Timeout
 
 type Commit[V types.Hashable[H], H types.Hash, A types.Addr] types.Proposal[V, H, A]
 
+type TriggerSync struct {
+	Start, End types.Height
+}
+
 func (a *WriteWAL[V, H, A]) RequiresWALFlush() bool          { return false }
 func (a *BroadcastProposal[V, H, A]) RequiresWALFlush() bool { return true }
 func (a *BroadcastPrevote[H, A]) RequiresWALFlush() bool     { return true }
 func (a *BroadcastPrecommit[H, A]) RequiresWALFlush() bool   { return true }
 func (a *ScheduleTimeout) RequiresWALFlush() bool            { return false }
 func (a *Commit[V, H, A]) RequiresWALFlush() bool            { return true }
+func (a *TriggerSync) RequiresWALFlush() bool                { return false }
 
 func (a *WriteWAL[V, H, A]) isTendermintAction()          {}
 func (a *BroadcastProposal[V, H, A]) isTendermintAction() {}
@@ -37,3 +42,4 @@ func (a *BroadcastPrevote[H, A]) isTendermintAction()     {}
 func (a *BroadcastPrecommit[H, A]) isTendermintAction()   {}
 func (a *ScheduleTimeout) isTendermintAction()            {}
 func (a *Commit[V, H, A]) isTendermintAction()            {}
+func (a *TriggerSync) isTendermintAction()                {}
