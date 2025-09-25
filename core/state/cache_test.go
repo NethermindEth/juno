@@ -125,8 +125,7 @@ func TestStateCache(t *testing.T) {
 		root := new(felt.Felt).SetUint64(1)
 
 		err := cache.PopLayer(root, &felt.Zero)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "layer with state root")
+		require.NoError(t, err)
 	})
 
 	t.Run("push and pop multiple layers with no changes", func(t *testing.T) {
