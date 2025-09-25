@@ -1,8 +1,6 @@
 package votecounter
 
 import (
-	"iter"
-
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/utils"
 )
@@ -42,23 +40,6 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](validators Validators[
 	}
 }
 
-func (v *VoteCounter[V, H, A]) LoadFromMessages(messages iter.Seq2[types.Message[V, H, A], error]) error {
-	for msg, err := range messages {
-		if err != nil {
-			return err
-		}
-		switch msg := msg.(type) {
-		case *types.Proposal[V, H, A]:
-			v.AddProposal(msg)
-		case *types.Prevote[H, A]:
-			v.AddPrevote(msg)
-		case *types.Precommit[H, A]:
-			v.AddPrecommit(msg)
-		}
-	}
-	return nil
-}
-
 func (v *VoteCounter[V, H, A]) StartNewHeight() {
 	v.currentHeight++
 	v.totalVotingPower = v.validators.TotalVotingPower(v.currentHeight)
@@ -74,23 +55,26 @@ func (v *VoteCounter[V, H, A]) StartNewHeight() {
 	}
 }
 
-func (v *VoteCounter[V, H, A]) getRoundDataAndVotingPower(header *types.MessageHeader[A]) (*roundData[V, H, A], types.VotingPower, bool) {
-	if header.Height < v.currentHeight {
-		return nil, 0, false
+func (v *VoteCounter[V, H, A]) getRoundData(
+	height types.Height,
+	round types.Round,
+) (*roundData[V, H, A], bool) {
+	if height < v.currentHeight {
+		return nil, false
 	}
 
-	votingPower := v.validators.ValidatorVotingPower(header.Height, &header.Sender)
-
-	if header.Height == v.currentHeight {
-		return getOrCreateRoundData(v.roundData, header.Round), votingPower, true
+	var roundData roundMap[V, H, A]
+	if height == v.currentHeight {
+		roundData = v.roundData
+	} else {
+		var ok bool
+		if roundData, ok = v.futureMessages[height]; !ok {
+			roundData = make(roundMap[V, H, A])
+			v.futureMessages[height] = roundData
+		}
 	}
 
-	futureRoundMap, ok := v.futureMessages[header.Height]
-	if !ok {
-		futureRoundMap = make(roundMap[V, H, A])
-		v.futureMessages[header.Height] = futureRoundMap
-	}
-	return getOrCreateRoundData(futureRoundMap, header.Round), votingPower, true
+	return getOrCreateRoundData(roundData, round), true
 }
 
 func getOrCreateRoundData[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -106,7 +90,7 @@ func getOrCreateRoundData[V types.Hashable[H], H types.Hash, A types.Addr](
 }
 
 func (v *VoteCounter[V, H, A]) AddProposal(proposal *types.Proposal[V, H, A]) bool {
-	roundData, votingPower, ok := v.getRoundDataAndVotingPower(&proposal.MessageHeader)
+	roundData, ok := v.getRoundData(proposal.Height, proposal.Round)
 	if !ok {
 		return false
 	}
@@ -115,23 +99,29 @@ func (v *VoteCounter[V, H, A]) AddProposal(proposal *types.Proposal[V, H, A]) bo
 		return false
 	}
 
+	votingPower := v.validators.ValidatorVotingPower(proposal.Height, &proposal.Sender)
+
 	return roundData.setProposal(proposal, votingPower)
 }
 
 func (v *VoteCounter[V, H, A]) AddPrevote(prevote *types.Prevote[H, A]) bool {
-	roundData, votingPower, ok := v.getRoundDataAndVotingPower(&prevote.MessageHeader)
+	roundData, ok := v.getRoundData(prevote.Height, prevote.Round)
 	if !ok {
 		return false
 	}
+
+	votingPower := v.validators.ValidatorVotingPower(prevote.Height, &prevote.Sender)
 
 	return roundData.addVote((*types.Vote[H, A])(prevote), votingPower, Prevote)
 }
 
 func (v *VoteCounter[V, H, A]) AddPrecommit(precommit *types.Precommit[H, A]) bool {
-	roundData, votingPower, ok := v.getRoundDataAndVotingPower(&precommit.MessageHeader)
+	roundData, ok := v.getRoundData(precommit.Height, precommit.Round)
 	if !ok {
 		return false
 	}
+
+	votingPower := v.validators.ValidatorVotingPower(precommit.Height, &precommit.Sender)
 
 	return roundData.addVote((*types.Vote[H, A])(precommit), votingPower, Precommit)
 }
@@ -161,6 +151,19 @@ func (v *VoteCounter[V, H, A]) HasQuorumForAny(round types.Round, voteType VoteT
 	}
 
 	return roundData.countAny(voteType) >= v.quorumVotingPower
+}
+
+func (v *VoteCounter[V, H, A]) HasFuturePrecommitQuorum(
+	height types.Height,
+	round types.Round,
+	id *H,
+) bool {
+	roundData, ok := v.getRoundData(height, round)
+	if !ok {
+		return false
+	}
+
+	return roundData.countVote(Precommit, id) >= v.quorumVotingPower
 }
 
 func (v *VoteCounter[V, H, A]) HasNonFaultyFutureMessage(round types.Round) bool {
