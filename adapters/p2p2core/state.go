@@ -72,7 +72,7 @@ func AdaptStateDiff(
 					if errors.Is(err, db.ErrKeyNotFound) {
 						stateClassHash = &felt.Zero
 					} else {
-						return nil, fmt.Errorf("%w", err)
+						return nil, fmt.Errorf("unexpected error when calculating contract class hash: %w", err)
 					}
 				}
 			}
