@@ -12,6 +12,13 @@ import (
 	"github.com/NethermindEth/juno/db"
 )
 
+type TrieDBScheme uint8
+
+const (
+	PathDB TrieDBScheme = iota
+	HashDB
+)
+
 type Config struct {
 	PathConfig *pathdb.Config
 	HashConfig *hashdb.Config
@@ -60,6 +67,17 @@ func (d *Database) Update(
 		return td.Update(root, parent, blockNum, mergeClassNodes, mergeContractNodes)
 	default:
 		return fmt.Errorf("unsupported trie db type: %T", td)
+	}
+}
+
+func (d *Database) Scheme() TrieDBScheme {
+	switch d.triedb.(type) {
+	case *pathdb.Database:
+		return PathDB
+	case *hashdb.Database:
+		return HashDB
+	default:
+		panic("unsupported TrieDB scheme")
 	}
 }
 

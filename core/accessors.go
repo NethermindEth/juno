@@ -552,3 +552,54 @@ func WriteRunningEventFilter(w db.KeyValueWriter, filter *RunningEventFilter) er
 
 	return w.Put(db.RunningEventFilter.Key(), enc)
 }
+
+// This is used to get the class and contract roots for a given state commitment,
+// needed to properly initialise the trie or recover the cache, if the triedb is in hash scheme
+func GetClassAndContractRootByStateCommitment(r db.KeyValueReader, stateCommitment *felt.Felt) ([]byte, error) {
+	var val []byte
+	err := r.Get(db.StateHashToTrieRootsKey(stateCommitment), func(data []byte) error {
+		val = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return val, nil
+}
+
+func WriteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment *felt.Felt, val []byte) error {
+	return w.Put(db.StateHashToTrieRootsKey(stateCommitment), val)
+}
+
+func DeleteClassAndContractRootByStateCommitment(w db.KeyValueWriter, stateCommitment *felt.Felt) error {
+	return w.Delete(db.StateHashToTrieRootsKey(stateCommitment))
+}
+
+func WriteContractStorageRoot(
+	w db.KeyValueWriter,
+	stateCommitment,
+	contractCommitment,
+	contractStorageRoot *felt.Felt,
+) error {
+	return w.Put(db.ContractStorageRootKey(stateCommitment, contractCommitment), contractStorageRoot.Marshal())
+}
+
+// This is used to get the contract storage root for a given state commitment and contract commitment,
+// needed to properly initialise the trie or recover the cache, if the triedb is in hash scheme
+func GetContractStorageRoot(r db.KeyValueReader, stateCommitment, contractCommitment *felt.Felt) ([]byte, error) {
+	var val []byte
+	err := r.Get(db.ContractStorageRootKey(stateCommitment, contractCommitment), func(data []byte) error {
+		val = data
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return val, nil
+}
+
+func DeleteContractStorageRoot(w db.KeyValueWriter, stateCommitment, contractCommitment *felt.Felt) error {
+	return w.Delete(db.ContractStorageRootKey(stateCommitment, contractCommitment))
+}

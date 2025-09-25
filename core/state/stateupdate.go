@@ -5,8 +5,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 )
 
-var emptyStateUpdate = stateUpdate{}
-
 type stateUpdate struct {
 	prevComm felt.Felt // state commitment before applying updates
 	curComm  felt.Felt // state commitment after applying updates
