@@ -48,14 +48,14 @@ func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
 	return starknet.MessageHeader{
 		Height: types.Height(random.Uint32()),
 		Round:  types.Round(random.Int()),
-		Sender: starknet.Address(felt.FromUint64[felt.Felt](random.Uint64())),
+		Sender: felt.FromUint64[starknet.Address](random.Uint64()),
 	}
 }
 
 func getRandProposal(random *rand.Rand) starknet.Proposal {
 	return starknet.Proposal{
 		MessageHeader: getRandMessageHeader(random),
-		Value:         utils.HeapPtr(starknet.Value(felt.FromUint64[felt.Felt](random.Uint64()))),
+		Value:         felt.NewFromUint64[starknet.Value](random.Uint64()),
 		ValidRound:    types.Round(random.Int()),
 	}
 }
@@ -63,14 +63,14 @@ func getRandProposal(random *rand.Rand) starknet.Proposal {
 func getRandPrevote(random *rand.Rand) starknet.Prevote {
 	return starknet.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(felt.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
+		ID:            felt.NewFromUint64[starknet.Hash](random.Uint64()),
 	}
 }
 
 func getRandPrecommit(random *rand.Rand) starknet.Precommit {
 	return starknet.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            utils.HeapPtr(felt.Hash(felt.FromUint64[felt.Felt](random.Uint64()))),
+		ID:            felt.NewFromUint64[starknet.Hash](random.Uint64()),
 	}
 }
 
@@ -154,7 +154,9 @@ func TestDriver(t *testing.T) {
 	prevoteCh := make(chan *starknet.Prevote)
 	precommitCh := make(chan *starknet.Precommit)
 
-	stateMachine := mocks.NewMockStateMachine[starknet.Value, felt.Hash, starknet.Address](ctrl)
+	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](
+		ctrl,
+	)
 	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))

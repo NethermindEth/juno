@@ -26,6 +26,5 @@ func (n nodes) ValidatorVotingPower(height types.Height, addr *starknet.Address)
 func (n nodes) Proposer(height types.Height, round types.Round) starknet.Address {
 	nodeIndex := (int(height)*17 + int(round)*31) % len(n)
 	nodeID := n[nodeIndex]
-	f := new(felt.Felt).SetUint64(uint64(nodeID))
-	return starknet.Address(*f)
+	return felt.FromUint64[starknet.Address](uint64(nodeID))
 }

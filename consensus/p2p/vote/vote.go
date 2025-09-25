@@ -17,12 +17,12 @@ type VoteAdapter[H types.Hash, A types.Addr] interface {
 
 type starknetVoteAdapter struct{}
 
-var StarknetVoteAdapter VoteAdapter[felt.Hash, felt.Address] = starknetVoteAdapter{}
+var StarknetVoteAdapter VoteAdapter[starknet.Hash, starknet.Address] = starknetVoteAdapter{}
 
 func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error) {
 	var id *starknet.Hash
 	if proposalCommitment := vote.GetProposalCommitment().GetElements(); proposalCommitment != nil {
-		id = felt.NewFromBytes[felt.Hash](proposalCommitment)
+		id = felt.NewFromBytes[starknet.Hash](proposalCommitment)
 	}
 
 	voter := vote.GetVoter().GetElements()
@@ -34,7 +34,7 @@ func (a starknetVoteAdapter) ToVote(vote *consensus.Vote) (starknet.Vote, error)
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(vote.GetBlockNumber()),
 			Round:  types.Round(vote.GetRound()),
-			Sender: felt.FromBytes[felt.Address](voter),
+			Sender: felt.FromBytes[starknet.Address](voter),
 		},
 		ID: id,
 	}, nil
