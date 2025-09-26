@@ -1887,11 +1887,11 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		FeeDAMode:   core.DAModeL1,
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
+				MaxAmount:       0x1,
 				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 			},
 			core.ResourceL1DataGas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
+				MaxAmount:       0x1,
 				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 			},
 			core.ResourceL2Gas: {

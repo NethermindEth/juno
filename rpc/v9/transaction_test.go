@@ -55,9 +55,9 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	searchTxHash := felt.NewUnsafeFromString[felt.Felt]("0x123456")
+	searchTxHash := felt.NewFromUint64[felt.Felt](0x123456)
 
-	otherTxHash := felt.NewUnsafeFromString[felt.Felt]("0x789abc")
+	otherTxHash := felt.NewFromUint64[felt.Felt](0x789abc)
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         new(core.TransactionVersion).SetUint64(1),
@@ -1346,9 +1346,9 @@ func TestAddTransaction(t *testing.T) {
 			got, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
 			require.Nil(t, rpcErr)
 			require.Equal(t, rpc.AddTxResponse{
-				TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x1"),
-				ContractAddress: felt.NewUnsafeFromString[felt.Felt]("0x2"),
-				ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
+				ContractAddress: felt.NewFromUint64[felt.Felt](0x2),
+				ClassHash:       felt.NewFromUint64[felt.Felt](0x3),
 			}, got)
 		})
 	}
@@ -2019,20 +2019,20 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
-			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewFromUint64[felt.Felt](0x1),
+			felt.NewFromUint64[felt.Felt](0x1),
 		},
-		Nonce:       felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
 		NonceDAMode: core.DAModeL1,
 		FeeDAMode:   core.DAModeL1,
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
-				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			core.ResourceL1DataGas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
-				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       0,
@@ -2041,7 +2041,7 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 		},
 		Tip:           0,
 		PaymasterData: []*felt.Felt{},
-		SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 		CallData:      []*felt.Felt{},
 	}
 

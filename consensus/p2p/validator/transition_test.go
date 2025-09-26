@@ -179,7 +179,7 @@ func TestProposal(t *testing.T) {
 				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l1DataGasPriceFri + 1),
 			},
 		},
-		Tip:                   utils.HexToUint64(t, "0x0"),
+		Tip:                   0x0,
 		PaymasterData:         []*felt.Felt{},
 		AccountDeploymentData: []*felt.Felt{},
 		NonceDAMode:           core.DAModeL1,

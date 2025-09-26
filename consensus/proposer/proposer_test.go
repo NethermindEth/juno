@@ -268,7 +268,7 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 		},
-		Tip:                   utils.HexToUint64(t, "0x0"),
+		Tip:                   0x0,
 		PaymasterData:         []*felt.Felt{},
 		AccountDeploymentData: []*felt.Felt{},
 		NonceDAMode:           core.DAModeL1,
