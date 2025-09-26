@@ -69,6 +69,17 @@ func TestStringCtor(t *testing.T) {
 			}
 		})
 
+		t.Run("UnsafeFromString"+test.value, func(t *testing.T) {
+			if test.error {
+				assert.PanicsWithError(t, expectedErr.Error(), func() {
+					felt.UnsafeFromString[f](test.value)
+				})
+			} else {
+				actual := felt.UnsafeFromString[f](test.value)
+				assert.Equal(t, *expected, actual)
+			}
+		})
+
 		t.Run("NewString"+test.value, func(t *testing.T) {
 			actual, actualErr := felt.NewFromString[f](test.value)
 			if test.error {
@@ -77,5 +88,32 @@ func TestStringCtor(t *testing.T) {
 				assert.Equal(t, expected, actual)
 			}
 		})
+
+		t.Run("NewUnsafeFromString"+test.value, func(t *testing.T) {
+			if test.error {
+				assert.PanicsWithError(t, expectedErr.Error(), func() {
+					felt.NewUnsafeFromString[f](test.value)
+				})
+			} else {
+				actual := felt.NewUnsafeFromString[f](test.value)
+				assert.Equal(t, expected, actual)
+			}
+		})
 	}
+}
+
+func TestRandomCtor(t *testing.T) {
+	//  Normal random doesn't error
+	_, err := felt.Random[f]()
+	assert.NoError(t, err)
+
+	// Unsafe random doesn't panic
+	_ = felt.UnsafeRandom[f]()
+
+	// New normal random doesn't error
+	_, err = felt.NewRandom[f]()
+	assert.NoError(t, err)
+
+	// New unsafe random doesn't panic
+	_ = felt.NewUnsafeRandom[f]()
 }
