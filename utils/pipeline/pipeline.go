@@ -62,7 +62,7 @@ func FanIn[T any](ctx context.Context, channels ...<-chan T) <-chan T {
 	return out
 }
 
-func Bridge[T any](ctx context.Context, out chan T, chanCh <-chan <-chan T) {
+func Bridge[T any](ctx context.Context, out chan<- T, chanCh <-chan <-chan T) {
 	if chanCh == nil {
 		return
 	}
