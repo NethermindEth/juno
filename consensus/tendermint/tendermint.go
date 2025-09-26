@@ -40,6 +40,7 @@ type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
 	voteCounter     votecounter.VoteCounter[V, H, A]
 	application     Application[V, H]
 	isHeightStarted bool
+	lastTriggerSync types.Height
 }
 
 type state[V types.Hashable[H], H types.Hash] struct {
