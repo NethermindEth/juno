@@ -143,7 +143,7 @@ func TestSimulateTransactions(t *testing.T) {
 			blockID := blockIDLatest(t)
 			simulatedTxs, httpHeader, err := handler.SimulateTransactions(
 				&blockID,
-				[]rpc.BroadcastedTransaction{},
+				rpc.BroadcastedTransactionInputs{},
 				test.simulationFlags,
 			)
 			if test.err != nil {
@@ -270,7 +270,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 			blockID := blockIDLatest(t)
 			_, _, err := handler.SimulateTransactions(
 				&blockID,
-				test.transactions,
+				rpc.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv6.SimulationFlag{},
 			)
 			if test.err != nil {

@@ -43,10 +43,17 @@ type FeeEstimate struct {
 		Estimate Fee Handlers
 *****************************************************/
 
-func (h *Handler) EstimateFee(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
+func (h *Handler) EstimateFee(
+	broadcastedTxns BroadcastedTransactionInputs,
+	simulationFlags []rpcv6.SimulationFlag,
+	id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
-	result, httpHeader, err := h.simulateTransactions(id, broadcastedTxns, append(simulationFlags, rpcv6.SkipFeeChargeFlag), true)
+	result, httpHeader, err := h.simulateTransactions(
+		id,
+		broadcastedTxns.Data,
+		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
+		true,
+	)
 	if err != nil {
 		return nil, httpHeader, err
 	}
@@ -60,8 +67,10 @@ func (h *Handler) EstimateMessageFee(msg rpcv6.MsgFromL1, id BlockID) (*FeeEstim
 	return h.estimateMessageFee(msg, id, h.EstimateFee)
 }
 
-type estimateFeeHandler func(broadcastedTxns []BroadcastedTransaction,
-	simulationFlags []rpcv6.SimulationFlag, id BlockID,
+type estimateFeeHandler func(
+	broadcastedTxns BroadcastedTransactionInputs,
+	simulationFlags []rpcv6.SimulationFlag,
+	id BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error)
 
 //nolint:gocritic
@@ -87,7 +96,11 @@ func (h *Handler) estimateMessageFee(msg rpcv6.MsgFromL1, id BlockID, f estimate
 		// Must be greater than zero to successfully execute transaction.
 		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
 	}
-	estimates, httpHeader, rpcErr := f([]BroadcastedTransaction{tx}, nil, id)
+	estimates, httpHeader, rpcErr := f(
+		BroadcastedTransactionInputs{Data: []BroadcastedTransaction{tx}},
+		nil,
+		id,
+	)
 	if rpcErr != nil {
 		if rpcErr.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := rpcErr.Data.(TransactionExecutionErrorData)

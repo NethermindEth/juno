@@ -1285,7 +1285,7 @@ func TestCall(t *testing.T) {
 			&rpc.FunctionCall{
 				ContractAddress:    *contractAddr,
 				EntryPointSelector: *selector,
-				Calldata:           calldata,
+				Calldata:           rpc.CalldataInputs{Data: calldata},
 			},
 			&blockID,
 		)
@@ -1334,7 +1334,7 @@ func TestCall(t *testing.T) {
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpc.CalldataInputs{Data: calldata},
 		},
 			&blockID,
 		)
@@ -1377,7 +1377,7 @@ func TestCall(t *testing.T) {
 			&rpc.FunctionCall{
 				ContractAddress:    *contractAddr,
 				EntryPointSelector: *selector,
-				Calldata:           calldata,
+				Calldata:           rpc.CalldataInputs{Data: calldata},
 			},
 			&blockID,
 		)
