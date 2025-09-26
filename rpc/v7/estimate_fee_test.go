@@ -80,7 +80,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("transaction with invalid contract class", func(t *testing.T) {
 		toFelt := func(hex string) *felt.Felt {
-			return utils.HexToFelt(t, hex)
+			return felt.NewUnsafeFromString[felt.Felt](hex)
 		}
 		invalidTx := rpcv7.BroadcastedTransaction{
 			Transaction: rpcv7.Transaction{

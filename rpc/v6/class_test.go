@@ -42,7 +42,7 @@ func TestClass(t *testing.T) {
 	latest := rpc.BlockID{Latest: true}
 
 	t.Run("sierra class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestClass(t *testing.T) {
 	})
 
 	t.Run("casm class", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 
 		coreClass, err := integGw.Class(t.Context(), hash)
 		require.NoError(t, err)
@@ -105,11 +105,11 @@ func TestClassAt(t *testing.T) {
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
 	cairo0ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
+	cairo0ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(cairo0ClassHash, nil)
 
 	cairo1ContractAddress, _ := new(felt.Felt).SetRandom()
-	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
+	cairo1ClassHash := felt.NewUnsafeFromString[felt.Felt]("0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
 
 	mockState.EXPECT().Class(gomock.Any()).DoAndReturn(func(classHash *felt.Felt) (*core.DeclaredClass, error) {
