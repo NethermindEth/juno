@@ -169,7 +169,7 @@ func TestStorageProof(t *testing.T) {
 
 	var (
 		blkHash = felt.NewFromUint64[felt.Felt](0x11ead)
-		root    = felt.NewUnsafeFromString[felt.Address](
+		root    = felt.NewUnsafeFromString[felt.Felt](
 			"0x43f7163af64f9199e7c0bba225c2c3310ee2947be5ec0f03c9fb1551135818b",
 		)
 		key         = felt.NewFromUint64[felt.Felt](1)
@@ -346,7 +346,7 @@ func TestStorageProof(t *testing.T) {
 		verifyIf(t, trieRoot, key, value, proof.ContractsProof.Nodes, tempTrie.HashFn())
 	})
 	t.Run("contract storage trie address does not exist in a trie", func(t *testing.T) {
-		contract := felt.NewUnsafeFromString[felt.Felt]("0xdead")
+		contract := felt.NewFromUint64[felt.Felt](0xdead)
 		mockState.EXPECT().ContractStorageTrie(contract).Return(emptyTrie(t), nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*key}}}
@@ -358,7 +358,7 @@ func TestStorageProof(t *testing.T) {
 	})
 	//nolint:dupl
 	t.Run("contract storage trie key slot does not exist in a trie", func(t *testing.T) {
-		contract := felt.NewUnsafeFromString[felt.Felt]("0xabcd")
+		contract := felt.NewFromUint64[felt.Felt](0xabcd)
 		mockState.EXPECT().ContractStorageTrie(contract).Return(tempTrie, nil).Times(1)
 
 		storageKeys := []rpc.StorageKeys{{Contract: contract, Keys: []felt.Felt{*noSuchKey}}}
