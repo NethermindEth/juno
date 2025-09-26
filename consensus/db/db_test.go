@@ -10,7 +10,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/db/pebble"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,16 +42,16 @@ func buildExpectedEntries(testHeight types.Height) []starknet.WALEntry {
 	testRound := types.Round(1)
 	testStep := types.StepPrevote
 
-	sender1 := starknet.Address(*new(felt.Felt).SetUint64(1))
-	sender2 := starknet.Address(*new(felt.Felt).SetUint64(2))
-	sender3 := starknet.Address(*new(felt.Felt).SetUint64(3))
-	val1 := starknet.Value(felt.FromUint64[felt.Felt](10))
+	sender1 := felt.FromUint64[starknet.Address](1)
+	sender2 := felt.FromUint64[starknet.Address](2)
+	sender3 := felt.FromUint64[starknet.Address](3)
+	val1 := felt.FromUint64[starknet.Value](10)
 	valHash1 := val1.Hash()
 
 	proposal := starknet.WALProposal{
 		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender1},
 		ValidRound:    testRound,
-		Value:         utils.HeapPtr(val1),
+		Value:         &val1,
 	}
 	prevote := starknet.WALPrevote{
 		MessageHeader: starknet.MessageHeader{Height: testHeight, Round: testRound, Sender: sender2},

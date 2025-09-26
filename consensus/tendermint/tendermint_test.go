@@ -21,7 +21,7 @@ func newApp() *app { return &app{} }
 
 func (a *app) Value() starknet.Value {
 	a.cur = (a.cur + 1) % 100
-	return starknet.Value(felt.FromUint64[felt.Felt](a.cur))
+	return felt.FromUint64[starknet.Value](a.cur)
 }
 
 func (a *app) Valid(v starknet.Value) bool {

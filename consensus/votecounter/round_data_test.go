@@ -68,7 +68,7 @@ type voteTestCase struct {
 func newVoteTestCase(addrIndex voter, voteType VoteType, idIndex *uint64) *voteTestCase {
 	var id *starknet.Hash
 	if idIndex != nil {
-		value := starknet.Value(felt.FromUint64[felt.Felt](*idIndex))
+		value := felt.FromUint64[starknet.Value](*idIndex)
 		id = utils.HeapPtr(value.Hash())
 	}
 
@@ -80,7 +80,7 @@ func newVoteTestCase(addrIndex voter, voteType VoteType, idIndex *uint64) *voteT
 			MessageHeader: starknet.MessageHeader{
 				Height: testHeight,
 				Round:  testRound,
-				Sender: starknet.Address(felt.FromUint64[felt.Felt](uint64(addrIndex))),
+				Sender: felt.FromUint64[starknet.Address](uint64(addrIndex)),
 			},
 			ID: id,
 		},
@@ -212,7 +212,7 @@ func isVotingNil(vote *starknet.Vote, voteType VoteType) bool {
 func buildVotingPower(votingPower ...types.VotingPower) map[starknet.Address]types.VotingPower {
 	votingPowerMap := make(map[starknet.Address]types.VotingPower)
 	for i, power := range votingPower {
-		votingPowerMap[starknet.Address(felt.FromUint64[felt.Felt](uint64(i)))] = power
+		votingPowerMap[felt.FromUint64[starknet.Address](uint64(i))] = power
 	}
 	return votingPowerMap
 }

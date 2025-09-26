@@ -138,20 +138,20 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 
 func getRandomVote(t *testing.T) starknet.Vote {
 	var id *starknet.Hash
+	var err error
 	if rand.IntN(100) >= 20 {
-		idFelt, err := new(felt.Felt).SetRandom()
+		id, err = felt.NewRandom[starknet.Hash]()
 		require.NoError(t, err)
-		id = (*starknet.Hash)(idFelt)
 	}
 
-	sender, err := new(felt.Felt).SetRandom()
+	sender, err := felt.NewRandom[starknet.Address]()
 	require.NoError(t, err)
 
 	return starknet.Vote{
 		MessageHeader: starknet.MessageHeader{
 			Height: types.Height(rand.Uint64()),
 			Round:  types.Round(rand.Int32()),
-			Sender: starknet.Address(*sender),
+			Sender: *sender,
 		},
 		ID: id,
 	}

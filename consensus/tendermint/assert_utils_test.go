@@ -11,7 +11,7 @@ import (
 )
 
 func value(value uint64) starknet.Value {
-	return starknet.Value(felt.FromUint64[felt.Felt](value))
+	return felt.FromUint64[starknet.Value](value)
 }
 
 // assertState asserts that the state machine is in the expected state.
