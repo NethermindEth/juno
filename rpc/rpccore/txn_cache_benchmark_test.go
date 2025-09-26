@@ -33,8 +33,8 @@ func BenchmarkCache(b *testing.B) {
 	}
 
 	// Not interested in the one time setup cost of the cache
-	b.ResetTimer()
-	for range b.N {
+
+	for b.Loop() {
 		keyID := 0
 		for range numTicks {
 			// Add all the txns for this round
