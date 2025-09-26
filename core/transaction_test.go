@@ -152,23 +152,23 @@ func TestVerifyTransactionHash(t *testing.T) {
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	gw := adaptfeeder.New(client)
 
-	txnHash0 := utils.HexToFelt(t, "0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
+	txnHash0 := felt.NewUnsafeFromString[felt.Felt]("0x1b4d9f09276629d496af1af8ff00173c11ff146affacb1b5c858d7aa89001ae")
 	txn0, err := gw.Transaction(t.Context(), txnHash0)
 	require.NoError(t, err)
 
-	txnHash1 := utils.HexToFelt(t, "0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
+	txnHash1 := felt.NewUnsafeFromString[felt.Felt]("0x6d3e06989ee2245139cd677f59b4da7f360a27b2b614a4eb088fdf5862d23ee")
 	txn1, err := gw.Transaction(t.Context(), txnHash1)
 	require.NoError(t, err)
 
-	txnHash2 := utils.HexToFelt(t, "0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
+	txnHash2 := felt.NewUnsafeFromString[felt.Felt]("0x32b272b6d0d584305a460197aa849b5c7a9a85903b66e9d3e1afa2427ef093e")
 	txn2, err := gw.Transaction(t.Context(), txnHash2)
 	require.NoError(t, err)
 
-	txnHash3 := utils.HexToFelt(t, "0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
+	txnHash3 := felt.NewUnsafeFromString[felt.Felt]("0x218adbb5aea7985d67fe49b45d44a991380b63db41622f9f4adc36274d02190")
 	txn3, err := gw.Transaction(t.Context(), txnHash3)
 	require.NoError(t, err)
 
-	txnHash4 := utils.HexToFelt(t, "0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497")
+	txnHash4 := felt.NewUnsafeFromString[felt.Felt]("0x2897e3cec3e24e4d341df26b8cf1ab84ea1c01a051021836b36c6639145b497")
 	txn4, err := gw.Transaction(t.Context(), txnHash4)
 	require.NoError(t, err)
 
@@ -179,7 +179,7 @@ func TestVerifyTransactionHash(t *testing.T) {
 
 		badTxn1 := new(core.L1HandlerTransaction)
 		*badTxn1 = *txn3.(*core.L1HandlerTransaction)
-		badTxn1.TransactionHash = utils.HexToFelt(t, "0xab")
+		badTxn1.TransactionHash = felt.NewUnsafeFromString[felt.Felt]("0xab")
 
 		tests := map[felt.Felt]struct {
 			name    string
@@ -236,7 +236,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				invoke.TransactionHash = nil
 				return invoke
 			},
-			want: utils.HexToFelt(t, "0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"),
+			want: felt.NewUnsafeFromString[felt.Felt]("0x76b52e17bc09064bd986ead34263e6305ef3cecfb3ae9e19b86bf4f1a1a20ea"),
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155
 		"declare": {
@@ -248,7 +248,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				declare.TransactionHash = nil
 				return declare
 			},
-			want: utils.HexToFelt(t, "0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155"),
+			want: felt.NewUnsafeFromString[felt.Felt]("0x30c852c522274765e1d681bc8a84ce7c41118370ef2ba7d18a427ed29f5b155"),
 		},
 		// https://alpha-sepolia.starknet.io/feeder_gateway/get_transaction?transactionHash=0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975
 		"deployAccount": {
@@ -260,7 +260,7 @@ func TestTransactionV3Hash(t *testing.T) {
 				deployAccount.TransactionHash = nil
 				return deployAccount
 			},
-			want: utils.HexToFelt(t, "0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975"),
+			want: felt.NewUnsafeFromString[felt.Felt]("0x32413f8cee053089d6d7026a72e4108262ca3cfe868dd9159bc1dd160aec975"),
 		},
 	}
 
@@ -274,7 +274,7 @@ func TestTransactionV3Hash(t *testing.T) {
 }
 
 func TestTransactionVersion(t *testing.T) {
-	f := utils.HexToFelt(t, "0x100000000000000000000000000000002")
+	f := felt.NewUnsafeFromString[felt.Felt]("0x100000000000000000000000000000002")
 	v := (*core.TransactionVersion)(f)
 
 	assert.True(t, v.HasQueryBit())
@@ -297,26 +297,26 @@ func TestMessageHash(t *testing.T) {
 		{
 			expected: "f3507cad1b674c2b2f26a0a51cc8abebe96ad7a8a9cd1aa54b00fddee776e4cf",
 			tx: &core.L1HandlerTransaction{
-				ContractAddress:    utils.HexToFelt(t, "0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
-				EntryPointSelector: utils.HexToFelt(t, "0x02d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
-				Nonce:              utils.HexToFelt(t, "0xbf0dd"),
+				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x073314940630fd6dcda0d772d4c972c4e0a9946bef9dabf4ef84eda8ef542b82"),
+				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x02d757788a8d8d6f21d1cd40bce38a8222d70654214e96ff95d8086e684fbee5"),
+				Nonce:              felt.NewUnsafeFromString[felt.Felt]("0xbf0dd"),
 				CallData: []*felt.Felt{
-					utils.HexToFelt(t, "0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e"),
-					utils.HexToFelt(t, "0x3efc988748484820f1c157fb48e218d39cadc07a662482d3875d37445b3c082"),
-					utils.HexToFelt(t, "0x11c37937e08000"),
-					utils.HexToFelt(t, "0x0"),
+					felt.NewUnsafeFromString[felt.Felt]("0xc3511006c04ef1d78af4c8e0e74ec18a6e64ff9e"),
+					felt.NewUnsafeFromString[felt.Felt]("0x3efc988748484820f1c157fb48e218d39cadc07a662482d3875d37445b3c082"),
+					felt.NewUnsafeFromString[felt.Felt]("0x11c37937e08000"),
+					felt.NewUnsafeFromString[felt.Felt]("0x0"),
 				},
 			},
 		},
 		{
 			expected: "546479edde51ea965cfa77ecde8d749d198e54e4ec71e4b543866dbe837d8a26",
 			tx: &core.L1HandlerTransaction{
-				ContractAddress:    utils.HexToFelt(t, "0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac"),
-				EntryPointSelector: utils.HexToFelt(t, "0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b"),
+				ContractAddress:    felt.NewUnsafeFromString[felt.Felt]("0x078466c2444176f0be70650b3d1f520e19a095ca5fa6ff124ddc49f27a30bdac"),
+				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0xe3f5e9e1456ffa52a3fbc7e8c296631d4cc2120c0be1e2829301c0d8fa026b"),
 				CallData: []*felt.Felt{
-					utils.HexToFelt(t, "0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
-					utils.HexToFelt(t, "0x8c1e1e5b47980d214965f3bd8ea34c413e120ae4"),
-					utils.HexToFelt(t, "0x1"),
+					felt.NewUnsafeFromString[felt.Felt]("0xeaea1710a78bd93bf022fda3e95100dc12973b1b"),
+					felt.NewUnsafeFromString[felt.Felt]("0x8c1e1e5b47980d214965f3bd8ea34c413e120ae4"),
+					felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
 			},
 		},

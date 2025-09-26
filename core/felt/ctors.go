@@ -21,10 +21,14 @@ func NewFromUint64[F FeltLike](num uint64) *F {
 // care since it forces a heap allocation. For efficient code use `FromString`
 func NewFromString[F FeltLike](val string) (*F, error) {
 	f, err := FromString[F](val)
-	if err != nil {
-		return nil, err
-	}
-	return &f, nil
+	return &f, err
+}
+
+// NewUnsafeFromString is similar to `NewFromString` but it panics instead of returning
+// an error.
+func NewUnsafeFromString[F FeltLike](val string) *F {
+	f := UnsafeFromString[F](val)
+	return &f
 }
 
 // NewFromBytes crates a new Felt based type given a byte array. Use this function with
@@ -34,15 +38,18 @@ func NewFromBytes[F FeltLike](val []byte) *F {
 	return &f
 }
 
-// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors
+// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors.
+// It also forces a heap allocation. For efficient code use `Random`
 func NewRandom[F FeltLike]() (*F, error) {
-	f, err := new(Felt).SetRandom()
-	if err != nil {
-		return nil, err
-	}
+	f, err := Random[F]()
+	return &f, err
+}
 
-	ff := F(*f)
-	return &ff, nil
+// NewRandom creates a new random Felt based type. It panics if "rand/Reader" errors.
+// It also forces a heap allocation. For efficient code use `UnsafeRandom`
+func NewUnsafeRandom[F FeltLike]() *F {
+	f := UnsafeRandom[F]()
+	return &f
 }
 
 // FromUint64 creates a new Felt based type given an uint64
@@ -67,6 +74,21 @@ func FromString[F FeltLike](value string) (F, error) {
 // if the string is not valid.
 func UnsafeFromString[F FeltLike](value string) F {
 	f, err := new(Felt).SetString(value)
+	if err != nil {
+		panic(err)
+	}
+	return F(*f)
+}
+
+// Creates a new random Felt based type, errors if `rand.Reader` errors
+func Random[F FeltLike]() (F, error) {
+	f, err := new(Felt).SetRandom()
+	return F(*f), err
+}
+
+// Creates a new random Felt based type, panics if `rand.Reader` errors
+func UnsafeRandom[F FeltLike]() F {
+	f, err := new(Felt).SetRandom()
 	if err != nil {
 		panic(err)
 	}

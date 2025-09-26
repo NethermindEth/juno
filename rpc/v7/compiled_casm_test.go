@@ -29,12 +29,12 @@ func TestCompiledCasm(t *testing.T) {
 
 	t.Run("db failure", func(t *testing.T) {
 		rd.EXPECT().HeadState().Return(nil, nil, fmt.Errorf("error"))
-		resp, err := handler.CompiledCasm(utils.HexToFelt(t, "0x000"))
+		resp, err := handler.CompiledCasm(felt.NewUnsafeFromString[felt.Felt]("0x000"))
 		assert.Nil(t, resp)
 		assert.Equal(t, jsonrpc.InternalError, err.Code)
 	})
 	t.Run("class doesn't exist", func(t *testing.T) {
-		classHash := utils.HexToFelt(t, "0x111")
+		classHash := felt.NewUnsafeFromString[felt.Felt]("0x111")
 
 		mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 		mockState.EXPECT().Class(classHash).Return(nil, db.ErrKeyNotFound)
@@ -45,7 +45,7 @@ func TestCompiledCasm(t *testing.T) {
 		assert.Equal(t, rpccore.ErrClassHashNotFound, err)
 	})
 	t.Run("cairo0", func(t *testing.T) {
-		classHash := utils.HexToFelt(t, "0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
+		classHash := felt.NewUnsafeFromString[felt.Felt]("0x5f18f9cdc05da87f04e8e7685bd346fc029f977167d5b1b2b59f69a7dacbfc8")
 
 		cl := clientFeeder.NewTestClient(t, &utils.Sepolia)
 		fd := feeder.New(cl)

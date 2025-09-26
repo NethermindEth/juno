@@ -238,21 +238,21 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 
 	return &core.InvokeTransaction{
 		TransactionHash: &hash,
-		SenderAddress:   utils.HexToFelt(t, "0x101"),
+		SenderAddress:   felt.NewUnsafeFromString[felt.Felt]("0x101"),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		Nonce:           new(felt.Felt).SetUint64(nonce),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0"),
-			utils.HexToFelt(t, "0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823"),
+			felt.NewUnsafeFromString[felt.Felt]("0xa678c78ff34d4a0ccd5063318265d60e233445782892b40e019bf4556e57c0"),
+			felt.NewUnsafeFromString[felt.Felt]("0x234470d2c4f6dc6f8e38adf1992cda3969119f62f25941b8bfb4ccd50b5c823"),
 		},
 		CallData: []*felt.Felt{
-			utils.HexToFelt(t, "0x1"),
-			utils.HexToFelt(t, "0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
-			utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-			utils.HexToFelt(t, "0x3"),
-			utils.HexToFelt(t, "0x105"),
-			utils.HexToFelt(t, "0x1234"),
-			utils.HexToFelt(t, "0x0"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			felt.NewUnsafeFromString[felt.Felt]("0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+			felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+			felt.NewUnsafeFromString[felt.Felt]("0x3"),
+			felt.NewUnsafeFromString[felt.Felt]("0x105"),
+			felt.NewUnsafeFromString[felt.Felt]("0x1234"),
+			felt.NewUnsafeFromString[felt.Felt]("0x0"),
 		},
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
@@ -268,7 +268,7 @@ func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 				MaxPricePerUnit: new(felt.Felt).SetUint64(1),
 			},
 		},
-		Tip:                   utils.HexToUint64(t, "0x0"),
+		Tip:                   0x0,
 		PaymasterData:         []*felt.Felt{},
 		AccountDeploymentData: []*felt.Felt{},
 		NonceDAMode:           core.DAModeL1,

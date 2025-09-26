@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/crypto"
-	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -42,11 +42,11 @@ func TestVerify(t *testing.T) {
 	for desc, test := range tests {
 		t.Run(desc, func(t *testing.T) {
 			signature := crypto.Signature{
-				R: *utils.HexToFelt(t, test.sigR),
-				S: *utils.HexToFelt(t, test.sigS),
+				R: felt.UnsafeFromString[felt.Felt](test.sigR),
+				S: felt.UnsafeFromString[felt.Felt](test.sigS),
 			}
-			msg := utils.HexToFelt(t, test.msg)
-			publicKey := crypto.NewPublicKey(utils.HexToFelt(t, test.key))
+			msg := felt.NewUnsafeFromString[felt.Felt](test.msg)
+			publicKey := crypto.NewPublicKey(felt.NewUnsafeFromString[felt.Felt](test.key))
 
 			res, err := publicKey.Verify(&signature, msg)
 			assert.Equal(t, test.result, res)
@@ -61,17 +61,25 @@ var benchVerifyR bool
 
 func BenchmarkVerify(b *testing.B) {
 	signature := crypto.Signature{
-		R: *utils.HexToFelt(b, "0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20"),
-		S: *utils.HexToFelt(b, "0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b"),
+		R: felt.UnsafeFromString[felt.Felt](
+			"0x0411494b501a98abd8262b0da1351e17899a0c4ef23dd2f96fec5ba847310b20",
+		),
+		S: felt.UnsafeFromString[felt.Felt](
+			"0x0405c3191ab3883ef2b763af35bc5f5d15b3b4e99461d70e84c654a351a7c81b",
+		),
 	}
-	msg := utils.HexToFelt(b, "0x0000000000000000000000000000000000000000000000000000000000000002")
-	publicKey := crypto.NewPublicKey(utils.HexToFelt(b, "0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca"))
+	msg := felt.UnsafeFromString[felt.Felt](
+		"0x0000000000000000000000000000000000000000000000000000000000000002",
+	)
+	publicKey := crypto.NewPublicKey(felt.NewUnsafeFromString[felt.Felt](
+		"0x01ef15c18599971b7beced415a40f0c7deacfd9b0d1819e03d723d8bc943cfca",
+	))
 
 	var verified bool
 	var err error
 	b.ResetTimer()
 	for range b.N {
-		verified, err = publicKey.Verify(&signature, msg)
+		verified, err = publicKey.Verify(&signature, &msg)
 		require.NoError(b, err)
 	}
 	benchVerifyR = verified

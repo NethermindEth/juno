@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func TestRevertReason(t *testing.T) {
 func TestAllEvents(t *testing.T) {
 	numEvents := uint64(10)
 	events := make([]vm.OrderedEvent, 0, numEvents)
-	contractAddr := utils.HexToFelt(t, "0x1337")
+	contractAddr := felt.NewUnsafeFromString[felt.Felt]("0x1337")
 	for i := range numEvents {
 		events = append(events, vm.OrderedEvent{Order: i})
 	}
@@ -80,7 +81,7 @@ func TestAllMessages(t *testing.T) {
 	for i := range nummessages {
 		messages = append(messages, vm.OrderedL2toL1Message{Order: i})
 	}
-	contractAddr := utils.HexToFelt(t, "0x1337")
+	contractAddr := felt.NewFromUint64[felt.Felt](0x1337)
 	tests := map[string]*vm.TransactionTrace{
 		"many top-level invocations": {
 			ValidateInvocation: &vm.FunctionInvocation{

@@ -310,7 +310,7 @@ func TestStoreL1HandlerTxnHash(t *testing.T) {
 	l1HandlerMsgHash := common.HexToHash("0x42e76df4e3d5255262929c27132bd0d295a8d3db2cfe63d2fcd061c7a7a7ab34")
 	l1HandlerTxnHash, err := chain.L1HandlerTxnHash(&l1HandlerMsgHash)
 	require.NoError(t, err)
-	require.Equal(t, utils.HexToFelt(t, "0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
+	require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x785c2ada3f53fbc66078d47715c27718f92e6e48b96372b36e5197de69b82b5"), l1HandlerTxnHash)
 }
 
 func TestBlockCommitments(t *testing.T) {
@@ -533,7 +533,7 @@ func TestEvents(t *testing.T) {
 		require.NoError(t, filter.Close())
 	})
 
-	from := utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
+	from := felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 	t.Run("filter with no keys", func(t *testing.T) {
 		filter, err := chain.EventFilter(from, [][]felt.Felt{{}, {}, {}}, pendingBlockFn)
 		require.NoError(t, err)
@@ -575,14 +575,14 @@ func TestEvents(t *testing.T) {
 	})
 
 	t.Run("filter with keys", func(t *testing.T) {
-		key := utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
+		key := felt.NewUnsafeFromString[felt.Felt]("0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")
 		filter, err := chain.EventFilter(from, [][]felt.Felt{{*key}}, pendingBlockFn)
 		require.NoError(t, err)
 
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterFrom,
-			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+			felt.NewUnsafeFromString[felt.Felt]("0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
 		require.NoError(t, filter.SetRangeEndBlockByHash(blockchain.EventFilterTo,
-			utils.HexToFelt(t, "0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
+			felt.NewUnsafeFromString[felt.Felt]("0x3b43b334f46b921938854ba85ffc890c1b1321f8fd69e7b2961b18b4260de14")))
 
 		t.Run("get all events without pagination", func(t *testing.T) {
 			events, cToken, err := filter.Events(nil, 10)
@@ -595,8 +595,8 @@ func TestEvents(t *testing.T) {
 
 	t.Run("filter with not matching keys", func(t *testing.T) {
 		filter, err := chain.EventFilter(from, [][]felt.Felt{
-			{*utils.HexToFelt(t, "0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
-			{*utils.HexToFelt(t, "0xDEADBEEF")},
+			{*felt.NewUnsafeFromString[felt.Felt]("0x3774b0545aabb37c45c1eddc6a7dae57de498aae6d5e3589e362d4b4323a533")},
+			{*felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")},
 		}, pendingBlockFn)
 		require.NoError(t, err)
 		require.NoError(t, filter.SetRangeEndBlockByNumber(blockchain.EventFilterFrom, 0))

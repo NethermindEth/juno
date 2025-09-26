@@ -163,7 +163,7 @@ func TestReorg(t *testing.T) {
 		// Ensure current head is Sepolia head
 		head, err := bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
+		require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x5c627d4aeb51280058bed93c7889bce78114d63baad1be0f0aeb32496d5f19c"), head.Hash)
 		sepoliaEnd := head
 		sepoliaStart, err := bc.BlockHeaderByNumber(0)
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestReorg(t *testing.T) {
 		// After syncing (and reorging) the current head should be at mainnet
 		head, err = bc.HeadsHeader()
 		require.NoError(t, err)
-		require.Equal(t, utils.HexToFelt(t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
+		require.Equal(t, felt.NewUnsafeFromString[felt.Felt]("0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6"), head.Hash)
 
 		// Validate reorg event
 		got, ok := <-sub.Recv()

@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -125,7 +124,7 @@ func TestProveCustom(t *testing.T) {
 				{
 					name:     "prove existing key",
 					key:      new(felt.Felt).SetUint64(0),
-					expected: utils.HexToFelt(t, "0xcc"),
+					expected: felt.NewUnsafeFromString[felt.Felt]("0xcc"),
 				},
 			},
 		},
@@ -139,7 +138,7 @@ func TestProveCustom(t *testing.T) {
 				require.NoError(t, err)
 
 				records := []*keyValue{
-					{key: utils.HexToFelt(t, "0xff"), value: utils.HexToFelt(t, "0xaa")},
+					{key: felt.NewUnsafeFromString[felt.Felt]("0xff"), value: felt.NewUnsafeFromString[felt.Felt]("0xaa")},
 				}
 
 				for _, record := range records {
@@ -152,8 +151,8 @@ func TestProveCustom(t *testing.T) {
 			testKeys: []testKey{
 				{
 					name:     "prove existing key",
-					key:      utils.HexToFelt(t, "0xff"),
-					expected: utils.HexToFelt(t, "0xaa"),
+					key:      felt.NewUnsafeFromString[felt.Felt]("0xff"),
+					expected: felt.NewUnsafeFromString[felt.Felt]("0xaa"),
 				},
 			},
 		},
@@ -693,8 +692,8 @@ func buildSimpleBinaryRootTrie(t *testing.T) (*trie.Trie, []*keyValue) {
 	//    /                    \
 	// (251, 0, cc)     (251, 11111.., dd)
 	records := []*keyValue{
-		{key: new(felt.Felt).SetUint64(0), value: utils.HexToFelt(t, "0xcc")},
-		{key: utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: utils.HexToFelt(t, "0xdd")},
+		{key: new(felt.Felt).SetUint64(0), value: felt.NewUnsafeFromString[felt.Felt]("0xcc")},
+		{key: felt.NewUnsafeFromString[felt.Felt]("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), value: felt.NewUnsafeFromString[felt.Felt]("0xdd")},
 	}
 	return buildTrie(t, records), records
 }
