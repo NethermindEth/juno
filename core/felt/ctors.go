@@ -24,6 +24,8 @@ func NewFromString[F FeltLike](val string) (*F, error) {
 	return &f, err
 }
 
+// NewUnsafeFromString is similar to `NewFromString` but it panics instead of returning
+// an error.
 func NewUnsafeFromString[F FeltLike](val string) *F {
 	f := UnsafeFromString[F](val)
 	return &f
@@ -36,12 +38,15 @@ func NewFromBytes[F FeltLike](val []byte) *F {
 	return &f
 }
 
-// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors
+// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors.
+// It also forces a heap allocation. For efficient code use `Random`
 func NewRandom[F FeltLike]() (*F, error) {
 	f, err := Random[F]()
 	return &f, err
 }
 
+// NewRandom creates a new random Felt based type. It panics if "rand/Reader" errors.
+// It also forces a heap allocation. For efficient code use `UnsafeRandom`
 func NewUnsafeRandom[F FeltLike]() *F {
 	f := UnsafeRandom[F]()
 	return &f
@@ -75,11 +80,13 @@ func UnsafeFromString[F FeltLike](value string) F {
 	return F(*f)
 }
 
+// Creates a new random Felt based type, errors if `rand.Reader` errors
 func Random[F FeltLike]() (F, error) {
 	f, err := new(Felt).SetRandom()
 	return F(*f), err
 }
 
+// Creates a new random Felt based type, panics if `rand.Reader` errors
 func UnsafeRandom[F FeltLike]() F {
 	f, err := new(Felt).SetRandom()
 	if err != nil {
