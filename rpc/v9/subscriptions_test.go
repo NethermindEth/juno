@@ -105,7 +105,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1024+1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
 
 		serverConn, _ := net.Pipe()
 		t.Cleanup(func() {
@@ -128,7 +128,7 @@ func TestSubscribeEventsInvalidInputs(t *testing.T) {
 		handler := New(mockChain, mockSyncer, nil, log)
 
 		keys := make([][]felt.Felt, 1)
-		fromAddr := new(felt.Felt).SetBytes([]byte("from_address"))
+		fromAddr := felt.NewFromBytes[felt.Felt]([]byte("from_address"))
 
 		blockID := SubscriptionBlockID(BlockIDFromNumber(0))
 
@@ -438,7 +438,7 @@ func TestSubscribeEvents(t *testing.T) {
 			},
 		},
 	}
-	targetAddress, err := new(felt.Felt).SetString("0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3")
+	targetAddress, err := felt.NewFromString[felt.Felt]("0x246ff8c7b475ddfb4cb5035867cba76025f08b22938e5684c18c2ab9d9f36d3")
 	require.NoError(t, err)
 	b1FilteredBySenders, b1EmittedFiltered := createTestEvents(
 		t,
@@ -508,7 +508,7 @@ func TestSubscribeEvents(t *testing.T) {
 		},
 	}
 
-	targetKey, err := new(felt.Felt).SetString("0x1dcde06aabdbca2f80aa51392b345d7549d7757aa855f7e37f5d335ac8243b1")
+	targetKey, err := felt.NewFromString[felt.Felt]("0x1dcde06aabdbca2f80aa51392b345d7549d7757aa855f7e37f5d335ac8243b1")
 	require.NoError(t, err)
 	keys := [][]felt.Felt{{*targetKey}}
 
@@ -625,7 +625,7 @@ func TestSubscribeEvents(t *testing.T) {
 
 func TestSubscribeTxnStatus(t *testing.T) {
 	log := utils.NewNopZapLogger()
-	txHash := new(felt.Felt).SetUint64(1)
+	txHash := felt.NewFromUint64[felt.Felt](1)
 	cacheSize := uint(5)
 	cacheEntryTimeOut := time.Second
 
@@ -670,7 +670,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockSyncer.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound).AnyTimes()
 		mockChain.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound).AnyTimes()
 		t.Run("reverted", func(t *testing.T) {
-			txHash, err := new(felt.Felt).SetString("0x1011")
+			txHash, err := felt.NewFromString[felt.Felt]("0x1011")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
@@ -679,7 +679,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 			assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnFailure, "some error")
 		})
 		t.Run("accepted on L1", func(t *testing.T) {
-			txHash, err := new(felt.Felt).SetString("0x1010")
+			txHash, err := felt.NewFromString[felt.Felt]("0x1010")
 			require.NoError(t, err)
 
 			mockChain.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)

@@ -106,11 +106,11 @@ func TestClassAt(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	cairo0ContractAddress, _ := new(felt.Felt).SetRandom()
+	cairo0ContractAddress, _ := felt.NewRandom[felt.Felt]()
 	cairo0ClassHash := utils.HexToFelt(t, "0x4631b6b3fa31e140524b7d21ba784cea223e618bffe60b5bbdca44a8b45be04")
 	mockState.EXPECT().ContractClassHash(cairo0ContractAddress).Return(cairo0ClassHash, nil)
 
-	cairo1ContractAddress, _ := new(felt.Felt).SetRandom()
+	cairo1ContractAddress, _ := felt.NewRandom[felt.Felt]()
 	cairo1ClassHash := utils.HexToFelt(t, "0x1cd2edfb485241c4403254d550de0a097fa76743cd30696f714a491a454bad5")
 	mockState.EXPECT().ContractClassHash(cairo1ContractAddress).Return(cairo1ClassHash, nil)
 
@@ -192,7 +192,7 @@ func TestClassHashAt(t *testing.T) {
 		assert.Equal(t, rpccore.ErrContractNotFound, rpcErr)
 	})
 
-	expectedClassHash := new(felt.Felt).SetUint64(3)
+	expectedClassHash := felt.NewFromUint64[felt.Felt](3)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)

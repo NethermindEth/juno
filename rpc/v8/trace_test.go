@@ -93,7 +93,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 				L1DataGas: 15,
 			}
 		}
-		return
+		return block, err
 	}).AnyTimes()
 
 	mockReader.EXPECT().L1Head().Return(nil, db.ErrKeyNotFound).AnyTimes()
@@ -344,7 +344,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false,
+			&vm.BlockInfo{Header: header}, gomock.Any(), false, false,
 			false, true, false).Return(vm.ExecutionResults{
 			OverallFees: overallFee,
 			GasConsumed: gc,
@@ -430,7 +430,7 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), &utils.Mainnet, false, false, false, true, false).
+			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
 				GasConsumed: gc,
@@ -676,7 +676,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute(block.Transactions, []core.Class{declaredClass.Class}, paidL1Fees, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true, false).
+			gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -792,7 +792,7 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsedStr := "123"
 
 		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), n, false, false, false, true, false).
+			gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees:      nil,
 				DataAvailability: []core.DataAvailability{{}, {}},
@@ -1237,7 +1237,6 @@ func TestCall(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
-	n := &utils.Mainnet
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockVM := mocks.NewMockVM(mockCtrl)
 	handler := rpc.New(mockReader, nil, mockVM, utils.NewNopZapLogger())
@@ -1314,13 +1313,12 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockReader.EXPECT().Network().Return(n)
 		mockVM.EXPECT().Call(&vm.CallInfo{
 			ContractAddress: contractAddr,
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(
@@ -1365,13 +1363,12 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockReader.EXPECT().Network().Return(n)
 		mockVM.EXPECT().Call(&vm.CallInfo{
 			ContractAddress: contractAddr,
 			ClassHash:       classHash,
 			Selector:        selector,
 			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), &utils.Mainnet, uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
+		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), uint64(1337), cairoClass.SierraVersion(), true, false).Return(expectedRes, nil)
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
@@ -1413,8 +1410,7 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockReader.EXPECT().Network().Return(n)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
 
 		blockID := blockIDLatest(t)
 		res, rpcErr := handler.Call(

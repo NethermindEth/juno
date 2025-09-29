@@ -40,7 +40,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, false, false, true).
+		}, mockState, true, false, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -56,7 +56,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -71,7 +71,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("transaction execution error", func(t *testing.T) {
 		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),
@@ -85,7 +85,7 @@ func TestSimulateTransactions(t *testing.T) {
 
 		mockVM.EXPECT().Execute(nilTxns, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 				Index: 44,
 				Cause: json.RawMessage("oops"),
@@ -101,7 +101,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("incosistant length error", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{&felt.Zero},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
@@ -135,7 +135,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 	}
 
-	version3 := felt.FromUint64(3)
+	version3 := felt.FromUint64[felt.Felt](3)
 
 	tests := []struct {
 		name         string

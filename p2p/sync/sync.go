@@ -336,10 +336,15 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
+				coreC, err := p2p2core.AdaptClass(cls)
+				if err != nil {
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
+					return
+				}
+
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %w", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -364,7 +369,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 				}
 			}()
 
-			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt state diff: %w", err)}
+				return
+			}
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {

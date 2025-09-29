@@ -115,7 +115,14 @@ func TestProposer(t *testing.T) {
 			t.Run(fmt.Sprintf("Batch size %d", len(batch)), func(t *testing.T) {
 				submit(t, otherProposer, batch)
 				requireEventually(t, len(batch), func(c *assert.CollectT) {
-					assert.Equal(c, slices.Concat(committedFirstBatches[:i+1]...), otherProposer.Preconfirmed().Block.Transactions)
+					assert.Equal(
+						c,
+						slices.Concat(committedFirstBatches[:i+1]...),
+						otherProposer.
+							Preconfirmed().
+							Block.
+							Transactions,
+					)
 				})
 			})
 		}
@@ -186,10 +193,16 @@ func getBuilder(t *testing.T, log utils.Logger, bc *blockchain.Blockchain) *buil
 		"../../genesis/classes/strk.json", "../../genesis/classes/account.json",
 		"../../genesis/classes/universaldeployer.json", "../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := vm.ChainInfo{
+		ChainID:           bc.Network().L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	return &testBuilder
 }
@@ -221,7 +234,7 @@ func buildAllBatches(t *testing.T, batchSizes []int) [][]core.Transaction {
 
 func buildRandomTransaction(t *testing.T, nonce uint64) core.Transaction {
 	t.Helper()
-	hash := felt.FromUint64(nonce)
+	hash := felt.FromUint64[felt.Felt](nonce)
 
 	return &core.InvokeTransaction{
 		TransactionHash: &hash,

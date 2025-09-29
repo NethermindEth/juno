@@ -42,11 +42,16 @@ func TestCallDeprecatedCairo(t *testing.T) {
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
 
-	ret, err := New(false, nil).Call(&CallInfo{
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := ChainInfo{
+		ChainID:           utils.Mainnet.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	ret, err := New(&chainInfo, false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -62,11 +67,11 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, nil, false))
 
-	ret, err = New(false, nil).Call(&CallInfo{
+	ret, err = New(&chainInfo, false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Mainnet, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
@@ -97,12 +102,16 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 	}, false))
 
 	entryPoint := utils.HexToFelt(t, "0x39e11d48192e4333233c7eb19d10ad67c362bb28580c604d67884c85da39695")
-
-	_, err = New(false, nil).Call(&CallInfo{
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := ChainInfo{
+		ChainID:           utils.Mainnet.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	_, err = New(&chainInfo, false, nil).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		ClassHash:       classHash,
 		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Mainnet, 0, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, 0, simpleClass.SierraVersion(), false, false)
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -138,13 +147,19 @@ func TestCallCairo(t *testing.T) {
 	// test_storage_read
 	entryPoint := utils.HexToFelt(t, "0x5df99ae77df976b4f0e5cf28c7dcfe09bd6e81aab787b19ac0c08e03d928cf")
 	storageLocation := utils.HexToFelt(t, "0x44")
-	ret, err := New(false, log).Call(&CallInfo{
+
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := ChainInfo{
+		ChainID:           utils.Mainnet.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	ret, err := New(&chainInfo, false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		Selector:        entryPoint,
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -160,13 +175,13 @@ func TestCallCairo(t *testing.T) {
 		},
 	}, nil, false))
 
-	ret, err = New(false, log).Call(&CallInfo{
+	ret, err = New(&chainInfo, false, log).Call(&CallInfo{
 		ContractAddress: contractAddr,
 		Selector:        entryPoint,
 		Calldata: []felt.Felt{
 			*storageLocation,
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, &utils.Goerli, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
@@ -207,16 +222,21 @@ func TestCallInfoErrorHandling(t *testing.T) {
 	}
 
 	// Starknet version <0.13.4 should return an error
-	ret, err := New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := ChainInfo{
+		ChainID:           utils.Mainnet.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	ret, err := New(&chainInfo, false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.0",
-	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
-	ret, err = New(false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
+	ret, err = New(&chainInfo, false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
 		ProtocolVersion: "0.13.4",
-	}}, testState, &utils.Sepolia, 1_000_000, simpleClass.SierraVersion(), false, false)
+	}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
 	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)
@@ -224,15 +244,18 @@ func TestCallInfoErrorHandling(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
-	network := utils.Goerli2
-
 	testDB := memory.New()
 	txn := testDB.NewIndexedBatch()
 
 	state := core.NewState(txn)
 
 	t.Run("empty transaction list", func(t *testing.T) {
-		_, err := New(false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := ChainInfo{
+			ChainID:           utils.Mainnet.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		_, err := New(&chainInfo, false, nil).Execute([]core.Transaction{}, []core.Class{}, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				Timestamp:        1666877926,
 				SequencerAddress: utils.HexToFelt(t, "0x46a89ae102987331d369645031b49c27738ed096f2789c24449966da4c6de6b"),
@@ -240,17 +263,22 @@ func TestExecute(t *testing.T) {
 				L1GasPriceSTRK:   &felt.Zero,
 			},
 		}, state,
-			&network, false, false, false, false, false)
+			false, false, false, false, false)
 		require.NoError(t, err)
 	})
 	t.Run("zero data", func(t *testing.T) {
-		_, err := New(false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
+		feeTokens := utils.DefaultFeeTokenAddresses
+		chainInfo := ChainInfo{
+			ChainID:           utils.Mainnet.L2ChainID,
+			FeeTokenAddresses: feeTokens,
+		}
+		_, err := New(&chainInfo, false, nil).Execute(nil, nil, []*felt.Felt{}, &BlockInfo{
 			Header: &core.Header{
 				SequencerAddress: &felt.Zero,
 				L1GasPriceETH:    &felt.Zero,
 				L1GasPriceSTRK:   &felt.Zero,
 			},
-		}, state, &network, false, false, false, false, false)
+		}, state, false, false, false, false, false)
 		require.NoError(t, err)
 	})
 }

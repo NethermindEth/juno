@@ -42,24 +42,24 @@ func TestSync(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 
-	nodeAddr := starknet.Address(felt.FromUint64(123))
+	nodeAddr := felt.FromUint64[starknet.Address](123)
 	logger := utils.NewNopZapLogger()
 
 	dbPath := t.TempDir()
 	testDB, err := pebble.New(dbPath)
 	require.NoError(t, err)
 
-	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB, types.Height(0))
+	tmDB := db.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](testDB)
 	require.NotNil(t, tmDB)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
 	allNodes := newNodes(4)
 	mockApp := mocks.NewMockApplication[starknet.Value, starknet.Hash](ctrl)
 	mockApp.EXPECT().Valid(gomock.Any()).AnyTimes().Return(true)
-	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash, starknet.Hash](ctrl)
+	mockCommitListener := mocks.NewMockCommitListener[starknet.Value, starknet.Hash](ctrl)
 
 	mockCommitListener.EXPECT().
-		Commit(gomock.Any(), types.Height(0), gomock.Any()).
+		OnCommit(gomock.Any(), types.Height(0), gomock.Any()).
 		Do(func(_ any, newHeight types.Height, _ any) {
 			comittedHeight = int(newHeight)
 			cancel()
@@ -70,14 +70,25 @@ func TestSync(t *testing.T) {
 	proposalCh := make(chan *starknet.Proposal)
 	prevoteCh := make(chan *starknet.Prevote)
 	precommitCh := make(chan *starknet.Precommit)
-	p2p := newMockP2P(proposalCh, prevoteCh, precommitCh)
+
+	listeners := listeners{
+		ProposalListener:  newMockListener(proposalCh),
+		PrevoteListener:   newMockListener(prevoteCh),
+		PrecommitListener: newMockListener(precommitCh),
+	}
+	broadcasters := broadcasters{
+		ProposalBroadcaster:  &mockBroadcaster[*starknet.Proposal]{},
+		PrevoteBroadcaster:   &mockBroadcaster[*starknet.Prevote]{},
+		PrecommitBroadcaster: &mockBroadcaster[*starknet.Precommit]{},
+	}
 
 	driver := driver.New(
 		utils.NewNopZapLogger(),
 		tmDB,
 		stateMachine,
 		mockCommitListener,
-		p2p,
+		broadcasters,
+		listeners,
 		mockTimeoutFn,
 	)
 
@@ -107,7 +118,7 @@ func getCommittedBlock(allNodes nodes) sync.BlockBody {
 	return sync.BlockBody{
 		Block: &core.Block{
 			Header: &core.Header{
-				Hash:             new(felt.Felt).SetUint64(blockID),
+				Hash:             felt.NewFromUint64[felt.Felt](blockID),
 				TransactionCount: 2,
 				EventCount:       3,
 				SequencerAddress: (*felt.Felt)(&proposerAddr),
@@ -127,13 +138,13 @@ func toValue(in *felt.Felt) starknet.Value {
 }
 
 func getPrecommits(*sync.BlockBody) []starknet.Precommit {
-	blockID := starknet.Hash(*new(felt.Felt).SetUint64(blockID))
+	blockID := felt.FromUint64[starknet.Hash](blockID)
 	return []starknet.Precommit{
 		{
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
 				Round:  types.Round(0),
-				Sender: starknet.Address(*new(felt.Felt).SetUint64(1)),
+				Sender: felt.FromUint64[starknet.Address](1),
 			},
 			ID: &blockID,
 		},
@@ -141,7 +152,7 @@ func getPrecommits(*sync.BlockBody) []starknet.Precommit {
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
 				Round:  types.Round(0),
-				Sender: starknet.Address(*new(felt.Felt).SetUint64(2)),
+				Sender: felt.FromUint64[starknet.Address](2),
 			},
 			ID: &blockID,
 		},
@@ -149,7 +160,7 @@ func getPrecommits(*sync.BlockBody) []starknet.Precommit {
 			MessageHeader: types.MessageHeader[starknet.Address]{
 				Height: types.Height(0),
 				Round:  types.Round(0),
-				Sender: starknet.Address(*new(felt.Felt).SetUint64(3)),
+				Sender: felt.FromUint64[starknet.Address](3),
 			},
 			ID: &blockID,
 		},

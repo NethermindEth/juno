@@ -70,7 +70,13 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 		"../genesis/classes/strk.json", "../genesis/classes/account.json",
 		"../genesis/classes/universaldeployer.json", "../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), &network, 40000000)
+
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), &network, 40000000)
 	require.NoError(t, err)
 
 	return diff, classes
@@ -93,7 +99,13 @@ func initNode(
 	logger = &utils.ZapLogger{SugaredLogger: logger.Named(fmt.Sprint(index))}
 	consensusDB := memory.New()
 	bc := getBlockchain(t, genesisDiff, genesisClasses)
-	vm := vm.New(false, logger)
+
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	vm := vm.New(&chainInfo, false, logger)
 
 	services, err := consensus.Init(
 		node.Host,
@@ -128,7 +140,7 @@ func writeBlock(
 	t *testing.T,
 	index int,
 	bc *blockchain.Blockchain,
-	commitListener driver.CommitListener[starknet.Value, starknet.Hash, starknet.Address],
+	commitListener driver.CommitListener[starknet.Value, starknet.Hash],
 	commits chan commit,
 ) {
 	t.Helper()

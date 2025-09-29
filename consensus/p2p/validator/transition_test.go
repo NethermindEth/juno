@@ -42,11 +42,17 @@ func getBuilder(t *testing.T, seqAddr *felt.Felt) (*builder.Builder, *core.Heade
 		"../../../genesis/classes/strk.json", "../../../genesis/classes/account.json",
 		"../../../genesis/classes/universaldeployer.json", "../../../genesis/classes/udacnt.json",
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(false, log), bc.Network(), 40000000)
+
+	feeTokens := utils.DefaultFeeTokenAddresses
+	chainInfo := vm.ChainInfo{
+		ChainID:           network.L2ChainID,
+		FeeTokenAddresses: feeTokens,
+	}
+	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), bc.Network(), 40000000)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	blockTime := 100 * time.Millisecond
-	executor := builder.NewExecutor(bc, vm.New(false, log), log, false, true)
+	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
 	testBuilder := builder.New(bc, executor)
 	// We use the sequencer to build a non-empty blockchain
 	seq := sequencer.New(&testBuilder, p, seqAddr, privKey, blockTime, log)
@@ -130,10 +136,10 @@ func TestProposal(t *testing.T) {
 		BlockNumber:       head.Number + 1,
 		Builder:           *proposerAddr,
 		Timestamp:         1700474724,
-		L2GasPriceFRI:     felt.FromUint64(l2GasPriceFri),
-		L1GasPriceWEI:     felt.FromUint64(l1GasPriceWei),
-		L1DataGasPriceWEI: felt.FromUint64(l1DataGasPriceWei),
-		EthToStrkRate:     felt.FromUint64(ethToStrkRate),
+		L2GasPriceFRI:     felt.FromUint64[felt.Felt](l2GasPriceFri),
+		L1GasPriceWEI:     felt.FromUint64[felt.Felt](l1GasPriceWei),
+		L1DataGasPriceWEI: felt.FromUint64[felt.Felt](l1DataGasPriceWei),
+		EthToStrkRate:     felt.FromUint64[felt.Felt](ethToStrkRate),
 		L1DAMode:          core.Blob,
 	}
 	receivingTransactionsState, err := transition.OnBlockInfo(t.Context(), awaitingBlockInfoOrCommitmentState, &blockInfo)
@@ -162,15 +168,15 @@ func TestProposal(t *testing.T) {
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
 				MaxAmount:       4,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1GasPriceFri + 1)),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l1GasPriceFri + 1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       520000,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l2GasPriceFri + 1)),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l2GasPriceFri + 1),
 			},
 			core.ResourceL1DataGas: {
 				MaxAmount:       296,
-				MaxPricePerUnit: utils.HeapPtr(felt.FromUint64(l1DataGasPriceFri + 1)),
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](l1DataGasPriceFri + 1),
 			},
 		},
 		Tip:                   utils.HexToUint64(t, "0x0"),
@@ -200,8 +206,8 @@ func TestProposal(t *testing.T) {
 		EventCommitment:       *utils.HexToFelt(t, "0x44a528b33c19728469ae78c616070c5a609b57250c630391e64a9532d4bbac9"),
 		ReceiptCommitment:     *utils.HexToFelt(t, "0x4e31a7f4aad47f4d3a2e176961c0ccb7ef90f52159da68edd52c9fc0739eb4c"),
 		ConcatenatedCounts:    *utils.HexToFelt(t, "0x1000000000000000100000000000000038000000000000000"),
-		L1GasPriceFRI:         felt.FromUint64(l1GasPriceFri),
-		L1DataGasPriceFRI:     felt.FromUint64(l1DataGasPriceFri),
+		L1GasPriceFRI:         felt.FromUint64[felt.Felt](l1GasPriceFri),
+		L1DataGasPriceFRI:     felt.FromUint64[felt.Felt](l1DataGasPriceFri),
 		L2GasPriceFRI:         blockInfo.L2GasPriceFRI,
 		L2GasUsed:             *utils.HexToFelt(t, "0x9dbc0"),
 		L1DAMode:              blockInfo.L1DAMode,

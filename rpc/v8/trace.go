@@ -211,7 +211,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	if err != nil {
 		return nil, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
-	network := h.bcReader.Network()
+
 	header := block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
@@ -219,7 +219,7 @@ func (h *Handler) traceBlockTransactionWithVM(block *core.Block) (
 	}
 
 	executionResult, err := h.vm.Execute(block.Transactions, classes, paidFeesOnL1,
-		&blockInfo, state, network, false, false, false, true, false)
+		&blockInfo, state, false, false, false, true, false)
 
 	httpHeader.Set(ExecutionStepsHeader, strconv.FormatUint(executionResult.NumSteps, 10))
 
@@ -369,7 +369,7 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 	}, &vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.bcReader.Network(), h.callMaxSteps, sierraVersion, true, false)
+	}, state, h.callMaxSteps, sierraVersion, true, false)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

@@ -140,12 +140,5 @@ func (f *feederGatewayDataSource) PreConfirmedBlockByNumber(ctx context.Context,
 		return core.PreConfirmed{}, err
 	}
 
-	h, err := f.blockchain.HeadsHeader()
-	if err != nil && !errors.Is(err, db.ErrKeyNotFound) {
-		return core.PreConfirmed{}, err
-	} else if err == nil {
-		preConfirmed.StateUpdate.OldRoot = h.GlobalStateRoot
-	}
-
 	return preConfirmed, nil
 }

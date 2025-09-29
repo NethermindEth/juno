@@ -159,28 +159,28 @@ func TestCompareProposalCommitment(t *testing.T) {
 	t.Run("MismatchedL1GasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L1GasPriceFRI = felt.FromUint64(3)
+		p.L1GasPriceFRI = felt.FromUint64[felt.Felt](3)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL1DataGasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L1DataGasPriceFRI = felt.FromUint64(4)
+		p.L1DataGasPriceFRI = felt.FromUint64[felt.Felt](4)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL2GasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L2GasPriceFRI = felt.FromUint64(5)
+		p.L2GasPriceFRI = felt.FromUint64[felt.Felt](5)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL2GasUsed", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L2GasUsed = felt.FromUint64(6)
+		p.L2GasUsed = felt.FromUint64[felt.Felt](6)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
