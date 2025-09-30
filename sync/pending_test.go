@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/mocks"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -52,7 +51,7 @@ func TestPendingState(t *testing.T) {
 			*deployedClassHash: &core.Cairo0Class{},
 		},
 	}
-	state := sync.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
+	state := core.NewPendingState(pending.StateUpdate.StateDiff, pending.NewClasses, mockState)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
 		t.Run("from pending", func(t *testing.T) {
