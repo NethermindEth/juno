@@ -99,16 +99,14 @@ func TestBlockByNumberAndHash(t *testing.T) {
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 	t.Run("GetBlockByHash returns error if block doesn't exist", func(t *testing.T) {
-		f, err := new(felt.Felt).SetRandom()
-		require.NoError(t, err)
-		_, err = chain.BlockByHash(f)
+		f := felt.NewRandom[felt.Felt]()
+		_, err := chain.BlockByHash(f)
 		assert.EqualError(t, err, db.ErrKeyNotFound.Error())
 	})
 }
 
 func TestVerifyBlock(t *testing.T) {
-	h1, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	h1 := felt.NewRandom[felt.Felt]()
 
 	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
@@ -198,8 +196,7 @@ func TestVerifyBlock(t *testing.T) {
 }
 
 func TestSanityCheckNewHeight(t *testing.T) {
-	h1, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	h1 := felt.NewRandom[felt.Felt]()
 
 	chain := blockchain.New(memory.New(), &utils.Mainnet)
 
@@ -472,7 +469,7 @@ func TestState(t *testing.T) {
 	})
 
 	t.Run("non-existent hash", func(t *testing.T) {
-		hash, _ := new(felt.Felt).SetRandom()
+		hash := felt.NewRandom[felt.Felt]()
 		_, _, err := chain.StateAtBlockHash(hash)
 		require.Error(t, err)
 	})

@@ -7,7 +7,6 @@ import (
 	"github.com/NethermindEth/juno/core/crypto"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPedersen(t *testing.T) {
@@ -152,7 +151,7 @@ func BenchmarkPedersen(b *testing.B) {
 
 func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
 	randomFeltSls := make([][]*felt.Felt, 0, b.N)
-	for range b.N {
+	for b.Loop() {
 		randomFeltSls = append(randomFeltSls, genRandomFelts(b, n))
 	}
 	return randomFeltSls
@@ -160,24 +159,19 @@ func genRandomFeltSls(b *testing.B, n int) [][]*felt.Felt {
 
 func genRandomFelts(b *testing.B, n int) []*felt.Felt {
 	b.Helper()
-	felts := make([]*felt.Felt, 0, n)
-	for range n {
-		f, err := new(felt.Felt).SetRandom()
-		require.NoError(b, err)
-		felts = append(felts, f)
+	felts := make([]*felt.Felt, n)
+	for i := range n {
+		felts[i] = felt.NewRandom[felt.Felt]()
 	}
 	return felts
 }
 
 func genRandomFeltPairs(b *testing.B) [][2]*felt.Felt {
 	b.Helper()
-	var err error
 	randFelts := make([][2]*felt.Felt, b.N)
 	for i := range b.N {
-		randFelts[i][0], err = new(felt.Felt).SetRandom()
-		require.NoError(b, err)
-		randFelts[i][1], err = new(felt.Felt).SetRandom()
-		require.NoError(b, err)
+		randFelts[i][0] = felt.NewRandom[felt.Felt]()
+		randFelts[i][1] = felt.NewRandom[felt.Felt]()
 	}
 	return randFelts
 }

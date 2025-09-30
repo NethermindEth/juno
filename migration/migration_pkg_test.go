@@ -271,7 +271,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	key := []byte("key")
 	class := oldCairo1Class{
 		Abi:     "some cairo abi",
-		AbiHash: randFelt(t),
+		AbiHash: felt.NewRandom[felt.Felt](),
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
 			External    []core.SierraEntryPoint
@@ -280,24 +280,24 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 			Constructor: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 			External: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 			L1Handler: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 		},
 		Program:         randSlice(t),
-		ProgramHash:     randFelt(t),
+		ProgramHash:     felt.NewRandom[felt.Felt](),
 		SemanticVersion: "0.1.0",
 	}
 	expectedDeclared := declaredClass{
@@ -728,21 +728,13 @@ func TestChangeStateDiffStruct(t *testing.T) {
 }
 
 func randSlice(t *testing.T) []*felt.Felt {
+	t.Helper()
+
 	n := rand.Intn(10)
 	sl := make([]*felt.Felt, n)
 
 	for i := range sl {
-		sl[i] = randFelt(t)
+		sl[i] = felt.NewRandom[felt.Felt]()
 	}
-
 	return sl
-}
-
-func randFelt(t *testing.T) *felt.Felt {
-	t.Helper()
-
-	f, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	return f
 }
