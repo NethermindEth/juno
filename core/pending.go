@@ -254,7 +254,7 @@ func (p *PreConfirmed) ReceiptByHash(
 
 	for _, receipt := range p.Block.Receipts {
 		if receipt.TransactionHash.Equal(hash) {
-			return receipt, p.Block.ParentHash, p.Block.Number, nil
+			return receipt, nil, p.Block.Number, nil
 		}
 	}
 
