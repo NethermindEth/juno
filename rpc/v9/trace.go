@@ -125,26 +125,51 @@ func (h *Handler) TraceTransaction(
 		}
 		return *blockTraces[txIndex].TraceRoot, httphttpHeader, nil
 	case core.PreConfirmedBlockVariant:
-		return h.tracePreConfirmedTransaction(block, txIndex)
+		return h.tracePreConfirmedTransaction(pendingData.(*core.PreConfirmed), txIndex)
 	default:
 		panic(fmt.Errorf("unknown pending data variant: %v", v))
 	}
 }
 
 func (h *Handler) tracePreConfirmedTransaction(
-	block *core.Block, txIndex int,
+	preConfirmed *core.PreConfirmed, txIndex int,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
-	state, stateCloser, err := h.syncReader.PendingStateBeforeIndex(txIndex)
+	var baseState core.StateReader
+	var baseStateCloser blockchain.StateCloser
+	var err error
+	if preLatest := preConfirmed.GetPreLatest(); preLatest != nil {
+		baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
+		if err != nil {
+			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+	} else {
+		// Check if genesis, else block number - 1 will underflow.
+		// StateAtBlockHash creates a fresh state if hash zero.
+		if preConfirmed.Block.Number == 0 {
+			baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(&felt.Zero)
+		} else {
+			baseState, baseStateCloser, err = h.bcReader.StateAtBlockNumber(preConfirmed.Block.Number - 1)
+		}
+
+		if err != nil {
+			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
+		}
+	}
+
+	state, err := preConfirmed.PendingStateBeforeIndex(txIndex, baseState)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
-	defer h.callAndLogErr(stateCloser, "Failed to close head state in TraceTransaction")
+	defer h.callAndLogErr(
+		baseStateCloser,
+		"Failed to close base state in TracePreConfirmedTransaction",
+	)
 
 	var classes []core.Class
 	paidFeesOnL1 := []*felt.Felt{}
 
-	transaction := block.Transactions[txIndex]
+	transaction := preConfirmed.Block.Transactions[txIndex]
 	switch tx := transaction.(type) {
 	/// TODO(Ege): decide what to do with this, should be an edge case
 	case *core.DeclareTransaction:
@@ -158,12 +183,12 @@ func (h *Handler) tracePreConfirmedTransaction(
 		paidFeesOnL1 = append(paidFeesOnL1, fee.SetUint64(1))
 	}
 
-	blockHashToBeRevealed, err := h.getRevealedBlockHash(block.Number)
+	blockHashToBeRevealed, err := h.getRevealedBlockHash(preConfirmed.Block.Number)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	header := block.Header
+	header := preConfirmed.Block.Header
 	blockInfo := vm.BlockInfo{
 		Header:                header,
 		BlockHashToBeRevealed: blockHashToBeRevealed,

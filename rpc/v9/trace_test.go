@@ -500,7 +500,7 @@ func TestTraceTransaction(t *testing.T) {
 			nil,
 		)
 		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockSyncReader.EXPECT().PendingStateBeforeIndex(0).Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(headState, nopCloser, nil)
 		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
 
 		innerExecutionResources := `{
