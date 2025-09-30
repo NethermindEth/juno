@@ -256,7 +256,7 @@ func (p *PreConfirmed) ReceiptByHash(
 	preConfirmedBlock := p.GetBlock()
 	for _, receipt := range preConfirmedBlock.Receipts {
 		if receipt.TransactionHash.Equal(hash) {
-			return receipt, preConfirmedBlock.ParentHash, preConfirmedBlock.Number, nil
+			return receipt, nil, preConfirmedBlock.Number, nil
 		}
 	}
 
