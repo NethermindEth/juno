@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var feltOne = &felt.One
+
 // MockDataSource provides controllable behaviour for polling functions.
 type MockDataSource struct {
 	DataSource
