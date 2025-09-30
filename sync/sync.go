@@ -667,7 +667,7 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, errors.New("unsupported pending data variant")
 	}
 
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
+	return core.NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
 }
 
 // PendingStateAfterIndex returns the state obtained by applying all transaction state diffs
@@ -717,5 +717,5 @@ func (s *Synchronizer) PendingStateBeforeIndex(index int) (core.StateReader, fun
 		stateDiff.Merge(txStateDiff)
 	}
 
-	return NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
+	return core.NewPendingState(&stateDiff, newClasses, core.NewState(txn)), noop, nil
 }

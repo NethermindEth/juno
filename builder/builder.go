@@ -140,7 +140,12 @@ func (b *Builder) PendingState(buildState *BuildState) (core.StateReader, func()
 	}
 
 	// TODO: remove the state closer once we refactor the state
-	return sync.NewPendingState(buildState.Preconfirmed.StateUpdate.StateDiff, buildState.Preconfirmed.NewClasses, headState), headCloser, nil
+	return core.NewPendingState(
+			buildState.Preconfirmed.StateUpdate.StateDiff,
+			buildState.Preconfirmed.NewClasses,
+			headState,
+		),
+		headCloser, nil
 }
 
 func (b *Builder) RunTxns(state *BuildState, txns []mempool.BroadcastedTransaction) error {

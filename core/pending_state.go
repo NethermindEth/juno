@@ -1,10 +1,9 @@
-package sync
+package core
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie"
 	"github.com/NethermindEth/juno/db"
@@ -13,12 +12,16 @@ import (
 var feltOne = new(felt.Felt).SetUint64(1)
 
 type PendingState struct {
-	stateDiff  *core.StateDiff
-	newClasses map[felt.Felt]core.Class
-	head       core.StateReader
+	stateDiff  *StateDiff
+	newClasses map[felt.Felt]Class
+	head       StateReader
 }
 
-func NewPendingState(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) *PendingState {
+func NewPendingState(
+	stateDiff *StateDiff,
+	newClasses map[felt.Felt]Class,
+	head StateReader,
+) *PendingState {
 	return &PendingState{
 		stateDiff:  stateDiff,
 		newClasses: newClasses,
@@ -30,7 +33,7 @@ func (p *PendingState) ChainHeight() (uint64, error) {
 	return p.head.ChainHeight()
 }
 
-func (p *PendingState) StateDiff() *core.StateDiff {
+func (p *PendingState) StateDiff() *StateDiff {
 	return p.stateDiff
 }
 
@@ -64,9 +67,9 @@ func (p *PendingState) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) 
 	return p.head.ContractStorage(addr, key)
 }
 
-func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+func (p *PendingState) Class(classHash *felt.Felt) (*DeclaredClass, error) {
 	if class, found := p.newClasses[*classHash]; found {
-		return &core.DeclaredClass{
+		return &DeclaredClass{
 			At:    0,
 			Class: class,
 		}, nil
@@ -76,22 +79,26 @@ func (p *PendingState) Class(classHash *felt.Felt) (*core.DeclaredClass, error) 
 }
 
 func (p *PendingState) ClassTrie() (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+	return nil, ErrHistoricalTrieNotSupported
 }
 
 func (p *PendingState) ContractTrie() (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+	return nil, ErrHistoricalTrieNotSupported
 }
 
 func (p *PendingState) ContractStorageTrie(addr *felt.Felt) (*trie.Trie, error) {
-	return nil, core.ErrHistoricalTrieNotSupported
+	return nil, ErrHistoricalTrieNotSupported
 }
 
 type PendingStateWriter struct {
 	*PendingState
 }
 
-func NewPendingStateWriter(stateDiff *core.StateDiff, newClasses map[felt.Felt]core.Class, head core.StateReader) PendingStateWriter {
+func NewPendingStateWriter(
+	stateDiff *StateDiff,
+	newClasses map[felt.Felt]Class,
+	head StateReader,
+) PendingStateWriter {
 	return PendingStateWriter{
 		PendingState: &PendingState{
 			stateDiff:  stateDiff,
@@ -132,7 +139,7 @@ func (p *PendingStateWriter) SetClassHash(contractAddress, classHash *felt.Felt)
 
 // SetContractClass writes a new CairoV0 class to the PendingState
 // Assumption: SetCompiledClassHash should be called for CairoV1 contracts
-func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class core.Class) error {
+func (p *PendingStateWriter) SetContractClass(classHash *felt.Felt, class Class) error {
 	// Only declare the class if it has not already been declared, and return
 	// and unexepcted errors (ie any error that isn't db.ErrKeyNotFound)
 	_, err := p.Class(classHash)
@@ -158,10 +165,10 @@ func (p *PendingStateWriter) SetCompiledClassHash(classHash, compiledClassHash *
 
 // StateDiffAndClasses returns the pending state's internal data. The returned objects will continue to be
 // read and modified by the pending state.
-func (p *PendingStateWriter) StateDiffAndClasses() (core.StateDiff, map[felt.Felt]core.Class) {
+func (p *PendingStateWriter) StateDiffAndClasses() (StateDiff, map[felt.Felt]Class) {
 	return *p.stateDiff, p.newClasses
 }
 
-func (p *PendingStateWriter) SetStateDiff(stateDiff *core.StateDiff) {
+func (p *PendingStateWriter) SetStateDiff(stateDiff *StateDiff) {
 	p.stateDiff = stateDiff
 }
