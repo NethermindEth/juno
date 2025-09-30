@@ -569,7 +569,7 @@ func (h *Handler) checkTxStatus(
 	txHash *felt.Felt,
 	lastStatus TxnStatus,
 ) (TxnStatus, error) {
-	status, rpcErr := h.TransactionStatus(ctx, *txHash)
+	status, rpcErr := h.TransactionStatus(ctx, txHash)
 	if rpcErr != nil {
 		if rpcErr != rpccore.ErrTxnHashNotFound {
 			return lastStatus, fmt.Errorf("error while checking status for transaction %v with rpc error message: %v", txHash, rpcErr.Message)
