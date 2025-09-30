@@ -61,24 +61,24 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("trace", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
+		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
-			ParentHash:      utils.HexToFelt(t, "0x0C3"),
+			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
 			Number:          0,
-			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000C"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
 			Class: &core.Cairo1Class{},
 		}
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
 		}
 		block := &core.Block{
 			Header:       header,

@@ -3,6 +3,7 @@ package genesis_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -48,13 +49,13 @@ func TestGenesisStateDiff(t *testing.T) {
 		numFundedAccounts := 0
 		v3InvokeTxnTransferAmount := "0x1111111"
 		v3InvokeTxnTriggered := false
-		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
+		strkAddress := felt.NewUnsafeFromString[felt.Felt]("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
-			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt]("0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
-			if v.Equal(utils.HexToFelt(t, v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt](v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
 				v3InvokeTxnTriggered = true
 			}
 		}

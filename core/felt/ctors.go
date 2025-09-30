@@ -21,10 +21,14 @@ func NewFromUint64[F FeltLike](num uint64) *F {
 // care since it forces a heap allocation. For efficient code use `FromString`
 func NewFromString[F FeltLike](val string) (*F, error) {
 	f, err := FromString[F](val)
-	if err != nil {
-		return nil, err
-	}
-	return &f, nil
+	return &f, err
+}
+
+// NewUnsafeFromString is similar to `NewFromString` but it panics instead of returning
+// an error.
+func NewUnsafeFromString[F FeltLike](val string) *F {
+	f := UnsafeFromString[F](val)
+	return &f
 }
 
 // NewFromBytes crates a new Felt based type given a byte array. Use this function with
@@ -34,15 +38,11 @@ func NewFromBytes[F FeltLike](val []byte) *F {
 	return &f
 }
 
-// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors
-func NewRandom[F FeltLike]() (*F, error) {
-	f, err := new(Felt).SetRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	ff := F(*f)
-	return &ff, nil
+// NewRandom creates a new random Felt based type. It also forces a heap allocation.
+// For efficient code use `Random`
+func NewRandom[F FeltLike]() *F {
+	f := Random[F]()
+	return &f
 }
 
 // FromUint64 creates a new Felt based type given an uint64
@@ -70,5 +70,11 @@ func UnsafeFromString[F FeltLike](value string) F {
 	if err != nil {
 		panic(err)
 	}
+	return F(*f)
+}
+
+// Creates a new random Felt based type
+func Random[F FeltLike]() F {
+	f := new(Felt).SetRandom()
 	return F(*f)
 }

@@ -60,7 +60,7 @@ func TestStateSnapshot(t *testing.T) {
 		},
 	).AnyTimes()
 
-	addr, err := new(felt.Felt).SetRandom()
+	addr := felt.NewRandom[felt.Felt]()
 	require.NoError(t, err)
 
 	for desc, test := range map[string]struct {

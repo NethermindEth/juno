@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,7 +24,7 @@ func TestAdaptUint128(t *testing.T) {
 			Low, High uint64
 			Expect    *felt.Felt
 		}{
-			{32, 64, utils.HexToFelt(t, "0x400000000000000020")},
+			{32, 64, felt.NewUnsafeFromString[felt.Felt]("0x400000000000000020")},
 		}
 
 		for _, c := range cases {
