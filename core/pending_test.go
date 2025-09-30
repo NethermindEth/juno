@@ -120,24 +120,12 @@ func TestPreConfirmedValidate(t *testing.T) {
 	})
 }
 
-// Helper function to create test transactions
-func createTestTransaction(hash *felt.Felt) core.Transaction {
-	return &core.InvokeTransaction{
-		TransactionHash: hash,
-	}
-}
-
-// Helper function to create test receipts
-func createTestReceipt(txHash *felt.Felt) *core.TransactionReceipt {
-	return &core.TransactionReceipt{
-		TransactionHash: txHash,
-	}
-}
-
 func TestPendingTransactionByHash(t *testing.T) {
 	existingTxHash := felt.FromUint64[felt.Felt](1)
 
-	txn := createTestTransaction(&existingTxHash)
+	txn := &core.InvokeTransaction{
+		TransactionHash: &existingTxHash,
+	}
 
 	pending := &core.Pending{
 		Block: &core.Block{
@@ -167,8 +155,12 @@ func TestPendingReceiptByHash(t *testing.T) {
 	receiptHash1 := felt.FromUint64[felt.Felt](1)
 	receiptHash2 := felt.FromUint64[felt.Felt](2)
 
-	receipt1 := createTestReceipt(&receiptHash1)
-	receipt2 := createTestReceipt(&receiptHash2)
+	receipt1 := core.TransactionReceipt{
+		TransactionHash: &receiptHash1,
+	}
+	receipt2 := core.TransactionReceipt{
+		TransactionHash: &receiptHash2,
+	}
 
 	parentHash := felt.FromUint64[felt.Felt](999)
 	blockNumber := uint64(1)
@@ -179,7 +171,7 @@ func TestPendingReceiptByHash(t *testing.T) {
 				Number:     blockNumber,
 				ParentHash: &parentHash,
 			},
-			Receipts: []*core.TransactionReceipt{receipt1, receipt2},
+			Receipts: []*core.TransactionReceipt{&receipt1, &receipt2},
 		},
 	}
 
@@ -189,7 +181,7 @@ func TestPendingReceiptByHash(t *testing.T) {
 			foundBlockNumber,
 			err := pending.ReceiptByHash(&receiptHash1)
 		require.NoError(t, err)
-		require.Equal(t, receipt1, foundReceipt)
+		require.Equal(t, receipt1, *foundReceipt)
 		require.Equal(t, parentHash, *foundParentHash)
 		require.Equal(t, blockNumber, foundBlockNumber)
 
@@ -198,7 +190,7 @@ func TestPendingReceiptByHash(t *testing.T) {
 			foundBlockNumber,
 			err = pending.ReceiptByHash(&receiptHash2)
 		require.NoError(t, err)
-		require.Equal(t, receipt2, foundReceipt)
+		require.Equal(t, receipt2, *foundReceipt)
 		require.Equal(t, parentHash, *foundParentHash)
 		require.Equal(t, blockNumber, foundBlockNumber)
 	})
@@ -217,9 +209,15 @@ func TestPreConfirmedTransactionByHash(t *testing.T) {
 	candidateTxHash := felt.FromUint64[felt.Felt](3)
 	nonExistingTxHash := felt.FromUint64[felt.Felt](4)
 
-	preLatestTx := createTestTransaction(&preLatestTxHash)
-	preConfirmedTx := createTestTransaction(&preConfirmedTxHash)
-	candidateTx := createTestTransaction(&candidateTxHash)
+	preLatestTx := &core.InvokeTransaction{
+		TransactionHash: &preLatestTxHash,
+	}
+	preConfirmedTx := &core.InvokeTransaction{
+		TransactionHash: &preConfirmedTxHash,
+	}
+	candidateTx := &core.InvokeTransaction{
+		TransactionHash: &candidateTxHash,
+	}
 
 	preLatest := &core.PreLatest{
 		Block: &core.Block{
@@ -272,8 +270,12 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 	preConfirmedReceiptHash := felt.FromUint64[felt.Felt](2)
 	nonExistingReceiptHash := felt.FromUint64[felt.Felt](3)
 
-	preLatestReceipt := createTestReceipt(&preLatestReceiptHash)
-	preConfirmedReceipt := createTestReceipt(&preConfirmedReceiptHash)
+	preLatestReceipt := core.TransactionReceipt{
+		TransactionHash: &preLatestReceiptHash,
+	}
+	preConfirmedReceipt := core.TransactionReceipt{
+		TransactionHash: &preConfirmedReceiptHash,
+	}
 
 	preLatestParentHash := felt.FromUint64[felt.Felt](100)
 	preLatestBlockNumber := uint64(1)
@@ -283,7 +285,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 				Number:     preLatestBlockNumber,
 				ParentHash: &preLatestParentHash,
 			},
-			Receipts: []*core.TransactionReceipt{preLatestReceipt},
+			Receipts: []*core.TransactionReceipt{&preLatestReceipt},
 		},
 	}
 
@@ -293,7 +295,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 			Header: &core.Header{
 				Number: preConfirmedBlockNumber,
 			},
-			Receipts: []*core.TransactionReceipt{preConfirmedReceipt},
+			Receipts: []*core.TransactionReceipt{&preConfirmedReceipt},
 		},
 	}
 
@@ -304,7 +306,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 			foundBlockNumber,
 			err := preConfirmed.ReceiptByHash(&preLatestReceiptHash)
 		require.NoError(t, err)
-		require.Equal(t, preLatestReceipt, foundReceipt)
+		require.Equal(t, preLatestReceipt, *foundReceipt)
 		require.Equal(t, preLatestParentHash, *foundParentHash)
 		require.Equal(t, preLatestBlockNumber, foundBlockNumber)
 	})
@@ -316,7 +318,7 @@ func TestPreConfirmedReceiptByHash(t *testing.T) {
 			err := preConfirmed.ReceiptByHash(&preConfirmedReceiptHash)
 		require.NoError(t, err)
 		require.Nil(t, foundParentHash)
-		require.Equal(t, preConfirmedReceipt, foundReceipt)
+		require.Equal(t, preConfirmedReceipt, *foundReceipt)
 		require.Equal(t, preConfirmedBlockNumber, foundBlockNumber)
 	})
 
