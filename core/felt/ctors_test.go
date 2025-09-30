@@ -104,16 +104,11 @@ func TestStringCtor(t *testing.T) {
 
 func TestRandomCtor(t *testing.T) {
 	//  Normal random doesn't error
-	_, err := felt.Random[f]()
-	assert.NoError(t, err)
+	assert.NotPanics(t, func() {
+		felt.Random[f]()
+	})
 
-	// Unsafe random doesn't panic
-	_ = felt.UnsafeRandom[f]()
-
-	// New normal random doesn't error
-	_, err = felt.NewRandom[f]()
-	assert.NoError(t, err)
-
-	// New unsafe random doesn't panic
-	_ = felt.NewUnsafeRandom[f]()
+	assert.NotPanics(t, func() {
+		felt.NewRandom[f]()
+	})
 }

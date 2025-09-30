@@ -48,14 +48,14 @@ func getRandMessageHeader(random *rand.Rand) starknet.MessageHeader {
 	return starknet.MessageHeader{
 		Height: types.Height(random.Uint32()),
 		Round:  types.Round(random.Int()),
-		Sender: felt.UnsafeRandom[starknet.Address](),
+		Sender: felt.Random[starknet.Address](),
 	}
 }
 
 func getRandProposal(random *rand.Rand) starknet.Proposal {
 	return starknet.Proposal{
 		MessageHeader: getRandMessageHeader(random),
-		Value:         felt.NewUnsafeRandom[starknet.Value](),
+		Value:         felt.NewRandom[starknet.Value](),
 		ValidRound:    types.Round(random.Int()),
 	}
 }
@@ -63,14 +63,14 @@ func getRandProposal(random *rand.Rand) starknet.Proposal {
 func getRandPrevote(random *rand.Rand) starknet.Prevote {
 	return starknet.Prevote{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            felt.NewUnsafeRandom[starknet.Hash](),
+		ID:            felt.NewRandom[starknet.Hash](),
 	}
 }
 
 func getRandPrecommit(random *rand.Rand) starknet.Precommit {
 	return starknet.Precommit{
 		MessageHeader: getRandMessageHeader(random),
-		ID:            felt.NewUnsafeRandom[starknet.Hash](),
+		ID:            felt.NewRandom[starknet.Hash](),
 	}
 }
 

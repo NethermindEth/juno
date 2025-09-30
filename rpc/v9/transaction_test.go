@@ -35,8 +35,7 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	txHash, err := felt.NewRandom[felt.Felt]()
-	require.NoError(t, err)
+	txHash := felt.NewRandom[felt.Felt]()
 
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)

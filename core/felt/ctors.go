@@ -1,6 +1,8 @@
 package felt
 
 import (
+	"fmt"
+
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -38,17 +40,10 @@ func NewFromBytes[F FeltLike](val []byte) *F {
 	return &f
 }
 
-// NewRandom creates a new random Felt based type. It returns an error if "rand/Reader" errors.
-// It also forces a heap allocation. For efficient code use `Random`
-func NewRandom[F FeltLike]() (*F, error) {
-	f, err := Random[F]()
-	return &f, err
-}
-
-// NewRandom creates a new random Felt based type. It panics if "rand/Reader" errors.
-// It also forces a heap allocation. For efficient code use `UnsafeRandom`
-func NewUnsafeRandom[F FeltLike]() *F {
-	f := UnsafeRandom[F]()
+// NewRandom creates a new random Felt based type. It also forces a heap allocation.
+// For efficient code use `Random`
+func NewRandom[F FeltLike]() *F {
+	f := Random[F]()
 	return &f
 }
 
@@ -80,17 +75,11 @@ func UnsafeFromString[F FeltLike](value string) F {
 	return F(*f)
 }
 
-// Creates a new random Felt based type, errors if `rand.Reader` errors
-func Random[F FeltLike]() (F, error) {
-	f, err := new(Felt).SetRandom()
-	return F(*f), err
-}
-
-// Creates a new random Felt based type, panics if `rand.Reader` errors
-func UnsafeRandom[F FeltLike]() F {
+// Creates a new random Felt based type
+func Random[F FeltLike]() F {
 	f, err := new(Felt).SetRandom()
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("unexpected error from rand.Reader: %s", err.Error()))
 	}
 	return F(*f)
 }
