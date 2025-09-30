@@ -1,12 +1,19 @@
 package core
 
 import (
+	"errors"
+
 	"github.com/NethermindEth/juno/core/felt"
 )
 
 var (
 	_ PendingData = (*Pending)(nil)
 	_ PendingData = (*PreConfirmed)(nil)
+)
+
+var (
+	ErrTransactionNotFound        = errors.New("pending_data: transaction not found")
+	ErrTransactionReceiptNotFound = errors.New("pending_data: transaction receipt not found")
 )
 
 type PendingDataVariant uint8
@@ -87,6 +94,29 @@ func (p *Pending) Validate(parent *Header) bool {
 	}
 
 	return p.Block.ParentHash.Equal(parent.Hash)
+}
+
+func (p *Pending) TransactionByHash(hash *felt.Felt) (Transaction, error) {
+	for _, tx := range p.Block.Transactions {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	return nil, ErrTransactionNotFound
+}
+
+func (p *Pending) ReceiptByHash(
+	hash *felt.Felt,
+) (*TransactionReceipt, *felt.Felt, uint64, error) {
+	pendingBlock := p.GetBlock()
+	for _, receipt := range pendingBlock.Receipts {
+		if receipt.TransactionHash.Equal(hash) {
+			return receipt, pendingBlock.ParentHash, pendingBlock.Number, nil
+		}
+	}
+
+	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
 type PreLatest Pending
@@ -184,4 +214,49 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 	// is pre_confirmed based on valid pre_latest
 	return p.Block.Number == p.PreLatest.Block.Number+1 &&
 		p.PreLatest.Block.ParentHash.Equal(parent.Hash)
+}
+
+func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
+	if preLatest := p.GetPreLatest(); preLatest != nil {
+		for _, tx := range preLatest.Block.Transactions {
+			if tx.Hash().Equal(hash) {
+				return tx, nil
+			}
+		}
+	}
+
+	for _, tx := range p.GetCandidateTransaction() {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	for _, tx := range p.GetTransactions() {
+		if tx.Hash().Equal(hash) {
+			return tx, nil
+		}
+	}
+
+	return nil, ErrTransactionNotFound
+}
+
+func (p *PreConfirmed) ReceiptByHash(
+	hash *felt.Felt,
+) (*TransactionReceipt, *felt.Felt, uint64, error) {
+	if preLatest := p.GetPreLatest(); preLatest != nil {
+		for _, receipt := range preLatest.Block.Receipts {
+			if receipt.TransactionHash.Equal(hash) {
+				return receipt, preLatest.Block.Header.ParentHash, preLatest.Block.Number, nil
+			}
+		}
+	}
+
+	preConfirmedBlock := p.GetBlock()
+	for _, receipt := range preConfirmedBlock.Receipts {
+		if receipt.TransactionHash.Equal(hash) {
+			return receipt, preConfirmedBlock.ParentHash, preConfirmedBlock.Number, nil
+		}
+	}
+
+	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
