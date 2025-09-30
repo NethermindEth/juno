@@ -13,7 +13,6 @@ import (
 	rpc "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/validator"
 	"github.com/NethermindEth/juno/vm"
@@ -104,7 +103,7 @@ func GenesisStateDiff(
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
-	genesisState := sync.NewPendingStateWriter(
+	genesisState := core.NewPendingStateWriter(
 		&initialStateDiff,
 		make(map[felt.Felt]core.Class, len(config.Classes)),
 		core.NewState(memDB.NewIndexedBatch()),
@@ -132,7 +131,10 @@ func GenesisStateDiff(
 	return genesisStateDiff, genesisClasses, nil
 }
 
-func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) (map[felt.Felt]string, error) {
+func declareClasses(
+	config *GenesisConfig,
+	genesisState *core.PendingStateWriter,
+) (map[felt.Felt]string, error) {
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
 		return nil, err
@@ -149,7 +151,7 @@ func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter
 	return classhashToSierraVersion, nil
 }
 
-func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
+func setClass(genesisState *core.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
 	if err := genesisState.SetContractClass(classHash, class); err != nil {
 		return fmt.Errorf("declare v0 class: %v", err)
 	}
@@ -166,7 +168,7 @@ func deployContracts(
 	config *GenesisConfig,
 	v vm.VM,
 	maxSteps uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	classhashToSierraVersion map[felt.Felt]string,
 ) (map[felt.Felt]string, error) {
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
@@ -190,7 +192,7 @@ func deployContracts(
 func deployContract(
 	v vm.VM,
 	maxSteps uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	address felt.Felt,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
@@ -231,7 +233,7 @@ func executeFunctionCalls(
 	config *GenesisConfig,
 	v vm.VM,
 	maxSteps uint64,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 	contractAddressToSierraVersion map[felt.Felt]string,
 ) error {
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
@@ -268,7 +270,7 @@ func executeFunctionCalls(
 func executeTransactions(
 	config *GenesisConfig,
 	v vm.VM,
-	genesisState *sync.PendingStateWriter,
+	genesisState *core.PendingStateWriter,
 ) error {
 	if len(config.Txns) == 0 {
 		return nil
