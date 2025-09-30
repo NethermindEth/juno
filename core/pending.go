@@ -36,6 +36,8 @@ type PendingData interface {
 	// otherwise returns false
 	Validate(parent *Header) bool
 	Variant() PendingDataVariant
+	TransactionByHash(hash *felt.Felt) (Transaction, error)
+	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 }
 
 type Pending struct {
