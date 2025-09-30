@@ -1,8 +1,6 @@
 package felt
 
 import (
-	"fmt"
-
 	"github.com/consensys/gnark-crypto/ecc/stark-curve/fp"
 )
 
@@ -77,9 +75,6 @@ func UnsafeFromString[F FeltLike](value string) F {
 
 // Creates a new random Felt based type
 func Random[F FeltLike]() F {
-	f, err := new(Felt).SetRandom()
-	if err != nil {
-		panic(fmt.Sprintf("unexpected error from rand.Reader: %s", err.Error()))
-	}
+	f := new(Felt).SetRandom()
 	return F(*f)
 }
