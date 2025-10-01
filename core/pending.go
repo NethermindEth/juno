@@ -46,9 +46,9 @@ type PendingData interface {
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
 	// up to given index in the pre-confirmed block.
-	PendingStateBeforeIndex(index uint, baseState StateReader) (StateReader, error)
+	PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error)
 	// PendingState returns the state resulting from execution of the pending data
-	PendingState(baseState StateReader) (StateReader, error)
+	PendingState(baseState StateReader) StateReader
 }
 
 type Pending struct {
@@ -132,16 +132,16 @@ func (p *Pending) ReceiptByHash(
 	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
-func (p *Pending) PendingStateBeforeIndex(index uint, baseState StateReader) (StateReader, error) {
+func (p *Pending) PendingStateBeforeIndex(baseState StateReader, index uint) (StateReader, error) {
 	return nil, ErrPendingStateBeforeIndexNotSupported
 }
 
-func (p *Pending) PendingState(baseState StateReader) (StateReader, error) {
+func (p *Pending) PendingState(baseState StateReader) StateReader {
 	return NewPendingState(
 		p.GetStateUpdate().StateDiff,
 		p.GetNewClasses(),
 		baseState,
-	), nil
+	)
 }
 
 type PreLatest Pending
@@ -287,8 +287,8 @@ func (p *PreConfirmed) ReceiptByHash(
 }
 
 func (p *PreConfirmed) PendingStateBeforeIndex(
-	index uint,
 	baseState StateReader,
+	index uint,
 ) (StateReader, error) {
 	if index > uint(len(p.GetTransactions())) {
 		return nil, ErrTransactionIndexOutOfBounds
@@ -313,7 +313,7 @@ func (p *PreConfirmed) PendingStateBeforeIndex(
 	return NewPendingState(&stateDiff, newClasses, baseState), nil
 }
 
-func (p *PreConfirmed) PendingState(baseState StateReader) (StateReader, error) {
+func (p *PreConfirmed) PendingState(baseState StateReader) StateReader {
 	stateDiff := EmptyStateDiff()
 	newClasses := make(map[felt.Felt]Class)
 
@@ -326,5 +326,5 @@ func (p *PreConfirmed) PendingState(baseState StateReader) (StateReader, error) 
 
 	stateDiff.Merge(p.GetStateUpdate().StateDiff)
 
-	return NewPendingState(&stateDiff, newClasses, baseState), nil
+	return NewPendingState(&stateDiff, newClasses, baseState)
 }
