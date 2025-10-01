@@ -33,6 +33,8 @@ const (
 	maxWait      = 30 * time.Second
 )
 
+var network = &utils.Mainnet
+
 type TestMessage = consensus.ConsensusStreamId
 
 type origin struct {
@@ -48,7 +50,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 			require.NoError(t, err)
 
 			nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(nodeCount))
-			topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+			topics := nodes.JoinTopic(t, network, protocolID, topicName)
 
 			messages := make([][]*TestMessage, nodeCount)
 			allMessages := make(map[string]origin)
@@ -159,7 +161,7 @@ func TestBufferedTopicSubscriptionAndProtoBroadcaster(t *testing.T) {
 		require.NoError(t, err)
 
 		nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))
-		topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+		topics := nodes.JoinTopic(t, network, protocolID, topicName)
 		topic := topics[0]
 
 		ctx, cancel := context.WithCancel(t.Context())
