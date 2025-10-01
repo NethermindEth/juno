@@ -43,7 +43,7 @@ type PendingData interface {
 	ReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *felt.Felt, uint64, error)
 	// PendingStateBeforeIndex returns the state obtained by applying all transaction state diffs
 	// up to given index in the pre-confirmed block.
-	PendingStateBeforeIndex(index int, baseState StateReader) (StateReader, error)
+	PendingStateBeforeIndex(index uint, baseState StateReader) (StateReader, error)
 	// PendingState returns the state resulting from execution of the pending data
 	PendingState(baseState StateReader) (StateReader, error)
 }
@@ -128,7 +128,7 @@ func (p *Pending) ReceiptByHash(
 	return nil, nil, 0, ErrTransactionReceiptNotFound
 }
 
-func (p *Pending) PendingStateBeforeIndex(index int, baseState StateReader) (StateReader, error) {
+func (p *Pending) PendingStateBeforeIndex(index uint, baseState StateReader) (StateReader, error) {
 	return nil, ErrPendingStateBeforeIndexNotSupported
 }
 
@@ -282,10 +282,10 @@ func (p *PreConfirmed) ReceiptByHash(
 }
 
 func (p *PreConfirmed) PendingStateBeforeIndex(
-	index int,
+	index uint,
 	baseState StateReader,
 ) (StateReader, error) {
-	if index > len(p.GetTransactions()) {
+	if index > uint(len(p.GetTransactions())) {
 		return nil, ErrTransactionIndexOutOfBounds
 	}
 
