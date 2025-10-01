@@ -47,7 +47,7 @@ func ResolvePendingDataBaseState(
 	}
 }
 
-// GetPendingStateWithBaseState is a convenience function that combines
+// PendingState is a convenience function that combines
 // base state resolution with pending state creation
 func PendingState(
 	pending core.PendingData,
@@ -61,9 +61,9 @@ func PendingState(
 	return pending.PendingState(baseState), baseStateCloser, nil
 }
 
-// GetPendingStateBeforeIndexWithBaseState is a convenience function that combines
+// PendingStateBeforeIndex is a convenience function that combines
 // base state resolution with pending state before index creation
-func GetPendingStateBeforeIndexWithBaseState(
+func PendingStateBeforeIndex(
 	pending core.PendingData,
 	stateReader blockchain.Reader,
 	index uint,
