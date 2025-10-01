@@ -775,7 +775,7 @@ func TestStorePending(t *testing.T) {
 				},
 			},
 		}
-		t.Run("head is nil", func(t *testing.T) {
+		t.Run("head is nil (pending as genesis)", func(t *testing.T) {
 			written, err := s.StorePending(pending)
 			require.NoError(t, err)
 			require.True(t, written)
