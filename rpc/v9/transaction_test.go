@@ -464,7 +464,7 @@ func TestTransactionByHash(t *testing.T) {
 
 func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 	gw := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-
+	adapterFeeder := adaptfeeder.New(gw)
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
@@ -474,11 +474,11 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 
 	adaptedPreConfirmed, err := sn2core.AdaptPreConfirmedBlock(preConfirmedBlockWithCandidates, blockNumber)
 	require.NoError(t, err)
-	mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil).Times(2)
 	handler := rpc.New(nil, mockSyncReader, nil, nil)
 
 	t.Run("Transaction found in pre_confirmed block", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.Block.Transactions[0]
+		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
@@ -486,6 +486,24 @@ func TestTransactionByHash_PreConfirmedBlock(t *testing.T) {
 
 	t.Run("Transaction found in pre_confirmed block - Candidate transactions", func(t *testing.T) {
 		searchTxn := adaptedPreConfirmed.CandidateTxs[0]
+		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
+		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
+		require.Nil(t, err)
+		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
+	})
+
+	t.Run("Transaction found in pre_latest block", func(t *testing.T) {
+		arbitraryBlockInTestData := uint64(1164621)
+		testBlock, gwErr := adapterFeeder.BlockByNumber(t.Context(), arbitraryBlockInTestData)
+		require.NoError(t, gwErr)
+		searchTxn := testBlock.Transactions[0]
+
+		preLatest := core.PreLatest{
+			Block: testBlock,
+		}
+		adaptedPreConfirmed.WithPreLatest(&preLatest)
+
+		mockSyncReader.EXPECT().PendingData().Return(&adaptedPreConfirmed, nil)
 		foundTxn, err := handler.TransactionByHash(searchTxn.Hash())
 		require.Nil(t, err)
 		require.Equal(t, searchTxn.Hash(), foundTxn.Hash)
