@@ -46,6 +46,17 @@ func (s *stateMachine[V, H, A]) ProcessPrecommit(p *types.Precommit[H, A]) []act
 	return s.processMessage(p, (*wal.Precommit[H, A])(p))
 }
 
+func (s *stateMachine[V, H, A]) ProcessSync(
+	proposal *types.Proposal[V, H, A],
+	precommits []types.Precommit[H, A],
+) []actions.Action[V, H, A] {
+	actions := s.ProcessProposal(proposal)
+	for _, precommit := range precommits {
+		actions = append(actions, s.ProcessPrecommit(&precommit)...)
+	}
+	return actions
+}
+
 func (s *stateMachine[V, H, A]) hasFuturePrecommitQuorum(p *types.Precommit[H, A]) bool {
 	return p.ID != nil &&
 		p.Height > s.state.height &&

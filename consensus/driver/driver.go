@@ -7,26 +7,31 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/db"
 	"github.com/NethermindEth/juno/consensus/p2p"
+	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/tendermint"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/types/actions"
+	"github.com/NethermindEth/juno/p2p/sync"
 	"github.com/NethermindEth/juno/utils"
 )
 
 type TimeoutFn func(step types.Step, round types.Round) time.Duration
 
 type Driver[V types.Hashable[H], H types.Hash, A types.Addr] struct {
-	log            utils.Logger
-	db             db.TendermintDB[V, H, A]
-	stateMachine   tendermint.StateMachine[V, H, A]
-	commitListener CommitListener[V, H]
-	broadcasters   p2p.Broadcasters[V, H, A]
-	listeners      p2p.Listeners[V, H, A]
+	log              utils.Logger
+	db               db.TendermintDB[V, H, A]
+	stateMachine     tendermint.StateMachine[V, H, A]
+	commitListener   CommitListener[V, H]
+	broadcasters     p2p.Broadcasters[V, H, A]
+	listeners        p2p.Listeners[V, H, A]
+	blockFetcher     *sync.BlockFetcher
+	messageExtractor *consensusSync.MessageExtractor[V, H, A]
 
 	getTimeout TimeoutFn
 
 	scheduledTms map[types.Timeout]*time.Timer
 	timeoutsCh   chan types.Timeout
+	syncListener chan sync.BlockBody
 }
 
 func New[V types.Hashable[H], H types.Hash, A types.Addr](
@@ -36,18 +41,23 @@ func New[V types.Hashable[H], H types.Hash, A types.Addr](
 	commitListener CommitListener[V, H],
 	broadcasters p2p.Broadcasters[V, H, A],
 	listeners p2p.Listeners[V, H, A],
+	blockFetcher *sync.BlockFetcher,
+	messageExtractor *consensusSync.MessageExtractor[V, H, A],
 	getTimeout TimeoutFn,
 ) Driver[V, H, A] {
 	return Driver[V, H, A]{
-		log:            log,
-		db:             db,
-		stateMachine:   stateMachine,
-		commitListener: commitListener,
-		broadcasters:   broadcasters,
-		listeners:      listeners,
-		getTimeout:     getTimeout,
-		scheduledTms:   make(map[types.Timeout]*time.Timer),
-		timeoutsCh:     make(chan types.Timeout),
+		log:              log,
+		db:               db,
+		stateMachine:     stateMachine,
+		commitListener:   commitListener,
+		broadcasters:     broadcasters,
+		listeners:        listeners,
+		blockFetcher:     blockFetcher,
+		messageExtractor: messageExtractor,
+		getTimeout:       getTimeout,
+		scheduledTms:     make(map[types.Timeout]*time.Timer),
+		timeoutsCh:       make(chan types.Timeout),
+		syncListener:     make(chan sync.BlockBody),
 	}
 }
 
@@ -123,6 +133,12 @@ func (d *Driver[V, H, A]) listen(ctx context.Context) error {
 					return nil
 				}
 				actions = d.stateMachine.ProcessPrecommit(p)
+			case p, ok := <-d.syncListener:
+				if !ok {
+					return nil
+				}
+				proposal, precommits := d.messageExtractor.Extract(&p)
+				actions = d.stateMachine.ProcessSync(&proposal, precommits)
 			}
 
 			isCommitted, err = d.execute(ctx, false, actions)
@@ -180,14 +196,28 @@ func (d *Driver[V, H, A]) execute(
 			return true, nil
 
 		case *actions.TriggerSync:
-			d.triggerSync(*action)
+			d.triggerSync(ctx, *action)
 		}
 	}
 	return false, nil
 }
 
-func (d *Driver[V, H, A]) triggerSync(sync actions.TriggerSync) {
-	// TODO: Implement this
+func (d *Driver[V, H, A]) triggerSync(ctx context.Context, sync actions.TriggerSync) {
+	for i := sync.Start; i <= sync.End; i++ {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			if err := d.blockFetcher.ProcessBlock(ctx, uint64(i), d.syncListener); err != nil {
+				d.log.Errorw("failed to process block", "block", i, "err", err)
+			} else {
+				break
+			}
+		}
+	}
 }
 
 func (d *Driver[V, H, A]) setTimeout(ctx context.Context, timeout types.Timeout) {
