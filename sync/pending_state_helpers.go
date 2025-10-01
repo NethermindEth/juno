@@ -8,6 +8,28 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// resolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
+func resolvePreConfirmedBaseState(
+	preConfirmed core.PendingData,
+	stateReader blockchain.Reader,
+) (core.StateReader, blockchain.StateCloser, error) {
+	preLatest := preConfirmed.GetPreLatest()
+
+	// If pre-latest exists, use its parent hash as the base state
+	if preLatest != nil {
+		return stateReader.StateAtBlockHash(preLatest.Block.ParentHash)
+	}
+
+	// Otherwise, use the parent of the pre-confirmed block
+	blockNumber := preConfirmed.GetBlock().Number
+	if blockNumber > 0 {
+		return stateReader.StateAtBlockNumber(blockNumber - 1)
+	}
+
+	// For genesis block (number 0), use zero hash to get empty state
+	return stateReader.StateAtBlockHash(&felt.Zero)
+}
+
 // ResolvePendingDataBaseState determines the appropriate base state for pending data
 // and returns the state reader along with its closer function.
 func ResolvePendingDataBaseState(
@@ -25,64 +47,33 @@ func ResolvePendingDataBaseState(
 	}
 }
 
-// resolvePreConfirmedBaseState resolves the base state for pre-confirmed blocks
-func resolvePreConfirmedBaseState(
-	preConfirmed core.PendingData,
-	stateResolver blockchain.Reader,
-) (core.StateReader, blockchain.StateCloser, error) {
-	preLatest := preConfirmed.GetPreLatest()
-
-	// If pre-latest exists, use its parent hash as the base state
-	if preLatest != nil {
-		return stateResolver.StateAtBlockHash(preLatest.Block.ParentHash)
-	}
-
-	// Otherwise, use the parent of the pre-confirmed block
-	blockNumber := preConfirmed.GetBlock().Number
-	if blockNumber > 0 {
-		return stateResolver.StateAtBlockNumber(blockNumber - 1)
-	}
-
-	// For genesis block (number 0), use zero hash to get empty state
-	return stateResolver.StateAtBlockHash(&felt.Zero)
-}
-
 // GetPendingStateWithBaseState is a convenience function that combines
 // base state resolution with pending state creation
 func PendingState(
 	pending core.PendingData,
-	stateResolver blockchain.Reader,
+	stateReader blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateResolver)
+	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stateReader, err := pending.PendingState(baseState)
-	if err != nil {
-		// Clean up base state if pending state creation fails
-		if closeErr := baseStateCloser(); closeErr != nil {
-			return nil, nil, closeErr
-		}
-		return nil, nil, err
-	}
-
-	return stateReader, baseStateCloser, nil
+	return pending.PendingState(baseState), baseStateCloser, nil
 }
 
 // GetPendingStateBeforeIndexWithBaseState is a convenience function that combines
 // base state resolution with pending state before index creation
 func GetPendingStateBeforeIndexWithBaseState(
 	pending core.PendingData,
+	stateReader blockchain.Reader,
 	index uint,
-	stateResolver blockchain.Reader,
 ) (core.StateReader, blockchain.StateCloser, error) {
-	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateResolver)
+	baseState, baseStateCloser, err := ResolvePendingDataBaseState(pending, stateReader)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	stateReader, err := pending.PendingStateBeforeIndex(index, baseState)
+	pendingStateReader, err := pending.PendingStateBeforeIndex(baseState, index)
 	if err != nil {
 		// Clean up base state if pending state creation fails
 		if closeErr := baseStateCloser(); closeErr != nil {
@@ -91,5 +82,5 @@ func GetPendingStateBeforeIndexWithBaseState(
 		return nil, nil, err
 	}
 
-	return stateReader, baseStateCloser, nil
+	return pendingStateReader, baseStateCloser, nil
 }

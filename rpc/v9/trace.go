@@ -139,8 +139,8 @@ func (h *Handler) tracePreConfirmedTransaction(
 
 	state, baseStateCloser, err := sync.GetPendingStateBeforeIndexWithBaseState(
 		preConfirmed,
-		uint(txIndex),
 		h.bcReader,
+		uint(txIndex),
 	)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
