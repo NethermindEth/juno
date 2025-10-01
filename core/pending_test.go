@@ -525,7 +525,10 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 			require.NotNil(t, state)
 
 			// Check that storage value reflects the state up to transaction i
-			retrievedValue, err := state.ContractStorage(&preConfirmedContractAddress, &preConfirmedStorageKey)
+			retrievedValue, err := state.ContractStorage(
+				&preConfirmedContractAddress,
+				&preConfirmedStorageKey,
+			)
 			require.NoError(t, err)
 			expectedValue := felt.FromUint64[felt.Felt](uint64(idx + 1))
 			require.Equal(t, &expectedValue, retrievedValue)
