@@ -96,6 +96,7 @@ type subscriber struct {
 	onNewHead     on[*core.Block]
 	onPendingData on[core.PendingData]
 	onL1Head      on[*core.L1Head]
+	onPreLatest   on[*core.PreLatest]
 }
 
 func getSubscription[T any](callback on[T], feed *feed.Feed[T]) (*feed.Subscription[T], <-chan T) {
@@ -130,6 +131,7 @@ func (h *Handler) subscribe(
 	newHeadsSub, newHeadsRecv := getSubscription(subscriber.onNewHead, h.newHeads)
 	pendingDataSub, pendingRecv := getSubscription(subscriber.onPendingData, h.pendingData)
 	l1HeadSub, l1HeadRecv := getSubscription(subscriber.onL1Head, h.l1Heads)
+	preLatestSub, preLatestRecv := getSubscription(subscriber.onPreLatest, h.preLatestFeed)
 
 	sub.wg.Go(func() {
 		defer func() {
@@ -138,6 +140,7 @@ func (h *Handler) subscribe(
 			unsubscribeFeedSubscription(l1HeadSub)
 			unsubscribeFeedSubscription(newHeadsSub)
 			unsubscribeFeedSubscription(pendingDataSub)
+			unsubscribeFeedSubscription(preLatestSub)
 		}()
 
 		if subscriber.onStart != nil {
@@ -169,6 +172,11 @@ func (h *Handler) subscribe(
 			case pending := <-pendingRecv:
 				if err := subscriber.onPendingData(subscriptionCtx, id, sub, pending); err != nil {
 					h.log.Warnw("Error on pending data", "id", id, "err", err)
+					return
+				}
+			case preLatest := <-preLatestRecv:
+				if err := subscriber.onPreLatest(subscriptionCtx, id, sub, preLatest); err != nil {
+					h.log.Warnw("Error on  preLatest", "id", id, "err", err)
 					return
 				}
 			}
@@ -263,6 +271,22 @@ func (h *Handler) SubscribeEvents(
 				w,
 				id,
 				head,
+				fromAddr,
+				&eventMatcher,
+				eventsPreviouslySent,
+				TxnAcceptedOnL2,
+			)
+		},
+		onPreLatest: func(
+			ctx context.Context,
+			id string, _ *subscription,
+			preLatest *core.PreLatest,
+		) error {
+			return processBlockEvents(
+				ctx,
+				w,
+				id,
+				preLatest.Block,
 				fromAddr,
 				&eventMatcher,
 				eventsPreviouslySent,
@@ -516,6 +540,19 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return sendReorg(w, reorg, id)
 		},
 		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
+			if lastStatus < TxnStatusAcceptedOnL2 {
+				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		onPreLatest: func(
+			ctx context.Context,
+			id string,
+			sub *subscription,
+			preLatest *core.PreLatest,
+		) error {
 			if lastStatus < TxnStatusAcceptedOnL2 {
 				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
 					return err
@@ -820,6 +857,25 @@ func (h *Handler) SubscribeNewTransactionReceipts(
 				false,
 			)
 		},
+		onPreLatest: func(
+			ctx context.Context,
+			id string,
+			_ *subscription,
+			preLatest *core.PreLatest,
+		) error {
+			if !slices.Contains(finalityStatuses, TxnFinalityStatusWithoutL1(TxnAcceptedOnL2)) {
+				return nil
+			}
+
+			return processBlockReceipts(
+				id,
+				w,
+				senderAddress,
+				preLatest.Block,
+				receiptsPreviouslySent,
+				TxnFinalityStatusWithoutL1(TxnAcceptedOnL2),
+			)
+		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
 			if pending == nil {
 				return nil
@@ -1005,6 +1061,24 @@ func (h *Handler) SubscribeNewTransactions(
 				return nil
 			}
 			return processBlockTransactions(id, w, senderAddr, head, sentTransactions, TxnStatusWithoutL1(TxnStatusAcceptedOnL2))
+		},
+		onPreLatest: func(
+			ctx context.Context,
+			id string,
+			_ *subscription,
+			preLatest *core.PreLatest,
+		) error {
+			if !slices.Contains(finalityStatus, TxnStatusWithoutL1(TxnStatusAcceptedOnL2)) {
+				return nil
+			}
+			return processBlockTransactions(
+				id,
+				w,
+				senderAddr,
+				preLatest.Block,
+				sentTransactions,
+				TxnStatusWithoutL1(TxnStatusAcceptedOnL2),
+			)
 		},
 		onPendingData: func(ctx context.Context, id string, _ *subscription, pending core.PendingData) error {
 			if pending == nil {

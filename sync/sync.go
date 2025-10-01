@@ -51,6 +51,10 @@ type PendingDataSubscription struct {
 	*feed.Subscription[core.PendingData]
 }
 
+type PreLatestDataSubscription struct {
+	*feed.Subscription[*core.PreLatest]
+}
+
 // ReorgBlockRange represents data about reorganised blocks, starting and ending block number and hash
 type ReorgBlockRange struct {
 	// StartBlockHash is the hash of the first known block of the orphaned chain
@@ -72,6 +76,7 @@ type Reader interface {
 	SubscribeNewHeads() NewHeadSubscription
 	SubscribeReorg() ReorgSubscription
 	SubscribePendingData() PendingDataSubscription
+	SubscribePreLatest() PreLatestDataSubscription
 
 	PendingData() (core.PendingData, error)
 	PendingBlock() *core.Block
@@ -102,6 +107,10 @@ func (n *NoopSynchronizer) SubscribePendingData() PendingDataSubscription {
 	return PendingDataSubscription{feed.New[core.PendingData]().Subscribe()}
 }
 
+func (n *NoopSynchronizer) SubscribePreLatest() PreLatestDataSubscription {
+	return PreLatestDataSubscription{feed.New[*core.PreLatest]().Subscribe()}
+}
+
 func (n *NoopSynchronizer) PendingBlock() *core.Block {
 	return nil
 }
@@ -129,6 +138,7 @@ type Synchronizer struct {
 	newHeads            *feed.Feed[*core.Block]
 	reorgFeed           *feed.Feed[*ReorgBlockRange]
 	pendingDataFeed     *feed.Feed[core.PendingData]
+	preLatestDataFeed   *feed.Feed[*core.PreLatest]
 
 	log      utils.SimpleLogger
 	listener EventListener
@@ -159,6 +169,7 @@ func New(
 		newHeads:                 feed.New[*core.Block](),
 		reorgFeed:                feed.New[*ReorgBlockRange](),
 		pendingDataFeed:          feed.New[core.PendingData](),
+		preLatestDataFeed:        feed.New[*core.PreLatest](),
 		pendingPollInterval:      pendingPollInterval,
 		preConfirmedPollInterval: preConfirmedPollInterval,
 		listener:                 &SelectiveListener{},
@@ -560,6 +571,10 @@ func (s *Synchronizer) SubscribeReorg() ReorgSubscription {
 
 func (s *Synchronizer) SubscribePendingData() PendingDataSubscription {
 	return PendingDataSubscription{s.pendingDataFeed.Subscribe()}
+}
+
+func (s *Synchronizer) SubscribePreLatest() PreLatestDataSubscription {
+	return PreLatestDataSubscription{s.preLatestDataFeed.Subscribe()}
 }
 
 func (s *Synchronizer) pollLatest(ctx context.Context) {

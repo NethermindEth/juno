@@ -159,6 +159,20 @@ func (mr *MockSyncReaderMockRecorder) SubscribePendingData() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePendingData", reflect.TypeOf((*MockSyncReader)(nil).SubscribePendingData))
 }
 
+// SubscribePreLatest mocks base method.
+func (m *MockSyncReader) SubscribePreLatest() sync.PreLatestDataSubscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribePreLatest")
+	ret0, _ := ret[0].(sync.PreLatestDataSubscription)
+	return ret0
+}
+
+// SubscribePreLatest indicates an expected call of SubscribePreLatest.
+func (mr *MockSyncReaderMockRecorder) SubscribePreLatest() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribePreLatest", reflect.TypeOf((*MockSyncReader)(nil).SubscribePreLatest))
+}
+
 // SubscribeReorg mocks base method.
 func (m *MockSyncReader) SubscribeReorg() sync.ReorgSubscription {
 	m.ctrl.T.Helper()
