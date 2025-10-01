@@ -157,7 +157,6 @@ func TestDriver(t *testing.T) {
 	stateMachine := mocks.NewMockStateMachine[starknet.Value, starknet.Hash, starknet.Address](
 		ctrl,
 	)
-	stateMachine.EXPECT().ReplayWAL().AnyTimes().Return() // ignore WAL replay logic here
 
 	commitAction := starknet.Commit(getRandProposal(random))
 
@@ -179,6 +178,8 @@ func TestDriver(t *testing.T) {
 		newMockCommitListener(t, &commitAction),
 		broadcasters,
 		listeners,
+		nil, // TODO: Add tests for trigger sync
+		nil, // TODO: Add tests for trigger sync
 		mockTimeoutFn,
 	)
 
