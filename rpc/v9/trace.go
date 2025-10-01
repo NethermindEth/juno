@@ -73,14 +73,11 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	// Try to find and trace transaction in finalised blocks
 	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
-
-	// Try to find and trace transaction in pending data
 	trace, header, err := h.findAndTraceInPendingData(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
@@ -315,11 +312,11 @@ func (h *Handler) findAndTraceFinalisedTransaction(
 	return *blockTraces[txIndex].TraceRoot, httpHeader, nil
 }
 
-// TODO: Add support for prelatest block tracing.
 // findAndTraceInPendingData searches for a transaction across all pending data sources.
 //
 // This function searches in the following order:
 // 1. Main pending block (can be pending or preconfirmed based on protocol version)
+// 2. Prelatest block (if available when protocol version is >= 0.14.0)
 //
 // Returns ErrTxnHashNotFound if the transaction is not found in any pending data source.
 func (h *Handler) findAndTraceInPendingData(
@@ -330,7 +327,12 @@ func (h *Handler) findAndTraceInPendingData(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	return h.findAndTraceInPendingBlock(pendingData, hash)
+	if trace, header, err := h.findAndTraceInPendingBlock(pendingData, hash); err == nil {
+		return trace, header, nil
+	} else if err != rpccore.ErrTxnHashNotFound {
+		return TransactionTrace{}, nil, err
+	}
+	return h.findAndTraceInPrelatestBlock(pendingData, hash)
 }
 
 // findAndTraceInPendingBlock finds and traces a transaction in the pending/pre_confirmed block.
@@ -357,6 +359,58 @@ func (h *Handler) findAndTraceInPendingBlock(
 		// Unknown variant - this should not happen in normal operation
 		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrTxnHashNotFound
 	}
+}
+
+// findAndTraceInPrelatestBlock finds and traces a transaction in the prelatest block.
+func (h *Handler) findAndTraceInPrelatestBlock(
+	pendingData core.PendingData, hash *felt.Felt,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	preLatest := pendingData.GetPreLatest()
+	if preLatest == nil {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+
+	txIndex, err := findTransactionInBlock(preLatest.Block, hash)
+	if err != nil {
+		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
+	}
+
+	return h.traceInPrelatestBlock(preLatest, txIndex)
+}
+
+// traceInPrelatestBlock traces a transaction in the prelatest block.
+func (h *Handler) traceInPrelatestBlock(
+	preLatest *core.PreLatest, txIndex uint,
+) (TransactionTrace, http.Header, *jsonrpc.Error) {
+	state, closer, err := h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
+	if err != nil {
+		return TransactionTrace{}, defaultExecutionHeader(), rpccore.ErrBlockNotFound
+	}
+	defer h.callAndLogErr(closer, "Failed to close state in tracePreLatestTransaction")
+
+	preLatestState := core.NewPendingState(
+		preLatest.StateUpdate.StateDiff,
+		preLatest.NewClasses,
+		state,
+	)
+
+	blockInfo, rpcErr := h.buildBlockInfo(preLatest.Block.Header)
+	if rpcErr != nil {
+		return TransactionTrace{}, defaultExecutionHeader(), rpcErr
+	}
+
+	traces, httpHeader, rpcErr := traceTransactionsWithState(
+		h.vm,
+		preLatest.Block.Transactions,
+		state,
+		preLatestState,
+		&blockInfo,
+	)
+	if rpcErr != nil {
+		return TransactionTrace{}, httpHeader, rpcErr
+	}
+
+	return *traces[txIndex].TraceRoot, httpHeader, nil
 }
 
 // traceInPreConfirmedBlock traces a transaction in a preconfirmed block.
