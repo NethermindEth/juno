@@ -7,16 +7,19 @@ import (
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/juno/rpc/rpccore"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
 )
 
+type CalldataInputs = rpccore.LimitSlice[felt.Felt, rpccore.FunctionCalldataLimit]
+
 // https://github.com/starkware-libs/starknet-specs/blob/v0.3.0/api/starknet_api_openrpc.json#L2344
 type FunctionCall struct {
-	ContractAddress    felt.Felt   `json:"contract_address"`
-	EntryPointSelector felt.Felt   `json:"entry_point_selector"`
-	Calldata           []felt.Felt `json:"calldata"`
+	ContractAddress    felt.Felt      `json:"contract_address"`
+	EntryPointSelector felt.Felt      `json:"entry_point_selector"`
+	Calldata           CalldataInputs `json:"calldata"`
 }
 
 func adaptDeclaredClass(declaredClass json.RawMessage) (core.Class, error) {
