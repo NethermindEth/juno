@@ -73,14 +73,11 @@ func (h *Handler) TraceTransaction(
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
 
-	// Try to find and trace transaction in finalised blocks
 	if trace, header, err := h.findAndTraceFinalisedTransaction(ctx, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, httpHeader, rpccore.ErrTxnHashNotFound
 	}
-
-	// Try to find and trace transaction in pending data
 	trace, header, err := h.findAndTraceInPendingData(hash)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, err
@@ -207,7 +204,6 @@ func traceTransactionsWithState(
 		return nil, httpHeader, err
 	}
 
-	// Step 5: Execute with VM
 	executionResult, vmErr := vm.Execute(
 		transactions,
 		declaredClasses,
@@ -332,14 +328,11 @@ func (h *Handler) findAndTraceInPendingData(
 		return TransactionTrace{}, nil, rpccore.ErrTxnHashNotFound
 	}
 
-	// Try main pending block first
 	if trace, header, err := h.findAndTraceInPendingBlock(pendingData, hash); err == nil {
 		return trace, header, nil
 	} else if err != rpccore.ErrTxnHashNotFound {
 		return TransactionTrace{}, nil, err
 	}
-
-	// Try prelatest block
 	return h.findAndTraceInPrelatestBlock(pendingData, hash)
 }
 
@@ -508,14 +501,12 @@ func (h *Handler) shouldFetchTracesFromFeederGateway(block *core.Block) (bool, e
 func (h *Handler) traceBlockWithVM(block *core.Block) (
 	[]TracedBlockTransaction, http.Header, *jsonrpc.Error,
 ) {
-	// Step 1: Prepare execution state
 	state, closer, err := h.bcReader.StateAtBlockHash(block.ParentHash)
 	if err != nil {
 		return nil, defaultExecutionHeader(), rpccore.ErrBlockNotFound
 	}
 	defer h.callAndLogErr(closer, "Failed to close state in traceBlockTransactions")
 
-	// Step 2: Get state to read class definitions for declare transactions
 	var (
 		headState       core.StateReader
 		headStateCloser blockchain.StateCloser
@@ -532,13 +523,11 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 	}
 	defer h.callAndLogErr(headStateCloser, "Failed to close head state in traceBlockTransactions")
 
-	// Step 4: Create block info
 	blockInfo, rpcErr := h.buildBlockInfo(block.Header)
 	if rpcErr != nil {
 		return nil, defaultExecutionHeader(), rpcErr
 	}
 
-	// Execute using unified pattern
 	traces, httpHeader, rpcErr := traceTransactionsWithState(
 		h.vm,
 		block.Transactions,
@@ -550,7 +539,6 @@ func (h *Handler) traceBlockWithVM(block *core.Block) (
 		return nil, httpHeader, rpcErr
 	}
 
-	// Cache result for finalised blocks
 	if !isPending {
 		h.blockTraceCache.Add(rpccore.TraceCacheKey{BlockHash: *block.Hash}, traces)
 	}
