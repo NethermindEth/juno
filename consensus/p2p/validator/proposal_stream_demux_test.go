@@ -38,17 +38,18 @@ const (
 	firstHalfSize = 2
 )
 
+var network = &utils.Mainnet
+
 func TestProposalStreamDemux(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
 	require.NoError(t, err)
 
 	nodes := testutils.BuildNetworks(t, testutils.NewAdjacentNodes(1))
-	topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+	topics := nodes.JoinTopic(t, network, protocolID, topicName)
 	topic := topics[0]
 
 	commitNotifier := make(chan types.Height)
 
-	network := &utils.SepoliaIntegration
 	executor := NewMockExecutor(t, network)
 	database := memory.New()
 	bc := blockchain.New(database, network)
