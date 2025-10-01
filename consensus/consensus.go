@@ -51,7 +51,7 @@ func Init(
 
 	tendermintDB := consensusDB.NewTendermintDB[starknet.Value, starknet.Hash, starknet.Address](database)
 
-	executor := builder.NewExecutor(blockchain, vm, logger, false, true) // TODO: We're currently skipping signature validation
+	executor := builder.NewExecutor(blockchain, vm, logger, false, false)
 	builder := builder.New(blockchain, executor)
 
 	proposalStore := proposal.ProposalStore[starknet.Hash]{}
