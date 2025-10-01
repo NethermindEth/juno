@@ -144,12 +144,12 @@ func (h *Handler) tracePreConfirmedTransaction(
 			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 		}
 	} else {
-		// Check if genesis, else block number - 1 will underflow.
 		// StateAtBlockHash creates a fresh state if hash zero.
-		if preConfirmed.Block.Number == 0 {
-			baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(&felt.Zero)
-		} else {
+		if preConfirmed.Block.Number > 0 {
 			baseState, baseStateCloser, err = h.bcReader.StateAtBlockNumber(preConfirmed.Block.Number - 1)
+		} else {
+			// StateAtBlockHash creates a fresh state if hash zero.
+			baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(&felt.Zero)
 		}
 
 		if err != nil {
@@ -157,7 +157,7 @@ func (h *Handler) tracePreConfirmedTransaction(
 		}
 	}
 
-	state, err := preConfirmed.PendingStateBeforeIndex(txIndex, baseState)
+	state, err := preConfirmed.PendingStateBeforeIndex(uint(txIndex), baseState)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
