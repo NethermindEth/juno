@@ -657,11 +657,10 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 				return nil, nil, err
 			}
 		} else {
-			// Check if genesis, else block number - 1 will underflow.
-			// StateAtBlockHash creates a fresh state if hash zero.
 			if number := pending.GetBlock().Number; number > 0 {
 				baseState, baseStateCloser, err = s.blockchain.StateAtBlockNumber(number - 1)
 			} else {
+				// StateAtBlockHash creates a fresh state if hash zero.
 				baseState, baseStateCloser, err = s.blockchain.StateAtBlockHash(&felt.Zero)
 			}
 
