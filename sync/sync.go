@@ -644,44 +644,8 @@ func (s *Synchronizer) PendingState() (core.StateReader, func() error, error) {
 		return nil, nil, err
 	}
 
-	var baseState core.StateReader
-	var baseStateCloser blockchain.StateCloser
-	switch pending.Variant() {
-	case core.PreConfirmedBlockVariant:
-		preLatest := pending.GetPreLatest()
-		// Built pre_confirmed state top on pre_latest if
-		// pre_confirmed is 2 blocks ahead of latest
-		if preLatest != nil {
-			baseState, baseStateCloser, err = s.blockchain.StateAtBlockHash(preLatest.Block.ParentHash)
-			if err != nil {
-				return nil, nil, err
-			}
-		} else {
-			if number := pending.GetBlock().Number; number > 0 {
-				baseState, baseStateCloser, err = s.blockchain.StateAtBlockNumber(number - 1)
-			} else {
-				// StateAtBlockHash creates a fresh state if hash zero.
-				baseState, baseStateCloser, err = s.blockchain.StateAtBlockHash(&felt.Zero)
-			}
-
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-	case core.PendingBlockVariant:
-		baseState, baseStateCloser, err = s.blockchain.StateAtBlockHash(pending.GetBlock().ParentHash)
-		if err != nil {
-			return nil, nil, err
-		}
-	default:
-		return nil, nil, errors.New("unsupported pending data variant")
-	}
-
-	stateReader, err := pending.PendingState(baseState)
+	stateReader, baseStateCloser, err := PendingState(pending, s.blockchain)
 	if err != nil {
-		if err := baseStateCloser(); err != nil {
-			s.log.Warnw("Failed to close base state reader", "err", err)
-		}
 		return nil, nil, err
 	}
 

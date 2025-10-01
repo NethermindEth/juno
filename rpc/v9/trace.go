@@ -16,6 +16,7 @@ import (
 	"github.com/NethermindEth/juno/jsonrpc"
 	"github.com/NethermindEth/juno/rpc/rpccore"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
+	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
 )
@@ -135,29 +136,12 @@ func (h *Handler) tracePreConfirmedTransaction(
 	preConfirmed *core.PreConfirmed, txIndex int,
 ) (TransactionTrace, http.Header, *jsonrpc.Error) {
 	httpHeader := defaultExecutionHeader()
-	var baseState core.StateReader
-	var baseStateCloser blockchain.StateCloser
-	var err error
-	if preLatest := preConfirmed.GetPreLatest(); preLatest != nil {
-		baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(preLatest.Block.ParentHash)
-		if err != nil {
-			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-	} else {
-		// StateAtBlockHash creates a fresh state if hash zero.
-		if preConfirmed.Block.Number > 0 {
-			baseState, baseStateCloser, err = h.bcReader.StateAtBlockNumber(preConfirmed.Block.Number - 1)
-		} else {
-			// StateAtBlockHash creates a fresh state if hash zero.
-			baseState, baseStateCloser, err = h.bcReader.StateAtBlockHash(&felt.Zero)
-		}
 
-		if err != nil {
-			return TransactionTrace{}, nil, jsonrpc.Err(jsonrpc.InternalError, err.Error())
-		}
-	}
-
-	state, err := preConfirmed.PendingStateBeforeIndex(uint(txIndex), baseState)
+	state, baseStateCloser, err := sync.GetPendingStateBeforeIndexWithBaseState(
+		preConfirmed,
+		uint(txIndex),
+		h.bcReader,
+	)
 	if err != nil {
 		return TransactionTrace{}, httpHeader, jsonrpc.Err(jsonrpc.InternalError, err.Error())
 	}
