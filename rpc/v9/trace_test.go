@@ -279,7 +279,7 @@ func TestTraceTransaction(t *testing.T) {
 				nil,
 			)
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -290,7 +290,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns some other error
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -366,7 +366,7 @@ func TestTraceTransaction(t *testing.T) {
 			NumSteps:    stepsUsed,
 		}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 
@@ -393,7 +393,7 @@ func TestTraceTransaction(t *testing.T) {
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
+		require.Nil(t, header.Hash, "hash must be nil for pending block")
 
 		block := &core.Block{
 			Header:       header,
@@ -404,7 +404,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.Cairo1Class{},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		pendingStateDiff := core.EmptyStateDiff()
 		pending := core.Pending{
 			Block: block,
@@ -458,7 +458,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -493,7 +493,7 @@ func TestTraceTransaction(t *testing.T) {
 			Transactions: []core.Transaction{tx},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		preConfirmedStateDiff := core.EmptyStateDiff()
 		preConfirmed := core.PreConfirmed{
 			Block: block,
@@ -556,7 +556,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -684,7 +684,7 @@ func TestTraceTransaction(t *testing.T) {
 			},
 		}
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *revertedTxHash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), revertedTxHash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
