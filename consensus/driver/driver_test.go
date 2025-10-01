@@ -178,6 +178,8 @@ func TestDriver(t *testing.T) {
 		newMockCommitListener(t, &commitAction),
 		broadcasters,
 		listeners,
+		nil, // TODO: Add tests for trigger sync
+		nil, // TODO: Add tests for trigger sync
 		mockTimeoutFn,
 	)
 

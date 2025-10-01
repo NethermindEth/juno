@@ -98,6 +98,20 @@ func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessStart(arg0 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessStart", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessStart), arg0)
 }
 
+// ProcessSync mocks base method.
+func (m *MockStateMachine[V, H, A]) ProcessSync(arg0 *types.Proposal[V, H, A], arg1 []types.Precommit[H, A]) []actions.Action[V, H, A] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProcessSync", arg0, arg1)
+	ret0, _ := ret[0].([]actions.Action[V, H, A])
+	return ret0
+}
+
+// ProcessSync indicates an expected call of ProcessSync.
+func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessSync(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSync", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessSync), arg0, arg1)
+}
+
 // ProcessTimeout mocks base method.
 func (m *MockStateMachine[V, H, A]) ProcessTimeout(arg0 types.Timeout) []actions.Action[V, H, A] {
 	m.ctrl.T.Helper()

@@ -8,7 +8,6 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
-//go:generate mockgen -destination=../mocks/mock_application.go -package=mocks github.com/NethermindEth/juno/consensus/tendermint Application
 type Application[V types.Hashable[H], H types.Hash] interface {
 	// Value returns the value to the Tendermint consensus algorithm which can be proposed to other validators.
 	Value() V
@@ -31,6 +30,7 @@ type StateMachine[V types.Hashable[H], H types.Hash, A types.Addr] interface {
 	ProcessPrevote(*types.Prevote[H, A]) []actions.Action[V, H, A]
 	ProcessPrecommit(*types.Precommit[H, A]) []actions.Action[V, H, A]
 	ProcessWAL(wal.Entry[V, H, A]) []actions.Action[V, H, A]
+	ProcessSync(*types.Proposal[V, H, A], []types.Precommit[H, A]) []actions.Action[V, H, A]
 }
 
 type stateMachine[V types.Hashable[H], H types.Hash, A types.Addr] struct {
