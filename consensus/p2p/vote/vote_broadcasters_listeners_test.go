@@ -30,6 +30,8 @@ const (
 	maxWait      = 5 * time.Second
 )
 
+var network = &utils.Mainnet
+
 func TestVoteBroadcastersAndListeners(t *testing.T) {
 	logger, err := utils.NewZapLogger(utils.NewLogLevel(logLevel), true)
 	require.NoError(t, err)
@@ -51,7 +53,7 @@ func TestVoteBroadcastersAndListeners(t *testing.T) {
 	pending := maps.Clone(voteSet)
 
 	nodes := testutils.BuildNetworks(t, testutils.LineNetworkConfig(2))
-	topics := nodes.JoinTopic(t, chainID, protocolID, topicName)
+	topics := nodes.JoinTopic(t, network, protocolID, topicName)
 
 	source := topics[0]
 	destination := topics[1]

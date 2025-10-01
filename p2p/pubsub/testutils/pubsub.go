@@ -7,11 +7,12 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/p2p/config"
 	"github.com/NethermindEth/juno/p2p/pubsub"
+	"github.com/NethermindEth/juno/p2p/starknetp2p"
+	"github.com/NethermindEth/juno/utils"
 	libp2p "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/iter"
 	"github.com/stretchr/testify/require"
@@ -61,9 +62,21 @@ func BuildNetworks(
 	return nodes
 }
 
-func (n Nodes) JoinTopic(t *testing.T, chainID, protocolID protocol.ID, topicName string) []*libp2p.Topic {
+func (n Nodes) JoinTopic(
+	t *testing.T,
+	network *utils.Network,
+	protocolID starknetp2p.Protocol,
+	topicName string,
+) []*libp2p.Topic {
 	return iter.Map(n, func(node *Node) *libp2p.Topic {
-		pubSub, err := pubsub.Run(t.Context(), chainID, protocolID, node.Host, config.DefaultBufferSizes.PubSubQueueSize, node.GetBootstrapPeers)
+		pubSub, err := pubsub.Run(
+			t.Context(),
+			node.Host,
+			network,
+			protocolID,
+			node.GetBootstrapPeers,
+			config.DefaultBufferSizes.PubSubQueueSize,
+		)
 		require.NoError(t, err)
 
 		topic, relayCancel, err := pubsub.JoinTopic(pubSub, topicName)
