@@ -389,9 +389,7 @@ func TestPendingData_PendingState(t *testing.T) {
 				},
 			}
 
-			// Test that we can get pending state
-			state, err := pending.PendingState(nil)
-			require.NoError(t, err)
+			state := pending.PendingState(nil)
 			require.NotNil(t, state)
 
 			// Test that we can query the updated storage value
@@ -405,7 +403,7 @@ func TestPendingData_PendingState(t *testing.T) {
 			pending := core.Pending{}
 
 			// Test that PendingStateBeforeIndex returns appropriate error for pending blocks
-			_, err := pending.PendingStateBeforeIndex(0, nil)
+			_, err := pending.PendingStateBeforeIndex(nil, 0)
 			require.Error(t, err)
 			require.Equal(t, core.ErrPendingStateBeforeIndexNotSupported, err)
 		})
@@ -440,8 +438,7 @@ func TestPendingData_PendingState(t *testing.T) {
 
 		t.Run("get pending state without pre-latest", func(t *testing.T) {
 			// Test that we can get pending state
-			state, err := preConfirmed.PendingState(nil)
-			require.NoError(t, err)
+			state := preConfirmed.PendingState(nil)
 			require.NotNil(t, state)
 
 			// Test that we can query the updated storage value
@@ -455,8 +452,7 @@ func TestPendingData_PendingState(t *testing.T) {
 			preConfirmedWithPreLatest := preConfirmed.Copy().WithPreLatest(preLatest)
 
 			// Test that we can get pending state
-			state, err := preConfirmedWithPreLatest.PendingState(nil)
-			require.NoError(t, err)
+			state := preConfirmedWithPreLatest.PendingState(nil)
 			require.NotNil(t, state)
 
 			// Test that we can query the storage value in pre_confirmed
@@ -479,7 +475,7 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 			pending := core.Pending{}
 
 			// Test that PendingStateBeforeIndex returns appropriate error for pending blocks
-			_, err := pending.PendingStateBeforeIndex(0, nil)
+			_, err := pending.PendingStateBeforeIndex(nil, 0)
 			require.Error(t, err)
 			require.Equal(t, core.ErrPendingStateBeforeIndexNotSupported, err)
 		})
@@ -520,7 +516,7 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 		)
 
 		assertPendingStateAtIndex := func(t *testing.T, preConfirmed *core.PreConfirmed, idx int) {
-			state, err := preConfirmed.PendingStateBeforeIndex(uint(idx+1), nil)
+			state, err := preConfirmed.PendingStateBeforeIndex(nil, uint(idx+1))
 			require.NoError(t, err)
 			require.NotNil(t, state)
 
@@ -560,7 +556,7 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 		t.Run("with pre-latest", func(t *testing.T) {
 			preConfirmed.WithPreLatest(preLatest)
 
-			state, err := preConfirmed.PendingStateBeforeIndex(uint(0), nil)
+			state, err := preConfirmed.PendingStateBeforeIndex(nil, uint(0))
 			require.NoError(t, err)
 			require.NotNil(t, state)
 
