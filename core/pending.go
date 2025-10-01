@@ -12,10 +12,14 @@ var (
 )
 
 var (
-	ErrTransactionNotFound                 = errors.New("pending_data: transaction not found")
-	ErrTransactionReceiptNotFound          = errors.New("pending_data: transaction receipt not found")
-	ErrTransactionIndexOutOfBounds         = errors.New("pending_data: transaction index out of bounds")
-	ErrPendingStateBeforeIndexNotSupported = errors.New("PendingStateBeforeIndex not supported for Pending block")
+	ErrTransactionNotFound         = errors.New("pending_data: transaction not found")
+	ErrTransactionReceiptNotFound  = errors.New("pending_data: transaction receipt not found")
+	ErrTransactionIndexOutOfBounds = errors.New(
+		"pending_data: transaction index out of bounds",
+	)
+	ErrPendingStateBeforeIndexNotSupported = errors.New(
+		"pending_data: PendingStateBeforeIndex not supported for Pending block",
+	)
 )
 
 type PendingDataVariant uint8
