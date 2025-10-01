@@ -65,14 +65,6 @@ func TestThrottledVMError(t *testing.T) {
 	})
 
 	t.Run("trace", func(t *testing.T) {
-		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
-		header := &core.Header{
-			// hash is not set because it's pending block
-			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
-			Number:          0,
-			L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
-			ProtocolVersion: "99.12.3",
-		}
 		l1Tx := &core.L1HandlerTransaction{
 			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
@@ -85,18 +77,23 @@ func TestThrottledVMError(t *testing.T) {
 			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
 		}
 		block := &core.Block{
-			Header:       header,
+			Header: &core.Header{
+				Hash:            felt.NewUnsafeFromString[felt.Felt]("0x0FFF"),
+				ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
+				Number:          0,
+				L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
+				ProtocolVersion: "99.12.3",
+			},
 			Transactions: []core.Transaction{l1Tx, declareTx},
 		}
 
-		mockReader.EXPECT().BlockByHash(blockHash).Return(block, nil)
+		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
+		mockReader.EXPECT().BlockByHash(block.Hash).Return(block, nil)
 		state := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
+		mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(state, nopCloser, nil)
+		mockState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
 
-		blockID := blockIDHash(t, blockHash)
+		blockID := blockIDHash(t, block.Hash)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))
