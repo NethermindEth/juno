@@ -394,7 +394,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 
 	for i, addr := range keys {
 		obj := s.stateObjects[addr]
-
+		idx := i
 		p.Go(func() error {
 			// Object is marked as delete
 			if obj == nil {
@@ -410,7 +410,7 @@ func (s *State) commit() (felt.Felt, stateUpdate, error) {
 				return err
 			}
 
-			comms[i] = obj.commitment()
+			comms[idx] = obj.commitment()
 			return nil
 		})
 	}
