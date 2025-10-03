@@ -134,19 +134,12 @@ func jsonArrayString(element string, length int) string {
 	return `[` + strings.Join(slices.Repeat([]string{element}, length), ",") + `]`
 }
 
-func randomFelt(t *testing.T) *felt.Felt {
-	t.Helper()
-	randomFelt, err := felt.NewRandom[felt.Felt]()
-	require.NoError(t, err)
-	return randomFelt
-}
-
 func randomFeltSlice(t *testing.T) *[]*felt.Felt {
 	t.Helper()
 	length := rand.IntN(maxFeltSliceSize)
 	randomFeltSlice := make([]*felt.Felt, length)
 	for i := range length {
-		randomFeltSlice[i] = randomFelt(t)
+		randomFeltSlice[i] = felt.NewRandom[felt.Felt]()
 	}
 	return &randomFeltSlice
 }
@@ -168,42 +161,42 @@ func randomBroadcastedTransaction(t *testing.T) rpcv9.BroadcastedTransaction {
 	nonceDAMode := randomEnum(rpcv9.DAModeL1, rpcv9.DAModeL2)
 	resourceBounds := rpcv9.ResourceBoundsMap{
 		L1Gas: &rpcv9.ResourceBounds{
-			MaxAmount:       randomFelt(t),
-			MaxPricePerUnit: randomFelt(t),
+			MaxAmount:       felt.NewRandom[felt.Felt](),
+			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
 		L2Gas: &rpcv9.ResourceBounds{
-			MaxAmount:       randomFelt(t),
-			MaxPricePerUnit: randomFelt(t),
+			MaxAmount:       felt.NewRandom[felt.Felt](),
+			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
 		L1DataGas: &rpcv9.ResourceBounds{
-			MaxAmount:       randomFelt(t),
-			MaxPricePerUnit: randomFelt(t),
+			MaxAmount:       felt.NewRandom[felt.Felt](),
+			MaxPricePerUnit: felt.NewRandom[felt.Felt](),
 		},
 	}
 	return rpcv9.BroadcastedTransaction{
 		Transaction: rpcv9.Transaction{
-			Hash:                  randomFelt(t),
+			Hash:                  felt.NewRandom[felt.Felt](),
 			Type:                  transactionType,
-			Version:               randomFelt(t),
-			Nonce:                 randomFelt(t),
-			MaxFee:                randomFelt(t),
-			ContractAddress:       randomFelt(t),
-			ContractAddressSalt:   randomFelt(t),
-			ClassHash:             randomFelt(t),
+			Version:               felt.NewRandom[felt.Felt](),
+			Nonce:                 felt.NewRandom[felt.Felt](),
+			MaxFee:                felt.NewRandom[felt.Felt](),
+			ContractAddress:       felt.NewRandom[felt.Felt](),
+			ContractAddressSalt:   felt.NewRandom[felt.Felt](),
+			ClassHash:             felt.NewRandom[felt.Felt](),
 			ConstructorCallData:   randomFeltSlice(t),
-			SenderAddress:         randomFelt(t),
+			SenderAddress:         felt.NewRandom[felt.Felt](),
 			Signature:             randomFeltSlice(t),
 			CallData:              randomFeltSlice(t),
-			EntryPointSelector:    randomFelt(t),
-			CompiledClassHash:     randomFelt(t),
+			EntryPointSelector:    felt.NewRandom[felt.Felt](),
+			CompiledClassHash:     felt.NewRandom[felt.Felt](),
 			ResourceBounds:        &resourceBounds,
-			Tip:                   randomFelt(t),
+			Tip:                   felt.NewRandom[felt.Felt](),
 			PaymasterData:         randomFeltSlice(t),
 			AccountDeploymentData: randomFeltSlice(t),
 			NonceDAMode:           &nonceDAMode,
 			FeeDAMode:             &feeDAMode,
 		},
 		ContractClass: json.RawMessage("[]"),
-		PaidFeeOnL1:   randomFelt(t),
+		PaidFeeOnL1:   felt.NewRandom[felt.Felt](),
 	}
 }
