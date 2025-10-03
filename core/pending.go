@@ -111,10 +111,9 @@ func (p *Pending) TransactionByHash(hash *felt.Felt) (Transaction, error) {
 func (p *Pending) ReceiptByHash(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *felt.Felt, uint64, error) {
-	pendingBlock := p.GetBlock()
-	for _, receipt := range pendingBlock.Receipts {
+	for _, receipt := range p.Block.Receipts {
 		if receipt.TransactionHash.Equal(hash) {
-			return receipt, pendingBlock.ParentHash, pendingBlock.Number, nil
+			return receipt, p.Block.ParentHash, p.Block.Number, nil
 		}
 	}
 
@@ -219,7 +218,7 @@ func (p *PreConfirmed) Validate(parent *Header) bool {
 }
 
 func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
-	if preLatest := p.GetPreLatest(); preLatest != nil {
+	if preLatest := p.PreLatest; preLatest != nil {
 		for _, tx := range preLatest.Block.Transactions {
 			if tx.Hash().Equal(hash) {
 				return tx, nil
@@ -227,13 +226,13 @@ func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
 		}
 	}
 
-	for _, tx := range p.GetCandidateTransaction() {
+	for _, tx := range p.CandidateTxs {
 		if tx.Hash().Equal(hash) {
 			return tx, nil
 		}
 	}
 
-	for _, tx := range p.GetTransactions() {
+	for _, tx := range p.Block.Transactions {
 		if tx.Hash().Equal(hash) {
 			return tx, nil
 		}
@@ -245,7 +244,7 @@ func (p *PreConfirmed) TransactionByHash(hash *felt.Felt) (Transaction, error) {
 func (p *PreConfirmed) ReceiptByHash(
 	hash *felt.Felt,
 ) (*TransactionReceipt, *felt.Felt, uint64, error) {
-	if preLatest := p.GetPreLatest(); preLatest != nil {
+	if preLatest := p.PreLatest; preLatest != nil {
 		for _, receipt := range preLatest.Block.Receipts {
 			if receipt.TransactionHash.Equal(hash) {
 				return receipt, preLatest.Block.Header.ParentHash, preLatest.Block.Number, nil
@@ -253,10 +252,9 @@ func (p *PreConfirmed) ReceiptByHash(
 		}
 	}
 
-	preConfirmedBlock := p.GetBlock()
-	for _, receipt := range preConfirmedBlock.Receipts {
+	for _, receipt := range p.Block.Receipts {
 		if receipt.TransactionHash.Equal(hash) {
-			return receipt, preConfirmedBlock.ParentHash, preConfirmedBlock.Number, nil
+			return receipt, p.Block.ParentHash, p.Block.Number, nil
 		}
 	}
 
