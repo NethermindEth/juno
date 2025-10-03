@@ -419,20 +419,26 @@ func TestBlockWithTxs(t *testing.T) {
 		latestBlockTxMap[*tx.Hash()] = tx
 	}
 
-	mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+	preConfirmed := &core.PreConfirmed{
 		Block: &core.Block{
 			Header: &core.Header{
 				Number: latestBlockNumber + 1,
 			},
 		},
-	}, nil).Times(len(latestBlock.Transactions) * 5)
+	}
+	mockSyncReader.EXPECT().PendingData().Return(
+		preConfirmed,
+		nil,
+	).Times(len(latestBlock.Transactions) * 5)
 
-	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(func(hash *felt.Felt) (core.Transaction, error) {
-		if tx, found := latestBlockTxMap[*hash]; found {
-			return tx, nil
-		}
-		return nil, errors.New("txn not found")
-	}).Times(len(latestBlock.Transactions) * 5)
+	mockReader.EXPECT().TransactionByHash(gomock.Any()).DoAndReturn(
+		func(hash *felt.Felt) (core.Transaction, error) {
+			if tx, found := latestBlockTxMap[*hash]; found {
+				return tx, nil
+			}
+			return nil, errors.New("txn not found")
+		},
+	).Times(len(latestBlock.Transactions) * 5)
 
 	t.Run("blockID - latest", func(t *testing.T) {
 		mockReader.EXPECT().Head().Return(latestBlock, nil).Times(2)
