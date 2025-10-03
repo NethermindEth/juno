@@ -600,11 +600,13 @@ func (s *Synchronizer) PendingData() (core.PendingData, error) {
 
 	p := *ptr
 	if p.Validate(head) {
-		// If pending data is PreConfirmed and it's latest + 1, return it without pre_latest
-		if p.Variant() == core.PreConfirmedBlockVariant && head != nil {
-			preConfirmed := p.(*core.PreConfirmed)
-			if preConfirmed.Block.Number == head.Number+1 && preConfirmed.PreLatest != nil {
-				// Create a copy without pre_latest attachment
+		// Special handling: if the pending data is PreConfirmed and contains a
+		// 'pre-latest' block attachment that is now outdated (head moved on),
+		// return a copy with the pre-latest attachment discarded.
+		if preConfirmed, ok := p.(*core.PreConfirmed); ok && head != nil {
+			shouldDiscardPreLatest := preConfirmed.Block.Number == head.Number+1 &&
+				preConfirmed.PreLatest != nil
+			if shouldDiscardPreLatest {
 				return preConfirmed.Copy().WithPreLatest(nil), nil
 			}
 		}
