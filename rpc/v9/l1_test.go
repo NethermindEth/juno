@@ -80,14 +80,15 @@ func TestGetMessageStatus(t *testing.T) {
 			block, err := gw.BlockByNumber(t.Context(), uint64(test.blockNum))
 			require.NoError(t, err)
 
-			mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
+			preConfirmed := &core.PreConfirmed{
 				Block: &core.Block{
 					Header: &core.Header{
 						Number:           block.Number + 1,
 						TransactionCount: 0,
 					},
 				},
-			}, nil).AnyTimes()
+			}
+			mockSyncReader.EXPECT().PendingData().Return(preConfirmed, nil).AnyTimes()
 			l1handlerTxns := make([]core.Transaction, len(test.msgs))
 			for i := range len(test.msgs) {
 				txn, err := gw.Transaction(t.Context(), test.msgs[i].L1HandlerHash)
