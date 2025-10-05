@@ -318,7 +318,10 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 
 			var coreTxs []core.Transaction
 			for _, tx := range txs {
-				coreTxs = append(coreTxs, p2p2core.AdaptTransaction(tx, s.network))
+				coreTx, err := p2p2core.AdaptTransaction(tx, s.network)
+				if err == nil {
+					coreTxs = append(coreTxs, coreTx)
+				}
 			}
 
 			coreBlock.Transactions = coreTxs
@@ -338,7 +341,12 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			coreBlock.Receipts = coreReceipts
 
 			eventsBloom := core.EventsBloom(coreBlock.Receipts)
-			coreBlock.Header = p2p2core.AdaptBlockHeader(header, eventsBloom)
+			header, err := p2p2core.AdaptBlockHeader(header, eventsBloom)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt block header: %w", err)}
+				return
+			}
+			coreBlock.Header = header
 
 			if int(coreBlock.TransactionCount) != len(coreBlock.Transactions) {
 				s.log.Errorw(
