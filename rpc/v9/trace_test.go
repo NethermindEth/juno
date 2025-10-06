@@ -279,7 +279,7 @@ func TestTraceTransaction(t *testing.T) {
 				nil,
 			)
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -290,7 +290,7 @@ func TestTraceTransaction(t *testing.T) {
 			// Receipt() returns some other error
 			mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), errors.New("database error"))
 
-			trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+			trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 			assert.Empty(t, trace)
 			assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 			assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -366,7 +366,7 @@ func TestTraceTransaction(t *testing.T) {
 			NumSteps:    stepsUsed,
 		}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
 
@@ -393,7 +393,7 @@ func TestTraceTransaction(t *testing.T) {
 			L1DAMode:         core.Calldata,
 			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		}
-		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
+		require.Nil(t, header.Hash, "hash must be nil for pending block")
 
 		block := &core.Block{
 			Header:       header,
@@ -404,7 +404,7 @@ func TestTraceTransaction(t *testing.T) {
 			Class: &core.Cairo1Class{},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 		pending := core.NewPending(block, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
@@ -453,7 +453,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -466,7 +466,13 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), trace)
 	})
 
-	t.Run("pre_confirmed block", func(t *testing.T) {
+	// Helper function to test pending data tracing
+	testPendingDataTracing := func(
+		t *testing.T,
+		setupPendingData func() core.PendingData,
+		setupStateExpectations func(*mocks.MockStateHistoryReader),
+		expectedBlockInfo vm.BlockInfo,
+	) {
 		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
@@ -474,34 +480,20 @@ func TestTraceTransaction(t *testing.T) {
 			Version:         new(core.TransactionVersion).SetUint64(1),
 		}
 
-		header := &core.Header{
-			Number:           0,
-			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
-			ProtocolVersion:  "99.12.3",
-			L1DAMode:         core.Calldata,
-			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
-		}
-		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
-		require.Nil(t, header.ParentHash, "ParentHash must be nil for pre_confirmed block")
-
-		block := &core.Block{
-			Header:       header,
-			Transactions: []core.Transaction{tx},
-		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
 			Class: &core.Cairo1Class{},
 		}
 
-		mockReader.EXPECT().Receipt(hash).Return(nil, header.Hash, header.Number, nil)
-		preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
+		pendingData := setupPendingData()
 		mockSyncReader.EXPECT().PendingData().Return(
-			&preConfirmed,
+			pendingData,
 			nil,
 		)
-		headState := mocks.NewMockStateHistoryReader(mockCtrl)
-		mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(headState, nopCloser, nil)
-		headState.EXPECT().Class(tx.ClassHash).Return(declaredClass, nil)
+
+		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
+		executionState := mocks.NewMockStateHistoryReader(mockCtrl)
+		setupStateExpectations(executionState)
 
 		innerExecutionResources := `{
 			"l1_gas": 1,
@@ -531,8 +523,12 @@ func TestTraceTransaction(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{},
-			&vm.BlockInfo{Header: header}, gomock.Any(), false, false, false, true, false).
+		// Mock VM execution with explicit BlockInfo check
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx}, []core.Class{declaredClass.Class},
+			[]*felt.Felt{},
+			&expectedBlockInfo, // Explicitly check BlockInfo
+			gomock.Any(), false, false, false, true, false).
 			Return(vm.ExecutionResults{
 				OverallFees: overallFee,
 				GasConsumed: gc,
@@ -540,7 +536,7 @@ func TestTraceTransaction(t *testing.T) {
 				NumSteps:    stepsUsed,
 			}, nil)
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *hash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), hash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), stepsUsedStr)
@@ -551,6 +547,103 @@ func TestTraceTransaction(t *testing.T) {
 			L2Gas:     4,
 		}
 		assert.Equal(t, rpc.AdaptVMTransactionTrace(vmTrace), trace)
+	}
+
+	t.Run("pre_confirmed block", func(t *testing.T) {
+		header := &core.Header{
+			Number:           0,
+			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			ProtocolVersion:  "99.12.3",
+			L1DAMode:         core.Calldata,
+			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		}
+		require.Nil(t, header.Hash, "hash must be nil for pre_confirmed block")
+		require.Nil(t, header.ParentHash, "ParentHash must be nil for pre_confirmed block")
+
+		block := &core.Block{
+			Header: header,
+			Transactions: []core.Transaction{&core.DeclareTransaction{
+				TransactionHash: felt.NewUnsafeFromString[felt.Felt](
+					"0xceb6a374aff2bbb3537cf35f50df8634b2354a21",
+				),
+				ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
+				Version:   new(core.TransactionVersion).SetUint64(1),
+			}},
+		}
+
+		testPendingDataTracing(
+			t,
+			func() core.PendingData {
+				preConfirmed := core.NewPreConfirmed(block, nil, nil, nil)
+				return &preConfirmed
+			},
+			func(executionState *mocks.MockStateHistoryReader) {
+				mockReader.EXPECT().StateAtBlockHash(&felt.Zero).Return(executionState, nopCloser, nil)
+				executionState.EXPECT().Class(gomock.Any()).Return(&core.DeclaredClass{
+					At:    3002,
+					Class: &core.Cairo1Class{},
+				}, nil)
+			},
+			vm.BlockInfo{
+				Header:                header,
+				BlockHashToBeRevealed: nil, // For block number 0, this should be nil
+			},
+		)
+	})
+
+	t.Run("pre_latest block", func(t *testing.T) {
+		header := &core.Header{
+			Number:           0,
+			ParentHash:       &felt.Zero,
+			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			ProtocolVersion:  "99.12.3",
+			L1DAMode:         core.Calldata,
+			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x1"),
+		}
+		require.NotNil(t, header.ParentHash, "ParentHash must be non-nil for prelatest block")
+
+		block := &core.Block{
+			Header: header,
+			Transactions: []core.Transaction{&core.DeclareTransaction{
+				TransactionHash: felt.NewUnsafeFromString[felt.Felt](
+					"0xceb6a374aff2bbb3537cf35f50df8634b2354a21",
+				),
+				ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
+				Version:   new(core.TransactionVersion).SetUint64(1),
+			}},
+		}
+
+		preLatest := &core.PreLatest{
+			Block:       block,
+			StateUpdate: &core.StateUpdate{},
+			NewClasses: map[felt.Felt]core.Class{
+				*felt.NewUnsafeFromString[felt.Felt]("0x000000000"): &core.Cairo1Class{},
+			},
+		}
+
+		testPendingDataTracing(
+			t,
+			func() core.PendingData {
+				preConfirmed := &core.PreConfirmed{
+					Block: &core.Block{
+						Header: &core.Header{
+							Number: block.Number + 1,
+						},
+					},
+				}
+				preConfirmed.WithPreLatest(preLatest)
+				return preConfirmed
+			},
+			func(executionState *mocks.MockStateHistoryReader) {
+				mockReader.EXPECT().StateAtBlockHash(block.ParentHash).Return(executionState, nopCloser, nil)
+				// For prelatest blocks, Class is called on the class lookup state (preLatestState)
+				// which is created from NewClasses, so we don't need to mock Class on executionState
+			},
+			vm.BlockInfo{
+				Header:                header,
+				BlockHashToBeRevealed: nil, // For block number 0, this should be nil
+			},
+		)
 	})
 
 	t.Run("reverted INVOKE tx from feeder", func(t *testing.T) {
@@ -668,7 +761,7 @@ func TestTraceTransaction(t *testing.T) {
 			},
 		}
 
-		trace, httpHeader, err := handler.TraceTransaction(t.Context(), *revertedTxHash)
+		trace, httpHeader, err := handler.TraceTransaction(t.Context(), revertedTxHash)
 
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "0")
@@ -772,15 +865,19 @@ func TestTraceBlockTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		stepsUsedStr := "123"
 
-		mockVM.EXPECT().Execute([]core.Transaction{tx}, []core.Class{declaredClass.Class}, []*felt.Felt{}, &vm.BlockInfo{Header: header},
-			gomock.Any(), false, false, false, true, false).
-			Return(vm.ExecutionResults{
-				OverallFees:      nil,
-				DataAvailability: []core.DataAvailability{{}, {}},
-				GasConsumed:      []core.GasConsumed{{}, {}},
-				Traces:           []vm.TransactionTrace{vmTrace},
-				NumSteps:         stepsUsed,
-			}, nil)
+		mockVM.EXPECT().Execute(
+			[]core.Transaction{tx},
+			[]core.Class{declaredClass.Class},
+			[]*felt.Felt{},
+			&vm.BlockInfo{Header: header},
+			gomock.Any(), false, false, false, true, false,
+		).Return(vm.ExecutionResults{
+			OverallFees:      nil,
+			DataAvailability: []core.DataAvailability{{}, {}},
+			GasConsumed:      []core.GasConsumed{{}, {}},
+			Traces:           []vm.TransactionTrace{vmTrace},
+			NumSteps:         stepsUsed,
+		}, nil)
 
 		expectedTrace := rpc.AdaptVMTransactionTrace(&vmTrace)
 		expectedResult := []rpc.TracedBlockTransaction{
