@@ -47,11 +47,22 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	ret, err := New(&chainInfo, false, nil).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		ClassHash:       classHash,
-		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+	ret, err := New(&chainInfo, false, nil).Call(
+		&CallInfo{
+			ContractAddress: contractAddr,
+			ClassHash:       classHash,
+			Selector:        entryPoint,
+		},
+		&BlockInfo{
+			Header: &core.Header{},
+		},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -67,11 +78,22 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		},
 	}, nil, false))
 
-	ret, err = New(&chainInfo, false, nil).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		ClassHash:       classHash,
-		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+	ret, err = New(&chainInfo, false, nil).Call(
+		&CallInfo{
+			ContractAddress: contractAddr,
+			ClassHash:       classHash,
+			Selector:        entryPoint,
+		},
+		&BlockInfo{
+			Header: &core.Header{Number: 1},
+		},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(1337)}, ret.Result)
 }
@@ -107,11 +129,20 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	_, err = New(&chainInfo, false, nil).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		ClassHash:       classHash,
-		Selector:        entryPoint,
-	}, &BlockInfo{Header: &core.Header{}}, testState, 0, simpleClass.SierraVersion(), false, false)
+	_, err = New(&chainInfo, false, nil).Call(
+		&CallInfo{
+			ContractAddress: contractAddr,
+			ClassHash:       classHash,
+			Selector:        entryPoint,
+		},
+		&BlockInfo{Header: &core.Header{}},
+		testState,
+		0,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	assert.ErrorContains(t, err, "RunResources has no remaining steps")
 }
 
@@ -153,13 +184,22 @@ func TestCallCairo(t *testing.T) {
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	ret, err := New(&chainInfo, false, log).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		Selector:        entryPoint,
-		Calldata: []felt.Felt{
-			*storageLocation,
+	ret, err := New(&chainInfo, false, log).Call(
+		&CallInfo{
+			ContractAddress: contractAddr,
+			Selector:        entryPoint,
+			Calldata: []felt.Felt{
+				*storageLocation,
+			},
 		},
-	}, &BlockInfo{Header: &core.Header{}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+		&BlockInfo{Header: &core.Header{}},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{&felt.Zero}, ret.Result)
 
@@ -175,13 +215,22 @@ func TestCallCairo(t *testing.T) {
 		},
 	}, nil, false))
 
-	ret, err = New(&chainInfo, false, log).Call(&CallInfo{
-		ContractAddress: contractAddr,
-		Selector:        entryPoint,
-		Calldata: []felt.Felt{
-			*storageLocation,
+	ret, err = New(&chainInfo, false, log).Call(
+		&CallInfo{
+			ContractAddress: contractAddr,
+			Selector:        entryPoint,
+			Calldata: []felt.Felt{
+				*storageLocation,
+			},
 		},
-	}, &BlockInfo{Header: &core.Header{Number: 1}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+		&BlockInfo{Header: &core.Header{Number: 1}},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.NoError(t, err)
 	assert.Equal(t, []*felt.Felt{new(felt.Felt).SetUint64(37)}, ret.Result)
 }
@@ -227,16 +276,38 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		ChainID:           utils.Mainnet.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	ret, err := New(&chainInfo, false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
-		ProtocolVersion: "0.13.0",
-	}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+	ret, err := New(&chainInfo, false, log).Call(
+		callInfo,
+		&BlockInfo{
+			Header: &core.Header{
+				ProtocolVersion: "0.13.0",
+			},
+		},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.Equal(t, CallResult{}, ret)
 	require.ErrorContains(t, err, "not found in contract")
 
 	// Starknet version 0.13.4 should return an "error" in the CallInfo
-	ret, err = New(&chainInfo, false, log).Call(callInfo, &BlockInfo{Header: &core.Header{
-		ProtocolVersion: "0.13.4",
-	}}, testState, 1_000_000, simpleClass.SierraVersion(), false, false)
+	ret, err = New(&chainInfo, false, log).Call(
+		callInfo,
+		&BlockInfo{
+			Header: &core.Header{
+				ProtocolVersion: "0.13.4",
+			},
+		},
+		testState,
+		DefaultMaxSteps,
+		DefaultMaxGas,
+		simpleClass.SierraVersion(),
+		false,
+		false,
+	)
 	require.True(t, ret.ExecutionFailed)
 	require.Equal(t, len(ret.Result), 1)
 	require.Equal(t, ret.Result[0].String(), rpccore.EntrypointNotFoundFelt)

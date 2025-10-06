@@ -340,15 +340,24 @@ func (h *Handler) Call(funcCall FunctionCall, id BlockID) ([]*felt.Felt, *jsonrp
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	res, err := h.vm.Call(&vm.CallInfo{
-		ContractAddress: &funcCall.ContractAddress,
-		Selector:        &funcCall.EntryPointSelector,
-		Calldata:        funcCall.Calldata.Data,
-		ClassHash:       classHash,
-	}, &vm.BlockInfo{
-		Header:                header,
-		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.callMaxSteps, sierraVersion, false, false)
+	res, err := h.vm.Call(
+		&vm.CallInfo{
+			ContractAddress: &funcCall.ContractAddress,
+			Selector:        &funcCall.EntryPointSelector,
+			Calldata:        funcCall.Calldata.Data,
+			ClassHash:       classHash,
+		},
+		&vm.BlockInfo{
+			Header:                header,
+			BlockHashToBeRevealed: blockHashToBeRevealed,
+		},
+		state,
+		h.callMaxSteps,
+		h.callMaxGas,
+		sierraVersion,
+		false,
+		false,
+	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(throttledVMErr)

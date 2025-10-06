@@ -17,6 +17,7 @@ import (
 	_ "github.com/NethermindEth/juno/jemalloc"
 	"github.com/NethermindEth/juno/node"
 	"github.com/NethermindEth/juno/utils"
+	"github.com/NethermindEth/juno/vm"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
@@ -83,6 +84,7 @@ const (
 	cnCoreContractAddressF              = "cn-core-contract-address"
 	cnUnverifiableRangeF                = "cn-unverifiable-range"
 	callMaxStepsF                       = "rpc-call-max-steps"
+	callMaxGasF                         = "rpc-call-max-gas"
 	corsEnableF                         = "rpc-cors-enable"
 	versionedConstantsFileF             = "versioned-constants-file"
 	pluginPathF                         = "plugin-path"
@@ -131,7 +133,8 @@ const (
 	defaultCNL1ChainID                        = ""
 	defaultCNL2ChainID                        = ""
 	defaultCNCoreContractAddressStr           = ""
-	defaultCallMaxSteps                       = 4_000_000
+	defaultCallMaxSteps                       = vm.DefaultMaxSteps
+	defaultCallMaxGas                         = vm.DefaultMaxGas
 	defaultGwTimeout                          = "5s"
 	defaultCorsEnable                         = false
 	defaultVersionedConstantsFile             = ""
@@ -199,7 +202,10 @@ const (
 		"- Single value (e.g. '5s'): After each failure, the timeout will increase dynamically.\n" +
 		"- Comma-separated list (e.g. '5s,10s,20s'): Each value will be used in sequence after failures.\n" +
 		"- Single value with trailing comma (e.g. '5s,'): Uses a fixed timeout without dynamic adjustment."
-	callMaxStepsUsage                  = "Maximum number of steps to be executed in starknet_call requests"
+
+	callMaxStepsUsage = "Maximum number of steps to be executed in starknet_call requests"
+	callMaxGasUsage   = "Maximum number of Sierra gas to be executed in starknet_call requests"
+
 	corsEnableUsage                    = "Enable CORS on RPC endpoints"
 	versionedConstantsFileUsage        = "Use custom versioned constants from provided file"
 	pluginPathUsage                    = "Path to the plugin .so file"
@@ -402,6 +408,7 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 	junoCmd.MarkFlagsRequiredTogether(cnNameF, cnFeederURLF, cnGatewayURLF, cnL1ChainIDF, cnL2ChainIDF, cnCoreContractAddressF, cnUnverifiableRangeF) //nolint:lll
 	junoCmd.MarkFlagsMutuallyExclusive(networkF, cnNameF)
 	junoCmd.Flags().Uint(callMaxStepsF, defaultCallMaxSteps, callMaxStepsUsage)
+	junoCmd.Flags().Uint(callMaxGasF, defaultCallMaxGas, callMaxGasUsage)
 	junoCmd.Flags().String(gwTimeoutsF, defaultGwTimeout, gwTimeoutsUsage)
 	junoCmd.Flags().Bool(corsEnableF, defaultCorsEnable, corsEnableUsage)
 	junoCmd.Flags().String(versionedConstantsFileF, defaultVersionedConstantsFile, versionedConstantsFileUsage)

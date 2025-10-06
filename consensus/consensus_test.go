@@ -76,7 +76,13 @@ func loadGenesis(t *testing.T, log *utils.ZapLogger) (core.StateDiff, map[felt.F
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), &network, 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(&chainInfo, false, log),
+		&network,
+		vm.DefaultMaxSteps,
+		vm.DefaultMaxGas,
+	)
 	require.NoError(t, err)
 
 	return diff, classes
