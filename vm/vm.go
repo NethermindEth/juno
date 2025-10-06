@@ -52,8 +52,8 @@ type VM interface {
 		state core.StateReader,
 		maxSteps uint64,
 		maxGas uint64,
-		sierraVersion string,
-		structuredErrStack, returnStateDiff bool,
+		structuredErrStack,
+		returnStateDiff bool,
 	) (CallResult, error)
 	Execute(
 		txns []core.Transaction,
@@ -283,8 +283,8 @@ func (v *vm) Call(
 	state core.StateReader,
 	maxSteps uint64,
 	maxGas uint64,
-	sierraVersion string,
-	structuredErrStack, returnStateDiff bool,
+	structuredErrStack,
+	returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -298,7 +298,6 @@ func (v *vm) Call(
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	cChainInfo := makeCChainInfo(v.chainInfo)
-	cSierraVersion := C.CString(sierraVersion)
 	// TODO: set initial_gas as maxGas in the next PR
 	C.cairoVMCall(
 		&cCallInfo,
@@ -314,7 +313,6 @@ func (v *vm) Call(
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
-	C.free(unsafe.Pointer(cSierraVersion))
 
 	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)

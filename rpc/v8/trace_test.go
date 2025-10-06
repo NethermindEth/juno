@@ -1301,18 +1301,9 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
-
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockVM.EXPECT().Call(
 			&vm.CallInfo{
 				ContractAddress: contractAddr,
@@ -1326,7 +1317,6 @@ func TestCall(t *testing.T) {
 			gomock.Any(),
 			uint64(1337),
 			uint64(1338),
-			cairoClass.SierraVersion(),
 			true,
 			false,
 		).Return(expectedRes, nil)
@@ -1362,18 +1352,9 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
-
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockVM.EXPECT().Call(
 			&vm.CallInfo{
 				ContractAddress: contractAddr,
@@ -1387,7 +1368,6 @@ func TestCall(t *testing.T) {
 			gomock.Any(),
 			uint64(1337),
 			uint64(1338),
-			cairoClass.SierraVersion(),
 			true,
 			false,
 		).Return(expectedRes, nil)
@@ -1421,19 +1401,10 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
 		mockVM.EXPECT().Call(
-			gomock.Any(),
 			gomock.Any(),
 			gomock.Any(),
 			gomock.Any(),

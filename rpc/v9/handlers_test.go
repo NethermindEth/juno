@@ -41,13 +41,6 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
-			Program: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](3),
-				&felt.Zero,
-				&felt.Zero,
-			},
-		}}, nil)
 
 		blockID := blockIDLatest(t)
 		_, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)

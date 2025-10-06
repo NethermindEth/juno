@@ -446,13 +446,6 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	declaredClass, err := state.Class(classHash)
-	if err != nil {
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	sierraVersion := declaredClass.Class.SierraVersion()
-
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
@@ -472,7 +465,6 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		state,
 		h.callMaxSteps,
 		h.callMaxGas,
-		sierraVersion,
 		true,
 		false,
 	)
