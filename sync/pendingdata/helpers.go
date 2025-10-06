@@ -230,9 +230,7 @@ func PendingStateBeforeIndex(
 	pendingStateReader, err := pending.PendingStateBeforeIndex(baseState, index)
 	if err != nil {
 		// Clean up base state if pending state creation fails
-		if closeErr := baseStateCloser(); closeErr != nil {
-			return nil, nil, closeErr
-		}
+		_ = baseStateCloser()
 		return nil, nil, err
 	}
 
