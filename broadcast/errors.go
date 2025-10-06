@@ -10,7 +10,8 @@ var (
 	ErrClosed = errors.New("broadcast channel closed")
 	// Returned when the requested sequence is ahead of the latest published (not yet available).
 	ErrFutureSeq = errors.New("requested sequence is not published yet")
-	// Returned when the requested sequence is 0. Which is indicates unitialized sequence in this system.
+	// Returned when the requested sequence is 0. Which is indicates unitialized sequence in this
+	// system.
 	ErrInvalidSequence = errors.New("invalid sequence: 0")
 	ErrNoEvent         = errors.New("no event present")
 	ErrNoLag           = errors.New("no lag info present")
@@ -25,5 +26,9 @@ type LaggedError struct {
 }
 
 func (e *LaggedError) Error() string {
-	return fmt.Sprintf("subscriber lagged: missed seq=%d, next available seq=%d", e.MissedSeq, e.NextSeq)
+	return fmt.Sprintf(
+		"subscriber lagged: missed seq=%d, next available seq=%d",
+		e.MissedSeq,
+		e.NextSeq,
+	)
 }
