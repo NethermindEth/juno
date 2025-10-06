@@ -37,14 +37,24 @@ func AdaptDeclareV3WithClass(
 	return declareCommon, &class, nil
 }
 
-func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash *felt.Felt, txnHash *common.Hash) (*core.DeclareTransaction, error) {
+func AdaptDeclareV3TxnCommon(
+	tx *transaction.DeclareV3Common,
+	classHash *felt.Felt,
+	txnHash *common.Hash,
+) (*core.DeclareTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 	declareTx := &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(txnHash),
@@ -69,15 +79,24 @@ func AdaptDeclareV3TxnCommon(tx *transaction.DeclareV3Common, classHash *felt.Fe
 	return declareTx, nil
 }
 
-func AdaptDeployAccountV3TxnCommon(tx *transaction.DeployAccountV3, txnHash *common.Hash) (*core.DeployAccountTransaction, error) {
+func AdaptDeployAccountV3TxnCommon(
+	tx *transaction.DeployAccountV3,
+	txnHash *common.Hash,
+) (*core.DeployAccountTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 
 	addressSalt := AdaptFelt(tx.AddressSalt)
@@ -108,15 +127,24 @@ func AdaptDeployAccountV3TxnCommon(tx *transaction.DeployAccountV3, txnHash *com
 	}, nil
 }
 
-func AdaptInvokeV3TxnCommon(tx *transaction.InvokeV3, txnHash *common.Hash) (*core.InvokeTransaction, error) {
+func AdaptInvokeV3TxnCommon(
+	tx *transaction.InvokeV3,
+	txnHash *common.Hash,
+) (*core.InvokeTransaction, error) {
 	nDAMode, err := adaptVolitionDomain(tx.NonceDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Nonce DA mode: %v to uint32", tx.NonceDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Nonce DA mode %v to uint32: %w", tx.NonceDataAvailabilityMode, err,
+			)
 	}
 
 	fDAMode, err := adaptVolitionDomain(tx.FeeDataAvailabilityMode)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert Fee DA mode: %v to uint32", tx.FeeDataAvailabilityMode)
+		return nil,
+			fmt.Errorf(
+				"failed to convert Fee DA mode %v to uint32: %w", tx.FeeDataAvailabilityMode, err,
+			)
 	}
 
 	return &core.InvokeTransaction{
@@ -154,7 +182,10 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 }
 
 //nolint:funlen
-func AdaptTransaction(t *synctransaction.TransactionInBlock, network *utils.Network) (core.Transaction, error) {
+func AdaptTransaction(
+	t *synctransaction.TransactionInBlock,
+	network *utils.Network,
+) (core.Transaction, error) {
 	if t == nil {
 		return nil, nil
 	}

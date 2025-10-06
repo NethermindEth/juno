@@ -36,7 +36,7 @@ func AdaptTransaction(t *p2pconsensus.ConsensusTransaction, network *utils.Netwo
 	case *p2pconsensus.ConsensusTransaction_InvokeV3:
 		tx, err = p2p2core.AdaptInvokeV3TxnCommon(t.GetInvokeV3(), t.TransactionHash)
 		if err != nil {
-			return consensus.Transaction{}, nil
+			return consensus.Transaction{}, err
 		}
 	case *p2pconsensus.ConsensusTransaction_L1Handler:
 		tx = p2p2core.AdaptL1Handler(t.GetL1Handler(), t.TransactionHash)

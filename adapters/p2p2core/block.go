@@ -24,7 +24,10 @@ func AdaptEvent(e *event.Event) *core.Event {
 	}
 }
 
-func AdaptBlockHeader(h *header.SignedBlockHeader, eventsBloom *bloom.BloomFilter) (*core.Header, error) {
+func AdaptBlockHeader(
+	h *header.SignedBlockHeader,
+	eventsBloom *bloom.BloomFilter,
+) (*core.Header, error) {
 	l1DataGasPrice, err := adaptDA(h.L1DataAvailabilityMode)
 	if err != nil {
 		return nil, fmt.Errorf("unable to fetch L1DAMode: %w", err)

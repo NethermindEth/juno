@@ -319,9 +319,11 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 			var coreTxs []core.Transaction
 			for _, tx := range txs {
 				coreTx, err := p2p2core.AdaptTransaction(tx, s.network)
-				if err == nil {
-					coreTxs = append(coreTxs, coreTx)
+				if err != nil {
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt transaction: %w", err)}
+					return
 				}
+				coreTxs = append(coreTxs, coreTx)
 			}
 
 			coreBlock.Transactions = coreTxs
