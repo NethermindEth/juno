@@ -96,11 +96,12 @@ type Config struct {
 	P2PFeederNode bool   `mapstructure:"p2p-feeder-node"`
 	P2PPrivateKey string `mapstructure:"p2p-private-key"`
 
-	MaxVMs                  uint `mapstructure:"max-vms"`
-	MaxVMQueue              uint `mapstructure:"max-vm-queue"`
-	RPCMaxBlockScan         uint `mapstructure:"rpc-max-block-scan"`
-	RPCCallMaxSteps         uint `mapstructure:"rpc-call-max-steps"`
-	ReadinessBlockTolerance uint `mapstructure:"readiness-block-tolerance"`
+	MaxVMs                  uint   `mapstructure:"max-vms"`
+	MaxVMQueue              uint   `mapstructure:"max-vm-queue"`
+	RPCMaxBlockScan         uint   `mapstructure:"rpc-max-block-scan"`
+	RPCCallMaxSteps         uint64 `mapstructure:"rpc-call-max-steps"`
+	RPCCallMaxGas           uint64 `mapstructure:"rpc-call-max-gas"`
+	ReadinessBlockTolerance uint   `mapstructure:"readiness-block-tolerance"`
 
 	SubmittedTransactionsCacheSize     uint          `mapstructure:"submitted-transactions-cache-size"`
 	SubmittedTransactionsCacheEntryTTL time.Duration `mapstructure:"submitted-transactions-cache-entry-ttl"`
@@ -223,8 +224,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		seq := sequencer.New(&builder, mempool, new(felt.Felt).SetUint64(sequencerAddress),
 			pKey, time.Second*time.Duration(cfg.SeqBlockTime), log)
 		seq.WithPlugin(junoPlugin)
-		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network)
-		rpcHandler.WithMempool(mempool).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+		rpcHandler = rpc.New(chain, &seq, throttledVM, version, log, &cfg.Network).
+			WithMempool(mempool).
+			WithCallMaxSteps(cfg.RPCCallMaxSteps).
+			WithCallMaxGas(cfg.RPCCallMaxGas)
 		services = append(services, &seq)
 	} else {
 		if cfg.GatewayTimeouts == "" {
@@ -298,8 +301,10 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 		rpcHandler = rpc.New(chain, syncReader, throttledVM, version, log, &cfg.Network).
 			WithGateway(gatewayClient).
 			WithFeeder(client).
-			WithSubmittedTransactionsCache(submittedTransactionsCache)
-		rpcHandler = rpcHandler.WithFilterLimit(cfg.RPCMaxBlockScan).WithCallMaxSteps(uint64(cfg.RPCCallMaxSteps))
+			WithSubmittedTransactionsCache(submittedTransactionsCache).
+			WithFilterLimit(cfg.RPCMaxBlockScan).
+			WithCallMaxSteps(cfg.RPCCallMaxSteps).
+			WithCallMaxGas(cfg.RPCCallMaxGas)
 		if synchronizer != nil {
 			services = append(services, synchronizer)
 		}
@@ -527,8 +532,15 @@ func (n *Node) Run(ctx context.Context) {
 			ChainID:           n.cfg.Network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		if err = buildGenesis(n.cfg.SeqGenesisFile, n.blockchain,
-			vm.New(&chainInfo, false, n.log), uint64(n.cfg.RPCCallMaxSteps)); err != nil {
+
+		err := buildGenesis(
+			n.cfg.SeqGenesisFile,
+			n.blockchain,
+			vm.New(&chainInfo, false, n.log),
+			n.cfg.RPCCallMaxSteps,
+			n.cfg.RPCCallMaxGas,
+		)
+		if err != nil {
 			n.log.Errorw("Error building genesis state", "err", err)
 			return
 		}

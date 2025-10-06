@@ -11,7 +11,13 @@ import (
 	"github.com/NethermindEth/juno/vm"
 )
 
-func buildGenesis(genesisPath string, bc *blockchain.Blockchain, v vm.VM, maxSteps uint64) error {
+func buildGenesis(
+	genesisPath string,
+	bc *blockchain.Blockchain,
+	v vm.VM,
+	maxSteps uint64,
+	maxGas uint64,
+) error {
 	if _, err := bc.Height(); !errors.Is(err, db.ErrKeyNotFound) {
 		return err
 	}
@@ -25,7 +31,13 @@ func buildGenesis(genesisPath string, bc *blockchain.Blockchain, v vm.VM, maxSte
 			return err
 		}
 
-		diff, classes, err = genesis.GenesisStateDiff(genesisConfig, v, bc.Network(), maxSteps)
+		diff, classes, err = genesis.GenesisStateDiff(
+			genesisConfig,
+			v,
+			bc.Network(),
+			maxSteps,
+			maxGas,
+		)
 		if err != nil {
 			return err
 		}

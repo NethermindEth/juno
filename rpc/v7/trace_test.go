@@ -1515,7 +1515,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1548,12 +1548,23 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(&vm.CallInfo{
-			ContractAddress: contractAddr,
-			ClassHash:       classHash,
-			Selector:        selector,
-			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), uint64(1337), cairoClass.SierraVersion(), false, false).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{
+				Header: headsHeader,
+			},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			cairoClass.SierraVersion(),
+			false,
+			false,
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1565,7 +1576,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("unknown entrypoint blockifier 0.14.0", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1602,12 +1613,23 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(&vm.CallInfo{
-			ContractAddress: contractAddr,
-			ClassHash:       classHash,
-			Selector:        selector,
-			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), uint64(1337), cairoClass.SierraVersion(), false, false).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{
+				Header: headsHeader,
+			},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			cairoClass.SierraVersion(),
+			false,
+			false,
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1619,7 +1641,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("execution failed with execution failure", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1647,7 +1669,16 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,
@@ -1659,7 +1690,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxSteps(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1686,7 +1717,16 @@ func TestCall(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
 		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(rpcv7.FunctionCall{
 			ContractAddress:    *contractAddr,

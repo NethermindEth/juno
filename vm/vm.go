@@ -24,6 +24,11 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const (
+	DefaultMaxSteps = 4_000_000
+	DefaultMaxGas   = 100_000_000
+)
+
 type ExecutionResults struct {
 	OverallFees      []*felt.Felt
 	DataAvailability []core.DataAvailability
@@ -46,6 +51,7 @@ type VM interface {
 		blockInfo *BlockInfo,
 		state core.StateReader,
 		maxSteps uint64,
+		maxGas uint64,
 		sierraVersion string,
 		structuredErrStack, returnStateDiff bool,
 	) (CallResult, error)
@@ -284,6 +290,7 @@ func (v *vm) Call(
 	blockInfo *BlockInfo,
 	state core.StateReader,
 	maxSteps uint64,
+	maxGas uint64,
 	sierraVersion string,
 	structuredErrStack, returnStateDiff bool,
 ) (CallResult, error) {
@@ -300,6 +307,7 @@ func (v *vm) Call(
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	cChainInfo := makeCChainInfo(v.chainInfo)
 	cSierraVersion := C.CString(sierraVersion)
+	// TODO: set initial_gas as maxGas in the next PR
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,

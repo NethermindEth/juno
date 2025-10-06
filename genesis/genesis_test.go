@@ -21,7 +21,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			FeeTokenAddresses: feeTokens,
 		}
 		genesisConfig := genesis.GenesisConfig{}
-		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
+		_, _, err := genesis.GenesisStateDiff(
+			&genesisConfig,
+			vm.New(&chainInfo, false, log),
+			network,
+			vm.DefaultMaxSteps,
+			vm.DefaultMaxGas,
+		)
 		require.NoError(t, err)
 	})
 
@@ -37,7 +43,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			ChainID:           network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(
+			genesisConfig,
+			vm.New(&chainInfo, false, log),
+			network,
+			vm.DefaultMaxSteps,
+			vm.DefaultMaxGas,
+		)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {

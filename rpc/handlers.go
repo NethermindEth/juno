@@ -66,6 +66,14 @@ func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	return h
 }
 
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.rpcv6Handler.WithCallMaxGas(maxGas)
+	h.rpcv7Handler.WithCallMaxGas(maxGas)
+	h.rpcv8Handler.WithCallMaxGas(maxGas)
+	h.rpcv9Handler.WithCallMaxGas(maxGas)
+	return h
+}
+
 func (h *Handler) WithFeeder(feederClient *feeder.Client) *Handler {
 	h.rpcv6Handler.WithFeeder(feederClient)
 	h.rpcv7Handler.WithFeeder(feederClient)

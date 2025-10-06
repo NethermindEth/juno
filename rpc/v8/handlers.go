@@ -47,6 +47,7 @@ type Handler struct {
 
 	filterLimit  uint
 	callMaxSteps uint64
+	callMaxGas   uint64
 
 	l1Client        rpccore.L1Client
 	coreContractABI abi.ABI
@@ -105,6 +106,11 @@ func (h *Handler) WithL1Client(l1Client rpccore.L1Client) *Handler {
 
 func (h *Handler) WithCallMaxSteps(maxSteps uint64) *Handler {
 	h.callMaxSteps = maxSteps
+	return h
+}
+
+func (h *Handler) WithCallMaxGas(maxGas uint64) *Handler {
+	h.callMaxGas = maxGas
 	return h
 }
 
