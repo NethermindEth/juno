@@ -904,7 +904,7 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL1, TxnSuccess, "")
 	})
 
-	t.Run("Transaction status with PreLatest", func(t *testing.T) {
+	t.Run("Transaction status from pre-latest block", func(t *testing.T) {
 		mockCtrl := gomock.NewController(t)
 		t.Cleanup(mockCtrl.Finish)
 
@@ -2004,7 +2004,7 @@ func TestSubscribeTransactionReceipts(t *testing.T) {
 	preLatest := core.PreLatest(createTestPending(t, newHead2, len(newHead2.Transactions)))
 	// Test case for PreLatest receipts
 	preLatestReceipts := testCase{
-		description: "Receipts from PreLatest blocks - default status",
+		description: "Receipts from pre-latest block - default status",
 		statuses:    nil,
 		steps: []stepInfo{
 			{
