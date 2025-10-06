@@ -279,7 +279,8 @@ func (h *Handler) SubscribeEvents(
 		},
 		onPreLatest: func(
 			ctx context.Context,
-			id string, _ *subscription,
+			id string,
+			_ *subscription,
 			preLatest *core.PreLatest,
 		) error {
 			return processBlockEvents(
