@@ -316,14 +316,14 @@ func (s *BlockFetcher) adaptAndSanityCheckBlock(
 		default:
 			coreBlock := new(core.Block)
 
-			var coreTxs []core.Transaction
-			for _, tx := range txs {
+			coreTxs := make([]core.Transaction, len(txs))
+			for i, tx := range txs {
 				coreTx, err := p2p2core.AdaptTransaction(tx, s.network)
 				if err != nil {
 					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt transaction: %w", err)}
 					return
 				}
-				coreTxs = append(coreTxs, coreTx)
+				coreTxs[i] = coreTx
 			}
 
 			coreBlock.Transactions = coreTxs
