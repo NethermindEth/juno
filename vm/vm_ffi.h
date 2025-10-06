@@ -43,8 +43,8 @@ extern void cairoVMCall(
 	ChainInfo* chain_info_ptr, 
 	uintptr_t readerHandle,
 	unsigned long long max_steps, 
+	unsigned long long initial_gas,
 	unsigned char concurrency_mode, 
-	char* sierra_version, 
 	unsigned char err_stack, 
 	unsigned char return_state_diff
 );

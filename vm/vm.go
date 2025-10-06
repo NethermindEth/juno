@@ -277,14 +277,6 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
-func makeByteFromBool(b bool) byte {
-	var boolByte byte
-	if b {
-		boolByte = 1
-	}
-	return boolByte
-}
-
 func (v *vm) Call(
 	callInfo *CallInfo,
 	blockInfo *BlockInfo,
@@ -314,11 +306,10 @@ func (v *vm) Call(
 		&cChainInfo,
 		C.uintptr_t(handle),
 		C.ulonglong(maxSteps),
+		C.ulonglong(maxGas),
 		toUchar(v.concurrencyMode),
-		cSierraVersion,
 		toUchar(structuredErrStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 		toUchar(returnStateDiff),    //nolint:gocritic
-
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(cChainInfo.chain_id))

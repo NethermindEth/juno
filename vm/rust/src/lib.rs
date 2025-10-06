@@ -44,7 +44,7 @@ use juno_state_reader::{class_info_from_json_str, felt_to_byte_array};
 use starknet_api::core::{ChainId, ClassHash, ContractAddress};
 use starknet_api::{
     block::{BlockHash, GasPrice, StarknetVersion},
-    contract_class::{ClassInfo, EntryPointType, SierraVersion},
+    contract_class::{ClassInfo, EntryPointType},
     executable_transaction::AccountTransaction,
     execution_resources::GasVector,
     transaction::{
@@ -61,7 +61,6 @@ use starknet_api::{
     execution_resources::GasAmount,
 };
 use starknet_types_core::felt::Felt;
-use std::str::FromStr;
 type StarkFelt = Felt;
 use anyhow::Context;
 use once_cell::sync::Lazy;
@@ -138,8 +137,8 @@ pub extern "C" fn cairoVMCall(
     chain_info_ptr: *const ChainInfo,
     reader_handle: usize,
     max_steps: c_ulonglong,
+    initial_gas: c_ulonglong,
     concurrency_mode: c_uchar,
-    sierra_version: *const c_char,
     err_stack: c_uchar,
     return_state_diff: c_uchar,
 ) {
@@ -167,14 +166,6 @@ pub extern "C" fn cairoVMCall(
         }
     }
 
-    let version_constants = get_versioned_constants(block_info.version);
-    let sierra_version_str = unsafe { CStr::from_ptr(sierra_version) }.to_str().unwrap();
-    let sierra_version = SierraVersion::from_str(sierra_version_str).unwrap();
-    let initial_gas: u64 = if sierra_version < version_constants.min_sierra_version_for_sierra_gas {
-        version_constants.infinite_gas_for_vm_mode()
-    } else {
-        version_constants.os_constants.validate_max_sierra_gas.0
-    };
     let contract_address = ContractAddress::try_from(contract_addr_felt).unwrap();
     let entry_point_selector = starknet_api::core::EntryPointSelector(entry_point_selector_felt);
 
