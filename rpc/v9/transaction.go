@@ -755,26 +755,6 @@ func (h *Handler) TransactionStatus(
 	return TransactionStatus{}, txErr
 }
 
-// In 0.7.0, the failure reason is not returned in the TransactionStatus response.
-type TransactionStatusV0_7 struct {
-	Finality  TxnStatus          `json:"finality_status"`
-	Execution TxnExecutionStatus `json:"execution_status,omitempty"`
-}
-
-func (h *Handler) TransactionStatusV0_7(
-	ctx context.Context, hash *felt.Felt,
-) (*TransactionStatusV0_7, *jsonrpc.Error) {
-	res, err := h.TransactionStatus(ctx, hash)
-	if err != nil {
-		return nil, err
-	}
-
-	return &TransactionStatusV0_7{
-		Finality:  res.Finality,
-		Execution: res.Execution,
-	}, nil
-}
-
 func makeJSONErrorFromGatewayError(err error) *jsonrpc.Error { //nolint:gocyclo
 	gatewayErr, ok := err.(*gateway.Error)
 	if !ok {

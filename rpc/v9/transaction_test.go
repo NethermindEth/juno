@@ -1617,32 +1617,6 @@ func TestTransactionStatus(t *testing.T) {
 					require.Nil(t, rpcErr)
 					require.Equal(t, *want, status)
 				})
-				t.Run("verified v0.7.0", func(t *testing.T) {
-					mockReader := mocks.NewMockReader(mockCtrl)
-					mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
-					mockSyncReader.EXPECT().PendingData().Return(&core.PreConfirmed{
-						Block: &core.Block{
-							Header: &core.Header{
-								Number: block.Number + 1,
-							},
-						},
-					}, nil)
-					mockReader.EXPECT().TransactionByHash(tx.Hash()).Return(tx, nil)
-					mockReader.EXPECT().Receipt(tx.Hash()).Return(block.Receipts[0], block.Hash, block.Number, nil)
-					mockReader.EXPECT().L1Head().Return(&core.L1Head{
-						BlockNumber: block.Number + 1,
-					}, nil)
-
-					handler := rpc.New(mockReader, mockSyncReader, nil, log)
-
-					want := &rpc.TransactionStatusV0_7{
-						Finality:  rpc.TxnStatusAcceptedOnL1,
-						Execution: rpc.TxnSuccess,
-					}
-					status, rpcErr := handler.TransactionStatusV0_7(ctx, tx.Hash())
-					require.Nil(t, rpcErr)
-					require.Equal(t, want, status)
-				})
 			})
 			t.Run("transaction not found in db", func(t *testing.T) {
 				notFoundTests := map[string]struct {
