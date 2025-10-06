@@ -45,7 +45,7 @@ func TestPendingValidate(t *testing.T) {
 }
 
 func TestPreConfirmedValidate(t *testing.T) {
-	t.Run("Without PreLatest", func(t *testing.T) {
+	t.Run("without pre-latest", func(t *testing.T) {
 		// Genesis case with nil parent
 		preConfirmed0 := &core.PreConfirmed{
 			Block: &core.Block{
@@ -80,7 +80,7 @@ func TestPreConfirmedValidate(t *testing.T) {
 		require.True(t, preConfirmed1.Validate(head0.Header))
 	})
 
-	t.Run("With Prelatest", func(t *testing.T) {
+	t.Run("with pre-latest", func(t *testing.T) {
 		head0 := &core.Block{
 			Header: &core.Header{
 				Number:     0,
@@ -381,35 +381,23 @@ func TestPendingData_PendingState(t *testing.T) {
 		storageKey: &storageValue,
 	}
 
-	t.Run("Pending Block Tests", func(t *testing.T) {
-		t.Run("get pending state with storage update", func(t *testing.T) {
-			pending := core.Pending{
-				StateUpdate: &core.StateUpdate{
-					StateDiff: &stateDiff,
-				},
-			}
+	t.Run("pending - state with storage update", func(t *testing.T) {
+		pending := core.Pending{
+			StateUpdate: &core.StateUpdate{
+				StateDiff: &stateDiff,
+			},
+		}
 
-			state := pending.PendingState(nil)
-			require.NotNil(t, state)
+		state := pending.PendingState(nil)
+		require.NotNil(t, state)
 
-			// Test that we can query the updated storage value
-			retrievedValue, err := state.ContractStorage(&contractAddress, &storageKey)
-			require.NoError(t, err)
-			require.Equal(t, &storageValue, retrievedValue)
-		})
-
-		t.Run("pending state before index returns error", func(t *testing.T) {
-			// Create a pending block with state update
-			pending := core.Pending{}
-
-			// Test that PendingStateBeforeIndex returns appropriate error for pending blocks
-			_, err := pending.PendingStateBeforeIndex(nil, 0)
-			require.Error(t, err)
-			require.Equal(t, core.ErrPendingStateBeforeIndexNotSupported, err)
-		})
+		// Test that we can query the updated storage value
+		retrievedValue, err := state.ContractStorage(&contractAddress, &storageKey)
+		require.NoError(t, err)
+		require.Equal(t, &storageValue, retrievedValue)
 	})
 
-	t.Run("Pre-Confirmed Block", func(t *testing.T) {
+	t.Run("pre-confirmed", func(t *testing.T) {
 		preLatestContractAddress := felt.FromUint64[felt.Felt](0x20000)
 		preLatestStorageKey := felt.FromUint64[felt.Felt](0x20)
 		preLatestStorageValue := felt.FromUint64[felt.Felt](0x200)
@@ -436,7 +424,7 @@ func TestPendingData_PendingState(t *testing.T) {
 			},
 		}
 
-		t.Run("get pending state without pre-latest", func(t *testing.T) {
+		t.Run("pending state without pre-latest", func(t *testing.T) {
 			// Test that we can get pending state
 			state := preConfirmed.PendingState(nil)
 			require.NotNil(t, state)
@@ -447,7 +435,7 @@ func TestPendingData_PendingState(t *testing.T) {
 			require.Equal(t, &storageValue, retrievedValue)
 		})
 
-		t.Run("get pending state with pre-latest", func(t *testing.T) {
+		t.Run("pending state with pre-latest", func(t *testing.T) {
 			// Create a state diff with storage update
 			preConfirmedWithPreLatest := preConfirmed.Copy().WithPreLatest(preLatest)
 
@@ -469,19 +457,14 @@ func TestPendingData_PendingState(t *testing.T) {
 }
 
 func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
-	t.Run("Pending Block Tests", func(t *testing.T) {
-		t.Run("pending state before index returns error", func(t *testing.T) {
-			// Create a pending block with state update
-			pending := core.Pending{}
+	t.Run("pending block - returns error", func(t *testing.T) {
+		pending := core.Pending{}
 
-			// Test that PendingStateBeforeIndex returns appropriate error for pending blocks
-			_, err := pending.PendingStateBeforeIndex(nil, 0)
-			require.Error(t, err)
-			require.Equal(t, core.ErrPendingStateBeforeIndexNotSupported, err)
-		})
+		_, err := pending.PendingStateBeforeIndex(nil, 0)
+		require.ErrorIs(t, err, core.ErrPendingStateBeforeIndexNotSupported)
 	})
 
-	t.Run("Pre-Confirmed Block", func(t *testing.T) {
+	t.Run("pre-confirmed", func(t *testing.T) {
 		// Create a state diff with storage update
 		preConfirmedContractAddress := felt.FromUint64[felt.Felt](0x10000)
 		preConfirmedStorageKey := felt.FromUint64[felt.Felt](0x10)
@@ -545,6 +528,14 @@ func TestPendingData_PendingStateBeforeIndex(t *testing.T) {
 			},
 			TransactionStateDiffs: transactionStateDiffs,
 		}
+
+		t.Run("out of bound index returns error", func(t *testing.T) {
+			_, err := preConfirmed.PendingStateBeforeIndex(
+				nil,
+				uint(len(preConfirmed.Block.Transactions)+1),
+			)
+			require.ErrorIs(t, err, core.ErrTransactionIndexOutOfBounds)
+		})
 
 		t.Run("without pre-latest", func(t *testing.T) {
 			// Test PendingStateBeforeIndex for different transaction indices
