@@ -59,7 +59,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -90,7 +89,6 @@ func TestCallDeprecatedCairo(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -139,7 +137,6 @@ func TestCallDeprecatedCairoMaxSteps(t *testing.T) {
 		testState,
 		0,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -196,7 +193,6 @@ func TestCallCairo(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -227,7 +223,6 @@ func TestCallCairo(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -286,7 +281,6 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
@@ -304,7 +298,6 @@ func TestCallInfoErrorHandling(t *testing.T) {
 		testState,
 		DefaultMaxSteps,
 		DefaultMaxGas,
-		simpleClass.SierraVersion(),
 		false,
 		false,
 	)
