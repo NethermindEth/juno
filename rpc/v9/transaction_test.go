@@ -644,22 +644,31 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	})
 
 	t.Run("blockID - pre_confirmed", func(t *testing.T) {
-		index := rand.Intn(int(latestBlock.TransactionCount))
-
 		latestBlock.Hash = nil
 		latestBlock.GlobalStateRoot = nil
 		preConfirmed := core.NewPreConfirmed(latestBlock, nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&preConfirmed,
 			nil,
-		)
-
-		expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index])
-
+		).Times(2)
 		blockID := blockIDPreConfirmed(t)
-		actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
-		require.Nil(t, rpcErr)
-		require.Equal(t, expectedTxn, actualTxn)
+
+		t.Run("invalid index", func(t *testing.T) {
+			invalidIndex := len(preConfirmed.Block.Transactions)
+
+			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, invalidIndex)
+			require.Equal(t, rpcErr, rpccore.ErrInvalidTxIndex)
+			require.Nil(t, actualTxn)
+		})
+
+		t.Run("valid index", func(t *testing.T) {
+			index := rand.Intn(int(latestBlock.TransactionCount))
+			expectedTxn := rpc.AdaptTransaction(latestBlock.Transactions[index])
+
+			actualTxn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, index)
+			require.Nil(t, rpcErr)
+			require.Equal(t, expectedTxn, actualTxn)
+		})
 	})
 }
 
