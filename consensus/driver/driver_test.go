@@ -178,6 +178,8 @@ func TestDriver(t *testing.T) {
 		newMockCommitListener(t, &commitAction),
 		broadcasters,
 		listeners,
+		nil, // TODO: Add tests for trigger sync
+		nil, // TODO: Add tests for trigger sync
 		mockTimeoutFn,
 	)
 
@@ -194,6 +196,7 @@ func TestDriver(t *testing.T) {
 	// timeouts to be scheduled (`toAction`). These timeouts will then be triggered (`ProcessTimeout`).
 	// We force the stateMachine to return a random set of actions (`generateAndRegisterRandomActions`) here just to test that
 	// the driver will actually receive them.
+	stateMachine.EXPECT().Height().AnyTimes()
 	stateMachine.EXPECT().ProcessStart(types.Round(0)).Return(
 		append(generateAndRegisterRandomActions(random, expectedBroadcast), toAction(inputTimeoutProposal)),
 	)

@@ -25,13 +25,11 @@ func NewVoteBroadcaster[H types.Hash, A types.Addr](
 	return voteBroadcaster[H, A]{
 		log:         log,
 		voteAdapter: voteAdapter,
-		ProtoBroadcaster: buffered.NewProtoBroadcaster(
+		ProtoBroadcaster: buffered.NewProtoBroadcaster[*consensus.Vote](
 			log,
 			bufferSizeConfig.VoteProtoBroadcaster,
 			bufferSizeConfig.RetryInterval,
-			buffered.NewRebroadcastStrategy(bufferSizeConfig.RebroadcastInterval, func(msg *consensus.Vote) consensus.Vote_VoteType {
-				return msg.VoteType
-			}),
+			nil,
 		),
 	}
 }

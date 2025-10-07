@@ -42,6 +42,20 @@ func (m *MockStateMachine[V, H, A]) EXPECT() *MockStateMachineMockRecorder[V, H,
 	return m.recorder
 }
 
+// Height mocks base method.
+func (m *MockStateMachine[V, H, A]) Height() types.Height {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(types.Height)
+	return ret0
+}
+
+// Height indicates an expected call of Height.
+func (mr *MockStateMachineMockRecorder[V, H, A]) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).Height))
+}
+
 // ProcessPrecommit mocks base method.
 func (m *MockStateMachine[V, H, A]) ProcessPrecommit(arg0 *types.Precommit[H, A]) []actions.Action[V, H, A] {
 	m.ctrl.T.Helper()
@@ -96,6 +110,20 @@ func (m *MockStateMachine[V, H, A]) ProcessStart(arg0 types.Round) []actions.Act
 func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessStart(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessStart", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessStart), arg0)
+}
+
+// ProcessSync mocks base method.
+func (m *MockStateMachine[V, H, A]) ProcessSync(arg0 *types.Proposal[V, H, A], arg1 []types.Precommit[H, A]) []actions.Action[V, H, A] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProcessSync", arg0, arg1)
+	ret0, _ := ret[0].([]actions.Action[V, H, A])
+	return ret0
+}
+
+// ProcessSync indicates an expected call of ProcessSync.
+func (mr *MockStateMachineMockRecorder[V, H, A]) ProcessSync(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessSync", reflect.TypeOf((*MockStateMachine[V, H, A])(nil).ProcessSync), arg0, arg1)
 }
 
 // ProcessTimeout mocks base method.

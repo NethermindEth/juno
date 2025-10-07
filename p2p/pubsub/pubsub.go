@@ -55,6 +55,7 @@ func Run(
 	pubSub, err := pubsub.NewGossipSub(
 		ctx,
 		host,
+		pubsub.WithFloodPublish(true),
 		pubsub.WithPeerOutboundQueueSize(pubSubQueueSize),
 		pubsub.WithValidateQueueSize(pubSubQueueSize),
 		pubsub.WithDiscovery(routing.NewRoutingDiscovery(dht)),

@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/consensus/driver"
 	"github.com/NethermindEth/juno/consensus/starknet"
+	consensusSync "github.com/NethermindEth/juno/consensus/sync"
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/consensus/votecounter"
 	"github.com/NethermindEth/juno/core/felt"
@@ -15,8 +16,7 @@ import (
 )
 
 const (
-	timeoutBase        = 500 * time.Microsecond
-	timeoutRoundFactor = 100 * time.Millisecond
+	timeoutRoundFactor = 10 * time.Millisecond
 )
 
 type MockServices struct {
@@ -31,7 +31,7 @@ func InitMockServices(hiSeed, loSeed uint64, nodeIndex, nodeCount int) MockServi
 		PrivateKey:  mockKey(nodeIndex),
 		NodeAddress: mockNodeAddress(nodeIndex),
 		Validators:  newMockValidators(hiSeed, loSeed, nodeCount),
-		TimeoutFn:   MockTimeoutFn(nodeCount),
+		TimeoutFn:   mockTimeoutFn(nodeCount),
 	}
 }
 
@@ -47,7 +47,14 @@ func (n mockValidators) TotalVotingPower(height types.Height) types.VotingPower 
 	return types.VotingPower(len(n))
 }
 
+// Currently we mock one voting power for all validators, to be removed once
+// we can query the voting power from the staking contracts.
+// The special case is for precommits from sync protocol, to be removed once
+// we can extract precommits from the sync protocol messages.
 func (n mockValidators) ValidatorVotingPower(height types.Height, addr *starknet.Address) types.VotingPower {
+	if addr != nil && *addr == consensusSync.SyncProtocolPrecommitSender {
+		return types.VotingPower(len(n))
+	}
 	return types.VotingPower(1)
 }
 
@@ -61,11 +68,9 @@ func mockNodeAddress(i int) starknet.Address {
 	return felt.FromUint64[starknet.Address](uint64(i))
 }
 
-func MockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
+func mockTimeoutFn(nodeCount int) func(types.Step, types.Round) time.Duration {
 	return func(step types.Step, round types.Round) time.Duration {
-		// Total number of messages are N^2, so the load is roughly proportional to O(N^2)
-		// Every round increases the timeout by timeoutRoundFactor. It also guarantees that the timeout will be at least timeoutRoundFactor
-		delta := time.Duration(nodeCount*nodeCount)*timeoutBase + time.Duration(round+1)*timeoutRoundFactor
+		delta := (time.Duration(round) + time.Duration(nodeCount)) * timeoutRoundFactor
 
 		// The formulae follow the lemma in the paper
 		switch step {
