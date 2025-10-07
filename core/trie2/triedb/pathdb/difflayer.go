@@ -2,6 +2,7 @@ package pathdb
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -40,6 +41,12 @@ func (dl *diffLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	isClass := id.Type() == trieutils.Class
 	n, ok := dl.nodes.node(owner, path, isClass)
 	if ok {
+		blob := n.Blob()
+		if len(blob) > hashOrValueNodeSize {
+			if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+				panic(fmt.Sprintf("invalid blob read from diff layer: %v, path: %v", blob, path))
+			}
+		}
 		incCounter(&diffLayerHits)
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
 			return nil, db.ErrKeyNotFound

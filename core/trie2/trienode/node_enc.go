@@ -103,6 +103,11 @@ func EncodeNode(n Node) []byte {
 
 // Decodes the encoded bytes and returns the corresponding node
 func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, error) {
+	if len(blob) > hashOrValueNodeSize {
+		if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+			panic(fmt.Sprintf("invalid blob read from decode node start: %v, pathLen: %d, maxPathLen: %d", blob, pathLen, maxPathLen))
+		}
+	}
 	if len(blob) == 0 {
 		return nil, errors.New("cannot decode empty blob")
 	}
@@ -119,6 +124,11 @@ func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, 
 			return n, nil
 		}
 	}
+	if len(blob) > hashOrValueNodeSize {
+		if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+			panic(fmt.Sprintf("invalid blob read from decode node after hash and value: %v, pathLen: %d, maxPathLen: %d", blob, pathLen, maxPathLen))
+		}
+	}
 
 	nodeType := blob[0]
 	blob = blob[1:]
@@ -129,6 +139,7 @@ func DecodeNode(blob []byte, hash *felt.Felt, pathLen, maxPathLen uint8) (Node, 
 	case edgeNodeType:
 		return decodeEdgeNode(blob, hash, pathLen, maxPathLen)
 	default:
+		fmt.Println("invalid blob", blob, "pathLen", pathLen, "maxPathLen", maxPathLen, "check", pathLen == maxPathLen)
 		panic(fmt.Sprintf("unknown node type: %d", nodeType))
 	}
 }

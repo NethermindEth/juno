@@ -123,11 +123,22 @@ func (c *collector) collectChildren(path *Path, n *trienode.BinaryNode, parallel
 	return children
 }
 
+const hashOrValueNodeSize = felt.Bytes
+const (
+	binaryNodeType byte = iota + 1
+	edgeNodeType
+)
+
 // Stores the node in the node set and returns the hash node
 func (c *collector) store(path *Path, n trienode.Node) trienode.Node {
 	hashNode, _ := n.Cache()
 
 	blob := trienode.EncodeNode(n)
+	if len(blob) > hashOrValueNodeSize {
+		if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+			panic(fmt.Sprintf("invalid blob encoded by collector: %v, path: %v", blob, path))
+		}
+	}
 	if hashNode == nil { // this is a value node
 		var h felt.Felt
 		h.SetBytes(blob)

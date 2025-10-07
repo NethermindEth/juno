@@ -1,6 +1,7 @@
 package pathdb
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -57,6 +58,12 @@ func (dl *diskLayer) isStale() bool {
 	return dl.stale
 }
 
+const hashOrValueNodeSize = felt.Bytes
+const (
+	binaryNodeType byte = iota + 1
+	edgeNodeType
+)
+
 func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils.Path, isLeaf bool) ([]byte, error) {
 	dl.lock.RLock()
 	defer dl.lock.RUnlock()
@@ -73,12 +80,23 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 		if _, deleted := n.(*trienode.DeletedNode); deleted {
 			return nil, db.ErrKeyNotFound
 		}
+		blob := n.Blob()
+		if len(blob) > hashOrValueNodeSize {
+			if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+				panic(fmt.Sprintf("invalid blob read from dirty buffer: %v, path: %v, owner: %v", blob, path, owner))
+			}
+		}
 		return n.Blob(), nil
 	}
 
 	// If not found in dirty buffer, read from clean cache
 	blob := dl.cleans.getNode(owner, path, isClass)
 	if blob != nil {
+		if len(blob) > hashOrValueNodeSize {
+			if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+				panic(fmt.Sprintf("invalid blob read from clean cache: %v, path: %v, owner: %v", blob, path, owner))
+			}
+		}
 		incCounter(&cleanCacheHits)
 		return blob, nil
 	}
@@ -88,10 +106,16 @@ func (dl *diskLayer) node(id trieutils.TrieID, owner *felt.Felt, path *trieutils
 	if err != nil {
 		return nil, err
 	}
+	blobCopy := make([]byte, len(blob))
+	copy(blobCopy, blob)
 	incCounter(&diskReads)
-
-	dl.cleans.putNode(owner, path, isClass, blob)
-	return blob, nil
+	if len(blobCopy) > hashOrValueNodeSize {
+		if blobCopy[0] != binaryNodeType && blobCopy[0] != edgeNodeType {
+			panic(fmt.Sprintf("invalid blob read from the DB: %v, path: %v, isLeaf: %v, owner: %v", blobCopy, path, isLeaf, owner))
+		}
+	}
+	dl.cleans.putNode(owner, path, isClass, blobCopy)
+	return blobCopy, nil
 }
 
 func (dl *diskLayer) update(root *felt.Felt, id, block uint64, nodes *nodeSet) diffLayer {

@@ -1,6 +1,7 @@
 package pathdb
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"math"
@@ -330,6 +331,12 @@ func writeNodes(
 
 	for owner, nodes := range contractStorageNodes {
 		for path, n := range nodes {
+			blob := n.Blob()
+			if len(blob) > hashOrValueNodeSize {
+				if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+					panic(fmt.Sprintf("invalid blob written to the DB: %v, path: %v, isLeaf: %v, owner: %v", blob, path, n.IsLeaf(), owner))
+				}
+			}
 			if _, deleted := n.(*trienode.DeletedNode); deleted {
 				if err := trieutils.DeleteNodeByPath(w, db.ContractTrieStorage, &owner, &path, n.IsLeaf()); err != nil {
 					return err

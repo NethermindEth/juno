@@ -541,7 +541,11 @@ func (t *Trie) resolveNode(hn *trienode.HashNode, path Path) (trienode.Node, err
 	if err != nil {
 		return nil, err
 	}
-
+	if len(blob) > hashOrValueNodeSize {
+		if blob[0] != binaryNodeType && blob[0] != edgeNodeType {
+			panic(fmt.Sprintf("invalid blob read from resolve node (node reader): %v, path: %v", blob, path))
+		}
+	}
 	return trienode.DecodeNode(blob, &hash, path.Len(), t.height)
 }
 

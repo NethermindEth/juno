@@ -20,6 +20,10 @@ var (
 	allStateCommitContractTrieUpdateTime    int64
 	allUpdateContractsTime                  int64
 	allStateCommitContractTrieCommitTime    int64
+	allReplaceContractsTime                 int64
+	allUpdateContractNoncesTime             int64
+	allUpdateContractsStorageTime           int64
+	allCheckContractsDeployedTime           int64
 )
 
 func incCounter(c *uint64) {
@@ -54,6 +58,14 @@ func getMetricName(c *int64) string {
 		return "allUpdateContractsTime"
 	case &allStateCommitContractTrieCommitTime:
 		return "allStateCommitContractTrieCommitTime"
+	case &allReplaceContractsTime:
+		return "allReplaceContractsTime"
+	case &allUpdateContractNoncesTime:
+		return "allUpdateContractNoncesTime"
+	case &allUpdateContractsStorageTime:
+		return "allUpdateContractsStorageTime"
+	case &allCheckContractsDeployedTime:
+		return "allCheckContractsDeployedTime"
 	default:
 		return "unknown"
 	}
@@ -74,6 +86,10 @@ func (c *StateMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
 		prometheus.NewDesc("x_deprecated_state_all_state_commit_contract_trie_update_time_ns", "Total time spent updating contract trie (ns)", nil, nil),
 		prometheus.NewDesc("x_deprecated_state_all_update_contracts_time_ns", "Total time spent updating contracts (ns)", nil, nil),
 		prometheus.NewDesc("x_deprecated_state_all_state_commit_contract_trie_commit_time_ns", "Total time spent committing contract trie (ns)", nil, nil),
+		prometheus.NewDesc("x_deprecated_state_all_replace_contracts_time_ns", "Total time spent replacing contracts (ns)", nil, nil),
+		prometheus.NewDesc("x_deprecated_state_all_update_contract_nonces_time_ns", "Total time spent updating contract nonces (ns)", nil, nil),
+		prometheus.NewDesc("x_deprecated_state_all_update_contracts_storage_time_ns", "Total time spent updating contract storage (ns)", nil, nil),
+		prometheus.NewDesc("x_deprecated_state_all_check_contracts_deployed_time_ns", "Total time spent checking contracts deployed (ns)", nil, nil),
 	}
 	for _, d := range descs {
 		ch <- d
@@ -135,5 +151,25 @@ func (c *StateMetricsCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.NewDesc("x_deprecated_state_all_state_commit_contract_trie_commit_time_ns", "Total time spent committing contract trie (ns)", nil, nil),
 		prometheus.CounterValue,
 		float64(atomic.LoadInt64(&allStateCommitContractTrieCommitTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_deprecated_state_all_replace_contracts_time_ns", "Total time spent replacing contracts (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allReplaceContractsTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_deprecated_state_all_update_contract_nonces_time_ns", "Total time spent updating contract nonces (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allUpdateContractNoncesTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_deprecated_state_all_update_contracts_storage_time_ns", "Total time spent updating contract storage (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allUpdateContractsStorageTime)),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		prometheus.NewDesc("x_deprecated_state_all_check_contracts_deployed_time_ns", "Total time spent checking contracts deployed (ns)", nil, nil),
+		prometheus.CounterValue,
+		float64(atomic.LoadInt64(&allCheckContractsDeployedTime)),
 	)
 }

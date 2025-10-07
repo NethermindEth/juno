@@ -2,7 +2,6 @@ package pathdb
 
 import (
 	"sync"
-	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/core/trie2/triedb/database"
@@ -30,16 +29,6 @@ type Database struct {
 	tree   *layerTree
 	config Config
 	lock   sync.RWMutex
-
-	diffLayerHits    uint64
-	diffLayerMisses  uint64
-	cleanCacheHits   uint64
-	cleanCacheMisses uint64
-	dirtyCacheHits   uint64
-	dirtyCacheMisses uint64
-	diskReads        uint64
-	allReads         uint64
-	allReadsTime     time.Duration
 }
 
 // Creates a new path-based database. It will load the journal from the disk and recreate the layer tree.

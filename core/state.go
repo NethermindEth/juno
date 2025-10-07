@@ -304,6 +304,7 @@ var (
 
 func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *StateDiff, logChanges bool) error {
 	// replace contract instances
+	start := time.Now()
 	for addr, classHash := range diff.ReplacedClasses {
 		oldClassHash, err := s.replaceContract(stateTrie, &addr, classHash)
 		if err != nil {
@@ -316,7 +317,8 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 			}
 		}
 	}
-
+	addDuration(&allReplaceContractsTime, time.Since(start))
+	start = time.Now()
 	// update contract nonces
 	for addr, nonce := range diff.Nonces {
 		oldNonce, err := s.updateContractNonce(stateTrie, &addr, nonce)
@@ -330,7 +332,12 @@ func (s *State) updateContracts(stateTrie *trie.Trie, blockNumber uint64, diff *
 			}
 		}
 	}
+	addDuration(&allUpdateContractNoncesTime, time.Since(start))
 
+	start = time.Now()
+	defer func() {
+		addDuration(&allUpdateContractsStorageTime, time.Since(start))
+	}()
 	// update contract storages
 	return s.updateContractStorages(stateTrie, diff.StorageDiffs, blockNumber, logChanges)
 }
@@ -420,6 +427,7 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 		addr *felt.Felt
 	}
 
+	start := time.Now()
 	// make sure all systemContracts are deployed
 	for addr := range diffs {
 		if _, ok := systemContracts[addr]; !ok {
@@ -438,10 +446,11 @@ func (s *State) updateContractStorages(stateTrie *trie.Trie, diffs map[felt.Felt
 			}
 		}
 	}
+	addDuration(&allCheckContractsDeployedTime, time.Since(start))
 
 	// sort the contracts in decending diff size order
 	// so we start with the heaviest update first
-	start := time.Now()
+	start = time.Now()
 	keys := slices.SortedStableFunc(maps.Keys(diffs), func(a, b felt.Felt) int { return len(diffs[a]) - len(diffs[b]) })
 	addDuration(&allStateCommitKeysSortTime, time.Since(start))
 	start = time.Now()
