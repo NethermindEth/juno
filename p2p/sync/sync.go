@@ -75,7 +75,8 @@ func (s *Service) Run(ctx context.Context) {
 			continue
 		}
 
-		s.log.Info("Start Pipeline",
+		s.log.Info(
+			"Start Pipeline",
 			zap.Int("Current height", nextHeight-1),
 			zap.Int("Start", nextHeight),
 		)
@@ -227,14 +228,16 @@ func (s *BlockFetcher) processSpecBlockParts(
 			default:
 				switch p := part.(type) {
 				case specBlockHeaderAndSigs:
-					s.log.Debug("Received Block Header with signatures",
+					s.log.Debug(
+						"Received Block Header with signatures",
 						zap.Uint64("blockNumber", p.blockNumber()),
 					)
 					if _, ok := specBlockHeadersAndSigsM[part.blockNumber()]; !ok {
 						specBlockHeadersAndSigsM[part.blockNumber()] = p
 					}
 				case specTxWithReceipts:
-					s.log.Debug("Received Transactions with receipts",
+					s.log.Debug(
+						"Received Transactions with receipts",
 						zap.Uint64("blockNumber", p.blockNumber()),
 						zap.Int("txLen", len(p.txs)),
 					)
@@ -242,7 +245,8 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specTransactionsM[part.blockNumber()] = p
 					}
 				case specEvents:
-					s.log.Debug("Received Events",
+					s.log.Debug(
+						"Received Events",
 						zap.Uint64("blockNumber", p.blockNumber()),
 						zap.Int("len", len(p.events)),
 					)
@@ -260,7 +264,8 @@ func (s *BlockFetcher) processSpecBlockParts(
 						specContractDiffsM[part.blockNumber()] = p
 					}
 				default:
-					s.log.Warn("Unsupported part type",
+					s.log.Warn(
+						"Unsupported part type",
 						zap.Uint64("blockNumber", part.blockNumber()),
 						zap.String("type", reflect.TypeOf(p).String()),
 					)
@@ -272,7 +277,8 @@ func (s *BlockFetcher) processSpecBlockParts(
 				cls, okClasses := specClassesM[curBlockNum]
 				diffs, okDiffs := specContractDiffsM[curBlockNum]
 				if okHeader && okTxs && okEvents && okClasses && okDiffs {
-					s.log.Debug("Received all block parts from peers",
+					s.log.Debug(
+						"----- Received all block parts from peers for block number -----",
 						zap.Uint64("blockNumber", curBlockNum),
 					)
 
@@ -505,7 +511,8 @@ func (s *BlockFetcher) genHeadersAndSigs(
 			case *header.BlockHeadersResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected HeaderMessage from getBlockHeaders",
+				s.log.Warn(
+					"Unexpected HeaderMessage from getBlockHeaders",
 					zap.String("v", fmt.Sprintf("%T", v)),
 				)
 				break loop
@@ -565,7 +572,8 @@ func (s *BlockFetcher) genClasses(
 			number:  blockNumber,
 			classes: classes,
 		}:
-			s.log.Debug("Received classes for block",
+			s.log.Debug(
+				"Received classes for block",
 				zap.Uint64("blockNumber", blockNumber),
 				zap.Int("lenClasses", len(classes)),
 			)
@@ -713,7 +721,8 @@ func (s *BlockFetcher) genTransactions(
 			case *synctransaction.TransactionsResponse_Fin:
 				break loop
 			default:
-				s.log.Warn("Unexpected TransactionMessage from getTransactions",
+				s.log.Warn(
+					"Unexpected TransactionMessage from getTransactions",
 					zap.String("v", fmt.Sprintf("%T", v)),
 				)
 				break loop
@@ -763,7 +772,7 @@ func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc 
 		}
 		stream, err := host.NewStream(ctx, randPeer, pids...)
 		if err != nil {
-			log.Debug("Error creating stream", zap.String("peer", randPeer.String()), zap.Error(err))
+			log.Debug("Error creating stream", zap.Stringer("peer", randPeer), zap.Error(err))
 			removePeer(host, log, randPeer)
 			return nil, err
 		}
@@ -772,7 +781,7 @@ func randomPeerStream(host host.Host, log utils.StructuredLogger) NewStreamFunc 
 }
 
 func removePeer(host host.Host, log utils.StructuredLogger, id peer.ID) {
-	log.Debug("Removing peer", zap.String("peerID", id.String()))
+	log.Debug("Removing peer", zap.Stringer("peerID", id))
 	host.Peerstore().RemovePeer(id)
 	host.Peerstore().ClearAddrs(id)
 }

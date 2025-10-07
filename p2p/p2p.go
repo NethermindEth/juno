@@ -12,14 +12,13 @@ import (
 	"github.com/NethermindEth/juno/blockchain"
 	"github.com/NethermindEth/juno/db"
 	"github.com/NethermindEth/juno/p2p/dht"
-	p2pPeers "github.com/NethermindEth/juno/p2p/peers"
+	"github.com/NethermindEth/juno/p2p/server"
 	"github.com/NethermindEth/juno/p2p/starknetp2p"
 	p2pSync "github.com/NethermindEth/juno/p2p/sync"
 	junoSync "github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/libp2p/go-libp2p"
 	libp2pdht "github.com/libp2p/go-libp2p-kad-dht"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/crypto/pb"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -28,6 +27,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -41,14 +41,12 @@ type Service struct {
 	host host.Host
 
 	network *utils.Network
-	handler *p2pPeers.Handler
+	server  *server.Server
 	log     utils.StructuredLogger
 
-	dht    *libp2pdht.IpfsDHT
-	pubsub *pubsub.PubSub
+	dht *libp2pdht.IpfsDHT
 
 	synchroniser *p2pSync.Service
-	gossipTracer *gossipTracer
 
 	feederNode bool
 	database   db.KeyValueStore
@@ -147,6 +145,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 
 	blockFetcher := p2pSync.NewBlockFetcher(bc, p2phost, snNetwork, log)
 	synchroniser := p2pSync.New(bc, log, &blockFetcher)
+	server := server.New(p2phost, bc, log)
 	s := &Service{
 		synchroniser: synchroniser,
 		log:          log,
@@ -154,7 +153,7 @@ func NewWithHost(p2phost host.Host, peers string, feederNode bool, bc *blockchai
 		network:      snNetwork,
 		dht:          p2pdht,
 		feederNode:   feederNode,
-		handler:      p2pPeers.NewHandler(bc, log),
+		server:       &server,
 		database:     database,
 	}
 	return s, nil
@@ -209,16 +208,6 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 
-	var options []pubsub.Option
-	if s.gossipTracer != nil {
-		options = append(options, pubsub.WithRawTracer(s.gossipTracer))
-	}
-
-	s.pubsub, err = pubsub.NewGossipSub(ctx, s.host, options...)
-	if err != nil {
-		return err
-	}
-
 	defer s.callAndLogErr(s.dht.Close, "Failed stopping DHT")
 
 	listenAddrs, err := s.ListenAddrs()
@@ -226,13 +215,24 @@ func (s *Service) Run(ctx context.Context) error {
 		return err
 	}
 	for _, addr := range listenAddrs {
-		s.log.Info("Listening on", zap.String("addr", addr.String()))
+		s.log.Info("Listening on", zap.Stringer("addr", addr))
 	}
 
-	s.setProtocolHandlers()
+	g := errgroup.Group{}
 
 	if !s.feederNode {
-		s.synchroniser.Run(ctx)
+		g.Go(func() error {
+			s.synchroniser.Run(ctx)
+			return nil
+		})
+	}
+
+	g.Go(func() error {
+		return s.server.Run(ctx)
+	})
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	<-ctx.Done()
@@ -243,14 +243,6 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Warn("Failed stopping DHT", zap.Error(err))
 	}
 	return nil
-}
-
-func (s *Service) setProtocolHandlers() {
-	s.SetProtocolHandler(starknetp2p.HeadersSyncSubProtocol, s.handler.HeadersHandler)
-	s.SetProtocolHandler(starknetp2p.EventsSyncSubProtocol, s.handler.EventsHandler)
-	s.SetProtocolHandler(starknetp2p.TransactionsSyncSubProtocol, s.handler.TransactionsHandler)
-	s.SetProtocolHandler(starknetp2p.ClassesSyncSubProtocol, s.handler.ClassesHandler)
-	s.SetProtocolHandler(starknetp2p.StateDiffSyncSubProtocol, s.handler.StateDiffHandler)
 }
 
 func (s *Service) callAndLogErr(f func() error, msg string) {
@@ -300,19 +292,8 @@ func (s *Service) NewStream(ctx context.Context, pids ...protocol.ID) (network.S
 	}
 }
 
-func (s *Service) SetProtocolHandler(
-	syncSubProtocol starknetp2p.SyncSubProtocol,
-	handler func(network.Stream),
-) {
-	s.host.SetStreamHandler(starknetp2p.Sync(s.network, syncSubProtocol), handler)
-}
-
 func (s *Service) WithListener(l junoSync.EventListener) {
 	s.synchroniser.WithListener(l)
-}
-
-func (s *Service) WithGossipTracer() {
-	s.gossipTracer = NewGossipTracer(s.host)
 }
 
 // persistPeers stores the given peers in the peers database

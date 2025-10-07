@@ -1,4 +1,4 @@
-package peers
+package server
 
 import (
 	"errors"
