@@ -186,10 +186,6 @@ func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
 	network *utils.Network,
 ) (core.Transaction, error) {
-	if t == nil {
-		return nil, nil
-	}
-
 	// can Txn be nil?
 	switch t.Txn.(type) {
 	case *synctransaction.TransactionInBlock_DeclareV0:
