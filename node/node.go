@@ -421,7 +421,6 @@ func New(cfg *Config, version string, logLevel *utils.LogLevel) (*Node, error) {
 			} else if p2pService != nil {
 				// regular p2p node
 				p2pService.WithListener(makeSyncMetrics(&sync.NoopSynchronizer{}, chain))
-				p2pService.WithGossipTracer()
 			}
 		}
 		earlyServices = append(earlyServices, makeMetrics(cfg.MetricsHost, cfg.MetricsPort))
