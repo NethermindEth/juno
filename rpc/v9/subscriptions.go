@@ -541,12 +541,8 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			return sendReorg(w, reorg, id)
 		},
 		onNewHead: func(ctx context.Context, id string, sub *subscription, head *core.Block) error {
-			if lastStatus < TxnStatusAcceptedOnL2 {
-				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
-					return err
-				}
-			}
-			return nil
+			lastStatus, err = h.checkTxStatusIfPending(ctx, sub, id, txHash, lastStatus)
+			return err
 		},
 		onPreLatest: func(
 			ctx context.Context,
@@ -554,26 +550,16 @@ func (h *Handler) SubscribeTransactionStatus(ctx context.Context, txHash *felt.F
 			sub *subscription,
 			preLatest *core.PreLatest,
 		) error {
-			if lastStatus < TxnStatusAcceptedOnL2 {
-				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
-					return err
-				}
-			}
-			return nil
+			lastStatus, err = h.checkTxStatusIfPending(ctx, sub, id, txHash, lastStatus)
+			return err
 		},
 		onPendingData: func(ctx context.Context, id string, sub *subscription, pending core.PendingData) error {
-			if lastStatus < TxnStatusAcceptedOnL2 {
-				if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
-					return err
-				}
-			}
-			return nil
+			lastStatus, err = h.checkTxStatusIfPending(ctx, sub, id, txHash, lastStatus)
+			return err
 		},
 		onL1Head: func(ctx context.Context, id string, sub *subscription, l1Head *core.L1Head) error {
-			if lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus); err != nil {
-				return err
-			}
-			return nil
+			lastStatus, err = h.checkTxStatus(ctx, sub, id, txHash, lastStatus)
+			return err
 		},
 	}
 	return h.subscribe(ctx, w, subscriber)
@@ -604,6 +590,23 @@ func (h *Handler) getInitialTxStatus(ctx context.Context, sub *subscription, id 
 			}
 		}
 	}
+}
+
+// checkTxStatusIfPending checks the transaction status only if the last known status
+// is less than TxnStatusAcceptedOnL2 (i.e., the transaction is still pending).
+// If the transaction has already reached or surpassed TxnStatusAcceptedOnL2,
+// it returns the last known status without making an additional status check.
+func (h *Handler) checkTxStatusIfPending(
+	ctx context.Context,
+	sub *subscription,
+	id string,
+	txHash *felt.Felt,
+	lastStatus TxnStatus,
+) (TxnStatus, error) {
+	if lastStatus < TxnStatusAcceptedOnL2 {
+		return h.checkTxStatus(ctx, sub, id, txHash, lastStatus)
+	}
+	return lastStatus, nil
 }
 
 func (h *Handler) checkTxStatus(
