@@ -536,24 +536,42 @@ func (h *Handler) TransactionByBlockIDAndIndex(
 	return AdaptTransaction(txn), nil
 }
 
+// getPendingTransactionReceipt searches for a transaction receipt in the pending data.
+// Returns the receipt if found, otherwise returns `rpccore.ErrTxnHashNotFound`.
+func (h *Handler) getPendingTransactionReceipt(
+	hash *felt.Felt,
+) (*TransactionReceipt, *jsonrpc.Error) {
+	pending, err := h.PendingData()
+	if err != nil {
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	receipt, parentHash, blockNumber, err := pending.ReceiptByHash(hash)
+	if err != nil {
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	txn, err := pending.TransactionByHash(hash)
+	if err != nil {
+		return nil, rpccore.ErrTxnHashNotFound
+	}
+
+	status := TxnPreConfirmed
+	if parentHash != nil {
+		// pre-latest block or pending block
+		status = TxnAcceptedOnL2
+	}
+	return AdaptReceipt(receipt, txn, status, nil, blockNumber), nil
+}
+
 // TransactionReceiptByHash returns the receipt of a transaction identified by the given hash.
 //
 // It follows the specification defined here:
 // https://github.com/starkware-libs/starknet-specs/blob/master/api/starknet_api_openrpc.json#L222
 func (h *Handler) TransactionReceiptByHash(hash *felt.Felt) (*TransactionReceipt, *jsonrpc.Error) {
-	if pending, err := h.PendingData(); err == nil {
-		receipt, parentHash, blockNumber, err := pending.ReceiptByHash(hash)
-		if err == nil {
-			txn, err := pending.TransactionByHash(hash)
-			if err == nil {
-				status := TxnPreConfirmed
-				if parentHash != nil {
-					// preLatest block
-					status = TxnAcceptedOnL2
-				}
-				return AdaptReceipt(receipt, txn, status, nil, blockNumber), nil
-			}
-		}
+	adaptedReceipt, rpcErr := h.getPendingTransactionReceipt(hash)
+	if rpcErr == nil {
+		return adaptedReceipt, nil
 	}
 
 	txn, err := h.bcReader.TransactionByHash(hash)
