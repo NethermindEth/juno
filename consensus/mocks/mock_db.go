@@ -70,18 +70,18 @@ func (mr *MockTendermintDBMockRecorder[V, H, A]) Flush() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockTendermintDB[V, H, A])(nil).Flush))
 }
 
-// GetWALEntries mocks base method.
-func (m *MockTendermintDB[V, H, A]) GetWALEntries(height types.Height) iter.Seq2[wal.Entry[V, H, A], error] {
+// LoadAllEntries mocks base method.
+func (m *MockTendermintDB[V, H, A]) LoadAllEntries() iter.Seq2[wal.Entry[V, H, A], error] {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWALEntries", height)
+	ret := m.ctrl.Call(m, "LoadAllEntries")
 	ret0, _ := ret[0].(iter.Seq2[wal.Entry[V, H, A], error])
 	return ret0
 }
 
-// GetWALEntries indicates an expected call of GetWALEntries.
-func (mr *MockTendermintDBMockRecorder[V, H, A]) GetWALEntries(height any) *gomock.Call {
+// LoadAllEntries indicates an expected call of LoadAllEntries.
+func (mr *MockTendermintDBMockRecorder[V, H, A]) LoadAllEntries() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWALEntries", reflect.TypeOf((*MockTendermintDB[V, H, A])(nil).GetWALEntries), height)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadAllEntries", reflect.TypeOf((*MockTendermintDB[V, H, A])(nil).LoadAllEntries))
 }
 
 // SetWALEntry mocks base method.

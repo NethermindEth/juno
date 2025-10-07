@@ -15,7 +15,7 @@ type mockCommitListener struct {
 	expectedCommit *starknet.Commit
 }
 
-func (m *mockCommitListener) Commit(ctx context.Context, height types.Height, value starknet.Value) {
+func (m *mockCommitListener) OnCommit(ctx context.Context, height types.Height, value starknet.Value) {
 	require.Equal(m.t, m.expectedCommit.Value, &value)
 	require.Equal(m.t, m.expectedCommit.Height, height)
 }

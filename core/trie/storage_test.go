@@ -17,8 +17,7 @@ func TestStorage(t *testing.T) {
 	prefix := []byte{37, 44}
 	key := trie.NewBitArray(44, 0)
 
-	value, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	value := felt.NewRandom[felt.Felt]()
 
 	node := &trie.Node{
 		Value: value,
@@ -31,8 +30,7 @@ func TestStorage(t *testing.T) {
 
 	t.Run("get a node", func(t *testing.T) {
 		storage := trie.NewStorage(txn, prefix)
-		var got *trie.Node
-		got, err = storage.Get(&key)
+		got, err := storage.Get(&key)
 		require.NoError(t, err)
 		assert.Equal(t, node, got)
 	})
@@ -43,7 +41,7 @@ func TestStorage(t *testing.T) {
 		require.NoError(t, storage.Delete(&key))
 
 		// Node should no longer exist in the database.
-		_, err = storage.Get(&key)
+		_, err := storage.Get(&key)
 		require.ErrorIs(t, err, db.ErrKeyNotFound)
 	})
 

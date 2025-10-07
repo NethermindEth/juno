@@ -9,7 +9,6 @@ import (
 	"github.com/NethermindEth/juno/consensus/types"
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,7 +41,7 @@ func TestCompareFeltField(t *testing.T) {
 
 // TODO: Write tests to actually test the `ProposalCommitment` function.
 func TestCompareProposalCommitment(t *testing.T) {
-	proposer := utils.HexToFelt(t, "1")
+	proposer := felt.NewUnsafeFromString[felt.Felt]("1")
 
 	stateDiffCommitment := new(felt.Felt).SetUint64(1)
 	transactionCommitment := new(felt.Felt).SetUint64(2)
@@ -69,7 +68,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 
 	h := &core.Header{
 		Number:           blockNumber,
-		ParentHash:       utils.HexToFelt(t, "111"),
+		ParentHash:       felt.NewUnsafeFromString[felt.Felt]("111"),
 		SequencerAddress: proposer,
 		Timestamp:        1000,
 		ProtocolVersion:  builder.CurrentStarknetVersion.String(),
@@ -95,7 +94,7 @@ func TestCompareProposalCommitment(t *testing.T) {
 	t.Run("MismatchedParentCommitment", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.ParentCommitment = *utils.HexToFelt(t, "222")
+		p.ParentCommitment = *felt.NewUnsafeFromString[felt.Felt]("222")
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
@@ -152,35 +151,35 @@ func TestCompareProposalCommitment(t *testing.T) {
 	t.Run("MismatchedConcatenatedCounts", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.ConcatenatedCounts = *utils.HexToFelt(t, "2")
+		p.ConcatenatedCounts = *felt.NewUnsafeFromString[felt.Felt]("2")
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL1GasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L1GasPriceFRI = felt.FromUint64(3)
+		p.L1GasPriceFRI = felt.FromUint64[felt.Felt](3)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL1DataGasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L1DataGasPriceFRI = felt.FromUint64(4)
+		p.L1DataGasPriceFRI = felt.FromUint64[felt.Felt](4)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL2GasPriceFRI", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L2GasPriceFRI = felt.FromUint64(5)
+		p.L2GasPriceFRI = felt.FromUint64[felt.Felt](5)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 
 	t.Run("MismatchedL2GasUsed", func(t *testing.T) {
 		p := newDefaultProposalCommitment()
 		expected := newDefaultProposalCommitment()
-		p.L2GasUsed = felt.FromUint64(6)
+		p.L2GasUsed = felt.FromUint64[felt.Felt](6)
 		require.Error(t, compareProposalCommitment(expected, p))
 	})
 

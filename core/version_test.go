@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -39,6 +40,76 @@ func TestCannotParseBlockVersion(t *testing.T) {
 			version, err := core.ParseBlockVersion(version)
 			require.Nil(t, version)
 			assert.ErrorContains(t, err, "cannot parse starknet protocol version")
+		})
+	}
+}
+
+func TestSupportedBlockVersion(t *testing.T) {
+	testVersions := []struct {
+		block  semver.Version
+		latest semver.Version
+	}{
+		{
+			// Block and latest are the same version (e.g., 0.14.0 == 0.14.0)
+			block:  *core.LatestVer,
+			latest: *core.LatestVer,
+		},
+		{
+			// Block is newer patch than latest (e.g., 0.14.1 > 0.14.0)
+			block:  core.LatestVer.IncPatch(),
+			latest: *core.LatestVer,
+		},
+		{
+			// Block is older patch than latest (e.g., 0.14.0 < 0.14.1)
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncPatch(),
+		},
+		{
+			// Block is older minor than latest (e.g., 0.14.0 < 0.15.0)
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncMinor(),
+		},
+		{
+			// Block is older major than latest (e.g., 0.14.0 < 1.0.0)
+			block:  *core.LatestVer,
+			latest: core.LatestVer.IncMajor(),
+		},
+	}
+
+	latestVarTemp := core.LatestVer
+
+	for i, test := range testVersions {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			core.LatestVer = &test.latest
+			err := core.CheckBlockVersion(test.block.String())
+			assert.NoError(t, err)
+		})
+	}
+
+	core.LatestVer = latestVarTemp
+}
+
+func TestUnsupportedBlockVersion(t *testing.T) {
+	testVersions := []struct {
+		block  semver.Version
+		latest semver.Version
+	}{
+		{
+			// Block is newer major than latest (e.g., 1.0.0 > 0.14.0)
+			block:  core.LatestVer.IncMajor(),
+			latest: *core.LatestVer,
+		},
+		{
+			// Block is newer minor than latest (e.g., 0.15.0 > 0.14.0)
+			block:  core.LatestVer.IncMinor(),
+			latest: *core.LatestVer,
+		},
+	}
+
+	for i, test := range testVersions {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			err := core.CheckBlockVersion(test.block.String())
+			assert.ErrorContains(t, err, "unsupported block version")
 		})
 	}
 }

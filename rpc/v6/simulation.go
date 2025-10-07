@@ -41,7 +41,7 @@ func (s *SimulationFlag) UnmarshalJSON(bytes []byte) (err error) {
 		err = fmt.Errorf("unknown simulation flag %q", flag)
 	}
 
-	return
+	return err
 }
 
 type SimulatedTransaction struct {
@@ -54,15 +54,22 @@ type TracedBlockTransaction struct {
 	TransactionHash *felt.Felt        `json:"transaction_hash,omitempty"`
 }
 
+type BroadcastedTransactionInputs = rpccore.LimitSlice[
+	BroadcastedTransaction,
+	rpccore.SimulationLimit,
+]
+
 /****************************************************
 		Simulate Handlers
 *****************************************************/
 
 // pre 13.1
-func (h *Handler) SimulateTransactions(id BlockID, broadcastedTxns []BroadcastedTransaction,
+func (h *Handler) SimulateTransactions(
+	id BlockID,
+	broadcastedTxns BroadcastedTransactionInputs,
 	simulationFlags []SimulationFlag,
 ) ([]SimulatedTransaction, *jsonrpc.Error) {
-	return h.simulateTransactions(id, broadcastedTxns, simulationFlags, false)
+	return h.simulateTransactions(id, broadcastedTxns.Data, simulationFlags, false)
 }
 
 func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTransaction,
@@ -97,8 +104,18 @@ func (h *Handler) simulateTransactions(id BlockID, transactions []BroadcastedTra
 		BlockHashToBeRevealed: blockHashToBeRevealed,
 	}
 
-	executionResults, err := h.vm.Execute(txns, classes, paidFeesOnL1, &blockInfo,
-		state, network, skipFeeCharge, skipValidate, errOnRevert, false, true)
+	executionResults, err := h.vm.Execute(
+		txns,
+		classes,
+		paidFeesOnL1,
+		&blockInfo,
+		state,
+		skipFeeCharge,
+		skipValidate,
+		errOnRevert,
+		false,
+		true,
+	)
 	if err != nil {
 		return nil, handleExecutionError(err)
 	}

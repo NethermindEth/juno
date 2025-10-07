@@ -14,13 +14,13 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/class"
 )
 
-func AdaptCairo1Class(cairo1 *class.Cairo1Class) core.Cairo1Class {
+func AdaptCairo1Class(cairo1 *class.Cairo1Class) (core.Cairo1Class, error) {
 	abiHash := crypto.StarknetKeccak([]byte(cairo1.Abi))
 
 	program := utils.Map(cairo1.Program, AdaptFelt)
 	compiled, err := createCompiledClass(cairo1)
 	if err != nil {
-		panic(err)
+		return core.Cairo1Class{}, fmt.Errorf("invalid compiled class: %w", err)
 	}
 
 	adaptEP := func(points []*class.SierraEntryPoint) []core.SierraEntryPoint {
@@ -45,12 +45,12 @@ func AdaptCairo1Class(cairo1 *class.Cairo1Class) core.Cairo1Class {
 		ProgramHash:     crypto.PoseidonArray(program...),
 		SemanticVersion: cairo1.ContractClassVersion,
 		Compiled:        compiled,
-	}
+	}, nil
 }
 
-func AdaptClass(cls *class.Class) core.Class {
+func AdaptClass(cls *class.Class) (core.Class, error) {
 	if cls == nil {
-		return nil
+		return nil, nil
 	}
 
 	switch cls := cls.Class.(type) {
@@ -67,12 +67,12 @@ func AdaptClass(cls *class.Class) core.Class {
 			L1Handlers:   adaptEP(cairo0.L1Handlers),
 			Constructors: adaptEP(cairo0.Constructors),
 			Program:      cairo0.Program,
-		}
+		}, nil
 	case *class.Class_Cairo1:
-		cairoClass := AdaptCairo1Class(cls.Cairo1)
-		return &cairoClass
+		cairoClass, err := AdaptCairo1Class(cls.Cairo1)
+		return &cairoClass, err
 	default:
-		panic(fmt.Errorf("unsupported class %T", cls))
+		return nil, fmt.Errorf("unsupported class %T", cls)
 	}
 }
 

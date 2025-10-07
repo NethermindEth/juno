@@ -197,8 +197,7 @@ type proposalBuilder struct {
 }
 
 func newProposalBuilder(t *testing.T) *proposalBuilder {
-	randomFelt, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	randomFelt := felt.NewRandom[felt.Felt]()
 
 	return &proposalBuilder{
 		t:        t,

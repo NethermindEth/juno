@@ -14,16 +14,24 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/sync/state"
 )
 
-func AdaptStateDiff(reader commonstate.StateReader, contractDiffs []*state.ContractDiff, classes []*class.Class) *core.StateDiff {
+func AdaptStateDiff(
+	reader commonstate.StateReader,
+	contractDiffs []*state.ContractDiff,
+	classes []*class.Class,
+) (*core.StateDiff, error) {
 	var (
 		declaredV0Classes []*felt.Felt
 		declaredV1Classes = make(map[felt.Felt]*felt.Felt)
 	)
 
-	for _, class := range utils.Map(classes, AdaptClass) {
+	for _, cls := range classes {
+		class, err := AdaptClass(cls)
+		if err != nil {
+			return nil, fmt.Errorf("unsupported class: %w", err)
+		}
 		h, err := class.Hash()
 		if err != nil {
-			panic(fmt.Errorf("unexpected error: %v when calculating class hash", err))
+			return nil, fmt.Errorf("unexpected error when calculating class hash: %w", err)
 		}
 		switch c := class.(type) {
 		case *core.Cairo0Class:
@@ -65,7 +73,7 @@ func AdaptStateDiff(reader commonstate.StateReader, contractDiffs []*state.Contr
 					if errors.Is(err, db.ErrKeyNotFound) {
 						stateClassHash = felt.Zero
 					} else {
-						panic(err)
+						return nil, fmt.Errorf("unexpected error when calculating contract class hash: %w", err)
 					}
 				}
 			}
@@ -85,7 +93,7 @@ func AdaptStateDiff(reader commonstate.StateReader, contractDiffs []*state.Contr
 		DeclaredV0Classes: declaredV0Classes,
 		DeclaredV1Classes: declaredV1Classes,
 		ReplacedClasses:   utils.ToMap(replacedClasses, adaptAddrToClassHash),
-	}
+	}, nil
 }
 
 func adaptStoredValue(v *state.ContractStoredValue) (felt.Felt, *felt.Felt) {

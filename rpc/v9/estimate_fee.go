@@ -259,11 +259,13 @@ curl --location 'http://localhost:6060/rpc/v0_8' \
 */
 
 func (h *Handler) EstimateFee(
-	broadcastedTxns []BroadcastedTransaction, simulationFlags []rpcv6.SimulationFlag, id *BlockID,
+	broadcastedTxns BroadcastedTransactionInputs,
+	simulationFlags []rpcv6.SimulationFlag,
+	id *BlockID,
 ) ([]FeeEstimate, http.Header, *jsonrpc.Error) {
 	txnResults, httpHeader, err := h.simulateTransactions(
 		id,
-		broadcastedTxns,
+		broadcastedTxns.Data,
 		append(simulationFlags, rpcv6.SkipFeeChargeFlag),
 		true,
 	)
@@ -284,7 +286,7 @@ func (h *Handler) EstimateMessageFee(
 ) (FeeEstimate, http.Header, *jsonrpc.Error) {
 	calldata := make([]*felt.Felt, len(msg.Payload)+1)
 	// msg.From needs to be the first element
-	calldata[0] = new(felt.Felt).SetBytes(msg.From.Bytes())
+	calldata[0] = felt.NewFromBytes[felt.Felt](msg.From.Bytes())
 	for i := range msg.Payload {
 		calldata[i+1] = &msg.Payload[i]
 	}
@@ -299,11 +301,15 @@ func (h *Handler) EstimateMessageFee(
 		},
 		// Needed to marshal to blockifier type.
 		// Must be greater than zero to successfully execute transaction.
-		PaidFeeOnL1: new(felt.Felt).SetUint64(1),
+		PaidFeeOnL1: felt.NewFromUint64[felt.Felt](1),
 	}
 
 	bcTxn := [1]BroadcastedTransaction{tx}
-	estimates, httpHeader, err := h.EstimateFee(bcTxn[:], nil, id)
+	estimates, httpHeader, err := h.EstimateFee(
+		rpccore.LimitSlice[BroadcastedTransaction, rpccore.SimulationLimit]{Data: bcTxn[:]},
+		nil,
+		id,
+	)
 	if err != nil {
 		if err.Code == rpccore.ErrTransactionExecutionError.Code {
 			data := err.Data.(TransactionExecutionErrorData)

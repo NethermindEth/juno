@@ -42,7 +42,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, true, false, false, false, true).
+		}, mockState, true, false, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -50,7 +50,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			rpcv7.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -59,7 +63,7 @@ func TestSimulateTransactions(t *testing.T) {
 		stepsUsed := uint64(123)
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{},
 				DataAvailability: []core.DataAvailability{},
@@ -67,7 +71,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			rpcv7.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpcv7.ExecutionStepsHeader), "123")
 	})
@@ -76,13 +84,17 @@ func TestSimulateTransactions(t *testing.T) {
 		t.Run("v0_7, v0_8", func(t *testing.T) { //nolint:dupl
 			mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 				Header: headsHeader,
-			}, mockState, n, false, true, false, false, true).
+			}, mockState, false, true, false, false, true).
 				Return(vm.ExecutionResults{}, vm.TransactionExecutionError{
 					Index: 44,
 					Cause: json.RawMessage("oops"),
 				})
 
-			_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+			_, httpHeader, err := handler.SimulateTransactions(
+				rpcv7.BlockID{Latest: true},
+				rpcv7.BroadcastedTransactionInputs{},
+				[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			)
 			require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpcv7.TransactionExecutionErrorData{
 				TransactionIndex: 44,
 				ExecutionError:   json.RawMessage("oops"),
@@ -94,7 +106,7 @@ func TestSimulateTransactions(t *testing.T) {
 	t.Run("incosistant length error", func(t *testing.T) {
 		mockVM.EXPECT().Execute([]core.Transaction{}, nil, []*felt.Felt{}, &vm.BlockInfo{
 			Header: headsHeader,
-		}, mockState, n, false, true, false, false, true).
+		}, mockState, false, true, false, false, true).
 			Return(vm.ExecutionResults{
 				OverallFees:      []*felt.Felt{&felt.Zero},
 				DataAvailability: []core.DataAvailability{{L1Gas: 0}, {L1Gas: 0}},
@@ -103,7 +115,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         uint64(0),
 			}, nil)
 
-		_, httpHeader, err := handler.SimulateTransactions(rpcv7.BlockID{Latest: true}, []rpcv7.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag})
+		_, httpHeader, err := handler.SimulateTransactions(
+			rpcv7.BlockID{Latest: true},
+			rpcv7.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
 			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 		)), err)
@@ -129,7 +145,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 		},
 	}
 
-	version3 := felt.FromUint64(3)
+	version3 := felt.FromUint64[felt.Felt](3)
 
 	tests := []struct {
 		name         string
@@ -218,7 +234,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			_, _, err := handler.SimulateTransactions(
 				rpcv7.BlockID{Latest: true},
-				test.transactions,
+				rpcv7.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpcv6.SimulationFlag{},
 			)
 			if test.err != nil {

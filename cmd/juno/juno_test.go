@@ -56,13 +56,14 @@ func TestConfigPrecedence(t *testing.T) {
 	defaultGRPC := false
 	defaultGRPCPort := uint16(6064)
 	defaultColour := true
-	defaultPendingPollInterval := 5 * time.Second
-	defaultPreConfirmedPollInterval := time.Second
+	defaultPendingPollInterval := time.Second
+	defaultPreConfirmedPollInterval := 500 * time.Millisecond
 	defaultMaxVMs := uint(3 * runtime.GOMAXPROCS(0))
 	defaultRPCMaxBlockScan := uint(math.MaxUint)
 	defaultMaxCacheSize := uint(1024)
 	defaultMaxHandles := 1024
-	defaultCallMaxSteps := uint(4_000_000)
+	defaultCallMaxSteps := uint64(4_000_000)
+	defaultCallMaxGas := uint64(100_000_000)
 	defaultSeqBlockTime := uint(60)
 	defaultGwTimeout := "5s"
 	defaultSubmittedTransactionsCacheSize := uint(10_000)
@@ -96,6 +97,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
+		RPCCallMaxGas:                      defaultCallMaxGas,
 		GatewayTimeouts:                    defaultGwTimeout,
 		SeqBlockTime:                       defaultSeqBlockTime,
 		HTTPUpdateHost:                     defaultHost,
@@ -133,6 +135,7 @@ func TestConfigPrecedence(t *testing.T) {
 		DBCacheSize:                        defaultMaxCacheSize,
 		DBMaxHandles:                       defaultMaxHandles,
 		RPCCallMaxSteps:                    defaultCallMaxSteps,
+		RPCCallMaxGas:                      defaultCallMaxGas,
 		GatewayTimeouts:                    defaultGwTimeout,
 		SeqBlockTime:                       defaultSeqBlockTime,
 		HTTPUpdateHost:                     defaultHost,
@@ -231,6 +234,7 @@ pprof: true
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -274,6 +278,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -314,6 +319,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				PendingPollInterval:                defaultPendingPollInterval,
 				PreConfirmedPollInterval:           defaultPreConfirmedPollInterval,
@@ -358,6 +364,7 @@ http-port: 4576
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -425,6 +432,7 @@ db-cache-size: 1024
 				DBCacheSize:                        9,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -470,6 +478,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -511,6 +520,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -550,6 +560,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -590,6 +601,7 @@ network: sepolia
 				DBCacheSize:                        defaultMaxCacheSize,
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,
@@ -631,6 +643,7 @@ network: sepolia
 				GatewayAPIKey:                      "apikey",
 				DBMaxHandles:                       defaultMaxHandles,
 				RPCCallMaxSteps:                    defaultCallMaxSteps,
+				RPCCallMaxGas:                      defaultCallMaxGas,
 				GatewayTimeouts:                    defaultGwTimeout,
 				SeqBlockTime:                       defaultSeqBlockTime,
 				HTTPUpdateHost:                     defaultHost,

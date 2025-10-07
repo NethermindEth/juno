@@ -46,16 +46,15 @@ func GetTestTransactions[C, P any](t *testing.T, network *utils.Network, factori
 
 func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
 	t.Helper()
-	felt := felt.Felt{}
-	_, err := felt.SetRandom()
-	require.NoError(t, err)
 
-	feltBytes := felt.Bytes()
-	return felt, feltBytes[:]
+	f := felt.Random[felt.Felt]()
+	feltBytes := f.Bytes()
+	return f, feltBytes[:]
 }
 
 func getRandomFeltSlice(t *testing.T) ([]*felt.Felt, [][]byte) {
 	t.Helper()
+
 	size := rand.IntN(maxTransactionSize)
 	underlyingFelts := make([]felt.Felt, size)
 	felts := make([]*felt.Felt, size)
@@ -80,7 +79,7 @@ func toFelt252Slice(felts [][]byte) []*common.Felt252 {
 func getRandomResourceLimits(t *testing.T) (core.ResourceBounds, *transaction.ResourceLimits) {
 	t.Helper()
 	maxAmount := rand.Uint64()
-	maxAmountFelt := felt.FromUint64(maxAmount)
+	maxAmountFelt := felt.FromUint64[felt.Felt](maxAmount)
 	maxAmountFeltBytes := maxAmountFelt.Bytes()
 	maxPricePerUnit, maxPricePerUnitBytes := getRandomFelt(t)
 

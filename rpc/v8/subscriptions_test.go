@@ -667,12 +667,12 @@ func TestSubscriptionReorg(t *testing.T) {
 
 			// Simulate a reorg
 			syncer.reorgs.Send(&sync.ReorgBlockRange{
-				StartBlockHash: utils.HexToFelt(
-					t, "0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
+				StartBlockHash: felt.NewUnsafeFromString[felt.Felt](
+					"0x4e1f77f39545afe866ac151ac908bd1a347a2a8a7d58bef1276db4f06fdf2f6",
 				),
 				StartBlockNum: 0,
-				EndBlockHash: utils.HexToFelt(
-					t, "0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
+				EndBlockHash: felt.NewUnsafeFromString[felt.Felt](
+					"0x34e815552e42c5eb5233b99de2d3d7fd396e575df2719bf98e7ed2794494f86",
 				),
 				EndBlockNum: 2,
 			})

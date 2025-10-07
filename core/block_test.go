@@ -185,8 +185,7 @@ func TestBlockHash(t *testing.T) {
 		})
 	}
 
-	h1, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	h1 := felt.NewRandom[felt.Felt]()
 
 	client := feeder.NewTestClient(t, &utils.Mainnet)
 	mainnetGW := adaptfeeder.New(client)

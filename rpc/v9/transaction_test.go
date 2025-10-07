@@ -35,7 +35,8 @@ func TestTransactionByHashNotFound(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	txHash := new(felt.Felt).SetBytes([]byte("random hash"))
+	txHash := felt.NewRandom[felt.Felt]()
+
 	mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 	mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 	mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -53,9 +54,9 @@ func TestTransactionByHashNotFoundInPreConfirmedBlock(t *testing.T) {
 	mockReader := mocks.NewMockReader(mockCtrl)
 	mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 
-	searchTxHash := utils.HexToFelt(t, "0x123456")
+	searchTxHash := felt.NewFromUint64[felt.Felt](0x123456)
 
-	otherTxHash := utils.HexToFelt(t, "0x789abc")
+	otherTxHash := felt.NewFromUint64[felt.Felt](0x789abc)
 	preConfirmedTx := &core.InvokeTransaction{
 		TransactionHash: otherTxHash,
 		Version:         new(core.TransactionVersion).SetUint64(1),
@@ -433,7 +434,7 @@ func TestTransactionByHash(t *testing.T) {
 			}).Times(1)
 			handler := rpc.New(mockReader, nil, nil, nil)
 
-			hash, err := new(felt.Felt).SetString(test.hash)
+			hash, err := felt.NewFromString[felt.Felt](test.hash)
 			require.NoError(t, err)
 
 			expectedMap := make(map[string]any)
@@ -515,7 +516,7 @@ func TestTransactionByBlockIdAndIndex(t *testing.T) {
 	t.Run("non-existent block hash", func(t *testing.T) {
 		mockReader.EXPECT().BlockHeaderByHash(gomock.Any()).Return(nil, db.ErrKeyNotFound)
 
-		blockID := blockIDHash(t, new(felt.Felt).SetBytes([]byte("random")))
+		blockID := blockIDHash(t, felt.NewFromBytes[felt.Felt]([]byte("random")))
 		txn, rpcErr := handler.TransactionByBlockIDAndIndex(&blockID, rand.Int())
 		assert.Nil(t, txn)
 		assert.Equal(t, rpccore.ErrBlockNotFound, rpcErr)
@@ -685,7 +686,7 @@ func TestTransactionReceiptByHash(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, nil, nil)
 
 	t.Run("transaction not found", func(t *testing.T) {
-		txHash := new(felt.Felt).SetBytes([]byte("random hash"))
+		txHash := felt.NewFromBytes[felt.Felt]([]byte("random hash"))
 		mockReader.EXPECT().TransactionByHash(txHash).Return(nil, db.ErrKeyNotFound)
 		mockSyncReader.EXPECT().PendingData().Return(nil, sync.ErrPendingBlockNotFound)
 		mockReader.EXPECT().HeadsHeader().Return(nil, db.ErrKeyNotFound)
@@ -1057,7 +1058,7 @@ func TestAddTransaction(t *testing.T) {
 	n := &utils.Integration
 	gw := adaptfeeder.New(feeder.NewTestClient(t, n))
 	txWithoutClass := func(hash string) rpc.BroadcastedTransaction {
-		tx, err := gw.Transaction(t.Context(), utils.HexToFelt(t, hash))
+		tx, err := gw.Transaction(t.Context(), felt.NewUnsafeFromString[felt.Felt](hash))
 		require.NoError(t, err)
 		return rpc.BroadcastedTransaction{
 			Transaction: *rpc.AdaptTransaction(tx),
@@ -1344,9 +1345,9 @@ func TestAddTransaction(t *testing.T) {
 			got, rpcErr := handler.AddTransaction(t.Context(), utils.HeapPtr(test.txn))
 			require.Nil(t, rpcErr)
 			require.Equal(t, rpc.AddTxResponse{
-				TransactionHash: utils.HexToFelt(t, "0x1"),
-				ContractAddress: utils.HexToFelt(t, "0x2"),
-				ClassHash:       utils.HexToFelt(t, "0x3"),
+				TransactionHash: felt.NewFromUint64[felt.Felt](0x1),
+				ContractAddress: felt.NewFromUint64[felt.Felt](0x2),
+				ClassHash:       felt.NewFromUint64[felt.Felt](0x3),
 			}, got)
 		})
 	}
@@ -1433,15 +1434,15 @@ func TestTransactionStatus(t *testing.T) {
 	}{
 		{
 			network:           &utils.Mainnet,
-			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
-			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
+			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
+			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
 			network:           &utils.Integration,
-			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
+			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
 		},
 	}
 
@@ -1607,7 +1608,7 @@ func TestTransactionStatus(t *testing.T) {
 			mockReader := mocks.NewMockReader(mockCtrl)
 			mockSyncReader := mocks.NewMockSyncReader(mockCtrl)
 			client := feeder.NewTestClient(t, &utils.SepoliaIntegration)
-			txHash, err := new(felt.Felt).SetString("0x1111")
+			txHash, err := felt.NewFromString[felt.Felt]("0x1111")
 			require.NoError(t, err)
 
 			handler := rpc.New(mockReader, mockSyncReader, nil, log).WithFeeder(client)
@@ -1871,36 +1872,36 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		}`
 	expectedTxn := core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     utils.HexToFelt(t, "0x279b4c80718c256682226b098aecd3f5b0d0ddcfeb697d0047f4aa31a6e449f"),
-			ContractAddressSalt: utils.HexToFelt(t, "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-			ClassHash:           utils.HexToFelt(t, "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
-			ContractAddress:     utils.HexToFelt(t, "0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			TransactionHash:     felt.NewUnsafeFromString[felt.Felt]("0x279b4c80718c256682226b098aecd3f5b0d0ddcfeb697d0047f4aa31a6e449f"),
+			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt]("0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+			ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+			ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
 			ConstructorCallData: []*felt.Felt{
-				utils.HexToFelt(t, "0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
-				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
-				utils.HexToFelt(t, "0x2"),
-				utils.HexToFelt(t, "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-				utils.HexToFelt(t, "0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+				felt.NewUnsafeFromString[felt.Felt]("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				felt.NewUnsafeFromString[felt.Felt]("0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			},
 			Version: new(core.TransactionVersion).SetUint64(3),
 		},
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
-			utils.HexToFelt(t, "0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+			felt.NewUnsafeFromString[felt.Felt]("0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
+			felt.NewUnsafeFromString[felt.Felt]("0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
 		},
-		Nonce: utils.HexToFelt(t, "0x1"),
+		Nonce: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
-				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
 			core.ResourceL1DataGas: {
-				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
 		},
 		Tip:           1, // 0x1
@@ -1930,16 +1931,16 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "with l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(100),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](100),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(200),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](200),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](20),
 				},
 				L1DataGas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(300),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(30),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](300),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](30),
 				},
 			},
 			expected: `{
@@ -1961,12 +1962,12 @@ func TestResourceBoundsMapMarshalJSON(t *testing.T) {
 			name: "without l1_data_gas",
 			input: &rpc.ResourceBoundsMap{
 				L1Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(100),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(10),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](100),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](10),
 				},
 				L2Gas: &rpc.ResourceBounds{
-					MaxAmount:       new(felt.Felt).SetUint64(200),
-					MaxPricePerUnit: new(felt.Felt).SetUint64(20),
+					MaxAmount:       felt.NewFromUint64[felt.Felt](200),
+					MaxPricePerUnit: felt.NewFromUint64[felt.Felt](20),
 				},
 				L1DataGas: nil,
 			},
@@ -2014,32 +2015,32 @@ func TestSubmittedTransactionsCache(t *testing.T) {
 	cacheEntryTimeOut := time.Second
 
 	txnToAdd := &core.InvokeTransaction{
-		TransactionHash: new(felt.Felt).SetUint64(12345),
+		TransactionHash: felt.NewFromUint64[felt.Felt](12345),
 		Version:         new(core.TransactionVersion).SetUint64(3),
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x1"),
-			utils.HexToFelt(t, "0x1"),
+			felt.NewFromUint64[felt.Felt](0x1),
+			felt.NewFromUint64[felt.Felt](0x1),
 		},
-		Nonce:       utils.HexToFelt(t, "0x1"),
+		Nonce:       felt.NewFromUint64[felt.Felt](0x1),
 		NonceDAMode: core.DAModeL1,
 		FeeDAMode:   core.DAModeL1,
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			core.ResourceL1DataGas: {
-				MaxAmount:       utils.HexToUint64(t, "0x1"),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x1"),
+				MaxAmount:       0x1,
+				MaxPricePerUnit: felt.NewFromUint64[felt.Felt](0x1),
 			},
 			core.ResourceL2Gas: {
 				MaxAmount:       0,
-				MaxPricePerUnit: new(felt.Felt),
+				MaxPricePerUnit: &felt.Zero,
 			},
 		},
 		Tip:           0,
 		PaymasterData: []*felt.Felt{},
-		SenderAddress: utils.HexToFelt(t, "0x1"),
+		SenderAddress: felt.NewFromUint64[felt.Felt](0x1),
 		CallData:      []*felt.Felt{},
 	}
 

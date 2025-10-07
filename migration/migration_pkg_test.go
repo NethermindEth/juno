@@ -272,7 +272,7 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 	key := []byte("key")
 	class := oldCairo1Class{
 		Abi:     "some cairo abi",
-		AbiHash: randFelt(t),
+		AbiHash: felt.NewRandom[felt.Felt](),
 		EntryPoints: struct {
 			Constructor []core.SierraEntryPoint
 			External    []core.SierraEntryPoint
@@ -281,24 +281,24 @@ func TestMigrateCairo1CompiledClass(t *testing.T) {
 			Constructor: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 			External: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 			L1Handler: []core.SierraEntryPoint{
 				{
 					Index:    0,
-					Selector: randFelt(t),
+					Selector: felt.NewRandom[felt.Felt](),
 				},
 			},
 		},
 		Program:         randSlice(t),
-		ProgramHash:     randFelt(t),
+		ProgramHash:     felt.NewRandom[felt.Felt](),
 		SemanticVersion: "0.1.0",
 	}
 	expectedDeclared := declaredClass{
@@ -589,20 +589,20 @@ func TestChangeStateDiffStruct(t *testing.T) {
 	require.NoError(t, testdb.Update(func(txn db.IndexedBatch) error {
 		//nolint: dupl
 		su0 := oldStateUpdate{
-			BlockHash: utils.HexToFelt(t, "0x0"),
-			NewRoot:   utils.HexToFelt(t, "0x1"),
-			OldRoot:   utils.HexToFelt(t, "0x2"),
+			BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x0"),
+			NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x1"),
+			OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*utils.HexToFelt(t, "0x3"): {{Key: utils.HexToFelt(t, "0x4"), Value: utils.HexToFelt(t, "0x5")}},
+					*felt.NewUnsafeFromString[felt.Felt]("0x3"): {{Key: felt.NewUnsafeFromString[felt.Felt]("0x4"), Value: felt.NewUnsafeFromString[felt.Felt]("0x5")}},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x6"): utils.HexToFelt(t, "0x7"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
 				},
-				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x8"), ClassHash: utils.HexToFelt(t, "0x9")}},
-				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x11"), CompiledClassHash: utils.HexToFelt(t, "0x12")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x13"), ClassHash: utils.HexToFelt(t, "0x14")}},
+				DeployedContracts: []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x8"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x9")}},
+				DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x11"), CompiledClassHash: felt.NewUnsafeFromString[felt.Felt]("0x12")}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x13"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x14")}},
 			},
 		}
 		su0Bytes, err := encoder.Marshal(su0)
@@ -611,20 +611,20 @@ func TestChangeStateDiffStruct(t *testing.T) {
 
 		//nolint: dupl
 		su1 := oldStateUpdate{
-			BlockHash: utils.HexToFelt(t, "0x15"),
-			NewRoot:   utils.HexToFelt(t, "0x16"),
-			OldRoot:   utils.HexToFelt(t, "0x17"),
+			BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x15"),
+			NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x16"),
+			OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
 			StateDiff: &oldStateDiff{
 				StorageDiffs: map[felt.Felt][]oldStorageDiff{
-					*utils.HexToFelt(t, "0x18"): {{Key: utils.HexToFelt(t, "0x19"), Value: utils.HexToFelt(t, "0x20")}},
+					*felt.NewUnsafeFromString[felt.Felt]("0x18"): {{Key: felt.NewUnsafeFromString[felt.Felt]("0x19"), Value: felt.NewUnsafeFromString[felt.Felt]("0x20")}},
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x21"): utils.HexToFelt(t, "0x22"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
 				},
-				DeployedContracts: []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x23"), ClassHash: utils.HexToFelt(t, "0x24")}},
-				DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
-				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: utils.HexToFelt(t, "0x26"), CompiledClassHash: utils.HexToFelt(t, "0x27")}},
-				ReplacedClasses:   []oldAddressClassHashPair{{Address: utils.HexToFelt(t, "0x28"), ClassHash: utils.HexToFelt(t, "0x29")}},
+				DeployedContracts: []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x23"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x24")}},
+				DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
+				DeclaredV1Classes: []oldDeclaredV1Class{{ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x26"), CompiledClassHash: felt.NewUnsafeFromString[felt.Felt]("0x27")}},
+				ReplacedClasses:   []oldAddressClassHashPair{{Address: felt.NewUnsafeFromString[felt.Felt]("0x28"), ClassHash: felt.NewUnsafeFromString[felt.Felt]("0x29")}},
 			},
 		}
 		su1Bytes, err := encoder.Marshal(su1)
@@ -658,27 +658,27 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			{
 				key: su0Key,
 				want: &core.StateUpdate{
-					BlockHash: utils.HexToFelt(t, "0x0"),
-					NewRoot:   utils.HexToFelt(t, "0x1"),
-					OldRoot:   utils.HexToFelt(t, "0x2"),
+					BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x0"),
+					NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x1"),
+					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x2"),
 					StateDiff: &core.StateDiff{
 						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x3"): {
-								*utils.HexToFelt(t, "0x4"): utils.HexToFelt(t, "0x5"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x3"): {
+								*felt.NewUnsafeFromString[felt.Felt]("0x4"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
 							},
 						},
 						Nonces: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x6"): utils.HexToFelt(t, "0x7"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x6"): felt.NewUnsafeFromString[felt.Felt]("0x7"),
 						},
 						DeployedContracts: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x8"): utils.HexToFelt(t, "0x9"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x8"): felt.NewUnsafeFromString[felt.Felt]("0x9"),
 						},
-						DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x10")},
+						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x10")},
 						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x11"): utils.HexToFelt(t, "0x12"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x11"): felt.NewUnsafeFromString[felt.Felt]("0x12"),
 						},
 						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x13"): utils.HexToFelt(t, "0x14"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x13"): felt.NewUnsafeFromString[felt.Felt]("0x14"),
 						},
 					},
 				},
@@ -687,27 +687,27 @@ func TestChangeStateDiffStruct(t *testing.T) {
 			{
 				key: su1Key,
 				want: &core.StateUpdate{
-					BlockHash: utils.HexToFelt(t, "0x15"),
-					NewRoot:   utils.HexToFelt(t, "0x16"),
-					OldRoot:   utils.HexToFelt(t, "0x17"),
+					BlockHash: felt.NewUnsafeFromString[felt.Felt]("0x15"),
+					NewRoot:   felt.NewUnsafeFromString[felt.Felt]("0x16"),
+					OldRoot:   felt.NewUnsafeFromString[felt.Felt]("0x17"),
 					StateDiff: &core.StateDiff{
 						StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x18"): {
-								*utils.HexToFelt(t, "0x19"): utils.HexToFelt(t, "0x20"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x18"): {
+								*felt.NewUnsafeFromString[felt.Felt]("0x19"): felt.NewUnsafeFromString[felt.Felt]("0x20"),
 							},
 						},
 						Nonces: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x21"): utils.HexToFelt(t, "0x22"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x21"): felt.NewUnsafeFromString[felt.Felt]("0x22"),
 						},
 						DeployedContracts: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x23"): utils.HexToFelt(t, "0x24"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x23"): felt.NewUnsafeFromString[felt.Felt]("0x24"),
 						},
-						DeclaredV0Classes: []*felt.Felt{utils.HexToFelt(t, "0x25")},
+						DeclaredV0Classes: []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x25")},
 						DeclaredV1Classes: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x26"): utils.HexToFelt(t, "0x27"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x26"): felt.NewUnsafeFromString[felt.Felt]("0x27"),
 						},
 						ReplacedClasses: map[felt.Felt]*felt.Felt{
-							*utils.HexToFelt(t, "0x28"): utils.HexToFelt(t, "0x29"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x28"): felt.NewUnsafeFromString[felt.Felt]("0x29"),
 						},
 					},
 				},
@@ -729,21 +729,13 @@ func TestChangeStateDiffStruct(t *testing.T) {
 }
 
 func randSlice(t *testing.T) []*felt.Felt {
+	t.Helper()
+
 	n := rand.Intn(10)
 	sl := make([]*felt.Felt, n)
 
 	for i := range sl {
-		sl[i] = randFelt(t)
+		sl[i] = felt.NewRandom[felt.Felt]()
 	}
-
 	return sl
-}
-
-func randFelt(t *testing.T) *felt.Felt {
-	t.Helper()
-
-	f, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-
-	return f
 }

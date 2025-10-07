@@ -32,25 +32,23 @@ import (
 )
 
 type Service struct {
-	host    host.Host
-	network *utils.Network
-	client  *Client // todo: merge all the functionality of Client with p2p SyncService
-
 	blockchain *blockchain.Blockchain
-	listener   junoSync.EventListener
 	log        utils.SimpleLogger
 
-	blockCh chan BlockBody
+	blockFetcher *BlockFetcher
+	blockCh      chan BlockBody
 }
 
-func New(bc *blockchain.Blockchain, h host.Host, n *utils.Network, log utils.SimpleLogger) *Service {
+func New(
+	bc *blockchain.Blockchain,
+	log utils.SimpleLogger,
+	blockFetcher *BlockFetcher,
+) *Service {
 	return &Service{
-		host:       h,
-		network:    n,
-		blockchain: bc,
-		log:        log,
-		listener:   &junoSync.SelectiveListener{},
-		blockCh:    make(chan BlockBody),
+		blockchain:   bc,
+		log:          log,
+		blockFetcher: blockFetcher,
+		blockCh:      make(chan BlockBody),
 	}
 }
 
@@ -62,8 +60,6 @@ func (s *Service) Run(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer close(s.blockCh)
-
-	s.client = NewClient(s.randomPeerStream, s.network, s.log)
 
 	for i := 0; ; i++ {
 		if err := ctx.Err(); err != nil {
@@ -83,13 +79,17 @@ func (s *Service) Run(ctx context.Context) {
 
 		// todo change iteration to fetch several objects uint64(min(blockBehind, maxBlocks))
 		blockNumber := uint64(nextHeight)
-		if err = s.processBlock(iterCtx, blockNumber); err != nil {
+		if err = s.blockFetcher.ProcessBlock(iterCtx, blockNumber, s.blockCh); err != nil {
 			s.logError("Failed to process block", fmt.Errorf("blockNumber: %d, err: %w", blockNumber, err))
 			cancelIteration()
 			continue
 		}
 		cancelIteration()
 	}
+}
+
+func (s *Service) WithListener(l junoSync.EventListener) {
+	s.blockFetcher.WithListener(l)
 }
 
 func (s *Service) getNextHeight() (int, error) {
@@ -102,7 +102,50 @@ func (s *Service) getNextHeight() (int, error) {
 	return 0, err
 }
 
-func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
+func (s *Service) logError(msg string, err error) {
+	if !errors.Is(err, context.Canceled) {
+		var log utils.SimpleLogger
+		if v, ok := s.log.(*utils.ZapLogger); ok {
+			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
+			log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
+		} else {
+			log = s.log
+		}
+
+		log.Errorw(msg, "err", err)
+	} else {
+		s.log.Debugw("Sync context canceled")
+	}
+}
+
+type BlockFetcher struct {
+	network    *utils.Network
+	client     *Client // todo: merge all the functionality of Client with p2p SyncService
+	blockchain *blockchain.Blockchain
+	listener   junoSync.EventListener
+	log        utils.SimpleLogger
+}
+
+func NewBlockFetcher(
+	bc *blockchain.Blockchain,
+	h host.Host,
+	n *utils.Network,
+	log utils.SimpleLogger,
+) BlockFetcher {
+	return BlockFetcher{
+		network:    n,
+		blockchain: bc,
+		log:        log,
+		listener:   &junoSync.SelectiveListener{},
+		client:     NewClient(randomPeerStream(h, log), n, log),
+	}
+}
+
+func (s *BlockFetcher) ProcessBlock(
+	ctx context.Context,
+	blockNumber uint64,
+	outputs chan<- BlockBody,
+) error {
 	headersAndSigsCh, err := s.genHeadersAndSigs(ctx, blockNumber)
 	if err != nil {
 		return fmt.Errorf("failed to get block headers parts: %w", err)
@@ -130,7 +173,7 @@ func (s *Service) processBlock(ctx context.Context, blockNumber uint64) error {
 
 	pipeline.Bridge(
 		ctx,
-		s.blockCh,
+		outputs,
 		s.processSpecBlockParts(
 			ctx,
 			blockNumber,
@@ -151,22 +194,6 @@ func specBlockPartsFunc[T specBlockHeaderAndSigs | specTxWithReceipts | specEven
 	return specBlockParts(i)
 }
 
-func (s *Service) logError(msg string, err error) {
-	if !errors.Is(err, context.Canceled) {
-		var log utils.SimpleLogger
-		if v, ok := s.log.(*utils.ZapLogger); ok {
-			enhancedLogger := v.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
-			log = &utils.ZapLogger{SugaredLogger: enhancedLogger}
-		} else {
-			log = s.log
-		}
-
-		log.Errorw(msg, "err", err)
-	} else {
-		s.log.Debugw("Sync context canceled")
-	}
-}
-
 // BlockBody is used to mange all the different parts of the blocks require to store the block in the blockchain.Store()
 type BlockBody struct {
 	Block       *core.Block
@@ -177,7 +204,7 @@ type BlockBody struct {
 }
 
 //nolint:gocyclo
-func (s *Service) processSpecBlockParts(
+func (s *BlockFetcher) processSpecBlockParts(
 	ctx context.Context, startingBlockNum uint64, specBlockPartsCh <-chan specBlockParts,
 ) <-chan <-chan BlockBody {
 	orderedBlockBodiesCh := make(chan (<-chan BlockBody))
@@ -270,7 +297,7 @@ func (s *Service) processSpecBlockParts(
 }
 
 //nolint:gocyclo,funlen
-func (s *Service) adaptAndSanityCheckBlock(
+func (s *BlockFetcher) adaptAndSanityCheckBlock(
 	ctx context.Context,
 	header *header.SignedBlockHeader,
 	contractDiffs []*state.ContractDiff,
@@ -336,10 +363,15 @@ func (s *Service) adaptAndSanityCheckBlock(
 
 			newClasses := make(map[felt.Felt]core.Class)
 			for _, cls := range classes {
-				coreC := p2p2core.AdaptClass(cls)
+				coreC, err := p2p2core.AdaptClass(cls)
+				if err != nil {
+					bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt class: %w", err)}
+					return
+				}
+
 				h, err := coreC.Hash()
 				if err != nil {
-					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %v", err)}
+					bodyCh <- BlockBody{Err: fmt.Errorf("class hash calculation error: %w", err)}
 					return
 				}
 				newClasses[*h] = coreC
@@ -364,7 +396,11 @@ func (s *Service) adaptAndSanityCheckBlock(
 				}
 			}()
 
-			stateDiff := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			stateDiff, err := p2p2core.AdaptStateDiff(stateReader, contractDiffs, classes)
+			if err != nil {
+				bodyCh <- BlockBody{Err: fmt.Errorf("failed to adapt state diff: %w", err)}
+				return
+			}
 
 			blockVer, err := core.ParseBlockVersion(coreBlock.ProtocolVersion)
 			if err != nil {
@@ -422,7 +458,10 @@ func (s specBlockHeaderAndSigs) blockNumber() uint64 {
 	return s.header.Number
 }
 
-func (s *Service) genHeadersAndSigs(ctx context.Context, blockNumber uint64) (<-chan specBlockHeaderAndSigs, error) {
+func (s *BlockFetcher) genHeadersAndSigs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specBlockHeaderAndSigs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	headersIt, err := s.client.RequestBlockHeaders(ctx, &header.BlockHeadersRequest{Iteration: it})
 	if err != nil {
@@ -466,7 +505,10 @@ func (s specClasses) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genClasses(ctx context.Context, blockNumber uint64) (<-chan specClasses, error) {
+func (s *BlockFetcher) genClasses(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specClasses, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	classesIt, err := s.client.RequestClasses(ctx, &syncclass.ClassesRequest{Iteration: it})
 	if err != nil {
@@ -512,7 +554,10 @@ func (s specContractDiffs) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genStateDiffs(ctx context.Context, blockNumber uint64) (<-chan specContractDiffs, error) {
+func (s *BlockFetcher) genStateDiffs(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specContractDiffs, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	stateDiffsIt, err := s.client.RequestStateDiffs(ctx, &state.StateDiffsRequest{Iteration: it})
 	if err != nil {
@@ -560,7 +605,10 @@ func (s specEvents) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genEvents(ctx context.Context, blockNumber uint64) (<-chan specEvents, error) {
+func (s *BlockFetcher) genEvents(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specEvents, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	eventsIt, err := s.client.RequestEvents(ctx, &event.EventsRequest{Iteration: it})
 	if err != nil {
@@ -607,7 +655,10 @@ func (s specTxWithReceipts) blockNumber() uint64 {
 	return s.number
 }
 
-func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-chan specTxWithReceipts, error) {
+func (s *BlockFetcher) genTransactions(
+	ctx context.Context,
+	blockNumber uint64,
+) (<-chan specTxWithReceipts, error) {
 	it := s.createIteratorForBlock(blockNumber)
 	txsIt, err := s.client.RequestTransactions(ctx, &synctransaction.TransactionsRequest{Iteration: it})
 	if err != nil {
@@ -653,11 +704,11 @@ func (s *Service) genTransactions(ctx context.Context, blockNumber uint64) (<-ch
 	return txsCh, nil
 }
 
-func (s *Service) randomPeer() peer.ID {
-	store := s.host.Peerstore()
+func randomPeer(host host.Host, log utils.SimpleLogger) peer.ID {
+	store := host.Peerstore()
 	// todo do not request same block from all peers
 	peers := utils.Filter(store.Peers(), func(peerID peer.ID) bool {
-		return peerID != s.host.ID()
+		return peerID != host.ID()
 	})
 	if len(peers) == 0 {
 		return ""
@@ -665,35 +716,37 @@ func (s *Service) randomPeer() peer.ID {
 
 	p := peers[rand.Intn(len(peers))] //nolint:gosec
 
-	s.log.Debugw("Number of peers", "len", len(peers))
-	s.log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
+	log.Debugw("Number of peers", "len", len(peers))
+	log.Debugw("Random chosen peer's info", "peerInfo", store.PeerInfo(p))
 
 	return p
 }
 
 var errNoPeers = errors.New("no peers available")
 
-func (s *Service) randomPeerStream(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
-	randPeer := s.randomPeer()
-	if randPeer == "" {
-		return nil, errNoPeers
+func randomPeerStream(host host.Host, log utils.SimpleLogger) NewStreamFunc {
+	return func(ctx context.Context, pids ...protocol.ID) (network.Stream, error) {
+		randPeer := randomPeer(host, log)
+		if randPeer == "" {
+			return nil, errNoPeers
+		}
+		stream, err := host.NewStream(ctx, randPeer, pids...)
+		if err != nil {
+			log.Debugw("Error creating stream", "peer", randPeer, "err", err)
+			removePeer(host, log, randPeer)
+			return nil, err
+		}
+		return stream, err
 	}
-	stream, err := s.host.NewStream(ctx, randPeer, pids...)
-	if err != nil {
-		s.log.Debugw("Error creating stream", "peer", randPeer, "err", err)
-		s.removePeer(randPeer)
-		return nil, err
-	}
-	return stream, err
 }
 
-func (s *Service) removePeer(id peer.ID) {
-	s.log.Debugw("Removing peer", "peerID", id)
-	s.host.Peerstore().RemovePeer(id)
-	s.host.Peerstore().ClearAddrs(id)
+func removePeer(host host.Host, log utils.SimpleLogger, id peer.ID) {
+	log.Debugw("Removing peer", "peerID", id)
+	host.Peerstore().RemovePeer(id)
+	host.Peerstore().ClearAddrs(id)
 }
 
-func (s *Service) createIteratorForBlock(blockNumber uint64) *synccommon.Iteration {
+func (s *BlockFetcher) createIteratorForBlock(blockNumber uint64) *synccommon.Iteration {
 	return &synccommon.Iteration{
 		Start:     &synccommon.Iteration_BlockNumber{BlockNumber: blockNumber},
 		Direction: synccommon.Iteration_Forward,
@@ -702,6 +755,6 @@ func (s *Service) createIteratorForBlock(blockNumber uint64) *synccommon.Iterati
 	}
 }
 
-func (s *Service) WithListener(l junoSync.EventListener) {
+func (s *BlockFetcher) WithListener(l junoSync.EventListener) {
 	s.listener = l
 }

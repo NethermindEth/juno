@@ -15,7 +15,10 @@ func AdaptDeclareV3WithClass(
 	tx *transaction.DeclareV3WithClass,
 	txnHash *common.Hash,
 ) (*core.DeclareTransaction, *core.Cairo1Class, error) {
-	class := AdaptCairo1Class(tx.Class)
+	class, err := AdaptCairo1Class(tx.Class)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	classHash, err := class.Hash()
 	if err != nil {

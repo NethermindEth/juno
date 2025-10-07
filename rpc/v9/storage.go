@@ -447,7 +447,7 @@ type EdgeNode struct {
 }
 
 func (e *EdgeNode) AsProofNode() trie.ProofNode {
-	f, _ := new(felt.Felt).SetString(e.Path)
+	f, _ := felt.NewFromString[felt.Felt](e.Path)
 	pbs := f.Bytes()
 
 	return &trie.Edge{
