@@ -41,13 +41,6 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(new(core.Header), nil)
 		mockState.EXPECT().ContractClassHash(&felt.Zero).Return(new(felt.Felt), nil)
-		mockState.EXPECT().Class(new(felt.Felt)).Return(&core.DeclaredClass{Class: &core.Cairo1Class{
-			Program: []*felt.Felt{
-				felt.NewFromUint64[felt.Felt](3),
-				&felt.Zero,
-				&felt.Zero,
-			},
-		}}, nil)
 
 		blockID := blockIDLatest(t)
 		_, rpcErr := handler.Call(&rpcv9.FunctionCall{}, &blockID)
@@ -59,30 +52,34 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		blockID := blockIDLatest(t)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpcv9.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(
+			&blockID,
+			rpcv9.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag},
+		)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 		assert.NotEmpty(t, httpHeader.Get(rpcv9.ExecutionStepsHeader))
 	})
 
 	t.Run("trace", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
+		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
-			ParentHash:      utils.HexToFelt(t, "0x0C3"),
+			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
 			Number:          0,
-			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000C"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
 			Class: &core.Cairo1Class{},
 		}
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
 		}
 		block := &core.Block{
 			Header:       header,

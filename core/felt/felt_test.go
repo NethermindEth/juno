@@ -37,10 +37,7 @@ func TestUnmarshalJson(t *testing.T) {
 }
 
 func TestFeltCbor(t *testing.T) {
-	var val felt.Felt
-	_, err := val.SetRandom()
-	require.NoError(t, err)
-
+	val := felt.NewRandom[felt.Felt]()
 	encoder.TestSymmetry(t, val)
 }
 

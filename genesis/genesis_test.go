@@ -3,6 +3,7 @@ package genesis_test
 import (
 	"testing"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/genesis"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/NethermindEth/juno/vm"
@@ -20,7 +21,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			FeeTokenAddresses: feeTokens,
 		}
 		genesisConfig := genesis.GenesisConfig{}
-		_, _, err := genesis.GenesisStateDiff(&genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
+		_, _, err := genesis.GenesisStateDiff(
+			&genesisConfig,
+			vm.New(&chainInfo, false, log),
+			network,
+			vm.DefaultMaxSteps,
+			vm.DefaultMaxGas,
+		)
 		require.NoError(t, err)
 	})
 
@@ -36,7 +43,13 @@ func TestGenesisStateDiff(t *testing.T) {
 			ChainID:           network.L2ChainID,
 			FeeTokenAddresses: feeTokens,
 		}
-		stateDiff, newClasses, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), network, 40000000)
+		stateDiff, newClasses, err := genesis.GenesisStateDiff(
+			genesisConfig,
+			vm.New(&chainInfo, false, log),
+			network,
+			vm.DefaultMaxSteps,
+			vm.DefaultMaxGas,
+		)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(stateDiff.DeclaredV1Classes))
 		for _, con := range genesisConfig.Contracts {
@@ -48,13 +61,13 @@ func TestGenesisStateDiff(t *testing.T) {
 		numFundedAccounts := 0
 		v3InvokeTxnTransferAmount := "0x1111111"
 		v3InvokeTxnTriggered := false
-		strkAddress := utils.HexToFelt(t, "0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
+		strkAddress := felt.NewUnsafeFromString[felt.Felt]("0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7")
 		strkTokenDiffs := stateDiff.StorageDiffs[*strkAddress]
 		for _, v := range strkTokenDiffs {
-			if v.Equal(utils.HexToFelt(t, "0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt]("0x56bc75e2d63100000")) { // see genesis_prefunded_accounts.json
 				numFundedAccounts++
 			}
-			if v.Equal(utils.HexToFelt(t, v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
+			if v.Equal(felt.NewUnsafeFromString[felt.Felt](v3InvokeTxnTransferAmount)) { // see genesis_prefunded_accounts.json
 				v3InvokeTxnTriggered = true
 			}
 		}

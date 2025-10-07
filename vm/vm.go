@@ -24,6 +24,11 @@ import (
 	"github.com/NethermindEth/juno/utils"
 )
 
+const (
+	DefaultMaxSteps = 4_000_000
+	DefaultMaxGas   = 100_000_000
+)
+
 type ExecutionResults struct {
 	OverallFees      []*felt.Felt
 	DataAvailability []core.DataAvailability
@@ -46,8 +51,9 @@ type VM interface {
 		blockInfo *BlockInfo,
 		state core.StateReader,
 		maxSteps uint64,
-		sierraVersion string,
-		structuredErrStack, returnStateDiff bool,
+		maxGas uint64,
+		structuredErrStack,
+		returnStateDiff bool,
 	) (CallResult, error)
 	Execute(
 		txns []core.Transaction,
@@ -271,21 +277,14 @@ func makeCBlockInfo(blockInfo *BlockInfo) C.BlockInfo {
 	return cBlockInfo
 }
 
-func makeByteFromBool(b bool) byte {
-	var boolByte byte
-	if b {
-		boolByte = 1
-	}
-	return boolByte
-}
-
 func (v *vm) Call(
 	callInfo *CallInfo,
 	blockInfo *BlockInfo,
 	state core.StateReader,
 	maxSteps uint64,
-	sierraVersion string,
-	structuredErrStack, returnStateDiff bool,
+	maxGas uint64,
+	structuredErrStack,
+	returnStateDiff bool,
 ) (CallResult, error) {
 	context := &callContext{
 		state:    state,
@@ -299,23 +298,21 @@ func (v *vm) Call(
 	cCallInfo, callInfoPinner := makeCCallInfo(callInfo)
 	cBlockInfo := makeCBlockInfo(blockInfo)
 	cChainInfo := makeCChainInfo(v.chainInfo)
-	cSierraVersion := C.CString(sierraVersion)
+	// TODO: set initial_gas as maxGas in the next PR
 	C.cairoVMCall(
 		&cCallInfo,
 		&cBlockInfo,
 		&cChainInfo,
 		C.uintptr_t(handle),
 		C.ulonglong(maxSteps),
+		C.ulonglong(maxGas),
 		toUchar(v.concurrencyMode),
-		cSierraVersion,
 		toUchar(structuredErrStack), //nolint:gocritic // See https://github.com/go-critic/go-critic/issues/897
 		toUchar(returnStateDiff),    //nolint:gocritic
-
 	)
 	callInfoPinner.Unpin()
 	C.free(unsafe.Pointer(cChainInfo.chain_id))
 	C.free(unsafe.Pointer(cBlockInfo.version))
-	C.free(unsafe.Pointer(cSierraVersion))
 
 	if context.err != "" && !context.executionFailed {
 		return CallResult{}, errors.New(context.err)

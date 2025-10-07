@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/adapters/sn2core"
 	"github.com/NethermindEth/juno/clients/feeder"
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/starknet"
 	"github.com/NethermindEth/juno/starknet/compiler"
 	"github.com/NethermindEth/juno/utils"
@@ -23,7 +24,7 @@ func TestCompile(t *testing.T) {
 
 	t.Run("ok", func(t *testing.T) {
 		cl := feeder.NewTestClient(t, &utils.Integration)
-		classHash := utils.HexToFelt(t, "0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b")
+		classHash := felt.NewUnsafeFromString[felt.Felt]("0xc6c634d10e2cc7b1db6b4403b477f05e39cb4900fd5ea0156d1721dbb6c59b")
 
 		classDef, err := cl.ClassDefinition(t.Context(), classHash)
 		require.NoError(t, err)

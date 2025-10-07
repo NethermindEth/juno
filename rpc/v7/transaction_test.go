@@ -855,15 +855,15 @@ func TestTransactionStatus(t *testing.T) {
 	}{
 		{
 			network:           &utils.Mainnet,
-			verifiedTxHash:    utils.HexToFelt(t, "0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
-			notFoundTxHash:    utils.HexToFelt(t, "0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
+			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xf1d99fb97509e0dfc425ddc2a8c5398b74231658ca58b6f8da92f39cb739e"),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x6c40890743aa220b10e5ee68cef694c5c23cc2defd0dbdf5546e687f9982ab1"),
+			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x8c96a2b3d73294667e489bf8904c6aa7c334e38e24ad5a721c7e04439ff9"),
 		},
 		{
 			network:           &utils.Integration,
-			verifiedTxHash:    utils.HexToFelt(t, "0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
-			nonVerifiedTxHash: utils.HexToFelt(t, "0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
-			notFoundTxHash:    utils.HexToFelt(t, "0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
+			verifiedTxHash:    felt.NewUnsafeFromString[felt.Felt]("0x5e91283c1c04c3f88e4a98070df71227fb44dea04ce349c7eb379f85a10d1c3"),
+			nonVerifiedTxHash: felt.NewUnsafeFromString[felt.Felt]("0x45d9c2c8e01bacae6dec3438874576a4a1ce65f1d4247f4e9748f0e7216838"),
+			notFoundTxHash:    felt.NewUnsafeFromString[felt.Felt]("0xd7747f3d0ce84b3a19b05b987a782beac22c54e66773303e94ea78cc3c15"),
 		},
 	}
 
@@ -1009,32 +1009,32 @@ func TestAdaptBroadcastedTransaction(t *testing.T) {
 		}`
 	expectedTxn := core.DeployAccountTransaction{
 		DeployTransaction: core.DeployTransaction{
-			TransactionHash:     utils.HexToFelt(t, "0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353"),
-			ContractAddressSalt: utils.HexToFelt(t, "0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-			ClassHash:           utils.HexToFelt(t, "0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
-			ContractAddress:     utils.HexToFelt(t, "0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
+			TransactionHash:     felt.NewUnsafeFromString[felt.Felt]("0x7ed2723f72842192aea186a6b6f388fbe7b305e450d3ebd6da6b13ff1b59353"),
+			ContractAddressSalt: felt.NewUnsafeFromString[felt.Felt]("0x520b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+			ClassHash:           felt.NewUnsafeFromString[felt.Felt]("0x26ec026985a3bf9d0cc1fe17326b245dfdc3ff89b8fde106542a3ea56c5a918"),
+			ContractAddress:     felt.NewUnsafeFromString[felt.Felt]("0x55e3ecdbd8f0b537b3cf6c31a77dff63ddfd5bf5dcc5ba7eb4d09e91fbe0f91"),
 			ConstructorCallData: []*felt.Felt{
-				utils.HexToFelt(t, "0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
-				utils.HexToFelt(t, "0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
-				utils.HexToFelt(t, "0x2"),
-				utils.HexToFelt(t, "0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
-				utils.HexToFelt(t, "0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x33444ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2"),
+				felt.NewUnsafeFromString[felt.Felt]("0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463"),
+				felt.NewUnsafeFromString[felt.Felt]("0x2"),
+				felt.NewUnsafeFromString[felt.Felt]("0x510b540d51c06e1539cbc42e93a37cbef534082c75a3991179cfac83da67fdb"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			},
 			Version: new(core.TransactionVersion).SetUint64(3),
 		},
 		TransactionSignature: []*felt.Felt{
-			utils.HexToFelt(t, "0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
-			utils.HexToFelt(t, "0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
+			felt.NewUnsafeFromString[felt.Felt]("0x63c0e0fe22d6e82187b84e06f33644f7dc6edce494a317bfcdd0bb57ab862fa"),
+			felt.NewUnsafeFromString[felt.Felt]("0x6219aa7d091eac96f07d7d195f12eff9a8786af85ddf41028428ee8f510e75e"),
 		},
-		Nonce: utils.HexToFelt(t, "0x1"),
+		Nonce: felt.NewUnsafeFromString[felt.Felt]("0x1"),
 		ResourceBounds: map[core.Resource]core.ResourceBounds{
 			core.ResourceL1Gas: {
-				MaxAmount:       utils.HexToFelt(t, "0x6fde2b4eb000").Uint64(),
-				MaxPricePerUnit: utils.HexToFelt(t, "0x6fde2b4eb000"),
+				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000").Uint64(),
+				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x6fde2b4eb000"),
 			},
 			core.ResourceL2Gas: {
-				MaxAmount:       utils.HexToFelt(t, "0x0").Uint64(), // The original txn should have this field set to zero
-				MaxPricePerUnit: utils.HexToFelt(t, "0x0"),
+				MaxAmount:       felt.NewUnsafeFromString[felt.Felt]("0x0").Uint64(), // The original txn should have this field set to zero
+				MaxPricePerUnit: felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			},
 		},
 		Tip:           1, // 0x1

@@ -48,7 +48,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipFeeChargeFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipFeeChargeFlag},
+		)
 		require.Nil(t, err)
 	})
 
@@ -64,7 +68,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         stepsUsed,
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Nil(t, err)
 	})
 
@@ -77,7 +85,11 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
@@ -91,7 +103,11 @@ func TestSimulateTransactions(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, err = handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err = handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
@@ -110,7 +126,11 @@ func TestSimulateTransactions(t *testing.T) {
 				NumSteps:         uint64(0),
 			}, nil)
 
-		_, err := handler.SimulateTransactions(rpc.BlockID{Latest: true}, []rpc.BroadcastedTransaction{}, []rpc.SimulationFlag{rpc.SkipValidateFlag})
+		_, err := handler.SimulateTransactions(
+			rpc.BlockID{Latest: true},
+			rpc.BroadcastedTransactionInputs{},
+			[]rpc.SimulationFlag{rpc.SkipValidateFlag},
+		)
 		require.Equal(t, rpccore.ErrInternal.CloneWithData(errors.New(
 			"inconsistent lengths: 1 overall fees, 1 traces, 1 gas consumed, 2 data availability, 0 txns",
 		)), err)
@@ -224,7 +244,7 @@ func TestSimulateTransactionsShouldErrorWithoutSenderAddressOrResourceBounds(t *
 
 			_, err := handler.SimulateTransactions(
 				rpc.BlockID{Latest: true},
-				test.transactions,
+				rpc.BroadcastedTransactionInputs{Data: test.transactions},
 				[]rpc.SimulationFlag{},
 			)
 			if test.err != nil {

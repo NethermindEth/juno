@@ -47,7 +47,11 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         uint64(123),
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpcv6.SimulationFlag{}, &blockID)
+		_, httpHeader, err := handler.EstimateFee(
+			rpc.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{},
+			&blockID,
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
@@ -62,7 +66,11 @@ func TestEstimateFee(t *testing.T) {
 				NumSteps:         uint64(123),
 			}, nil)
 
-		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, &blockID)
+		_, httpHeader, err := handler.EstimateFee(
+			rpc.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			&blockID,
+		)
 		require.Nil(t, err)
 		assert.Equal(t, httpHeader.Get(rpc.ExecutionStepsHeader), "123")
 	})
@@ -74,7 +82,11 @@ func TestEstimateFee(t *testing.T) {
 				Cause: json.RawMessage("oops"),
 			})
 
-		_, httpHeader, err := handler.EstimateFee([]rpc.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipValidateFlag}, &blockID)
+		_, httpHeader, err := handler.EstimateFee(
+			rpc.BroadcastedTransactionInputs{},
+			[]rpcv6.SimulationFlag{rpcv6.SkipValidateFlag},
+			&blockID,
+		)
 		require.Equal(t, rpccore.ErrTransactionExecutionError.CloneWithData(rpc.TransactionExecutionErrorData{
 			TransactionIndex: 44,
 			ExecutionError:   json.RawMessage("oops"),
@@ -84,7 +96,7 @@ func TestEstimateFee(t *testing.T) {
 
 	t.Run("transaction with invalid contract class", func(t *testing.T) {
 		toFelt := func(hex string) *felt.Felt {
-			return utils.HexToFelt(t, hex)
+			return felt.NewUnsafeFromString[felt.Felt](hex)
 		}
 		invalidTx := rpc.BroadcastedTransaction{
 			Transaction: rpc.Transaction{
@@ -99,7 +111,11 @@ func TestEstimateFee(t *testing.T) {
 			},
 			ContractClass: json.RawMessage(`{}`),
 		}
-		_, _, err := handler.EstimateFee([]rpc.BroadcastedTransaction{invalidTx}, []rpcv6.SimulationFlag{}, &blockID)
+		_, _, err := handler.EstimateFee(
+			rpc.BroadcastedTransactionInputs{Data: []rpc.BroadcastedTransaction{invalidTx}},
+			[]rpcv6.SimulationFlag{},
+			&blockID,
+		)
 		expectedErr := &jsonrpc.Error{
 			Code:    jsonrpc.InvalidParams,
 			Message: "Invalid Params",

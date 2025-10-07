@@ -113,9 +113,12 @@ func (z *Felt) SetUint64(v uint64) *Felt {
 }
 
 // SetRandom forwards the call to underlying field element implementation
-func (z *Felt) SetRandom() (*Felt, error) {
+func (z *Felt) SetRandom() *Felt {
 	_, err := (*fp.Element)(z).SetRandom()
-	return z, err
+	if err != nil {
+		panic(fmt.Sprintf("unexpected error from rand.Reader: %s", err.Error()))
+	}
+	return z
 }
 
 // String forwards the call to underlying field element implementation

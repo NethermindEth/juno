@@ -58,22 +58,22 @@ func getGenesisSequencer(
 	invokeTxn := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x101"),
+			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
 			Version:       new(felt.Felt).SetUint64(1),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
+			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(0),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
-				utils.HexToFelt(t, "0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
+				felt.NewUnsafeFromString[felt.Felt]("0x239a9d44d7b7dd8d31ba0d848072c22643beb2b651d4e2cd8a9588a17fd6811"),
+				felt.NewUnsafeFromString[felt.Felt]("0x6e7d805ee0cc02f3790ab65c8bb66b235341f97d22d6a9a47dc6e4fdba85972"),
 			},
 			CallData: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x108"),
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				felt.NewUnsafeFromString[felt.Felt]("0x108"),
+				felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			},
 		},
 	}
@@ -81,22 +81,22 @@ func getGenesisSequencer(
 	invokeTxn2 := rpc.BroadcastedTransaction{ //nolint:dupl
 		Transaction: rpc.Transaction{
 			Type:          rpc.TxnInvoke,
-			SenderAddress: utils.HexToFelt(t, "0x101"),
+			SenderAddress: felt.NewUnsafeFromString[felt.Felt]("0x101"),
 			Version:       new(felt.Felt).SetUint64(1),
-			MaxFee:        utils.HexToFelt(t, "0xaeb1bacb2c"),
+			MaxFee:        felt.NewUnsafeFromString[felt.Felt]("0xaeb1bacb2c"),
 			Nonce:         new(felt.Felt).SetUint64(1),
 			Signature: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
-				utils.HexToFelt(t, "0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
+				felt.NewUnsafeFromString[felt.Felt]("0x6012e655ac15a4ab973a42db121a2cb78d9807c5ff30aed74b70d32a682b083"),
+				felt.NewUnsafeFromString[felt.Felt]("0xcd27013a24e143cc580ba788b14df808aefa135d8ed3aca297aa56aa632cb5"),
 			},
 			CallData: &[]*felt.Felt{
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
-				utils.HexToFelt(t, "0x3"),
-				utils.HexToFelt(t, "0x109"),
-				utils.HexToFelt(t, "0x1"),
-				utils.HexToFelt(t, "0x0"),
+				felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				felt.NewUnsafeFromString[felt.Felt]("0x3"),
+				felt.NewUnsafeFromString[felt.Felt]("0x109"),
+				felt.NewUnsafeFromString[felt.Felt]("0x1"),
+				felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			},
 		},
 	}
@@ -121,7 +121,13 @@ func getGenesisSequencer(
 		ChainID:           network.L2ChainID,
 		FeeTokenAddresses: feeTokens,
 	}
-	diff, classes, err := genesis.GenesisStateDiff(genesisConfig, vm.New(&chainInfo, false, log), bc.Network(), 40000000)
+	diff, classes, err := genesis.GenesisStateDiff(
+		genesisConfig,
+		vm.New(&chainInfo, false, log),
+		bc.Network(),
+		vm.DefaultMaxSteps,
+		vm.DefaultMaxGas,
+	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))
 	executor := builder.NewExecutor(bc, vm.New(&chainInfo, false, log), log, false, true)
@@ -131,7 +137,7 @@ func getGenesisSequencer(
 }
 
 func TestBuildEmptyBlocks(t *testing.T) {
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc := getEmptySequencer(t, blockTime, seqAddr)
 
@@ -152,7 +158,7 @@ func TestBuildEmptyBlocks(t *testing.T) {
 }
 
 func TestPrefundedAccounts(t *testing.T) {
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
 
@@ -169,7 +175,7 @@ func TestPrefundedAccounts(t *testing.T) {
 	height, err := bc.Height()
 	require.NoError(t, err)
 
-	expectedBalance := utils.HexToFelt(t, "0x1")
+	expectedBalance := felt.NewUnsafeFromString[felt.Felt]("0x1")
 	numExpectedBalance := 0
 	foundExpectedNumAcntsWBalance := false
 	for i := range height {
@@ -192,7 +198,7 @@ func TestPrefundedAccounts(t *testing.T) {
 
 // Example of how other tests can use the sequencer to execute txns in a controlled manner.
 func TestRunOnce(t *testing.T) {
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, bc, rpcHandler, txnsToExecute := getGenesisSequencer(t, blockTime, seqAddr)
 
@@ -218,7 +224,7 @@ func TestRunOnce(t *testing.T) {
 }
 
 func TestHelpers(t *testing.T) {
-	seqAddr := utils.HexToFelt(t, "0xDEADBEEF")
+	seqAddr := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
 	blockTime := 100 * time.Millisecond
 	seq, _, _, _ := getGenesisSequencer(t, blockTime, seqAddr) //nolint:dogsled
 

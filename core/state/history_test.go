@@ -6,7 +6,6 @@ import (
 	"github.com/NethermindEth/juno/core"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/juno/db"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,42 +25,42 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	stateUpdates := []*core.StateUpdate{
 		{
 			OldRoot: &felt.Zero,
-			NewRoot: utils.HexToFelt(t, "0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x1"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x1"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
 				},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x1"): {
-						*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x1"),
-						*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x2"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1"): {
+						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x1"),
+						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
 					},
 				},
 			},
 		},
 		{
-			OldRoot: utils.HexToFelt(t, "0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
-			NewRoot: utils.HexToFelt(t, "0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee"),
+			OldRoot: felt.NewUnsafeFromString[felt.Felt]("0x2e782bf13c68887b9f98c625aa284ba4d23237bd45fc1161442860d4a6576d8"),
+			NewRoot: felt.NewUnsafeFromString[felt.Felt]("0x59aa7d6f2c197b91bffa600e4ba4d6d80990ed42a7321c5d01cbe06b45d95ee"),
 			StateDiff: &core.StateDiff{
 				DeployedContracts: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x2"),
-					*utils.HexToFelt(t, "0x3"): utils.HexToFelt(t, "0x3"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				},
 				Nonces: map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x2"),
-					*utils.HexToFelt(t, "0x3"): utils.HexToFelt(t, "0x3"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x2"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x3"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
 				},
 				StorageDiffs: map[felt.Felt]map[felt.Felt]*felt.Felt{
-					*utils.HexToFelt(t, "0x2"): {
-						*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x3"),
-						*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x4"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x2"): {
+						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x3"),
+						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x4"),
 					},
-					*utils.HexToFelt(t, "0x3"): {
-						*utils.HexToFelt(t, "0x1"): utils.HexToFelt(t, "0x5"),
-						*utils.HexToFelt(t, "0x2"): utils.HexToFelt(t, "0x6"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x3"): {
+						*felt.NewUnsafeFromString[felt.Felt]("0x1"): felt.NewUnsafeFromString[felt.Felt]("0x5"),
+						*felt.NewUnsafeFromString[felt.Felt]("0x2"): felt.NewUnsafeFromString[felt.Felt]("0x6"),
 					},
 				},
 			},
@@ -74,30 +73,30 @@ func TestStateHistoryContractOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("ContractClassHash", func(t *testing.T) {
-		hash, err := historyBlock0.ContractClassHash(utils.HexToFelt(t, "0x1"))
+		hash, err := historyBlock0.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, *utils.HexToFelt(t, "0x1"))
-		hash, err = historyBlock1.ContractClassHash(utils.HexToFelt(t, "0x2"))
+		assert.Equal(t, hash, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		hash, err = historyBlock1.ContractClassHash(felt.NewUnsafeFromString[felt.Felt]("0x2"))
 		require.NoError(t, err)
-		assert.Equal(t, hash, *utils.HexToFelt(t, "0x2"))
+		assert.Equal(t, hash, *felt.NewUnsafeFromString[felt.Felt]("0x2"))
 	})
 
 	t.Run("ContractNonce", func(t *testing.T) {
-		nonce, err := historyBlock0.ContractNonce(utils.HexToFelt(t, "0x1"))
+		nonce, err := historyBlock0.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, nonce, *utils.HexToFelt(t, "0x1"))
-		nonce, err = historyBlock1.ContractNonce(utils.HexToFelt(t, "0x2"))
+		assert.Equal(t, nonce, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		nonce, err = historyBlock1.ContractNonce(felt.NewUnsafeFromString[felt.Felt]("0x2"))
 		require.NoError(t, err)
-		assert.Equal(t, nonce, *utils.HexToFelt(t, "0x2"))
+		assert.Equal(t, nonce, *felt.NewUnsafeFromString[felt.Felt]("0x2"))
 	})
 
 	t.Run("ContractStorage", func(t *testing.T) {
-		value, err := historyBlock0.ContractStorage(utils.HexToFelt(t, "0x1"), utils.HexToFelt(t, "0x1"))
+		value, err := historyBlock0.ContractStorage(felt.NewUnsafeFromString[felt.Felt]("0x1"), felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, value, *utils.HexToFelt(t, "0x1"))
-		value, err = historyBlock1.ContractStorage(utils.HexToFelt(t, "0x2"), utils.HexToFelt(t, "0x1"))
+		assert.Equal(t, value, *felt.NewUnsafeFromString[felt.Felt]("0x1"))
+		value, err = historyBlock1.ContractStorage(felt.NewUnsafeFromString[felt.Felt]("0x2"), felt.NewUnsafeFromString[felt.Felt]("0x1"))
 		require.NoError(t, err)
-		assert.Equal(t, value, *utils.HexToFelt(t, "0x3"))
+		assert.Equal(t, value, *felt.NewUnsafeFromString[felt.Felt]("0x3"))
 	})
 
 	t.Run("NonExistentContract", func(t *testing.T) {
@@ -110,8 +109,8 @@ func TestStateHistoryContractOperations(t *testing.T) {
 func TestStateHistoryClassOperations(t *testing.T) {
 	stateDB := newTestStateDB()
 
-	class1Hash := *utils.HexToFelt(t, "0xDEADBEEF")
-	class2Hash := *utils.HexToFelt(t, "0xDEADBEEF2")
+	class1Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF")
+	class2Hash := *felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF2")
 
 	class1 := &core.Cairo1Class{}
 	class2 := &core.Cairo1Class{}
@@ -163,7 +162,7 @@ func TestStateHistoryClassOperations(t *testing.T) {
 	})
 
 	t.Run("NonExistentClass", func(t *testing.T) {
-		nonExistentClass := utils.HexToFelt(t, "0xDEADBEEF3")
+		nonExistentClass := felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF3")
 		_, err := historyBlock0.Class(nonExistentClass)
 		assert.Error(t, err)
 	})
@@ -174,7 +173,7 @@ func TestStateHistoryClassBeforeDeclaration(t *testing.T) {
 	history, err := NewStateHistory(0, &felt.Zero, stateDB)
 	require.NoError(t, err)
 
-	_, err = history.Class(utils.HexToFelt(t, "0xDEADBEEF"))
+	_, err = history.Class(felt.NewUnsafeFromString[felt.Felt]("0xDEADBEEF"))
 	assert.ErrorIs(t, err, db.ErrKeyNotFound)
 }
 

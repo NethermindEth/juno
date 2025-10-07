@@ -14,7 +14,6 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	p2pconsensus "github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
-	"github.com/stretchr/testify/require"
 )
 
 var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Transaction, *p2pconsensus.ConsensusTransaction]{
@@ -60,12 +59,11 @@ var TransactionBuilder = transactiontestutils.TransactionBuilder[consensus.Trans
 }
 
 func getRandomFelt(t *testing.T) (felt.Felt, []byte) {
-	felt := felt.Felt{}
-	_, err := felt.SetRandom()
-	require.NoError(t, err)
+	t.Helper()
 
-	feltBytes := felt.Bytes()
-	return felt, feltBytes[:]
+	f := felt.Random[felt.Felt]()
+	feltBytes := f.Bytes()
+	return f, feltBytes[:]
 }
 
 func getRandomUint128() (*felt.Felt, *common.Uint128) {

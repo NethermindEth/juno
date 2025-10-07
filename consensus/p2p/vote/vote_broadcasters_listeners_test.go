@@ -140,11 +140,10 @@ func getRandomVote(t *testing.T) starknet.Vote {
 	var id *starknet.Hash
 	var err error
 	if rand.IntN(100) >= 20 {
-		id, err = felt.NewRandom[starknet.Hash]()
-		require.NoError(t, err)
+		id = felt.NewRandom[starknet.Hash]()
 	}
 
-	sender, err := felt.NewRandom[starknet.Address]()
+	sender := felt.NewRandom[starknet.Address]()
 	require.NoError(t, err)
 
 	return starknet.Vote{

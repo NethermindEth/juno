@@ -24,7 +24,7 @@ func (tvm *ThrottledVM) Call(
 	blockInfo *vm.BlockInfo,
 	state core.StateReader,
 	maxSteps uint64,
-	sierraVersion string,
+	maxGas uint64,
 	errStack, returnStateDiff bool,
 ) (vm.CallResult, error) {
 	ret := vm.CallResult{}
@@ -35,7 +35,7 @@ func (tvm *ThrottledVM) Call(
 			blockInfo,
 			state,
 			maxSteps,
-			sierraVersion,
+			maxGas,
 			errStack,
 			returnStateDiff,
 		)

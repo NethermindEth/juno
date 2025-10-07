@@ -349,27 +349,28 @@ func (h *Handler) Call(funcCall *FunctionCall, id *BlockID) ([]*felt.Felt, *json
 		return nil, rpccore.ErrContractNotFound
 	}
 
-	declaredClass, err := state.Class(classHash)
-	if err != nil {
-		return nil, rpccore.ErrClassHashNotFound
-	}
-
-	sierraVersion := declaredClass.Class.SierraVersion()
-
 	blockHashToBeRevealed, err := h.getRevealedBlockHash(header.Number)
 	if err != nil {
 		return nil, rpccore.ErrInternal.CloneWithData(err)
 	}
 
-	res, err := h.vm.Call(&vm.CallInfo{
-		ContractAddress: &funcCall.ContractAddress,
-		Selector:        &funcCall.EntryPointSelector,
-		Calldata:        funcCall.Calldata,
-		ClassHash:       classHash,
-	}, &vm.BlockInfo{
-		Header:                header,
-		BlockHashToBeRevealed: blockHashToBeRevealed,
-	}, state, h.callMaxSteps, sierraVersion, true, false)
+	res, err := h.vm.Call(
+		&vm.CallInfo{
+			ContractAddress: &funcCall.ContractAddress,
+			Selector:        &funcCall.EntryPointSelector,
+			Calldata:        funcCall.Calldata.Data,
+			ClassHash:       classHash,
+		},
+		&vm.BlockInfo{
+			Header:                header,
+			BlockHashToBeRevealed: blockHashToBeRevealed,
+		},
+		state,
+		h.callMaxSteps,
+		h.callMaxGas,
+		true,
+		false,
+	)
 	if err != nil {
 		if errors.Is(err, utils.ErrResourceBusy) {
 			return nil, rpccore.ErrInternal.CloneWithData(rpccore.ThrottledVMErr)

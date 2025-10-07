@@ -101,6 +101,7 @@ func GenesisStateDiff(
 	v vm.VM,
 	network *utils.Network,
 	maxSteps uint64,
+	maxGas uint64,
 ) (core.StateDiff, map[felt.Felt]core.Class, error) {
 	initialStateDiff := core.EmptyStateDiff()
 	memDB := memory.New()
@@ -110,17 +111,15 @@ func GenesisStateDiff(
 		core.NewState(memDB.NewIndexedBatch()),
 	)
 
-	classhashToSierraVersion, err := declareClasses(config, &genesisState)
-	if err != nil {
+	if err := declareClasses(config, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
-	contractAddressToSierraVersion, err := deployContracts(config, v, maxSteps, &genesisState, classhashToSierraVersion)
-	if err != nil {
+	if err := deployContracts(config, v, maxSteps, maxGas, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
-	if err := executeFunctionCalls(config, v, maxSteps, &genesisState, contractAddressToSierraVersion); err != nil {
+	if err := executeFunctionCalls(config, v, maxSteps, maxGas, &genesisState); err != nil {
 		return core.StateDiff{}, nil, err
 	}
 
@@ -132,21 +131,19 @@ func GenesisStateDiff(
 	return genesisStateDiff, genesisClasses, nil
 }
 
-func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) (map[felt.Felt]string, error) {
+func declareClasses(config *GenesisConfig, genesisState *sync.PendingStateWriter) error {
 	newClasses, err := loadClasses(config.Classes)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	classhashToSierraVersion := make(map[felt.Felt]string, len(newClasses))
 	for classHash, class := range newClasses {
 		if err := setClass(genesisState, &classHash, class); err != nil {
-			return nil, err
+			return err
 		}
-		classhashToSierraVersion[classHash] = class.SierraVersion()
 	}
 
-	return classhashToSierraVersion, nil
+	return nil
 }
 
 func setClass(genesisState *sync.PendingStateWriter, classHash *felt.Felt, class core.Class) error {
@@ -166,40 +163,46 @@ func deployContracts(
 	config *GenesisConfig,
 	v vm.VM,
 	maxSteps uint64,
+	maxGas uint64,
 	genesisState *sync.PendingStateWriter,
-	classhashToSierraVersion map[felt.Felt]string,
-) (map[felt.Felt]string, error) {
+) error {
 	constructorSelector, err := new(felt.Felt).SetString(constructorSelector)
 	if err != nil {
-		return nil, fmt.Errorf("convert string to felt: %v", err)
+		return fmt.Errorf("convert string to felt: %v", err)
 	}
 
-	contractAddressToSierraVersion := make(map[felt.Felt]string, len(config.Contracts))
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
 	for address, contractData := range config.Contracts {
-		if err := deployContract(v, maxSteps, genesisState, address, contractData,
-			constructorSelector, classhashToSierraVersion, contractAddressToSierraVersion, &blockInfo); err != nil {
-			return nil, err
+		err := deployContract(
+			v,
+			maxSteps,
+			maxGas,
+			genesisState,
+			address,
+			contractData,
+			constructorSelector,
+			&blockInfo,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	return contractAddressToSierraVersion, nil
+	return nil
 }
 
 func deployContract(
 	v vm.VM,
 	maxSteps uint64,
+	maxGas uint64,
 	genesisState *sync.PendingStateWriter,
 	address felt.Felt,
 	contractData GenesisContractData,
 	constructorSelector *felt.Felt,
-	classhashToSierraVersion map[felt.Felt]string,
-	contractAddressToSierraVersion map[felt.Felt]string,
 	blockInfo *vm.BlockInfo,
 ) error {
 	classHash := contractData.ClassHash
-	contractAddressToSierraVersion[address] = classhashToSierraVersion[classHash]
 
 	if err := genesisState.SetClassHash(&address, &classHash); err != nil {
 		return fmt.Errorf("set class hash: %v", err)
@@ -216,8 +219,15 @@ func deployContract(
 		Calldata:        contractData.ConstructorArgs,
 	}
 
-	result, err := v.Call(callInfo, blockInfo, genesisState, maxSteps,
-		classhashToSierraVersion[classHash], true, true)
+	result, err := v.Call(
+		callInfo,
+		blockInfo,
+		genesisState,
+		maxSteps,
+		maxGas,
+		true,
+		true,
+	)
 	if err != nil {
 		return fmt.Errorf("execute constructor call: %v", err)
 	}
@@ -231,8 +241,8 @@ func executeFunctionCalls(
 	config *GenesisConfig,
 	v vm.VM,
 	maxSteps uint64,
+	maxGas uint64,
 	genesisState *sync.PendingStateWriter,
-	contractAddressToSierraVersion map[felt.Felt]string,
 ) error {
 	blockInfo := vm.BlockInfo{Header: &genesisHeader}
 
@@ -252,8 +262,15 @@ func executeFunctionCalls(
 			Calldata:        fnCall.Calldata,
 		}
 
-		result, err := v.Call(callInfo, &blockInfo, genesisState, maxSteps,
-			contractAddressToSierraVersion[contractAddress], true, true)
+		result, err := v.Call(
+			callInfo,
+			&blockInfo,
+			genesisState,
+			maxSteps,
+			maxGas,
+			true,
+			true,
+		)
 		if err != nil {
 			return fmt.Errorf("execute function call: %v", err)
 		}

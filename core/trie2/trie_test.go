@@ -14,7 +14,6 @@ import (
 	"github.com/NethermindEth/juno/core/trie2/trienode"
 	"github.com/NethermindEth/juno/core/trie2/trieutils"
 	"github.com/NethermindEth/juno/db/memory"
-	"github.com/NethermindEth/juno/utils"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 )
@@ -164,12 +163,12 @@ func TestHash(t *testing.T) {
 
 		keys := []*felt.Felt{
 			new(felt.Felt).SetUint64(0),
-			utils.HexToFelt(t, "0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+			felt.NewUnsafeFromString[felt.Felt]("0x7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
 		}
 
 		vals := []*felt.Felt{
-			utils.HexToFelt(t, "0xcc"),
-			utils.HexToFelt(t, "0xdd"),
+			felt.NewUnsafeFromString[felt.Felt]("0xcc"),
+			felt.NewUnsafeFromString[felt.Felt]("0xdd"),
 		}
 
 		tr, _ := NewEmptyPedersen()
@@ -195,7 +194,7 @@ func TestRandom(t *testing.T) {
 
 func TestSpecificRandomFailure(t *testing.T) {
 	// Create keys from the failing test case
-	key1 := utils.HexToFelt(t, "0x4b004d0b47e75a025540ea685e15b5")
+	key1 := felt.NewUnsafeFromString[felt.Felt]("0x4b004d0b47e75a025540ea685e15b5")
 
 	steps := []randTestStep{
 		{op: opUpdate, key: key1, value: new(felt.Felt).SetUint64(6)},

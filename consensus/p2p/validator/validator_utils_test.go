@@ -7,7 +7,6 @@ import (
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/common"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/consensus/consensus"
 	"github.com/starknet-io/starknet-p2pspecs/p2p/proto/transaction"
-	"github.com/stretchr/testify/require"
 )
 
 func ToBytes(felt felt.Felt) []byte {
@@ -18,8 +17,7 @@ func ToBytes(felt felt.Felt) []byte {
 func getRandomFelt(t *testing.T) []byte {
 	t.Helper()
 
-	addr, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	addr := felt.NewRandom[felt.Felt]()
 
 	addrBytes := addr.Bytes()
 	return addrBytes[:]
@@ -28,8 +26,7 @@ func getRandomFelt(t *testing.T) []byte {
 func GetRandomAddress(t *testing.T) *common.Address {
 	t.Helper()
 
-	addr, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	addr := felt.NewRandom[felt.Felt]()
 
 	return &common.Address{Elements: ToBytes(*addr)}
 }

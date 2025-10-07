@@ -110,7 +110,8 @@ func initGenesis(t *testing.T) (*memory.Database, sync.CommittedBlock) {
 		genesisConfig,
 		vm.New(&chainInfo, false, utils.NewNopZapLogger()),
 		bc.Network(),
-		40000000,
+		vm.DefaultMaxGas,
+		vm.DefaultMaxGas,
 	)
 	require.NoError(t, err)
 	require.NoError(t, bc.StoreGenesis(&diff, classes))

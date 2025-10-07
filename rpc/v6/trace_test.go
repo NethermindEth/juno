@@ -87,7 +87,7 @@ func AssertTracedBlockTransactions(t *testing.T, n *utils.Network, tests map[str
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			mockReader.EXPECT().BlockByHash(utils.HexToFelt(t, test.blockHash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
+			mockReader.EXPECT().BlockByHash(felt.NewUnsafeFromString[felt.Felt](test.blockHash)).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
 				return mockReader.BlockByNumber(test.blockNumber)
 			})
 
@@ -240,7 +240,7 @@ func TestTraceTransaction(t *testing.T) {
 	handler := rpc.New(mockReader, mockSyncReader, mockVM, &utils.Mainnet, utils.NewNopZapLogger())
 
 	t.Run("not found", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0xBBBB")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0xBBBB")
 		// Receipt() returns error related to db
 		mockReader.EXPECT().Receipt(hash).Return(nil, nil, uint64(0), db.ErrKeyNotFound)
 
@@ -249,16 +249,16 @@ func TestTraceTransaction(t *testing.T) {
 		assert.Equal(t, rpccore.ErrTxnHashNotFound, err)
 	})
 	t.Run("ok", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
-			ClassHash:       utils.HexToFelt(t, "0x000000000"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 		}
 
 		header := &core.Header{
-			Hash:             utils.HexToFelt(t, "0xCAFEBABE"),
-			ParentHash:       utils.HexToFelt(t, "0x0"),
-			SequencerAddress: utils.HexToFelt(t, "0X111"),
+			Hash:             felt.NewUnsafeFromString[felt.Felt]("0xCAFEBABE"),
+			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
 			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
@@ -309,15 +309,15 @@ func TestTraceTransaction(t *testing.T) {
 	})
 
 	t.Run("pending block", func(t *testing.T) {
-		hash := utils.HexToFelt(t, "0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
+		hash := felt.NewUnsafeFromString[felt.Felt]("0xceb6a374aff2bbb3537cf35f50df8634b2354a21")
 		tx := &core.DeclareTransaction{
 			TransactionHash: hash,
-			ClassHash:       utils.HexToFelt(t, "0x000000000"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 		}
 
 		header := &core.Header{
-			ParentHash:       utils.HexToFelt(t, "0x0"),
-			SequencerAddress: utils.HexToFelt(t, "0X111"),
+			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
 			ProtocolVersion:  "99.12.3",
 		}
 		require.Nil(t, header.Hash, "hash must be nil for pending block")
@@ -381,10 +381,10 @@ func TestTraceTransaction(t *testing.T) {
 		gateway := adaptfeeder.New(client)
 
 		// Tx at index 3 in the block
-		revertedTxHash := utils.HexToFelt(t, "0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
+		revertedTxHash := felt.NewUnsafeFromString[felt.Felt]("0x2f00c7f28df2197196440747f97baa63d0851e3b0cfc2efedb6a88a7ef78cb1")
 
 		blockNumber := uint64(18)
-		blockHash := utils.HexToFelt(t, "0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
+		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x5beb56c7d9a9fc066e695c3fc467f45532cace83d9979db4ccfd6b77ca476af")
 
 		mockReader.EXPECT().Receipt(revertedTxHash).Return(nil, blockHash, blockNumber, nil)
 		mockReader.EXPECT().BlockByHash(blockHash).DoAndReturn(func(_ *felt.Felt) (block *core.Block, err error) {
@@ -398,20 +398,20 @@ func TestTraceTransaction(t *testing.T) {
 		expectedRevertedTrace := rpc.TransactionTrace{
 			Type: rpc.TxnInvoke,
 			ValidateInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				EntryPointSelector: utils.HexToFelt(t, "0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
+				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x162da33a4585851fe8d3af3c2a9c60b557814e221e0d4f30ff0b2189d9c7775"),
 				Calldata: []felt.Felt{
-					*utils.HexToFelt(t, "0x1"),
-					*utils.HexToFelt(t, "0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
-					*utils.HexToFelt(t, "0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5"),
-					*utils.HexToFelt(t, "0x1"),
-					*utils.HexToFelt(t, "0xa"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x7c687d151607710a7ec82ca5ab0ff2c48f52abd3b4a2773938a0cfef723fe6a"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x10b7e63d3ca05c9baffd985d3e1c3858d4dbf0759f066be0eaddc5d71c2cab5"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1"),
+					*felt.NewUnsafeFromString[felt.Felt]("0xa"),
 				},
-				CallerAddress:  *utils.HexToFelt(t, "0x0"),
-				ClassHash:      utils.HexToFelt(t, "0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
+				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x0"),
+				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x903752516de5c04fe91600ca6891e325278b2dfc54880ae11a809abb364844"),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
-				Result:         []felt.Felt{*utils.HexToFelt(t, "0x56414c4944")},
+				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x56414c4944")},
 				Calls:          []rpc.FunctionInvocation{},
 				Events:         []rpc.OrderedEvent{},
 				Messages:       []rpc.OrderedL2toL1Message{},
@@ -423,42 +423,42 @@ func TestTraceTransaction(t *testing.T) {
 				},
 			},
 			FeeTransferInvocation: &rpc.FunctionInvocation{
-				ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-				EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+				ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+				EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 				Calldata: []felt.Felt{
-					*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-					*utils.HexToFelt(t, "0x2847291f968"),
-					*utils.HexToFelt(t, "0x0"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
+					*felt.NewUnsafeFromString[felt.Felt]("0x0"),
 				},
-				CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-				ClassHash:      utils.HexToFelt(t, "0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
+				CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+				ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0xd0e183745e9dae3e4e78a8ffedcce0903fc4900beace4e0abf192d4c202da3"),
 				EntryPointType: "EXTERNAL",
 				CallType:       "CALL",
-				Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
+				Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
 				Calls: []rpc.FunctionInvocation{
 					{
-						ContractAddress:    *utils.HexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
-						EntryPointSelector: utils.HexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+						ContractAddress:    *felt.NewUnsafeFromString[felt.Felt]("0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+						EntryPointSelector: felt.NewUnsafeFromString[felt.Felt]("0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
 						Calldata: []felt.Felt{
-							*utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-							*utils.HexToFelt(t, "0x2847291f968"),
-							*utils.HexToFelt(t, "0x0"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
+							*felt.NewUnsafeFromString[felt.Felt]("0x0"),
 						},
-						CallerAddress:  *utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-						ClassHash:      utils.HexToFelt(t, "0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
+						CallerAddress:  *felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+						ClassHash:      felt.NewUnsafeFromString[felt.Felt]("0x1b661756bf7d16210fc611626e1af4569baa1781ffc964bd018f4585ae241c1"),
 						EntryPointType: "EXTERNAL",
 						CallType:       "DELEGATE",
-						Result:         []felt.Felt{*utils.HexToFelt(t, "0x1")},
+						Result:         []felt.Felt{*felt.NewUnsafeFromString[felt.Felt]("0x1")},
 						Calls:          []rpc.FunctionInvocation{},
 						Events: []rpc.OrderedEvent{
 							{
 								Order: 0,
-								Keys:  []*felt.Felt{utils.HexToFelt(t, "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
+								Keys:  []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9")},
 								Data: []*felt.Felt{
-									utils.HexToFelt(t, "0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
-									utils.HexToFelt(t, "0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
-									utils.HexToFelt(t, "0x2847291f968"),
-									utils.HexToFelt(t, "0x0"),
+									felt.NewUnsafeFromString[felt.Felt]("0x70503f026c7af73cfd2b007fe650e8c310256e9674ac4e42797c291edca5e84"),
+									felt.NewUnsafeFromString[felt.Felt]("0x1176a1bd84444c89232ec27754698e5d2e7e1a7f1539f12027f28b23ec9f3d8"),
+									felt.NewUnsafeFromString[felt.Felt]("0x2847291f968"),
+									felt.NewUnsafeFromString[felt.Felt]("0x0"),
 								},
 							},
 						},
@@ -528,24 +528,24 @@ func TestTraceBlockTransactions(t *testing.T) {
 	handler := rpc.New(mockReader, nil, mockVM, n, log)
 
 	t.Run("pending block", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x0001")
+		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x0001")
 		header := &core.Header{
 			// hash is not set because it's pending block
-			ParentHash:      utils.HexToFelt(t, "0x0C3"),
+			ParentHash:      felt.NewUnsafeFromString[felt.Felt]("0x0C3"),
 			Number:          0,
-			L1GasPriceETH:   utils.HexToFelt(t, "0x777"),
+			L1GasPriceETH:   felt.NewUnsafeFromString[felt.Felt]("0x777"),
 			ProtocolVersion: "99.12.3",
 		}
 		l1Tx := &core.L1HandlerTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000C"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000C"),
 		}
 		declaredClass := &core.DeclaredClass{
 			At:    3002,
 			Class: &core.Cairo1Class{},
 		}
 		declareTx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x00000BC00"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x00000BC00"),
 		}
 		block := &core.Block{
 			Header:       header,
@@ -602,18 +602,18 @@ func TestTraceBlockTransactions(t *testing.T) {
 		assert.Equal(t, l1Tx.TransactionHash, result[0].TransactionHash)
 	})
 	t.Run("regular block", func(t *testing.T) {
-		blockHash := utils.HexToFelt(t, "0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
+		blockHash := felt.NewUnsafeFromString[felt.Felt]("0x37b244ea7dc6b3f9735fba02d183ef0d6807a572dd91a63cc1b14b923c1ac0")
 		tx := &core.DeclareTransaction{
-			TransactionHash: utils.HexToFelt(t, "0x000000001"),
-			ClassHash:       utils.HexToFelt(t, "0x000000000"),
+			TransactionHash: felt.NewUnsafeFromString[felt.Felt]("0x000000001"),
+			ClassHash:       felt.NewUnsafeFromString[felt.Felt]("0x000000000"),
 		}
 
 		header := &core.Header{
 			Hash:             blockHash,
-			ParentHash:       utils.HexToFelt(t, "0x0"),
+			ParentHash:       felt.NewUnsafeFromString[felt.Felt]("0x0"),
 			Number:           0,
-			SequencerAddress: utils.HexToFelt(t, "0X111"),
-			L1GasPriceETH:    utils.HexToFelt(t, "0x777"),
+			SequencerAddress: felt.NewUnsafeFromString[felt.Felt]("0X111"),
+			L1GasPriceETH:    felt.NewUnsafeFromString[felt.Felt]("0x777"),
 			ProtocolVersion:  "99.12.3",
 		}
 		block := &core.Block{
@@ -1128,7 +1128,7 @@ func TestCall(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1147,43 +1147,42 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
-
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(&vm.CallInfo{
-			ContractAddress: contractAddr,
-			ClassHash:       classHash,
-			Selector:        selector,
-			Calldata:        calldata,
-		}, &vm.BlockInfo{Header: headsHeader}, gomock.Any(), uint64(1337), cairoClass.SierraVersion(), false, false).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			&vm.CallInfo{
+				ContractAddress: contractAddr,
+				ClassHash:       classHash,
+				Selector:        selector,
+				Calldata:        calldata,
+			},
+			&vm.BlockInfo{Header: headsHeader},
+			gomock.Any(),
+			uint64(1337),
+			uint64(1338),
+			false,
+			false,
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpc.CalldataInputs{Data: calldata},
 		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, rpcErr)
 		require.Equal(t, expectedRes.Result, res)
 	})
 
 	t.Run("unknown entrypoint blockifier 0.14.0", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
 		classHash := new(felt.Felt).SetUint64(3)
 		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
 		expectedRes := vm.CallResult{
-			Result:          []*felt.Felt{utils.HexToFelt(t, rpccore.EntrypointNotFoundFelt)},
+			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt](rpccore.EntrypointNotFoundFelt)},
 			ExecutionFailed: true,
 		}
 		expectedErr := rpccore.ErrContractError
@@ -1202,37 +1201,37 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), false).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			false,
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpc.CalldataInputs{Data: calldata},
 		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)
 	})
 
 	t.Run("execution failed with execution failure", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
 		classHash := new(felt.Felt).SetUint64(3)
 		calldata := []felt.Felt{*new(felt.Felt).SetUint64(4)}
 		expectedRes := vm.CallResult{
-			Result:          []*felt.Felt{utils.HexToFelt(t, "0xdeadbeef")},
+			Result:          []*felt.Felt{felt.NewUnsafeFromString[felt.Felt]("0xdeadbeef")},
 			ExecutionFailed: true,
 		}
 		expectedErr := rpc.MakeContractError(json.RawMessage(`"0xdeadbeef"`))
@@ -1242,30 +1241,30 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpc.CalldataInputs{Data: calldata},
 		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)
 	})
 
 	t.Run("execution failed with execution failure and empty result", func(t *testing.T) {
-		handler = handler.WithCallMaxSteps(1337)
+		handler = handler.WithCallMaxSteps(1337).WithCallMaxGas(1338)
 
 		contractAddr := new(felt.Felt).SetUint64(1)
 		selector := new(felt.Felt).SetUint64(2)
@@ -1281,23 +1280,23 @@ func TestCall(t *testing.T) {
 			Timestamp: 101,
 		}
 
-		cairoClass := core.Cairo1Class{
-			Program: []*felt.Felt{
-				new(felt.Felt).SetUint64(3),
-				new(felt.Felt),
-				new(felt.Felt),
-			},
-		}
 		mockReader.EXPECT().HeadState().Return(mockState, nopCloser, nil)
 		mockReader.EXPECT().HeadsHeader().Return(headsHeader, nil)
 		mockState.EXPECT().ContractClassHash(contractAddr).Return(classHash, nil)
-		mockState.EXPECT().Class(classHash).Return(&core.DeclaredClass{Class: &cairoClass}, nil)
-		mockVM.EXPECT().Call(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(expectedRes, nil)
+		mockVM.EXPECT().Call(
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+			gomock.Any(),
+		).Return(expectedRes, nil)
 
 		res, rpcErr := handler.Call(&rpc.FunctionCall{
 			ContractAddress:    *contractAddr,
 			EntryPointSelector: *selector,
-			Calldata:           calldata,
+			Calldata:           rpc.CalldataInputs{Data: calldata},
 		}, &rpc.BlockID{Latest: true})
 		require.Nil(t, res)
 		require.Equal(t, expectedErr, rpcErr)

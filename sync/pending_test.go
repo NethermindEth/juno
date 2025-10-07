@@ -18,16 +18,11 @@ func TestPendingState(t *testing.T) {
 
 	mockState := mocks.NewMockStateHistoryReader(mockCtrl)
 
-	deployedAddr, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-	deployedAddr2, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-	deployedClassHash, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-	replacedAddr, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
-	replacedClassHash, err := new(felt.Felt).SetRandom()
-	require.NoError(t, err)
+	deployedAddr := felt.NewRandom[felt.Felt]()
+	deployedAddr2 := felt.NewRandom[felt.Felt]()
+	deployedClassHash := felt.NewRandom[felt.Felt]()
+	replacedAddr := felt.NewRandom[felt.Felt]()
+	replacedClassHash := felt.NewRandom[felt.Felt]()
 
 	pending := core.Pending{
 		Block: nil,
