@@ -41,36 +41,84 @@ type StateReader interface {
 }
 
 // StateAdapter wraps state.State to implement CommonState
-type StateAdapter struct {
-	*state.State
-}
+type StateAdapter state.State
 
 func NewStateAdapter(s *state.State) *StateAdapter {
-	return &StateAdapter{State: s}
+	return (*StateAdapter)(s)
 }
 
-func (sa *StateAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := sa.State.ClassTrie()
+func (s *StateAdapter) ClassTrie() (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ClassTrie()
 	if err != nil {
 		return nil, err
 	}
 	return commontrie.NewTrieAdapter(t), nil
 }
 
-func (sa *StateAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := sa.State.ContractTrie()
+func (s *StateAdapter) ContractTrie() (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ContractTrie()
 	if err != nil {
 		return nil, err
 	}
 	return commontrie.NewTrieAdapter(t), nil
 }
 
-func (sa *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := sa.State.ContractStorageTrie(addr)
+func (s *StateAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+	t, err := (*state.State)(s).ContractStorageTrie(addr)
 	if err != nil {
 		return nil, err
 	}
 	return commontrie.NewTrieAdapter(t), nil
+}
+
+func (s *StateAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return (*state.State)(s).Class(classHash)
+}
+
+func (s *StateAdapter) Commitment() (felt.Felt, error) {
+	return (*state.State)(s).Commitment()
+}
+
+func (s *StateAdapter) Revert(blockNumber uint64, update *core.StateUpdate) error {
+	return (*state.State)(s).Revert(blockNumber, update)
+}
+
+func (s *StateAdapter) Update(
+	blockNumber uint64,
+	update *core.StateUpdate,
+	declaredClasses map[felt.Felt]core.Class,
+	skipVerifyNewRoot bool,
+	flushChanges bool,
+) error {
+	return (*state.State)(s).Update(blockNumber, update, declaredClasses, skipVerifyNewRoot, flushChanges)
+}
+
+func (s *StateAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractClassHash(addr)
+}
+
+func (s *StateAdapter) ContractClassHashAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	return (*state.State)(s).ContractClassHashAt(addr, blockNumber)
+}
+
+func (s *StateAdapter) ContractDeployedAt(addr *felt.Felt, blockNumber uint64) (bool, error) {
+	return (*state.State)(s).ContractDeployedAt(addr, blockNumber)
+}
+
+func (s *StateAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractNonce(addr)
+}
+
+func (s *StateAdapter) ContractNonceAt(addr *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	return (*state.State)(s).ContractNonceAt(addr, blockNumber)
+}
+
+func (s *StateAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	return (*state.State)(s).ContractStorage(addr, key)
+}
+
+func (s *StateAdapter) ContractStorageAt(addr, key *felt.Felt, blockNumber uint64) (felt.Felt, error) {
+	return (*state.State)(s).ContractStorageAt(addr, key, blockNumber)
 }
 
 type StateReaderAdapter struct {
@@ -81,40 +129,40 @@ func NewStateReaderAdapter(s state.StateReader) *StateReaderAdapter {
 	return &StateReaderAdapter{StateReader: s}
 }
 
-func (sha *StateReaderAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
-	return sha.StateReader.Class(classHash)
+func (s *StateReaderAdapter) Class(classHash *felt.Felt) (*core.DeclaredClass, error) {
+	return s.StateReader.Class(classHash)
 }
 
-func (sha *StateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractClassHash(addr)
+func (s *StateReaderAdapter) ContractClassHash(addr *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractClassHash(addr)
 }
 
-func (sha *StateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractNonce(addr)
+func (s *StateReaderAdapter) ContractNonce(addr *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractNonce(addr)
 }
 
-func (sha *StateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
-	return sha.StateReader.ContractStorage(addr, key)
+func (s *StateReaderAdapter) ContractStorage(addr, key *felt.Felt) (felt.Felt, error) {
+	return s.StateReader.ContractStorage(addr, key)
 }
 
-func (sha *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
-	t, err := sha.StateReader.ClassTrie()
+func (s *StateReaderAdapter) ClassTrie() (commontrie.Trie, error) {
+	t, err := s.StateReader.ClassTrie()
 	if err != nil {
 		return nil, err
 	}
 	return commontrie.NewTrieAdapter(t), nil
 }
 
-func (sha *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
-	t, err := sha.StateReader.ContractTrie()
+func (s *StateReaderAdapter) ContractTrie() (commontrie.Trie, error) {
+	t, err := s.StateReader.ContractTrie()
 	if err != nil {
 		return nil, err
 	}
 	return commontrie.NewTrieAdapter(t), nil
 }
 
-func (sha *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
-	t, err := sha.StateReader.ContractStorageTrie(addr)
+func (s *StateReaderAdapter) ContractStorageTrie(addr *felt.Felt) (commontrie.Trie, error) {
+	t, err := s.StateReader.ContractStorageTrie(addr)
 	if err != nil {
 		return nil, err
 	}

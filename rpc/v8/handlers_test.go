@@ -8,8 +8,7 @@ import (
 	"github.com/NethermindEth/juno/mocks"
 	"github.com/NethermindEth/juno/node"
 	rpcv6 "github.com/NethermindEth/juno/rpc/v6"
-	rpc "github.com/NethermindEth/juno/rpc/v8"
-	"github.com/NethermindEth/juno/sync"
+	rpcv8 "github.com/NethermindEth/juno/rpc/v8"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +18,7 @@ import (
 func nopCloser() error { return nil }
 
 func TestSpecVersion(t *testing.T) {
-	handler := rpc.New(nil, nil, nil, nil)
+	handler := rpcv8.New(nil, nil, nil, nil)
 	version, rpcErr := handler.SpecVersion()
 	require.Nil(t, rpcErr)
 	require.Equal(t, "0.8.1", version)
@@ -34,7 +33,7 @@ func TestThrottledVMError(t *testing.T) {
 	mockVM := mocks.NewMockVM(mockCtrl)
 
 	throttledVM := node.NewThrottledVM(mockVM, 0, 0)
-	handler := rpc.New(mockReader, mockSyncReader, throttledVM, nil)
+	handler := rpcv8.New(mockReader, mockSyncReader, throttledVM, nil)
 	mockState := mocks.NewMockStateReader(mockCtrl)
 
 	throttledErr := "VM throughput limit reached"
@@ -51,7 +50,7 @@ func TestThrottledVMError(t *testing.T) {
 		}}, nil)
 
 		blockID := blockIDLatest(t)
-		_, rpcErr := handler.Call(&rpc.FunctionCall{}, &blockID)
+		_, rpcErr := handler.Call(&rpcv8.FunctionCall{}, &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
 	})
 
@@ -60,9 +59,9 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().HeadsHeader().Return(&core.Header{}, nil)
 
 		blockID := blockIDLatest(t)
-		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpc.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
+		_, httpHeader, rpcErr := handler.SimulateTransactions(&blockID, []rpcv8.BroadcastedTransaction{}, []rpcv6.SimulationFlag{rpcv6.SkipFeeChargeFlag})
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
+		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})
 
 	t.Run("trace", func(t *testing.T) {
@@ -95,13 +94,13 @@ func TestThrottledVMError(t *testing.T) {
 		mockReader.EXPECT().StateAtBlockHash(header.ParentHash).Return(state, nopCloser, nil)
 		headState := mocks.NewMockStateReader(mockCtrl)
 		headState.EXPECT().Class(declareTx.ClassHash).Return(declaredClass, nil)
-		pending := sync.NewPending(nil, nil, nil)
+		pending := core.NewPending(nil, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(&pending, nil)
 		mockSyncReader.EXPECT().PendingState().Return(headState, nopCloser, nil)
 
 		blockID := blockIDHash(t, blockHash)
 		_, httpHeader, rpcErr := handler.TraceBlockTransactions(t.Context(), &blockID)
 		assert.Equal(t, throttledErr, rpcErr.Data)
-		assert.NotEmpty(t, httpHeader.Get(rpc.ExecutionStepsHeader))
+		assert.NotEmpty(t, httpHeader.Get(rpcv8.ExecutionStepsHeader))
 	})
 }

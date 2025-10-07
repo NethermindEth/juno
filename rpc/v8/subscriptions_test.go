@@ -237,12 +237,12 @@ func TestSubscribeEvents(t *testing.T) {
 		assertNextEvents(t, clientConn, id, b1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending1Filtered, nil, nil)
-		pendingData1 := sync.NewPending(pending1, nil, nil)
+		pendingData1 := core.NewPending(pending1, nil, nil)
 		handler.pendingData.Send(&pendingData1)
 		assertNextEvents(t, clientConn, id, pending1Emitted)
 
 		mockEventFilterer.EXPECT().Events(gomock.Any(), gomock.Any()).Return(pending2Filtered, nil, nil)
-		pendingData2 := sync.NewPending(pending2, nil, nil)
+		pendingData2 := core.NewPending(pending2, nil, nil)
 		handler.pendingData.Send(&pendingData2)
 		assertNextEvents(t, clientConn, id, pending2Emitted[len(pending1Emitted):])
 
@@ -348,8 +348,8 @@ func TestSubscribeTxnStatus(t *testing.T) {
 		mockChain.EXPECT().Receipt(txHash).Return(block.Receipts[0], block.Hash, block.Number, nil)
 		mockChain.EXPECT().L1Head().Return(core.L1Head{}, db.ErrKeyNotFound)
 		for i := range 3 {
-			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
-			handler.pendingData.Send(&sync.Pending{Block: &core.Block{Header: &core.Header{}}})
+			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
+			handler.pendingData.Send(&core.Pending{Block: &core.Block{Header: &core.Header{}}})
 			handler.newHeads.Send(&core.Block{Header: &core.Header{Number: block.Number + 1 + uint64(i)}})
 		}
 		assertNextTxnStatus(t, conn, id, txHash, TxnStatusAcceptedOnL2, TxnSuccess, "")
@@ -722,7 +722,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash4 := new(felt.Felt).SetUint64(4)
 		hash5 := new(felt.Felt).SetUint64(5)
 
-		syncer.pendingData.Send(&sync.Pending{
+		syncer.pendingData.Send(&core.Pending{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -773,7 +773,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		hash7 := new(felt.Felt).SetUint64(7)
 		addr7 := new(felt.Felt).SetUint64(77)
 
-		syncer.pendingData.Send(&sync.Pending{
+		syncer.pendingData.Send(&core.Pending{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,
@@ -809,7 +809,7 @@ func TestSubscribePendingTxs(t *testing.T) {
 		require.Equal(t, subResp(id), got)
 
 		parentHash := new(felt.Felt).SetUint64(1)
-		syncer.pendingData.Send(&sync.Pending{
+		syncer.pendingData.Send(&core.Pending{
 			Block: &core.Block{
 				Header: &core.Header{
 					ParentHash: parentHash,

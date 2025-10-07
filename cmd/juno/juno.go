@@ -96,6 +96,7 @@ const (
 	submittedTransactionsCacheSizeF     = "submitted-transactions-cache-size"
 	submittedTransactionsCacheEntryTTLF = "submitted-transactions-cache-entry-ttl"
 	newStateF                           = "new-state"
+	disableRPCBatchRequestsF            = "disable-rpc-batch-requests"
 
 	defaultConfig                             = ""
 	defaultHost                               = "localhost"
@@ -145,6 +146,7 @@ const (
 	defaultSubmittedTransactionsCacheSize     = 10_000
 	defaultSubmittedTransactionsCacheEntryTTL = 5 * time.Minute
 	defaultNewState                           = false
+	defaultDisableRPCBatchRequests            = false
 
 	configFlagUsage                       = "The YAML configuration file."
 	logLevelFlagUsage                     = "Options: trace, debug, info, warn, error."
@@ -212,6 +214,7 @@ const (
 	submittedTransactionsCacheSize     = "Maximum number of entries in the submitted transactions cache"
 	submittedTransactionsCacheEntryTTL = "Time-to-live for each entry in the submitted transactions cache"
 	newStateUsage                      = "EXPERIMENTAL: Use the new state package implementation"
+	disableRPCBatchRequestsUsage       = "Disables handling of batched RPC requests."
 )
 
 var Version string
@@ -420,6 +423,9 @@ func NewCmd(config *node.Config, run func(*cobra.Command, []string) error) *cobr
 		submittedTransactionsCacheEntryTTL,
 	)
 	junoCmd.Flags().Bool(newStateF, defaultNewState, newStateUsage)
+	junoCmd.Flags().Bool(
+		disableRPCBatchRequestsF, defaultDisableRPCBatchRequests, disableRPCBatchRequestsUsage,
+	)
 	junoCmd.AddCommand(GenP2PKeyPair(), DBCmd(defaultDBPath))
 
 	return junoCmd

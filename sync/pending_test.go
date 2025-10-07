@@ -29,7 +29,7 @@ func TestPendingState(t *testing.T) {
 	replacedClassHash, err := new(felt.Felt).SetRandom()
 	require.NoError(t, err)
 
-	pending := sync.Pending{
+	pending := core.Pending{
 		Block: nil,
 		StateUpdate: &core.StateUpdate{
 			BlockHash: nil,

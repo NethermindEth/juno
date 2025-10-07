@@ -75,7 +75,7 @@ func (h *Handler) PendingBlockFinalityStatus() TxnFinalityStatus {
 	return 0
 }
 
-func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
+func emptyPendingForParent(parentHeader *core.Header) core.Pending {
 	receipts := make([]*core.TransactionReceipt, 0)
 	pendingBlock := &core.Block{
 		Header: &core.Header{
@@ -104,7 +104,7 @@ func emptyPendingForParent(parentHeader *core.Header) sync.Pending {
 		ReplacedClasses:   make(map[felt.Felt]*felt.Felt),
 	}
 
-	return sync.Pending{
+	return core.Pending{
 		Block: pendingBlock,
 		StateUpdate: &core.StateUpdate{
 			OldRoot:   parentHeader.GlobalStateRoot,

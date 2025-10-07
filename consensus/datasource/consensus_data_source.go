@@ -42,7 +42,10 @@ func (c *consensusDataSource[V, H, A]) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case committedBlock := <-c.commitListener.Listen():
+		case committedBlock, ok := <-c.commitListener.Listen():
+			if !ok {
+				return nil
+			}
 			blockNumber := committedBlock.Block.Number
 
 			c.cache.Store(blockNumber, &committedBlock)
@@ -70,8 +73,8 @@ func (c *consensusDataSource[V, H, A]) BlockLatest(ctx context.Context) (*core.B
 	return committedBlock.Block, nil
 }
 
-func (c *consensusDataSource[V, H, A]) BlockPending(ctx context.Context) (sync.Pending, error) {
-	return sync.Pending{}, errors.New("not implemented") // TODO: Revise this
+func (c *consensusDataSource[V, H, A]) BlockPending(ctx context.Context) (core.Pending, error) {
+	return core.Pending{}, errors.New("not implemented") // TODO: Revise this
 }
 
 func (c *consensusDataSource[V, H, A]) PreConfirmedBlockByNumber(ctx context.Context, blockNumber uint64) (core.PreConfirmed, error) {

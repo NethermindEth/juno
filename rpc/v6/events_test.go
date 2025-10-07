@@ -13,7 +13,6 @@ import (
 	rpccore "github.com/NethermindEth/juno/rpc/rpccore"
 	rpc "github.com/NethermindEth/juno/rpc/v6"
 	adaptfeeder "github.com/NethermindEth/juno/starknetdata/feeder"
-	"github.com/NethermindEth/juno/sync"
 	"github.com/NethermindEth/juno/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +48,7 @@ func TestEvents(t *testing.T) {
 		}
 	}
 
-	pending := sync.NewPending(pendingB, nil, nil)
+	pending := core.NewPending(pendingB, nil, nil)
 	mockSyncReader.EXPECT().PendingData().Return(
 		&pending,
 		nil,
@@ -255,7 +254,7 @@ func TestEvents(t *testing.T) {
 		for _, receipt := range pendingB.Receipts {
 			allEvents = append(allEvents, receipt.Events...)
 		}
-		pending := sync.NewPending(pendingB, nil, nil)
+		pending := core.NewPending(pendingB, nil, nil)
 		mockSyncReader.EXPECT().PendingData().Return(
 			&pending,
 			nil,

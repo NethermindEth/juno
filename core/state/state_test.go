@@ -668,15 +668,15 @@ func TestContractHistory(t *testing.T) {
 		require.NoError(t, err)
 
 		nonce, err := state.ContractNonceAt(addr, block0)
-		require.NoError(t, err)
+		require.Error(t, err, ErrCheckHeadState)
 		assert.Equal(t, felt.Zero, nonce)
 
 		classHash, err := state.ContractClassHashAt(addr, block0)
-		require.NoError(t, err)
+		require.Error(t, err, ErrCheckHeadState)
 		assert.Equal(t, felt.Zero, classHash)
 
 		storage, err := state.ContractStorageAt(addr, storageKey, block0)
-		require.NoError(t, err)
+		require.Error(t, err, ErrCheckHeadState)
 		assert.Equal(t, felt.Zero, storage)
 	})
 
