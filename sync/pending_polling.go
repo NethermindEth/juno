@@ -594,7 +594,7 @@ func (s *Synchronizer) handlePreLatest(
 		s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
 	}
 
-	s.preLatestDataFeed.Send(stagedPreLatest)
+	s.preLatestDataFeed.Send(pl)
 	return pl
 }
 
