@@ -593,6 +593,8 @@ func (s *Synchronizer) handlePreLatest(
 	if err := s.storeEmptyPreConfirmed(pl.Block.Header, pl); err != nil {
 		s.log.Debugw("Error storing empty pre_confirmed (with pre_latest)", "err", err)
 	}
+
+	s.preLatestDataFeed.Send(pl)
 	return pl
 }
 
@@ -608,6 +610,7 @@ func (s *Synchronizer) handlePreConfirmed(
 		s.log.Debugw("Error while trying to store pre_confirmed block", "err", err)
 		return
 	}
+
 	if changed {
 		s.pendingDataFeed.Send(pc)
 	}

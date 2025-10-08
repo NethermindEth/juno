@@ -863,8 +863,12 @@ func AdaptTransaction(t core.Transaction) *Transaction {
 }
 
 // todo(Kirill): try to replace core.Transaction with rpc.Transaction type
-func AdaptReceipt(receipt *core.TransactionReceipt, txn core.Transaction, finalityStatus TxnFinalityStatus,
-	blockHash *felt.Felt, blockNumber uint64,
+func AdaptReceipt(
+	receipt *core.TransactionReceipt,
+	txn core.Transaction,
+	finalityStatus TxnFinalityStatus,
+	blockHash *felt.Felt,
+	blockNumber uint64,
 ) *TransactionReceipt {
 	messages := make([]*MsgToL1, len(receipt.L2ToL1Message))
 	for idx, msg := range receipt.L2ToL1Message {
