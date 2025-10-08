@@ -15,12 +15,3 @@ updates:
     open-pull-requests-limit: 3
     schedule:
       interval: "weekly"
-  - package-ecosystem: "cargo"
-    directory: "/vm/rust"
-    open-pull-requests-limit: 3
-    schedule:
-      interval: "weekly"
-    ignore:
-      - dependency-name: "cairo-vm"
-      - dependency-name: "starknet_api"
-      - dependency-name: "blockifier"
