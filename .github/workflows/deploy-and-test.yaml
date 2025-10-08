@@ -122,6 +122,7 @@ jobs:
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
       test_mode: ${{ inputs.test_mode }}
+      job_name: "JS RPCv0.8"
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_8?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_ACCOUNT_ADDRESS: ${{ secrets.TEST_ACCOUNT_ADDRESS }}
@@ -132,6 +133,7 @@ jobs:
     uses: ./.github/workflows/starknet-js-tests.yml
     with:
       test_mode: ${{ inputs.test_mode }}
+      job_name: "JS RPCv0.9"
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
       TEST_WS_URL: ${{ secrets.WS_RPC_URL }}/v0_9?apikey=${{ secrets.AUTH_TOKEN }}
@@ -144,7 +146,7 @@ jobs:
     with:
       ref: 8ab778d86f42c344ac789acae897d9621530e3de
       rpc_version: v0_8
-      job_name: "Starknet go v0.8"
+      job_name: "GO RPCv0.8"
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
       TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}
@@ -156,7 +158,7 @@ jobs:
     with:
       ref: b5d65c7aa351ef8a4bbb125f17dc7bc0fe37a5db #v0.14.0 + test fixes
       rpc_version: v0_9
-      job_name: "Starknet go v0.9"
+      job_name: "GO RPCv0.9"
     secrets:
       TEST_RPC_URL: ${{ secrets.RPC_URL }}
       TEST_WS_RPC_URL: ${{ secrets.WS_RPC_URL }}
