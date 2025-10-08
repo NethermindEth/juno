@@ -4,12 +4,16 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'The branch, tag or SHA to checkout'
+        description: "The branch, tag or SHA to checkout"
         required: false
-        default: '1ede19210c10f1f1f9c3cb49a42f737cd90eda5e'
+        default: "1ede19210c10f1f1f9c3cb49a42f737cd90eda5e"
         type: string
       rpc_version:
-        description: 'The RPC version to test (v0_8 or v0_9)'
+        description: "The RPC version to test (v0_8 or v0_9)"
+        required: true
+        type: string
+      job_name:
+        description: "Name of the job"
         required: true
         type: string
     secrets:
@@ -28,6 +32,7 @@ on:
 
 jobs:
   test:
+    name: ${{ inputs.job_name }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -55,7 +60,7 @@ jobs:
       - name: Run RPC tests
         working-directory: rpc
         env:
-          #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block, 
+          #  In starknet version 0.14.0 `pending` block is replaced by 'pre_confirmed' block,
           #  thus there will be no more pending transcations with `pending` semantics.
           TESTS_TO_SKIP: "TestSubscribePendingTransactions"
         run: go test -skip "$TESTS_TO_SKIP" -timeout 1200s -v -env testnet .
