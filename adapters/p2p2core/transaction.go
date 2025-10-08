@@ -181,7 +181,29 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 	}
 }
 
-//nolint:funlen
+func AdaptDeclareV0TxnCommon(t *synctransaction.TransactionInBlock) *core.DeclareTransaction {
+	tx := t.GetDeclareV0()
+	declareTx := &core.DeclareTransaction{
+		TransactionHash:      AdaptHash(t.TransactionHash),
+		Nonce:                nil, // for v0 nonce is not used for hash calculation
+		ClassHash:            AdaptHash(tx.ClassHash),
+		SenderAddress:        AdaptAddress(tx.Sender),
+		MaxFee:               AdaptFelt(tx.MaxFee),
+		TransactionSignature: adaptAccountSignature(tx.Signature),
+		Version:              txVersion(0),
+		// version 2 field
+		CompiledClassHash: nil,
+		// version 3 fields (zero values)
+		ResourceBounds:        nil,
+		PaymasterData:         nil,
+		AccountDeploymentData: nil,
+		Tip:                   0,
+		NonceDAMode:           0,
+		FeeDAMode:             0,
+	}
+	return declareTx
+}
+
 func AdaptTransaction(
 	t *synctransaction.TransactionInBlock,
 	network *utils.Network,
@@ -189,27 +211,8 @@ func AdaptTransaction(
 	// can Txn be nil?
 	switch t.Txn.(type) {
 	case *synctransaction.TransactionInBlock_DeclareV0:
-		tx := t.GetDeclareV0()
-		declareTx := &core.DeclareTransaction{
-			TransactionHash:      AdaptHash(t.TransactionHash),
-			Nonce:                nil, // for v0 nonce is not used for hash calculation
-			ClassHash:            AdaptHash(tx.ClassHash),
-			SenderAddress:        AdaptAddress(tx.Sender),
-			MaxFee:               AdaptFelt(tx.MaxFee),
-			TransactionSignature: adaptAccountSignature(tx.Signature),
-			Version:              txVersion(0),
-			// version 2 field
-			CompiledClassHash: nil,
-			// version 3 fields (zero values)
-			ResourceBounds:        nil,
-			PaymasterData:         nil,
-			AccountDeploymentData: nil,
-			Tip:                   0,
-			NonceDAMode:           0,
-			FeeDAMode:             0,
-		}
+		return AdaptDeclareV0TxnCommon(t), nil
 
-		return declareTx, nil
 	case *synctransaction.TransactionInBlock_DeclareV1:
 		tx := t.GetDeclareV1()
 		declareTx := &core.DeclareTransaction{
