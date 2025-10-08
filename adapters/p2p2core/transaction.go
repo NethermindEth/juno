@@ -183,7 +183,7 @@ func AdaptL1Handler(tx *transaction.L1HandlerV0, txnHash *common.Hash) *core.L1H
 
 func AdaptDeclareV0TxnCommon(t *synctransaction.TransactionInBlock) *core.DeclareTransaction {
 	tx := t.GetDeclareV0()
-	declareTx := &core.DeclareTransaction{
+	return &core.DeclareTransaction{
 		TransactionHash:      AdaptHash(t.TransactionHash),
 		Nonce:                nil, // for v0 nonce is not used for hash calculation
 		ClassHash:            AdaptHash(tx.ClassHash),
@@ -201,7 +201,6 @@ func AdaptDeclareV0TxnCommon(t *synctransaction.TransactionInBlock) *core.Declar
 		NonceDAMode:           0,
 		FeeDAMode:             0,
 	}
-	return declareTx
 }
 
 func AdaptTransaction(
